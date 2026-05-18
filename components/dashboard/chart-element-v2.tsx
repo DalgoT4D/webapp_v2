@@ -1290,7 +1290,18 @@ export function ChartElementV2({
                   <TableChart
                     data={Array.isArray(tableData?.data) ? tableData.data : []}
                     config={{
-                      table_columns: tableData?.columns || [],
+                      table_columns: (() => {
+                        const cols = tableData?.columns || [];
+                        const order = chart?.extra_config?.customizations?.columnOrder;
+                        if (
+                          order?.length &&
+                          order.length === cols.length &&
+                          order.every((c: string) => cols.includes(c))
+                        ) {
+                          return order;
+                        }
+                        return cols;
+                      })(),
                       column_formatting: mergeTableColumnFormatting(
                         chart?.extra_config?.customizations
                       ),
@@ -1299,6 +1310,12 @@ export function ChartElementV2({
                         enabled: true,
                         page_size: 20,
                       },
+                      conditionalFormatting:
+                        chart?.extra_config?.customizations?.conditionalFormatting || [],
+                      columnAlignment: chart?.extra_config?.customizations?.columnAlignment || {},
+                      zebraRows: chart?.extra_config?.customizations?.zebraRows || false,
+                      freezeFirstColumn:
+                        chart?.extra_config?.customizations?.freezeFirstColumn || false,
                     }}
                     isLoading={tableLoading}
                     error={tableError}

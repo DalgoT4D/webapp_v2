@@ -1866,11 +1866,22 @@ export function ChartElementView({
               </span>
             </div>
           )}
-          <div className="flex-1 overflow-auto p-4">
+          <div className="flex-1 overflow-hidden min-h-0 p-4">
             <TableChart
               data={Array.isArray(tableData?.data) ? tableData.data : []}
               config={{
-                table_columns: tableData?.columns || [],
+                table_columns: (() => {
+                  const cols = tableData?.columns || [];
+                  const order = effectiveChart?.extra_config?.customizations?.columnOrder;
+                  if (
+                    order?.length &&
+                    order.length === cols.length &&
+                    order.every((c: string) => cols.includes(c))
+                  ) {
+                    return order;
+                  }
+                  return cols;
+                })(),
                 column_formatting: mergeTableColumnFormatting(
                   effectiveChart?.extra_config?.customizations
                 ),
@@ -1879,6 +1890,13 @@ export function ChartElementView({
                   enabled: true,
                   page_size: 20,
                 },
+                conditionalFormatting:
+                  effectiveChart?.extra_config?.customizations?.conditionalFormatting || [],
+                columnAlignment:
+                  effectiveChart?.extra_config?.customizations?.columnAlignment || {},
+                zebraRows: effectiveChart?.extra_config?.customizations?.zebraRows || false,
+                freezeFirstColumn:
+                  effectiveChart?.extra_config?.customizations?.freezeFirstColumn || false,
               }}
               isLoading={tableLoading}
               error={tableError}

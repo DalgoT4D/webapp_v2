@@ -6,6 +6,10 @@ import { RefreshCw, ChevronRight, ChevronDown } from 'lucide-react';
 import { NumberFormats, type NumberFormat, type DateFormat } from '@/lib/formatters';
 import { NumberFormatSection, NUMBER_FORMAT_OPTIONS } from '../shared/NumberFormatSection';
 import { DateFormatSection, DATE_FORMAT_OPTIONS } from '../shared/DateFormatSection';
+import { ConditionalFormattingSection } from './ConditionalFormattingSection';
+import { ColumnSettingsSection } from './ColumnSettingsSection';
+import { AppearanceSection } from './AppearanceSection';
+import type { ConditionalFormattingRule, ColumnAlignment } from './types';
 
 // Compact label lookup derived from shared options (strips the " (example)" suffix)
 const DATE_FORMAT_LABELS: Record<string, string> = Object.fromEntries(
@@ -29,7 +33,18 @@ interface TableChartCustomizationsProps {
   customizations: Record<string, any>;
   updateCustomization: (key: string, value: any) => void;
   disabled?: boolean;
+  /** Numeric columns only — for number formatting section */
   availableColumns?: string[];
+  /** All displayed columns — for column order, alignment, conditional formatting */
+  allColumns?: string[];
+  /** Maps each displayed column to its type — used by conditional formatting */
+  columnTypeMap?: Record<string, 'numeric' | 'text'>;
+  /** Whether drill-down is enabled on this chart */
+  drillDownEnabled?: boolean;
+  /** Ordered drill-down dimension column names (filtered by enable_drill_down) */
+  orderedDimensions?: string[];
+  /** Callback to update table_columns order in formData */
+  onTableColumnsChange?: (columns: string[]) => void;
   availableDateColumns?: string[];
 }
 
@@ -38,30 +53,34 @@ export function TableChartCustomizations({
   updateCustomization,
   disabled,
   availableColumns = [],
+  allColumns = [],
+  columnTypeMap,
+  drillDownEnabled,
+  orderedDimensions,
+  onTableColumnsChange,
   availableDateColumns = [],
 }: TableChartCustomizationsProps) {
-  // Currently expanded column for configuration
+  // Currently expanded column for number formatting configuration
   const [expandedColumn, setExpandedColumn] = useState<string | null>(null);
   const [expandedDateColumn, setExpandedDateColumn] = useState<string | null>(null);
 
-  // Get existing column formatting from customizations
+  // Get existing customization values
   const columnFormatting: Record<string, ColumnFormatConfig> =
     customizations.columnFormatting || {};
   const dateColumnFormatting: Record<string, DateColumnFormatConfig> =
     customizations.dateColumnFormatting || {};
+  const conditionalFormatting: ConditionalFormattingRule[] =
+    customizations.conditionalFormatting || [];
+  const columnAlignment: Record<string, ColumnAlignment> = customizations.columnAlignment || {};
+  const zebraRows: boolean = customizations.zebraRows || false;
+  const freezeFirstColumn: boolean = customizations.freezeFirstColumn || false;
+  const theme: string | undefined = customizations.theme as string | undefined;
 
-  // Toggle column expansion
+  // --- Number Formatting handlers (existing logic preserved) ---
   const handleToggleColumn = (column: string) => {
-    if (expandedColumn === column) {
-      // Collapse if already expanded
-      setExpandedColumn(null);
-    } else {
-      // Expand and load existing config if any
-      setExpandedColumn(column);
-    }
+    setExpandedColumn(expandedColumn === column ? null : column);
   };
 
-  // Auto-save format configuration on any change
   const handleFormatChange = (column: string, numberFormat: NumberFormat) => {
     const newFormatting = {
       ...columnFormatting,
@@ -70,11 +89,9 @@ export function TableChartCustomizations({
         decimalPlaces: columnFormatting[column]?.decimalPlaces,
       },
     };
-
     updateCustomization('columnFormatting', newFormatting);
   };
 
-  // Auto-save decimal places on any change
   const handleDecimalChange = (column: string, decimalPlaces: number) => {
     const newFormatting = {
       ...columnFormatting,
@@ -83,26 +100,20 @@ export function TableChartCustomizations({
         decimalPlaces: decimalPlaces,
       },
     };
-
     updateCustomization('columnFormatting', newFormatting);
   };
 
-  // Remove formatting from a column
   const handleRemoveFormat = (column: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent toggle
+    e.stopPropagation();
     const newFormatting = { ...columnFormatting };
     delete newFormatting[column];
     updateCustomization('columnFormatting', newFormatting);
-
     if (expandedColumn === column) {
       setExpandedColumn(null);
     }
   };
 
-  // Check if column has formatting
-  const hasFormatting = (column: string) => {
-    return !!columnFormatting[column];
-  };
+  const hasFormatting = (column: string) => !!columnFormatting[column];
 
   // Toggle date column expansion
   const handleToggleDateColumn = (column: string) => {
@@ -158,7 +169,6 @@ export function TableChartCustomizations({
     const config = columnFormatting[column];
 
     if (!config) return 'No Formatting';
-
     const hasDecimalPlaces = config.decimalPlaces !== undefined && config.decimalPlaces > 0;
     const isDefaultFormat = !config.numberFormat || config.numberFormat === 'default';
     if (isDefaultFormat && hasDecimalPlaces) {
@@ -168,13 +178,25 @@ export function TableChartCustomizations({
     const formatLabel =
       NUMBER_FORMAT_LABELS[config.numberFormat || 'default'] || config.numberFormat;
     const decimals = hasDecimalPlaces ? ` • ${config.decimalPlaces} dec` : '';
-
     return `${formatLabel}${decimals}`;
   };
 
   return (
     <div className="space-y-6">
-      {/* Number Formatting Section */}
+      {/* Section 1: Column Order & Alignment (merged) */}
+      {allColumns.length > 0 && onTableColumnsChange && (
+        <ColumnSettingsSection
+          columns={allColumns}
+          alignment={columnAlignment}
+          onOrderChange={onTableColumnsChange}
+          onAlignmentChange={(val: Record<string, ColumnAlignment>) =>
+            updateCustomization('columnAlignment', val)
+          }
+          disabled={disabled}
+        />
+      )}
+
+      {/* Section 2: Number Formatting */}
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Number Formatting</h4>
 
@@ -183,7 +205,6 @@ export function TableChartCustomizations({
             No numeric columns to format.
           </p>
         ) : (
-          /* Numeric Column List */
           <div className="space-y-1">
             {availableColumns.map((column) => {
               const isExpanded = expandedColumn === column;
@@ -192,23 +213,18 @@ export function TableChartCustomizations({
 
               return (
                 <div key={column} className="space-y-0">
-                  {/* Column Row */}
                   <div
-                    className={`flex items-center justify-between p-2 rounded-md border transition-colors ${
+                    data-testid={`column-row-${column}`}
+                    className={`flex items-center justify-between p-2 rounded-md border cursor-pointer transition-colors ${
                       isExpanded
                         ? 'shadow-sm'
                         : isConfigured
                           ? 'bg-muted/30 hover:bg-muted/50'
                           : 'hover:bg-muted/30'
                     }`}
+                    onClick={() => handleToggleColumn(column)}
                   >
-                    <button
-                      type="button"
-                      className="flex items-center gap-2 flex-1 min-w-0 text-left bg-transparent border-none cursor-pointer"
-                      onClick={() => handleToggleColumn(column)}
-                      aria-expanded={isExpanded}
-                      data-testid={`table-column-toggle-${column}`}
-                    >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
                       {isExpanded ? (
                         <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       ) : (
@@ -222,25 +238,20 @@ export function TableChartCustomizations({
                           </div>
                         )}
                       </div>
-                    </button>
-
-                    {/* Remove button for configured columns */}
+                    </div>
                     {isConfigured && (
                       <Button
                         variant="ghost"
                         size="icon"
+                        data-testid={`remove-format-${column}`}
                         className="h-6 w-6 text-black hover:text-destructive flex-shrink-0"
                         onClick={(e) => handleRemoveFormat(column, e)}
                         disabled={disabled}
-                        aria-label={`Reset format for ${column}`}
-                        data-testid={`table-column-reset-${column}`}
                       >
-                        <RefreshCw className="h-3 w-3 " />
+                        <RefreshCw className="h-3 w-3" />
                       </Button>
                     )}
                   </div>
-
-                  {/* Expanded Configuration Section */}
                   {isExpanded && (
                     <div className="ml-6 py-3 space-y-3">
                       <NumberFormatSection
@@ -261,7 +272,7 @@ export function TableChartCustomizations({
         )}
       </div>
 
-      {/* Date Formatting Section */}
+      {/* Section 3: Date Formatting */}
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Date Formatting</h4>
 
@@ -270,7 +281,6 @@ export function TableChartCustomizations({
             No date columns to format.
           </p>
         ) : (
-          /* Date Column List */
           <div className="space-y-1">
             {availableDateColumns.map((column) => {
               const isExpanded = expandedDateColumn === column;
@@ -279,7 +289,6 @@ export function TableChartCustomizations({
 
               return (
                 <div key={column} className="space-y-0">
-                  {/* Column Row */}
                   <div
                     className={`flex items-center justify-between p-2 rounded-md border transition-colors ${
                       isExpanded
@@ -311,7 +320,6 @@ export function TableChartCustomizations({
                       </div>
                     </button>
 
-                    {/* Remove button for configured columns */}
                     {isConfigured && (
                       <Button
                         variant="ghost"
@@ -327,7 +335,6 @@ export function TableChartCustomizations({
                     )}
                   </div>
 
-                  {/* Expanded Configuration Section */}
                   {isExpanded && (
                     <div className="ml-6 py-3 space-y-3">
                       <DateFormatSection
@@ -344,6 +351,28 @@ export function TableChartCustomizations({
           </div>
         )}
       </div>
+
+      {/* Section 4: Conditional Formatting */}
+      <ConditionalFormattingSection
+        rules={conditionalFormatting}
+        onChange={(rules) => updateCustomization('conditionalFormatting', rules)}
+        availableColumns={allColumns.length > 0 ? allColumns : availableColumns}
+        columnTypeMap={columnTypeMap}
+        drillDownEnabled={drillDownEnabled}
+        orderedDimensions={orderedDimensions}
+        disabled={disabled}
+      />
+
+      {/* Section 5: Appearance */}
+      <AppearanceSection
+        zebraRows={zebraRows}
+        freezeFirstColumn={freezeFirstColumn}
+        themeId={theme}
+        onZebraRowsChange={(val) => updateCustomization('zebraRows', val)}
+        onFreezeFirstColumnChange={(val) => updateCustomization('freezeFirstColumn', val)}
+        onThemeChange={(val) => updateCustomization('theme', val)}
+        disabled={disabled}
+      />
     </div>
   );
 }
