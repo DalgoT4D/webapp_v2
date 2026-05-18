@@ -5,6 +5,7 @@ export const ChartTypes = {
   TABLE: 'table',
   NUMBER: 'number',
   MAP: 'map',
+  PIVOT_TABLE: 'pivot_table',
 } as const;
 
 export type ChartType = (typeof ChartTypes)[keyof typeof ChartTypes];
@@ -150,12 +151,22 @@ export interface ChartCreate {
     // Multiple dimensions for table charts with drill-down support
     dimensions?: ChartDimension[];
     dimension_columns?: string[]; // Array of dimension column names for backward compatibility
+    // Pivot table fields
+    row_dimensions?: string[];
+    column_dimensions?: string[];
+    column_time_grains?: Record<string, string>; // {column_name: grain}
+    show_row_subtotals?: boolean;
+    show_column_subtotals?: boolean;
+    show_grand_total?: boolean;
+    subtotal_label?: string;
+    column_subtotal_label?: string;
+    grand_total_label?: string;
   };
 }
 
 export interface ChartUpdate {
   title?: string;
-  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
+  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table' | 'pivot_table';
   computation_type?: 'raw' | 'aggregated';
   schema_name?: string;
   table_name?: string;
@@ -198,6 +209,16 @@ export interface ChartUpdate {
     // Multiple dimensions for table charts with drill-down support
     dimensions?: ChartDimension[];
     dimension_columns?: string[]; // Array of dimension column names for backward compatibility
+    // Pivot table fields
+    row_dimensions?: string[];
+    column_dimensions?: string[];
+    column_time_grains?: Record<string, string>;
+    show_row_subtotals?: boolean;
+    show_column_subtotals?: boolean;
+    show_grand_total?: boolean;
+    subtotal_label?: string;
+    column_subtotal_label?: string;
+    grand_total_label?: string;
   };
 }
 
@@ -227,6 +248,17 @@ export interface ChartDataPayload {
   geographic_column?: string;
   value_column?: string;
   selected_geojson_id?: number;
+
+  // Pivot table fields
+  row_dimensions?: string[];
+  column_dimensions?: string[];
+  column_time_grains?: Record<string, string>;
+  show_row_subtotals?: boolean;
+  show_column_subtotals?: boolean;
+  show_grand_total?: boolean;
+  subtotal_label?: string;
+  column_subtotal_label?: string;
+  grand_total_label?: string;
 
   // Customizations
   customizations?: Record<string, any>;
@@ -280,7 +312,7 @@ export interface TableInfo {
 
 // Extended ChartCreate type for internal ChartBuilder state
 export type ChartBuilderFormData = Partial<ChartCreate> & {
-  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table';
+  chart_type?: 'bar' | 'pie' | 'line' | 'number' | 'map' | 'table' | 'pivot_table';
   x_axis_column?: string;
   y_axis_column?: string;
   dimension_column?: string;

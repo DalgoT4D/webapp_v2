@@ -7,6 +7,39 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TableChartCustomizations } from '../table/TableChartCustomizations';
 
+// Mock @dnd-kit to avoid drag-and-drop complexity in tests
+jest.mock('@dnd-kit/core', () => ({
+  DndContext: ({ children }: any) => <div>{children}</div>,
+  closestCenter: jest.fn(),
+  KeyboardSensor: jest.fn(),
+  PointerSensor: jest.fn(),
+  useSensor: jest.fn(),
+  useSensors: jest.fn(() => []),
+}));
+
+jest.mock('@dnd-kit/sortable', () => ({
+  SortableContext: ({ children }: any) => <div>{children}</div>,
+  verticalListSortingStrategy: jest.fn(),
+  useSortable: jest.fn(() => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: jest.fn(),
+    transform: null,
+    transition: null,
+    isDragging: false,
+  })),
+  arrayMove: jest.fn((arr: any[], from: number, to: number) => {
+    const newArr = [...arr];
+    const [removed] = newArr.splice(from, 1);
+    newArr.splice(to, 0, removed);
+    return newArr;
+  }),
+}));
+
+jest.mock('@dnd-kit/utilities', () => ({
+  CSS: { Transform: { toString: () => '' } },
+}));
+
 describe('TableChartCustomizations', () => {
   const mockUpdateCustomization = jest.fn();
   const defaultProps = {
@@ -14,6 +47,8 @@ describe('TableChartCustomizations', () => {
     updateCustomization: mockUpdateCustomization,
     disabled: false,
     availableColumns: ['budget', 'revenue', 'profit'],
+    allColumns: ['budget', 'revenue', 'profit'],
+    onTableColumnsChange: jest.fn(),
   };
 
   beforeEach(() => jest.clearAllMocks());
@@ -22,8 +57,8 @@ describe('TableChartCustomizations', () => {
     const { rerender } = render(<TableChartCustomizations {...defaultProps} />);
 
     expect(screen.getByText('Number Formatting')).toBeInTheDocument();
-    expect(screen.getByText('budget')).toBeInTheDocument();
-    expect(screen.getByText('revenue')).toBeInTheDocument();
+    expect(screen.getByTestId('column-row-budget')).toBeInTheDocument();
+    expect(screen.getByTestId('column-row-revenue')).toBeInTheDocument();
     expect(screen.getAllByText('No Formatting').length).toBe(3);
 
     rerender(
@@ -37,12 +72,12 @@ describe('TableChartCustomizations', () => {
     const user = userEvent.setup();
     render(<TableChartCustomizations {...defaultProps} />);
 
-    await user.click(screen.getByText('budget'));
+    await user.click(screen.getByTestId('column-row-budget'));
     // Now uses NumberFormatSection which has "Number Format" label
     expect(screen.getByLabelText('Number Format')).toBeInTheDocument();
     expect(screen.getByLabelText('Decimal Places')).toBeInTheDocument();
 
-    await user.click(screen.getByText('budget'));
+    await user.click(screen.getByTestId('column-row-budget'));
     expect(screen.queryByLabelText('Number Format')).not.toBeInTheDocument();
   });
 
@@ -50,9 +85,10 @@ describe('TableChartCustomizations', () => {
     const user = userEvent.setup();
     render(<TableChartCustomizations {...defaultProps} />);
 
-    await user.click(screen.getByText('budget'));
+    await user.click(screen.getByTestId('column-row-budget'));
 
-    const formatSelect = screen.getByRole('combobox');
+    // The Number Format combobox is the one with aria-label "Number Format"
+    const formatSelect = screen.getByLabelText('Number Format');
     await user.click(formatSelect);
     await user.click(screen.getByText('Indian (1234567 => 12,34,567)'));
 
@@ -66,7 +102,7 @@ describe('TableChartCustomizations', () => {
     const user = userEvent.setup();
     render(<TableChartCustomizations {...defaultProps} />);
 
-    await user.click(screen.getByText('budget'));
+    await user.click(screen.getByTestId('column-row-budget'));
 
     const decimalInput = screen.getByLabelText('Decimal Places');
     await user.clear(decimalInput);
@@ -91,7 +127,7 @@ describe('TableChartCustomizations', () => {
     expect(screen.getByText('Indian • 2 dec')).toBeInTheDocument();
     expect(screen.getAllByText('No Formatting').length).toBe(2);
 
-    await user.click(screen.getByText('budget'));
+    await user.click(screen.getByTestId('column-row-budget'));
     expect(screen.getByLabelText('Decimal Places')).toHaveValue(2);
   });
 
@@ -142,8 +178,8 @@ describe('TableChartCustomizations', () => {
       />
     );
 
-    await user.click(screen.getByText('budget'));
-    expect(screen.getByRole('combobox')).toHaveAttribute('data-disabled');
+    await user.click(screen.getByTestId('column-row-budget'));
+    expect(screen.getByLabelText('Number Format')).toHaveAttribute('data-disabled');
     expect(screen.getByLabelText('Decimal Places')).toBeDisabled();
 
     const removeButton = container.querySelector('.lucide-refresh-cw')?.closest('button');
@@ -157,8 +193,8 @@ describe('TableChartCustomizations', () => {
     const user = userEvent.setup();
     render(<TableChartCustomizations {...defaultProps} />);
 
-    await user.click(screen.getByText('budget'));
-    await user.click(screen.getByRole('combobox'));
+    await user.click(screen.getByTestId('column-row-budget'));
+    await user.click(screen.getByLabelText('Number Format'));
 
     // These should be present
     expect(screen.getByRole('option', { name: 'No Formatting' })).toBeInTheDocument();
@@ -169,6 +205,13 @@ describe('TableChartCustomizations', () => {
     // These should NOT be present (excluded for table charts)
     expect(screen.queryByRole('option', { name: 'Percentage (%)' })).not.toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Currency ($)' })).not.toBeInTheDocument();
+  });
+
+  it('should render new enhancement sections', () => {
+    render(<TableChartCustomizations {...defaultProps} />);
+
+    expect(screen.getByText('Conditional Formatting')).toBeInTheDocument();
+    expect(screen.getByText('Appearance')).toBeInTheDocument();
   });
 
   // Date Formatting Tests

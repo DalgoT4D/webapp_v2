@@ -140,6 +140,61 @@ export function StaticChartPreview({
           </div>
         );
 
+      case 'pivot_table':
+        const pivotColors = CHART_TYPE_COLORS.pivot_table || CHART_TYPE_COLORS.table;
+        return (
+          <div
+            className={`${className} flex items-center justify-center p-4 rounded-lg relative`}
+            style={{ backgroundColor: pivotColors.bgColor }}
+          >
+            <svg viewBox="0 0 100 100" className="w-full h-full">
+              {/* Column header band */}
+              <rect
+                x="25"
+                y="10"
+                width="65"
+                height="15"
+                rx="2"
+                fill={pivotColors.color}
+                opacity={0.2}
+              />
+              {/* Row header band */}
+              <rect
+                x="10"
+                y="25"
+                width="15"
+                height="65"
+                rx="2"
+                fill={pivotColors.color}
+                opacity={0.2}
+              />
+              {/* Grid cells */}
+              {[0, 1, 2].map((row) =>
+                [0, 1, 2].map((col) => (
+                  <rect
+                    key={`${row}-${col}`}
+                    x={30 + col * 20}
+                    y={30 + row * 20}
+                    width={16}
+                    height={16}
+                    rx={2}
+                    fill={pivotColors.color}
+                    opacity={0.15 + (row + col) * 0.1}
+                  />
+                ))
+              )}
+              {/* Pivot arrow */}
+              <path
+                d="M18 18 L25 10 M18 18 L10 25"
+                stroke={pivotColors.color}
+                strokeWidth="2"
+                fill="none"
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
+        );
+
       case 'map':
         const mapColors = CHART_TYPE_COLORS.map;
         return (
