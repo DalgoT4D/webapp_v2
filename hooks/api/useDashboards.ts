@@ -12,9 +12,7 @@ export interface Dashboard {
   grid_columns: number;
   target_screen_size?: 'desktop' | 'tablet' | 'mobile' | 'a4'; // Target screen size for design
   filter_layout?: 'vertical' | 'horizontal'; // Filter layout position
-  layout_config: any;
   responsive_layouts?: any; // Optional responsive layouts for different breakpoints
-  components: any;
   tabs: DashboardTabData[];
   is_published: boolean;
   published_at?: string;
