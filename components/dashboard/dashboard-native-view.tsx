@@ -10,6 +10,8 @@ const GridLayout = GridLayoutLib;
 const ResponsiveGrid = GridLayoutWidthProvider(ResponsiveGridLayout);
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
+import { DashboardTab, DashboardTabsData } from '@/types/dashboard';
+import { initializeTabsData, getActiveTabData } from './tabs/tab-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
