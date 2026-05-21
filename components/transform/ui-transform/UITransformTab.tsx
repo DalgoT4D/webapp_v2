@@ -23,12 +23,7 @@ export function UITransformTab({ onGitConnected, gitConnected }: UITransformTabP
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Workflow</CardTitle>
           <Link href="/transform/canvas">
-            <Button
-              variant="ghost"
-              className="text-white hover:opacity-90 shadow-xs"
-              style={{ backgroundColor: 'var(--primary)' }}
-              data-testid="edit-workflow-btn"
-            >
+            <Button variant="primary" data-testid="edit-workflow-btn">
               EDIT WORKFLOW
             </Button>
           </Link>

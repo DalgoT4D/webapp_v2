@@ -51,6 +51,7 @@ import {
   applyLineBarChartFormatting,
   applyLineBarDateFormatting,
 } from '@/lib/chart-formatting-utils';
+import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 import { ChartTypes, type ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart, MapChart } from 'echarts/charts';
@@ -1020,6 +1021,12 @@ export function ChartElementV2({
       if (isLineChart || isBarChart) {
         applyLineBarChartFormatting(modifiedConfig, customizations);
         applyLineBarDateFormatting(modifiedConfig, customizations);
+      }
+
+      // Apply stacked bar data labels (shows total at top of each stacked bar)
+      if (isBarChart) {
+        const stackedConfig = applyStackedBarLabels(modifiedConfig, customizations);
+        Object.assign(modifiedConfig, stackedConfig);
       }
 
       // Set chart option with animation disabled for better performance

@@ -968,12 +968,7 @@ export default function ChartsPage() {
 
           {hasPermission('can_create_charts') && (
             <Link id="charts-create-link" href="/charts/new">
-              <Button
-                id="charts-create-button"
-                variant="ghost"
-                className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: 'var(--primary)' }}
-              >
+              <Button id="charts-create-button" variant="primary" data-testid="charts-create-btn">
                 <Plus id="charts-create-icon" className="w-4 h-4 mr-2" />
                 CREATE CHART
               </Button>
@@ -1281,9 +1276,8 @@ export default function ChartsPage() {
                 <Link id="charts-empty-create-link" href="/charts/new">
                   <Button
                     id="charts-empty-create-button"
-                    variant="ghost"
-                    className="text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: 'var(--primary)' }}
+                    variant="primary"
+                    data-testid="charts-empty-create-btn"
                   >
                     <Plus id="charts-empty-create-icon" className="w-4 h-4 mr-2" />
                     CREATE YOUR FIRST CHART

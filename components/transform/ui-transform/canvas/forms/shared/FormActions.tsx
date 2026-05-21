@@ -56,10 +56,9 @@ export function FormActions({
       {!isViewMode && (
         <Button
           type="submit"
-          variant="ghost"
+          variant="primary"
           disabled={disabled || isSubmitting}
-          className="flex-1 text-white hover:opacity-90"
-          style={{ backgroundColor: 'var(--primary)' }}
+          className="flex-1"
           data-testid="form-save-btn"
         >
           {isSubmitting ? (

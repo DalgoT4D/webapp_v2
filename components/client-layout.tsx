@@ -7,7 +7,7 @@ import { NavigationTitleHandler } from '@/components/navigation-title-handler';
 import { Toaster } from 'sonner';
 
 // Define public routes that don't require authentication
-const publicRoutes = ['/login', '/forgot-password', '/resetpassword', '/invitations', '/migration'];
+const publicRoutes = ['/login', '/forgot-password', '/resetpassword', '/invitations', '/welcome'];
 
 interface ClientLayoutProps {
   children: React.ReactNode;

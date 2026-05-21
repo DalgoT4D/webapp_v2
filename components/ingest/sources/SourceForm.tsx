@@ -369,9 +369,8 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
             </Button>
             <Button
               type="submit"
-              variant="ghost"
-              className="text-white hover:opacity-90 shadow-xs uppercase"
-              style={{ backgroundColor: 'var(--primary)' }}
+              variant="primary"
+              className="uppercase"
               disabled={loading || !selectedDefId || !sourceName.trim() || !parsedSpec}
               data-testid="source-save-btn"
             >

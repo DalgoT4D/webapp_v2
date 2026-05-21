@@ -245,6 +245,69 @@ describe('Combobox - Multi Mode', () => {
     });
   });
 
+  it('select all — selects all, deselects all, and shows indeterminate state', async () => {
+    const mockOnChange = jest.fn();
+    const user = userEvent.setup();
+
+    const { rerender } = render(
+      <Combobox
+        mode="multi"
+        items={mockItems}
+        values={[]}
+        onValuesChange={mockOnChange}
+        id="test-multi-sa"
+      />
+    );
+
+    await user.click(screen.getByRole('combobox'));
+    await waitFor(() => expect(screen.getByTestId('test-multi-sa-select-all')).toBeInTheDocument());
+
+    // Click select all — selects all items
+    await user.click(screen.getByTestId('test-multi-sa-select-all'));
+    expect(mockOnChange).toHaveBeenCalledWith(['1', '2', '3', '4']);
+
+    // Rerender with all selected — checkbox should be checked
+    rerender(
+      <Combobox
+        mode="multi"
+        items={mockItems}
+        values={['1', '2', '3', '4']}
+        onValuesChange={mockOnChange}
+        id="test-multi-sa"
+      />
+    );
+    await user.click(screen.getByRole('combobox'));
+    await waitFor(() =>
+      expect(screen.getByTestId('test-multi-sa-checkbox-select-all')).toHaveAttribute(
+        'data-state',
+        'checked'
+      )
+    );
+
+    // Click select all — deselects all
+    mockOnChange.mockClear();
+    await user.click(screen.getByTestId('test-multi-sa-select-all'));
+    expect(mockOnChange).toHaveBeenCalledWith([]);
+
+    // Rerender with some selected — checkbox should be indeterminate
+    rerender(
+      <Combobox
+        mode="multi"
+        items={mockItems}
+        values={['1', '2']}
+        onValuesChange={mockOnChange}
+        id="test-multi-sa"
+      />
+    );
+    await user.click(screen.getByRole('combobox'));
+    await waitFor(() =>
+      expect(screen.getByTestId('test-multi-sa-checkbox-select-all')).toHaveAttribute(
+        'data-state',
+        'indeterminate'
+      )
+    );
+  });
+
   it('handles edge cases and has proper accessibility', async () => {
     const user = userEvent.setup();
 
