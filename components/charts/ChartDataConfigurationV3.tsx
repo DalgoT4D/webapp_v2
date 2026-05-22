@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { format } from 'date-fns';
 import {
   Select,
   SelectContent,
@@ -19,6 +20,7 @@ import {
   isTimestampColumn,
   isDateAndTimestampColumn,
 } from '@/lib/columnTypeIcons';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Combobox, highlightText } from '@/components/ui/combobox';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
@@ -61,6 +63,7 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   value,
   onChange,
   disabled,
+  dataType,
 }: {
   schema?: string;
   table?: string;
@@ -69,7 +72,10 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   value: any;
   onChange: (value: any) => void;
   disabled?: boolean;
+  dataType?: string;
 }) {
+  const [datePickerOpen, setDatePickerOpen] = React.useState(false);
+
   // Get column values using the warehouse API
   const { data: columnValues } = useColumnValues(schema || null, table || null, column || null);
 
@@ -125,6 +131,27 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
         />
       );
     }
+  }
+
+  // Date/timestamp columns get a calendar picker
+  if (dataType && isDateAndTimestampColumn(dataType)) {
+    const selectedDate = value ? new Date(value + 'T00:00:00') : undefined;
+    return (
+      <div className="flex-1">
+        <DatePicker
+          value={selectedDate}
+          placeholder="Pick a date"
+          disabled={disabled}
+          open={datePickerOpen}
+          onOpenChange={setDatePickerOpen}
+          selected={selectedDate}
+          onSelect={(date) => {
+            onChange(date ? format(date, 'yyyy-MM-dd') : '');
+            setDatePickerOpen(false);
+          }}
+        />
+      </div>
+    );
   }
 
   // If we have column values, show searchable dropdown
@@ -614,85 +641,92 @@ export function ChartDataConfigurationV3({
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-900">Data Filters</Label>
           <div className="space-y-2">
-            {(formData.filters || []).map((filter, index) => (
-              <div key={index} className="flex gap-2 items-center">
-                <Combobox
-                  items={columnItems}
-                  value={filter.column}
-                  onValueChange={(value) => {
-                    const newFilters = [...(formData.filters || [])];
-                    newFilters[index] = { ...filter, column: value };
-                    onChange({ filters: newFilters });
-                  }}
-                  disabled={disabled}
-                  searchPlaceholder="Search columns..."
-                  placeholder="Column"
-                  compact
-                  className="flex-1"
-                  renderItem={(item, _isSelected, searchQuery) => (
-                    <div className="flex items-center gap-2 min-w-0">
-                      <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
-                      <span className="truncate">{highlightText(item.label, searchQuery)}</span>
-                    </div>
-                  )}
-                />
+            {(formData.filters || []).map((filter, index) => {
+              const filterColumnDataType = normalizedColumns.find(
+                (col) => col.column_name === filter.column
+              )?.data_type;
 
-                <Select
-                  value={filter.operator}
-                  onValueChange={(value) => {
-                    const newFilters = [...(formData.filters || [])];
-                    newFilters[index] = { ...filter, operator: value as any };
-                    onChange({ filters: newFilters });
-                  }}
-                  disabled={disabled}
-                >
-                  <SelectTrigger className="h-8 w-32">
-                    <SelectValue placeholder="Operator" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="equals">Equals</SelectItem>
-                    <SelectItem value="not_equals">Not equals</SelectItem>
-                    <SelectItem value="greater_than">Greater than (&gt;)</SelectItem>
-                    <SelectItem value="greater_than_equal">Greater or equal (&gt;=)</SelectItem>
-                    <SelectItem value="less_than">Less than (&lt;)</SelectItem>
-                    <SelectItem value="less_than_equal">Less or equal (&lt;=)</SelectItem>
-                    <SelectItem value="like">Like</SelectItem>
-                    <SelectItem value="like_case_insensitive">Like (case insensitive)</SelectItem>
-                    <SelectItem value="in">In</SelectItem>
-                    <SelectItem value="not_in">Not in</SelectItem>
-                    <SelectItem value="is_null">Is null</SelectItem>
-                    <SelectItem value="is_not_null">Is not null</SelectItem>
-                  </SelectContent>
-                </Select>
+              return (
+                <div key={index} className="flex gap-2 items-center">
+                  <Combobox
+                    items={columnItems}
+                    value={filter.column}
+                    onValueChange={(value) => {
+                      const newFilters = [...(formData.filters || [])];
+                      newFilters[index] = { ...filter, column: value };
+                      onChange({ filters: newFilters });
+                    }}
+                    disabled={disabled}
+                    searchPlaceholder="Search columns..."
+                    placeholder="Column"
+                    compact
+                    className="flex-1"
+                    renderItem={(item, _isSelected, searchQuery) => (
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
+                        <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+                      </div>
+                    )}
+                  />
 
-                <SearchableValueInput
-                  schema={formData.schema_name}
-                  table={formData.table_name}
-                  column={filter.column}
-                  operator={filter.operator}
-                  value={filter.value}
-                  onChange={(value) => {
-                    const newFilters = [...(formData.filters || [])];
-                    newFilters[index] = { ...filter, value };
-                    onChange({ filters: newFilters });
-                  }}
-                  disabled={disabled}
-                />
+                  <Select
+                    value={filter.operator}
+                    onValueChange={(value) => {
+                      const newFilters = [...(formData.filters || [])];
+                      newFilters[index] = { ...filter, operator: value as any };
+                      onChange({ filters: newFilters });
+                    }}
+                    disabled={disabled}
+                  >
+                    <SelectTrigger className="h-8 w-32">
+                      <SelectValue placeholder="Operator" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="equals">Equals</SelectItem>
+                      <SelectItem value="not_equals">Not equals</SelectItem>
+                      <SelectItem value="greater_than">Greater than (&gt;)</SelectItem>
+                      <SelectItem value="greater_than_equal">Greater or equal (&gt;=)</SelectItem>
+                      <SelectItem value="less_than">Less than (&lt;)</SelectItem>
+                      <SelectItem value="less_than_equal">Less or equal (&lt;=)</SelectItem>
+                      <SelectItem value="like">Like</SelectItem>
+                      <SelectItem value="like_case_insensitive">Like (case insensitive)</SelectItem>
+                      <SelectItem value="in">In</SelectItem>
+                      <SelectItem value="not_in">Not in</SelectItem>
+                      <SelectItem value="is_null">Is null</SelectItem>
+                      <SelectItem value="is_not_null">Is not null</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => {
-                    const newFilters = (formData.filters || []).filter((_, i) => i !== index);
-                    onChange({ filters: newFilters });
-                  }}
-                  disabled={disabled}
-                >
-                  ✕
-                </Button>
-              </div>
-            ))}
+                  <SearchableValueInput
+                    schema={formData.schema_name}
+                    table={formData.table_name}
+                    column={filter.column}
+                    operator={filter.operator}
+                    value={filter.value}
+                    dataType={filterColumnDataType}
+                    onChange={(value) => {
+                      const newFilters = [...(formData.filters || [])];
+                      newFilters[index] = { ...filter, value };
+                      onChange({ filters: newFilters });
+                    }}
+                    disabled={disabled}
+                  />
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => {
+                      const newFilters = (formData.filters || []).filter((_, i) => i !== index);
+                      onChange({ filters: newFilters });
+                    }}
+                    disabled={disabled}
+                  >
+                    ✕
+                  </Button>
+                </div>
+              );
+            })}
 
             <Button
               variant="outline"
