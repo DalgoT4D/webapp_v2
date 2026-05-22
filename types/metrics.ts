@@ -13,21 +13,11 @@ export interface Metric {
   updated_at: string;
 }
 
-export interface MetricCreate {
+export interface MetricPayload {
   name: string;
   description?: string;
   schema_name: string;
   table_name: string;
-  column?: string;
-  aggregation?: string;
-  column_expression?: string;
-}
-
-export interface MetricUpdate {
-  name?: string;
-  description?: string;
-  schema_name?: string;
-  table_name?: string;
   column?: string;
   aggregation?: string;
   column_expression?: string;
@@ -52,12 +42,22 @@ export interface MetricConsumersResponse {
 }
 
 export const AGGREGATION_OPTIONS = [
-  { value: 'sum', label: 'SUM' },
-  { value: 'avg', label: 'AVG' },
-  { value: 'count', label: 'COUNT' },
-  { value: 'min', label: 'MIN' },
-  { value: 'max', label: 'MAX' },
-  { value: 'count_distinct', label: 'COUNT DISTINCT' },
+  { value: 'count', label: 'Count' },
+  { value: 'sum', label: 'Sum' },
+  { value: 'avg', label: 'Avg' },
+  { value: 'min', label: 'Min' },
+  { value: 'max', label: 'Max' },
+  { value: 'count_distinct', label: 'Count Distinct' },
 ] as const;
 
 export type AggregationType = (typeof AGGREGATION_OPTIONS)[number]['value'];
+
+export type MetricMode = 'simple' | 'calculated';
+
+export interface MetricPreviewDefinitionRequest {
+  schema_name: string;
+  table_name: string;
+  column?: string;
+  aggregation?: string;
+  column_expression?: string;
+}

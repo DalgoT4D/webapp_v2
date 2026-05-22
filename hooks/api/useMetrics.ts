@@ -2,8 +2,7 @@ import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import type {
   Metric,
-  MetricCreate,
-  MetricUpdate,
+  MetricPayload,
   MetricListResponse,
   MetricConsumersResponse,
 } from '@/types/metrics';
@@ -52,11 +51,11 @@ export function useMetric(id: number | null) {
   };
 }
 
-export async function createMetric(data: MetricCreate): Promise<Metric> {
+export async function createMetric(data: MetricPayload): Promise<Metric> {
   return apiPost('/api/metrics/', data);
 }
 
-export async function updateMetric(id: number, data: MetricUpdate): Promise<Metric> {
+export async function updateMetric(id: number, data: MetricPayload): Promise<Metric> {
   return apiPut(`/api/metrics/${id}/`, data);
 }
 
@@ -66,4 +65,10 @@ export async function deleteMetric(id: number): Promise<void> {
 
 export async function getMetricConsumers(id: number): Promise<MetricConsumersResponse> {
   return apiGet(`/api/metrics/${id}/consumers/`);
+}
+
+export async function validateMetric(
+  data: MetricPayload
+): Promise<{ valid: boolean; error?: string }> {
+  return apiPost('/api/metrics/validate/', data);
 }

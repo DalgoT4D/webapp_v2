@@ -34,11 +34,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useKPIs, useKPIData, deleteKPI } from '@/hooks/api/useKPIs';
 import { KPIForm } from './kpi-form';
+import { KPIDetailDrawer } from './kpi-detail-drawer';
 import type { KPI } from '@/types/kpis';
 import { RAG_COLORS, METRIC_TYPE_TAG_OPTIONS, TIME_GRAIN_OPTIONS } from '@/types/kpis';
 import type { RAGStatus } from '@/types/kpis';
 import { toastSuccess, toastError } from '@/lib/toast';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format as formatDate, parseISO, isValid } from 'date-fns';
 
 // Renders an ECharts config into a div
 function EChartsRenderer({
@@ -85,47 +86,81 @@ function EChartsRenderer({
 // A single KPI card that fetches its own data
 function KPICardWithData({
   kpi,
+  onClick,
   onEdit,
   onDelete,
+  statusFilter,
 }: {
   kpi: KPI;
+  onClick: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  statusFilter?: string;
 }) {
   const { chartData, echartsConfig, isLoading } = useKPIData(kpi.id);
-
-  const metricTypeLabel = METRIC_TYPE_TAG_OPTIONS.find(
-    (o) => o.value === kpi.metric_type_tag
-  )?.label;
 
   const ragStatus = chartData?.rag_status as RAGStatus | null;
   const ragInfo = ragStatus ? RAG_COLORS[ragStatus] : null;
   const currentValue = chartData?.current_value;
   const hasTrend = chartData?.periods && chartData.periods.length > 0;
+  const periods = chartData?.periods || [];
+
+  // Hide card if status filter is active and doesn't match
+  if (statusFilter && !isLoading && ragStatus !== statusFilter) return null;
+
+  // Period-over-period change
+  const popChange = (() => {
+    if (periods.length < 2) return null;
+    const current = periods[periods.length - 1]?.value;
+    const previous = periods[periods.length - 2]?.value;
+    if (current == null || previous == null || previous === 0) return null;
+    return ((current - previous) / Math.abs(previous)) * 100;
+  })();
+
+  // Direction-aware: is the change "good"?
+  const isPositiveChange =
+    popChange !== null &&
+    ((kpi.direction === 'increase' && popChange > 0) ||
+      (kpi.direction === 'decrease' && popChange < 0));
+  const isNegativeChange =
+    popChange !== null &&
+    ((kpi.direction === 'increase' && popChange < 0) ||
+      (kpi.direction === 'decrease' && popChange > 0));
+
+  const timeGrainLabel: Record<string, string> = {
+    daily: 'day',
+    weekly: 'week',
+    monthly: 'month',
+    quarterly: 'quarter',
+    yearly: 'year',
+  };
 
   const formatValue = (v: number | null | undefined) => {
     if (v === null || v === undefined) return '\u2014';
     if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-    if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
+    if (Math.abs(v) >= 1_000) return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
     return v.toLocaleString(undefined, { maximumFractionDigits: 1 });
   };
 
   return (
-    <div className="bg-white border rounded-lg p-5 hover:shadow-md transition-shadow space-y-3">
+    <div className="bg-white border rounded-lg hover:shadow-md transition-shadow flex flex-col">
       {/* Header */}
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-2 border-b">
         <div className="min-w-0">
           <h3
             className="font-semibold text-gray-900 truncate cursor-pointer hover:text-teal-700 hover:underline"
-            onClick={onEdit}
+            onClick={onClick}
           >
             {kpi.name}
           </h3>
-          <p className="text-xs text-muted-foreground truncate">{kpi.metric.name}</p>
+          {kpi.program_tags.length > 0 && (
+            <p className="text-xs text-muted-foreground truncate">{kpi.program_tags.join(', ')}</p>
+          )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {ragInfo && (
             <Badge variant="outline" className={`${ragInfo.bg} ${ragInfo.text} border-0 text-xs`}>
+              <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${ragInfo.dot}`} />
               {ragInfo.label}
             </Badge>
           )}
@@ -138,7 +173,7 @@ function KPICardWithData({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
                 <Pencil className="w-4 h-4 mr-2" />
-                Edit
+                Edit KPI
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -153,51 +188,57 @@ function KPICardWithData({
         </div>
       </div>
 
-      {/* Value / Target — only show above chart when there's trend data */}
-      {hasTrend && (
-        <div className="shrink-0">
-          {isLoading ? (
-            <Skeleton className="h-7 w-24" />
-          ) : (
-            <>
-              <span className="text-xl font-bold text-gray-900">{formatValue(currentValue)}</span>
-              {kpi.target_value !== null && (
-                <span className="text-sm text-muted-foreground ml-1">
-                  / {formatValue(kpi.target_value)}
-                </span>
-              )}
-            </>
-          )}
-        </div>
-      )}
+      {/* Value section */}
+      <div className="px-4 pt-3 pb-2">
+        {isLoading ? (
+          <Skeleton className="h-10 w-28" />
+        ) : (
+          <>
+            <div className="text-4xl font-bold text-gray-900">{formatValue(currentValue)}</div>
+            {kpi.target_value !== null && (
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Target: {formatValue(kpi.target_value)}
+              </p>
+            )}
+            {popChange !== null && (
+              <p
+                className={`text-sm font-medium mt-1 ${
+                  isPositiveChange
+                    ? 'text-green-600'
+                    : isNegativeChange
+                      ? 'text-red-600'
+                      : 'text-muted-foreground'
+                }`}
+              >
+                {popChange > 0 ? '↑' : popChange < 0 ? '↓' : '—'} {popChange > 0 ? '+' : ''}
+                {popChange.toFixed(1)}% from last {timeGrainLabel[kpi.time_grain] || 'period'}
+              </p>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Chart */}
-      {isLoading ? (
-        <Skeleton className="h-40 w-full" />
-      ) : (
-        <EChartsRenderer config={echartsConfig || {}} />
-      )}
+      <div className="px-4 pb-3 flex-1">
+        {isLoading ? (
+          <Skeleton className="h-32 w-full" />
+        ) : (
+          <EChartsRenderer config={echartsConfig || {}} height="h-32" />
+        )}
+      </div>
 
-      {/* Tags + updated */}
-      <div className="flex items-center justify-between">
-        <div className="flex flex-wrap gap-1">
-          {metricTypeLabel && (
-            <Badge className="text-xs bg-violet-100 text-violet-700 border-0 hover:bg-violet-100">
-              {kpi.metric_type_tag === 'input' && '\u{1F4E5} '}
-              {kpi.metric_type_tag === 'output' && '\u{1F4E4} '}
-              {kpi.metric_type_tag === 'outcome' && '\u{1F3AF} '}
-              {kpi.metric_type_tag === 'impact' && '\u{1F4A5} '}
-              {metricTypeLabel}
-            </Badge>
-          )}
-          {kpi.program_tags.map((tag) => (
-            <Badge key={tag} variant="outline" className="text-xs text-gray-600 border-gray-300">
-              {tag}
-            </Badge>
-          ))}
-        </div>
-        <span className="text-xs text-muted-foreground shrink-0">
-          {formatDistanceToNow(new Date(kpi.updated_at), { addSuffix: true })}
+      {/* Footer */}
+      <div className="mx-4 border-t" />
+      <div className="px-4 py-1.5">
+        <span className="text-xs text-muted-foreground">
+          {(() => {
+            const raw = chartData?.data_last_date;
+            if (raw) {
+              const d = parseISO(raw);
+              if (isValid(d)) return `Data as of ${formatDate(d, 'd MMMM yyyy')}`;
+            }
+            return `Updated ${formatDistanceToNow(new Date(kpi.updated_at))} ago`;
+          })()}
         </span>
       </div>
     </div>
@@ -207,10 +248,12 @@ function KPICardWithData({
 export function KPIPageComponent() {
   const [search, setSearch] = useState('');
   const [metricTypeFilter, setMetricTypeFilter] = useState('');
-  const [programTagFilter, setProgramTagFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editingKpi, setEditingKpi] = useState<KPI | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedKpi, setSelectedKpi] = useState<KPI | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingKpi, setDeletingKpi] = useState<KPI | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -227,7 +270,6 @@ export function KPIPageComponent() {
     pageSize: 20,
     search: search || undefined,
     metricType: metricTypeFilter || undefined,
-    programTag: programTagFilter || undefined,
   });
 
   const { mutate: globalMutate } = useSWRConfig();
@@ -248,7 +290,13 @@ export function KPIPageComponent() {
     setFormOpen(true);
   };
 
+  const handleCardClick = (kpi: KPI) => {
+    setSelectedKpi(kpi);
+    setDrawerOpen(true);
+  };
+
   const handleEdit = (kpi: KPI) => {
+    setDrawerOpen(false);
     setEditingKpi(kpi);
     setFormOpen(true);
   };
@@ -291,9 +339,9 @@ export function KPIPageComponent() {
       <div className="flex-shrink-0 border-b bg-background">
         <div className="flex items-center justify-between p-6 pb-4">
           <div>
-            <h1 className="text-3xl font-bold">KPIs</h1>
-            <p className="text-muted-foreground mt-1">
-              Track key performance indicators across your programs
+            <h1 className="text-2xl font-bold">KPI</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Track business objectives with measurable KPIs linked to your metrics
             </p>
           </div>
           <Button
@@ -306,108 +354,105 @@ export function KPIPageComponent() {
             CREATE KPI
           </Button>
         </div>
-        <div className="flex items-center gap-3 px-6 pb-4">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search KPIs..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="pl-9 h-9"
-            />
-          </div>
-          <Select
-            value={metricTypeFilter || 'all'}
-            onValueChange={(v) => {
-              setMetricTypeFilter(v === 'all' ? '' : v);
-              setCurrentPage(1);
-            }}
-          >
-            <SelectTrigger className="w-36 h-9">
-              <SelectValue placeholder="Metric Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {METRIC_TYPE_TAG_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            placeholder="Program tag..."
-            value={programTagFilter}
-            onChange={(e) => {
-              setProgramTagFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-36 h-9"
-          />
-          {(search || metricTypeFilter || programTagFilter) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSearch('');
-                setMetricTypeFilter('');
-                setProgramTagFilter('');
-                setCurrentPage(1);
-              }}
-              className="h-9 px-2 text-xs text-gray-500"
-            >
-              Clear
-            </Button>
-          )}
-        </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="border rounded-lg p-5 space-y-3">
-                <Skeleton className="h-5 w-32" />
-                <Skeleton className="h-8 w-20" />
-                <Skeleton className="h-40 w-full" />
-                <Skeleton className="h-4 w-24" />
-              </div>
-            ))}
-          </div>
-        ) : kpis.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {kpis.map((kpi) => (
-              <KPICardWithData
-                key={kpi.id}
-                kpi={kpi}
-                onEdit={() => handleEdit(kpi)}
-                onDelete={() => handleDeleteClick(kpi)}
+      <div className="flex-1 overflow-hidden p-6">
+        <div className="border rounded-lg bg-white p-5 h-full flex flex-col overflow-hidden">
+          {/* Filters */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search KPIs..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="pl-9 h-9"
               />
-            ))}
+            </div>
+            <Select
+              value={metricTypeFilter || 'all'}
+              onValueChange={(v) => {
+                setMetricTypeFilter(v === 'all' ? '' : v);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-28 h-9">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {METRIC_TYPE_TAG_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={statusFilter || 'all'}
+              onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}
+            >
+              <SelectTrigger className="w-32 h-9">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="green">On Track</SelectItem>
+                <SelectItem value="amber">Needs Attention</SelectItem>
+                <SelectItem value="red">Off Track</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full gap-4">
-            <Target className="w-12 h-12 text-muted-foreground" />
-            <p className="text-muted-foreground">
-              {search ? 'No KPIs match your search' : 'No KPIs yet'}
-            </p>
-            {!search && (
-              <Button
-                variant="ghost"
-                className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: 'var(--primary)' }}
-                onClick={handleCreate}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                CREATE YOUR FIRST KPI
-              </Button>
+          <div className="flex-1 overflow-y-auto">
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="border rounded-lg p-5 space-y-3">
+                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-40 w-full" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                ))}
+              </div>
+            ) : kpis.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {kpis.map((kpi) => (
+                  <KPICardWithData
+                    key={kpi.id}
+                    kpi={kpi}
+                    onClick={() => handleCardClick(kpi)}
+                    onEdit={() => handleEdit(kpi)}
+                    onDelete={() => handleDeleteClick(kpi)}
+                    statusFilter={statusFilter || undefined}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full gap-4">
+                <Target className="w-12 h-12 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  {search ? 'No KPIs match your search' : 'No KPIs yet'}
+                </p>
+                {!search && (
+                  <Button
+                    variant="ghost"
+                    className="text-white hover:opacity-90 shadow-xs"
+                    style={{ backgroundColor: 'var(--primary)' }}
+                    onClick={handleCreate}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    CREATE YOUR FIRST KPI
+                  </Button>
+                )}
+              </div>
             )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Pagination */}
@@ -449,6 +494,19 @@ export function KPIPageComponent() {
         onOpenChange={setFormOpen}
         onSuccess={handleFormSuccess}
         kpi={editingKpi}
+      />
+
+      <KPIDetailDrawer
+        kpi={selectedKpi}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        onEdit={() => selectedKpi && handleEdit(selectedKpi)}
+        onDelete={() => {
+          if (selectedKpi) {
+            setDrawerOpen(false);
+            handleDeleteClick(selectedKpi);
+          }
+        }}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

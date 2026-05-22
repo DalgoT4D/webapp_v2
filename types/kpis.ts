@@ -2,10 +2,18 @@ import type { Metric } from './metrics';
 
 export type RAGStatus = 'green' | 'amber' | 'red';
 
-export const RAG_COLORS: Record<RAGStatus, { bg: string; text: string; label: string }> = {
-  green: { bg: 'bg-green-100', text: 'text-green-700', label: 'On Track' },
-  amber: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'At Risk' },
-  red: { bg: 'bg-red-100', text: 'text-red-700', label: 'Off Track' },
+export const RAG_COLORS: Record<
+  RAGStatus,
+  { bg: string; text: string; dot: string; label: string }
+> = {
+  green: { bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500', label: 'On Track' },
+  amber: {
+    bg: 'bg-amber-100',
+    text: 'text-amber-700',
+    dot: 'bg-amber-500',
+    label: 'Needs Attention',
+  },
+  red: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500', label: 'Off Track' },
 };
 
 export const DIRECTION_OPTIONS = [
@@ -38,7 +46,6 @@ export interface KPI {
   amber_threshold_pct: number;
   time_grain: string;
   time_dimension_column: string | null;
-  trend_periods: number;
   metric_type_tag: string | null;
   program_tags: string[];
   display_order: number;
@@ -55,7 +62,6 @@ export interface KPICreate {
   amber_threshold_pct?: number;
   time_grain: string;
   time_dimension_column?: string;
-  trend_periods?: number;
   metric_type_tag?: string;
   program_tags?: string[];
 }
@@ -69,7 +75,6 @@ export interface KPIUpdate {
   amber_threshold_pct?: number;
   time_grain?: string;
   time_dimension_column?: string | null;
-  trend_periods?: number;
   metric_type_tag?: string;
   program_tags?: string[];
   display_order?: number;
@@ -91,4 +96,5 @@ export interface KPIDataPayload {
   rag_status: RAGStatus | null;
   time_grain: string;
   periods: { period: string; value: number | null }[];
+  data_last_date: string | null;
 }
