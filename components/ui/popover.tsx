@@ -17,20 +17,27 @@ function PopoverContent({
   className,
   align = 'center',
   sideOffset = 4,
+  container,
   ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content>) {
-  const [portalContainer, setPortalContainer] = React.useState<HTMLElement | null>(null);
+}: React.ComponentProps<typeof PopoverPrimitive.Content> & {
+  container?: HTMLElement | null;
+}) {
+  const [fullscreenContainer, setFullscreenContainer] = React.useState<HTMLElement | null>(null);
 
   React.useEffect(() => {
     const handleFullscreenChange = () => {
       // Render portal inside the fullscreen element so it remains visible
       // when the browser's native Fullscreen API is active. Without this,
       // portals render to document.body which is hidden outside fullscreen.
-      setPortalContainer((document.fullscreenElement as HTMLElement) ?? null);
+      setFullscreenContainer((document.fullscreenElement as HTMLElement) ?? null);
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
+
+  // Explicit container (e.g. Dialog element) takes priority over fullscreen.
+  // undefined means "no preference" — fall back to fullscreen or document.body.
+  const portalContainer = container !== undefined ? container : fullscreenContainer;
 
   return (
     <PopoverPrimitive.Portal container={portalContainer}>

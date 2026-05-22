@@ -8,13 +8,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { X, Plus } from 'lucide-react';
 import type { ChartMetric } from '@/types/charts';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { Combobox, highlightText } from '@/components/ui/combobox';
+import { AliasInput } from '@/components/charts/AliasInput';
 
 interface MetricsSelectorProps {
   metrics: ChartMetric[];
@@ -251,13 +251,11 @@ export function MetricsSelector({
             {/* Display Name (Alias) */}
             <div className="space-y-1">
               <Label className="text-xs text-gray-600">{labels.alias}</Label>
-              <Input
-                type="text"
-                placeholder="Auto-generated display name"
+              <AliasInput
                 value={metric.alias || ''}
-                onChange={(e) => updateMetric(index, { alias: e.target.value })}
+                onChange={(value) => updateMetric(index, { alias: value })}
                 disabled={disabled}
-                className="h-8 text-sm"
+                placeholder="Auto-generated display name"
               />
             </div>
           </div>

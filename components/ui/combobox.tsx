@@ -387,6 +387,8 @@ function SingleComboboxInner({
       <PopoverContent
         className="p-0 shadow-lg border border-gray-200"
         align="start"
+        side="bottom"
+        collisionBoundary={[] as Element[]}
         sideOffset={4}
         onOpenAutoFocus={(e) => e.preventDefault()}
         onFocusOutside={(e) => e.preventDefault()}
@@ -666,6 +668,8 @@ function MultiComboboxInner({
       <PopoverContent
         className="p-0 shadow-lg border border-gray-200"
         align="start"
+        side="bottom"
+        collisionBoundary={[] as Element[]}
         sideOffset={4}
         onOpenAutoFocus={(e) => e.preventDefault()}
         onFocusOutside={(e) => e.preventDefault()}
