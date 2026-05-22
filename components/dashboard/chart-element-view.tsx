@@ -1769,22 +1769,6 @@ export function ChartElementView({
         </div>
       )}
 
-      {/* Comment button — only in report mode */}
-      {viewMode && frozenChartConfig && snapshotId && (
-        <CommentPopover
-          snapshotId={snapshotId}
-          targetType="chart"
-          chartId={chartId}
-          state={
-            (commentStates?.find((s) => s.target_id === chartId)?.state as CommentIconState) ??
-            'none'
-          }
-          triggerClassName="h-7 w-7 p-0"
-          onStateChange={onCommentStateChange}
-          autoOpen={autoOpenCommentChartId === String(chartId)}
-        />
-      )}
-
       {/* Chart title row — comment icon sits inline to prevent overlap in report mode */}
       <div className="flex items-start gap-2 px-2 pt-2 flex-shrink-0">
         <div className="flex-1 min-w-0">
