@@ -941,6 +941,13 @@ export default function ChartsPage() {
     sortOrder,
   ]);
 
+  // Clamp currentPage if total pages shrinks (e.g. after deletes)
+  useEffect(() => {
+    if (apiTotalPages > 0 && currentPage > apiTotalPages) {
+      setCurrentPage(apiTotalPages);
+    }
+  }, [apiTotalPages, currentPage]);
+
   // Server handles pagination; use its values for display
   const paginatedCharts = filteredAndSortedCharts;
   const total = apiTotal;
