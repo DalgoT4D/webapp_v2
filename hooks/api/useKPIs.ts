@@ -1,6 +1,14 @@
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
-import type { KPI, KPICreate, KPIUpdate, KPIListResponse } from '@/types/kpis';
+import type {
+  KPI,
+  KPICreate,
+  KPIUpdate,
+  KPIListResponse,
+  AnnotationEntry,
+  AnnotationEntryCreate,
+  AnnotationEntryUpdate,
+} from '@/types/kpis';
 import type { ChartDataResponse } from '@/types/charts';
 
 interface UseKPIsParams {
@@ -86,4 +94,39 @@ export async function updateKPI(id: number, data: KPIUpdate): Promise<KPI> {
 
 export async function deleteKPI(id: number): Promise<void> {
   return apiDelete(`/api/kpis/${id}/`);
+}
+
+// ── Annotations ───────────────────────────────────────────────────────
+
+export function useAnnotations(kpiId: number | null) {
+  const { data, error, mutate } = useSWR<AnnotationEntry[]>(
+    kpiId ? `/api/kpis/${kpiId}/notes/` : null,
+    apiGet
+  );
+
+  return {
+    annotations: data || [],
+    isLoading: !error && !data,
+    isError: error,
+    mutate,
+  };
+}
+
+export async function createAnnotation(
+  kpiId: number,
+  data: AnnotationEntryCreate
+): Promise<AnnotationEntry> {
+  return apiPost(`/api/kpis/${kpiId}/notes/`, data);
+}
+
+export async function updateAnnotation(
+  kpiId: number,
+  entryId: number,
+  data: AnnotationEntryUpdate
+): Promise<AnnotationEntry> {
+  return apiPut(`/api/kpis/${kpiId}/notes/${entryId}/`, data);
+}
+
+export async function deleteAnnotation(kpiId: number, entryId: number): Promise<void> {
+  return apiDelete(`/api/kpis/${kpiId}/notes/${entryId}/`);
 }

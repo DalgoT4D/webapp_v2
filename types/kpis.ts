@@ -95,6 +95,39 @@ export interface KPIDataPayload {
   direction: string;
   rag_status: RAGStatus | null;
   time_grain: string;
-  periods: { period: string; value: number | null }[];
+  periods: { period: string; period_date: string | null; value: number | null }[];
   data_last_date: string | null;
+}
+
+export type NoteType = 'beneficiary_quote' | 'note';
+
+export interface AnnotationEntry {
+  id: number;
+  note_type: NoteType;
+  period_key: string;
+  period_date: string | null;
+  content: string;
+  snapshot_value: number | null;
+  snapshot_pop_change: number | null;
+  created_by_email: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnnotationEntryCreate {
+  note_type: NoteType;
+  period_key: string;
+  period_date?: string;
+  content: string;
+  snapshot_value?: number;
+  snapshot_pop_change?: number;
+}
+
+export interface AnnotationEntryUpdate {
+  note_type?: NoteType;
+  period_key?: string;
+  period_date?: string;
+  content?: string;
+  snapshot_value?: number;
+  snapshot_pop_change?: number;
 }

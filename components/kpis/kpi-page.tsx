@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useSWRConfig } from 'swr';
-import * as echarts from 'echarts';
 import { Plus, Search, Target, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,53 +34,13 @@ import {
 import { useKPIs, useKPIData, deleteKPI } from '@/hooks/api/useKPIs';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
+import { KPICard } from './kpi-card';
+import type { KPICardData } from './kpi-card';
 import type { KPI } from '@/types/kpis';
 import { RAG_COLORS, METRIC_TYPE_TAG_OPTIONS, TIME_GRAIN_OPTIONS } from '@/types/kpis';
 import type { RAGStatus } from '@/types/kpis';
 import { toastSuccess, toastError } from '@/lib/toast';
-import { formatDistanceToNow, format as formatDate, parseISO, isValid } from 'date-fns';
-
-// Renders an ECharts config into a div
-function EChartsRenderer({
-  config,
-  height = 'h-40',
-}: {
-  config: Record<string, any>;
-  height?: string;
-}) {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const chartInstance = useRef<echarts.ECharts | null>(null);
-
-  useEffect(() => {
-    if (!chartRef.current || !config || Object.keys(config).length === 0) return;
-
-    // Always dispose and reinit to handle chart type changes (e.g. line → gauge)
-    if (chartInstance.current) {
-      chartInstance.current.dispose();
-    }
-    chartInstance.current = echarts.init(chartRef.current);
-    chartInstance.current.setOption(config);
-
-    const handleResize = () => chartInstance.current?.resize();
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      chartInstance.current?.dispose();
-      chartInstance.current = null;
-    };
-  }, [config]);
-
-  if (!config || Object.keys(config).length === 0) {
-    return (
-      <div className={`${height} flex items-center justify-center text-xs text-muted-foreground`}>
-        No trend data
-      </div>
-    );
-  }
-
-  return <div ref={chartRef} className={`${height} w-full`} />;
-}
+import { formatDistanceToNow } from 'date-fns';
 
 // A single KPI card that fetches its own data
 function KPICardWithData({
@@ -100,15 +59,11 @@ function KPICardWithData({
   const { chartData, echartsConfig, isLoading } = useKPIData(kpi.id);
 
   const ragStatus = chartData?.rag_status as RAGStatus | null;
-  const ragInfo = ragStatus ? RAG_COLORS[ragStatus] : null;
-  const currentValue = chartData?.current_value;
-  const hasTrend = chartData?.periods && chartData.periods.length > 0;
   const periods = chartData?.periods || [];
 
   // Hide card if status filter is active and doesn't match
   if (statusFilter && !isLoading && ragStatus !== statusFilter) return null;
 
-  // Period-over-period change
   const popChange = (() => {
     if (periods.length < 2) return null;
     const current = periods[periods.length - 1]?.value;
@@ -117,131 +72,46 @@ function KPICardWithData({
     return ((current - previous) / Math.abs(previous)) * 100;
   })();
 
-  // Direction-aware: is the change "good"?
-  const isPositiveChange =
-    popChange !== null &&
-    ((kpi.direction === 'increase' && popChange > 0) ||
-      (kpi.direction === 'decrease' && popChange < 0));
-  const isNegativeChange =
-    popChange !== null &&
-    ((kpi.direction === 'increase' && popChange < 0) ||
-      (kpi.direction === 'decrease' && popChange > 0));
-
-  const timeGrainLabel: Record<string, string> = {
-    daily: 'day',
-    weekly: 'week',
-    monthly: 'month',
-    quarterly: 'quarter',
-    yearly: 'year',
-  };
-
-  const formatValue = (v: number | null | undefined) => {
-    if (v === null || v === undefined) return '\u2014';
-    if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-    if (Math.abs(v) >= 1_000) return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
-    return v.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  const cardData: KPICardData = {
+    currentValue: chartData?.current_value,
+    targetValue: kpi.target_value,
+    ragStatus,
+    popChange,
+    direction: kpi.direction,
+    timeGrain: kpi.time_grain,
+    echartsConfig: echartsConfig || null,
+    dataLastDate: chartData?.data_last_date,
+    updatedAt: kpi.updated_at,
+    isLoading,
+    periods,
   };
 
   return (
-    <div className="bg-white border rounded-lg hover:shadow-md transition-shadow flex flex-col">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-2 border-b">
-        <div className="min-w-0">
-          <h3
-            className="font-semibold text-gray-900 truncate cursor-pointer hover:text-teal-700 hover:underline"
-            onClick={onClick}
+    <KPICard
+      name={kpi.name}
+      subtitle={kpi.program_tags.length > 0 ? kpi.program_tags.join(', ') : undefined}
+      data={cardData}
+      onClick={onClick}
+      showDownload={false}
+      downloadInMenu
+      menuItems={
+        <>
+          <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
+            <Pencil className="w-4 h-4 mr-2" />
+            Edit KPI
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={onDelete}
+            className="cursor-pointer text-destructive focus:text-destructive"
           >
-            {kpi.name}
-          </h3>
-          {kpi.program_tags.length > 0 && (
-            <p className="text-xs text-muted-foreground truncate">{kpi.program_tags.join(', ')}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {ragInfo && (
-            <Badge variant="outline" className={`${ragInfo.bg} ${ragInfo.text} border-0 text-xs`}>
-              <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${ragInfo.dot}`} />
-              {ragInfo.label}
-            </Badge>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 p-0">
-                <MoreVertical className="w-4 h-4 text-gray-400" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
-                <Pencil className="w-4 h-4 mr-2" />
-                Edit KPI
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={onDelete}
-                className="cursor-pointer text-destructive focus:text-destructive"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      {/* Value section */}
-      <div className="px-4 pt-3 pb-2">
-        {isLoading ? (
-          <Skeleton className="h-10 w-28" />
-        ) : (
-          <>
-            <div className="text-4xl font-bold text-gray-900">{formatValue(currentValue)}</div>
-            {kpi.target_value !== null && (
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Target: {formatValue(kpi.target_value)}
-              </p>
-            )}
-            {popChange !== null && (
-              <p
-                className={`text-sm font-medium mt-1 ${
-                  isPositiveChange
-                    ? 'text-green-600'
-                    : isNegativeChange
-                      ? 'text-red-600'
-                      : 'text-muted-foreground'
-                }`}
-              >
-                {popChange > 0 ? '↑' : popChange < 0 ? '↓' : '—'} {popChange > 0 ? '+' : ''}
-                {popChange.toFixed(1)}% from last {timeGrainLabel[kpi.time_grain] || 'period'}
-              </p>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Chart */}
-      <div className="px-4 pb-3 flex-1">
-        {isLoading ? (
-          <Skeleton className="h-32 w-full" />
-        ) : (
-          <EChartsRenderer config={echartsConfig || {}} height="h-32" />
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="mx-4 border-t" />
-      <div className="px-4 py-1.5">
-        <span className="text-xs text-muted-foreground">
-          {(() => {
-            const raw = chartData?.data_last_date;
-            if (raw) {
-              const d = parseISO(raw);
-              if (isValid(d)) return `Data as of ${formatDate(d, 'd MMMM yyyy')}`;
-            }
-            return `Updated ${formatDistanceToNow(new Date(kpi.updated_at))} ago`;
-          })()}
-        </span>
-      </div>
-    </div>
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+        </>
+      }
+    />
   );
 }
 

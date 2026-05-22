@@ -12,6 +12,7 @@ import { useKPIs } from '@/hooks/api/useKPIs';
 import { StaticChartPreview } from '@/components/charts/StaticChartPreview';
 import { Loader2, Search, Plus, Target } from 'lucide-react';
 import { RAG_COLORS, METRIC_TYPE_TAG_OPTIONS } from '@/types/kpis';
+import type { RAGStatus } from '@/types/kpis';
 import Link from 'next/link';
 
 interface ChartSelectorModalProps {
@@ -206,27 +207,39 @@ export function ChartSelectorModal({
                         }`}
                         onClick={() => handleSelectKPI(kpi.id, kpi.name)}
                       >
-                        <div className="h-36 flex flex-col items-center justify-center">
-                          <Target className="h-10 w-10 text-gray-400 mb-3" />
-                          <h4 className="text-sm font-medium truncate mb-1 max-w-full px-2">
-                            {kpi.name}
-                          </h4>
-                          <p className="text-xs text-gray-500 truncate max-w-full px-2">
-                            {kpi.metric.name}
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="text-sm font-semibold truncate max-w-[70%]">{kpi.name}</h4>
+                          {(() => {
+                            const ragInfo = kpi.target_value
+                              ? RAG_COLORS['green' as RAGStatus]
+                              : null;
+                            return ragInfo ? (
+                              <Badge
+                                variant="outline"
+                                className={`${ragInfo.bg} ${ragInfo.text} border-0 text-[10px]`}
+                              >
+                                <span
+                                  className={`inline-block w-1 h-1 rounded-full mr-0.5 ${ragInfo.dot}`}
+                                />
+                                {ragInfo.label}
+                              </Badge>
+                            ) : null;
+                          })()}
+                        </div>
+                        <p className="text-xs text-gray-500 truncate mb-2">{kpi.metric.name}</p>
+                        {kpi.target_value != null && (
+                          <p className="text-xs text-muted-foreground">
+                            Target: {kpi.target_value.toLocaleString()}
                           </p>
-                        </div>
-                        <div className="text-center">
-                          {metricTypeLabel && (
-                            <Badge className="text-[10px] bg-violet-100 text-violet-700 border-0 hover:bg-violet-100 px-1 py-0">
-                              {metricTypeLabel}
-                            </Badge>
-                          )}
-                          {isAlreadyAdded && (
-                            <p className="text-xs text-orange-600 font-medium mt-1">
-                              Already added
-                            </p>
-                          )}
-                        </div>
+                        )}
+                        {metricTypeLabel && (
+                          <Badge className="text-[10px] bg-violet-100 text-violet-700 border-0 hover:bg-violet-100 px-1 py-0 mt-2">
+                            {metricTypeLabel}
+                          </Badge>
+                        )}
+                        {isAlreadyAdded && (
+                          <p className="text-xs text-orange-600 font-medium mt-1">Already added</p>
+                        )}
                       </div>
                     );
                   })}

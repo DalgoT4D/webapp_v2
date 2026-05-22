@@ -12,6 +12,7 @@ import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { DashboardTab, DashboardTabsData } from '@/types/dashboard';
 import { initializeTabsData, getActiveTabData } from './tabs/tab-utils';
+import { TabBar } from './tabs/TabBar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -642,6 +643,7 @@ export function DashboardNativeView({
               commentStates={isReportMode ? commentStates : undefined}
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+              onClick={undefined}
             />
           </div>
         );

@@ -11,12 +11,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { X, Plus, Search, Library, Save, Loader2 } from 'lucide-react';
+import { X, Plus, Library, Save, Loader2 } from 'lucide-react';
 import type { ChartMetric } from '@/types/charts';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { Combobox, highlightText } from '@/components/ui/combobox';
-import { useMetrics, createMetric } from '@/hooks/api/useMetrics';
+import { useMetrics, createMetric, validateMetric } from '@/hooks/api/useMetrics';
 import type { Metric } from '@/types/metrics';
 import { toastSuccess, toastError } from '@/lib/toast';
 
@@ -50,11 +51,22 @@ export function MetricsSelector({
   schemaName,
   tableName,
 }: MetricsSelectorProps) {
-  const [activeTab, setActiveTab] = useState<string>('adhoc');
-  const [savedSearch, setSavedSearch] = useState('');
+  const [mode, setMode] = useState<'simple' | 'calculated'>('simple');
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
+  const [validating, setValidating] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Fetch saved metrics filtered by the chart's current dataset
+  // Simple mode state
+  const [simpleAgg, setSimpleAgg] = useState('count');
+  const [simpleCol, setSimpleCol] = useState('');
+
+  // Calculated mode state
+  const [exprText, setExprText] = useState('');
+
+  // Shared
+  const [metricName, setMetricName] = useState('');
+  const [displayName, setDisplayName] = useState('');
+
   const {
     data: savedMetrics,
     isLoading: savedMetricsLoading,
@@ -62,103 +74,128 @@ export function MetricsSelector({
   } = useMetrics({
     schemaName,
     tableName,
-    search: savedSearch || undefined,
     pageSize: 50,
   });
 
   const getLabels = () => {
     switch (chartType) {
       case 'pie':
-        return {
-          column: 'Dimension',
-          function: 'Metric',
-          alias: 'Display Name',
-        };
+        return { column: 'Dimension', function: 'Metric' };
       default:
-        return {
-          column: 'Column',
-          function: 'Function',
-          alias: 'Display Name',
-        };
+        return { column: 'Column', function: 'Function' };
     }
   };
 
   const labels = getLabels();
 
-  const addMetric = () => {
+  const addSavedMetric = (savedMetricId: string) => {
+    const sm = savedMetrics.find((m) => m.id.toString() === savedMetricId);
+    if (!sm) return;
     const newMetric: ChartMetric = {
-      column: null,
-      aggregation: 'count',
-      alias: '',
+      saved_metric_id: sm.id,
+      column: sm.column_expression ? null : sm.column,
+      aggregation: sm.column_expression ? null : sm.aggregation || 'count',
+      column_expression: sm.column_expression || undefined,
+      alias: sm.name,
     };
     onChange([...metrics, newMetric]);
   };
 
-  const addSavedMetric = (savedMetric: Metric) => {
-    const newMetric: ChartMetric = {
-      saved_metric_id: savedMetric.id,
-      column: savedMetric.column,
-      aggregation: savedMetric.aggregation || 'count',
-      column_expression: savedMetric.column_expression || undefined,
-      alias: savedMetric.name,
-    };
-    onChange([...metrics, newMetric]);
-  };
+  const addInlineMetric = async () => {
+    if (mode === 'simple') {
+      const newMetric: ChartMetric = {
+        column: simpleAgg === 'count' && !simpleCol ? null : simpleCol || null,
+        aggregation: simpleAgg,
+        alias: displayName || `${simpleAgg.toUpperCase()}(${simpleCol || '*'})`,
+      };
+      onChange([...metrics, newMetric]);
+      resetForm();
+    } else {
+      if (!exprText.trim() || !schemaName || !tableName) return;
 
-  const updateMetric = (index: number, updates: Partial<ChartMetric>) => {
-    const newMetrics = [...metrics];
-    newMetrics[index] = { ...newMetrics[index], ...updates };
-
-    if (!updates.alias && (updates.column !== undefined || updates.aggregation)) {
-      const metric = newMetrics[index];
-      if (metric.aggregation) {
-        if (metric.aggregation.toLowerCase() === 'count' && !metric.column) {
-          metric.alias = 'Total Count';
-        } else if (metric.column) {
-          metric.alias = `${metric.aggregation.toUpperCase()}(${metric.column})`;
+      // Validate expression against warehouse
+      setValidating(true);
+      setValidationError(null);
+      try {
+        const result = await validateMetric({
+          name: metricName || 'validation_check',
+          schema_name: schemaName,
+          table_name: tableName,
+          column_expression: exprText.trim(),
+        });
+        if (!result.valid) {
+          setValidationError(result.error || 'Invalid expression');
+          return;
         }
+      } catch (err: any) {
+        setValidationError(err.message || 'Validation failed');
+        return;
+      } finally {
+        setValidating(false);
       }
+
+      const newMetric: ChartMetric = {
+        column: null,
+        aggregation: null,
+        column_expression: exprText.trim(),
+        alias: displayName || exprText.trim().slice(0, 30),
+      };
+      onChange([...metrics, newMetric]);
+      resetForm();
     }
-
-    onChange(newMetrics);
   };
 
-  const removeMetric = (index: number) => {
-    onChange(metrics.filter((_, i) => i !== index));
-  };
-
-  // Save an ad-hoc metric directly to the library, then replace it with a saved reference
-  const handleSaveAsMetric = async (metric: ChartMetric, index: number) => {
-    if (!schemaName || !tableName || !metric.aggregation) return;
-
-    const name = metric.alias || `${metric.aggregation.toUpperCase()}(${metric.column || '*'})`;
-
-    setSavingIndex(index);
+  const handleSaveToLibrary = async () => {
+    if (!schemaName || !tableName || !metricName.trim()) return;
+    setSavingIndex(-1);
     try {
-      const saved = await createMetric({
-        name,
+      const payload: any = {
+        name: metricName.trim(),
         schema_name: schemaName,
         table_name: tableName,
-        column: metric.column || undefined,
-        aggregation: metric.aggregation,
-      });
-
-      // Replace the ad-hoc entry with a saved_metric_id reference
-      const newMetrics = [...metrics];
-      newMetrics[index] = {
-        saved_metric_id: saved.id,
-        column: saved.column,
-        aggregation: saved.aggregation || 'count',
-        alias: metric.alias || saved.name,
       };
-      onChange(newMetrics);
+      if (mode === 'simple') {
+        payload.aggregation = simpleAgg;
+        payload.column = simpleAgg === 'count' && !simpleCol ? undefined : simpleCol || undefined;
+      } else {
+        payload.column_expression = exprText.trim();
+      }
+
+      const saved = await createMetric(payload);
+      const newMetric: ChartMetric = {
+        saved_metric_id: saved.id,
+        column: saved.column_expression ? null : saved.column,
+        aggregation: saved.column_expression ? null : saved.aggregation || 'count',
+        column_expression: saved.column_expression || undefined,
+        alias: displayName || saved.name,
+      };
+      onChange([...metrics, newMetric]);
       mutateSavedMetrics();
+      resetForm();
       toastSuccess.generic(`Saved metric "${saved.name}"`);
     } catch (err: any) {
       toastError.save(err, 'metric');
     } finally {
       setSavingIndex(null);
     }
+  };
+
+  const resetForm = () => {
+    setSimpleAgg('count');
+    setSimpleCol('');
+    setExprText('');
+    setMetricName('');
+    setDisplayName('');
+  };
+
+  const removeMetric = (index: number) => {
+    onChange(metrics.filter((_, i) => i !== index));
+  };
+
+  const updateMetricAlias = (index: number, alias: string) => {
+    const newMetrics = [...metrics];
+    newMetrics[index] = { ...newMetrics[index], alias };
+    onChange(newMetrics);
   };
 
   const getAvailableColumns = (aggregation: string) => {
@@ -169,12 +206,9 @@ export function MetricsSelector({
       }));
     }
     if (aggregation === 'count_distinct') {
-      return columns.map((col) => ({
-        ...col,
-        disabled: false,
-      }));
+      return columns.map((col) => ({ ...col, disabled: false }));
     }
-    return [...columns].map((col) => ({
+    return columns.map((col) => ({
       ...col,
       disabled: ![
         'integer',
@@ -189,256 +223,270 @@ export function MetricsSelector({
   };
 
   const canAddMore = !maxMetrics || metrics.length < maxMetrics;
+  const canAddInline = !!metricName.trim() && (mode === 'simple' ? !!simpleAgg : !!exprText.trim());
 
   const isSavedMetricAdded = (id: number) => metrics.some((m) => m.saved_metric_id === id);
 
-  // Render a saved metric row — with editable alias
-  const renderSavedMetricRow = (metric: ChartMetric, index: number) => (
-    <div key={index} className="space-y-2 p-3 border rounded-lg bg-blue-50/50">
-      <div className="flex items-center gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <Library className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
-            <span className="text-xs text-blue-600 font-medium">Saved Metric</span>
-          </div>
-          {metric.column_expression ? (
-            <code className="text-xs text-muted-foreground">{metric.column_expression}</code>
-          ) : (
-            <span className="text-xs text-muted-foreground">
-              {(metric.aggregation || '').toUpperCase()}({metric.column || '*'})
-            </span>
-          )}
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
-          onClick={() => removeMetric(index)}
-          disabled={disabled}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-      {/* Editable alias for saved metric */}
-      <div className="space-y-1">
-        <Label className="text-xs text-gray-600">Display Name</Label>
-        <Input
-          type="text"
-          placeholder="Override display name"
-          value={metric.alias || ''}
-          onChange={(e) => updateMetric(index, { alias: e.target.value })}
-          disabled={disabled}
-          className="h-8 text-sm"
-        />
-      </div>
-    </div>
-  );
+  return (
+    <div className="space-y-3">
+      <Label className="text-sm font-medium text-gray-900">Metrics</Label>
 
-  // Render an ad-hoc metric row — with "Save as Metric" action
-  const renderAdHocMetricRow = (metric: ChartMetric, index: number) => (
-    <div key={index} className="space-y-2 p-3 border rounded-lg bg-white">
-      <div className="flex items-center gap-2">
-        <div className="flex-1 grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label className="text-xs text-gray-600">{labels.function}</Label>
-            <Select
-              value={metric.aggregation}
-              onValueChange={(value) => {
-                const updates: Partial<ChartMetric> = { aggregation: value };
-                if (value === 'count') {
-                  updates.column = null;
-                } else {
-                  const availableColumns = getAvailableColumns(value);
-                  const firstValidColumn = availableColumns.find((col) => !col.disabled);
-                  if (firstValidColumn) {
-                    updates.column = firstValidColumn.column_name;
-                  } else {
-                    updates.column = '';
-                  }
-                }
-                updateMetric(index, updates);
-              }}
-              disabled={disabled}
+      {/* Existing metrics */}
+      {metrics.length > 0 && (
+        <div className="space-y-2">
+          {metrics.map((metric, index) => (
+            <div
+              key={index}
+              className="flex items-center gap-2 p-2 border rounded-lg bg-gray-50/50"
             >
-              <SelectTrigger className="h-8">
-                <SelectValue placeholder="Function" />
+              <div className="flex-1 min-w-0">
+                {metric.saved_metric_id && (
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <Library className="h-3 w-3 text-blue-600" />
+                    <span className="text-xs text-blue-600 font-medium">Saved</span>
+                  </div>
+                )}
+                <div className="text-sm font-medium truncate">{metric.alias || 'Untitled'}</div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {metric.column_expression
+                    ? metric.column_expression.slice(0, 40)
+                    : `${(metric.aggregation || '').toUpperCase()}(${metric.column || '*'})`}
+                </div>
+              </div>
+              <div className="flex items-center gap-0.5 shrink-0">
+                {!metric.saved_metric_id && schemaName && tableName && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600"
+                    title="Save to Metrics library"
+                    disabled={disabled || savingIndex === index}
+                    onClick={async () => {
+                      setSavingIndex(index);
+                      try {
+                        const name =
+                          metric.alias ||
+                          `${(metric.aggregation || '').toUpperCase()}(${metric.column || '*'})`;
+                        const payload: any = {
+                          name,
+                          schema_name: schemaName,
+                          table_name: tableName,
+                        };
+                        if (metric.column_expression) {
+                          payload.column_expression = metric.column_expression;
+                        } else {
+                          payload.aggregation = metric.aggregation;
+                          payload.column = metric.column || undefined;
+                        }
+                        const saved = await createMetric(payload);
+                        const newMetrics = [...metrics];
+                        newMetrics[index] = {
+                          ...newMetrics[index],
+                          saved_metric_id: saved.id,
+                        };
+                        onChange(newMetrics);
+                        mutateSavedMetrics();
+                        toastSuccess.generic(`Saved "${saved.name}"`);
+                      } catch (err: any) {
+                        toastError.save(err, 'metric');
+                      } finally {
+                        setSavingIndex(null);
+                      }
+                    }}
+                  >
+                    {savingIndex === index ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
+                  onClick={() => removeMetric(index)}
+                  disabled={disabled}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add metric form */}
+      {canAddMore && (
+        <div className="border rounded-lg p-3 space-y-3">
+          {/* Pick from library */}
+          <div className="space-y-1">
+            <Label className="text-xs font-medium">Defined Metrics</Label>
+            <Select
+              onValueChange={(v) => {
+                if (v !== '__none__') addSavedMetric(v);
+              }}
+              value="__none__"
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Select a metric from pre-defined list" />
               </SelectTrigger>
               <SelectContent>
-                {AGGREGATE_FUNCTIONS.map((func) => (
-                  <SelectItem key={func.value} value={func.value}>
-                    {func.label}
-                  </SelectItem>
-                ))}
+                <SelectItem value="__none__" disabled className="hidden">
+                  Select a metric from pre-defined list
+                </SelectItem>
+                {savedMetrics
+                  .filter((sm) => !isSavedMetricAdded(sm.id))
+                  .map((sm) => (
+                    <SelectItem key={sm.id} value={sm.id.toString()}>
+                      <div className="flex flex-col">
+                        <span>{sm.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {sm.column_expression
+                            ? sm.column_expression.slice(0, 40)
+                            : `${(sm.aggregation || '').toUpperCase()}(${sm.column || '*'})`}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs text-gray-600">{labels.column}</Label>
-            <Combobox
-              items={getAvailableColumns(metric.aggregation).map((col) => ({
-                value: col.column_name,
-                label: col.column_name === '*' ? '* (Count all rows)' : col.column_name,
-                data_type: col.data_type,
-                disabled: col.disabled,
-              }))}
-              value={
-                metric.aggregation?.toLowerCase() === 'count' && !metric.column
-                  ? '*'
-                  : metric.column || ''
-              }
-              onValueChange={(value) =>
-                updateMetric(index, { column: value === '*' ? null : value })
-              }
-              disabled={disabled || !metric.aggregation}
-              searchPlaceholder="Search columns..."
-              placeholder={metric.aggregation ? 'Select column' : 'Select function first'}
-              compact
-              renderItem={(item, _isSelected, searchQuery) => (
-                <div className="flex items-center gap-2 min-w-0">
-                  {item.value !== '*' && (
-                    <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
-                  )}
-                  <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+          {/* Simple / Calculated tabs */}
+          <Tabs value={mode} onValueChange={(v) => setMode(v as 'simple' | 'calculated')}>
+            <TabsList className="w-full h-8">
+              <TabsTrigger value="simple" className="flex-1 text-xs">
+                Simple
+              </TabsTrigger>
+              <TabsTrigger value="calculated" className="flex-1 text-xs">
+                Calculated
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="simple" className="mt-2 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-600">{labels.function} *</Label>
+                  <Select value={simpleAgg} onValueChange={setSimpleAgg} disabled={disabled}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AGGREGATE_FUNCTIONS.map((func) => (
+                        <SelectItem key={func.value} value={func.value}>
+                          {func.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
-            />
-          </div>
-        </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-600">{labels.column} *</Label>
+                  <Combobox
+                    items={getAvailableColumns(simpleAgg).map((col) => ({
+                      value: col.column_name,
+                      label: col.column_name === '*' ? '* (Count all rows)' : col.column_name,
+                      data_type: col.data_type,
+                      disabled: col.disabled,
+                    }))}
+                    value={simpleAgg === 'count' && !simpleCol ? '*' : simpleCol}
+                    onValueChange={(value) => setSimpleCol(value === '*' ? '' : value)}
+                    disabled={disabled}
+                    searchPlaceholder="Search columns..."
+                    placeholder="Select column"
+                    compact
+                    renderItem={(item, _isSelected, searchQuery) => (
+                      <div className="flex items-center gap-2 min-w-0">
+                        {item.value !== '*' && (
+                          <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
+                        )}
+                        <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+                      </div>
+                    )}
+                  />
+                </div>
+              </div>
+            </TabsContent>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
-          onClick={() => removeMetric(index)}
-          disabled={disabled}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
+            <TabsContent value="calculated" className="mt-2 space-y-2">
+              <div className="space-y-1">
+                <Label className="text-xs text-gray-600">Expression *</Label>
+                <Textarea
+                  value={exprText}
+                  onChange={(e) => {
+                    setExprText(e.target.value);
+                    setValidationError(null);
+                  }}
+                  placeholder="Add an expression eg. SUM(column_name)/10"
+                  rows={2}
+                  className="font-mono text-sm"
+                  disabled={disabled}
+                />
+                {validating && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Validating expression...</span>
+                  </div>
+                )}
+                {validationError && <p className="text-xs text-destructive">{validationError}</p>}
+              </div>
+            </TabsContent>
+          </Tabs>
 
-      <div className="flex items-end gap-2">
-        <div className="flex-1 space-y-1">
-          <Label className="text-xs text-gray-600">{labels.alias}</Label>
-          <Input
-            type="text"
-            placeholder="Auto-generated display name"
-            value={metric.alias || ''}
-            onChange={(e) => updateMetric(index, { alias: e.target.value })}
-            disabled={disabled}
-            className="h-8 text-sm"
-          />
-        </div>
-        {/* Save as Metric button */}
-        {schemaName && tableName && metric.aggregation && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 text-xs text-muted-foreground hover:text-blue-600"
-            onClick={() => handleSaveAsMetric(metric, index)}
-            disabled={disabled || savingIndex === index}
-            title="Save to Metrics library"
-          >
-            {savingIndex === index ? (
-              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5 mr-1" />
-            )}
-            Save
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderMetricRow = (metric: ChartMetric, index: number) => {
-    if (metric.saved_metric_id) {
-      return renderSavedMetricRow(metric, index);
-    }
-    return renderAdHocMetricRow(metric, index);
-  };
-
-  return (
-    <div className="space-y-2">
-      <Label className="text-sm font-medium text-gray-900">Metrics</Label>
-
-      {/* Existing metrics list */}
-      {metrics.length > 0 && (
-        <div className="space-y-3">
-          {metrics.map((metric, index) => renderMetricRow(metric, index))}
-        </div>
-      )}
-
-      {/* Add metric area with tabs */}
-      {canAddMore && (
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full h-8">
-            <TabsTrigger value="adhoc" className="flex-1 text-xs">
-              Ad-hoc
-            </TabsTrigger>
-            <TabsTrigger value="saved" className="flex-1 text-xs">
-              Saved Metrics
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="adhoc" className="mt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={addMetric}
-              disabled={disabled}
-              className="w-full h-8 border-dashed text-sm bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              {maxMetrics === 1 ? 'Add Metric' : 'Add Another Metric'}
-            </Button>
-          </TabsContent>
-
-          <TabsContent value="saved" className="mt-2 space-y-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          {/* Name + Save */}
+          <div className="flex items-end gap-2">
+            <div className="flex-1 space-y-1">
+              <Label className="text-xs text-gray-600">Name Metric *</Label>
               <Input
-                placeholder="Search saved metrics..."
-                value={savedSearch}
-                onChange={(e) => setSavedSearch(e.target.value)}
-                className="h-8 pl-8 text-sm"
+                value={metricName}
+                onChange={(e) => setMetricName(e.target.value)}
+                placeholder="Give a unique name"
+                className="h-8 text-sm"
+                disabled={disabled}
               />
             </div>
+            {schemaName && tableName && (
+              <Button
+                size="sm"
+                onClick={handleSaveToLibrary}
+                disabled={disabled || !metricName.trim() || !canAddInline || savingIndex === -1}
+                className="h-8 text-xs bg-gray-900 text-white hover:bg-gray-700"
+              >
+                {savingIndex === -1 ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5 mr-1" />
+                )}
+                SAVE METRIC
+              </Button>
+            )}
+          </div>
 
-            <div className="max-h-48 overflow-y-auto space-y-1 border rounded-lg p-1">
-              {savedMetricsLoading ? (
-                <p className="text-xs text-muted-foreground text-center py-4">Loading...</p>
-              ) : savedMetrics.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">
-                  {savedSearch ? 'No saved metrics match' : 'No saved metrics for this dataset'}
-                </p>
-              ) : (
-                savedMetrics.map((sm) => {
-                  const alreadyAdded = isSavedMetricAdded(sm.id);
-                  return (
-                    <button
-                      key={sm.id}
-                      onClick={() => !alreadyAdded && addSavedMetric(sm)}
-                      disabled={disabled || alreadyAdded}
-                      className={`w-full text-left p-2 rounded text-sm hover:bg-muted/50 transition-colors ${
-                        alreadyAdded ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                      }`}
-                    >
-                      <div className="font-medium">{sm.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {sm.column_expression
-                          ? sm.column_expression.length > 50
-                            ? sm.column_expression.slice(0, 50) + '...'
-                            : sm.column_expression
-                          : `${(sm.aggregation || '').toUpperCase()}(${sm.column || '*'})`}
-                      </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
+          {/* Display Name */}
+          <div className="space-y-1">
+            <Label className="text-xs text-gray-600">Display Name</Label>
+            <Input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Override display name on chart"
+              className="h-8 text-sm"
+              disabled={disabled}
+            />
+          </div>
+
+          {/* Add button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={addInlineMetric}
+            disabled={disabled || !canAddInline || validating}
+            className="w-full h-8 text-xs border-dashed"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            ADD ANOTHER METRIC
+          </Button>
+        </div>
       )}
     </div>
   );
