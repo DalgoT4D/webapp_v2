@@ -1,16 +1,26 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import * as echarts from 'echarts';
+import { format as formatDate } from 'date-fns';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Pencil, X } from 'lucide-react';
+import { DurationPicker } from '@/components/ui/duration-picker';
 import { useKPIData } from '@/hooks/api/useKPIs';
 import type { KPI } from '@/types/kpis';
 import type { RAGStatus } from '@/types/kpis';
-import { RAG_COLORS } from '@/types/kpis';
+import { RAG_COLORS, TIME_GRAIN_OPTIONS } from '@/types/kpis';
+import { cn } from '@/lib/utils';
 
 interface KPIDetailDrawerProps {
   kpi: KPI | null;
@@ -54,7 +64,7 @@ function TrendChart({ config, height = 'h-64' }: { config: Record<string, any>; 
   return <div ref={chartRef} className={`${height} w-full`} />;
 }
 
-function formatValue(value: number | null | undefined): string {
+function fmtValue(value: number | null | undefined): string {
   if (value === null || value === undefined) return '\u2014';
   if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (Math.abs(value) >= 1_000)
@@ -69,7 +79,30 @@ export function KPIDetailDrawer({
   onEdit,
   onDelete,
 }: KPIDetailDrawerProps) {
-  const { chartData, echartsConfig, isLoading } = useKPIData(open && kpi ? kpi.id : null);
+  const [timeGrain, setTimeGrain] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+
+  // Reset filters when KPI changes
+  useEffect(() => {
+    if (kpi) {
+      setTimeGrain(kpi.time_grain);
+      setDateFrom(undefined);
+      setDateTo(undefined);
+    }
+  }, [kpi?.id]);
+
+  const activeTimeGrain = timeGrain || kpi?.time_grain || '';
+
+  const { chartData, echartsConfig, isLoading } = useKPIData(
+    open && kpi ? kpi.id : null,
+    undefined,
+    {
+      timeGrain: activeTimeGrain !== kpi?.time_grain ? activeTimeGrain : undefined,
+      dateFrom: dateFrom ? formatDate(dateFrom, 'yyyy-MM-dd') : undefined,
+      dateTo: dateTo ? formatDate(dateTo, 'yyyy-MM-dd') : undefined,
+    }
+  );
 
   if (!kpi) return null;
 
@@ -91,20 +124,12 @@ export function KPIDetailDrawer({
     ((kpi.direction === 'increase' && popChange > 0) ||
       (kpi.direction === 'decrease' && popChange < 0));
 
-  const timeGrainLabel: Record<string, string> = {
+  const grainLabel: Record<string, string> = {
     daily: 'day',
     weekly: 'week',
     monthly: 'month',
     quarterly: 'quarter',
     yearly: 'year',
-  };
-
-  const timeGrainDisplay: Record<string, string> = {
-    daily: 'Daily',
-    weekly: 'Weekly',
-    monthly: 'Monthly',
-    quarterly: 'Quarterly',
-    yearly: 'Yearly',
   };
 
   return (
@@ -146,10 +171,10 @@ export function KPIDetailDrawer({
                 <Skeleton className="h-12 w-32" />
               ) : (
                 <>
-                  <p className="text-4xl font-bold text-gray-900">{formatValue(currentValue)}</p>
+                  <p className="text-4xl font-bold text-gray-900">{fmtValue(currentValue)}</p>
                   {kpi.target_value !== null && (
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      Target: {formatValue(kpi.target_value)}
+                      Target: {fmtValue(kpi.target_value)}
                     </p>
                   )}
                   {popChange !== null && (
@@ -159,16 +184,35 @@ export function KPIDetailDrawer({
                       }`}
                     >
                       {popChange > 0 ? '\u2191' : '\u2193'} {popChange > 0 ? '+' : ''}
-                      {popChange.toFixed(1)}% from last {timeGrainLabel[kpi.time_grain] || 'period'}
+                      {popChange.toFixed(1)}% from last {grainLabel[activeTimeGrain] || 'period'}
                     </p>
                   )}
                 </>
               )}
             </div>
             <div className="flex flex-col items-end gap-2">
-              <span className="text-sm border rounded-md px-3 py-1 text-gray-700">
-                {timeGrainDisplay[kpi.time_grain] || kpi.time_grain}
-              </span>
+              <div className="flex items-center gap-2">
+                <DurationPicker
+                  dateFrom={dateFrom}
+                  dateTo={dateTo}
+                  onApply={(from, to) => {
+                    setDateFrom(from);
+                    setDateTo(to);
+                  }}
+                />
+                <Select value={activeTimeGrain} onValueChange={setTimeGrain}>
+                  <SelectTrigger className="w-28 h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIME_GRAIN_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {ragInfo && (
                 <Badge
                   variant="outline"
@@ -182,7 +226,7 @@ export function KPIDetailDrawer({
           </div>
         </div>
 
-        {/* Chart — full width */}
+        {/* Chart */}
         <div className="px-4 pb-2">
           {isLoading ? (
             <Skeleton className="h-56 w-full" />
@@ -194,7 +238,7 @@ export function KPIDetailDrawer({
         {/* Divider */}
         <div className="mx-6 border-t" />
 
-        {/* Notes section placeholder — M7 will fill this */}
+        {/* Notes section placeholder */}
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div>

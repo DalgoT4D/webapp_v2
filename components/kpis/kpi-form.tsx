@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Plus, Search, Download, Upload, Target, Hammer } from 'lucide-react';
+import { Loader2, Plus, Download, Upload, Target, Hammer } from 'lucide-react';
 import { Combobox } from '@/components/ui/combobox';
 import { useMetrics } from '@/hooks/api/useMetrics';
 import { useTableColumns } from '@/hooks/api/useWarehouse';
@@ -61,10 +61,10 @@ interface KPIFormProps {
 export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricId }: KPIFormProps) {
   const isEdit = !!kpi;
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  // Step 1 = metric + target + direction, Step 2 = RAG + time + classification
+  const [step, setStep] = useState<1 | 2>(1);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [metricSearch, setMetricSearch] = useState('');
 
   const {
     register,
@@ -97,10 +97,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
   const amberThreshold = watch('amber_threshold_pct');
   const metricTypeTag = watch('metric_type_tag');
 
-  const { data: metrics, mutate: mutateMetrics } = useMetrics({
-    search: metricSearch || undefined,
-    pageSize: 50,
-  });
+  const { data: metrics, mutate: mutateMetrics } = useMetrics({ pageSize: 50 });
 
   const selectedMetric = metrics.find((m) => m.id === metricId);
 
@@ -114,12 +111,11 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
     return tableColumns.filter((col) => DATE_TYPES.includes((col.data_type || '').toLowerCase()));
   }, [tableColumns]);
 
-  // Initialize form when dialog opens
   useEffect(() => {
     if (open) {
       mutateMetrics();
       if (kpi) {
-        setStep(3);
+        setStep(2); // Edit: show full form
         reset({
           metric_id: kpi.metric.id,
           name: kpi.name,
@@ -133,7 +129,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           program_tags_input: kpi.program_tags.join(', '),
         });
       } else {
-        setStep(preselectedMetricId ? 2 : 1);
+        setStep(1);
         reset({
           metric_id: preselectedMetricId || null,
           name: '',
@@ -148,14 +144,15 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
         });
       }
       setSaveError(null);
-      setMetricSearch('');
     }
   }, [open, kpi, preselectedMetricId, reset, mutateMetrics]);
 
-  const handleSelectMetric = (m: { id: number; name: string }) => {
+  const handleSelectMetric = (id: number) => {
+    const m = metrics.find((m) => m.id === id);
+    if (!m) return;
     const currentName = watch('name');
-    const metricChanged = metricId !== null && metricId !== m.id;
-    setValue('metric_id', m.id);
+    const metricChanged = metricId !== null && metricId !== id;
+    setValue('metric_id', id);
     if (!currentName || metricChanged) setValue('name', m.name);
     if (metricChanged) {
       setValue('time_dimension_column', '');
@@ -164,12 +161,12 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
   };
 
   const handleContinue = () => {
-    if (step === 1 && !metricId) {
+    if (!metricId) {
       setSaveError('Please select a metric');
       return;
     }
     setSaveError(null);
-    setStep((s) => Math.min(s + 1, 3) as 1 | 2 | 3);
+    setStep(2);
   };
 
   const onSubmit = async (data: KPIFormData) => {
@@ -220,10 +217,16 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
     }
   };
 
-  // Concrete threshold examples
   const targetNum = targetValue ? parseFloat(targetValue) : null;
   const greenVal = targetNum ? (targetNum * parseFloat(greenThreshold)) / 100 : null;
   const amberVal = targetNum ? (targetNum * parseFloat(amberThreshold)) / 100 : null;
+
+  const typeIcons: Record<string, React.ReactNode> = {
+    input: <Download className="h-4 w-4" />,
+    output: <Upload className="h-4 w-4" />,
+    outcome: <Target className="h-4 w-4" />,
+    impact: <Hammer className="h-4 w-4" />,
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -233,184 +236,141 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
-          {/* ── Section 1: Select Metric ─────────────────────────────── */}
+          {/* ── Section 1: Metric + Target + Direction ──────────────── */}
 
-          {step === 1 ? (
-            <>
-              <Label>
-                Select metric <span className="text-destructive">*</span>
-              </Label>
-
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+          {/* Metric selector */}
+          <div className="space-y-1">
+            <Label>
+              Select metric <span className="text-destructive">*</span>
+            </Label>
+            <Controller
+              control={control}
+              name="metric_id"
+              rules={{ required: 'Metric is required' }}
+              render={({ field }) => (
+                <Combobox
+                  items={metrics.map((m) => ({
+                    value: m.id.toString(),
+                    label: m.name,
+                    data_type: `${m.schema_name}.${m.table_name}${m.description ? ' · ' + m.description : ''}`,
+                    disabled: false,
+                  }))}
+                  value={field.value?.toString() || ''}
+                  onValueChange={(v) => handleSelectMetric(parseInt(v))}
                   placeholder="Search from your Metrics Library"
-                  value={metricSearch}
-                  onChange={(e) => setMetricSearch(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-
-              <div className="max-h-64 overflow-y-auto border rounded-lg">
-                {metrics.map((m) => (
-                  <button
-                    type="button"
-                    key={m.id}
-                    onClick={() => handleSelectMetric(m)}
-                    className={cn(
-                      'w-full text-left px-3 py-2 text-sm transition-colors flex items-center justify-between border-b last:border-b-0',
-                      metricId === m.id ? 'bg-green-50 border-l-2' : 'hover:bg-muted/50'
-                    )}
-                    style={metricId === m.id ? { borderLeftColor: 'var(--primary)' } : undefined}
-                  >
-                    <div className="min-w-0">
-                      <div className="font-medium text-foreground">{m.name}</div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {m.schema_name}.{m.table_name}
-                        {m.description && ` · ${m.description}`}
+                  searchPlaceholder="Search metrics..."
+                  renderItem={(item) => {
+                    const metric = metrics.find((m) => m.id.toString() === item.value);
+                    return (
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <div className="min-w-0">
+                          <div className="font-medium">{item.label}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {item.data_type}
+                          </div>
+                        </div>
+                        <span
+                          className={cn(
+                            'shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border',
+                            metric?.column_expression
+                              ? 'bg-green-50 text-green-700 border-green-200'
+                              : 'bg-gray-50 text-gray-600 border-gray-200'
+                          )}
+                        >
+                          {metric?.column_expression ? 'Calculated' : 'Simple'}
+                        </span>
                       </div>
-                    </div>
-                    <span
-                      className={cn(
-                        'shrink-0 ml-3 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border',
-                        m.column_expression
-                          ? 'bg-green-50 text-green-700 border-green-200'
-                          : 'bg-gray-50 text-gray-600 border-gray-200'
-                      )}
+                    );
+                  }}
+                  footer={
+                    <a
+                      href="/metrics?create=true"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1.5 w-full py-1 text-sm font-medium"
+                      style={{ color: 'var(--primary)' }}
                     >
-                      {m.column_expression ? 'Calculated' : 'Simple'}
-                    </span>
-                  </button>
-                ))}
-                {metrics.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-6">
-                    {metricSearch ? 'No metrics match your search' : 'No metrics yet'}
-                  </p>
-                )}
-              </div>
-
-              <a
-                href="/metrics?create=true"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 w-full border rounded-md py-2.5 text-sm font-medium transition-colors"
-                style={{ color: 'var(--primary)', borderColor: 'var(--primary)' }}
-              >
-                <Plus className="h-4 w-4" />
-                CREATE A NEW METRIC
-              </a>
-            </>
-          ) : (
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Select metric *</Label>
-              <Controller
-                control={control}
-                name="metric_id"
-                rules={{ required: 'Metric is required' }}
-                render={({ field }) => (
-                  <Combobox
-                    items={metrics.map((m) => ({
-                      value: m.id.toString(),
-                      label: m.name,
-                      data_type: `${m.schema_name}.${m.table_name}`,
-                    }))}
-                    value={field.value?.toString() || ''}
-                    onValueChange={(v) =>
-                      handleSelectMetric(metrics.find((m) => m.id === parseInt(v))!)
-                    }
-                    placeholder="Select a metric"
-                    searchPlaceholder="Search metrics..."
-                    renderItem={(item) => (
-                      <div className="flex flex-col">
-                        <span className="font-medium">{item.label}</span>
-                        <span className="text-xs text-muted-foreground">{item.data_type}</span>
-                      </div>
-                    )}
-                  />
-                )}
-              />
-              {errors.metric_id && (
-                <p className="text-xs text-destructive">{errors.metric_id.message}</p>
+                      <Plus className="h-3.5 w-3.5" />
+                      CREATE A NEW METRIC
+                    </a>
+                  }
+                />
               )}
-            </div>
-          )}
+            />
+            {errors.metric_id && (
+              <p className="text-xs text-destructive">{errors.metric_id.message}</p>
+            )}
+          </div>
 
-          {/* ── Section 2: KPI Target & Direction ────────────────────── */}
+          {/* Name */}
+          <div className="space-y-1">
+            <Label>
+              Name this KPI <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              {...register('name', { required: 'KPI name is required' })}
+              placeholder="Choose a unique KPI name"
+            />
+            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+          </div>
+
+          {/* Target + Direction */}
+          <div className="space-y-1">
+            <Label>
+              Target Value <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              type="number"
+              {...register('target_value', { required: 'Target value is required' })}
+              placeholder="What is the desired value of this indicator"
+            />
+            {errors.target_value && (
+              <p className="text-xs text-destructive">{errors.target_value.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <Label>
+              Direction <span className="text-destructive">*</span>
+            </Label>
+            <Controller
+              control={control}
+              name="direction"
+              rules={{ required: 'Direction is required' }}
+              render={({ field }) => (
+                <Select
+                  value={field.value}
+                  onValueChange={(v) => {
+                    field.onChange(v);
+                    if (v === 'increase') {
+                      setValue('green_threshold_pct', '100');
+                      setValue('amber_threshold_pct', '80');
+                    } else {
+                      setValue('green_threshold_pct', '100');
+                      setValue('amber_threshold_pct', '120');
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DIRECTION_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            <p className="text-xs text-muted-foreground">
+              Should this indicator increase or decrease to meet the target
+            </p>
+          </div>
+
+          {/* ── Section 2: RAG + Time + Classification ──────────────── */}
           {step >= 2 && (
-            <>
-              <p className="text-sm text-muted-foreground font-medium mt-6 mb-1">
-                KPI Target &amp; Direction
-              </p>
-
-              <div className="space-y-1">
-                <Label>
-                  Name this KPI <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  {...register('name', { required: 'KPI name is required' })}
-                  placeholder="Choose a unique KPI name"
-                />
-                {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
-              </div>
-
-              <div className="space-y-1">
-                <Label>
-                  Target Value <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="number"
-                  {...register('target_value', { required: 'Target value is required' })}
-                  placeholder="What is the desired value of this indicator"
-                />
-                {errors.target_value && (
-                  <p className="text-xs text-destructive">{errors.target_value.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-1">
-                <Label>
-                  Direction <span className="text-destructive">*</span>
-                </Label>
-                <Controller
-                  control={control}
-                  name="direction"
-                  rules={{ required: 'Direction is required' }}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={(v) => {
-                        field.onChange(v);
-                        if (v === 'increase') {
-                          setValue('green_threshold_pct', '100');
-                          setValue('amber_threshold_pct', '80');
-                        } else {
-                          setValue('green_threshold_pct', '100');
-                          setValue('amber_threshold_pct', '120');
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DIRECTION_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Should this indicator increase or decrease to meet the target
-                </p>
-              </div>
-            </>
-          )}
-
-          {/* ── Section 3: RAG + Time Config + Classification ─────────── */}
-          {step >= 3 && (
             <>
               {/* RAG Thresholds */}
               {targetValue && (
@@ -563,44 +523,31 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                 <Controller
                   control={control}
                   name="metric_type_tag"
-                  render={({ field }) => {
-                    const typeIcons: Record<string, React.ReactNode> = {
-                      input: <Download className="h-4 w-4" />,
-                      output: <Upload className="h-4 w-4" />,
-                      outcome: <Target className="h-4 w-4" />,
-                      impact: <Hammer className="h-4 w-4" />,
-                    };
-                    return (
-                      <div className="grid grid-cols-4 gap-2">
-                        {METRIC_TYPE_TAG_OPTIONS.map((opt) => (
-                          <button
-                            type="button"
-                            key={opt.value}
-                            onClick={() =>
-                              field.onChange(field.value === opt.value ? '' : opt.value)
-                            }
-                            className={cn(
-                              'flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-medium uppercase transition-colors',
-                              field.value === opt.value
-                                ? 'text-white'
-                                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                            )}
-                            style={
-                              field.value === opt.value
-                                ? {
-                                    backgroundColor: 'var(--primary)',
-                                    borderColor: 'var(--primary)',
-                                  }
-                                : undefined
-                            }
-                          >
-                            {typeIcons[opt.value]}
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  }}
+                  render={({ field }) => (
+                    <div className="grid grid-cols-4 gap-2">
+                      {METRIC_TYPE_TAG_OPTIONS.map((opt) => (
+                        <button
+                          type="button"
+                          key={opt.value}
+                          onClick={() => field.onChange(field.value === opt.value ? '' : opt.value)}
+                          className={cn(
+                            'flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-medium uppercase transition-colors',
+                            field.value === opt.value
+                              ? 'text-white'
+                              : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                          )}
+                          style={
+                            field.value === opt.value
+                              ? { backgroundColor: 'var(--primary)', borderColor: 'var(--primary)' }
+                              : undefined
+                          }
+                        >
+                          {typeIcons[opt.value]}
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 />
               </div>
             </>
@@ -613,8 +560,8 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             CANCEL
           </Button>
-          {step < 3 ? (
-            <Button type="button" onClick={handleContinue} disabled={step === 1 && !metricId}>
+          {step < 2 ? (
+            <Button type="button" onClick={handleContinue} disabled={!metricId}>
               Continue
             </Button>
           ) : (

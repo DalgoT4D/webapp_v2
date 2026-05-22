@@ -28,6 +28,7 @@ interface ComboboxBaseProps {
   className?: string;
   id?: string;
   renderItem?: (item: ComboboxItem, isSelected: boolean, searchQuery: string) => React.ReactNode;
+  footer?: React.ReactNode;
 }
 
 interface SingleComboboxProps extends ComboboxBaseProps {
@@ -244,6 +245,7 @@ function SingleComboboxInner({
   autoFocus = false,
   compact = false,
   renderItem,
+  footer,
 }: SingleComboboxProps) {
   const [open, setOpen] = React.useState(autoFocus);
   const [search, setSearch] = React.useState('');
@@ -464,6 +466,7 @@ function SingleComboboxInner({
             })
           )}
         </div>
+        {footer && <div className="border-t px-3 py-2">{footer}</div>}
       </PopoverContent>
     </Popover>
   );

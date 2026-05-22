@@ -47,14 +47,24 @@ export function useKPI(id: number | null) {
   };
 }
 
-export function useKPIData(id: number | null, snapshotId?: number) {
-  // In report mode, use the report endpoint (applies frozen filters)
-  // In live mode, use the KPI endpoint directly
-  const url = id
-    ? snapshotId
-      ? `/api/reports/${snapshotId}/kpis/${id}/data/`
-      : `/api/kpis/${id}/data/`
-    : null;
+export function useKPIData(
+  id: number | null,
+  snapshotId?: number,
+  options?: { timeGrain?: string; dateFrom?: string; dateTo?: string }
+) {
+  let url: string | null = null;
+  if (id) {
+    if (snapshotId) {
+      url = `/api/reports/${snapshotId}/kpis/${id}/data/`;
+    } else {
+      const params = new URLSearchParams();
+      if (options?.timeGrain) params.append('time_grain', options.timeGrain);
+      if (options?.dateFrom) params.append('date_from', options.dateFrom);
+      if (options?.dateTo) params.append('date_to', options.dateTo);
+      const qs = params.toString();
+      url = `/api/kpis/${id}/data/${qs ? `?${qs}` : ''}`;
+    }
+  }
 
   const { data, error } = useSWR<ChartDataResponse>(url, apiGet);
 
