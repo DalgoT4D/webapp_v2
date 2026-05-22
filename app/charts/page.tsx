@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Plus,
   BarChart2,
@@ -119,17 +119,11 @@ export default function ChartsPage() {
   const {
     data: allCharts,
     total: apiTotal,
-    page: apiPage,
-    pageSize: apiPageSize,
     totalPages: apiTotalPages,
     isLoading,
     isError,
     mutate,
-  } = useCharts({
-    page: currentPage,
-    pageSize,
-    // Remove search and chartType - we'll handle filtering client-side
-  });
+  } = useCharts({ page: currentPage, pageSize });
   const { trigger: deleteChart } = useDeleteChart();
   const { trigger: bulkDeleteCharts } = useBulkDeleteCharts();
   const { trigger: createChart } = useCreateChart();
@@ -932,12 +926,25 @@ export default function ChartsPage() {
     );
   };
 
-  // Calculate pagination for filtered results
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedCharts = filteredAndSortedCharts.slice(startIndex, endIndex);
-  const total = filteredAndSortedCharts.length;
-  const totalPages = Math.ceil(filteredAndSortedCharts.length / pageSize);
+  // Reset to page 1 whenever filters or sort changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    nameFilters.text,
+    nameFilters.showFavorites,
+    dataSourceFilters,
+    chartTypeFilters,
+    dateFilters.range,
+    dateFilters.customStart,
+    dateFilters.customEnd,
+    sortBy,
+    sortOrder,
+  ]);
+
+  // Server handles pagination; use its values for display
+  const paginatedCharts = filteredAndSortedCharts;
+  const total = apiTotal;
+  const totalPages = apiTotalPages;
 
   if (isError) {
     return (
