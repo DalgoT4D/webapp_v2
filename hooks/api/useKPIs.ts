@@ -58,17 +58,30 @@ export function useKPI(id: number | null) {
 export function useKPIData(
   id: number | null,
   snapshotId?: number,
-  options?: { timeGrain?: string; dateFrom?: string; dateTo?: string }
+  options?: {
+    timeGrain?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    dashboardFilters?: Record<string, any>;
+  }
 ) {
   let url: string | null = null;
   if (id) {
     if (snapshotId) {
-      url = `/api/reports/${snapshotId}/kpis/${id}/data/`;
+      const params = new URLSearchParams();
+      if (options?.dashboardFilters && Object.keys(options.dashboardFilters).length > 0) {
+        params.append('dashboard_filters', JSON.stringify(options.dashboardFilters));
+      }
+      const qs = params.toString();
+      url = `/api/reports/${snapshotId}/kpis/${id}/data/${qs ? `?${qs}` : ''}`;
     } else {
       const params = new URLSearchParams();
       if (options?.timeGrain) params.append('time_grain', options.timeGrain);
       if (options?.dateFrom) params.append('date_from', options.dateFrom);
       if (options?.dateTo) params.append('date_to', options.dateTo);
+      if (options?.dashboardFilters && Object.keys(options.dashboardFilters).length > 0) {
+        params.append('dashboard_filters', JSON.stringify(options.dashboardFilters));
+      }
       const qs = params.toString();
       url = `/api/kpis/${id}/data/${qs ? `?${qs}` : ''}`;
     }

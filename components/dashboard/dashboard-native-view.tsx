@@ -639,11 +639,11 @@ export function DashboardNativeView({
             <KPIChartElement
               kpiId={component.config?.kpiId}
               config={component.config}
+              dashboardFilters={selectedFilters}
               snapshotId={isReportMode ? snapshotId : undefined}
               commentStates={isReportMode ? commentStates : undefined}
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
-              onClick={undefined}
             />
           </div>
         );
