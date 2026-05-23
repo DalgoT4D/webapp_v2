@@ -6,20 +6,16 @@ import { TABLE_THEMES, DEFAULT_THEME_ID } from './constants';
 
 interface AppearanceSectionProps {
   zebraRows: boolean;
-  freezeFirstColumn: boolean;
   themeId?: string;
   onZebraRowsChange: (enabled: boolean) => void;
-  onFreezeFirstColumnChange: (enabled: boolean) => void;
   onThemeChange?: (themeId: string) => void;
   disabled?: boolean;
 }
 
 export function AppearanceSection({
   zebraRows,
-  freezeFirstColumn,
   themeId,
   onZebraRowsChange,
-  onFreezeFirstColumnChange,
   onThemeChange,
   disabled,
 }: AppearanceSectionProps) {
@@ -27,8 +23,6 @@ export function AppearanceSection({
 
   return (
     <div className="space-y-3">
-      <h4 className="text-sm font-medium">Appearance</h4>
-
       <div className="space-y-3">
         {/* Theme Selector */}
         {onThemeChange && (
@@ -78,25 +72,6 @@ export function AppearanceSection({
             data-testid="zebra-rows-switch"
             checked={zebraRows}
             onCheckedChange={onZebraRowsChange}
-            disabled={disabled}
-          />
-        </div>
-
-        {/* Freeze First Column Toggle */}
-        <div className="flex items-center justify-between p-2 rounded-md border">
-          <div>
-            <Label htmlFor="freeze-column" className="text-sm cursor-pointer">
-              Freeze first column
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              Pin the first column when scrolling horizontally
-            </p>
-          </div>
-          <Switch
-            id="freeze-column"
-            data-testid="freeze-column-switch"
-            checked={freezeFirstColumn}
-            onCheckedChange={onFreezeFirstColumnChange}
             disabled={disabled}
           />
         </div>

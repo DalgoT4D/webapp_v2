@@ -192,11 +192,25 @@ export function ChartBuilder({
             dimension_col: formData.geographic_column,
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
-          // For table charts, include dimensions array and selected columns
+          // For table charts, include dimensions array and selected columns.
+          // When drill-down is enabled the editor preview mirrors the dashboard:
+          // only the first drill-down dimension is shown alongside the metrics.
           ...(formData.chart_type === 'table' && {
             ...(formData.dimensions &&
               formData.dimensions.length > 0 && {
-                dimensions: formData.dimensions.map((d) => d.column).filter(Boolean),
+                dimensions: (() => {
+                  const isDrillDownEnabled = formData.dimensions.some(
+                    (d) => d.enable_drill_down === true
+                  );
+                  if (!isDrillDownEnabled) {
+                    return formData.dimensions.map((d) => d.column).filter(Boolean);
+                  }
+                  const drillDownDimensions = formData.dimensions
+                    .filter((d) => d.enable_drill_down)
+                    .map((d) => d.column)
+                    .filter(Boolean);
+                  return drillDownDimensions.length > 0 ? [drillDownDimensions[0]] : [];
+                })(),
               }),
             table_columns: formData.table_columns,
           }),

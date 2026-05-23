@@ -58,7 +58,7 @@ import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import { apiPostBinary } from '@/lib/api';
-import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
+import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1872,15 +1872,20 @@ export function ChartElementView({
               config={{
                 table_columns: (() => {
                   const cols = tableData?.columns || [];
-                  const order = effectiveChart?.extra_config?.customizations?.columnOrder;
-                  if (
-                    order?.length &&
-                    order.length === cols.length &&
-                    order.every((c: string) => cols.includes(c))
-                  ) {
-                    return order;
-                  }
-                  return cols;
+                  const drillDownDimensions =
+                    effectiveChart?.extra_config?.dimensions
+                      ?.filter((dim: any) => dim.enable_drill_down)
+                      .map((d: any) => d.column)
+                      .filter(Boolean) || [];
+                  const currentDim = tableDrillDownState
+                    ? drillDownDimensions[tableDrillDownState.currentLevel + 1]
+                    : drillDownDimensions[0];
+                  return resolveTableColumnOrder({
+                    cols,
+                    savedOrder: effectiveChart?.extra_config?.customizations?.columnOrder,
+                    drillDownDimensions,
+                    currentDimensionColumn: currentDim,
+                  });
                 })(),
                 column_formatting: mergeTableColumnFormatting(
                   effectiveChart?.extra_config?.customizations
@@ -1894,7 +1899,7 @@ export function ChartElementView({
                   effectiveChart?.extra_config?.customizations?.conditionalFormatting || [],
                 columnAlignment:
                   effectiveChart?.extra_config?.customizations?.columnAlignment || {},
-                zebraRows: effectiveChart?.extra_config?.customizations?.zebraRows || false,
+                zebraRows: effectiveChart?.extra_config?.customizations?.zebraRows ?? true,
                 freezeFirstColumn:
                   effectiveChart?.extra_config?.customizations?.freezeFirstColumn || false,
               }}

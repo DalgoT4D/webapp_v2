@@ -24,7 +24,7 @@ import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import type { ChartTitleConfig } from '@/lib/chart-title-utils';
-import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
+import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
 import {
   resolveDashboardFilters,
   formatAsChartFilters,
@@ -1292,15 +1292,20 @@ export function ChartElementV2({
                     config={{
                       table_columns: (() => {
                         const cols = tableData?.columns || [];
-                        const order = chart?.extra_config?.customizations?.columnOrder;
-                        if (
-                          order?.length &&
-                          order.length === cols.length &&
-                          order.every((c: string) => cols.includes(c))
-                        ) {
-                          return order;
-                        }
-                        return cols;
+                        const drillDownDimensions =
+                          chart?.extra_config?.dimensions
+                            ?.filter((dim: any) => dim.enable_drill_down)
+                            .map((d: any) => d.column)
+                            .filter(Boolean) || [];
+                        const currentDim = tableDrillDownState
+                          ? drillDownDimensions[tableDrillDownState.currentLevel + 1]
+                          : drillDownDimensions[0];
+                        return resolveTableColumnOrder({
+                          cols,
+                          savedOrder: chart?.extra_config?.customizations?.columnOrder,
+                          drillDownDimensions,
+                          currentDimensionColumn: currentDim,
+                        });
                       })(),
                       column_formatting: mergeTableColumnFormatting(
                         chart?.extra_config?.customizations
@@ -1313,7 +1318,7 @@ export function ChartElementV2({
                       conditionalFormatting:
                         chart?.extra_config?.customizations?.conditionalFormatting || [],
                       columnAlignment: chart?.extra_config?.customizations?.columnAlignment || {},
-                      zebraRows: chart?.extra_config?.customizations?.zebraRows || false,
+                      zebraRows: chart?.extra_config?.customizations?.zebraRows ?? true,
                       freezeFirstColumn:
                         chart?.extra_config?.customizations?.freezeFirstColumn || false,
                     }}

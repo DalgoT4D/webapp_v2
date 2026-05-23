@@ -1169,7 +1169,7 @@ function ConfigureChartPageContent() {
                             conditionalFormatting:
                               formData.customizations?.conditionalFormatting || [],
                             columnAlignment: formData.customizations?.columnAlignment || {},
-                            zebraRows: formData.customizations?.zebraRows || false,
+                            zebraRows: formData.customizations?.zebraRows ?? true,
                             freezeFirstColumn: formData.customizations?.freezeFirstColumn || false,
                             theme: formData.customizations?.theme,
                           }}

@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -12,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ColorPicker } from './ColorPicker';
 import { CONDITIONAL_OPERATORS, TEXT_CONDITIONAL_OPERATORS, PRESET_COLORS } from './constants';
 import type {
@@ -23,6 +23,7 @@ import type {
 interface ConditionalFormattingSectionProps {
   rules: ConditionalFormattingRule[];
   onChange: (rules: ConditionalFormattingRule[]) => void;
+  /** Full set of columns the user can target (all drill-down dims + metrics). */
   availableColumns: string[];
   /** Maps each column name to its type. Columns not in the map are treated as numeric. */
   columnTypeMap?: Record<string, 'numeric' | 'text'>;
@@ -42,22 +43,6 @@ export function ConditionalFormattingSection({
   orderedDimensions,
   disabled,
 }: ConditionalFormattingSectionProps) {
-  // Track the previous drillDownEnabled value to detect transitions
-  const prevDrillDownRef = useRef<boolean | undefined>(undefined);
-  const [showDrillOffPrompt, setShowDrillOffPrompt] = useState(false);
-
-  useEffect(() => {
-    const prev = prevDrillDownRef.current;
-    prevDrillDownRef.current = drillDownEnabled;
-    // Show prompt when drill-down transitions true → false and there are level-scoped rules
-    if (prev === true && drillDownEnabled === false) {
-      const hasLevelScoped = rules.some((r) => r.level !== undefined);
-      if (hasLevelScoped) {
-        setShowDrillOffPrompt(true);
-      }
-    }
-  }, [drillDownEnabled, rules]);
-
   // --- Drill-down helpers ---
   const isDimensionCol = (col: string) => !!(drillDownEnabled && orderedDimensions?.includes(col));
 
@@ -138,13 +123,6 @@ export function ConditionalFormattingSection({
     onChange(updated as ConditionalFormattingRule[]);
   };
 
-  const handleKeepScopedRules = () => setShowDrillOffPrompt(false);
-
-  const handleRemoveScopedRules = () => {
-    onChange(rules.map((r) => ({ ...r, level: undefined })));
-    setShowDrillOffPrompt(false);
-  };
-
   if (availableColumns.length === 0) {
     return (
       <div className="space-y-2">
@@ -158,40 +136,32 @@ export function ConditionalFormattingSection({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-1.5">
         <h4 className="text-sm font-medium">Conditional Formatting</h4>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          data-testid="add-formatting-rule-btn"
-          onClick={handleAddRule}
-          disabled={disabled}
-          className="h-7 text-xs"
-        >
-          <Plus className="h-3 w-3 mr-1" />
-          Add Rule
-        </Button>
-      </div>
-
-      {/* Drill-off prompt: shown when drill-down is turned OFF with level-scoped rules */}
-      {showDrillOffPrompt && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 flex items-start justify-between gap-2">
-          <span>Drill-down is off. Level-scoped rules are inactive.</span>
-          <div className="flex gap-3 flex-shrink-0">
-            <button type="button" onClick={handleKeepScopedRules} className="underline font-medium">
-              Keep
-            </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
             <button
               type="button"
-              onClick={handleRemoveScopedRules}
-              className="underline font-medium"
+              aria-label="About conditional formatting"
+              data-testid="conditional-formatting-info"
+              className="text-muted-foreground hover:text-foreground"
             >
-              Remove
+              <Info className="h-3.5 w-3.5" />
             </button>
-          </div>
-        </div>
-      )}
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs text-xs leading-relaxed" side="right">
+            Highlight cells based on conditions.
+            <br />
+            <br />
+            <strong>Normal table:</strong> rules apply to every row in their column.
+            <br />
+            <br />
+            <strong>Drill-down:</strong> rules on dimension columns apply only at that
+            dimension&apos;s level. Rules on metric columns apply at every level by default, but can
+            be scoped to a specific level.
+          </TooltipContent>
+        </Tooltip>
+      </div>
 
       {rules.length === 0 && (
         <p className="text-xs text-muted-foreground text-center py-2">
@@ -206,15 +176,57 @@ export function ConditionalFormattingSection({
           const dimLevelLabel = getDimLevelLabel(rule.column);
           const isMetricCol = drillDownEnabled && !isDimensionCol(rule.column);
 
+          const showLevelRow = !!(isMetricCol && orderedDimensions && orderedDimensions.length > 0);
+
           return (
             <div
               key={index}
               data-testid={`formatting-rule-${index}`}
-              className="space-y-2 p-3 border rounded-lg bg-white"
+              className="relative space-y-2 p-3 border rounded-lg bg-white"
             >
-              {/* All controls in one row — truncate text to prevent overflow */}
+              {/* Delete button anchored on the top-right border corner */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                data-testid={`delete-rule-${index}`}
+                onClick={() => handleDeleteRule(index)}
+                disabled={disabled}
+                aria-label="Delete rule"
+                className="absolute -top-2 -right-2 h-6 w-6 rounded-full border bg-background shadow-sm text-gray-400 hover:text-red-500"
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+
+              {/* Row 1: level scope (when applicable) + column. Level first so
+                  "All levels" is the leading control in drill-down mode. */}
               <div className="flex items-center gap-1.5">
-                {/* Column selector */}
+                {showLevelRow && (
+                  <Select
+                    value={rule.level ?? '__all__'}
+                    onValueChange={(val) =>
+                      handleUpdateRule(index, 'level', val === '__all__' ? undefined : val)
+                    }
+                    disabled={disabled}
+                  >
+                    <SelectTrigger
+                      data-testid={`rule-level-${index}`}
+                      className="h-8 text-xs min-w-0 flex-1"
+                    >
+                      <span className="truncate">
+                        <SelectValue placeholder="All levels" />
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All levels</SelectItem>
+                      {orderedDimensions!.map((dimCol) => (
+                        <SelectItem key={dimCol} value={dimCol}>
+                          {dimCol} level
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Select
                   value={rule.column}
                   onValueChange={(val) => handleUpdateRule(index, 'column', val)}
@@ -222,7 +234,7 @@ export function ConditionalFormattingSection({
                 >
                   <SelectTrigger
                     data-testid={`rule-column-${index}`}
-                    className="h-8 text-xs min-w-0 flex-[2]"
+                    className="h-8 text-xs min-w-0 flex-1"
                   >
                     <span className="truncate">
                       <SelectValue />
@@ -248,8 +260,10 @@ export function ConditionalFormattingSection({
                     })}
                   </SelectContent>
                 </Select>
+              </div>
 
-                {/* Operator selector */}
+              {/* Row 2: operator + value + color */}
+              <div className="flex items-center gap-1.5">
                 <Select
                   value={rule.operator}
                   onValueChange={(val) =>
@@ -263,7 +277,7 @@ export function ConditionalFormattingSection({
                 >
                   <SelectTrigger
                     data-testid={`rule-operator-${index}`}
-                    className="h-8 text-xs min-w-0 flex-[2]"
+                    className="h-8 text-xs min-w-0 flex-1"
                   >
                     <span className="truncate">
                       <SelectValue />
@@ -277,8 +291,6 @@ export function ConditionalFormattingSection({
                     ))}
                   </SelectContent>
                 </Select>
-
-                {/* Value input */}
                 {ruleIsText ? (
                   <Input
                     type="text"
@@ -287,7 +299,7 @@ export function ConditionalFormattingSection({
                     onChange={(e) => handleUpdateRule(index, 'value', e.target.value)}
                     disabled={disabled}
                     placeholder="e.g. active"
-                    className="h-8 text-xs min-w-0 flex-[1.5]"
+                    className="h-8 text-xs min-w-0 flex-1"
                   />
                 ) : (
                   <Input
@@ -299,8 +311,6 @@ export function ConditionalFormattingSection({
                     className="h-8 text-xs min-w-0 flex-1"
                   />
                 )}
-
-                {/* Color swatch — opens ColorPicker in a popover */}
                 <Popover>
                   <PopoverTrigger asChild>
                     <button
@@ -320,66 +330,70 @@ export function ConditionalFormattingSection({
                     />
                   </PopoverContent>
                 </Popover>
-
-                {/* Level scope — only for metric columns when drill-down is on */}
-                {isMetricCol && orderedDimensions && orderedDimensions.length > 0 && (
-                  <Select
-                    value={rule.level ?? '__all__'}
-                    onValueChange={(val) =>
-                      handleUpdateRule(index, 'level', val === '__all__' ? undefined : val)
-                    }
-                    disabled={disabled}
-                  >
-                    <SelectTrigger
-                      data-testid={`rule-level-${index}`}
-                      className="h-8 text-xs min-w-0 flex-[1.5]"
-                    >
-                      <span className="truncate">
-                        <SelectValue placeholder="All levels" />
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__all__">All levels</SelectItem>
-                      {orderedDimensions.map((dimCol) => (
-                        <SelectItem key={dimCol} value={dimCol}>
-                          {dimCol} level
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-
-                {/* Delete button */}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  data-testid={`delete-rule-${index}`}
-                  onClick={() => handleDeleteRule(index)}
-                  disabled={disabled}
-                  className="h-8 w-8 flex-shrink-0 text-gray-400 hover:text-red-500"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
               </div>
 
-              {/* Annotations — only shown when relevant */}
-              {drillDownEnabled && isDimensionCol(rule.column) && dimLevelLabel && (
-                <p className="text-[11px] text-muted-foreground pl-1">
-                  {dimLevelLabel === 'top level'
-                    ? 'Active at the top level.'
-                    : `Active ${dimLevelLabel}.`}
-                </p>
-              )}
+              {/* Drill-down scope hint: amber warning whenever the rule fires at exactly
+                  one drill level. The only "no warning" case is a metric rule with no level —
+                  that fires at every level. Wording flips based on which side of the drill
+                  the rule lives on (top level vs. deeper). */}
+              {(() => {
+                if (!drillDownEnabled || !orderedDimensions || orderedDimensions.length === 0) {
+                  return null;
+                }
+                const topLevelDim = orderedDimensions[0];
+                const isDimColumn = orderedDimensions.includes(rule.column);
+
+                let message: string | null = null;
+
+                if (isDimColumn && rule.column !== topLevelDim) {
+                  // Rule on a deeper drill dim — fires only after drilling in
+                  const dimIdx = orderedDimensions.indexOf(rule.column);
+                  const parent = orderedDimensions[dimIdx - 1];
+                  message = `Only applies after drilling into ${parent}. Won't show at the top level.`;
+                } else if (isDimColumn && rule.column === topLevelDim) {
+                  // Rule on the first drill dim — fires only at the top level
+                  message = `Only applies at the top level. Won't show after drilling in.`;
+                } else if (rule.level !== undefined) {
+                  // Metric rule with an explicit level scope
+                  if (rule.level === topLevelDim) {
+                    message = `Only applies at the top level. Won't show after drilling in.`;
+                  } else {
+                    message = `Only applies at the ${rule.level} level. Won't show at the top level.`;
+                  }
+                }
+                // (Metric with no level → fires at every drill level → no warning)
+
+                if (!message) return null;
+
+                return (
+                  <p
+                    className="text-[11px] text-muted-foreground"
+                    data-testid={`rule-scope-hint-${index}`}
+                  >
+                    {message}
+                  </p>
+                );
+              })()}
               {ruleIsText && (
-                <p className="text-[11px] text-muted-foreground pl-1">
-                  Exact match, case-sensitive.
-                </p>
+                <p className="text-[11px] text-muted-foreground">Exact match, case-sensitive.</p>
               )}
             </div>
           );
         })}
       </div>
+
+      <Button
+        type="button"
+        variant="default"
+        size="default"
+        data-testid="add-formatting-rule-btn"
+        onClick={handleAddRule}
+        disabled={disabled}
+        className="w-full bg-black text-white hover:bg-gray-800"
+      >
+        <Plus className="h-4 w-4 mr-2" />
+        ADD RULE
+      </Button>
     </div>
   );
 }

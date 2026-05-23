@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { Combobox, highlightText } from '@/components/ui/combobox';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import type { ChartDimension } from '@/types/charts';
 import {
   DndContext,
@@ -184,6 +185,9 @@ export function TableDimensionsSelector({
 }: TableDimensionsSelectorProps) {
   // Index of the dimension pending removal confirmation (T9)
   const [pendingRemoveIndex, setPendingRemoveIndex] = useState<number | null>(null);
+  // Drill-off confirm dialog — only fires when ON→OFF with level-scoped CF rules,
+  // since that's the one transition that silently breaks rules.
+  const [drillOffConfirmOpen, setDrillOffConfirmOpen] = useState(false);
 
   // Get available columns that aren't already selected
   const getAvailableColumns = () => {
@@ -219,13 +223,20 @@ export function TableDimensionsSelector({
     }
   };
 
-  const handleDrillDownToggle = (enabled: boolean) => {
-    // When drill-down is toggled, enable/disable it for all dimensions
+  const applyDrillDownToggle = (enabled: boolean) => {
     const newDimensions = dimensions.map((dim) => ({
       ...dim,
       enable_drill_down: enabled,
     }));
     onChange(newDimensions);
+  };
+
+  const handleDrillDownToggle = (enabled: boolean) => {
+    if (!enabled && hasLevelScopedRules) {
+      setDrillOffConfirmOpen(true);
+      return;
+    }
+    applyDrillDownToggle(enabled);
   };
 
   const handleAddDimension = () => {
@@ -380,6 +391,17 @@ export function TableDimensionsSelector({
             .join(' → ')}
         </div>
       )}
+
+      <ConfirmationDialog
+        open={drillOffConfirmOpen}
+        onOpenChange={setDrillOffConfirmOpen}
+        type="warning"
+        title="Review conditional formatting rules?"
+        description="You have conditional formatting rules scoped to specific drill levels. They won't fire when drill-down is off. Continue anyway? You can edit or remove them in Chart Styling."
+        confirmText="Turn drill-down off"
+        cancelText="Cancel"
+        onConfirm={() => applyDrillDownToggle(false)}
+      />
     </div>
   );
 }

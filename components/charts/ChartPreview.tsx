@@ -384,7 +384,7 @@ export function ChartPreview({
       },
       conditionalFormatting: customizations?.conditionalFormatting || [],
       columnAlignment: customizations?.columnAlignment || {},
-      zebraRows: customizations?.zebraRows || false,
+      zebraRows: customizations?.zebraRows ?? true,
       freezeFirstColumn: customizations?.freezeFirstColumn || false,
       theme: customizations?.theme as string | undefined,
     };

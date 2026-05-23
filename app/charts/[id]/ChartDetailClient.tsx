@@ -845,7 +845,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                         conditionalFormatting:
                           chart.extra_config?.customizations?.conditionalFormatting || [],
                         columnAlignment: chart.extra_config?.customizations?.columnAlignment || {},
-                        zebraRows: chart.extra_config?.customizations?.zebraRows || false,
+                        zebraRows: chart.extra_config?.customizations?.zebraRows ?? true,
                         freezeFirstColumn:
                           chart.extra_config?.customizations?.freezeFirstColumn || false,
                         theme: chart.extra_config?.customizations?.theme,

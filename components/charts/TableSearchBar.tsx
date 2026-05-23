@@ -30,7 +30,7 @@ export function TableSearchBar({
 
   return (
     <div
-      className="flex items-center gap-1 rounded-md border bg-background px-2 py-1 shadow-sm"
+      className="flex w-full items-center gap-1 rounded-md border bg-background px-2 py-1 shadow-sm"
       data-testid="table-search-bar"
     >
       <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -39,7 +39,7 @@ export function TableSearchBar({
         onChange={(e) => onQueryChange(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="Search..."
-        className="h-7 w-56 border-0 px-1 text-sm shadow-none focus-visible:ring-0"
+        className="h-7 flex-1 min-w-0 border-0 px-1 text-sm shadow-none focus-visible:ring-0"
         data-testid="table-search-input"
       />
 

@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, ChevronRight, ChevronDown } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Trash2, ChevronRight, ChevronDown } from 'lucide-react';
 import { NumberFormats, type NumberFormat, type DateFormat } from '@/lib/formatters';
 import { NumberFormatSection, NUMBER_FORMAT_OPTIONS } from '../shared/NumberFormatSection';
 import { DateFormatSection, DATE_FORMAT_OPTIONS } from '../shared/DateFormatSection';
@@ -35,9 +37,11 @@ interface TableChartCustomizationsProps {
   disabled?: boolean;
   /** Numeric columns only — for number formatting section */
   availableColumns?: string[];
-  /** All displayed columns — for column order, alignment, conditional formatting */
+  /** Columns visible at the top drill level — for column order/alignment section */
   allColumns?: string[];
-  /** Maps each displayed column to its type — used by conditional formatting */
+  /** Full set of columns (all drill-down dims + metrics) — for conditional formatting dropdown */
+  cfAvailableColumns?: string[];
+  /** Maps each column to its type — used by conditional formatting */
   columnTypeMap?: Record<string, 'numeric' | 'text'>;
   /** Whether drill-down is enabled on this chart */
   drillDownEnabled?: boolean;
@@ -54,6 +58,7 @@ export function TableChartCustomizations({
   disabled,
   availableColumns = [],
   allColumns = [],
+  cfAvailableColumns,
   columnTypeMap,
   drillDownEnabled,
   orderedDimensions,
@@ -72,7 +77,7 @@ export function TableChartCustomizations({
   const conditionalFormatting: ConditionalFormattingRule[] =
     customizations.conditionalFormatting || [];
   const columnAlignment: Record<string, ColumnAlignment> = customizations.columnAlignment || {};
-  const zebraRows: boolean = customizations.zebraRows || false;
+  const zebraRows: boolean = customizations.zebraRows ?? true;
   const freezeFirstColumn: boolean = customizations.freezeFirstColumn || false;
   const theme: string | undefined = customizations.theme as string | undefined;
 
@@ -183,7 +188,26 @@ export function TableChartCustomizations({
 
   return (
     <div className="space-y-6">
-      {/* Section 1: Column Order & Alignment (merged) */}
+      {/* Section 0: Freeze first column — surfaced above Columns since it changes how reordered columns behave */}
+      <div className="flex items-center justify-between p-2 rounded-md border">
+        <div>
+          <Label htmlFor="freeze-column" className="text-sm cursor-pointer">
+            Freeze first column
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Pin the first column when scrolling horizontally
+          </p>
+        </div>
+        <Switch
+          id="freeze-column"
+          data-testid="freeze-column-switch"
+          checked={freezeFirstColumn}
+          onCheckedChange={(val) => updateCustomization('freezeFirstColumn', val)}
+          disabled={disabled}
+        />
+      </div>
+
+      {/* Section 1: Columns (order + alignment) */}
       {allColumns.length > 0 && onTableColumnsChange && (
         <ColumnSettingsSection
           columns={allColumns}
@@ -244,11 +268,11 @@ export function TableChartCustomizations({
                         variant="ghost"
                         size="icon"
                         data-testid={`remove-format-${column}`}
-                        className="h-6 w-6 text-black hover:text-destructive flex-shrink-0"
+                        className="h-8 w-8 flex-shrink-0 text-gray-400 hover:text-red-500"
                         onClick={(e) => handleRemoveFormat(column, e)}
                         disabled={disabled}
                       >
-                        <RefreshCw className="h-3 w-3" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     )}
                   </div>
@@ -324,13 +348,13 @@ export function TableChartCustomizations({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 text-black hover:text-destructive flex-shrink-0"
+                        className="h-8 w-8 flex-shrink-0 text-gray-400 hover:text-red-500"
                         onClick={(e) => handleRemoveDateFormat(column, e)}
                         disabled={disabled}
                         aria-label={`Reset date format for ${column}`}
                         data-testid={`table-date-column-reset-${column}`}
                       >
-                        <RefreshCw className="h-3 w-3 " />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     )}
                   </div>
@@ -356,7 +380,13 @@ export function TableChartCustomizations({
       <ConditionalFormattingSection
         rules={conditionalFormatting}
         onChange={(rules) => updateCustomization('conditionalFormatting', rules)}
-        availableColumns={allColumns.length > 0 ? allColumns : availableColumns}
+        availableColumns={
+          cfAvailableColumns && cfAvailableColumns.length > 0
+            ? cfAvailableColumns
+            : allColumns.length > 0
+              ? allColumns
+              : availableColumns
+        }
         columnTypeMap={columnTypeMap}
         drillDownEnabled={drillDownEnabled}
         orderedDimensions={orderedDimensions}
@@ -366,10 +396,8 @@ export function TableChartCustomizations({
       {/* Section 5: Appearance */}
       <AppearanceSection
         zebraRows={zebraRows}
-        freezeFirstColumn={freezeFirstColumn}
         themeId={theme}
         onZebraRowsChange={(val) => updateCustomization('zebraRows', val)}
-        onFreezeFirstColumnChange={(val) => updateCustomization('freezeFirstColumn', val)}
         onThemeChange={(val) => updateCustomization('theme', val)}
         disabled={disabled}
       />

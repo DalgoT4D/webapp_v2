@@ -159,8 +159,8 @@ describe('TableChartCustomizations', () => {
       />
     );
 
-    const removeButton = container.querySelector('.lucide-refresh-cw')?.closest('button');
-    await user.click(removeButton!);
+    const removeButton = screen.getByTestId('remove-format-budget');
+    await user.click(removeButton);
     expect(mockUpdateCustomization).toHaveBeenCalledWith('columnFormatting', {
       revenue: { numberFormat: 'international', decimalPlaces: 1 },
     });
@@ -168,7 +168,7 @@ describe('TableChartCustomizations', () => {
 
   it('should disable all controls when disabled is true', async () => {
     const user = userEvent.setup();
-    const { container } = render(
+    render(
       <TableChartCustomizations
         {...defaultProps}
         disabled={true}
@@ -182,7 +182,7 @@ describe('TableChartCustomizations', () => {
     expect(screen.getByLabelText('Number Format')).toHaveAttribute('data-disabled');
     expect(screen.getByLabelText('Decimal Places')).toBeDisabled();
 
-    const removeButton = container.querySelector('.lucide-refresh-cw')?.closest('button');
+    const removeButton = screen.getByTestId('remove-format-budget');
     expect(removeButton).toBeDisabled();
   });
 
@@ -211,7 +211,9 @@ describe('TableChartCustomizations', () => {
     render(<TableChartCustomizations {...defaultProps} />);
 
     expect(screen.getByText('Conditional Formatting')).toBeInTheDocument();
-    expect(screen.getByText('Appearance')).toBeInTheDocument();
+    // Appearance section has no heading anymore — verify its switches render instead
+    expect(screen.getByTestId('zebra-rows-switch')).toBeInTheDocument();
+    expect(screen.getByTestId('freeze-column-switch')).toBeInTheDocument();
   });
 
   // Date Formatting Tests
@@ -270,7 +272,7 @@ describe('TableChartCustomizations', () => {
 
     it('should handle remove date format button', async () => {
       const user = userEvent.setup();
-      const { container } = render(
+      render(
         <TableChartCustomizations
           {...propsWithDateColumns}
           customizations={{
@@ -282,10 +284,8 @@ describe('TableChartCustomizations', () => {
         />
       );
 
-      // Find the remove button in the Date Formatting section (second section)
-      const dateSection = screen.getByText('Date Formatting').parentElement;
-      const removeButton = dateSection?.querySelector('.lucide-refresh-cw')?.closest('button');
-      await user.click(removeButton!);
+      const removeButton = screen.getByTestId('table-date-column-reset-created_at');
+      await user.click(removeButton);
 
       expect(mockUpdateCustomization).toHaveBeenCalledWith('dateColumnFormatting', {
         updated_at: { dateFormat: 'iso_datetime' },

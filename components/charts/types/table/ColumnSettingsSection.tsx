@@ -158,7 +158,7 @@ export function ColumnSettingsSection({
     <div className="space-y-2">
       <h4 className="text-sm font-medium">Columns</h4>
       <p className="text-xs text-muted-foreground">
-        Drag to reorder. Alignment: Auto = numbers right, text left.
+        Drag to reorder. Auto: first column left, last column right, others by type.
       </p>
       <div className="space-y-1">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

@@ -328,24 +328,38 @@ export function ChartCustomizations({
       const hasTableAggregation =
         (formData.dimensions?.length || 0) > 0 || (formData.metrics?.length || 0) > 0;
 
-      // Default column order from dimensions+metrics or table_columns
-      const defaultColumns = hasTableAggregation
-        ? [
-            ...(formData.dimensions?.map((d) => d.column).filter(Boolean) || []),
-            ...(formData.metrics
-              ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
-              .filter(Boolean) || []),
-          ]
+      // Build the metric-alias list once (shared by both column lists below).
+      const metricAliases =
+        formData.metrics
+          ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
+          .filter(Boolean) || [];
+
+      // Column rearrangement mirrors what the table shows: when drill-down is enabled,
+      // only the first drill-down dim is visible at the top level. The saved order
+      // applies to every level — at runtime the first drill-down dim is swapped for
+      // the dim at the displayed level (see resolveTableColumnOrder).
+      const visibleDimensions = drillDownEnabled
+        ? formData.dimensions?.filter((d) => d.enable_drill_down).slice(0, 1) || []
+        : formData.dimensions || [];
+
+      const visibleTopLevelColumns = hasTableAggregation
+        ? [...visibleDimensions.map((d) => d.column).filter(Boolean), ...metricAliases]
         : formData.table_columns || [];
 
-      // Use saved column order if it matches the current columns exactly
+      // Conditional formatting needs the FULL column set (all drill-down dims + metrics)
+      // so users can target columns that only appear at deeper drill levels.
+      const cfAvailableColumns = hasTableAggregation
+        ? [...(formData.dimensions?.map((d) => d.column).filter(Boolean) || []), ...metricAliases]
+        : formData.table_columns || [];
+
+      // Use saved column order if it matches the visible top-level columns exactly
       const savedOrder: string[] | undefined = customizations.columnOrder;
       const allDisplayedColumns =
         savedOrder &&
-        savedOrder.length === defaultColumns.length &&
-        savedOrder.every((col: string) => defaultColumns.includes(col))
+        savedOrder.length === visibleTopLevelColumns.length &&
+        savedOrder.every((col: string) => visibleTopLevelColumns.includes(col))
           ? savedOrder
-          : defaultColumns;
+          : visibleTopLevelColumns;
 
       return (
         <TableChartCustomizations
@@ -354,6 +368,7 @@ export function ChartCustomizations({
           disabled={disabled}
           availableColumns={numericColumns}
           allColumns={allDisplayedColumns}
+          cfAvailableColumns={cfAvailableColumns}
           columnTypeMap={columnTypeMap}
           drillDownEnabled={drillDownEnabled}
           orderedDimensions={orderedDimensions}

@@ -290,7 +290,13 @@ export function TableChart({
     return matchedColor;
   };
 
-  // Get alignment class for a column
+  // Get alignment class for a column.
+  // Auto is position-aware for multi-column tables to keep the layout balanced
+  // regardless of column order:
+  //   - First column → always left (row-identifier convention)
+  //   - Last column → always right (totals convention)
+  //   - Middle (and single-column) → type-based: numeric right, text left
+  // Users can always override per column via the alignment dropdown.
   const getAlignmentClass = (column: string, sampleValue: any): string => {
     const explicitAlignment = config.columnAlignment?.[column];
     if (explicitAlignment) {
@@ -303,7 +309,12 @@ export function TableChart({
           return 'text-right';
       }
     }
-    // Auto-detect: check if value is numeric
+    if (columns.length > 1) {
+      const colIdx = columns.indexOf(column);
+      if (colIdx === 0) return 'text-left';
+      if (colIdx === columns.length - 1) return 'text-right';
+    }
+    // Type-based fallback for middle columns and single-column tables
     if (sampleValue != null) {
       const isNumeric = typeof sampleValue === 'number' || !isNaN(Number(sampleValue));
       return isNumeric ? 'text-right' : 'text-left';
@@ -407,7 +418,7 @@ export function TableChart({
   return (
     <div className="w-full h-full flex flex-col">
       {/* Search bar */}
-      <div className="flex justify-end flex-shrink-0 px-2 py-1">
+      <div className="flex-shrink-0 py-1">
         <TableSearchBar
           query={search.query}
           onQueryChange={search.setQuery}
