@@ -61,7 +61,7 @@ describe('useComments', () => {
     });
 
     await waitFor(() => {
-      expect(mockApiGet).toHaveBeenCalledWith(expect.stringContaining('chart_id=5'));
+      expect(mockApiGet).toHaveBeenCalledWith(expect.stringContaining('target_id=5'));
     });
   });
 });
