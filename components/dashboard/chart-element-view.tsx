@@ -456,16 +456,16 @@ export function ChartElementView({
               pagination: effectiveChart.extra_config?.pagination,
               sort: effectiveChart.extra_config?.sort,
             },
-            // Dashboard filters passed separately (skip in report mode — synthetic
-            // filter IDs can't be resolved by the backend; extra_config.filters
-            // already contains the resolved filters via formatAsChartFilters above)
-            dashboard_filters:
-              !frozenChartConfig && Object.keys(dashboardFilters).length > 0
-                ? Object.entries(dashboardFilters).map(([filter_id, value]) => ({
-                    filter_id,
-                    value,
-                  }))
-                : undefined,
+            // Dashboard filters intentionally omitted from the payload body.
+            // The synthetic {filter_id, value} format isn't compatible with
+            // backend apply_dashboard_filters() (which expects resolved filters
+            // with `column`/`type` keys and crashes with KeyError otherwise —
+            // this broke CSV download). The resolved filters are already
+            // included in extra_config.filters above via formatAsChartFilters.
+            // Endpoints that need raw filter IDs (chart-data-preview,
+            // chart-data-preview/total-rows) receive them via the
+            // `dashboard_filters` query-string parameter set by the SWR
+            // fetchers below.
           }
         : null,
     [effectiveChart, tableDrillDownState, resolvedDashboardFilters, dashboardFilters]

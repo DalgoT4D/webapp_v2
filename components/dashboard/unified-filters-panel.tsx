@@ -16,7 +16,9 @@ import {
   PanelLeftClose,
   X,
 } from 'lucide-react';
-import { deleteDashboardFilter } from '@/hooks/api/useDashboards';
+import { deleteDashboardFilter, updateDashboardFilter } from '@/hooks/api/useDashboards';
+import { useSWRConfig } from 'swr';
+import { toastError } from '@/lib/toast';
 import {
   DndContext,
   closestCenter,
@@ -168,6 +170,7 @@ export function UnifiedFiltersPanel({
     getDefaultFilterValues(initialFilters)
   );
   const [isApplyingFilters, setIsApplyingFilters] = useState(false);
+  const { mutate: globalMutate } = useSWRConfig();
   const [isCollapsed, setIsCollapsed] = useState(initiallyCollapsed); // For collapsing entire panel
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(true); // For showing/hiding filter list
   const [locallyDeletedFilterIds, setLocallyDeletedFilterIds] = useState<Set<string>>(new Set()); // Track deleted filters
@@ -260,9 +263,39 @@ export function UnifiedFiltersPanel({
     }
   };
 
-  // Handle filter reordering (internal state only)
-  const handleReorderFilters = (newOrder: DashboardFilterConfig[]) => {
+  // Handle filter reordering — optimistically update local state, then persist
+  // each new `order` value to the backend so the DB-ordered refetch keeps the
+  // user's chosen sequence. Without persistence, the next refetch (Meta.ordering
+  // = ["order"]) would re-emit filters in their old positions and the sync
+  // useEffect above would snap local state back.
+  const handleReorderFilters = async (newOrder: DashboardFilterConfig[]) => {
+    const previousOrder = filters;
     setFilters(newOrder);
+
+    try {
+      // Only PUT filters whose position actually changed
+      const updates = newOrder
+        .map((filter, index) => ({ filter, index }))
+        .filter(({ filter, index }) => {
+          const prevIndex = previousOrder.findIndex((f) => f.id === filter.id);
+          return prevIndex !== index;
+        });
+
+      await Promise.all(
+        updates.map(({ filter, index }) =>
+          updateDashboardFilter(dashboardId, Number(filter.id), { order: index })
+        )
+      );
+
+      // Revalidate the dashboard cache so liveDashboardData.filters reflect
+      // the new order — otherwise the parent's stale initialFilters reference
+      // could re-sync local state on the next render.
+      globalMutate(`/api/dashboards/${dashboardId}/`);
+    } catch (error) {
+      // Revert on failure so UI matches backend
+      setFilters(previousOrder);
+      toastError.update(error, 'filter order');
+    }
   };
 
   // Apply filters - notify parent (this will cause chart re-renders)
