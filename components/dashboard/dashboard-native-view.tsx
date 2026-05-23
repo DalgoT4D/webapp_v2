@@ -773,6 +773,9 @@ export function DashboardNativeView({
                       </Badge>
                     )}
                   </div>
+                  {dashboard.description && (
+                    <p className="text-xs text-gray-600 mt-1 truncate">{dashboard.description}</p>
+                  )}
                 </div>
               </div>
 
@@ -961,6 +964,13 @@ export function DashboardNativeView({
                     )}
                   </div>
 
+                  {/* Optional description / subtitle */}
+                  {dashboard.description && (
+                    <p className="text-sm text-gray-600 mt-1" data-testid="dashboard-description">
+                      {dashboard.description}
+                    </p>
+                  )}
+
                   {/* Metadata below title */}
                   <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                     {dashboard.last_modified_by && (
@@ -1104,6 +1114,9 @@ export function DashboardNativeView({
         <div className="bg-white border-b flex-shrink-0 px-6 py-6">
           <div>
             <h1 className="text-3xl font-bold">{dashboard.title}</h1>
+            {dashboard.description && (
+              <p className="text-base text-gray-600 mt-2">{dashboard.description}</p>
+            )}
           </div>
         </div>
       )}

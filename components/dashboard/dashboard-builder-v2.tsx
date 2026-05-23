@@ -493,6 +493,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [title, setTitle] = useState(initialData?.title || 'Untitled Dashboard');
     const [description, setDescription] = useState(initialData?.description || '');
     const [isEditingTitle, setIsEditingTitle] = useState(isNewDashboard || false);
+    const [isEditingDescription, setIsEditingDescription] = useState(false);
 
     // Tabs state - initialize from initialData or create default
     const [tabsData, setTabsData] = useState<DashboardTabsData>(() => {
@@ -1769,13 +1770,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   </Button>
                 )}
 
-                {isEditingTitle ? (
-                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                  {isEditingTitle ? (
                     <Input
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="Dashboard title..."
-                      className="text-sm font-semibold h-8 flex-1"
+                      className="text-sm font-semibold h-8"
+                      data-testid="dashboard-title-input-mobile"
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -1792,17 +1794,50 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                         saveDashboard();
                       }}
                     />
-                  </div>
-                ) : (
-                  <div
-                    className="flex items-center gap-1 flex-1 min-w-0 cursor-pointer"
-                    onClick={() => setIsEditingTitle(true)}
-                  >
-                    <h1 className="text-sm font-semibold truncate flex-1 min-w-0 dashboard-header-title">
-                      {title}
-                    </h1>
-                  </div>
-                )}
+                  ) : (
+                    <div className="cursor-pointer min-w-0" onClick={() => setIsEditingTitle(true)}>
+                      <h1 className="text-sm font-semibold truncate dashboard-header-title">
+                        {title}
+                      </h1>
+                    </div>
+                  )}
+
+                  {isEditingDescription ? (
+                    <Input
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Add description (optional)..."
+                      className="text-xs text-gray-600 h-7"
+                      data-testid="dashboard-description-input-mobile"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setIsEditingDescription(false);
+                          saveDashboard();
+                        }
+                        if (e.key === 'Escape') {
+                          setDescription(initialData?.description || '');
+                          setIsEditingDescription(false);
+                        }
+                      }}
+                      onBlur={() => {
+                        setIsEditingDescription(false);
+                        saveDashboard();
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className="cursor-pointer min-w-0"
+                      onClick={() => setIsEditingDescription(true)}
+                    >
+                      {description ? (
+                        <p className="text-xs text-gray-600 truncate">{description}</p>
+                      ) : (
+                        <p className="text-xs text-gray-400 italic">+ Add description</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Mobile Quick Actions */}
@@ -2051,14 +2086,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
                 <div className="h-6 w-px bg-gray-300" />
 
-                {/* Title editing */}
-                {isEditingTitle ? (
-                  <div className="flex items-center gap-2">
+                {/* Title + Description editing */}
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  {isEditingTitle ? (
                     <Input
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="Dashboard title..."
-                      className="text-lg font-semibold"
+                      className="text-lg font-semibold h-8"
+                      data-testid="dashboard-title-input"
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -2075,15 +2111,55 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                         saveDashboard();
                       }}
                     />
-                  </div>
-                ) : (
-                  <div
-                    className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-2 py-1"
-                    onClick={() => setIsEditingTitle(true)}
-                  >
-                    <h1 className="text-lg font-semibold dashboard-header-title">{title}</h1>
-                  </div>
-                )}
+                  ) : (
+                    <div
+                      className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-2 py-0.5"
+                      onClick={() => setIsEditingTitle(true)}
+                      data-testid="dashboard-title-display"
+                    >
+                      <h1 className="text-lg font-semibold dashboard-header-title truncate">
+                        {title}
+                      </h1>
+                    </div>
+                  )}
+
+                  {isEditingDescription ? (
+                    <Input
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Describe what this dashboard shows (optional)..."
+                      className="text-xs text-gray-600 h-7"
+                      data-testid="dashboard-description-input"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setIsEditingDescription(false);
+                          saveDashboard();
+                        }
+                        if (e.key === 'Escape') {
+                          setDescription(initialData?.description || '');
+                          setIsEditingDescription(false);
+                        }
+                      }}
+                      onBlur={() => {
+                        setIsEditingDescription(false);
+                        saveDashboard();
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className="cursor-pointer hover:bg-gray-50 rounded px-2 py-0.5"
+                      onClick={() => setIsEditingDescription(true)}
+                      data-testid="dashboard-description-display"
+                    >
+                      {description ? (
+                        <p className="text-xs text-gray-600 truncate max-w-md">{description}</p>
+                      ) : (
+                        <p className="text-xs text-gray-400 italic">+ Add description</p>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 <div className="h-6 w-px bg-gray-300" />
 
@@ -2102,6 +2178,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   }}
                   size="sm"
                   variant="outline"
+                  data-testid="add-chart-btn"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Chart
