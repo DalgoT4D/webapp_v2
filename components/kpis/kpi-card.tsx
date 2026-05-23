@@ -11,9 +11,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Download, FileImage, FileText, MoreVertical } from 'lucide-react';
+import { Download, FileImage, FileText, Maximize2, MoreVertical } from 'lucide-react';
+import { useFullscreen } from '@/hooks/useFullscreen';
 import { RAG_COLORS } from '@/types/kpis';
-import { toast } from 'sonner';
+import { toastSuccess, toastError } from '@/lib/toast';
+import { formatMetricValue } from '@/lib/formatters';
 import type { RAGStatus } from '@/types/kpis';
 import { formatDistanceToNow, format as formatDate, parseISO, isValid } from 'date-fns';
 
@@ -62,13 +64,6 @@ function EChartsRenderer({
   return <div ref={chartRef} className={`${height} w-full`} />;
 }
 
-function formatValue(v: number | null | undefined): string {
-  if (v === null || v === undefined) return '\u2014';
-  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(v) >= 1_000) return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
-  return v.toLocaleString(undefined, { maximumFractionDigits: 1 });
-}
-
 const GRAIN_LABEL: Record<string, string> = {
   daily: 'day',
   weekly: 'week',
@@ -103,6 +98,8 @@ interface KPICardProps {
   showDownload?: boolean;
   /** When true, download options appear in the header ⋮ menu instead of hover toolbar */
   downloadInMenu?: boolean;
+  /** When true, shows a fullscreen toggle button (used on dashboards) */
+  showFullscreen?: boolean;
 }
 
 export function KPICard({
@@ -116,6 +113,7 @@ export function KPICard({
   borderless,
   showDownload = true,
   downloadInMenu,
+  showFullscreen,
 }: KPICardProps) {
   const {
     currentValue,
@@ -132,6 +130,11 @@ export function KPICard({
   } = data;
 
   const cardRef = useRef<HTMLDivElement>(null);
+  const { isFullscreen, toggleFullscreen } = useFullscreen('chart');
+
+  const handleToggleFullscreen = useCallback(() => {
+    if (cardRef.current) toggleFullscreen(cardRef.current);
+  }, [toggleFullscreen]);
 
   const ragInfo = ragStatus ? RAG_COLORS[ragStatus] : null;
 
@@ -149,15 +152,15 @@ export function KPICard({
       link.href = canvas.toDataURL('image/png');
       link.download = `kpi-${name}.png`;
       link.click();
-      toast.success('Downloaded successfully');
+      toastSuccess.exported(name, 'png');
     } catch {
-      toast.error('Failed to download');
+      toastError.api(null, 'Failed to download');
     }
   }, [name]);
 
   const handleDownloadCSV = useCallback(() => {
     if (!periods || periods.length === 0) {
-      toast.error('No data to export');
+      toastError.api(null, 'No data to export');
       return;
     }
     const header = 'Period,Period Date,Value\n';
@@ -170,7 +173,7 @@ export function KPICard({
     link.download = `kpi-${name}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
-    toast.success('CSV exported successfully');
+    toastSuccess.exported(name, 'csv');
   }, [name, periods]);
 
   const isPositiveChange =
@@ -183,31 +186,44 @@ export function KPICard({
   return (
     <div
       ref={cardRef}
-      className={`bg-white flex flex-col relative group ${borderless ? '' : 'border rounded-lg hover:shadow-md transition-shadow'} ${className || ''}`}
+      className={`bg-white flex flex-col relative group ${borderless ? '' : 'border rounded-lg hover:shadow-md transition-shadow'} ${isFullscreen ? '!h-screen !w-screen p-4' : ''} ${className || ''}`}
     >
-      {/* Download toolbar — visible on hover (only when not in menu mode) */}
-      {showDownload && !downloadInMenu && !isLoading && (
-        <div className="absolute top-2 right-12 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+      {/* Hover toolbar (download + fullscreen) */}
+      {((showDownload && !downloadInMenu && !isLoading) || showFullscreen) && (
+        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download">
-                  <Download className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={handleDownloadPNG} className="cursor-pointer">
-                  <FileImage className="w-4 h-4 mr-2" />
-                  Download as PNG
-                </DropdownMenuItem>
-                {periods && periods.length > 0 && (
-                  <DropdownMenuItem onClick={handleDownloadCSV} className="cursor-pointer">
-                    <FileText className="w-4 h-4 mr-2" />
-                    Export Data as CSV
+            {showDownload && !downloadInMenu && !isLoading && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download">
+                    <Download className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={handleDownloadPNG} className="cursor-pointer">
+                    <FileImage className="w-4 h-4 mr-2" />
+                    Download as PNG
                   </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  {periods && periods.length > 0 && (
+                    <DropdownMenuItem onClick={handleDownloadCSV} className="cursor-pointer">
+                      <FileText className="w-4 h-4 mr-2" />
+                      Export Data as CSV
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {showFullscreen && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleFullscreen}
+                className="h-7 w-7 p-0"
+                title="Fullscreen"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -262,10 +278,12 @@ export function KPICard({
           <Skeleton className="h-10 w-28" />
         ) : (
           <>
-            <div className="text-4xl font-bold text-gray-900">{formatValue(currentValue)}</div>
+            <div className="text-4xl font-bold text-gray-900">
+              {formatMetricValue(currentValue)}
+            </div>
             {targetValue !== null && targetValue !== undefined && (
               <p className="text-sm text-muted-foreground mt-0.5">
-                Target: {formatValue(targetValue)}
+                Target: {formatMetricValue(targetValue)}
               </p>
             )}
             {popChange !== null && (
@@ -287,11 +305,11 @@ export function KPICard({
       </div>
 
       {/* Chart */}
-      <div className="px-4 pb-3 flex-1">
+      <div className="px-4 pb-3 flex-1 min-h-0">
         {isLoading ? (
           <Skeleton className="h-32 w-full" />
         ) : (
-          <EChartsRenderer config={echartsConfig || {}} height="h-32" />
+          <EChartsRenderer config={echartsConfig || {}} height="h-full" />
         )}
       </div>
 

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import * as echarts from 'echarts';
 import { format as formatDate } from 'date-fns';
+import { formatMetricValue, computePopChanges } from '@/lib/formatters';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -88,14 +89,6 @@ function TrendChart({ config, height = 'h-64' }: { config: Record<string, any>; 
   return <div ref={chartRef} className={`${height} w-full`} />;
 }
 
-function fmtValue(value: number | null | undefined): string {
-  if (value === null || value === undefined) return '\u2014';
-  if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(value) >= 1_000)
-    return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
-  return value.toLocaleString(undefined, { maximumFractionDigits: 1 });
-}
-
 export function KPIDetailDrawer({
   kpi,
   open,
@@ -146,18 +139,17 @@ export function KPIDetailDrawer({
   const currentValue = chartData?.current_value;
   const periods = chartData?.periods || [];
 
-  const popChange = (() => {
-    if (periods.length < 2) return null;
-    const current = periods[periods.length - 1]?.value;
-    const previous = periods[periods.length - 2]?.value;
-    if (current == null || previous == null || previous === 0) return null;
-    return ((current - previous) / Math.abs(previous)) * 100;
-  })();
+  const lastTwo = periods.slice(-2).map((p) => p.value);
+  const popChange = computePopChanges(lastTwo)[1] ?? null;
 
   const isPositiveChange =
     popChange !== null &&
     ((kpi.direction === 'increase' && popChange > 0) ||
       (kpi.direction === 'decrease' && popChange < 0));
+  const isNegativeChange =
+    popChange !== null &&
+    ((kpi.direction === 'increase' && popChange < 0) ||
+      (kpi.direction === 'decrease' && popChange > 0));
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -198,19 +190,26 @@ export function KPIDetailDrawer({
                 <Skeleton className="h-12 w-32" />
               ) : (
                 <>
-                  <p className="text-4xl font-bold text-gray-900">{fmtValue(currentValue)}</p>
+                  <p className="text-4xl font-bold text-gray-900">
+                    {formatMetricValue(currentValue)}
+                  </p>
                   {kpi.target_value !== null && (
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      Target: {fmtValue(kpi.target_value)}
+                      Target: {formatMetricValue(kpi.target_value)}
                     </p>
                   )}
                   {popChange !== null && (
                     <p
                       className={`text-sm font-medium mt-0.5 ${
-                        isPositiveChange ? 'text-green-600' : 'text-red-600'
+                        isPositiveChange
+                          ? 'text-green-600'
+                          : isNegativeChange
+                            ? 'text-red-600'
+                            : 'text-muted-foreground'
                       }`}
                     >
-                      {popChange > 0 ? '\u2191' : '\u2193'} {popChange > 0 ? '+' : ''}
+                      {popChange > 0 ? '\u2191' : popChange < 0 ? '\u2193' : '\u2014'}{' '}
+                      {popChange > 0 ? '+' : ''}
                       {popChange.toFixed(1)}% from last {grainLabel[activeTimeGrain] || 'period'}
                     </p>
                   )}
@@ -410,24 +409,27 @@ function NotesSection({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-medium">Time Period *</label>
-              <select
-                className="w-full border rounded-md px-3 py-2 text-sm bg-white"
+              <Select
                 value={periodKey}
-                onChange={(e) => {
-                  const selected = periods.find((p) => p.period === e.target.value);
-                  setPeriodKey(e.target.value);
+                onValueChange={(value) => {
+                  const selected = periods.find((p) => p.period === value);
+                  setPeriodKey(value);
                   setPeriodDate(selected?.period_date || '');
                 }}
               >
-                <option value="">Select period</option>
-                {periods
-                  .filter((p) => !annotations.some((a) => a.period_key === p.period))
-                  .map((p) => (
-                    <option key={p.period} value={p.period}>
-                      {p.period}
-                    </option>
-                  ))}
-              </select>
+                <SelectTrigger className="w-full text-sm">
+                  <SelectValue placeholder="Select period" />
+                </SelectTrigger>
+                <SelectContent>
+                  {periods
+                    .filter((p) => !annotations.some((a) => a.period_key === p.period))
+                    .map((p) => (
+                      <SelectItem key={p.period} value={p.period}>
+                        {p.period}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium">Note type</label>
@@ -530,7 +532,7 @@ function NotesSection({
                   <div className="flex items-center gap-2 text-sm">
                     {entry.snapshot_value != null && (
                       <span className="font-medium text-gray-700">
-                        Value: {fmtValue(entry.snapshot_value)}
+                        Value: {formatMetricValue(entry.snapshot_value)}
                       </span>
                     )}
                     {entry.snapshot_pop_change != null && (
@@ -594,21 +596,25 @@ function NotesSection({
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <label className="text-xs font-medium">Time Period *</label>
-                        <select
-                          className="w-full border rounded-md px-3 py-2 text-sm bg-white"
+                        <Select
                           value={editPeriodKey}
-                          onChange={(e) => {
-                            const selected = periods.find((p) => p.period === e.target.value);
-                            setEditPeriodKey(e.target.value);
+                          onValueChange={(value) => {
+                            const selected = periods.find((p) => p.period === value);
+                            setEditPeriodKey(value);
                             setEditPeriodDate(selected?.period_date || '');
                           }}
                         >
-                          {periods.map((p) => (
-                            <option key={p.period} value={p.period}>
-                              {p.period}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="w-full text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {periods.map((p) => (
+                              <SelectItem key={p.period} value={p.period}>
+                                {p.period}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-medium">Note type</label>

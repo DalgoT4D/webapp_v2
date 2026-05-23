@@ -61,7 +61,7 @@ export interface KPICreate {
   green_threshold_pct?: number;
   amber_threshold_pct?: number;
   time_grain: string;
-  time_dimension_column?: string;
+  time_dimension_column: string;
   metric_type_tag?: string;
   program_tags?: string[];
 }

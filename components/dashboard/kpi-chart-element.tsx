@@ -6,6 +6,7 @@ import type { KPICardData } from '@/components/kpis/kpi-card';
 import type { RAGStatus } from '@/types/kpis';
 import type { CommentStates, CommentIconState } from '@/types/comments';
 import { CommentPopover } from '@/components/reports/comment-popover';
+import { computePopChanges } from '@/lib/formatters';
 
 interface KPIChartElementProps {
   kpiId: number;
@@ -34,13 +35,8 @@ export function KPIChartElement({
   const ragStatus = chartData?.rag_status as RAGStatus | null;
   const periods = chartData?.periods || [];
 
-  const popChange = (() => {
-    if (periods.length < 2) return null;
-    const current = periods[periods.length - 1]?.value;
-    const previous = periods[periods.length - 2]?.value;
-    if (current == null || previous == null || previous === 0) return null;
-    return ((current - previous) / Math.abs(previous)) * 100;
-  })();
+  const lastTwo = periods.slice(-2).map((p) => p.value);
+  const popChange = computePopChanges(lastTwo)[1] ?? null;
 
   if (isError) {
     return (
@@ -87,6 +83,7 @@ export function KPIChartElement({
         className="h-full"
         borderless
         showDownload={!snapshotId}
+        showFullscreen={!snapshotId}
       />
     </div>
   );

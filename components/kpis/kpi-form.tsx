@@ -150,7 +150,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
   }, [open, kpi, preselectedMetricId, reset, mutateMetrics]);
 
   const handleSelectMetric = (id: number) => {
-    const m = metrics.find((m) => m.id === id);
+    const m = metrics.find((metric) => metric.id === id);
     if (!m) return;
     const currentName = watch('name');
     const metricChanged = metricId !== null && metricId !== id;

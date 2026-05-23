@@ -1765,6 +1765,16 @@ export function ChartElementView({
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleToggleFullscreen}
+              className="h-7 w-7 p-0"
+              title="Fullscreen"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
       )}

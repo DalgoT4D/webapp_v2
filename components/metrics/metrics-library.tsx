@@ -84,18 +84,28 @@ export function MetricsLibrary() {
   const [consumersMap, setConsumersMap] = useState<Record<number, MetricConsumersResponse>>({});
   const fetchedIdsRef = useRef<Set<number>>(new Set());
 
+  // Debounce search to avoid firing on every keystroke
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(nameFilter);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [nameFilter]);
+
   const {
-    data: allMetrics,
-    total: apiTotal,
+    data: metrics,
+    total,
+    totalPages,
     isLoading,
     isError,
     mutate,
   } = useMetrics({
     page: currentPage,
     pageSize,
+    search: debouncedSearch || undefined,
   });
-
-  const metrics = allMetrics || [];
 
   const handleSort = (column: 'name' | 'updated_at' | 'data_source') => {
     if (sortBy === column) {
@@ -106,19 +116,8 @@ export function MetricsLibrary() {
     }
   };
 
-  const filteredAndSortedMetrics = useMemo(() => {
-    const filtered = metrics.filter((metric) => {
-      if (nameFilter) {
-        const name = (metric.name || '').toLowerCase();
-        const desc = (metric.description || '').toLowerCase();
-        if (!name.includes(nameFilter.toLowerCase()) && !desc.includes(nameFilter.toLowerCase())) {
-          return false;
-        }
-      }
-      return true;
-    });
-
-    return [...filtered].sort((a, b) => {
+  const sortedMetrics = useMemo(() => {
+    return [...(metrics || [])].sort((a, b) => {
       let aValue: string | number;
       let bValue: string | number;
 
@@ -145,17 +144,11 @@ export function MetricsLibrary() {
         return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
       }
     });
-  }, [metrics, nameFilter, sortBy, sortOrder]);
-
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedMetrics = filteredAndSortedMetrics.slice(startIndex, endIndex);
-  const total = filteredAndSortedMetrics.length;
-  const totalPages = Math.ceil(total / pageSize);
+  }, [metrics, sortBy, sortOrder]);
 
   // Lazy-fetch consumers for visible metrics
   useEffect(() => {
-    const idsToFetch = paginatedMetrics
+    const idsToFetch = sortedMetrics
       .map((m) => m.id)
       .filter((id) => !fetchedIdsRef.current.has(id));
 
@@ -171,7 +164,7 @@ export function MetricsLibrary() {
           // silently ignore — column will just not show data
         });
     });
-  }, [paginatedMetrics]);
+  }, [sortedMetrics]);
 
   const handleCreate = () => {
     setEditingMetric(null);
@@ -450,6 +443,7 @@ export function MetricsLibrary() {
             className="text-white hover:opacity-90 shadow-xs"
             style={{ backgroundColor: 'var(--primary)' }}
             onClick={handleCreate}
+            data-testid="create-metric-btn"
           >
             <Plus className="w-4 h-4 mr-2" />
             Create Metric
@@ -511,12 +505,12 @@ export function MetricsLibrary() {
                 </TableComponent>
               </div>
             </div>
-          ) : paginatedMetrics.length > 0 ? (
+          ) : sortedMetrics.length > 0 ? (
             <div className="py-4">
               <div className="border rounded-lg bg-white">
                 <TableComponent>
                   <TableHeader>{columnHeaders}</TableHeader>
-                  <TableBody>{paginatedMetrics.map((metric) => renderMetricRow(metric))}</TableBody>
+                  <TableBody>{sortedMetrics.map((metric) => renderMetricRow(metric))}</TableBody>
                 </TableComponent>
               </div>
             </div>

@@ -2,7 +2,16 @@
 
 import { useState, useCallback } from 'react';
 import { useSWRConfig } from 'swr';
-import { Plus, Search, Target, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  Target,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +50,7 @@ import { RAG_COLORS, METRIC_TYPE_TAG_OPTIONS, TIME_GRAIN_OPTIONS } from '@/types
 import type { RAGStatus } from '@/types/kpis';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { formatDistanceToNow } from 'date-fns';
+import { computePopChanges } from '@/lib/formatters';
 
 // A single KPI card that fetches its own data
 function KPICardWithData({
@@ -64,13 +74,8 @@ function KPICardWithData({
   // Hide card if status filter is active and doesn't match
   if (statusFilter && !isLoading && ragStatus !== statusFilter) return null;
 
-  const popChange = (() => {
-    if (periods.length < 2) return null;
-    const current = periods[periods.length - 1]?.value;
-    const previous = periods[periods.length - 2]?.value;
-    if (current == null || previous == null || previous === 0) return null;
-    return ((current - previous) / Math.abs(previous)) * 100;
-  })();
+  const lastTwo = periods.slice(-2).map((p) => p.value);
+  const popChange = computePopChanges(lastTwo)[1] ?? null;
 
   const cardData: KPICardData = {
     currentValue: chartData?.current_value,
@@ -92,6 +97,7 @@ function KPICardWithData({
       subtitle={kpi.program_tags.length > 0 ? kpi.program_tags.join(', ') : undefined}
       data={cardData}
       onClick={onClick}
+      className="h-full"
       showDownload={false}
       downloadInMenu
       menuItems={
@@ -128,6 +134,8 @@ export function KPIPageComponent() {
   const [deletingKpi, setDeletingKpi] = useState<KPI | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const PAGE_SIZE = 10;
+
   const {
     data: kpis,
     total,
@@ -137,7 +145,7 @@ export function KPIPageComponent() {
     mutate,
   } = useKPIs({
     page: currentPage,
-    pageSize: 20,
+    pageSize: PAGE_SIZE,
     search: search || undefined,
     metricType: metricTypeFilter || undefined,
   });
@@ -145,8 +153,8 @@ export function KPIPageComponent() {
   const { mutate: globalMutate } = useSWRConfig();
 
   const handleFormSuccess = useCallback(() => {
-    mutate(); // refresh KPI list
-    // Also invalidate all KPI data endpoints so charts re-render
+    setCurrentPage(1);
+    mutate();
     globalMutate(
       (key: string) =>
         typeof key === 'string' && key.includes('/api/kpis/') && key.includes('/data/'),
@@ -181,6 +189,7 @@ export function KPIPageComponent() {
     setIsDeleting(true);
     try {
       await deleteKPI(deletingKpi.id);
+      setCurrentPage(1);
       mutate();
       toastSuccess.deleted(deletingKpi.name);
       setDeleteDialogOpen(false);
@@ -219,6 +228,7 @@ export function KPIPageComponent() {
             className="text-white hover:opacity-90 shadow-xs"
             style={{ backgroundColor: 'var(--primary)' }}
             onClick={handleCreate}
+            data-testid="create-kpi-btn"
           >
             <Plus className="w-4 h-4 mr-2" />
             CREATE KPI
@@ -229,7 +239,7 @@ export function KPIPageComponent() {
       {/* Content */}
       <div className="flex-1 overflow-hidden p-6">
         <div className="border rounded-lg bg-white p-5 h-full flex flex-col overflow-hidden">
-          {/* Filters */}
+          {/* Filters + Pagination */}
           <div className="flex items-center gap-3 mb-4">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -241,6 +251,7 @@ export function KPIPageComponent() {
                   setCurrentPage(1);
                 }}
                 className="pl-9 h-9"
+                data-testid="kpi-search"
               />
             </div>
             <Select
@@ -276,6 +287,37 @@ export function KPIPageComponent() {
                 <SelectItem value="red">Off Track</SelectItem>
               </SelectContent>
             </Select>
+            {total > 0 && (
+              <div className="ml-auto flex items-center gap-4">
+                <span className="text-sm text-gray-600">
+                  {(currentPage - 1) * PAGE_SIZE + 1}&ndash;
+                  {Math.min(currentPage * PAGE_SIZE, total)} of {total}
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="h-7 px-2"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm text-gray-600 px-2">
+                    {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage >= totalPages}
+                    className="h-7 px-2"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex-1 overflow-y-auto">
             {isLoading ? (
@@ -292,14 +334,15 @@ export function KPIPageComponent() {
             ) : kpis.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {kpis.map((kpi) => (
-                  <KPICardWithData
-                    key={kpi.id}
-                    kpi={kpi}
-                    onClick={() => handleCardClick(kpi)}
-                    onEdit={() => handleEdit(kpi)}
-                    onDelete={() => handleDeleteClick(kpi)}
-                    statusFilter={statusFilter || undefined}
-                  />
+                  <div key={kpi.id} className="h-72" data-testid={`kpi-card-${kpi.id}`}>
+                    <KPICardWithData
+                      kpi={kpi}
+                      onClick={() => handleCardClick(kpi)}
+                      onEdit={() => handleEdit(kpi)}
+                      onDelete={() => handleDeleteClick(kpi)}
+                      statusFilter={statusFilter || undefined}
+                    />
+                  </div>
                 ))}
               </div>
             ) : (
@@ -324,40 +367,6 @@ export function KPIPageComponent() {
           </div>
         </div>
       </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/30 py-3 px-6">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              {`${(currentPage - 1) * 20 + 1}\u2013${Math.min(currentPage * 20, total)} of ${total}`}
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="h-7 px-2"
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-gray-600 px-3">
-                {currentPage} of {totalPages}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage >= totalPages}
-                className="h-7 px-2"
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <KPIForm
         open={formOpen}

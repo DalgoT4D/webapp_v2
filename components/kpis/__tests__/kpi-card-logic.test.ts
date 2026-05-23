@@ -3,12 +3,11 @@
  * (period-over-period change, direction-aware coloring)
  */
 
+import { computePopChanges } from '@/lib/formatters';
+
 function computePopChange(periods: { value: number | null }[]): number | null {
-  if (periods.length < 2) return null;
-  const current = periods[periods.length - 1]?.value;
-  const previous = periods[periods.length - 2]?.value;
-  if (current == null || previous == null || previous === 0) return null;
-  return ((current - previous) / Math.abs(previous)) * 100;
+  const values = periods.map((p) => p.value);
+  return computePopChanges(values)[values.length - 1] ?? null;
 }
 
 function isChangePositive(popChange: number | null, direction: 'increase' | 'decrease'): boolean {
