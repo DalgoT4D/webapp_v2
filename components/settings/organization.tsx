@@ -27,8 +27,10 @@ import {
   useDashboardAIChatActions,
   useDashboardAIChatSettings,
   useDashboardAIContext,
+  useDashboardMetadataStatus,
 } from '@/hooks/api/useDashboardAIChat';
 import { DashboardChatConsentCard } from '@/components/settings/dashboard-chat-consent-card';
+import { DashboardChatMetadataCard } from '@/components/settings/dashboard-chat-metadata-card';
 import { MarkdownContextEditorCard } from '@/components/settings/markdown-context-editor-card';
 import { SettingsStateCard } from '@/components/settings/settings-state-card';
 
@@ -81,7 +83,7 @@ function DashboardChatConsentDialog({
             Use this only if your organization approves sharing data with external AI services for
             dashboard question answering.
           </p>
-          <p>Saved context changes appear in Dalgo AI after the next context refresh.</p>
+          <p>Saved context changes appear in Dalgo AI after the next metadata rebuild.</p>
         </div>
 
         <DialogFooter>
@@ -125,7 +127,14 @@ export default function OrganizationSettings() {
     selectedDashboardId,
     canLoadProtectedData && !!settings?.ai_data_sharing_enabled && selectedDashboardId !== null
   );
-  const { updateSettings, updateDashboardContext } = useDashboardAIChatActions();
+  const {
+    status: metadataStatus,
+    isLoading: metadataStatusLoading,
+    error: metadataStatusError,
+    mutate: mutateMetadataStatus,
+  } = useDashboardMetadataStatus(canLoadProtectedData);
+  const { updateSettings, updateDashboardContext, buildDashboardMetadata } =
+    useDashboardAIChatActions();
 
   const [orgContextDraft, setOrgContextDraft] = useState('');
   const [dashboardContextDraft, setDashboardContextDraft] = useState('');
@@ -133,6 +142,8 @@ export default function OrganizationSettings() {
   const [isSavingDashboardContext, setIsSavingDashboardContext] = useState(false);
   const [isUpdatingConsent, setIsUpdatingConsent] = useState(false);
   const [consentDialogOpen, setConsentDialogOpen] = useState(false);
+  const [isBuildingAllMetadata, setIsBuildingAllMetadata] = useState(false);
+  const [isBuildingSelectedMetadata, setIsBuildingSelectedMetadata] = useState(false);
 
   const nativeDashboards = useMemo(
     () => dashboards.filter((dashboard) => dashboard.dashboard_type === 'native'),
@@ -237,6 +248,38 @@ export default function OrganizationSettings() {
     }
   };
 
+  const buildAllMetadata = async () => {
+    setIsBuildingAllMetadata(true);
+    try {
+      await buildDashboardMetadata({ builder_model: 'o4-mini' });
+      await Promise.all([mutateMetadataStatus(), mutateSettings(), mutateDashboardContext()]);
+      toast.success('Dashboard chat metadata rebuilt for all dashboards');
+    } catch (error) {
+      toast.error(`Failed to build metadata: ${getErrorMessage(error)}`);
+    } finally {
+      setIsBuildingAllMetadata(false);
+    }
+  };
+
+  const buildSelectedMetadata = async () => {
+    if (!selectedDashboardId) {
+      return;
+    }
+    setIsBuildingSelectedMetadata(true);
+    try {
+      await buildDashboardMetadata({
+        dashboard_id: selectedDashboardId,
+        builder_model: 'o4-mini',
+      });
+      await Promise.all([mutateMetadataStatus(), mutateSettings(), mutateDashboardContext()]);
+      toast.success('Dashboard chat metadata rebuilt for the selected dashboard');
+    } catch (error) {
+      toast.error(`Failed to build metadata: ${getErrorMessage(error)}`);
+    } finally {
+      setIsBuildingSelectedMetadata(false);
+    }
+  };
+
   if (!featureEnabled) {
     return null;
   }
@@ -284,13 +327,42 @@ export default function OrganizationSettings() {
         <DashboardChatConsentCard
           aiDataSharingEnabled={settings.ai_data_sharing_enabled}
           aiDataSharingConsentedAt={formatTimestamp(settings.ai_data_sharing_consented_at)}
-          vectorLastIngestedAt={formatTimestamp(settings.ai_context_refreshed_at)}
+          metadataLastBuiltAt={formatTimestamp(settings.metadata_last_built_at)}
           isUpdatingConsent={isUpdatingConsent}
           onConsentChange={handleConsentChange}
         />
 
         {settings.ai_data_sharing_enabled ? (
           <>
+            {metadataStatusLoading ? (
+              <SettingsStateCard
+                title="Dashboard chat metadata"
+                description="Loading dashboard metadata status..."
+              />
+            ) : metadataStatusError ? (
+              <SettingsStateCard
+                title="Dashboard chat metadata"
+                description={
+                  metadataStatusError instanceof Error
+                    ? metadataStatusError.message
+                    : 'Unable to load dashboard metadata status.'
+                }
+              />
+            ) : metadataStatus ? (
+              <DashboardChatMetadataCard
+                dashboards={metadataStatus.dashboards}
+                readyCount={metadataStatus.ready_dashboard_count}
+                totalCount={metadataStatus.total_dashboard_count}
+                lastBuiltAt={formatTimestamp(metadataStatus.last_built_at)}
+                isLoading={metadataStatusLoading}
+                isBuildingAll={isBuildingAllMetadata}
+                isBuildingSelected={isBuildingSelectedMetadata}
+                selectedDashboardId={selectedDashboardId}
+                onBuildAll={buildAllMetadata}
+                onBuildSelected={buildSelectedMetadata}
+              />
+            ) : null}
+
             <MarkdownContextEditorCard
               title="Organization AI context"
               description="Add stable organization-level context that should be available to every dashboard chat."
