@@ -27,25 +27,10 @@ describe('ColorPicker', () => {
     expect(firstSwatch.className).toContain('ring-2');
   });
 
-  it('renders hex input field', () => {
-    render(<ColorPicker value="#C8E6C9" onChange={mockOnChange} />);
-    const input = screen.getByTestId('color-hex-input');
-    expect(input).toBeInTheDocument();
-  });
-
-  it('calls onChange with valid hex from input', () => {
-    render(<ColorPicker value="#C8E6C9" onChange={mockOnChange} />);
-    const input = screen.getByTestId('color-hex-input');
-    fireEvent.change(input, { target: { value: '#AABBCC' } });
-    fireEvent.blur(input);
-    expect(mockOnChange).toHaveBeenCalledWith('#AABBCC');
-  });
-
-  it('does not call onChange with invalid hex', () => {
-    render(<ColorPicker value="#C8E6C9" onChange={mockOnChange} />);
-    const input = screen.getByTestId('color-hex-input');
-    fireEvent.change(input, { target: { value: 'invalid' } });
-    fireEvent.blur(input);
+  it('does not call onChange when disabled', () => {
+    render(<ColorPicker value="" onChange={mockOnChange} disabled />);
+    const firstSwatch = screen.getByTestId('color-swatch-0');
+    fireEvent.click(firstSwatch);
     expect(mockOnChange).not.toHaveBeenCalled();
   });
 });

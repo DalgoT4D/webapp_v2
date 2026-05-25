@@ -360,8 +360,10 @@ export function ConditionalFormattingSection({
                   } else {
                     message = `Only applies at the ${rule.level} level. Won't show at the top level.`;
                   }
+                } else if (!isDimColumn) {
+                  // Metric rule with no level scope → applies at every drill level
+                  message = `Applies at every drill level.`;
                 }
-                // (Metric with no level → fires at every drill level → no warning)
 
                 if (!message) return null;
 
