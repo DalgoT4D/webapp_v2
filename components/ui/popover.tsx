@@ -31,6 +31,8 @@ function PopoverContent({
       // portals render to document.body which is hidden outside fullscreen.
       setFullscreenContainer((document.fullscreenElement as HTMLElement) ?? null);
     };
+    // Run immediately in case component mounts while already in fullscreen
+    handleFullscreenChange();
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);

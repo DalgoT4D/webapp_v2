@@ -188,24 +188,26 @@ describe('MetricsSelector', () => {
 
     it('should debounce alias updates to parent', async () => {
       jest.useFakeTimers();
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-      const metrics: ChartMetric[] = [{ column: 'amount', aggregation: 'sum', alias: '' }];
+      try {
+        const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+        const metrics: ChartMetric[] = [{ column: 'amount', aggregation: 'sum', alias: '' }];
 
-      render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
+        render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
 
-      const aliasInput = screen.getByPlaceholderText('Auto-generated display name');
-      await user.type(aliasInput, 'Custom');
+        const aliasInput = screen.getByPlaceholderText('Auto-generated display name');
+        await user.type(aliasInput, 'Custom');
 
-      // Debounce has not fired yet — onChange should not have been called
-      expect(mockOnChange).not.toHaveBeenCalled();
+        // Debounce has not fired yet — onChange should not have been called
+        expect(mockOnChange).not.toHaveBeenCalled();
 
-      // Advance past the debounce delay
-      jest.runAllTimers();
+        // Advance past the debounce delay
+        jest.runAllTimers();
 
-      expect(mockOnChange).toHaveBeenCalled();
-      expect(mockOnChange.mock.calls[0][0][0]).toHaveProperty('alias', 'Custom');
-
-      jest.useRealTimers();
+        expect(mockOnChange).toHaveBeenCalled();
+        expect(mockOnChange.mock.calls[0][0][0]).toHaveProperty('alias', 'Custom');
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 

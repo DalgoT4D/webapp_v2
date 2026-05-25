@@ -12,9 +12,18 @@ interface AliasInputProps {
   onChange: (value: string) => void;
   disabled?: boolean;
   placeholder?: string;
+  id?: string;
+  'data-testid'?: string;
 }
 
-export function AliasInput({ value, onChange, disabled, placeholder }: AliasInputProps) {
+export function AliasInput({
+  value,
+  onChange,
+  disabled,
+  placeholder,
+  id,
+  'data-testid': dataTestId,
+}: AliasInputProps) {
   const [localValue, setLocalValue] = useState(value);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -23,13 +32,21 @@ export function AliasInput({ value, onChange, disabled, placeholder }: AliasInpu
     debounce((val: string) => onChangeRef.current(val), ALIAS_DEBOUNCE_MS)
   ).current;
 
-  // Sync when external value changes (e.g. auto-generated alias after column change)
+  // Cancel any pending debounce when external value changes to prevent stale call
   useEffect(() => {
+    debouncedUpdate.cancel();
     setLocalValue(value);
-  }, [value]);
+  }, [value, debouncedUpdate]);
+
+  // Cancel pending debounce on unmount to prevent calling onChange after removal
+  useEffect(() => {
+    return () => debouncedUpdate.cancel();
+  }, [debouncedUpdate]);
 
   return (
     <Input
+      id={id}
+      data-testid={dataTestId}
       type="text"
       placeholder={placeholder}
       value={localValue}

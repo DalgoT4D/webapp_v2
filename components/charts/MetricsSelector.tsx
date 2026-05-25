@@ -66,13 +66,6 @@ export function MetricsSelector({
 
   const labels = getLabels();
 
-  // Filter to numeric columns for most aggregations
-  const numericColumns = columns.filter((col) =>
-    ['integer', 'bigint', 'numeric', 'double precision', 'real', 'float', 'decimal'].includes(
-      col.data_type.toLowerCase()
-    )
-  );
-
   const addMetric = () => {
     const newMetric: ChartMetric = {
       column: null, // For count, use null to display as '*'
@@ -250,8 +243,12 @@ export function MetricsSelector({
 
             {/* Display Name (Alias) */}
             <div className="space-y-1">
-              <Label className="text-xs text-gray-600">{labels.alias}</Label>
+              <Label htmlFor={`metric-alias-${index}`} className="text-xs text-gray-600">
+                {labels.alias}
+              </Label>
               <AliasInput
+                id={`metric-alias-${index}`}
+                data-testid={`metric-alias-${index}`}
                 value={metric.alias || ''}
                 onChange={(value) => updateMetric(index, { alias: value })}
                 disabled={disabled}

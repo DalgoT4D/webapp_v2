@@ -271,7 +271,7 @@ export function ConnectionForm({ mode, connectionId, onClose, onSuccess }: Conne
           {/* Source selection (create) or read-only display (edit/view) */}
           {isCreate ? (
             <div>
-              <label htmlFor="source-select" className="text-[15px] font-medium">
+              <label htmlFor="source-select-input" className="text-[15px] font-medium">
                 Source <span className="text-destructive">*</span>
               </label>
               <div className="mt-1.5">
