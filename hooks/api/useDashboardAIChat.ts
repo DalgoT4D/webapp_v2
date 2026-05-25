@@ -2,7 +2,7 @@
 
 import useSWR from 'swr';
 import { toast } from 'sonner';
-import { apiGet, apiPut } from '@/lib/api';
+import { apiGet, apiPost, apiPut } from '@/lib/api';
 
 interface SuccessResponse<T> {
   success: boolean;
@@ -18,7 +18,9 @@ export interface OrgDashboardAIChatSettings {
   org_context_updated_by: string | null;
   org_context_updated_at: string | null;
   dbt_configured: boolean;
-  ai_context_refreshed_at: string | null;
+  metadata_last_built_at: string | null;
+  metadata_ready_dashboard_count: number;
+  metadata_total_dashboard_count: number;
 }
 
 export interface OrgDashboardAIChatStatus {
@@ -26,7 +28,31 @@ export interface OrgDashboardAIChatStatus {
   ai_data_sharing_enabled: boolean;
   chat_available: boolean;
   dbt_configured: boolean;
-  ai_context_refreshed_at: string | null;
+  metadata_last_built_at: string | null;
+  metadata_ready_dashboard_count: number;
+  metadata_total_dashboard_count: number;
+}
+
+export interface DashboardMetadataStatusItem {
+  dashboard_id: number;
+  dashboard_title: string;
+  status: string;
+  table_count: number;
+  chart_count: number;
+  builder_model: string;
+  source_fingerprint: string;
+  built_at: string | null;
+  error_message: string | null;
+}
+
+export interface OrgDashboardAIChatMetadataStatus {
+  dashboards: DashboardMetadataStatusItem[];
+  total_dashboard_count: number;
+  ready_dashboard_count: number;
+  failed_dashboard_count: number;
+  stale_dashboard_count: number;
+  missing_dashboard_count: number;
+  last_built_at: string | null;
 }
 
 export interface DashboardAIContext {
@@ -35,7 +61,7 @@ export interface DashboardAIContext {
   dashboard_context_markdown: string;
   dashboard_context_updated_by: string | null;
   dashboard_context_updated_at: string | null;
-  ai_context_refreshed_at: string | null;
+  metadata_last_built_at: string | null;
 }
 
 export interface DashboardChatBootstrap {
@@ -50,6 +76,11 @@ export interface UpdateOrgDashboardAIChatPayload {
 
 export interface UpdateDashboardAIContextPayload {
   dashboard_context_markdown: string;
+}
+
+export interface TriggerDashboardMetadataBuildPayload {
+  dashboard_id?: number;
+  builder_model?: string;
 }
 
 export function useDashboardAIChatSettings(enabled = true) {
@@ -103,6 +134,23 @@ export function useDashboardAIContext(dashboardId: number | null, enabled = true
   };
 }
 
+export function useDashboardMetadataStatus(enabled = true) {
+  const { data, error, isLoading, mutate } = useSWR<OrgDashboardAIChatMetadataStatus>(
+    enabled ? '/api/orgpreferences/ai-dashboard-chat/metadata/status' : null,
+    apiGet,
+    {
+      revalidateOnFocus: false,
+    }
+  );
+
+  return {
+    status: data,
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
 export function useDashboardChatBootstrap(dashboardId: number | null, enabled = true) {
   const { data, error, isLoading, mutate } = useSWR<DashboardChatBootstrap>(
     enabled && dashboardId ? `/api/dashboards/${dashboardId}/chat-bootstrap/` : null,
@@ -149,8 +197,23 @@ export function useDashboardAIChatActions() {
     }
   };
 
+  const buildDashboardMetadata = async (payload: TriggerDashboardMetadataBuildPayload) => {
+    try {
+      return (await apiPost(
+        '/api/orgpreferences/ai-dashboard-chat/metadata/build',
+        payload
+      )) as OrgDashboardAIChatMetadataStatus;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to build dashboard chat metadata';
+      toast.error(message);
+      throw error;
+    }
+  };
+
   return {
     updateSettings,
     updateDashboardContext,
+    buildDashboardMetadata,
   };
 }

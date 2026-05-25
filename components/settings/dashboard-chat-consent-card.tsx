@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 interface DashboardChatConsentCardProps {
   aiDataSharingEnabled: boolean;
   aiDataSharingConsentedAt: string;
-  vectorLastIngestedAt: string;
+  metadataLastBuiltAt: string;
   isUpdatingConsent: boolean;
   onConsentChange: (checked: boolean) => void | Promise<void>;
 }
@@ -28,7 +28,7 @@ function FreshnessItem({ label, value }: FreshnessItemProps) {
 export function DashboardChatConsentCard({
   aiDataSharingEnabled,
   aiDataSharingConsentedAt,
-  vectorLastIngestedAt,
+  metadataLastBuiltAt,
   isUpdatingConsent,
   onConsentChange,
 }: DashboardChatConsentCardProps) {
@@ -61,13 +61,13 @@ export function DashboardChatConsentCard({
 
         <div className="grid gap-2 rounded-lg border bg-slate-50 p-4 md:grid-cols-2">
           <FreshnessItem label="Last consent update" value={aiDataSharingConsentedAt} />
-          <FreshnessItem label="Dalgo AI context refreshed" value={vectorLastIngestedAt} />
+          <FreshnessItem label="Metadata last built" value={metadataLastBuiltAt} />
         </div>
 
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
           <p>
-            Organization and dashboard context changes appear in Dalgo AI after the next context
-            refresh. Allow up to 3 hours for saved updates to show up in chat.
+            Organization and dashboard context changes do not affect chat until dashboard metadata
+            is rebuilt. Use the metadata build controls below after changing context or dashboards.
           </p>
         </div>
       </CardContent>

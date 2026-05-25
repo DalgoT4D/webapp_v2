@@ -533,7 +533,7 @@ export function DashboardChat({
 
         <div className="border-t p-4">
           <div className="mb-3 text-xs text-slate-500">
-            Answers use the latest available Dalgo AI context refresh.
+            Answers use the latest available dashboard chat metadata build.
           </div>
           <div className="flex items-center gap-2">
             <Input
