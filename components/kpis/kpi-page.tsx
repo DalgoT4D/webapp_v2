@@ -30,19 +30,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { useKPIs, useKPIData, deleteKPI } from '@/hooks/api/useKPIs';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
+import { KPIDeleteDialog } from './kpi-delete-dialog';
 import { KPICard } from './kpi-card';
 import type { KPICardData } from './kpi-card';
 import type { KPI } from '@/types/kpis';
@@ -189,7 +180,9 @@ export function KPIPageComponent() {
     setIsDeleting(true);
     try {
       await deleteKPI(deletingKpi.id);
-      setCurrentPage(1);
+      if (kpis.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1);
+      }
       mutate();
       toastSuccess.deleted(deletingKpi.name);
       setDeleteDialogOpen(false);
@@ -388,27 +381,14 @@ export function KPIPageComponent() {
         }}
       />
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete KPI</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deletingKpi?.name}&quot;? This will also remove
-              it from any dashboards.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              disabled={isDeleting}
-              className="bg-destructive text-white hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <KPIDeleteDialog
+        kpiId={deletingKpi?.id ?? null}
+        kpiName={deletingKpi?.name ?? ''}
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteConfirm}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 }

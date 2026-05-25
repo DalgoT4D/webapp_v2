@@ -109,6 +109,25 @@ export async function deleteKPI(id: number): Promise<void> {
   return apiDelete(`/api/kpis/${id}/`);
 }
 
+interface KPIDashboard {
+  id: number;
+  title: string;
+  dashboard_type: string;
+}
+
+export function useKPIDashboards(kpiId: number | null) {
+  const { data, error } = useSWR<KPIDashboard[]>(
+    kpiId ? `/api/kpis/${kpiId}/dashboards/` : null,
+    apiGet,
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
+  );
+  return {
+    data: data || [],
+    isLoading: !error && !data && !!kpiId,
+    isError: error,
+  };
+}
+
 // ── Annotations ───────────────────────────────────────────────────────
 
 export function useAnnotations(kpiId: number | null) {

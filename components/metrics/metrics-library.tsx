@@ -176,15 +176,18 @@ export function MetricsLibrary() {
     setFormOpen(true);
   };
 
+  const [consumerCheckFailed, setConsumerCheckFailed] = useState(false);
+
   const handleDeleteClick = async (metric: Metric) => {
     setDeletingMetric(metric);
     setDeleteError(null);
     setDeleteConsumers(null);
+    setConsumerCheckFailed(false);
     try {
       const c = await getMetricConsumers(metric.id);
       setDeleteConsumers(c);
     } catch {
-      // ignore
+      setConsumerCheckFailed(true);
     }
     setDeleteDialogOpen(true);
   };
@@ -619,11 +622,15 @@ export function MetricsLibrary() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-bold">
-              {hasDeleteConsumers ? 'Cannot Delete Metric' : 'Delete Metric'}
+              {hasDeleteConsumers || consumerCheckFailed ? 'Cannot Delete Metric' : 'Delete Metric'}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-4">
-                {hasDeleteConsumers ? (
+                {consumerCheckFailed ? (
+                  <p className="text-sm text-destructive">
+                    Could not verify if this metric is in use. Please try again.
+                  </p>
+                ) : hasDeleteConsumers ? (
                   <>
                     <p className="text-base text-foreground">
                       <span className="font-bold">&quot;{deletingMetric?.name}&quot;</span> is in
@@ -653,9 +660,12 @@ export function MetricsLibrary() {
             <AlertDialogCancel className="border-destructive text-destructive hover:bg-destructive/5">
               CANCEL
             </AlertDialogCancel>
-            {!hasDeleteConsumers && (
+            {!hasDeleteConsumers && !consumerCheckFailed && (
               <AlertDialogAction
-                onClick={handleDeleteConfirm}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void handleDeleteConfirm();
+                }}
                 disabled={isDeleting}
                 className="bg-destructive text-white hover:bg-destructive/90"
               >
