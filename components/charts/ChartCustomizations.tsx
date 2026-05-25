@@ -29,6 +29,8 @@ interface ChartCustomizationsProps {
   onChange: (updates: Partial<ChartBuilderFormData>) => void;
   disabled?: boolean;
   columns?: ColumnInfo[]; // Column metadata for filtering by type
+  /** Index into the drill-down dimensions list for the currently-displayed level (0 = top). */
+  currentDrillLevel?: number;
 }
 
 export function ChartCustomizations({
@@ -37,6 +39,7 @@ export function ChartCustomizations({
   onChange,
   disabled,
   columns = [],
+  currentDrillLevel = 0,
 }: ChartCustomizationsProps) {
   // Memoize customizations to avoid dependency issues
   const customizations = useMemo(() => formData?.customizations || {}, [formData?.customizations]);
@@ -334,12 +337,17 @@ export function ChartCustomizations({
           ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
           .filter(Boolean) || [];
 
-      // Column rearrangement mirrors what the table shows: when drill-down is enabled,
-      // only the first drill-down dim is visible at the top level. The saved order
-      // applies to every level — at runtime the first drill-down dim is swapped for
-      // the dim at the displayed level (see resolveTableColumnOrder).
+      // Column rearrangement mirrors what the table shows: when drill-down is
+      // enabled, only the dim for the currently-displayed level is visible.
+      const drillDownDims = drillDownEnabled
+        ? formData.dimensions?.filter((d) => d.enable_drill_down) || []
+        : [];
+      const visibleDrillDim =
+        drillDownDims[Math.min(currentDrillLevel, Math.max(drillDownDims.length - 1, 0))];
       const visibleDimensions = drillDownEnabled
-        ? formData.dimensions?.filter((d) => d.enable_drill_down).slice(0, 1) || []
+        ? visibleDrillDim
+          ? [visibleDrillDim]
+          : []
         : formData.dimensions || [];
 
       const visibleTopLevelColumns = hasTableAggregation

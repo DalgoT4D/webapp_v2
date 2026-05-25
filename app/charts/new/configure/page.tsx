@@ -1083,6 +1083,9 @@ function ConfigureChartPageContent() {
                       formData={formData}
                       onChange={handleFormChange}
                       columns={columns}
+                      currentDrillLevel={
+                        tableDrillDownState ? tableDrillDownState.currentLevel + 1 : 0
+                      }
                     />
                   )}
                 </div>

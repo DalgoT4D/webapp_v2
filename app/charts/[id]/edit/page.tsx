@@ -1558,6 +1558,9 @@ function EditChartPageContent() {
                       formData={formData}
                       onChange={handleFormChange}
                       columns={columns}
+                      currentDrillLevel={
+                        tableDrillDownState ? tableDrillDownState.currentLevel + 1 : 0
+                      }
                     />
                   )}
                 </div>
