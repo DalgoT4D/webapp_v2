@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useId } from 'react';
 import { Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface TableSearchBarProps {
   query: string;
@@ -18,6 +19,7 @@ export function TableSearchBar({
   totalMatches,
   onClear,
 }: TableSearchBarProps) {
+  const inputId = useId();
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Escape') {
@@ -34,7 +36,11 @@ export function TableSearchBar({
       data-testid="table-search-bar"
     >
       <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+      <Label htmlFor={inputId} className="sr-only">
+        Search table
+      </Label>
       <Input
+        id={inputId}
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
         onKeyDown={handleKeyDown}

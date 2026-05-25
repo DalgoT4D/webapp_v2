@@ -247,7 +247,7 @@ export function TableChart({
       if (rule.level !== undefined && rule.level !== currentDimensionColumn) continue;
 
       // Treat legacy rules saved without a `type` field as numeric
-      const ruleType = (rule as any).type ?? 'numeric';
+      const ruleType = (rule as { type?: 'numeric' | 'text' }).type ?? 'numeric';
       let matches = false;
 
       if (ruleType === 'text') {

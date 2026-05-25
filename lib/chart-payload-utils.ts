@@ -97,7 +97,11 @@ export function resolveTableColumnOrder({
     order = savedOrder.map((c) => (c === firstDim ? currentDimensionColumn : c));
   }
 
-  if (order.length === cols.length && order.every((c) => cols.includes(c))) {
+  if (
+    order.length === cols.length &&
+    new Set(order).size === order.length &&
+    order.every((c) => cols.includes(c))
+  ) {
     return order;
   }
   return cols;

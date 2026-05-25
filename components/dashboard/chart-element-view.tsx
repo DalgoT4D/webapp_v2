@@ -53,7 +53,7 @@ import {
   applyLineBarDateFormatting,
 } from '@/lib/chart-formatting-utils';
 import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
-import { ChartTypes, type ChartDataPayload } from '@/types/charts';
+import { ChartTypes, type ChartDataPayload, type ChartDimension } from '@/types/charts';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
@@ -385,7 +385,7 @@ export function ChartElementView({
             ...(effectiveChart.chart_type === ChartTypes.TABLE && {
               dimensions: (() => {
                 const isDrillDownEnabled = effectiveChart.extra_config?.dimensions?.some(
-                  (dim: any) => dim.enable_drill_down === true
+                  (dim: ChartDimension) => dim.enable_drill_down === true
                 );
 
                 if (!isDrillDownEnabled) {
@@ -395,7 +395,7 @@ export function ChartElementView({
                     effectiveChart.extra_config.dimensions.length > 0
                   ) {
                     return effectiveChart.extra_config.dimensions
-                      .map((d: any) => d.column)
+                      .map((d: ChartDimension) => d.column)
                       .filter(Boolean);
                   }
                   if (
@@ -409,8 +409,8 @@ export function ChartElementView({
 
                 // When drill-down is enabled, only use dimensions with enable_drill_down
                 const drillDownDimensions = effectiveChart.extra_config.dimensions
-                  .filter((dim: any) => dim.enable_drill_down)
-                  .map((d: any) => d.column)
+                  .filter((dim: ChartDimension) => dim.enable_drill_down)
+                  .map((d: ChartDimension) => d.column)
                   .filter(Boolean);
 
                 // When drill-down is enabled and active, use only the current level dimension
@@ -639,7 +639,7 @@ export function ChartElementView({
 
       // Check if drill-down is enabled
       const isDrillDownEnabled = effectiveChart.extra_config?.dimensions?.some(
-        (dim: any) => dim.enable_drill_down === true
+        (dim: ChartDimension) => dim.enable_drill_down === true
       );
 
       if (!isDrillDownEnabled) return;
@@ -647,8 +647,8 @@ export function ChartElementView({
       // Get all dimensions in order (only those with drill-down enabled)
       const allDimensions =
         effectiveChart.extra_config?.dimensions
-          ?.filter((dim: any) => dim.enable_drill_down)
-          .map((d: any) => d.column)
+          ?.filter((dim: ChartDimension) => dim.enable_drill_down)
+          .map((d: ChartDimension) => d.column)
           .filter(Boolean) || [];
 
       if (allDimensions.length === 0) return;
@@ -698,8 +698,8 @@ export function ChartElementView({
 
     const allDimensions =
       effectiveChart?.extra_config?.dimensions
-        ?.filter((dim: any) => dim.enable_drill_down)
-        .map((d: any) => d.column)
+        ?.filter((dim: ChartDimension) => dim.enable_drill_down)
+        .map((d: ChartDimension) => d.column)
         .filter(Boolean) || [];
 
     const newLevel = tableDrillDownState.currentLevel - 1;
@@ -1874,8 +1874,8 @@ export function ChartElementView({
                   const cols = tableData?.columns || [];
                   const drillDownDimensions =
                     effectiveChart?.extra_config?.dimensions
-                      ?.filter((dim: any) => dim.enable_drill_down)
-                      .map((d: any) => d.column)
+                      ?.filter((dim: ChartDimension) => dim.enable_drill_down)
+                      .map((d: ChartDimension) => d.column)
                       .filter(Boolean) || [];
                   const currentDim = tableDrillDownState
                     ? drillDownDimensions[tableDrillDownState.currentLevel + 1]
@@ -1919,17 +1919,17 @@ export function ChartElementView({
               }
               onRowClick={handleTableRowClick}
               drillDownEnabled={effectiveChart?.extra_config?.dimensions?.some(
-                (dim: any) => dim.enable_drill_down === true
+                (dim: ChartDimension) => dim.enable_drill_down === true
               )}
               currentDimensionColumn={
                 tableDrillDownState
                   ? effectiveChart?.extra_config?.dimensions
-                      ?.filter((dim: any) => dim.enable_drill_down)
-                      .map((d: any) => d.column)
+                      ?.filter((dim: ChartDimension) => dim.enable_drill_down)
+                      .map((d: ChartDimension) => d.column)
                       .filter(Boolean)[tableDrillDownState.currentLevel + 1]
                   : effectiveChart?.extra_config?.dimensions
-                      ?.filter((dim: any) => dim.enable_drill_down)
-                      .map((d: any) => d.column)
+                      ?.filter((dim: ChartDimension) => dim.enable_drill_down)
+                      .map((d: ChartDimension) => d.column)
                       .filter(Boolean)[0]
               }
             />

@@ -29,9 +29,10 @@ export function useTableSearch(cells: CellEntry[]): UseTableSearchReturn {
   const debouncedQuery = useDebounce(query, SEARCH_DEBOUNCE_MS);
 
   const matches = useMemo(() => {
-    if (!debouncedQuery.trim()) return [];
+    const trimmed = debouncedQuery.trim();
+    if (!trimmed) return [];
 
-    const lowerQuery = debouncedQuery.toLowerCase();
+    const lowerQuery = trimmed.toLowerCase();
     return cells
       .filter((cell) => String(cell.displayValue).toLowerCase().includes(lowerQuery))
       .map(({ rowIndex, colIndex }) => ({ rowIndex, colIndex }));

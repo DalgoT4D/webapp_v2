@@ -131,6 +131,7 @@ export function ColumnSettingsSection({
     if (over && active.id !== over.id) {
       const oldIndex = columns.indexOf(active.id as string);
       const newIndex = columns.indexOf(over.id as string);
+      if (oldIndex < 0 || newIndex < 0) return;
       onOrderChange(arrayMove(columns, oldIndex, newIndex));
     }
   };

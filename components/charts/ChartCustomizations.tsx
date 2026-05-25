@@ -365,6 +365,7 @@ export function ChartCustomizations({
       const allDisplayedColumns =
         savedOrder &&
         savedOrder.length === visibleTopLevelColumns.length &&
+        new Set(savedOrder).size === savedOrder.length &&
         savedOrder.every((col: string) => visibleTopLevelColumns.includes(col))
           ? savedOrder
           : visibleTopLevelColumns;

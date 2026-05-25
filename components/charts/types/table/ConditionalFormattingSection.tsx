@@ -114,7 +114,7 @@ export function ConditionalFormattingSection({
       }
 
       if (field === 'value') {
-        const ruleType = (rule as any).type ?? 'numeric';
+        const ruleType = (rule as { type?: 'numeric' | 'text' }).type ?? 'numeric';
         return { ...rule, value: ruleType === 'text' ? String(value) : Number(value) };
       }
 
@@ -171,7 +171,8 @@ export function ConditionalFormattingSection({
 
       <div className="space-y-2">
         {rules.map((rule, index) => {
-          const ruleIsText = (rule as any).type === 'text' || isTextColumn(rule.column);
+          const ruleIsText =
+            (rule as { type?: 'numeric' | 'text' }).type === 'text' || isTextColumn(rule.column);
           const operators = ruleIsText ? TEXT_CONDITIONAL_OPERATORS : CONDITIONAL_OPERATORS;
           const dimLevelLabel = getDimLevelLabel(rule.column);
           const isMetricCol = drillDownEnabled && !isDimensionCol(rule.column);
@@ -386,12 +387,12 @@ export function ConditionalFormattingSection({
 
       <Button
         type="button"
-        variant="default"
+        variant="primary"
         size="default"
         data-testid="add-formatting-rule-btn"
         onClick={handleAddRule}
         disabled={disabled}
-        className="w-full bg-black text-white hover:bg-gray-800"
+        className="w-full"
       >
         <Plus className="h-4 w-4 mr-2" />
         ADD RULE

@@ -80,6 +80,7 @@ export function ColumnOrderSection({ columns, onChange, disabled }: ColumnOrderS
     if (over && active.id !== over.id) {
       const oldIndex = columns.indexOf(active.id as string);
       const newIndex = columns.indexOf(over.id as string);
+      if (oldIndex < 0 || newIndex < 0) return;
       onChange(arrayMove(columns, oldIndex, newIndex));
     }
   };
