@@ -1321,6 +1321,7 @@ export function ChartElementV2({
                       zebraRows: chart?.extra_config?.customizations?.zebraRows ?? true,
                       freezeFirstColumn:
                         chart?.extra_config?.customizations?.freezeFirstColumn || false,
+                      theme: chart?.extra_config?.customizations?.theme,
                     }}
                     isLoading={tableLoading}
                     error={tableError}

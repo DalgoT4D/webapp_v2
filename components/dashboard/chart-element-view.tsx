@@ -1902,6 +1902,7 @@ export function ChartElementView({
                 zebraRows: effectiveChart?.extra_config?.customizations?.zebraRows ?? true,
                 freezeFirstColumn:
                   effectiveChart?.extra_config?.customizations?.freezeFirstColumn || false,
+                theme: effectiveChart?.extra_config?.customizations?.theme,
               }}
               isLoading={tableLoading}
               error={tableError}

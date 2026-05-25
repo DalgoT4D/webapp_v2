@@ -38,7 +38,11 @@ import {
 } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
-import { getApiCustomizations, mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
+import {
+  getApiCustomizations,
+  mergeTableColumnFormatting,
+  resolveTableColumnOrder,
+} from '@/lib/chart-payload-utils';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -1156,15 +1160,20 @@ function ConfigureChartPageContent() {
                           config={{
                             table_columns: (() => {
                               const cols = tableChartData?.columns || formData.table_columns || [];
-                              const order = formData.customizations?.columnOrder;
-                              if (
-                                order?.length &&
-                                order.length === cols.length &&
-                                order.every((c: string) => cols.includes(c))
-                              ) {
-                                return order;
-                              }
-                              return cols;
+                              const drillDownDimensions =
+                                formData.dimensions
+                                  ?.filter((d) => d.enable_drill_down)
+                                  .map((d) => d.column)
+                                  .filter(Boolean) || [];
+                              const currentDim = tableDrillDownState
+                                ? drillDownDimensions[tableDrillDownState.currentLevel + 1]
+                                : drillDownDimensions[0];
+                              return resolveTableColumnOrder({
+                                cols,
+                                savedOrder: formData.customizations?.columnOrder,
+                                drillDownDimensions,
+                                currentDimensionColumn: currentDim,
+                              });
                             })(),
                             column_formatting: mergeTableColumnFormatting(formData.customizations),
                             sort: formData.sort || [],
