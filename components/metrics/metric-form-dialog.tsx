@@ -475,7 +475,8 @@ export function MetricFormDialog({
           {isEdit && hasConsumers && (
             <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
               <p className="text-sm font-medium text-amber-700 mb-1">
-                NOTE: Saving will affect usage. This change cannot be reversed
+                This metric has been used in multiple places. Editing and changing it can affect
+                them.
               </p>
               <ConsumerLinks consumers={consumers!} variant="inherit" />
             </div>

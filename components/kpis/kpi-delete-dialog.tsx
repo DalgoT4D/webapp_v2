@@ -62,7 +62,8 @@ export function KPIDeleteDialog({
                 <div className="space-y-2">
                   <p className="text-sm text-amber-600">
                     &#9888;&#65039; This KPI is used in {dashboards.length} dashboard
-                    {dashboards.length > 1 ? 's' : ''}:
+                    {dashboards.length > 1 ? 's' : ''}. Remove it from these dashboards before
+                    deleting.
                   </p>
                   <div className="space-y-1 max-h-32 overflow-y-auto">
                     {dashboards.map((dashboard) => (
@@ -93,13 +94,15 @@ export function KPIDeleteDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>CANCEL</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-medium uppercase"
-            disabled={isDeleting}
-          >
-            {isDeleting ? 'DELETING...' : 'DELETE KPI'}
-          </AlertDialogAction>
+          {dashboards.length === 0 && (
+            <AlertDialogAction
+              onClick={onConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-medium uppercase"
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'DELETING...' : 'DELETE KPI'}
+            </AlertDialogAction>
+          )}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

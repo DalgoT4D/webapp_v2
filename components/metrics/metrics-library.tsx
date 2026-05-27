@@ -285,8 +285,10 @@ export function MetricsLibrary() {
           </span>
         </TableCell>
         {/* Data Source */}
-        <TableCell className="py-4">
-          <span className="text-base text-gray-700">{dataSource}</span>
+        <TableCell className="py-4 max-w-[200px]">
+          <span className="text-base text-gray-700 block truncate" title={dataSource}>
+            {dataSource}
+          </span>
         </TableCell>
         {/* Expression */}
         <TableCell className="py-4">
@@ -633,14 +635,11 @@ export function MetricsLibrary() {
                 ) : hasDeleteConsumers ? (
                   <>
                     <p className="text-base text-foreground">
-                      <span className="font-bold">&quot;{deletingMetric?.name}&quot;</span> is in
-                      use by Charts and KPI. <span className="font-bold">Remove</span> these
-                      dependencies before deleting
+                      This metric has been used in multiple places. Remove these dependencies before
+                      deleting.
                     </p>
                     <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
-                      <p className="text-sm font-medium text-amber-700 mb-1">
-                        NOTE: Change will affect :
-                      </p>
+                      <p className="text-sm font-medium text-amber-700 mb-1">Used by:</p>
                       <ConsumerLinks consumers={deleteConsumers!} variant="inherit" />
                     </div>
                   </>
