@@ -51,7 +51,10 @@ export function FieldLabel({ title, required, description, htmlFor }: FieldLabel
                   data-testid={`field-info-${htmlFor}`}
                 />
               </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-xs text-xs">
+              <TooltipContent
+                side="right"
+                className="max-w-xs text-xs [&_a]:underline [&_a]:opacity-80 [&_a]:cursor-pointer"
+              >
                 <p dangerouslySetInnerHTML={{ __html: sanitizedDescription }} />
               </TooltipContent>
             </Tooltip>
