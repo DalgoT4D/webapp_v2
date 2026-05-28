@@ -427,8 +427,8 @@ export function MapPreview({
               // Configure how regions without data should appear (default styling)
               itemStyle: {
                 areaColor: '#f5f5f5', // Light gray for regions without data
-                borderColor: safeCustomizations.borderColor || '#333',
-                borderWidth: safeCustomizations.borderWidth || 0.5,
+                borderColor: '#000',
+                borderWidth: 0,
               },
               label: {
                 show: safeCustomizations.showLabels === true,
@@ -445,8 +445,8 @@ export function MapPreview({
                 },
               },
               // Animation settings
-              animation: safeCustomizations.animation !== false,
-              animationDuration: safeCustomizations.animation !== false ? 1000 : 0,
+              animation: true,
+              animationDuration: 1000,
               // Use enhanced data with individual colors when legend is disabled
               ...(safeCustomizations.showLegend === false
                 ? {
