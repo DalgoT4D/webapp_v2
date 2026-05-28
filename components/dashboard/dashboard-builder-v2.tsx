@@ -494,6 +494,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [description, setDescription] = useState(initialData?.description || '');
     const [isEditingTitle, setIsEditingTitle] = useState(isNewDashboard || false);
     const [isEditingDescription, setIsEditingDescription] = useState(false);
+    // Snapshot of description captured when edit mode opens, used to revert on
+    // Escape. Avoids reverting to stale `initialData` after saves.
+    const originalDescriptionRef = useRef(description);
+    const beginEditDescription = useCallback(() => {
+      originalDescriptionRef.current = description;
+      setIsEditingDescription(true);
+    }, [description]);
 
     // Tabs state - initialize from initialData or create default
     const [tabsData, setTabsData] = useState<DashboardTabsData>(() => {
@@ -1816,7 +1823,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           saveDashboard();
                         }
                         if (e.key === 'Escape') {
-                          setDescription(initialData?.description || '');
+                          setDescription(originalDescriptionRef.current);
                           setIsEditingDescription(false);
                         }
                       }}
@@ -1826,10 +1833,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       }}
                     />
                   ) : (
-                    <div
-                      className="cursor-pointer min-w-0"
-                      onClick={() => setIsEditingDescription(true)}
-                    >
+                    <div className="cursor-pointer min-w-0" onClick={beginEditDescription}>
                       {description ? (
                         <p className="text-xs text-gray-600 truncate">{description}</p>
                       ) : (
@@ -2137,7 +2141,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           saveDashboard();
                         }
                         if (e.key === 'Escape') {
-                          setDescription(initialData?.description || '');
+                          setDescription(originalDescriptionRef.current);
                           setIsEditingDescription(false);
                         }
                       }}
@@ -2149,7 +2153,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   ) : (
                     <div
                       className="cursor-pointer hover:bg-gray-50 rounded px-2 py-0.5"
-                      onClick={() => setIsEditingDescription(true)}
+                      onClick={beginEditDescription}
                       data-testid="dashboard-description-display"
                     >
                       {description ? (

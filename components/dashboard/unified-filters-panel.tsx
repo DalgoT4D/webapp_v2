@@ -290,10 +290,11 @@ export function UnifiedFiltersPanel({
       // Revalidate the dashboard cache so liveDashboardData.filters reflect
       // the new order — otherwise the parent's stale initialFilters reference
       // could re-sync local state on the next render.
-      globalMutate(`/api/dashboards/${dashboardId}/`);
+      await globalMutate(`/api/dashboards/${dashboardId}/`);
     } catch (error) {
-      // Revert on failure so UI matches backend
-      setFilters(previousOrder);
+      // Partial writes may already be committed; reload source of truth
+      // instead of guessing at the previous order.
+      await globalMutate(`/api/dashboards/${dashboardId}/`);
       toastError.update(error, 'filter order');
     }
   };
