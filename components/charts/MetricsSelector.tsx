@@ -492,20 +492,18 @@ export function MetricsSelector({
               size="sm"
               onClick={addInlineMetric}
               disabled={disabled || !canAddInline || validating}
-              className="w-full h-8 text-xs border-dashed bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
+              className="w-full border-dashed bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
             >
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              ADD ANOTHER METRIC
+              + ADD ANOTHER METRIC
             </Button>
           ) : (
             <Button
               size="sm"
               onClick={() => setShowForm(true)}
               disabled={disabled}
-              className="w-full h-8 text-xs border-dashed bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
+              className="w-full border-dashed bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
             >
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              ADD ANOTHER METRIC
+              + ADD ANOTHER METRIC
             </Button>
           )}
         </>
