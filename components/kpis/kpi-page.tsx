@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useSWRConfig } from 'swr';
 import {
   Plus,
@@ -113,6 +114,7 @@ function KPICardWithData({
 }
 
 export function KPIPageComponent() {
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState('');
   const [metricTypeFilter, setMetricTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -142,6 +144,18 @@ export function KPIPageComponent() {
   });
 
   const { mutate: globalMutate } = useSWRConfig();
+
+  // Auto-open drawer when ?open={kpiId} is in the URL
+  useEffect(() => {
+    const openId = searchParams.get('open');
+    if (openId && kpis.length > 0) {
+      const kpi = kpis.find((k) => k.id === parseInt(openId));
+      if (kpi) {
+        setSelectedKpi(kpi);
+        setDrawerOpen(true);
+      }
+    }
+  }, [searchParams, kpis]);
 
   const handleFormSuccess = useCallback(() => {
     setCurrentPage(1);

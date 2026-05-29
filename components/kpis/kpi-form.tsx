@@ -23,7 +23,7 @@ import { Loader2, Plus, Download, Upload, Target, Hammer } from 'lucide-react';
 import { Combobox } from '@/components/ui/combobox';
 import { useMetrics } from '@/hooks/api/useMetrics';
 import { useTableColumns } from '@/hooks/api/useWarehouse';
-import { createKPI, updateKPI, useAnnotations } from '@/hooks/api/useKPIs';
+import { createKPI, updateKPI } from '@/hooks/api/useKPIs';
 import type { KPI, KPICreate, KPIUpdate } from '@/types/kpis';
 import { DIRECTION_OPTIONS, TIME_GRAIN_OPTIONS, METRIC_TYPE_TAG_OPTIONS } from '@/types/kpis';
 import { cn } from '@/lib/utils';
@@ -60,8 +60,6 @@ interface KPIFormProps {
 
 export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricId }: KPIFormProps) {
   const isEdit = !!kpi;
-  const { annotations } = useAnnotations(isEdit ? (kpi?.id ?? null) : null);
-  const hasAnnotations = annotations.length > 0;
 
   // Step 1 = metric + target + direction, Step 2 = RAG + time + classification
   const [step, setStep] = useState<1 | 2>(1);
@@ -241,10 +239,9 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           {/* ── Section 1: Metric + Target + Direction ──────────────── */}
 
           {/* Metric selector */}
-          {isEdit && hasAnnotations && (
+          {isEdit && (
             <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              Metric, time column, and time grain cannot be changed because this KPI has notes
-              attached.
+              Metric, time column, and time grain cannot be changed after creation.
             </div>
           )}
 
@@ -258,7 +255,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
               rules={{ required: 'Metric is required' }}
               render={({ field }) => (
                 <Combobox
-                  disabled={isEdit && hasAnnotations}
+                  disabled={isEdit}
                   items={metrics.map((m) => ({
                     value: m.id.toString(),
                     label: m.name,
@@ -472,7 +469,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                       rules={{ required: 'Time column is required' }}
                       render={({ field }) => (
                         <Select
-                          disabled={isEdit && hasAnnotations}
+                          disabled={isEdit}
                           value={field.value || '__none__'}
                           onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}
                         >
@@ -505,7 +502,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                       rules={{ required: 'Time grain is required' }}
                       render={({ field }) => (
                         <Select
-                          disabled={isEdit && hasAnnotations}
+                          disabled={isEdit}
                           value={field.value}
                           onValueChange={field.onChange}
                         >

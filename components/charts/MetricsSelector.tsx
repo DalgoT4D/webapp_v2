@@ -13,7 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { X, Plus, Library, Save, Loader2 } from 'lucide-react';
+import { X, Plus, Library, Save, Loader2, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { ChartMetric } from '@/types/charts';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { Combobox, highlightText } from '@/components/ui/combobox';
@@ -52,6 +53,7 @@ export function MetricsSelector({
   tableName,
 }: MetricsSelectorProps) {
   const [mode, setMode] = useState<'simple' | 'calculated'>('simple');
+  const [showForm, setShowForm] = useState(false);
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
   const [validating, setValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -99,6 +101,7 @@ export function MetricsSelector({
       alias: sm.name,
     };
     onChange([...metrics, newMetric]);
+    setShowForm(false);
   };
 
   const addInlineMetric = async () => {
@@ -186,6 +189,7 @@ export function MetricsSelector({
     setExprText('');
     setMetricName('');
     setDisplayName('');
+    setShowForm(false);
   };
 
   const removeMetric = (index: number) => {
@@ -223,7 +227,7 @@ export function MetricsSelector({
   };
 
   const canAddMore = !maxMetrics || metrics.length < maxMetrics;
-  const canAddInline = !!metricName.trim() && (mode === 'simple' ? !!simpleAgg : !!exprText.trim());
+  const canAddInline = mode === 'simple' ? !!simpleAgg : !!exprText.trim();
 
   const isSavedMetricAdded = (id: number) => metrics.some((m) => m.saved_metric_id === id);
 
@@ -234,259 +238,279 @@ export function MetricsSelector({
       {/* Existing metrics */}
       {metrics.length > 0 && (
         <div className="space-y-2">
-          {metrics.map((metric, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-2 p-2 border rounded-lg bg-gray-50/50"
-            >
-              <div className="flex-1 min-w-0">
-                {metric.saved_metric_id && (
-                  <div className="flex items-center gap-1 mb-0.5">
-                    <Library className="h-3 w-3 text-blue-600" />
-                    <span className="text-xs text-blue-600 font-medium">Saved</span>
+          {metrics.map((metric, index) => {
+            const summary = metric.column_expression
+              ? metric.column_expression.slice(0, 40)
+              : `${(metric.aggregation || '').toUpperCase()}(${metric.column || '*'})`;
+            return (
+              <div key={index} className="border rounded-lg p-3 space-y-2">
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="text-sm font-medium truncate"
+                        style={{ color: 'var(--primary)' }}
+                      >
+                        {metric.alias || summary}
+                      </span>
+                      {metric.saved_metric_id && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Library className="h-3 w-3 text-blue-600 shrink-0 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">
+                              Saved to library
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                    <div className="text-sm text-foreground">{summary}</div>
                   </div>
-                )}
-                <div className="text-sm font-medium truncate">{metric.alias || 'Untitled'}</div>
-                <div className="text-xs text-muted-foreground truncate">
-                  {metric.column_expression
-                    ? metric.column_expression.slice(0, 40)
-                    : `${(metric.aggregation || '').toUpperCase()}(${metric.column || '*'})`}
-                </div>
-              </div>
-              <div className="flex items-center gap-0.5 shrink-0">
-                {!metric.saved_metric_id && schemaName && tableName && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600"
-                    title="Save to Metrics library"
-                    disabled={disabled || savingIndex === index}
-                    onClick={async () => {
-                      setSavingIndex(index);
-                      try {
-                        const name =
-                          metric.alias ||
-                          `${(metric.aggregation || '').toUpperCase()}(${metric.column || '*'})`;
-                        const payload: any = {
-                          name,
-                          schema_name: schemaName,
-                          table_name: tableName,
-                        };
-                        if (metric.column_expression) {
-                          payload.column_expression = metric.column_expression;
-                        } else {
-                          payload.aggregation = metric.aggregation;
-                          payload.column = metric.column || undefined;
-                        }
-                        const saved = await createMetric(payload);
-                        const newMetrics = [...metrics];
-                        newMetrics[index] = {
-                          ...newMetrics[index],
-                          saved_metric_id: saved.id,
-                        };
-                        onChange(newMetrics);
-                        mutateSavedMetrics();
-                        toastSuccess.generic(`Saved "${saved.name}"`);
-                      } catch (err: any) {
-                        toastError.save(err, 'metric');
-                      } finally {
-                        setSavingIndex(null);
-                      }
-                    }}
+                    className="h-7 w-7 p-0 text-gray-400 hover:text-red-500 shrink-0"
+                    onClick={() => removeMetric(index)}
+                    disabled={disabled}
                   >
-                    {savingIndex === index ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Save className="h-3.5 w-3.5" />
-                    )}
+                    <X className="h-4 w-4" />
                   </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
-                  onClick={() => removeMetric(index)}
-                  disabled={disabled}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-600">Display Name In Charts</Label>
+                  <Input
+                    value={metric.alias || ''}
+                    onChange={(e) => updateMetricAlias(index, e.target.value)}
+                    placeholder="Pick a label"
+                    className="h-8 text-sm"
+                    disabled={disabled}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* Add metric form */}
       {canAddMore && (
-        <div className="border rounded-lg p-3 space-y-3">
-          {/* Pick from library */}
-          <div className="space-y-1">
-            <Label className="text-xs font-medium">Defined Metrics</Label>
-            <Select
-              onValueChange={(v) => {
-                if (v !== '__none__') addSavedMetric(v);
-              }}
-              value="__none__"
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Select a metric from pre-defined list" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__" disabled className="hidden">
-                  Select a metric from pre-defined list
-                </SelectItem>
-                {savedMetrics
-                  .filter((sm) => !isSavedMetricAdded(sm.id))
-                  .map((sm) => (
-                    <SelectItem key={sm.id} value={sm.id.toString()}>
-                      <div className="flex flex-col">
-                        <span>{sm.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {sm.column_expression
-                            ? sm.column_expression.slice(0, 40)
-                            : `${(sm.aggregation || '').toUpperCase()}(${sm.column || '*'})`}
-                        </span>
-                      </div>
+        <>
+          {showForm && (
+            <div className="border rounded-lg p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-medium">Defined Metrics</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+                  onClick={() => {
+                    resetForm();
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              {/* Pick from library */}
+              <div className="space-y-1">
+                <Select
+                  onValueChange={(v) => {
+                    if (v !== '__none__') addSavedMetric(v);
+                  }}
+                  value="__none__"
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select a metric from pre-defined list" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__" disabled className="hidden">
+                      Select a metric from pre-defined list
                     </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Simple / Calculated tabs */}
-          <Tabs value={mode} onValueChange={(v) => setMode(v as 'simple' | 'calculated')}>
-            <TabsList className="w-full h-8">
-              <TabsTrigger value="simple" className="flex-1 text-xs">
-                Simple
-              </TabsTrigger>
-              <TabsTrigger value="calculated" className="flex-1 text-xs">
-                Calculated
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="simple" className="mt-2 space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-600">{labels.function} *</Label>
-                  <Select value={simpleAgg} onValueChange={setSimpleAgg} disabled={disabled}>
-                    <SelectTrigger className="h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {AGGREGATE_FUNCTIONS.map((func) => (
-                        <SelectItem key={func.value} value={func.value}>
-                          {func.label}
+                    {savedMetrics
+                      .filter((sm) => !isSavedMetricAdded(sm.id))
+                      .map((sm) => (
+                        <SelectItem key={sm.id} value={sm.id.toString()}>
+                          <div className="flex flex-col">
+                            <span>{sm.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {sm.column_expression
+                                ? sm.column_expression.slice(0, 40)
+                                : `${(sm.aggregation || '').toUpperCase()}(${sm.column || '*'})`}
+                            </span>
+                          </div>
                         </SelectItem>
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-600">{labels.column} *</Label>
-                  <Combobox
-                    items={getAvailableColumns(simpleAgg).map((col) => ({
-                      value: col.column_name,
-                      label: col.column_name === '*' ? '* (Count all rows)' : col.column_name,
-                      data_type: col.data_type,
-                      disabled: col.disabled,
-                    }))}
-                    value={simpleAgg === 'count' && !simpleCol ? '*' : simpleCol}
-                    onValueChange={(value) => setSimpleCol(value === '*' ? '' : value)}
-                    disabled={disabled}
-                    searchPlaceholder="Search columns..."
-                    placeholder="Select column"
-                    compact
-                    renderItem={(item, _isSelected, searchQuery) => (
-                      <div className="flex items-center gap-2 min-w-0">
-                        {item.value !== '*' && (
-                          <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Simple / Calculated tabs */}
+              <Tabs value={mode} onValueChange={(v) => setMode(v as 'simple' | 'calculated')}>
+                <TabsList className="w-full h-8">
+                  <TabsTrigger value="simple" className="flex-1 text-xs">
+                    Simple
+                  </TabsTrigger>
+                  <TabsTrigger value="calculated" className="flex-1 text-xs">
+                    Calculated
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="simple" className="mt-2 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-600">{labels.function} *</Label>
+                      <Select value={simpleAgg} onValueChange={setSimpleAgg} disabled={disabled}>
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AGGREGATE_FUNCTIONS.map((func) => (
+                            <SelectItem key={func.value} value={func.value}>
+                              {func.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-600">{labels.column} *</Label>
+                      <Combobox
+                        items={getAvailableColumns(simpleAgg).map((col) => ({
+                          value: col.column_name,
+                          label: col.column_name === '*' ? '* (Count all rows)' : col.column_name,
+                          data_type: col.data_type,
+                          disabled: col.disabled,
+                        }))}
+                        value={simpleAgg === 'count' && !simpleCol ? '*' : simpleCol}
+                        onValueChange={(value) => setSimpleCol(value === '*' ? '' : value)}
+                        disabled={disabled}
+                        searchPlaceholder="Search columns..."
+                        placeholder="Select column"
+                        compact
+                        renderItem={(item, _isSelected, searchQuery) => (
+                          <div className="flex items-center gap-2 min-w-0">
+                            {item.value !== '*' && (
+                              <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
+                            )}
+                            <span className="truncate">
+                              {highlightText(item.label, searchQuery)}
+                            </span>
+                          </div>
                         )}
-                        <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="calculated" className="mt-2 space-y-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-600">Expression *</Label>
+                    <Textarea
+                      value={exprText}
+                      onChange={(e) => {
+                        setExprText(e.target.value);
+                        setValidationError(null);
+                      }}
+                      placeholder="Add an expression eg. SUM(column_name)/10"
+                      rows={2}
+                      className="font-mono text-sm"
+                      disabled={disabled}
+                    />
+                    {validating && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>Validating expression...</span>
                       </div>
                     )}
-                  />
-                </div>
-              </div>
-            </TabsContent>
+                    {validationError && (
+                      <p className="text-xs text-destructive">{validationError}</p>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
 
-            <TabsContent value="calculated" className="mt-2 space-y-2">
+              {/* Display Name */}
               <div className="space-y-1">
-                <Label className="text-xs text-gray-600">Expression *</Label>
-                <Textarea
-                  value={exprText}
-                  onChange={(e) => {
-                    setExprText(e.target.value);
-                    setValidationError(null);
-                  }}
-                  placeholder="Add an expression eg. SUM(column_name)/10"
-                  rows={2}
-                  className="font-mono text-sm"
+                <Label className="text-xs text-gray-600">Display Name In Charts</Label>
+                <Input
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Auto-generated display name"
+                  className="h-8 text-sm"
                   disabled={disabled}
                 />
-                {validating && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Validating expression...</span>
-                  </div>
-                )}
-                {validationError && <p className="text-xs text-destructive">{validationError}</p>}
               </div>
-            </TabsContent>
-          </Tabs>
 
-          {/* Name + Save */}
-          <div className="flex items-end gap-2">
-            <div className="flex-1 space-y-1">
-              <Label className="text-xs text-gray-600">Name Metric *</Label>
-              <Input
-                value={metricName}
-                onChange={(e) => setMetricName(e.target.value)}
-                placeholder="Give a unique name"
-                className="h-8 text-sm"
-                disabled={disabled}
-              />
+              {/* Metric Name */}
+              <div className="space-y-1">
+                <Label className="text-xs text-gray-600 flex items-center gap-1">
+                  Metric Name
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3 w-3 text-gray-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[200px] text-xs">
+                        Name your metric and click &quot;Save Metric To Library&quot; to reuse it
+                        across charts and KPIs.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </Label>
+                <Input
+                  value={metricName}
+                  onChange={(e) => setMetricName(e.target.value)}
+                  placeholder="Give a unique name"
+                  className="h-8 text-sm"
+                  disabled={disabled}
+                />
+              </div>
+
+              {/* Save button */}
+              {schemaName && tableName && (
+                <Button
+                  size="sm"
+                  onClick={handleSaveToLibrary}
+                  disabled={disabled || !metricName.trim() || !canAddInline || savingIndex === -1}
+                  className="w-full h-8 text-xs bg-gray-900 text-white hover:bg-gray-700"
+                >
+                  {savingIndex === -1 ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                  ) : (
+                    <Save className="h-3.5 w-3.5 mr-1" />
+                  )}
+                  SAVE METRIC TO LIBRARY
+                </Button>
+              )}
             </div>
-            {schemaName && tableName && (
-              <Button
-                size="sm"
-                onClick={handleSaveToLibrary}
-                disabled={disabled || !metricName.trim() || !canAddInline || savingIndex === -1}
-                className="h-8 text-xs bg-gray-900 text-white hover:bg-gray-700"
-              >
-                {savingIndex === -1 ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                ) : (
-                  <Save className="h-3.5 w-3.5 mr-1" />
-                )}
-                SAVE METRIC
-              </Button>
-            )}
-          </div>
+          )}
 
-          {/* Display Name */}
-          <div className="space-y-1">
-            <Label className="text-xs text-gray-600">Display Name</Label>
-            <Input
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Override display name on chart"
-              className="h-8 text-sm"
+          {/* Add button — outside the form box */}
+          {showForm ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addInlineMetric}
+              disabled={disabled || !canAddInline || validating}
+              className="w-full h-8 text-xs border-dashed"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              ADD ANOTHER METRIC
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowForm(true)}
               disabled={disabled}
-            />
-          </div>
-
-          {/* Add button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={addInlineMetric}
-            disabled={disabled || !canAddInline || validating}
-            className="w-full h-8 text-xs border-dashed"
-          >
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            ADD ANOTHER METRIC
-          </Button>
-        </div>
+              className="w-full h-8 text-xs border-dashed"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              ADD ANOTHER METRIC
+            </Button>
+          )}
+        </>
       )}
     </div>
   );

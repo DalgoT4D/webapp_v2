@@ -43,7 +43,6 @@ function ConsumerCount({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-56 px-4 py-3" align="start">
-        <p className="text-sm font-medium text-foreground mb-1">{label}s</p>
         <div className="space-y-0.5">
           {items.map((item) => (
             <a
@@ -85,7 +84,7 @@ export function ConsumerLinks({ consumers, variant = 'default' }: ConsumerLinksP
         count={consumers.kpis.length}
         label="KPI"
         items={consumers.kpis}
-        getHref={() => '/kpis'}
+        getHref={(item) => `/kpis?open=${item.id}`}
         getName={(item) => (item as any).name || `KPI #${item.id}`}
         variant={variant}
       />
