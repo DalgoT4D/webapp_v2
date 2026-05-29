@@ -615,7 +615,16 @@ export function MetricsLibrary() {
       <KPIForm
         open={kpiFormOpen}
         onOpenChange={setKpiFormOpen}
-        onSuccess={() => setKpiFormOpen(false)}
+        onSuccess={() => {
+          setKpiFormOpen(false);
+          if (kpiPreselectedMetricId) {
+            getMetricConsumers(kpiPreselectedMetricId)
+              .then((c) => {
+                setConsumersMap((prev) => ({ ...prev, [kpiPreselectedMetricId]: c }));
+              })
+              .catch(() => {});
+          }
+        }}
         preselectedMetricId={kpiPreselectedMetricId}
       />
 

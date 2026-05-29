@@ -10,6 +10,7 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
+  Eye,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -84,32 +85,37 @@ function KPICardWithData({
   };
 
   return (
-    <KPICard
-      name={kpi.name}
-      subtitle={kpi.program_tags.length > 0 ? kpi.program_tags.join(', ') : undefined}
-      data={cardData}
-      onClick={onClick}
-      className="h-full"
-      showDownload={false}
-      downloadInMenu
-      menuItems={
-        <>
-          <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
-            <Pencil className="w-4 h-4 mr-2" />
-            Edit KPI
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={onDelete}
-            className="cursor-pointer text-destructive focus:text-destructive"
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-        </>
-      }
-    />
+    <div className="h-72" data-testid={`kpi-card-${kpi.id}`}>
+      <KPICard
+        name={kpi.name}
+        subtitle={kpi.program_tags.length > 0 ? kpi.program_tags.join(', ') : undefined}
+        data={cardData}
+        onClick={onClick}
+        className="h-full"
+        showDownload={false}
+        downloadInMenu
+        menuItems={
+          <>
+            <DropdownMenuItem onClick={onClick} className="cursor-pointer">
+              <Eye className="w-4 h-4 mr-2" />
+              View KPI
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
+              <Pencil className="w-4 h-4 mr-2" />
+              Edit KPI
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={onDelete}
+              className="cursor-pointer text-destructive focus:text-destructive"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </>
+        }
+      />
+    </div>
   );
 }
 
@@ -160,13 +166,7 @@ export function KPIPageComponent() {
   const handleFormSuccess = useCallback(() => {
     setCurrentPage(1);
     mutate();
-    globalMutate(
-      (key: string) =>
-        typeof key === 'string' && key.includes('/api/kpis/') && key.includes('/data/'),
-      undefined,
-      { revalidate: true }
-    );
-  }, [mutate, globalMutate]);
+  }, [mutate]);
 
   const handleCreate = () => {
     setEditingKpi(null);
@@ -284,7 +284,7 @@ export function KPIPageComponent() {
               value={statusFilter || 'all'}
               onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}
             >
-              <SelectTrigger className="w-32 h-9">
+              <SelectTrigger className="w-44 h-9">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -341,15 +341,14 @@ export function KPIPageComponent() {
             ) : kpis.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {kpis.map((kpi) => (
-                  <div key={kpi.id} className="h-72" data-testid={`kpi-card-${kpi.id}`}>
-                    <KPICardWithData
-                      kpi={kpi}
-                      onClick={() => handleCardClick(kpi)}
-                      onEdit={() => handleEdit(kpi)}
-                      onDelete={() => handleDeleteClick(kpi)}
-                      statusFilter={statusFilter || undefined}
-                    />
-                  </div>
+                  <KPICardWithData
+                    key={kpi.id}
+                    kpi={kpi}
+                    onClick={() => handleCardClick(kpi)}
+                    onEdit={() => handleEdit(kpi)}
+                    onDelete={() => handleDeleteClick(kpi)}
+                    statusFilter={statusFilter || undefined}
+                  />
                 ))}
               </div>
             ) : (

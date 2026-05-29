@@ -186,7 +186,8 @@ export function KPICard({
   return (
     <div
       ref={cardRef}
-      className={`bg-white flex flex-col relative group ${borderless ? '' : 'border rounded-lg hover:shadow-md transition-shadow'} ${isFullscreen ? '!h-screen !w-screen p-4' : ''} ${className || ''}`}
+      className={`bg-white flex flex-col relative group ${borderless ? '' : 'border rounded-lg hover:shadow-md transition-shadow'} ${isFullscreen ? '!h-screen !w-screen p-4' : ''} ${onClick ? 'cursor-pointer' : ''} ${className || ''}`}
+      onClick={onClick}
     >
       {/* Hover toolbar (download + fullscreen) */}
       {((showDownload && !downloadInMenu && !isLoading) || showFullscreen) && (
@@ -230,15 +231,10 @@ export function KPICard({
       {/* Header */}
       <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-2 border-b">
         <div className="min-w-0">
-          <h3
-            className={`font-semibold text-gray-900 truncate ${onClick ? 'cursor-pointer hover:text-teal-700 hover:underline' : ''}`}
-            onClick={onClick}
-          >
-            {name}
-          </h3>
+          <h3 className="font-semibold text-gray-900 truncate">{name}</h3>
           {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
           {ragInfo && (
             <Badge variant="outline" className={`${ragInfo.bg} ${ragInfo.text} border-0 text-xs`}>
               <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${ragInfo.dot}`} />
@@ -316,15 +312,13 @@ export function KPICard({
       {/* Footer */}
       <div className="mx-4 border-t" />
       <div className="px-4 py-1.5">
-        <span className="text-xs text-muted-foreground">
-          {(() => {
-            if (dataLastDate) {
-              const d = parseISO(dataLastDate);
-              if (isValid(d)) return `Data as of ${formatDate(d, 'd MMMM yyyy')}`;
-            }
-            return `Updated ${formatDistanceToNow(new Date(updatedAt))} ago`;
-          })()}
-        </span>
+        {isLoading ? (
+          <Skeleton className="h-3 w-32" />
+        ) : (
+          <span className="text-xs text-muted-foreground">
+            {dataLastDate ? `Data as of ${dataLastDate}` : 'Data not yet available'}
+          </span>
+        )}
       </div>
     </div>
   );

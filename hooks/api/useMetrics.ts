@@ -72,3 +72,16 @@ export async function validateMetric(
 ): Promise<{ valid: boolean; error?: string }> {
   return apiPost('/api/metrics/validate/', data);
 }
+
+export function useMetricPreview(metricId: number | null) {
+  const { data, error } = useSWR<{ value: number | null; error: string | null }>(
+    metricId ? `/api/metrics/${metricId}/preview/` : null,
+    (url: string) => apiPost(url, {}),
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
+  );
+  return {
+    value: data?.value ?? null,
+    isLoading: !error && !data && !!metricId,
+    previewError: data?.error || null,
+  };
+}

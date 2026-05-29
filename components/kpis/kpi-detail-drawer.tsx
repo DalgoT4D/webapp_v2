@@ -421,13 +421,11 @@ function NotesSection({
                   <SelectValue placeholder="Select period" />
                 </SelectTrigger>
                 <SelectContent>
-                  {periods
-                    .filter((p) => !annotations.some((a) => a.period_key === p.period))
-                    .map((p) => (
-                      <SelectItem key={p.period} value={p.period}>
-                        {p.period}
-                      </SelectItem>
-                    ))}
+                  {periods.map((p) => (
+                    <SelectItem key={p.period} value={p.period}>
+                      {p.period}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -449,7 +447,7 @@ function NotesSection({
                   }
                   onClick={() => setNoteType('beneficiary_quote')}
                 >
-                  Beneficiary quote
+                  Beneficiary Quote
                 </button>
                 <button
                   type="button"
@@ -464,7 +462,7 @@ function NotesSection({
                   }
                   onClick={() => setNoteType('note')}
                 >
-                  Others
+                  Note
                 </button>
               </div>
             </div>
@@ -558,7 +556,7 @@ function NotesSection({
                           : 'bg-red-50 text-red-600 border-red-200'
                       )}
                     >
-                      {entry.note_type === 'beneficiary_quote' ? 'Beneficiary quote' : 'Note'}
+                      {entry.note_type === 'beneficiary_quote' ? 'Beneficiary Quote' : 'Note'}
                     </Badge>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -637,7 +635,7 @@ function NotesSection({
                             }
                             onClick={() => setEditNoteType('beneficiary_quote')}
                           >
-                            Beneficiary quote
+                            Beneficiary Quote
                           </button>
                           <button
                             type="button"
@@ -657,7 +655,7 @@ function NotesSection({
                             }
                             onClick={() => setEditNoteType('note')}
                           >
-                            Others
+                            Note
                           </button>
                         </div>
                       </div>
