@@ -518,7 +518,9 @@ function NotesSection({
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-sm font-semibold text-gray-800">{entry.period_key}</span>
                 <span className="text-sm text-muted-foreground">•</span>
-                <span className="text-sm text-muted-foreground">{entry.created_by_email}</span>
+                <span className="text-sm text-muted-foreground">
+                  {entry.last_modified_by_email || entry.created_by_email}
+                </span>
                 <span className="text-sm text-muted-foreground">|</span>
                 <span className="text-sm text-muted-foreground">
                   {formatDistanceToNow(new Date(entry.updated_at))} ago

@@ -110,6 +110,7 @@ export interface AnnotationEntry {
   snapshot_value: number | null;
   snapshot_pop_change: number | null;
   created_by_email: string;
+  last_modified_by_email: string;
   created_at: string;
   updated_at: string;
 }
