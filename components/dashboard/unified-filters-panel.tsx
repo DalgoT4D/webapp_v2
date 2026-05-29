@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { FilterElement } from './filter-element';
 import type { DashboardFilterConfig, AppliedFilters } from '@/types/dashboard-filters';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
@@ -57,7 +57,7 @@ interface UnifiedFiltersPanelProps {
 // Unified sortable filter item component
 interface SortableFilterItemProps {
   filter: DashboardFilterConfig;
-  currentFilterValues: Record<string, any>;
+  value: any;
   onFilterChange: (filterId: string, value: any) => void;
   onRemove?: (filterId: string) => void;
   onEdit?: (filter: DashboardFilterConfig) => void;
@@ -68,9 +68,12 @@ interface SortableFilterItemProps {
   isReportMode?: boolean;
 }
 
-function SortableFilterItem({
+// Memoized so unrelated siblings don't re-render when one item's value changes
+// or when dnd-kit fires a dragOver on a neighbor. The default shallow compare
+// works because the parent passes stable refs (useCallback) and per-item value.
+const SortableFilterItem = memo(function SortableFilterItem({
   filter,
-  currentFilterValues,
+  value,
   onFilterChange,
   onRemove,
   onEdit,
@@ -84,27 +87,31 @@ function SortableFilterItem({
     id: filter.id,
   });
 
+  // dnd-kit sets `transition` itself: an empty string for the actively dragged
+  // item (so it follows the pointer 1:1) and a slide-into-place transition for
+  // siblings. Don't add `transition-all` via className — it would animate the
+  // transform of the dragged item and make it lag behind the cursor.
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
+
+  const handleRemove = useCallback(() => onRemove?.(filter.id), [onRemove, filter.id]);
+  const handleEdit = useCallback(() => onEdit?.(filter), [onEdit, filter]);
 
   if (layout === 'horizontal') {
     return (
       <div
         ref={setNodeRef}
         style={style}
-        className={cn(
-          'min-w-[250px] max-w-[400px] flex-shrink-0 transition-all',
-          isDragging && 'shadow-lg scale-105 z-50'
-        )}
+        className={cn('min-w-[250px] max-w-[400px] flex-shrink-0', isDragging && 'shadow-lg z-50')}
       >
         <FilterElement
           filter={filter}
-          value={currentFilterValues[filter.id] ?? null}
+          value={value}
           onChange={onFilterChange}
-          onRemove={isEditMode ? () => onRemove?.(filter.id) : undefined}
-          onEdit={isEditMode ? () => onEdit?.(filter) : undefined}
+          onRemove={isEditMode ? handleRemove : undefined}
+          onEdit={isEditMode ? handleEdit : undefined}
           isPublicMode={isPublicMode}
           publicToken={publicToken}
           isReportMode={isReportMode}
@@ -123,18 +130,18 @@ function SortableFilterItem({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'border border-gray-100 rounded-lg p-3 bg-gray-50 transition-all',
-        isDragging && 'shadow-lg scale-105 z-50',
+        'border border-gray-100 rounded-lg p-3 bg-gray-50',
+        isDragging && 'shadow-lg z-50',
         isEditMode && 'hover:border-gray-300'
       )}
       {...attributes}
     >
       <FilterElement
         filter={filter}
-        value={currentFilterValues[filter.id] ?? null}
+        value={value}
         onChange={onFilterChange}
-        onRemove={isEditMode ? () => onRemove?.(filter.id) : undefined}
-        onEdit={isEditMode ? () => onEdit?.(filter) : undefined}
+        onRemove={isEditMode ? handleRemove : undefined}
+        onEdit={isEditMode ? handleEdit : undefined}
         isEditMode={isEditMode}
         showTitle={true}
         compact={false}
@@ -145,7 +152,7 @@ function SortableFilterItem({
       />
     </div>
   );
-}
+});
 
 export function UnifiedFiltersPanel({
   initialFilters,
@@ -234,70 +241,74 @@ export function UnifiedFiltersPanel({
   }, [initialFilters, getDefaultFilterValues, locallyDeletedFilterIds]);
 
   // Handle filter value changes (internal only - no parent re-render)
-  const handleFilterChange = (filterId: string, value: any) => {
-    setCurrentFilterValues((prev) => {
-      const updated = {
-        ...prev,
-        [filterId]: value,
-      };
-      return updated;
-    });
-  };
+  // Stable ref so memoized SortableFilterItem doesn't re-render unnecessarily.
+  const handleFilterChange = useCallback((filterId: string, value: any) => {
+    setCurrentFilterValues((prev) => ({
+      ...prev,
+      [filterId]: value,
+    }));
+  }, []);
 
   // Handle filter removal (internal state management)
-  const handleRemoveFilter = async (filterId: string) => {
-    try {
-      await deleteDashboardFilter(dashboardId, parseInt(filterId));
+  const handleRemoveFilter = useCallback(
+    async (filterId: string) => {
+      try {
+        await deleteDashboardFilter(dashboardId, parseInt(filterId));
 
-      // Track this filter as locally deleted to prevent it from reappearing
-      setLocallyDeletedFilterIds((prev) => new Set(prev).add(String(filterId)));
+        // Track this filter as locally deleted to prevent it from reappearing
+        setLocallyDeletedFilterIds((prev) => new Set(prev).add(String(filterId)));
 
-      setFilters((prev) => prev.filter((filter) => filter.id !== filterId));
-      setCurrentFilterValues((prev) => {
-        const updated = { ...prev };
-        delete updated[filterId];
-        return updated;
-      });
-    } catch (error: any) {
-      console.error('Failed to delete filter:', error.message || 'Please try again');
-    }
-  };
+        setFilters((prev) => prev.filter((filter) => filter.id !== filterId));
+        setCurrentFilterValues((prev) => {
+          const updated = { ...prev };
+          delete updated[filterId];
+          return updated;
+        });
+      } catch (error: any) {
+        console.error('Failed to delete filter:', error.message || 'Please try again');
+      }
+    },
+    [dashboardId]
+  );
 
   // Handle filter reordering — optimistically update local state, then persist
   // each new `order` value to the backend so the DB-ordered refetch keeps the
   // user's chosen sequence. Without persistence, the next refetch (Meta.ordering
   // = ["order"]) would re-emit filters in their old positions and the sync
   // useEffect above would snap local state back.
-  const handleReorderFilters = async (newOrder: DashboardFilterConfig[]) => {
-    const previousOrder = filters;
-    setFilters(newOrder);
+  const handleReorderFilters = useCallback(
+    async (newOrder: DashboardFilterConfig[]) => {
+      const previousOrder = filters;
+      setFilters(newOrder);
 
-    try {
-      // Only PUT filters whose position actually changed
-      const updates = newOrder
-        .map((filter, index) => ({ filter, index }))
-        .filter(({ filter, index }) => {
-          const prevIndex = previousOrder.findIndex((f) => f.id === filter.id);
-          return prevIndex !== index;
-        });
+      try {
+        // Only PUT filters whose position actually changed
+        const updates = newOrder
+          .map((filter, index) => ({ filter, index }))
+          .filter(({ filter, index }) => {
+            const prevIndex = previousOrder.findIndex((f) => f.id === filter.id);
+            return prevIndex !== index;
+          });
 
-      await Promise.all(
-        updates.map(({ filter, index }) =>
-          updateDashboardFilter(dashboardId, Number(filter.id), { order: index })
-        )
-      );
+        await Promise.all(
+          updates.map(({ filter, index }) =>
+            updateDashboardFilter(dashboardId, Number(filter.id), { order: index })
+          )
+        );
 
-      // Revalidate the dashboard cache so liveDashboardData.filters reflect
-      // the new order — otherwise the parent's stale initialFilters reference
-      // could re-sync local state on the next render.
-      await globalMutate(`/api/dashboards/${dashboardId}/`);
-    } catch (error) {
-      // Partial writes may already be committed; reload source of truth
-      // instead of guessing at the previous order.
-      await globalMutate(`/api/dashboards/${dashboardId}/`);
-      toastError.update(error, 'filter order');
-    }
-  };
+        // Revalidate the dashboard cache so liveDashboardData.filters reflect
+        // the new order — otherwise the parent's stale initialFilters reference
+        // could re-sync local state on the next render.
+        await globalMutate(`/api/dashboards/${dashboardId}/`);
+      } catch (error) {
+        // Partial writes may already be committed; reload source of truth
+        // instead of guessing at the previous order.
+        await globalMutate(`/api/dashboards/${dashboardId}/`);
+        toastError.update(error, 'filter order');
+      }
+    },
+    [filters, dashboardId, globalMutate]
+  );
 
   // Apply filters - notify parent (this will cause chart re-renders)
   const handleApplyFilters = async () => {
@@ -336,23 +347,29 @@ export function UnifiedFiltersPanel({
     }
   };
 
+  // 5px activation distance lets clicks on the drag handle pass through to
+  // child buttons without starting a phantom drag, and removes the small
+  // "stickiness" at the start of a real drag.
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
 
-    if (over && active.id !== over.id) {
-      const oldIndex = filters.findIndex((filter) => filter.id === active.id);
-      const newIndex = filters.findIndex((filter) => filter.id === over.id);
-      const newOrder = arrayMove(filters, oldIndex, newIndex);
-      handleReorderFilters(newOrder);
-    }
-  };
+      if (over && active.id !== over.id) {
+        const oldIndex = filters.findIndex((filter) => filter.id === active.id);
+        const newIndex = filters.findIndex((filter) => filter.id === over.id);
+        const newOrder = arrayMove(filters, oldIndex, newIndex);
+        handleReorderFilters(newOrder);
+      }
+    },
+    [filters]
+  );
 
   // Check if any filters have values
   // In report mode, locked filters are auto-set from the frozen report config and cannot
@@ -580,7 +597,7 @@ export function UnifiedFiltersPanel({
                         <SortableFilterItem
                           key={filter.id}
                           filter={filter}
-                          currentFilterValues={currentFilterValues}
+                          value={currentFilterValues[filter.id] ?? null}
                           onFilterChange={handleFilterChange}
                           onRemove={handleRemoveFilter}
                           onEdit={onEditFilter}
@@ -718,7 +735,7 @@ export function UnifiedFiltersPanel({
                         <SortableFilterItem
                           key={filter.id}
                           filter={filter}
-                          currentFilterValues={currentFilterValues}
+                          value={currentFilterValues[filter.id] ?? null}
                           onFilterChange={handleFilterChange}
                           onRemove={handleRemoveFilter}
                           onEdit={onEditFilter}
