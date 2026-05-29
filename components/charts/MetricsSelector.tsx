@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   Select,
   SelectContent,
@@ -42,6 +42,17 @@ export function MetricsSelector({
   chartType = 'bar',
   maxMetrics,
 }: MetricsSelectorProps) {
+  const metricIds = useRef<string[]>([]);
+  const nextId = useRef(0);
+
+  // Keep IDs in sync with metrics array length
+  while (metricIds.current.length < metrics.length) {
+    metricIds.current.push(`metric-${nextId.current++}`);
+  }
+  if (metricIds.current.length > metrics.length) {
+    metricIds.current.length = metrics.length;
+  }
+
   // Get chart-type-specific labels
   const getLabels = () => {
     switch (chartType) {
@@ -67,15 +78,13 @@ export function MetricsSelector({
   const labels = getLabels();
 
   const addMetric = () => {
-    const newMetric: ChartMetric = {
-      column: null, // For count, use null to display as '*'
-      aggregation: 'count',
-      alias: '',
-    };
-    onChange([...metrics, newMetric]);
+    metricIds.current.push(`metric-${nextId.current++}`);
+    onChange([...metrics, { column: null, aggregation: 'count', alias: '' }]);
   };
 
-  const updateMetric = (index: number, updates: Partial<ChartMetric>) => {
+  const updateMetric = (metricId: string, updates: Partial<ChartMetric>) => {
+    const index = metricIds.current.indexOf(metricId);
+    if (index === -1) return;
     const newMetrics = [...metrics];
     newMetrics[index] = { ...newMetrics[index], ...updates };
 
@@ -94,7 +103,10 @@ export function MetricsSelector({
     onChange(newMetrics);
   };
 
-  const removeMetric = (index: number) => {
+  const removeMetric = (metricId: string) => {
+    const index = metricIds.current.indexOf(metricId);
+    if (index === -1) return;
+    metricIds.current.splice(index, 1);
     onChange(metrics.filter((_, i) => i !== index));
   };
 
@@ -150,114 +162,117 @@ export function MetricsSelector({
     <div className="space-y-2">
       <Label className="text-sm font-medium text-gray-900">Metrics</Label>
       <div className="space-y-3">
-        {metrics.map((metric, index) => (
-          <div key={index} className="space-y-2 p-3 border rounded-lg bg-white">
-            <div className="flex items-center gap-2">
-              <div className="flex-1 grid grid-cols-2 gap-2">
-                {/* Aggregation Function - Now First */}
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-600">{labels.function}</Label>
-                  <Select
-                    value={metric.aggregation}
-                    onValueChange={(value) => {
-                      const updates: Partial<ChartMetric> = { aggregation: value };
+        {metrics.map((metric, index) => {
+          const metricId = metricIds.current[index];
+          return (
+            <div key={metricId} className="space-y-2 p-3 border rounded-lg bg-white">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 grid grid-cols-2 gap-2">
+                  {/* Aggregation Function - Now First */}
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-600">{labels.function}</Label>
+                    <Select
+                      value={metric.aggregation}
+                      onValueChange={(value) => {
+                        const updates: Partial<ChartMetric> = { aggregation: value };
 
-                      if (value === 'count') {
-                        // Count: set to null (displays as '*')
-                        updates.column = null;
-                      } else {
-                        // For other functions, auto-select first valid column
-                        const availableColumns = getAvailableColumns(value);
-                        const firstValidColumn = availableColumns.find((col) => !col.disabled);
-
-                        if (firstValidColumn) {
-                          updates.column = firstValidColumn.column_name;
+                        if (value === 'count') {
+                          // Count: set to null (displays as '*')
+                          updates.column = null;
                         } else {
-                          // No valid columns available, clear selection to show error
-                          updates.column = '';
+                          // For other functions, auto-select first valid column
+                          const availableColumns = getAvailableColumns(value);
+                          const firstValidColumn = availableColumns.find((col) => !col.disabled);
+
+                          if (firstValidColumn) {
+                            updates.column = firstValidColumn.column_name;
+                          } else {
+                            // No valid columns available, clear selection to show error
+                            updates.column = '';
+                          }
                         }
+
+                        updateMetric(metricId, updates);
+                      }}
+                      disabled={disabled}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="Function" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {AGGREGATE_FUNCTIONS.map((func) => (
+                          <SelectItem key={func.value} value={func.value}>
+                            {func.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Column Selection - Now Second */}
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-600">{labels.column}</Label>
+                    <Combobox
+                      items={getAvailableColumns(metric.aggregation).map((col) => ({
+                        value: col.column_name,
+                        label: col.column_name === '*' ? '* (Count all rows)' : col.column_name,
+                        data_type: col.data_type,
+                        disabled: col.disabled,
+                      }))}
+                      value={
+                        metric.aggregation?.toLowerCase() === 'count' && !metric.column
+                          ? '*'
+                          : metric.column || ''
                       }
-
-                      updateMetric(index, updates);
-                    }}
-                    disabled={disabled}
-                  >
-                    <SelectTrigger className="h-8">
-                      <SelectValue placeholder="Function" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {AGGREGATE_FUNCTIONS.map((func) => (
-                        <SelectItem key={func.value} value={func.value}>
-                          {func.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                      onValueChange={(value) =>
+                        updateMetric(metricId, { column: value === '*' ? null : value })
+                      }
+                      disabled={disabled || !metric.aggregation}
+                      searchPlaceholder="Search columns..."
+                      placeholder={metric.aggregation ? 'Select column' : 'Select function first'}
+                      compact
+                      renderItem={(item, _isSelected, searchQuery) => (
+                        <div className="flex items-center gap-2 min-w-0">
+                          {item.value !== '*' && (
+                            <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
+                          )}
+                          <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+                        </div>
+                      )}
+                    />
+                  </div>
                 </div>
 
-                {/* Column Selection - Now Second */}
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-600">{labels.column}</Label>
-                  <Combobox
-                    items={getAvailableColumns(metric.aggregation).map((col) => ({
-                      value: col.column_name,
-                      label: col.column_name === '*' ? '* (Count all rows)' : col.column_name,
-                      data_type: col.data_type,
-                      disabled: col.disabled,
-                    }))}
-                    value={
-                      metric.aggregation?.toLowerCase() === 'count' && !metric.column
-                        ? '*'
-                        : metric.column || ''
-                    }
-                    onValueChange={(value) =>
-                      updateMetric(index, { column: value === '*' ? null : value })
-                    }
-                    disabled={disabled || !metric.aggregation}
-                    searchPlaceholder="Search columns..."
-                    placeholder={metric.aggregation ? 'Select column' : 'Select function first'}
-                    compact
-                    renderItem={(item, _isSelected, searchQuery) => (
-                      <div className="flex items-center gap-2 min-w-0">
-                        {item.value !== '*' && (
-                          <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
-                        )}
-                        <span className="truncate">{highlightText(item.label, searchQuery)}</span>
-                      </div>
-                    )}
-                  />
-                </div>
+                {/* Remove Button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
+                  onClick={() => removeMetric(metricId)}
+                  disabled={disabled}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
 
-              {/* Remove Button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
-                onClick={() => removeMetric(index)}
-                disabled={disabled}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              {/* Display Name (Alias) */}
+              <div className="space-y-1">
+                <Label htmlFor={`metric-alias-${metricId}`} className="text-xs text-gray-600">
+                  {labels.alias}
+                </Label>
+                <DebouncedInput
+                  id={`metric-alias-${metricId}`}
+                  data-testid={`metric-alias-${metricId}`}
+                  value={metric.alias || ''}
+                  onChange={(value: string) => updateMetric(metricId, { alias: value })}
+                  disabled={disabled}
+                  placeholder="Auto-generated display name"
+                  className="h-8 text-sm"
+                />
+              </div>
             </div>
-
-            {/* Display Name (Alias) */}
-            <div className="space-y-1">
-              <Label htmlFor={`metric-alias-${index}`} className="text-xs text-gray-600">
-                {labels.alias}
-              </Label>
-              <DebouncedInput
-                id={`metric-alias-${index}`}
-                data-testid={`metric-alias-${index}`}
-                value={metric.alias || ''}
-                onChange={(value: string) => updateMetric(index, { alias: value })}
-                disabled={disabled}
-                placeholder="Auto-generated display name"
-                className="h-8 text-sm"
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
 
         {/* Add Metric Button - only show if under maxMetrics limit */}
         {(!maxMetrics || metrics.length < maxMetrics) && (
