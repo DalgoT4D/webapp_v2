@@ -271,18 +271,14 @@ export function UnifiedFiltersPanel({
     [dashboardId]
   );
 
-  // Handle filter reordering — optimistically update local state, then persist
-  // each new `order` value to the backend so the DB-ordered refetch keeps the
-  // user's chosen sequence. Without persistence, the next refetch (Meta.ordering
-  // = ["order"]) would re-emit filters in their old positions and the sync
-  // useEffect above would snap local state back.
+  // Persist new order to backend — without this, the next refetch
+  // (DB ordered by `order`) snaps filters back to their old positions.
   const handleReorderFilters = useCallback(
     async (newOrder: DashboardFilterConfig[]) => {
       const previousOrder = filters;
       setFilters(newOrder);
 
       try {
-        // Only PUT filters whose position actually changed
         const updates = newOrder
           .map((filter, index) => ({ filter, index }))
           .filter(({ filter, index }) => {
@@ -296,13 +292,9 @@ export function UnifiedFiltersPanel({
           )
         );
 
-        // Revalidate the dashboard cache so liveDashboardData.filters reflect
-        // the new order — otherwise the parent's stale initialFilters reference
-        // could re-sync local state on the next render.
         await globalMutate(`/api/dashboards/${dashboardId}/`);
       } catch (error) {
-        // Partial writes may already be committed; reload source of truth
-        // instead of guessing at the previous order.
+        // Partial writes may have committed — reload source of truth.
         await globalMutate(`/api/dashboards/${dashboardId}/`);
         toastError.update(error, 'filter order');
       }

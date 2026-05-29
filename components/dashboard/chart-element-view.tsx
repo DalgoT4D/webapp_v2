@@ -456,16 +456,8 @@ export function ChartElementView({
               pagination: effectiveChart.extra_config?.pagination,
               sort: effectiveChart.extra_config?.sort,
             },
-            // Dashboard filters intentionally omitted from the payload body.
-            // The synthetic {filter_id, value} format isn't compatible with
-            // backend apply_dashboard_filters() (which expects resolved filters
-            // with `column`/`type` keys and crashes with KeyError otherwise —
-            // this broke CSV download). The resolved filters are already
-            // included in extra_config.filters above via formatAsChartFilters.
-            // Endpoints that need raw filter IDs (chart-data-preview,
-            // chart-data-preview/total-rows) receive them via the
-            // `dashboard_filters` query-string parameter set by the SWR
-            // fetchers below.
+            // dashboard_filters omitted — resolved filters are in
+            // extra_config.filters; CSV endpoint can't resolve raw filter IDs.
           }
         : null,
     [effectiveChart, tableDrillDownState, resolvedDashboardFilters, dashboardFilters]
