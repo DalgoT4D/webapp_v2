@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DebouncedInput } from '@/components/ui/debounced-input';
+import { DebouncedInput } from '@/components/charts/debounced-input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { BarChart3, PieChart, LineChart, Hash, MapPin, Check } from 'lucide-react';

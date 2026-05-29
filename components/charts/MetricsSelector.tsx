@@ -14,7 +14,7 @@ import { X, Plus } from 'lucide-react';
 import type { ChartMetric } from '@/types/charts';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { Combobox, highlightText } from '@/components/ui/combobox';
-import { DebouncedInput } from '@/components/ui/debounced-input';
+import { DebouncedInput } from '@/components/charts/debounced-input';
 
 interface MetricsSelectorProps {
   metrics: ChartMetric[];

@@ -1,7 +1,7 @@
 'use client';
 
 import { Label } from '@/components/ui/label';
-import { DebouncedInput } from '@/components/ui/debounced-input';
+import { DebouncedInput } from '@/components/charts/debounced-input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { NumberFormat } from '@/lib/formatters';
 import { NumberFormatSection } from '../shared/NumberFormatSection';
