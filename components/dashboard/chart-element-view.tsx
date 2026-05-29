@@ -1588,15 +1588,19 @@ export function ChartElementView({
         description: 'Fetching chart data from server',
       });
 
-      // Use appropriate endpoint based on public mode
+      // Pass dashboard filters as query string so the backend can resolve them
+      // against the chart's table (mirrors the chart-data-preview pattern).
+      const csvQueryString =
+        !frozenChartConfig && Object.keys(dashboardFilters).length > 0
+          ? `?dashboard_filters=${encodeURIComponent(JSON.stringify(dashboardFilters))}`
+          : '';
+
       let blob: Blob;
       if (isPublicMode && publicToken) {
-        // Public dashboard - use unauthenticated endpoint
-        const publicUrl = `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/download-csv/`;
+        const publicUrl = `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/download-csv/${csvQueryString}`;
         blob = await apiPostBinary(publicUrl, chartDataPayload);
       } else {
-        // Authenticated dashboard - use authenticated endpoint
-        blob = await apiPostBinary('/api/charts/download-csv/', chartDataPayload);
+        blob = await apiPostBinary(`/api/charts/download-csv/${csvQueryString}`, chartDataPayload);
       }
 
       // Generate filename
