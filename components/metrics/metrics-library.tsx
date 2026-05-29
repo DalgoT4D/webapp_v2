@@ -438,7 +438,7 @@ export function MetricsLibrary() {
       <div id="metrics-header" className="flex-shrink-0 border-b bg-background">
         <div id="metrics-title-section" className="flex items-center justify-between p-6 pb-4">
           <div>
-            <h1 className="text-2xl font-bold">Metrics</h1>
+            <h1 className="text-3xl font-bold">Metrics</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               Define reusable metric definitions that power your KPIs &amp; Charts
             </p>

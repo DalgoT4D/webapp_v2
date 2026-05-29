@@ -225,7 +225,7 @@ export function KPIPageComponent() {
       <div className="flex-shrink-0 border-b bg-background">
         <div className="flex items-center justify-between p-6 pb-4">
           <div>
-            <h1 className="text-2xl font-bold">KPI</h1>
+            <h1 className="text-3xl font-bold">KPI</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               Track business objectives with measurable KPIs linked to your metrics
             </p>
