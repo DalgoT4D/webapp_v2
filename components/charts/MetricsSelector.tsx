@@ -14,7 +14,7 @@ import { X, Plus } from 'lucide-react';
 import type { ChartMetric } from '@/types/charts';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { Combobox, highlightText } from '@/components/ui/combobox';
-import { AliasInput } from '@/components/charts/AliasInput';
+import { DebouncedInput } from '@/components/ui/debounced-input';
 
 interface MetricsSelectorProps {
   metrics: ChartMetric[];
@@ -246,13 +246,14 @@ export function MetricsSelector({
               <Label htmlFor={`metric-alias-${index}`} className="text-xs text-gray-600">
                 {labels.alias}
               </Label>
-              <AliasInput
+              <DebouncedInput
                 id={`metric-alias-${index}`}
                 data-testid={`metric-alias-${index}`}
                 value={metric.alias || ''}
-                onChange={(value) => updateMetric(index, { alias: value })}
+                onChange={(value: string) => updateMetric(index, { alias: value })}
                 disabled={disabled}
                 placeholder="Auto-generated display name"
+                className="h-8 text-sm"
               />
             </div>
           </div>

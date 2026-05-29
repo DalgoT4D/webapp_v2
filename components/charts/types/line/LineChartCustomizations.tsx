@@ -1,7 +1,7 @@
 'use client';
 
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+import { DebouncedInput } from '@/components/ui/debounced-input';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
@@ -174,10 +174,10 @@ export function LineChartCustomizations({
 
         <div className="space-y-2">
           <Label htmlFor="xAxisTitle">Title</Label>
-          <Input
+          <DebouncedInput
             id="xAxisTitle"
             value={customizations.xAxisTitle || ''}
-            onChange={(e) => updateCustomization('xAxisTitle', e.target.value)}
+            onChange={(value) => updateCustomization('xAxisTitle', value)}
             placeholder="Enter X-axis title"
             disabled={disabled}
           />
@@ -230,10 +230,10 @@ export function LineChartCustomizations({
 
         <div className="space-y-2">
           <Label htmlFor="yAxisTitle">Title</Label>
-          <Input
+          <DebouncedInput
             id="yAxisTitle"
             value={customizations.yAxisTitle || ''}
-            onChange={(e) => updateCustomization('yAxisTitle', e.target.value)}
+            onChange={(value) => updateCustomization('yAxisTitle', value)}
             placeholder="Enter Y-axis title"
             disabled={disabled}
           />

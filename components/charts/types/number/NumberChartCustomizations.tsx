@@ -1,7 +1,7 @@
 'use client';
 
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+import { DebouncedInput } from '@/components/ui/debounced-input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { NumberFormat } from '@/lib/formatters';
 import { NumberFormatSection } from '../shared/NumberFormatSection';
@@ -47,10 +47,10 @@ export function NumberChartCustomizations({
 
         <div className="space-y-2">
           <Label htmlFor="subtitle">Subtitle</Label>
-          <Input
+          <DebouncedInput
             id="subtitle"
             value={customizations.subtitle || ''}
-            onChange={(e) => updateCustomization('subtitle', e.target.value)}
+            onChange={(value) => updateCustomization('subtitle', value)}
             placeholder="Enter subtitle text (appears below the number)"
             disabled={disabled}
           />
@@ -80,10 +80,10 @@ export function NumberChartCustomizations({
 
         <div className="space-y-2">
           <Label htmlFor="numberPrefix">Prefix</Label>
-          <Input
+          <DebouncedInput
             id="numberPrefix"
             value={customizations.numberPrefix || ''}
-            onChange={(e) => updateCustomization('numberPrefix', e.target.value)}
+            onChange={(value) => updateCustomization('numberPrefix', value)}
             placeholder="Text before number (e.g., $, +, -)"
             disabled={disabled}
           />
@@ -92,10 +92,10 @@ export function NumberChartCustomizations({
 
         <div className="space-y-2">
           <Label htmlFor="numberSuffix">Suffix</Label>
-          <Input
+          <DebouncedInput
             id="numberSuffix"
             value={customizations.numberSuffix || ''}
-            onChange={(e) => updateCustomization('numberSuffix', e.target.value)}
+            onChange={(value) => updateCustomization('numberSuffix', value)}
             placeholder="Text after number (e.g., %, K, M, units)"
             disabled={disabled}
           />

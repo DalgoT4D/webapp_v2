@@ -13,7 +13,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MetricsSelector } from '../MetricsSelector';
 import type { ChartMetric } from '@/types/charts';
@@ -200,8 +200,10 @@ describe('MetricsSelector', () => {
         // Debounce has not fired yet — onChange should not have been called
         expect(mockOnChange).not.toHaveBeenCalled();
 
-        // Advance past the debounce delay
-        jest.runAllTimers();
+        // Advance past the debounce delay and flush React state updates
+        act(() => {
+          jest.runAllTimers();
+        });
 
         expect(mockOnChange).toHaveBeenCalled();
         expect(mockOnChange.mock.calls[0][0][0]).toHaveProperty('alias', 'Custom');
