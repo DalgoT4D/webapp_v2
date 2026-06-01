@@ -248,6 +248,8 @@ export function MetricsSelector({
                   variant="ghost"
                   size="sm"
                   className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
+                  aria-label="Remove metric"
+                  data-testid={`remove-metric-${metricId}`}
                   onClick={() => removeMetric(metricId)}
                   disabled={disabled}
                 >
