@@ -8,6 +8,7 @@ import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { ChartSelectorModal } from './chart-selector-modal';
+import { KPISelectorModal } from './kpi-selector-modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -49,9 +50,12 @@ import {
   Wand2,
   LayoutGrid,
   AlignLeft,
+  Target,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 import { ChartElementV2 } from './chart-element-v2';
+import { KPIChartElement } from './kpi-chart-element';
+import { Card, CardContent } from '@/components/ui/card';
 import { UnifiedTextElement } from './text-element-unified';
 import type { UnifiedTextConfig } from './text-element-unified';
 import { FilterConfigModal } from './filter-config-modal';
@@ -140,6 +144,12 @@ function convertFilterToConfig(
 }
 
 // Types
+export enum DashboardComponentType {
+  CHART = 'chart',
+  TEXT = 'text',
+  FILTER = 'filter',
+  KPI = 'kpi',
+}
 
 interface DashboardLayout {
   i: string;
@@ -465,6 +475,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Component state
     const [showChartSelector, setShowChartSelector] = useState(false);
+    const [showKPISelector, setShowKPISelector] = useState(false);
     // Fetch all charts
     const { data: chartsData, isLoading: chartsLoading } = useCharts
       ? useCharts()
@@ -1395,6 +1406,48 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       }
     };
 
+    // Add KPI component
+    const handleKPISelected = (kpiId: number, kpiName: string) => {
+      const newComponent: DashboardComponent = {
+        id: `kpi-${Date.now()}`,
+        type: DashboardComponentType.KPI,
+        config: {
+          kpiId,
+          title: kpiName,
+        },
+      };
+
+      const defaultDimensions = getDefaultGridDimensions('kpi');
+      const minDimensions = getMinGridDimensions('kpi');
+      const position = dashboardAnimation.findBestPosition(defaultDimensions, state.layout);
+
+      const newLayoutItem: DashboardLayout = {
+        i: newComponent.id,
+        x: position.x,
+        y: position.y,
+        w: defaultDimensions.w,
+        h: defaultDimensions.h,
+        minW: minDimensions.w,
+        maxW: 12,
+        minH: minDimensions.h,
+      };
+
+      const newLayout = [...state.layout, newLayoutItem];
+      const newLayouts = generateResponsiveLayouts(newLayout);
+
+      setState({
+        layout: newLayout,
+        layouts: newLayouts,
+        components: {
+          ...state.components,
+          [newComponent.id]: newComponent,
+        },
+      });
+
+      dashboardAnimation.animateComponent(newComponent.id, 500);
+      scrollToComponentIfNeeded(newComponent.id);
+    };
+
     // Add text component
     const addTextComponent = () => {
       // Calculate minimum dimensions for empty text component
@@ -1650,6 +1703,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       return chartIds;
     };
 
+    const getExcludedKPIIds = (): number[] => {
+      const kpiIds: number[] = [];
+      if (state.components) {
+        Object.values(state.components).forEach((component) => {
+          if (component.type === DashboardComponentType.KPI && component.config.kpiId) {
+            kpiIds.push(component.config.kpiId);
+          }
+        });
+      }
+      return kpiIds;
+    };
+
     // Update component config
     const updateComponent = (componentId: string, newConfig: any) => {
       setState({
@@ -1747,7 +1812,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             />
           );
 
-        // FILTER case removed - filters are now rendered in dedicated sidebar/horizontal areas
+        case DashboardComponentType.KPI:
+          return (
+            <Card className="h-full w-full flex flex-col">
+              <CardContent className="p-2 flex-1 flex flex-col min-h-0">
+                <KPIChartElement
+                  kpiId={component.config.kpiId}
+                  config={component.config}
+                  isResizing={resizingItems.has(componentId)}
+                />
+              </CardContent>
+            </Card>
+          );
 
         default:
           return null;
@@ -1918,6 +1994,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               >
                 <Plus className="w-3 h-3 mr-1" />
                 Chart
+              </Button>
+              <Button
+                onClick={() => setShowKPISelector(true)}
+                size="sm"
+                variant="outline"
+                className="flex-shrink-0 h-8 text-xs"
+              >
+                <Target className="w-3 h-3 mr-1" />
+                KPI
               </Button>
               <Button
                 onClick={addTextComponent}
@@ -2105,6 +2190,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Chart
+                </Button>
+
+                <Button onClick={() => setShowKPISelector(true)} size="sm" variant="outline">
+                  <Target className="w-4 h-4 mr-2" />
+                  Add KPI
                 </Button>
 
                 <Button onClick={addTextComponent} size="sm" variant="outline">
@@ -2445,6 +2535,32 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           </div>
                         )}
 
+                        {/* Action Buttons for KPI Elements */}
+                        {component?.type === DashboardComponentType.KPI && (
+                          <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/kpis`);
+                              }}
+                              className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-blue-600"
+                              title="View KPI"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-gray-600" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeComponent(item.i);
+                              }}
+                              className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-red-600"
+                              title="Remove KPI From Dashboard"
+                            >
+                              <X className="w-3.5 h-3.5 text-gray-600" />
+                            </button>
+                          </div>
+                        )}
+
                         {/* Action Buttons for Text Elements */}
                         {component?.type === DashboardComponentType.TEXT && (
                           <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -2504,6 +2620,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           onClose={() => setShowChartSelector(false)}
           onSelect={handleChartSelected}
           excludedChartIds={getExcludedChartIds()}
+        />
+        <KPISelectorModal
+          open={showKPISelector}
+          onClose={() => setShowKPISelector(false)}
+          onSelect={handleKPISelected}
+          excludedKPIIds={getExcludedKPIIds()}
         />
         {/* Filter Config Modal */}
         <FilterConfigModal
