@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { format } from 'date-fns';
 import {
   Select,
@@ -28,7 +28,12 @@ import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfiguration';
 import { TableDimensionsSelector } from '@/components/charts/TableDimensionsSelector';
 import { TimeGrainSelector } from '@/components/charts/TimeGrainSelector';
-import type { ChartBuilderFormData, ChartMetric, ChartDimension } from '@/types/charts';
+import type {
+  ChartBuilderFormData,
+  ChartMetric,
+  ChartDimension,
+  ChartFilter,
+} from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 
 interface ChartDataConfigurationV3Props {
@@ -135,7 +140,11 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
 
   // Date/timestamp columns get a calendar picker
   if (dataType && isDateAndTimestampColumn(dataType)) {
-    const selectedDate = value ? new Date(value + 'T00:00:00') : undefined;
+    const selectedDate = !value
+      ? undefined
+      : value.includes('T')
+        ? new Date(value)
+        : new Date(value + 'T00:00:00');
     return (
       <div className="flex-1">
         <DatePicker
@@ -188,6 +197,18 @@ export function ChartDataConfigurationV3({
   onChange,
   disabled,
 }: ChartDataConfigurationV3Props) {
+  const filterIds = useRef<string[]>([]);
+  const nextFilterId = useRef(0);
+
+  // Keep filter IDs in sync with formData.filters length
+  const filters = formData.filters || [];
+  while (filterIds.current.length < filters.length) {
+    filterIds.current.push(`filter-${nextFilterId.current++}`);
+  }
+  if (filterIds.current.length > filters.length) {
+    filterIds.current.length = filters.length;
+  }
+
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
   // Filter columns by type
@@ -641,13 +662,14 @@ export function ChartDataConfigurationV3({
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-900">Data Filters</Label>
           <div className="space-y-2">
-            {(formData.filters || []).map((filter, index) => {
+            {filters.map((filter, index) => {
+              const filterId = filterIds.current[index];
               const filterColumnDataType = normalizedColumns.find(
                 (col) => col.column_name === filter.column
               )?.data_type;
 
               return (
-                <div key={index} className="flex gap-2 items-center">
+                <div key={filterId} className="flex gap-2 items-center">
                   <Combobox
                     items={columnItems}
                     value={filter.column}
@@ -681,7 +703,7 @@ export function ChartDataConfigurationV3({
                     value={filter.operator}
                     onValueChange={(value) => {
                       const newFilters = [...(formData.filters || [])];
-                      newFilters[index] = { ...filter, operator: value as any };
+                      newFilters[index] = { ...filter, operator: value as ChartFilter['operator'] };
                       onChange({ filters: newFilters });
                     }}
                     disabled={disabled}
@@ -725,7 +747,8 @@ export function ChartDataConfigurationV3({
                     size="sm"
                     className="h-8 w-8 p-0"
                     onClick={() => {
-                      const newFilters = (formData.filters || []).filter((_, i) => i !== index);
+                      filterIds.current.splice(index, 1);
+                      const newFilters = filters.filter((_, i) => i !== index);
                       onChange({ filters: newFilters });
                     }}
                     disabled={disabled}
@@ -740,9 +763,10 @@ export function ChartDataConfigurationV3({
               variant="outline"
               size="sm"
               onClick={() => {
+                filterIds.current.push(`filter-${nextFilterId.current++}`);
                 const newFilters = [
-                  ...(formData.filters || []),
-                  { column: '', operator: 'equals' as any, value: '' },
+                  ...filters,
+                  { column: '', operator: 'equals' as ChartFilter['operator'], value: '' },
                 ];
                 onChange({ filters: newFilters });
               }}
