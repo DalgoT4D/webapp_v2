@@ -652,8 +652,16 @@ export function ChartDataConfigurationV3({
                     items={columnItems}
                     value={filter.column}
                     onValueChange={(value) => {
+                      const newColDataType = normalizedColumns.find(
+                        (col) => col.column_name === value
+                      )?.data_type;
                       const newFilters = [...(formData.filters || [])];
-                      newFilters[index] = { ...filter, column: value };
+                      newFilters[index] = {
+                        ...filter,
+                        column: value,
+                        value: '',
+                        ...(newColDataType && { data_type: newColDataType }),
+                      };
                       onChange({ filters: newFilters });
                     }}
                     disabled={disabled}
