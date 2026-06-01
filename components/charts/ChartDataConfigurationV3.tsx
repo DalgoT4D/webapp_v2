@@ -746,6 +746,8 @@ export function ChartDataConfigurationV3({
                     variant="ghost"
                     size="sm"
                     className="h-8 w-8 p-0"
+                    aria-label="Remove filter"
+                    data-testid={`remove-filter-${index}`}
                     onClick={() => {
                       filterIds.current.splice(index, 1);
                       const newFilters = filters.filter((_, i) => i !== index);
