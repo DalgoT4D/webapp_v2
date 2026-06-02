@@ -12,7 +12,9 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
 
     posthog.init(key, {
       // Reverse proxy (next.config.ts rewrites) — resists ad/tracking blockers.
-      api_host: '/ingest',
+      // Path is '/relay' (not '/ingest') because the app already owns the
+      // '/ingest' route for its data-ingestion feature.
+      api_host: '/relay',
       ui_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
       // Modern defaults: SPA pageview + pageleave autocapture, etc.
       defaults: '2026-01-30',
