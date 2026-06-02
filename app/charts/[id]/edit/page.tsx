@@ -42,6 +42,8 @@ import { AlertCircle } from 'lucide-react';
 
 import { deepEqual } from '@/lib/form-utils';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type {
   ChartCreate,
   ChartUpdate,
@@ -1333,6 +1335,7 @@ function EditChartPageContent() {
         id: chartId,
         data: updateData,
       });
+      trackEvent(ANALYTICS_EVENTS.CHART_SAVED);
 
       // Update original data to reflect saved state
       setOriginalFormData({ ...formData });
