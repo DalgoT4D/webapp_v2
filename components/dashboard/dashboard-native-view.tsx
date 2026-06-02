@@ -10,6 +10,9 @@ const GridLayout = GridLayoutLib;
 const ResponsiveGrid = GridLayoutWidthProvider(ResponsiveGridLayout);
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
+import { DashboardTab, DashboardTabsData } from '@/types/dashboard';
+import { initializeTabsData, getActiveTabData } from './tabs/tab-utils';
+import { TabBar } from './tabs/TabBar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -58,9 +61,7 @@ import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
 import { UnifiedTextElement } from './text-element-unified';
-import { TabBar } from './tabs/TabBar';
-import { DashboardTab, DashboardTabsData } from '@/types/dashboard';
-import { initializeTabsData, getActiveTabData } from './tabs/tab-utils';
+import { KPIChartElement } from './kpi-chart-element';
 import {
   DashboardFilterType,
   type ValueFilterSettings,
@@ -639,6 +640,21 @@ export function DashboardNativeView({
             >
               {component.config?.text || 'Heading'}
             </HeadingTag>
+          </div>
+        );
+
+      case 'kpi':
+        return (
+          <div key={componentId} className="h-full">
+            <KPIChartElement
+              kpiId={component.config?.kpiId}
+              config={component.config}
+              dashboardFilters={selectedFilters}
+              snapshotId={isReportMode ? snapshotId : undefined}
+              commentStates={isReportMode ? commentStates : undefined}
+              onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
+              autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+            />
           </div>
         );
 
