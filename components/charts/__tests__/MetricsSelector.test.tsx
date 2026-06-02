@@ -189,14 +189,16 @@ describe('MetricsSelector', () => {
       }
     });
 
-    it('should show Display Name In Charts and Metric Name fields', async () => {
+    it('should show Display Name and collapsible save section', async () => {
       const user = userEvent.setup();
       render(<MetricsSelector metrics={[]} onChange={mockOnChange} columns={mockColumns} />);
 
       await user.click(screen.getByRole('button', { name: /add another metric/i }));
 
       expect(screen.getByText('Display Name In Charts')).toBeInTheDocument();
-      expect(screen.getByText('Metric Name')).toBeInTheDocument();
+      expect(screen.getByText('Add metric to library')).toBeInTheDocument();
+      // Metric Name hidden until toggle is clicked
+      expect(screen.queryByText('Metric Name *')).not.toBeInTheDocument();
     });
   });
 

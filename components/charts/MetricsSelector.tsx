@@ -490,7 +490,7 @@ export function MetricsSelector({
                             ) : (
                               <Save className="h-3.5 w-3.5 mr-1" />
                             )}
-                            SAVE METRIC TO LIBRARY
+                            ADD METRIC TO LIBRARY
                           </Button>
                         </div>
                       )}
