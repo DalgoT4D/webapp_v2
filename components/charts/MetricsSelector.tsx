@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Select,
   SelectContent,
@@ -68,16 +68,6 @@ export function MetricsSelector({
   // Shared
   const [metricName, setMetricName] = useState('');
   const [displayName, setDisplayName] = useState('');
-
-  // Stable IDs so removing a middle metric doesn't re-key the remaining ones
-  const metricIds = useRef<string[]>([]);
-  const nextId = useRef(0);
-  while (metricIds.current.length < metrics.length) {
-    metricIds.current.push(`metric-${nextId.current++}`);
-  }
-  if (metricIds.current.length > metrics.length) {
-    metricIds.current.length = metrics.length;
-  }
 
   const { data: savedMetrics, mutate: mutateSavedMetrics } = useMetrics({
     schemaName,
@@ -199,7 +189,6 @@ export function MetricsSelector({
   };
 
   const removeMetric = (index: number) => {
-    metricIds.current.splice(index, 1);
     onChange(metrics.filter((_, i) => i !== index));
   };
 
@@ -246,12 +235,11 @@ export function MetricsSelector({
       {metrics.length > 0 && (
         <div className="space-y-2">
           {metrics.map((metric, index) => {
-            const metricId = metricIds.current[index];
             const summary = metric.column_expression
               ? metric.column_expression.slice(0, 40)
               : `${(metric.aggregation || '').toUpperCase()}(${metric.column || '*'})`;
             return (
-              <div key={metricId} className="border rounded-lg p-3 space-y-2">
+              <div key={index} className="border rounded-lg p-3 space-y-2">
                 <div className="flex items-start justify-between">
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
@@ -280,7 +268,7 @@ export function MetricsSelector({
                     variant="ghost"
                     size="sm"
                     aria-label="Remove metric"
-                    data-testid={`remove-metric-${metricId}`}
+                    data-testid={`remove-metric-${index}`}
                     className="h-7 w-7 p-0 text-gray-400 hover:text-red-500 shrink-0"
                     onClick={() => removeMetric(index)}
                     disabled={disabled}
@@ -289,12 +277,12 @@ export function MetricsSelector({
                   </Button>
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor={`metric-alias-${metricId}`} className="text-xs text-gray-600">
+                  <Label htmlFor={`metric-alias-${index}`} className="text-xs text-gray-600">
                     Display Name In Charts
                   </Label>
                   <DebouncedInput
-                    id={`metric-alias-${metricId}`}
-                    data-testid={`metric-alias-${metricId}`}
+                    id={`metric-alias-${index}`}
+                    data-testid={`metric-alias-${index}`}
                     value={metric.alias || ''}
                     onChange={(value: string) => updateMetricAlias(index, value)}
                     placeholder="Pick a label"
