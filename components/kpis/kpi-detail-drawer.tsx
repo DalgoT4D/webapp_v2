@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import * as echarts from 'echarts';
 import { format as formatDate } from 'date-fns';
 import { formatMetricValue, computePopChanges } from '@/lib/formatters';
+import { useAuthStore } from '@/stores/authStore';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -225,6 +226,16 @@ export function KPIDetailDrawer({
                     setDateFrom(from);
                     setDateTo(to);
                   }}
+                  minDate={
+                    defaultPeriods[0]?.period_date
+                      ? new Date(defaultPeriods[0].period_date)
+                      : undefined
+                  }
+                  maxDate={
+                    defaultPeriods[defaultPeriods.length - 1]?.period_date
+                      ? new Date(defaultPeriods[defaultPeriods.length - 1].period_date)
+                      : undefined
+                  }
                 />
                 <Select value={activeTimeGrain} onValueChange={setTimeGrain}>
                   <SelectTrigger className="w-28 h-8 text-xs">
@@ -281,6 +292,7 @@ function NotesSection({
   periods: { period: string; period_date: string | null; value: number | null }[];
 }) {
   const { annotations, mutate } = useAnnotations(kpi.id);
+  const currentUserEmail = useAuthStore((s) => s.orgUser?.email);
   const [showForm, setShowForm] = useState(false);
   const [noteType, setNoteType] = useState<NoteType>('beneficiary_quote');
   const [periodKey, setPeriodKey] = useState('');
@@ -421,7 +433,7 @@ function NotesSection({
                   <SelectValue placeholder="Select period" />
                 </SelectTrigger>
                 <SelectContent>
-                  {periods.map((p) => (
+                  {[...periods].reverse().map((p) => (
                     <SelectItem key={p.period} value={p.period}>
                       {p.period}
                     </SelectItem>
@@ -580,13 +592,15 @@ function NotesSection({
                           <Pencil className="w-3.5 h-3.5 mr-1.5" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(entry.id)}
-                          className="cursor-pointer text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                          Delete
-                        </DropdownMenuItem>
+                        {entry.created_by_email === currentUserEmail && (
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(entry.id)}
+                            className="cursor-pointer text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
