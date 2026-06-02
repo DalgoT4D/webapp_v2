@@ -1,5 +1,7 @@
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete, apiPublicGet } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type { DashboardTab } from '@/types/dashboard';
 
 // API response shape for a tab (same as DashboardTab from types)
@@ -235,7 +237,12 @@ export async function duplicateDashboard(dashboardId: number): Promise<Dashboard
 
 // Dashboard sharing functions
 export async function updateDashboardSharing(dashboardId: number, data: { is_public: boolean }) {
-  return apiPut(`/api/dashboards/${dashboardId}/share/`, data);
+  const result = await apiPut(`/api/dashboards/${dashboardId}/share/`, data);
+  trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, {
+    dashboard_id: dashboardId,
+    is_public: data.is_public,
+  });
+  return result;
 }
 
 export async function getDashboardSharingStatus(dashboardId: number) {

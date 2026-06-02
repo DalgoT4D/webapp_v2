@@ -75,6 +75,8 @@ import {
 import { DashboardTab, DashboardTabsData, DashboardComponentType } from '@/types/dashboard';
 import { getDefaultTabsConfig } from './tabs/tab-utils';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 // Grid layout constants - used across GridLayout, SnapIndicators, SpaceMakingIndicators, and animation hooks
 const ROW_HEIGHT = 20;
@@ -888,6 +890,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         };
 
         await apiPut(`/api/dashboards/${dashboardId}/`, payload);
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED, { dashboard_id: dashboardId });
 
         setSaveStatus('saved');
         // Reset save status after 3 seconds
