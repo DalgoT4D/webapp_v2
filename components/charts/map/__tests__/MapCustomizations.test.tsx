@@ -6,7 +6,6 @@
  * - Interactive feature toggles (tooltip, legend, selection)
  * - Data handling configuration (null value labels)
  * - Visual elements (legend position, region names, hover effects)
- * - Animation and border customizations
  *
  * Architecture: Tests UI rendering and onChange callbacks for all customization options
  */
@@ -29,9 +28,6 @@ describe('MapCustomizations', () => {
       legendPosition: 'left',
       showLabels: false,
       emphasis: true,
-      borderWidth: 1,
-      borderColor: '#333',
-      animation: true,
     },
   };
 
@@ -53,7 +49,6 @@ describe('MapCustomizations', () => {
       expect(screen.getByText('Interactive Features')).toBeInTheDocument();
       expect(screen.getByText('Data Handling')).toBeInTheDocument();
       expect(screen.getByText('Visual Elements')).toBeInTheDocument();
-      expect(screen.getByText('Animation & Effects')).toBeInTheDocument();
     });
 
     it('should render with empty customizations object', () => {
@@ -355,76 +350,6 @@ describe('MapCustomizations', () => {
   });
 
   /**
-   * Animation & Effects Configuration
-   */
-  describe('Animation & Effects', () => {
-    it('should render border width selector', () => {
-      render(
-        <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
-      );
-
-      expect(screen.getByText('Border Width')).toBeInTheDocument();
-      expect(screen.getByText('Width of region borders')).toBeInTheDocument();
-
-      const borderWidthLabel = screen.getByText('Border Width');
-      const selectTrigger =
-        borderWidthLabel.parentElement?.parentElement?.querySelector('[role="combobox"]');
-      expect(selectTrigger).toBeInTheDocument();
-    });
-
-    it('should render border color selector', () => {
-      render(
-        <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
-      );
-
-      expect(screen.getByText('Border Color')).toBeInTheDocument();
-
-      const borderColorLabel = screen.getByText('Border Color');
-      const selectTrigger = borderColorLabel.parentElement?.querySelector('[role="combobox"]');
-      expect(selectTrigger).toBeInTheDocument();
-    });
-
-    it('should toggle animation', async () => {
-      const user = userEvent.setup();
-      render(
-        <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
-      );
-
-      const animationLabel = screen.getByText('Animation');
-      const animationSwitch = animationLabel.parentElement?.parentElement?.querySelector('button');
-
-      expect(animationSwitch).toBeInTheDocument();
-      await user.click(animationSwitch!);
-
-      expect(mockOnFormDataChange).toHaveBeenCalledWith({
-        ...defaultFormData,
-        customizations: {
-          ...defaultFormData.customizations,
-          animation: false,
-        },
-      });
-    });
-
-    it('should display border width options with proper descriptions', () => {
-      render(
-        <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
-      );
-
-      // Component defines border width options: No Border (0), Thin (1), Medium (2), Thick (3)
-      expect(screen.getByText('Border Width')).toBeInTheDocument();
-    });
-
-    it('should display border color options', () => {
-      render(
-        <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
-      );
-
-      // Component defines border colors: Dark Gray, Medium Gray, Light Gray, White, Black
-      expect(screen.getByText('Border Color')).toBeInTheDocument();
-    });
-  });
-
-  /**
    * Integration Tests
    */
   describe('Integration', () => {
@@ -483,18 +408,18 @@ describe('MapCustomizations', () => {
         <MapCustomizations formData={defaultFormData} onFormDataChange={mockOnFormDataChange} />
       );
 
-      const animationLabel = screen.getByText('Animation');
-      const animationSwitch = animationLabel.parentElement?.parentElement?.querySelector('button');
+      const tooltipLabel = screen.getByText('Show Tooltip');
+      const tooltipSwitch = tooltipLabel.parentElement?.parentElement?.querySelector('button');
 
-      expect(animationSwitch).toBeInTheDocument();
-      await user.click(animationSwitch!);
+      expect(tooltipSwitch).toBeInTheDocument();
+      await user.click(tooltipSwitch!);
 
       const callArg = mockOnFormDataChange.mock.calls[0][0];
 
       // Verify structure
       expect(callArg).toHaveProperty('customizations');
-      expect(callArg.customizations).toHaveProperty('animation');
-      expect(typeof callArg.customizations.animation).toBe('boolean');
+      expect(callArg.customizations).toHaveProperty('showTooltip');
+      expect(typeof callArg.customizations.showTooltip).toBe('boolean');
     });
   });
 
@@ -517,7 +442,6 @@ describe('MapCustomizations', () => {
       expect(screen.getByText('Display color scale legend')).toBeInTheDocument();
       expect(screen.getByText('Allow clicking to select regions')).toBeInTheDocument();
       expect(screen.getByText('Display region labels on the map')).toBeInTheDocument();
-      expect(screen.getByText('Enable smooth transitions')).toBeInTheDocument();
     });
 
     it('should handle formData with minimal properties', () => {

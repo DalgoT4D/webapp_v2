@@ -1,8 +1,8 @@
 export interface Comment {
   id: number;
-  target_type: 'summary' | 'chart';
+  target_type: 'summary' | 'chart' | 'kpi';
   snapshot_id: number;
-  chart_id?: number;
+  target_id?: number;
   content: string;
   author_email: string;
   is_new: boolean;
@@ -15,8 +15,8 @@ export interface Comment {
 export type CommentIconState = 'none' | 'unread' | 'read' | 'mentioned';
 
 export interface CommentStateEntry {
-  target_type: 'summary' | 'chart';
-  chart_id: number | null;
+  target_type: 'summary' | 'chart' | 'kpi';
+  target_id: number | null;
   state: CommentIconState;
 }
 
@@ -27,8 +27,8 @@ export interface MentionableUser {
 }
 
 export interface CreateCommentPayload {
-  target_type: 'summary' | 'chart';
-  chart_id?: number;
+  target_type: 'summary' | 'chart' | 'kpi';
+  target_id?: number;
   content: string;
   mentioned_emails?: string[];
 }
@@ -39,6 +39,6 @@ export interface UpdateCommentPayload {
 }
 
 export interface MarkReadPayload {
-  target_type: 'summary' | 'chart';
-  chart_id?: number;
+  target_type: 'summary' | 'chart' | 'kpi';
+  target_id?: number;
 }

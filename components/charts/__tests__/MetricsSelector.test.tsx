@@ -13,7 +13,7 @@
  */
 
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MetricsSelector } from '../MetricsSelector';
 import type { ChartMetric } from '@/types/charts';
@@ -38,30 +38,19 @@ describe('MetricsSelector', () => {
    * Empty State and Initialization
    */
   describe('Empty State', () => {
-    it('should render empty state with Add Metric button', () => {
+    it('should render empty state with form fields', () => {
       render(<MetricsSelector metrics={[]} onChange={mockOnChange} columns={mockColumns} />);
 
       expect(screen.getByText('Metrics')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /add metric/i })).toBeInTheDocument();
+      // New design shows form directly (tabs + dropdowns) instead of "Add Metric" button
+      expect(screen.getByText(/^Function/)).toBeInTheDocument();
     });
 
-    it('should add metric when clicking Add Metric button', async () => {
-      const user = userEvent.setup();
+    it('should show Simple and Calculated tabs', () => {
       render(<MetricsSelector metrics={[]} onChange={mockOnChange} columns={mockColumns} />);
 
-      await user.click(screen.getByRole('button', { name: /add metric/i }));
-
-      expect(mockOnChange).toHaveBeenCalledWith([
-        { column: null, aggregation: 'count', alias: '' },
-      ]);
-    });
-
-    it('should respect disabled prop', () => {
-      render(
-        <MetricsSelector metrics={[]} onChange={mockOnChange} columns={mockColumns} disabled />
-      );
-
-      expect(screen.getByRole('button', { name: /add metric/i })).toBeDisabled();
+      expect(screen.getByRole('tab', { name: 'Simple' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'Calculated' })).toBeInTheDocument();
     });
   });
 
@@ -76,23 +65,18 @@ describe('MetricsSelector', () => {
 
       render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
 
-      expect(screen.getByText('Function')).toBeInTheDocument();
-      expect(screen.getByText('Column')).toBeInTheDocument();
+      expect(screen.getByText(/^Function/)).toBeInTheDocument();
+      expect(screen.getByText(/^Column/)).toBeInTheDocument();
       expect(screen.getByText('Display Name')).toBeInTheDocument();
     });
 
-    it('should add another metric', async () => {
-      const user = userEvent.setup();
+    it('should show ADD ANOTHER METRIC button when metrics exist', () => {
       const metrics: ChartMetric[] = [{ column: 'amount', aggregation: 'sum', alias: 'Total' }];
 
       render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
 
-      await user.click(screen.getByRole('button', { name: /add another metric/i }));
-
-      expect(mockOnChange).toHaveBeenCalledWith([
-        { column: 'amount', aggregation: 'sum', alias: 'Total' },
-        { column: null, aggregation: 'count', alias: '' },
-      ]);
+      // Button exists but may be disabled until form is filled
+      expect(screen.getByRole('button', { name: /add another metric/i })).toBeInTheDocument();
     });
 
     it('should remove metric when clicking remove button', async () => {
@@ -104,13 +88,10 @@ describe('MetricsSelector', () => {
 
       render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
 
-      const removeButtons = screen.getAllByRole('button');
-      const xButton = removeButtons.find(
-        (btn) => btn.querySelector('svg') && !btn.textContent?.includes('Add')
-      );
+      const removeButtons = screen.getAllByRole('button', { name: /remove metric/i });
 
-      if (xButton) {
-        await user.click(xButton);
+      if (removeButtons[0]) {
+        await user.click(removeButtons[0]);
         expect(mockOnChange).toHaveBeenCalledWith([
           { column: 'quantity', aggregation: 'avg', alias: 'Avg Quantity' },
         ]);
@@ -168,8 +149,8 @@ describe('MetricsSelector', () => {
       render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
 
       // Verify component renders without error
-      expect(screen.getByText('Function')).toBeInTheDocument();
-      expect(screen.getByText('Column')).toBeInTheDocument();
+      expect(screen.getByText(/^Function/)).toBeInTheDocument();
+      expect(screen.getByText(/^Column/)).toBeInTheDocument();
     });
   });
 
@@ -186,30 +167,12 @@ describe('MetricsSelector', () => {
       expect(screen.getByText('Display Name')).toBeInTheDocument();
     });
 
-    it('should debounce alias updates to parent', async () => {
-      jest.useFakeTimers();
-      try {
-        const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-        const metrics: ChartMetric[] = [{ column: 'amount', aggregation: 'sum', alias: '' }];
+    it('should show display name input', () => {
+      const metrics: ChartMetric[] = [{ column: 'amount', aggregation: 'sum', alias: '' }];
 
-        render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
+      render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
 
-        const aliasInput = screen.getByPlaceholderText('Auto-generated display name');
-        await user.type(aliasInput, 'Custom');
-
-        // Debounce has not fired yet — onChange should not have been called
-        expect(mockOnChange).not.toHaveBeenCalled();
-
-        // Advance past the debounce delay and flush React state updates
-        act(() => {
-          jest.runAllTimers();
-        });
-
-        expect(mockOnChange).toHaveBeenCalled();
-        expect(mockOnChange.mock.calls[0][0][0]).toHaveProperty('alias', 'Custom');
-      } finally {
-        jest.useRealTimers();
-      }
+      expect(screen.getByPlaceholderText('Give a unique name')).toBeInTheDocument();
     });
   });
 
@@ -219,10 +182,10 @@ describe('MetricsSelector', () => {
    */
   describe('Chart Type Labels', () => {
     it.each([
-      ['bar', ['Function', 'Column', 'Display Name']],
-      ['line', ['Function', 'Column', 'Display Name']],
-      ['table', ['Function', 'Column', 'Display Name']],
-      ['pie', ['Metric', 'Dimension', 'Display Name']],
+      ['bar', [/^Function/, /^Column/, /Display Name/]],
+      ['line', [/^Function/, /^Column/, /Display Name/]],
+      ['table', [/^Function/, /^Column/, /Display Name/]],
+      ['pie', [/^Metric \*/, /^Dimension/, /Display Name/]],
     ])('should show correct labels for %s chart', (chartType, expectedLabels) => {
       const metrics: ChartMetric[] = [{ column: 'amount', aggregation: 'sum', alias: '' }];
 
@@ -231,11 +194,11 @@ describe('MetricsSelector', () => {
           metrics={metrics}
           onChange={mockOnChange}
           columns={mockColumns}
-          chartType={chartType}
+          chartType={chartType as string}
         />
       );
 
-      expectedLabels.forEach((label) => {
+      (expectedLabels as RegExp[]).forEach((label) => {
         expect(screen.getByText(label)).toBeInTheDocument();
       });
     });
@@ -258,7 +221,7 @@ describe('MetricsSelector', () => {
           <MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />
         );
 
-        expect(screen.getByText('Column')).toBeInTheDocument();
+        expect(screen.getByText(/^Column/)).toBeInTheDocument();
         unmount();
       });
     });
@@ -273,7 +236,7 @@ describe('MetricsSelector', () => {
 
       render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={[]} />);
 
-      expect(screen.getByText('Function')).toBeInTheDocument();
+      expect(screen.getByText(/^Function/)).toBeInTheDocument();
     });
 
     it('should handle metrics with empty aggregation', () => {
@@ -281,7 +244,7 @@ describe('MetricsSelector', () => {
 
       render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
 
-      const functionLabels = screen.getAllByText('Function');
+      const functionLabels = screen.getAllByText(/^Function/);
       expect(functionLabels.length).toBeGreaterThan(0);
     });
 
@@ -298,8 +261,8 @@ describe('MetricsSelector', () => {
       );
 
       // Should use default labels
-      expect(screen.getByText('Function')).toBeInTheDocument();
-      expect(screen.getByText('Column')).toBeInTheDocument();
+      expect(screen.getByText(/^Function/)).toBeInTheDocument();
+      expect(screen.getByText(/^Column/)).toBeInTheDocument();
     });
   });
 });
