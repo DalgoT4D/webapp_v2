@@ -944,32 +944,40 @@ export function DashboardNativeView({
                   </Button>
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title truncate min-w-0 flex-shrink-0 max-w-md">
                       {dashboard.title}
                     </h1>
+                    {/* Description shown inline next to the title */}
+                    {dashboard.description && (
+                      <>
+                        <span className="h-5 w-px bg-gray-300 flex-shrink-0" aria-hidden="true" />
+                        <p
+                          className="text-sm text-gray-600 truncate min-w-0"
+                          data-testid="dashboard-description"
+                        >
+                          {dashboard.description}
+                        </p>
+                      </>
+                    )}
                     {dashboard.is_published && (
-                      <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+                      <Badge
+                        variant="default"
+                        className="text-xs bg-green-100 text-green-800 flex-shrink-0"
+                      >
                         Published
                       </Badge>
                     )}
                     {isLocked && (
                       <Badge
                         variant={isLockedByOther ? 'destructive' : 'secondary'}
-                        className="text-xs"
+                        className="text-xs flex-shrink-0"
                       >
                         <Lock className="w-3 h-3 mr-1" />
                         {isLockedByOther ? `Locked by ${lockedBy}` : `Locked by you`}
                       </Badge>
                     )}
                   </div>
-
-                  {/* Optional description / subtitle */}
-                  {dashboard.description && (
-                    <p className="text-sm text-gray-600 mt-1" data-testid="dashboard-description">
-                      {dashboard.description}
-                    </p>
-                  )}
 
                   {/* Metadata below title */}
                   <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
@@ -1113,9 +1121,11 @@ export function DashboardNativeView({
       {showMinimalHeader && !isEmbedMode && (
         <div className="bg-white border-b flex-shrink-0 px-6 py-6">
           <div>
-            <h1 className="text-3xl font-bold">{dashboard.title}</h1>
+            <h1 className="text-3xl font-bold truncate">{dashboard.title}</h1>
             {dashboard.description && (
-              <p className="text-base text-gray-600 mt-2">{dashboard.description}</p>
+              <p className="text-base text-gray-600 mt-2 line-clamp-2 max-w-3xl">
+                {dashboard.description}
+              </p>
             )}
           </div>
         </div>
