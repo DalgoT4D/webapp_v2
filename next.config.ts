@@ -10,6 +10,16 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  async rewrites() {
+    const proxyHost = process.env.POSTHOG_PROXY_HOST ?? 'https://us.i.posthog.com';
+    const assetsHost = process.env.POSTHOG_PROXY_ASSETS_HOST ?? 'https://us-assets.i.posthog.com';
+    return [
+      { source: '/ingest/static/:path*', destination: `${assetsHost}/static/:path*` },
+      { source: '/ingest/array/:path*', destination: `${assetsHost}/array/:path*` },
+      { source: '/ingest/:path*', destination: `${proxyHost}/:path*` },
+    ];
+  },
+  skipTrailingSlashRedirect: true,
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
