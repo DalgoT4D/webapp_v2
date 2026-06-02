@@ -18,6 +18,13 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       ui_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
       // Modern defaults: SPA pageview + pageleave autocapture, etc.
       defaults: '2026-01-30',
+      // Page-load performance: capture Core Web Vitals (LCP/FCP/CLS/INP) per page.
+      // network_timing is left off — it's heavier and can capture request URLs
+      // (avoid with sensitive NGO data); opt in later if you need request timings.
+      capture_performance: {
+        web_vitals: true,
+        network_timing: false,
+      },
       // Only create person profiles for identified users (cost control).
       person_profiles: 'identified_only',
       // Sentry owns error tracking — do not double-capture exceptions here.
