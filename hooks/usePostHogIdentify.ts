@@ -20,6 +20,10 @@ export function usePostHogIdentify(): void {
       return;
     }
 
+    // getCurrentOrgUser() resolves the user via the selected org. Before an org
+    // is selected (e.g. first login, pre-org-pick), it returns null, so the user
+    // stays anonymous until an org is chosen. With person_profiles:'identified_only'
+    // that pre-selection window produces no person profile — expected, not a bug.
     const orgUser = getCurrentOrgUser();
     if (orgUser?.email && identifiedEmail.current !== orgUser.email) {
       identifyUser(orgUser.email, { role: orgUser.new_role_slug });

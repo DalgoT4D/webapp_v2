@@ -890,7 +890,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         };
 
         await apiPut(`/api/dashboards/${dashboardId}/`, payload);
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED, { dashboard_id: dashboardId });
 
         setSaveStatus('saved');
         // Reset save status after 3 seconds
@@ -1886,7 +1885,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
               {/* Mobile Quick Actions */}
               <div className="flex items-center gap-1 flex-shrink-0">
-                <Button onClick={() => saveDashboard()} size="sm" variant="ghost" className="p-1.5">
+                <Button
+                  onClick={() => {
+                    // Fire only on explicit user save (not the autosave/title-blur/resize paths).
+                    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED, { dashboard_id: dashboardId });
+                    saveDashboard();
+                  }}
+                  size="sm"
+                  variant="ghost"
+                  className="p-1.5"
+                >
                   <Save className="w-4 h-4" />
                 </Button>
                 {onPreview && (
@@ -2334,7 +2342,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   </PopoverContent>
                 </Popover> */}
 
-                <Button onClick={() => saveDashboard()} size="sm">
+                <Button
+                  onClick={() => {
+                    // Fire only on explicit user save (not the autosave/title-blur/resize paths).
+                    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED, { dashboard_id: dashboardId });
+                    saveDashboard();
+                  }}
+                  size="sm"
+                >
                   <Save className="w-4 h-4 mr-2" />
                   <span className="hidden lg:inline">Save</span>
                 </Button>
