@@ -91,6 +91,14 @@ export const CHART_SIZE_CONSTRAINTS: Record<string, ChartSizeConstraint> = {
     defaultHeight: 180,
   },
 
+  // KPI charts - same as standard charts
+  kpi: {
+    minWidth: 80,
+    minHeight: 40,
+    defaultWidth: 500,
+    defaultHeight: 400,
+  },
+
   // Text components - flexible
   text: {
     minWidth: 80,

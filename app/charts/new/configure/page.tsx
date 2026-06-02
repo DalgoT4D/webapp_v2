@@ -271,7 +271,8 @@ function ConfigureChartPageContent() {
       if (formData.metrics && formData.metrics.length > 0) {
         return formData.metrics.every(
           (metric) =>
-            metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+            metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
         );
       }
       return false;
@@ -288,7 +289,9 @@ function ConfigureChartPageContent() {
           formData.dimension_column &&
           formData.metrics.every(
             (metric) =>
-              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+              metric.column_expression ||
+              (metric.aggregation &&
+                (metric.aggregation.toLowerCase() === 'count' || metric.column))
           )
         );
       }
@@ -803,7 +806,9 @@ function ConfigureChartPageContent() {
           formData.dimension_column &&
           formData.metrics.every(
             (metric) =>
-              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+              metric.column_expression ||
+              (metric.aggregation &&
+                (metric.aggregation.toLowerCase() === 'count' || metric.column))
           )
         );
       }
