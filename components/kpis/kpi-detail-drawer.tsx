@@ -159,9 +159,16 @@ export function KPIDetailDrawer({
         <div className="px-6 pt-5 pb-3 border-b">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">{kpi.name}</h2>
+              <a
+                href={`/metrics?highlight=${kpi.metric.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-lg font-semibold text-gray-900 hover:underline block"
+              >
+                {kpi.name}
+              </a>
               <p className="text-sm text-muted-foreground">
-                {kpi.program_tags.length > 0 && <>{kpi.program_tags.join(', ')} &middot; </>}
+                {kpi.metric.description && <>{kpi.metric.description} &middot; </>}
                 <span style={{ color: 'var(--primary)' }}>
                   {kpi.metric.schema_name}.{kpi.metric.table_name}
                 </span>
