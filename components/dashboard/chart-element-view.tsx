@@ -444,20 +444,13 @@ export function ChartElementView({
                       value,
                     }))
                   : []),
-                // Include resolved dashboard filters for all chart types
-                ...formatAsChartFilters(
-                  resolvedDashboardFilters.filter(
-                    (filter) =>
-                      filter.schema_name === effectiveChart.schema_name &&
-                      filter.table_name === effectiveChart.table_name
-                  )
-                ),
               ],
               pagination: effectiveChart.extra_config?.pagination,
               sort: effectiveChart.extra_config?.sort,
             },
-            // dashboard_filters omitted — resolved filters are in
-            // extra_config.filters; CSV endpoint can't resolve raw filter IDs.
+            // Dashboard filters are sent via the `dashboard_filters` query
+            // string and resolved server-side (same as the chart-data and
+            // table-preview endpoints), so they are not injected here.
           }
         : null,
     [effectiveChart, tableDrillDownState, resolvedDashboardFilters, dashboardFilters]
