@@ -191,7 +191,15 @@ describe('MetricsSelector', () => {
 
     it('should show Display Name and collapsible save section', async () => {
       const user = userEvent.setup();
-      render(<MetricsSelector metrics={[]} onChange={mockOnChange} columns={mockColumns} />);
+      render(
+        <MetricsSelector
+          metrics={[]}
+          onChange={mockOnChange}
+          columns={mockColumns}
+          schemaName="public"
+          tableName="orders"
+        />
+      );
 
       await user.click(screen.getByRole('button', { name: /add another metric/i }));
 
