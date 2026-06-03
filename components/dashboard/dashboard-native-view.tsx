@@ -789,6 +789,9 @@ export function DashboardNativeView({
                       </Badge>
                     )}
                   </div>
+                  {dashboard.description && (
+                    <p className="text-xs text-gray-600 mt-1 truncate">{dashboard.description}</p>
+                  )}
                 </div>
               </div>
 
@@ -957,36 +960,36 @@ export function DashboardNativeView({
                   </Button>
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title">
+                  {/* Title row: title + badges + modified-by/last-updated inline */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title truncate flex-shrink-0 max-w-md">
                       {dashboard.title}
                     </h1>
                     {dashboard.is_published && (
-                      <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+                      <Badge
+                        variant="default"
+                        className="text-xs bg-green-100 text-green-800 flex-shrink-0"
+                      >
                         Published
                       </Badge>
                     )}
                     {isLocked && (
                       <Badge
                         variant={isLockedByOther ? 'destructive' : 'secondary'}
-                        className="text-xs"
+                        className="text-xs flex-shrink-0"
                       >
                         <Lock className="w-3 h-3 mr-1" />
                         {isLockedByOther ? `Locked by ${lockedBy}` : `Locked by you`}
                       </Badge>
                     )}
-                  </div>
-
-                  {/* Metadata below title */}
-                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                     {dashboard.last_modified_by && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-xs text-gray-500 flex-shrink-0">
                         <User className="w-3 h-3" />
                         <span>Updated by {dashboard.last_modified_by}</span>
                       </div>
                     )}
                     {dashboard.updated_at && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-xs text-gray-500 flex-shrink-0">
                         <Clock className="w-3 h-3" />
                         <span>
                           Modified{' '}
@@ -995,6 +998,16 @@ export function DashboardNativeView({
                       </div>
                     )}
                   </div>
+
+                  {/* Subtitle / description below the title */}
+                  {dashboard.description && (
+                    <p
+                      className="text-sm text-gray-600 mt-1 line-clamp-2 max-w-3xl"
+                      data-testid="dashboard-description"
+                    >
+                      {dashboard.description}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1119,7 +1132,12 @@ export function DashboardNativeView({
       {showMinimalHeader && !isEmbedMode && (
         <div className="bg-white border-b flex-shrink-0 px-6 py-6">
           <div>
-            <h1 className="text-3xl font-bold">{dashboard.title}</h1>
+            <h1 className="text-3xl font-bold truncate">{dashboard.title}</h1>
+            {dashboard.description && (
+              <p className="text-base text-gray-600 mt-2 line-clamp-2 max-w-3xl">
+                {dashboard.description}
+              </p>
+            )}
           </div>
         </div>
       )}

@@ -12,6 +12,8 @@ import { KPISelectorModal } from './kpi-selector-modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import {
@@ -78,6 +80,94 @@ import type { DashboardFilter } from '@/hooks/api/useDashboards';
 
 // Grid layout constants - used across GridLayout, SnapIndicators, SpaceMakingIndicators, and animation hooks
 const ROW_HEIGHT = 20;
+
+// Max length for the dashboard description (keeps the header compact).
+const DESCRIPTION_MAX_LENGTH = 100;
+
+/**
+ * Compact description trigger in the header that opens an anchored popover with
+ * a full textarea. Save commits (caller persists via onSave); Escape / outside
+ * click reverts to the pre-edit value.
+ */
+function DashboardDescriptionEditor({
+  value,
+  onChange,
+  onSave,
+  testId,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  onSave: () => void;
+  testId: string;
+}) {
+  const [open, setOpen] = useState(false);
+  // Snapshot captured when the popover opens, used to revert on dismiss
+  const snapshotRef = useRef(value);
+
+  const handleOpenChange = (next: boolean) => {
+    if (next) {
+      snapshotRef.current = value;
+    } else {
+      // Dismissed without an explicit Save -> revert unsaved edits
+      onChange(snapshotRef.current);
+    }
+    setOpen(next);
+  };
+
+  const handleSave = () => {
+    setOpen(false);
+    onSave();
+  };
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="text-left rounded px-2 py-0.5 hover:bg-gray-50 max-w-full"
+          data-testid={`${testId}-display`}
+        >
+          {value ? (
+            <span className="block truncate text-xs text-gray-600">{value}</span>
+          ) : (
+            <span className="text-xs text-gray-400 italic">+ Add description</span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={`${testId}-input`} className="text-sm font-medium">
+            Dashboard description
+          </Label>
+          <Textarea
+            id={`${testId}-input`}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Describe what this dashboard shows (optional)..."
+            className="h-24 resize-none text-sm"
+            maxLength={DESCRIPTION_MAX_LENGTH}
+            autoFocus
+            data-testid={`${testId}-input`}
+            onKeyDown={(e) => {
+              // Cmd/Ctrl+Enter saves; Escape is handled by the Popover (reverts)
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                handleSave();
+              }
+            }}
+          />
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-400">
+              {value.length}/{DESCRIPTION_MAX_LENGTH}
+            </span>
+            <Button size="sm" onClick={handleSave} data-testid={`${testId}-save`}>
+              Save
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
 function convertFilterToConfig(
@@ -1845,13 +1935,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   </Button>
                 )}
 
-                {isEditingTitle ? (
-                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                  {isEditingTitle ? (
                     <Input
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="Dashboard title..."
-                      className="text-sm font-semibold h-8 flex-1"
+                      className="text-sm font-semibold h-8"
+                      data-testid="dashboard-title-input-mobile"
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -1868,17 +1959,21 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                         saveDashboard();
                       }}
                     />
-                  </div>
-                ) : (
-                  <div
-                    className="flex items-center gap-1 flex-1 min-w-0 cursor-pointer"
-                    onClick={() => setIsEditingTitle(true)}
-                  >
-                    <h1 className="text-sm font-semibold truncate flex-1 min-w-0 dashboard-header-title">
-                      {title}
-                    </h1>
-                  </div>
-                )}
+                  ) : (
+                    <div className="cursor-pointer min-w-0" onClick={() => setIsEditingTitle(true)}>
+                      <h1 className="text-sm font-semibold truncate dashboard-header-title">
+                        {title}
+                      </h1>
+                    </div>
+                  )}
+
+                  <DashboardDescriptionEditor
+                    value={description}
+                    onChange={setDescription}
+                    onSave={() => saveDashboard()}
+                    testId="dashboard-description-mobile"
+                  />
+                </div>
               </div>
 
               {/* Mobile Quick Actions */}
@@ -2124,8 +2219,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
           {/* Desktop Header */}
           <div className="hidden lg:block px-6 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
                 {/* Back button */}
                 {onBack && (
                   <Button variant="ghost" size="sm" onClick={onBack}>
@@ -2136,14 +2231,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
                 <div className="h-6 w-px bg-gray-300" />
 
-                {/* Title editing */}
-                {isEditingTitle ? (
-                  <div className="flex items-center gap-2">
+                {/* Title + Description editing — fixed width so the toolbar
+                    doesn't shift as the description text grows/shrinks */}
+                <div className="flex flex-col gap-0.5 w-64 flex-shrink-0">
+                  {isEditingTitle ? (
                     <Input
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="Dashboard title..."
-                      className="text-lg font-semibold"
+                      className="text-lg font-semibold h-8 w-full"
+                      data-testid="dashboard-title-input"
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -2160,18 +2257,31 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                         saveDashboard();
                       }}
                     />
-                  </div>
-                ) : (
-                  <div
-                    className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-2 py-1"
-                    onClick={() => setIsEditingTitle(true)}
-                  >
-                    <h1 className="text-lg font-semibold dashboard-header-title">{title}</h1>
-                  </div>
-                )}
+                  ) : (
+                    <div
+                      className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-2 py-0.5"
+                      onClick={() => setIsEditingTitle(true)}
+                      data-testid="dashboard-title-display"
+                    >
+                      <h1 className="text-lg font-semibold dashboard-header-title truncate">
+                        {title}
+                      </h1>
+                    </div>
+                  )}
 
-                <div className="h-6 w-px bg-gray-300" />
+                  <DashboardDescriptionEditor
+                    value={description}
+                    onChange={setDescription}
+                    onSave={() => saveDashboard()}
+                    testId="dashboard-description"
+                  />
+                </div>
+              </div>
 
+              <div className="h-6 w-px bg-gray-300 flex-shrink-0" />
+
+              {/* Canvas actions — grouped right next to the title */}
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <Button
                   onClick={() => {
                     if (
@@ -2187,6 +2297,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   }}
                   size="sm"
                   variant="outline"
+                  data-testid="add-chart-btn"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Chart
@@ -2213,7 +2324,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Right zone: status + save/preview */}
+              <div className="flex items-center gap-2 flex-1 justify-end">
                 {/* Lock Status */}
                 {isLocked ? (
                   <div className="flex items-center gap-1 text-sm text-green-600">
