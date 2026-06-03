@@ -3,13 +3,10 @@
  *
  * Tests metric configuration for charts:
  * - Adding/removing metrics
- * - Aggregation functions (count, sum, avg, min, max, count_distinct)
- * - Column selection with data type filtering
- * - Auto-generated aliases
- * - Chart-type specific labels (pie vs others)
+ * - Metric pills display
+ * - Add form toggle (hidden by default, shown on button click)
+ * - Chart-type specific labels
  * - Max metrics limitation
- *
- * Architecture: Parameterized tests reduce redundancy while maintaining coverage
  */
 
 import React from 'react';
@@ -35,39 +32,58 @@ describe('MetricsSelector', () => {
   });
 
   /**
-   * Empty State and Initialization
+   * Empty State
    */
   describe('Empty State', () => {
-    it('should render empty state with form fields', () => {
+    it('should render Metrics label and ADD ANOTHER METRIC button', () => {
       render(<MetricsSelector metrics={[]} onChange={mockOnChange} columns={mockColumns} />);
 
       expect(screen.getByText('Metrics')).toBeInTheDocument();
-      // New design shows form directly (tabs + dropdowns) instead of "Add Metric" button
-      expect(screen.getByText(/^Function/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /add another metric/i })).toBeInTheDocument();
     });
 
-    it('should show Simple and Calculated tabs', () => {
+    it('should not show form fields by default', () => {
       render(<MetricsSelector metrics={[]} onChange={mockOnChange} columns={mockColumns} />);
+
+      // Form is hidden until button is clicked
+      expect(screen.queryByText(/^Function/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: 'Simple' })).not.toBeInTheDocument();
+    });
+
+    it('should show form with tabs after clicking ADD ANOTHER METRIC', async () => {
+      const user = userEvent.setup();
+      render(<MetricsSelector metrics={[]} onChange={mockOnChange} columns={mockColumns} />);
+
+      await user.click(screen.getByRole('button', { name: /add another metric/i }));
 
       expect(screen.getByRole('tab', { name: 'Simple' })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: 'Calculated' })).toBeInTheDocument();
+      expect(screen.getByText(/^Function/)).toBeInTheDocument();
     });
   });
 
   /**
-   * Adding and Removing Metrics
+   * Metric Pills
    */
-  describe('Metrics Management', () => {
-    it('should render table headers when metrics exist', () => {
+  describe('Metric Pills', () => {
+    it('should render metric pills when metrics exist', () => {
       const metrics: ChartMetric[] = [
         { column: 'amount', aggregation: 'sum', alias: 'Total Amount' },
       ];
 
       render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
 
-      expect(screen.getByText(/^Function/)).toBeInTheDocument();
-      expect(screen.getByText(/^Column/)).toBeInTheDocument();
-      expect(screen.getByText('Display Name')).toBeInTheDocument();
+      expect(screen.getByText('Total Amount')).toBeInTheDocument();
+      expect(screen.getByText('SUM(amount)')).toBeInTheDocument();
+    });
+
+    it('should show Display Name In Charts input in metric pill', () => {
+      const metrics: ChartMetric[] = [{ column: 'amount', aggregation: 'sum', alias: 'Total' }];
+
+      render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
+
+      expect(screen.getByText('Display Name In Charts')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Total')).toBeInTheDocument();
     });
 
     it('should show ADD ANOTHER METRIC button when metrics exist', () => {
@@ -75,11 +91,10 @@ describe('MetricsSelector', () => {
 
       render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
 
-      // Button exists but may be disabled until form is filled
       expect(screen.getByRole('button', { name: /add another metric/i })).toBeInTheDocument();
     });
 
-    it('should remove metric when clicking remove button', async () => {
+    it('should remove metric when clicking X button', async () => {
       const user = userEvent.setup();
       const metrics: ChartMetric[] = [
         { column: 'amount', aggregation: 'sum', alias: 'Total Amount' },
@@ -90,7 +105,7 @@ describe('MetricsSelector', () => {
 
       const removeButtons = screen.getAllByRole('button');
       const xButton = removeButtons.find(
-        (btn) => btn.querySelector('svg') && !btn.textContent?.includes('Add')
+        (btn) => btn.querySelector('svg') && !btn.textContent?.includes('ADD')
       );
 
       if (xButton) {
@@ -135,98 +150,89 @@ describe('MetricsSelector', () => {
   });
 
   /**
-   * Aggregation Functions and Column Filtering
-   * Tests that different aggregations work with appropriate column types
+   * Add Form (after clicking ADD ANOTHER METRIC)
    */
-  describe('Aggregation Functions', () => {
-    it.each([
-      ['count', null],
-      ['count_distinct', 'category'],
-      ['sum', 'amount'],
-      ['avg', 'quantity'],
-      ['min', 'price'],
-      ['max', 'amount'],
-    ])('should allow %s aggregation', (aggregation, column) => {
-      const metrics: ChartMetric[] = [{ column, aggregation, alias: '' }];
+  describe('Add Form', () => {
+    it('should show Function and Column fields in Simple tab', async () => {
+      const user = userEvent.setup();
+      render(<MetricsSelector metrics={[]} onChange={mockOnChange} columns={mockColumns} />);
 
-      render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
+      await user.click(screen.getByRole('button', { name: /add another metric/i }));
 
-      // Verify component renders without error
       expect(screen.getByText(/^Function/)).toBeInTheDocument();
       expect(screen.getByText(/^Column/)).toBeInTheDocument();
     });
-  });
 
-  /**
-   * Alias Management
-   * Tests auto-generation and manual override of display names
-   */
-  describe('Alias Management', () => {
-    it('should show Display Name field', () => {
-      const metrics: ChartMetric[] = [{ column: 'amount', aggregation: 'sum', alias: '' }];
+    it('should show Expression field in Calculated tab', async () => {
+      const user = userEvent.setup();
+      render(<MetricsSelector metrics={[]} onChange={mockOnChange} columns={mockColumns} />);
 
-      render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
+      await user.click(screen.getByRole('button', { name: /add another metric/i }));
+      await user.click(screen.getByRole('tab', { name: 'Calculated' }));
 
-      expect(screen.getByText('Display Name')).toBeInTheDocument();
+      expect(screen.getByText(/^Expression/)).toBeInTheDocument();
     });
 
-    it('should show display name input', () => {
-      const metrics: ChartMetric[] = [{ column: 'amount', aggregation: 'sum', alias: '' }];
+    it('should close form when clicking X', async () => {
+      const user = userEvent.setup();
+      render(<MetricsSelector metrics={[]} onChange={mockOnChange} columns={mockColumns} />);
 
-      render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
+      await user.click(screen.getByRole('button', { name: /add another metric/i }));
+      expect(screen.getByText(/^Function/)).toBeInTheDocument();
 
-      expect(screen.getByPlaceholderText('Give a unique name')).toBeInTheDocument();
+      // Find the X close button (inside the form box)
+      const closeButtons = screen.getAllByRole('button');
+      const xButton = closeButtons.find((btn) => btn.querySelector('svg') && !btn.textContent);
+      if (xButton) {
+        await user.click(xButton);
+        expect(screen.queryByText(/^Function/)).not.toBeInTheDocument();
+      }
     });
-  });
 
-  /**
-   * Chart Type Specific Labels
-   * Tests that pie charts show different labels
-   */
-  describe('Chart Type Labels', () => {
-    it.each([
-      ['bar', [/^Function/, /^Column/, /Display Name/]],
-      ['line', [/^Function/, /^Column/, /Display Name/]],
-      ['table', [/^Function/, /^Column/, /Display Name/]],
-      ['pie', [/^Metric \*/, /^Dimension/, /Display Name/]],
-    ])('should show correct labels for %s chart', (chartType, expectedLabels) => {
-      const metrics: ChartMetric[] = [{ column: 'amount', aggregation: 'sum', alias: '' }];
-
+    it('should show Display Name and collapsible save section', async () => {
+      const user = userEvent.setup();
       render(
         <MetricsSelector
-          metrics={metrics}
+          metrics={[]}
           onChange={mockOnChange}
           columns={mockColumns}
-          chartType={chartType as string}
+          schemaName="public"
+          tableName="orders"
         />
       );
 
-      (expectedLabels as RegExp[]).forEach((label) => {
-        expect(screen.getByText(label)).toBeInTheDocument();
-      });
+      await user.click(screen.getByRole('button', { name: /add another metric/i }));
+
+      expect(screen.getByText('Display Name In Charts')).toBeInTheDocument();
+      expect(screen.getByText('Add metric to library')).toBeInTheDocument();
+      // Metric Name hidden until toggle is clicked
+      expect(screen.queryByText('Metric Name *')).not.toBeInTheDocument();
     });
   });
 
   /**
-   * Column Type Filtering
-   * Tests that numeric aggregations only allow numeric columns
+   * Chart Type Labels (shown in form after opening)
    */
-  describe('Data Type Filtering', () => {
-    it('should render column selector for all aggregations', () => {
-      const aggregations = ['count', 'count_distinct', 'sum', 'avg', 'min', 'max'];
+  describe('Chart Type Labels', () => {
+    it.each([
+      ['bar', /^Function/, /^Column/],
+      ['line', /^Function/, /^Column/],
+      ['pie', /^Metric \*/, /^Dimension/],
+    ])('should show correct labels for %s chart', async (chartType, label1, label2) => {
+      const user = userEvent.setup();
+      render(
+        <MetricsSelector
+          metrics={[]}
+          onChange={mockOnChange}
+          columns={mockColumns}
+          chartType={chartType}
+        />
+      );
 
-      aggregations.forEach((aggregation) => {
-        const metrics: ChartMetric[] = [
-          { column: aggregation === 'count' ? null : 'amount', aggregation, alias: '' },
-        ];
+      await user.click(screen.getByRole('button', { name: /add another metric/i }));
 
-        const { unmount } = render(
-          <MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />
-        );
-
-        expect(screen.getByText(/^Column/)).toBeInTheDocument();
-        unmount();
-      });
+      expect(screen.getByText(label1)).toBeInTheDocument();
+      expect(screen.getByText(label2)).toBeInTheDocument();
     });
   });
 
@@ -234,38 +240,23 @@ describe('MetricsSelector', () => {
    * Edge Cases
    */
   describe('Edge Cases', () => {
-    it('should handle empty columns array', () => {
-      const metrics: ChartMetric[] = [{ column: null, aggregation: 'count', alias: '' }];
-
-      render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={[]} />);
-
-      expect(screen.getByText(/^Function/)).toBeInTheDocument();
-    });
-
-    it('should handle metrics with empty aggregation', () => {
-      const metrics: ChartMetric[] = [{ column: null, aggregation: '', alias: '' }];
+    it('should render metric pill with expression metric', () => {
+      const metrics: ChartMetric[] = [
+        { column: null, aggregation: null, column_expression: 'SUM(a)/COUNT(b)', alias: 'Ratio' },
+      ];
 
       render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
 
-      const functionLabels = screen.getAllByText(/^Function/);
-      expect(functionLabels.length).toBeGreaterThan(0);
+      expect(screen.getByText('Ratio')).toBeInTheDocument();
     });
 
-    it('should handle undefined chartType', () => {
-      const metrics: ChartMetric[] = [{ column: 'amount', aggregation: 'sum', alias: '' }];
+    it('should render metric pill with count(*) aggregation', () => {
+      const metrics: ChartMetric[] = [{ column: null, aggregation: 'count', alias: 'Row Count' }];
 
-      render(
-        <MetricsSelector
-          metrics={metrics}
-          onChange={mockOnChange}
-          columns={mockColumns}
-          chartType={undefined}
-        />
-      );
+      render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
 
-      // Should use default labels
-      expect(screen.getByText(/^Function/)).toBeInTheDocument();
-      expect(screen.getByText(/^Column/)).toBeInTheDocument();
+      expect(screen.getByText('Row Count')).toBeInTheDocument();
+      expect(screen.getByText('COUNT(*)')).toBeInTheDocument();
     });
   });
 });

@@ -68,9 +68,12 @@ export function KPIDeleteDialog({
                     </p>
                     <div className="space-y-1 max-h-32 overflow-y-auto">
                       {dashboards.map((dashboard) => (
-                        <div
+                        <Link
                           key={dashboard.id}
-                          className="flex items-center justify-between text-xs p-2 bg-amber-50 rounded border"
+                          href={`/dashboards/${dashboard.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between text-xs p-2 bg-amber-50 rounded border hover:bg-amber-100 transition-colors"
                         >
                           <div className="flex-1 min-w-0">
                             <div className="font-medium truncate">{dashboard.title}</div>
@@ -78,14 +81,8 @@ export function KPIDeleteDialog({
                               {dashboard.dashboard_type}
                             </Badge>
                           </div>
-                          <Link
-                            href={`/dashboards/${dashboard.id}`}
-                            className="ml-2 text-blue-600 hover:text-blue-800"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                          </Link>
-                        </div>
+                          <ExternalLink className="w-3 h-3 ml-2 text-blue-600 shrink-0" />
+                        </Link>
                       ))}
                     </div>
                   </div>
