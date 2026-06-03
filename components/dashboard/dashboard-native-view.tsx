@@ -960,22 +960,11 @@ export function DashboardNativeView({
                   </Button>
                 )}
                 <div className="min-w-0 flex-1">
+                  {/* Title row: title + badges + modified-by/last-updated inline */}
                   <div className="flex items-center gap-3 min-w-0">
-                    <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title truncate min-w-0 flex-shrink-0 max-w-md">
+                    <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title truncate flex-shrink-0 max-w-md">
                       {dashboard.title}
                     </h1>
-                    {/* Description shown inline next to the title */}
-                    {dashboard.description && (
-                      <>
-                        <span className="h-5 w-px bg-gray-300 flex-shrink-0" aria-hidden="true" />
-                        <p
-                          className="text-sm text-gray-600 truncate min-w-0"
-                          data-testid="dashboard-description"
-                        >
-                          {dashboard.description}
-                        </p>
-                      </>
-                    )}
                     {dashboard.is_published && (
                       <Badge
                         variant="default"
@@ -993,18 +982,14 @@ export function DashboardNativeView({
                         {isLockedByOther ? `Locked by ${lockedBy}` : `Locked by you`}
                       </Badge>
                     )}
-                  </div>
-
-                  {/* Metadata below title */}
-                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                     {dashboard.last_modified_by && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-xs text-gray-500 flex-shrink-0">
                         <User className="w-3 h-3" />
                         <span>Updated by {dashboard.last_modified_by}</span>
                       </div>
                     )}
                     {dashboard.updated_at && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-xs text-gray-500 flex-shrink-0">
                         <Clock className="w-3 h-3" />
                         <span>
                           Modified{' '}
@@ -1013,6 +998,16 @@ export function DashboardNativeView({
                       </div>
                     )}
                   </div>
+
+                  {/* Subtitle / description below the title */}
+                  {dashboard.description && (
+                    <p
+                      className="text-sm text-gray-600 mt-1 line-clamp-2 max-w-3xl"
+                      data-testid="dashboard-description"
+                    >
+                      {dashboard.description}
+                    </p>
+                  )}
                 </div>
               </div>
 
