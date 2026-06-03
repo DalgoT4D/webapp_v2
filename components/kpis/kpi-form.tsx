@@ -59,6 +59,89 @@ interface KPIFormProps {
   preselectedMetricId?: number;
 }
 
+interface ProgramTagsInputProps {
+  value: string[];
+  onChange: (tags: string[]) => void;
+  existingTags: string[];
+}
+
+function ProgramTagsInput({ value, onChange, existingTags }: ProgramTagsInputProps) {
+  const [tagInput, setTagInput] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const addTag = (raw: string, keepOpen = false) => {
+    const tag = raw.trim();
+    if (tag && !value.includes(tag)) {
+      onChange([...value, tag]);
+    }
+    setTagInput('');
+    if (!keepOpen) setShowSuggestions(false);
+  };
+
+  const suggestions = existingTags.filter(
+    (t) => !value.includes(t) && t.toLowerCase().includes(tagInput.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-2">
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {value.map((tag) => (
+            <Badge key={tag} variant="secondary" className="text-xs gap-1">
+              {tag}
+              <button
+                type="button"
+                onClick={() => onChange(value.filter((t) => t !== tag))}
+                className="hover:text-destructive"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+      <div className="relative">
+        <Input
+          value={tagInput}
+          onChange={(e) => {
+            setTagInput(e.target.value);
+            setShowSuggestions(true);
+          }}
+          onFocus={() => setShowSuggestions(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ',') {
+              e.preventDefault();
+              if (tagInput.trim()) addTag(tagInput);
+            }
+          }}
+          onBlur={() => {
+            setTimeout(() => setShowSuggestions(false), 200);
+            if (tagInput.trim()) addTag(tagInput);
+          }}
+          placeholder="Type to search or create a tag"
+        />
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-md max-h-32 overflow-y-auto">
+            {suggestions.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  addTag(tag, true);
+                }}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricId }: KPIFormProps) {
   const isEdit = !!kpi;
 
@@ -528,82 +611,13 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                 <Controller
                   control={control}
                   name="program_tags"
-                  render={({ field }) => {
-                    const [tagInput, setTagInput] = useState('');
-                    const [showSuggestions, setShowSuggestions] = useState(false);
-                    const addTag = (value: string, keepOpen = false) => {
-                      const tag = value.trim();
-                      if (tag && !field.value.includes(tag)) {
-                        field.onChange([...field.value, tag]);
-                      }
-                      setTagInput('');
-                      if (!keepOpen) setShowSuggestions(false);
-                    };
-                    const suggestions = existingTags.filter(
-                      (t) =>
-                        !field.value.includes(t) && t.toLowerCase().includes(tagInput.toLowerCase())
-                    );
-                    return (
-                      <div className="space-y-2">
-                        {field.value.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {field.value.map((tag: string) => (
-                              <Badge key={tag} variant="secondary" className="text-xs gap-1">
-                                {tag}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    field.onChange(field.value.filter((t: string) => t !== tag))
-                                  }
-                                  className="hover:text-destructive"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        <div className="relative">
-                          <Input
-                            value={tagInput}
-                            onChange={(e) => {
-                              setTagInput(e.target.value);
-                              setShowSuggestions(true);
-                            }}
-                            onFocus={() => setShowSuggestions(true)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ',') {
-                                e.preventDefault();
-                                if (tagInput.trim()) addTag(tagInput);
-                              }
-                            }}
-                            onBlur={() => {
-                              setTimeout(() => setShowSuggestions(false), 200);
-                              if (tagInput.trim()) addTag(tagInput);
-                            }}
-                            placeholder="Type to search or create a tag"
-                          />
-                          {showSuggestions && suggestions.length > 0 && (
-                            <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-md max-h-32 overflow-y-auto">
-                              {suggestions.map((tag) => (
-                                <button
-                                  key={tag}
-                                  type="button"
-                                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100"
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    addTag(tag, true);
-                                  }}
-                                >
-                                  {tag}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  }}
+                  render={({ field }) => (
+                    <ProgramTagsInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      existingTags={existingTags}
+                    />
+                  )}
                 />
               </div>
 
