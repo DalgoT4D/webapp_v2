@@ -299,7 +299,7 @@ function NotesSection({
   periods: { period: string; period_date: string | null; value: number | null }[];
 }) {
   const { annotations, mutate } = useAnnotations(kpi.id);
-  const currentUserEmail = useAuthStore((s) => s.orgUser?.email);
+  const currentUserEmail = useAuthStore((s) => s.getCurrentOrgUser()?.email ?? '');
   const [showForm, setShowForm] = useState(false);
   const [noteType, setNoteType] = useState<NoteType>('beneficiary_quote');
   const [periodKey, setPeriodKey] = useState('');

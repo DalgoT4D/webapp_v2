@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useSWRConfig } from 'swr';
 import {
   Plus,
@@ -121,6 +121,7 @@ function KPICardWithData({
 
 export function KPIPageComponent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [metricTypeFilter, setMetricTypeFilter] = useState('');
   const [programTagFilter, setProgramTagFilter] = useState('');
@@ -154,7 +155,8 @@ export function KPIPageComponent() {
   const { tags: programTags } = useProgramTags();
   const { mutate: globalMutate } = useSWRConfig();
 
-  // Auto-open drawer when ?open={kpiId} is in the URL
+  // Auto-open drawer when ?open={kpiId} is in the URL, then strip the param
+  // so a refresh doesn't reopen the drawer after the user has closed it.
   useEffect(() => {
     const openId = searchParams.get('open');
     if (openId && kpis.length > 0) {
@@ -163,8 +165,12 @@ export function KPIPageComponent() {
         setSelectedKpi(kpi);
         setDrawerOpen(true);
       }
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete('open');
+      const qs = next.toString();
+      router.replace(qs ? `/kpis?${qs}` : '/kpis', { scroll: false });
     }
-  }, [searchParams, kpis]);
+  }, [searchParams, kpis, router]);
 
   const handleFormSuccess = useCallback(() => {
     setCurrentPage(1);
