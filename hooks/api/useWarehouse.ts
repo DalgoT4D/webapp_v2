@@ -113,9 +113,8 @@ export async function createWarehouse(payload: {
   name: string;
   destinationDefId: string;
   airbyteConfig: Record<string, unknown>;
-}): Promise<Warehouse> {
-  const raw: WarehouseApiItem = await apiPost('/api/organizations/warehouse/', payload);
-  return mapWarehouseResponse(raw);
+}): Promise<void> {
+  await apiPost('/api/organizations/warehouse/', payload);
 }
 
 export async function updateWarehouse(

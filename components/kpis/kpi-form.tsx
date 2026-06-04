@@ -19,11 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Plus, Download, Upload, Target, Hammer } from 'lucide-react';
+import { Loader2, Plus, Download, Upload, Target, Hammer, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Combobox } from '@/components/ui/combobox';
 import { useMetrics } from '@/hooks/api/useMetrics';
 import { useTableColumns } from '@/hooks/api/useWarehouse';
-import { createKPI, updateKPI } from '@/hooks/api/useKPIs';
+import { createKPI, updateKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import type { KPI, KPICreate, KPIUpdate } from '@/types/kpis';
 import { DIRECTION_OPTIONS, TIME_GRAIN_OPTIONS, METRIC_TYPE_TAG_OPTIONS } from '@/types/kpis';
 import { cn } from '@/lib/utils';
@@ -47,7 +48,7 @@ interface KPIFormData {
   time_grain: string;
   time_dimension_column: string;
   metric_type_tag: string;
-  program_tags_input: string;
+  program_tags: string[];
 }
 
 interface KPIFormProps {
@@ -56,6 +57,89 @@ interface KPIFormProps {
   onSuccess: () => void;
   kpi?: KPI | null;
   preselectedMetricId?: number;
+}
+
+interface ProgramTagsInputProps {
+  value: string[];
+  onChange: (tags: string[]) => void;
+  existingTags: string[];
+}
+
+function ProgramTagsInput({ value, onChange, existingTags }: ProgramTagsInputProps) {
+  const [tagInput, setTagInput] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const addTag = (raw: string, keepOpen = false) => {
+    const tag = raw.trim();
+    if (tag && !value.includes(tag)) {
+      onChange([...value, tag]);
+    }
+    setTagInput('');
+    if (!keepOpen) setShowSuggestions(false);
+  };
+
+  const suggestions = existingTags.filter(
+    (t) => !value.includes(t) && t.toLowerCase().includes(tagInput.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-2">
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {value.map((tag) => (
+            <Badge key={tag} variant="secondary" className="text-xs gap-1">
+              {tag}
+              <button
+                type="button"
+                onClick={() => onChange(value.filter((t) => t !== tag))}
+                className="hover:text-destructive"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+      <div className="relative">
+        <Input
+          value={tagInput}
+          onChange={(e) => {
+            setTagInput(e.target.value);
+            setShowSuggestions(true);
+          }}
+          onFocus={() => setShowSuggestions(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ',') {
+              e.preventDefault();
+              if (tagInput.trim()) addTag(tagInput);
+            }
+          }}
+          onBlur={() => {
+            setTimeout(() => setShowSuggestions(false), 200);
+            if (tagInput.trim()) addTag(tagInput);
+          }}
+          placeholder="Type to search or create a tag"
+        />
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-md max-h-32 overflow-y-auto">
+            {suggestions.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  addTag(tag, true);
+                }}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricId }: KPIFormProps) {
@@ -86,7 +170,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
       time_grain: 'monthly',
       time_dimension_column: '',
       metric_type_tag: '',
-      program_tags_input: '',
+      program_tags: [],
     },
   });
 
@@ -98,6 +182,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
   const metricTypeTag = watch('metric_type_tag');
 
   const { data: metrics, mutate: mutateMetrics } = useMetrics({ pageSize: 50 });
+  const { tags: existingTags } = useProgramTags();
 
   const selectedMetric = metrics.find((m) => m.id === metricId);
 
@@ -126,7 +211,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           time_grain: kpi.time_grain,
           time_dimension_column: kpi.time_dimension_column || '',
           metric_type_tag: kpi.metric_type_tag || '',
-          program_tags_input: kpi.program_tags.join(', '),
+          program_tags: kpi.program_tags || [],
         });
       } else {
         setStep(1);
@@ -140,7 +225,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           time_grain: 'monthly',
           time_dimension_column: '',
           metric_type_tag: '',
-          program_tags_input: '',
+          program_tags: [],
         });
       }
       setSaveError(null);
@@ -173,10 +258,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
     setSaveError(null);
     setSaving(true);
 
-    const programTags = data.program_tags_input
-      .split(',')
-      .map((t) => t.trim())
-      .filter(Boolean);
+    const programTags = data.program_tags;
 
     try {
       if (isEdit && kpi) {
@@ -523,11 +605,20 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                 </div>
               )}
 
-              {/* Classification */}
+              {/* Program Tags */}
               <div className="space-y-1">
-                <Label>Program Name</Label>
-                <Input {...register('program_tags_input')} placeholder="eg. WASH Program" />
-                <p className="text-xs text-muted-foreground">Separate multiple tags with commas</p>
+                <Label>Program Tags</Label>
+                <Controller
+                  control={control}
+                  name="program_tags"
+                  render={({ field }) => (
+                    <ProgramTagsInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      existingTags={existingTags}
+                    />
+                  )}
+                />
               </div>
 
               <div className="space-y-2">

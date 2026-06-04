@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { X, Library, Save, Loader2, Info } from 'lucide-react';
+import { X, Library, Save, Loader2, Info, ChevronDown } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { ChartMetric } from '@/types/charts';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
@@ -52,8 +52,9 @@ export function MetricsSelector({
   schemaName,
   tableName,
 }: MetricsSelectorProps) {
-  const [mode, setMode] = useState<'simple' | 'calculated'>('simple');
+  const [mode, setMode] = useState<'saved' | 'simple' | 'calculated'>('simple');
   const [showForm, setShowForm] = useState(false);
+  const [showSaveSection, setShowSaveSection] = useState(false);
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
   const [validating, setValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -185,6 +186,8 @@ export function MetricsSelector({
     setExprText('');
     setMetricName('');
     setDisplayName('');
+    setMode('simple');
+    setShowSaveSection(false);
     setShowForm(false);
   };
 
@@ -314,41 +317,11 @@ export function MetricsSelector({
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              {/* Pick from library */}
-              <div className="space-y-1">
-                <Select
-                  onValueChange={(v) => {
-                    if (v !== '__none__') addSavedMetric(v);
-                  }}
-                  value="__none__"
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Select a metric from pre-defined list" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__" disabled className="hidden">
-                      Select a metric from pre-defined list
-                    </SelectItem>
-                    {savedMetrics
-                      .filter((sm) => !isSavedMetricAdded(sm.id))
-                      .map((sm) => (
-                        <SelectItem key={sm.id} value={sm.id.toString()}>
-                          <div className="flex flex-col">
-                            <span>{sm.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {sm.column_expression
-                                ? sm.column_expression.slice(0, 40)
-                                : `${(sm.aggregation || '').toUpperCase()}(${sm.column || '*'})`}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Simple / Calculated tabs */}
-              <Tabs value={mode} onValueChange={(v) => setMode(v as 'simple' | 'calculated')}>
+              {/* Saved / Simple / Calculated tabs */}
+              <Tabs
+                value={mode}
+                onValueChange={(v) => setMode(v as 'saved' | 'simple' | 'calculated')}
+              >
                 <TabsList className="w-full h-8">
                   <TabsTrigger value="simple" className="flex-1 text-xs">
                     Simple
@@ -356,10 +329,45 @@ export function MetricsSelector({
                   <TabsTrigger value="calculated" className="flex-1 text-xs">
                     Calculated
                   </TabsTrigger>
+                  <TabsTrigger value="saved" className="flex-1 text-xs">
+                    Saved
+                  </TabsTrigger>
                 </TabsList>
 
+                <TabsContent value="saved" className="mt-2 space-y-2">
+                  <Select
+                    onValueChange={(v) => {
+                      if (v !== '__none__') addSavedMetric(v);
+                    }}
+                    value="__none__"
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select a metric from pre-defined list" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__" disabled className="hidden">
+                        Select a metric from pre-defined list
+                      </SelectItem>
+                      {savedMetrics
+                        .filter((sm) => !isSavedMetricAdded(sm.id))
+                        .map((sm) => (
+                          <SelectItem key={sm.id} value={sm.id.toString()}>
+                            <div className="flex flex-col">
+                              <span>{sm.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {sm.column_expression
+                                  ? sm.column_expression.slice(0, 40)
+                                  : `${(sm.aggregation || '').toUpperCase()}(${sm.column || '*'})`}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </TabsContent>
+
                 <TabsContent value="simple" className="mt-2 space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
                     <div className="space-y-1">
                       <Label className="text-xs text-gray-600">{labels.function} *</Label>
                       <Select value={simpleAgg} onValueChange={setSimpleAgg} disabled={disabled}>
@@ -432,58 +440,65 @@ export function MetricsSelector({
                 </TabsContent>
               </Tabs>
 
-              {/* Display Name */}
-              <div className="space-y-1">
-                <Label className="text-xs text-gray-600">Display Name In Charts</Label>
-                <Input
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Auto-generated display name"
-                  className="h-8 text-sm"
-                  disabled={disabled}
-                />
-              </div>
+              {/* Display Name / Metric Name / Save — only for Simple and Calculated */}
+              {mode !== 'saved' && (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-600">Display Name In Charts</Label>
+                    <Input
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Auto-generated display name"
+                      className="h-8 text-sm"
+                      disabled={disabled}
+                    />
+                  </div>
 
-              {/* Metric Name */}
-              <div className="space-y-1">
-                <Label className="text-xs text-gray-600 flex items-center gap-1">
-                  Metric Name
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-3 w-3 text-gray-400 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[200px] text-xs">
-                        Name your metric and click &quot;Save Metric To Library&quot; to reuse it
-                        across charts and KPIs.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </Label>
-                <Input
-                  value={metricName}
-                  onChange={(e) => setMetricName(e.target.value)}
-                  placeholder="Give a unique name"
-                  className="h-8 text-sm"
-                  disabled={disabled}
-                />
-              </div>
-
-              {/* Save button */}
-              {schemaName && tableName && (
-                <Button
-                  size="sm"
-                  onClick={handleSaveToLibrary}
-                  disabled={disabled || !metricName.trim() || !canAddInline || savingIndex === -1}
-                  className="w-full h-8 text-xs bg-gray-900 text-white hover:bg-gray-700"
-                >
-                  {savingIndex === -1 ? (
-                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                  ) : (
-                    <Save className="h-3.5 w-3.5 mr-1" />
+                  {/* Save to library (optional, collapsible) */}
+                  {schemaName && tableName && (
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground w-full"
+                        onClick={() => setShowSaveSection(!showSaveSection)}
+                      >
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 transition-transform ${showSaveSection ? '' : '-rotate-90'}`}
+                        />
+                        Add metric to library
+                      </button>
+                      {showSaveSection && (
+                        <div className="space-y-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-gray-600">Metric Name *</Label>
+                            <Input
+                              value={metricName}
+                              onChange={(e) => setMetricName(e.target.value)}
+                              placeholder="Give a unique name"
+                              className="h-8 text-sm"
+                              disabled={disabled}
+                            />
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={handleSaveToLibrary}
+                            disabled={
+                              disabled || !metricName.trim() || !canAddInline || savingIndex === -1
+                            }
+                            className="w-full h-8 text-xs bg-gray-900 text-white hover:bg-gray-700"
+                          >
+                            {savingIndex === -1 ? (
+                              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                            ) : (
+                              <Save className="h-3.5 w-3.5 mr-1" />
+                            )}
+                            ADD METRIC TO LIBRARY
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   )}
-                  SAVE METRIC TO LIBRARY
-                </Button>
+                </>
               )}
             </div>
           )}

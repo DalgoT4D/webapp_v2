@@ -97,6 +97,15 @@ export function useKPIData(
   };
 }
 
+export function useProgramTags() {
+  const { data, error, mutate } = useSWR<string[]>('/api/kpis/program-tags/', apiGet);
+  return {
+    tags: data || [],
+    isLoading: !error && !data,
+    mutate,
+  };
+}
+
 export async function createKPI(data: KPICreate): Promise<KPI> {
   return apiPost('/api/kpis/', data);
 }
