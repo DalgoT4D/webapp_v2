@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { ReadyState } from 'react-use-websocket';
 import { Loader2 } from 'lucide-react';
 import {
@@ -177,6 +179,7 @@ export function ConnectionForm({ mode, connectionId, onClose, onSuccess }: Conne
           syncCatalog: discoveredCatalog!,
           catalogId: catalogId || undefined,
         });
+        trackEvent(ANALYTICS_EVENTS.CONNECTION_CREATED);
         toastSuccess.created('Connection');
       } else if (connectionId) {
         await updateConnection(connectionId, {
