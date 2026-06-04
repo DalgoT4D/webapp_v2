@@ -271,7 +271,8 @@ function ConfigureChartPageContent() {
       if (formData.metrics && formData.metrics.length > 0) {
         return formData.metrics.every(
           (metric) =>
-            metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+            metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
         );
       }
       return false;
@@ -288,7 +289,9 @@ function ConfigureChartPageContent() {
           formData.dimension_column &&
           formData.metrics.every(
             (metric) =>
-              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+              metric.column_expression ||
+              (metric.aggregation &&
+                (metric.aggregation.toLowerCase() === 'count' || metric.column))
           )
         );
       }
@@ -803,7 +806,9 @@ function ConfigureChartPageContent() {
           formData.dimension_column &&
           formData.metrics.every(
             (metric) =>
-              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+              metric.column_expression ||
+              (metric.aggregation &&
+                (metric.aggregation.toLowerCase() === 'count' || metric.column))
           )
         );
       }
@@ -989,10 +994,9 @@ function ConfigureChartPageContent() {
           <div className="flex items-center gap-4">
             <Button
               onClick={handleSave}
-              variant="ghost"
+              variant="primary"
               disabled={!isFormValid() || isMutating}
-              className="px-8 h-11 text-white hover:opacity-90"
-              style={{ backgroundColor: 'var(--primary)' }}
+              className="px-8 h-11"
             >
               {isMutating ? 'Saving...' : 'Save Chart'}
             </Button>

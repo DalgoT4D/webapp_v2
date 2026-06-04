@@ -16,8 +16,12 @@ import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { ChartSelectorModal } from './chart-selector-modal';
+import { KPISelectorModal } from './kpi-selector-modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import {
@@ -53,12 +57,16 @@ import {
   ArrowLeft,
   Eye,
   ChevronsUp,
+  Edit,
+  Target,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
-// ChartElementV2 and UnifiedTextElement are rendered via DashboardCell
+// Charts, KPIs and text are rendered via DashboardCell
 import { FilterConfigModal } from './filter-config-modal';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { DashboardCell } from './DashboardCell';
+import { TabBar } from './tabs/TabBar';
+import type { UnifiedTextConfig } from './text-element-unified';
 import { DashboardFilterType } from '@/types/dashboard-filters';
 import type {
   CreateFilterPayload,
@@ -67,6 +75,8 @@ import type {
   NumericalFilterSettings,
   DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
+import { DashboardTab, DashboardTabsData, DashboardComponentType } from '@/types/dashboard';
+import { getDefaultTabsConfig } from './tabs/tab-utils';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
 
 // Grid layout constants
@@ -82,6 +92,94 @@ const FULL_WIDTH_COLS = 12;
 const AUTOSCROLL_EDGE_PX = 60;
 // Max scroll speed (px/frame), capped to prevent runaway scroll. Spec: ~30px/frame.
 const AUTOSCROLL_MAX_SPEED_PX = 30;
+
+// Max length for the dashboard description (keeps the header compact).
+const DESCRIPTION_MAX_LENGTH = 100;
+
+/**
+ * Compact description trigger in the header that opens an anchored popover with
+ * a full textarea. Save commits (caller persists via onSave); Escape / outside
+ * click reverts to the pre-edit value.
+ */
+function DashboardDescriptionEditor({
+  value,
+  onChange,
+  onSave,
+  testId,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  onSave: () => void;
+  testId: string;
+}) {
+  const [open, setOpen] = useState(false);
+  // Snapshot captured when the popover opens, used to revert on dismiss
+  const snapshotRef = useRef(value);
+
+  const handleOpenChange = (next: boolean) => {
+    if (next) {
+      snapshotRef.current = value;
+    } else {
+      // Dismissed without an explicit Save -> revert unsaved edits
+      onChange(snapshotRef.current);
+    }
+    setOpen(next);
+  };
+
+  const handleSave = () => {
+    setOpen(false);
+    onSave();
+  };
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="text-left rounded px-2 py-0.5 hover:bg-gray-50 max-w-full"
+          data-testid={`${testId}-display`}
+        >
+          {value ? (
+            <span className="block truncate text-xs text-gray-600">{value}</span>
+          ) : (
+            <span className="text-xs text-gray-400 italic">+ Add description</span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={`${testId}-input`} className="text-sm font-medium">
+            Dashboard description
+          </Label>
+          <Textarea
+            id={`${testId}-input`}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Describe what this dashboard shows (optional)..."
+            className="h-24 resize-none text-sm"
+            maxLength={DESCRIPTION_MAX_LENGTH}
+            autoFocus
+            data-testid={`${testId}-input`}
+            onKeyDown={(e) => {
+              // Cmd/Ctrl+Enter saves; Escape is handled by the Popover (reverts)
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                handleSave();
+              }
+            }}
+          />
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-400">
+              {value.length}/{DESCRIPTION_MAX_LENGTH}
+            </span>
+            <Button size="sm" onClick={handleSave} data-testid={`${testId}-save`}>
+              Save
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
 function convertFilterToConfig(
@@ -148,11 +246,7 @@ function convertFilterToConfig(
 }
 
 // Types
-export enum DashboardComponentType {
-  CHART = 'chart',
-  TEXT = 'text',
-  FILTER = 'filter',
-}
+// DashboardComponentType is imported from '@/types/dashboard' (single source, includes KPI).
 
 interface DashboardLayout {
   i: string;
@@ -280,9 +374,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
   ) {
     const router = useRouter();
 
-    // Ensure layout_config is always an array
-    let initialLayout = Array.isArray(initialData?.layout_config) ? initialData.layout_config : [];
-    const initialComponents = initialData?.components || {};
+    // Canvas is always driven by tab content — layout and components live inside tabs only.
+    // If tabs exist, load the first tab's canvas. Otherwise start empty (new dashboard).
+    const firstTab =
+      initialData?.tabs && Array.isArray(initialData.tabs) && initialData.tabs.length > 0
+        ? initialData.tabs[0]
+        : null;
+
+    let initialLayout = Array.isArray(firstTab?.layout_config) ? firstTab.layout_config : [];
+    const initialComponents = firstTab?.components ?? {};
 
     // Helper function to ensure text components have content constraints
     const ensureTextContentConstraints = (components: any) => {
@@ -416,6 +516,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const {
       state,
       setState,
+      setStateWithoutHistory,
       undo: undoBase,
       redo: redoBase,
       canUndo,
@@ -461,6 +562,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Component state
     const [showChartSelector, setShowChartSelector] = useState(false);
+    const [showKPISelector, setShowKPISelector] = useState(false);
     // Fetch all charts
     const { data: chartsData, isLoading: chartsLoading } = useCharts
       ? useCharts()
@@ -489,6 +591,25 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [title, setTitle] = useState(initialData?.title || 'Untitled Dashboard');
     const [description, setDescription] = useState(initialData?.description || '');
     const [isEditingTitle, setIsEditingTitle] = useState(isNewDashboard || false);
+
+    // Tabs state - initialize from initialData or create default
+    const [tabsData, setTabsData] = useState<DashboardTabsData>(() => {
+      // Backend returns tabs as an array, convert to DashboardTabsData structure
+      if (initialData?.tabs && Array.isArray(initialData.tabs) && initialData.tabs.length > 0) {
+        return {
+          tabs: initialData.tabs as DashboardTab[],
+          activeTabId: initialData.tabs[0].id,
+        };
+      }
+      // For new dashboards or existing dashboards without tabs, use default
+      return getDefaultTabsConfig();
+    });
+
+    // Refs to always access the latest state/tabsData in callbacks without stale closures
+    const stateRef = useRef(state);
+    stateRef.current = state;
+    const tabsDataRef = useRef(tabsData);
+    tabsDataRef.current = tabsData;
     const [showSettings, setShowSettings] = useState(false);
     const [resizingItems, setResizingItems] = useState<Set<string>>(new Set());
     const [containerWidth, setContainerWidth] = useState(
@@ -832,6 +953,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         // Ensure title is not empty, use default if needed
         const finalTitle = title.trim() || 'Untitled Dashboard';
 
+        // Flush current tab's live canvas into tabsData before saving
+        // (tabsData only syncs per-tab content on tab switch, not on every canvas change)
+        const currentTabsData = tabsDataRef.current;
+        const tabsWithLatestCanvas = currentTabsData.tabs.map((t) =>
+          t.id === currentTabsData.activeTabId
+            ? { ...t, layout_config: state.layout, components: state.components }
+            : t
+        );
+
         // Create safe serializable payload (filters removed - managed independently)
         const payload = {
           title: finalTitle,
@@ -839,8 +969,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           grid_columns: SCREEN_SIZES[targetScreenSize].cols,
           target_screen_size: targetScreenSize,
           filter_layout: filterLayout,
-          layout_config: JSON.parse(JSON.stringify(state.layout)), // Safe deep clone
-          components: JSON.parse(JSON.stringify(state.components)), // Safe deep clone
+          tabs: JSON.parse(JSON.stringify(tabsWithLatestCanvas)), // Persist all tabs
           // filters removed - managed via separate API endpoints
           ...overrides, // Apply any overrides passed to the function
         };
@@ -905,15 +1034,103 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [isDragging, setIsDragging] = useState(false);
     const [draggedItem, setDraggedItem] = useState<DashboardLayout | null>(null);
 
+    // ===== Tab Handlers =====
+
+    // Handle tab change (switching active tab)
+    // Saves current tab's canvas into tabsData, then loads the new tab's canvas into state
+    const handleTabChange = useCallback(
+      (tabId: string) => {
+        const currentTabsData = tabsDataRef.current;
+        const currentState = stateRef.current;
+
+        // Save current tab's layout/components, then switch active tab
+        const updatedTabs = currentTabsData.tabs.map((t) =>
+          t.id === currentTabsData.activeTabId
+            ? { ...t, layout_config: currentState.layout, components: currentState.components }
+            : t
+        );
+
+        setTabsData({ tabs: updatedTabs, activeTabId: tabId });
+
+        // Load the new tab's content into the canvas (no undo history — tab switch isn't undoable)
+        const newTab = updatedTabs.find((t) => t.id === tabId);
+        setStateWithoutHistory({
+          ...currentState,
+          layout: newTab?.layout_config || [],
+          components: newTab?.components || {},
+        });
+      },
+      [setStateWithoutHistory]
+    );
+
+    // Handle adding a new tab
+    // Saves current tab's canvas before switching to the new empty tab
+    const handleTabAdd = useCallback(
+      (newTab: DashboardTab) => {
+        const currentTabsData = tabsDataRef.current;
+        const currentState = stateRef.current;
+
+        // Save current tab's layout/components first
+        const updatedTabs = currentTabsData.tabs.map((t) =>
+          t.id === currentTabsData.activeTabId
+            ? { ...t, layout_config: currentState.layout, components: currentState.components }
+            : t
+        );
+
+        setTabsData({ tabs: [...updatedTabs, newTab], activeTabId: newTab.id });
+
+        // New tab starts with an empty canvas
+        setStateWithoutHistory({ ...currentState, layout: [], components: {} });
+      },
+      [setStateWithoutHistory]
+    );
+
+    // Handle removing a tab
+    const handleTabRemove = useCallback(
+      (tabId: string) => {
+        const currentTabsData = tabsDataRef.current;
+        const currentState = stateRef.current;
+
+        if (currentTabsData.tabs.length <= 1) return;
+
+        const tabIndex = currentTabsData.tabs.findIndex((t) => t.id === tabId);
+        const newTabs = currentTabsData.tabs.filter((t) => t.id !== tabId);
+
+        let newActiveTabId = currentTabsData.activeTabId;
+        if (currentTabsData.activeTabId === tabId) {
+          // Prefer previous tab, or next if removing first
+          const newActiveIndex = Math.max(0, tabIndex - 1);
+          newActiveTabId = newTabs[newActiveIndex]?.id || newTabs[0]?.id;
+        }
+
+        setTabsData({ tabs: newTabs, activeTabId: newActiveTabId });
+
+        // If the deleted tab was active, load the new active tab's canvas
+        if (currentTabsData.activeTabId === tabId) {
+          const newActiveTab = newTabs.find((t) => t.id === newActiveTabId);
+          setStateWithoutHistory({
+            ...currentState,
+            layout: newActiveTab?.layout_config || [],
+            components: newActiveTab?.components || {},
+          });
+        }
+      },
+      [setStateWithoutHistory]
+    );
+
+    // Handle renaming a tab
+    const handleTabRename = useCallback((tabId: string, newTitle: string) => {
+      setTabsData((prev) => ({
+        ...prev,
+        tabs: prev.tabs.map((tab) => (tab.id === tabId ? { ...tab, title: newTitle } : tab)),
+      }));
+    }, []);
+
+    // ===== End Tab Handlers =====
+
     // IMPORTANT: Use refs for synchronous access in callbacks
     // React state updates are async, but react-grid-layout calls handlers synchronously
     const isDraggingRef = useRef(false);
-
-    // Ref mirrors for mutable values accessed inside useCallback/rAF without adding deps
-    const stateRef = useRef(state);
-    useEffect(() => {
-      stateRef.current = state;
-    }, [state]);
 
     // Reapply per-component min-size constraints to a layout returned by RGL. Positions are
     // owned by RGL's grid model; this only clamps w/h and stamps minW/minH/maxW so subsequent
@@ -1155,6 +1372,45 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       } catch (error) {
         console.error('Failed to add chart');
       }
+    };
+
+    // Add KPI component
+    const handleKPISelected = (kpiId: number, kpiName: string) => {
+      const newComponent: DashboardComponent = {
+        id: `kpi-${Date.now()}`,
+        type: DashboardComponentType.KPI,
+        config: {
+          kpiId,
+          title: kpiName,
+        },
+      };
+
+      const defaultDimensions = getDefaultGridDimensions('kpi');
+      const minDimensions = getMinGridDimensions('kpi');
+
+      // Grid model: new KPI lands full-width at the bottom of the canvas (same as charts/text).
+      const newLayoutItem: DashboardLayout = {
+        i: newComponent.id,
+        x: 0,
+        y: bottomY(state.layout),
+        w: FULL_WIDTH_COLS,
+        h: defaultDimensions.h,
+        minW: minDimensions.w,
+        maxW: FULL_WIDTH_COLS,
+        minH: minDimensions.h,
+      };
+
+      setState({
+        ...state,
+        layout: [...state.layout, newLayoutItem],
+        components: {
+          ...state.components,
+          [newComponent.id]: newComponent,
+        },
+      });
+
+      dashboardAnimation.animateComponent(newComponent.id, 500);
+      scrollToComponentIfNeeded(newComponent.id);
     };
 
     // Add text component
@@ -1415,6 +1671,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       return chartIds;
     };
 
+    const getExcludedKPIIds = (): number[] => {
+      const kpiIds: number[] = [];
+      if (state.components) {
+        Object.values(state.components).forEach((component) => {
+          if (component.type === DashboardComponentType.KPI && component.config.kpiId) {
+            kpiIds.push(component.config.kpiId);
+          }
+        });
+      }
+      return kpiIds;
+    };
+
     // Update component config
     const updateComponent = (componentId: string, newConfig: any) => {
       // Skip constraint-driven updates while the user is dragging to prevent layout jumps.
@@ -1527,13 +1795,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   </Button>
                 )}
 
-                {isEditingTitle ? (
-                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                  {isEditingTitle ? (
                     <Input
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="Dashboard title..."
-                      className="text-sm font-semibold h-8 flex-1"
+                      className="text-sm font-semibold h-8"
+                      data-testid="dashboard-title-input-mobile"
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -1550,17 +1819,21 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                         saveDashboard();
                       }}
                     />
-                  </div>
-                ) : (
-                  <div
-                    className="flex items-center gap-1 flex-1 min-w-0 cursor-pointer"
-                    onClick={() => setIsEditingTitle(true)}
-                  >
-                    <h1 className="text-sm font-semibold truncate flex-1 min-w-0 dashboard-header-title">
-                      {title}
-                    </h1>
-                  </div>
-                )}
+                  ) : (
+                    <div className="cursor-pointer min-w-0" onClick={() => setIsEditingTitle(true)}>
+                      <h1 className="text-sm font-semibold truncate dashboard-header-title">
+                        {title}
+                      </h1>
+                    </div>
+                  )}
+
+                  <DashboardDescriptionEditor
+                    value={description}
+                    onChange={setDescription}
+                    onSave={() => saveDashboard()}
+                    testId="dashboard-description-mobile"
+                  />
+                </div>
               </div>
 
               {/* Mobile Quick Actions */}
@@ -1678,6 +1951,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 Chart
               </Button>
               <Button
+                onClick={() => setShowKPISelector(true)}
+                size="sm"
+                variant="outline"
+                className="flex-shrink-0 h-8 text-xs"
+              >
+                <Target className="w-3 h-3 mr-1" />
+                KPI
+              </Button>
+              <Button
                 onClick={addTextComponent}
                 size="sm"
                 variant="outline"
@@ -1751,8 +2033,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
           {/* Desktop Header */}
           <div className="hidden lg:block px-6 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
                 {/* Back button */}
                 {onBack && (
                   <Button variant="ghost" size="sm" onClick={onBack}>
@@ -1763,14 +2045,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
                 <div className="h-6 w-px bg-gray-300" />
 
-                {/* Title editing */}
-                {isEditingTitle ? (
-                  <div className="flex items-center gap-2">
+                {/* Title + Description editing — fixed width so the toolbar
+                    doesn't shift as the description text grows/shrinks */}
+                <div className="flex flex-col gap-0.5 w-64 flex-shrink-0">
+                  {isEditingTitle ? (
                     <Input
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="Dashboard title..."
-                      className="text-lg font-semibold"
+                      className="text-lg font-semibold h-8 w-full"
+                      data-testid="dashboard-title-input"
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -1787,18 +2071,31 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                         saveDashboard();
                       }}
                     />
-                  </div>
-                ) : (
-                  <div
-                    className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-2 py-1"
-                    onClick={() => setIsEditingTitle(true)}
-                  >
-                    <h1 className="text-lg font-semibold dashboard-header-title">{title}</h1>
-                  </div>
-                )}
+                  ) : (
+                    <div
+                      className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-2 py-0.5"
+                      onClick={() => setIsEditingTitle(true)}
+                      data-testid="dashboard-title-display"
+                    >
+                      <h1 className="text-lg font-semibold dashboard-header-title truncate">
+                        {title}
+                      </h1>
+                    </div>
+                  )}
 
-                <div className="h-6 w-px bg-gray-300" />
+                  <DashboardDescriptionEditor
+                    value={description}
+                    onChange={setDescription}
+                    onSave={() => saveDashboard()}
+                    testId="dashboard-description"
+                  />
+                </div>
+              </div>
 
+              <div className="h-6 w-px bg-gray-300 flex-shrink-0" />
+
+              {/* Canvas actions — grouped right next to the title */}
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <Button
                   onClick={() => {
                     if (
@@ -1814,9 +2111,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   }}
                   size="sm"
                   variant="outline"
+                  data-testid="add-chart-btn"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Chart
+                </Button>
+
+                <Button onClick={() => setShowKPISelector(true)} size="sm" variant="outline">
+                  <Target className="w-4 h-4 mr-2" />
+                  Add KPI
                 </Button>
 
                 <Button onClick={addTextComponent} size="sm" variant="outline">
@@ -1846,7 +2149,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Right zone: status + save/preview */}
+              <div className="flex items-center gap-2 flex-1 justify-end">
                 {/* Lock Status */}
                 {isLocked ? (
                   <div className="flex items-center gap-1 text-sm text-green-600">
@@ -2038,82 +2342,97 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             />
           )}
 
-          {/* Dashboard Canvas - Responsive Container */}
-          <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 pb-[150px] min-w-0">
-            {/* Canvas container with full width */}
-            <div
-              ref={dashboardContainerRef}
-              className="bg-white dashboard-canvas-responsive"
-              style={{
-                width: '100%',
-                // Calculate minimum height based on actual content:
-                // Find the lowest item (y + h) and multiply by ROW_HEIGHT + padding
-                minHeight: Math.max(
-                  currentScreenConfig.height,
-                  400,
-                  // Calculate content height from layout items
-                  Array.isArray(state.layout) && state.layout.length > 0
-                    ? Math.max(...state.layout.map((item) => (item.y + item.h) * ROW_HEIGHT)) + 100
-                    : 0
-                ),
-                position: 'relative',
-              }}
-            >
-              <GridLayout
-                className="layout relative z-10"
-                data-grid-model="true"
-                layout={Array.isArray(state.layout) ? state.layout : []}
-                cols={currentScreenConfig.cols} // Always exactly 12 columns (Superset-style)
-                rowHeight={ROW_HEIGHT}
-                width={actualContainerWidth} // Use available container width - columns adjust to fit
-                onLayoutChange={handleLayoutChange}
-                onDragStart={handleDragStart}
-                onDrag={handleDrag}
-                onDragStop={handleDragStop}
-                onResizeStart={handleResizeStart}
-                onResizeStop={handleResizeStop}
-                draggableCancel=".drag-cancel"
-                // Grid model: each widget owns its (x, y, w, h). Gravity-up is the only
-                // automatic behaviour; neighbours are pushed down (never sideways) on collision.
-                compactType="vertical"
-                preventCollision={false}
-                allowOverlap={false}
-                margin={[8, 8]} // Match preview mode spacing
-                containerPadding={[8, 8]} // Match preview mode padding
-                autoSize={true}
-                useCSSTransforms={true}
-                transformScale={1}
-                isDraggable={true}
-                isResizable={true}
-                resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
+          {/* Right side: Tab Bar + Canvas stacked vertically */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Tab Bar */}
+            <TabBar
+              tabs={tabsData.tabs}
+              activeTabId={tabsData.activeTabId}
+              isEditMode={true}
+              onTabChange={handleTabChange}
+              onTabAdd={handleTabAdd}
+              onTabRemove={handleTabRemove}
+              onTabRename={handleTabRename}
+            />
+
+            {/* Dashboard Canvas - Responsive Container */}
+            <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 pb-[150px] min-w-0">
+              {/* Canvas container with full width */}
+              <div
+                ref={dashboardContainerRef}
+                className="bg-white dashboard-canvas-responsive"
+                style={{
+                  width: '100%',
+                  // Calculate minimum height based on actual content:
+                  // Find the lowest item (y + h) and multiply by ROW_HEIGHT + padding
+                  minHeight: Math.max(
+                    currentScreenConfig.height,
+                    400,
+                    // Calculate content height from layout items
+                    Array.isArray(state.layout) && state.layout.length > 0
+                      ? Math.max(...state.layout.map((item) => (item.y + item.h) * ROW_HEIGHT)) +
+                          100
+                      : 0
+                  ),
+                  position: 'relative',
+                }}
               >
-                {(Array.isArray(state.layout) ? state.layout : []).map((item) => {
-                  const component = state.components[item.i];
-                  if (!component) return null;
-                  return (
-                    // RGL requires the immediate child to carry key={item.i}; the wrapping div
-                    // preserves that contract while DashboardCell handles all visual content.
-                    <div key={item.i}>
-                      <DashboardCell
-                        item={item}
-                        component={component}
-                        isAnimating={dashboardAnimation.animatingComponents.has(item.i)}
-                        isBeingPushed={false}
-                        isDraggedComponent={draggedItem?.i === item.i}
-                        spaceMakingActive={false}
-                        animationStyles={dashboardAnimation.getAnimationStyles(item.i)}
-                        isResizing={resizingItems.has(item.i)}
-                        appliedFilters={appliedFilters}
-                        initialFilters={initialFilters}
-                        onViewChart={handleViewChart}
-                        onEditChart={handleEditChart}
-                        onRemove={stableRemoveComponent}
-                        onUpdate={stableUpdateComponent}
-                      />
-                    </div>
-                  );
-                })}
-              </GridLayout>
+                <GridLayout
+                  className="layout relative z-10"
+                  data-grid-model="true"
+                  layout={Array.isArray(state.layout) ? state.layout : []}
+                  cols={currentScreenConfig.cols} // Always exactly 12 columns (Superset-style)
+                  rowHeight={ROW_HEIGHT}
+                  width={actualContainerWidth} // Use available container width - columns adjust to fit
+                  onLayoutChange={handleLayoutChange}
+                  onDragStart={handleDragStart}
+                  onDrag={handleDrag}
+                  onDragStop={handleDragStop}
+                  onResizeStart={handleResizeStart}
+                  onResizeStop={handleResizeStop}
+                  draggableCancel=".drag-cancel"
+                  // Grid model: each widget owns its (x, y, w, h). Gravity-up is the only
+                  // automatic behaviour; neighbours are pushed down (never sideways) on collision.
+                  compactType="vertical"
+                  preventCollision={false}
+                  allowOverlap={false}
+                  margin={[8, 8]} // Match preview mode spacing
+                  containerPadding={[8, 8]} // Match preview mode padding
+                  autoSize={true}
+                  useCSSTransforms={true}
+                  transformScale={1}
+                  isDraggable={true}
+                  isResizable={true}
+                  resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
+                >
+                  {(Array.isArray(state.layout) ? state.layout : []).map((item) => {
+                    const component = state.components[item.i];
+                    if (!component) return null;
+                    return (
+                      // RGL requires the immediate child to carry key={item.i}; the wrapping div
+                      // preserves that contract while DashboardCell handles all visual content.
+                      <div key={item.i}>
+                        <DashboardCell
+                          item={item}
+                          component={component}
+                          isAnimating={dashboardAnimation.animatingComponents.has(item.i)}
+                          isBeingPushed={false}
+                          isDraggedComponent={draggedItem?.i === item.i}
+                          spaceMakingActive={false}
+                          animationStyles={dashboardAnimation.getAnimationStyles(item.i)}
+                          isResizing={resizingItems.has(item.i)}
+                          appliedFilters={appliedFilters}
+                          initialFilters={initialFilters}
+                          onViewChart={handleViewChart}
+                          onEditChart={handleEditChart}
+                          onRemove={stableRemoveComponent}
+                          onUpdate={stableUpdateComponent}
+                        />
+                      </div>
+                    );
+                  })}
+                </GridLayout>
+              </div>
             </div>
           </div>
         </div>{' '}
@@ -2124,6 +2443,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           onClose={() => setShowChartSelector(false)}
           onSelect={handleChartSelected}
           excludedChartIds={getExcludedChartIds()}
+        />
+        <KPISelectorModal
+          open={showKPISelector}
+          onClose={() => setShowKPISelector(false)}
+          onSelect={handleKPISelected}
+          excludedKPIIds={getExcludedKPIIds()}
         />
         {/* Filter Config Modal */}
         <FilterConfigModal

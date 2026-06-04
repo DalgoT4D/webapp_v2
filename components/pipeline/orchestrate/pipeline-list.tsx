@@ -12,6 +12,7 @@ import {
   Pencil,
   Trash2,
   Clock,
+  Info,
 } from 'lucide-react';
 import { TaskAltIcon, WarningAmberIcon, LoopIcon } from '@/assets/icons/status-icons';
 import FlowIcon from '@/assets/icons/flow';
@@ -33,6 +34,7 @@ import {
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { usePipelines, deletePipeline, triggerPipelineRun } from '@/hooks/api/usePipelines';
@@ -134,18 +136,39 @@ export function PipelineList() {
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
             <h1 className="text-3xl font-bold">Pipelines</h1>
-            <p className="text-muted-foreground mt-1">
-              Manage your data sync and transformation workflows
-            </p>
+            <div className="flex items-center gap-1 md:gap-2 mt-1">
+              <p className="text-muted-foreground">
+                Manage your data sync and transformation workflows
+              </p>
+              <TooltipProvider>
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger
+                    className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    aria-label="Pipeline locking information"
+                    data-testid="pipeline-info-tooltip-trigger"
+                  >
+                    <Info className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground cursor-help shrink-0" />
+                  </TooltipTrigger>
+                  <TooltipContent
+                    className="max-w-[280px] md:max-w-none md:whitespace-nowrap"
+                    side="bottom"
+                    align="center"
+                  >
+                    <p>
+                      Running a pipeline puts it in <strong>Running</strong> state. Any other
+                      pipelines that share one of its <strong>syncs or tasks</strong> will show as{' '}
+                      <strong>Locked</strong> while it runs.
+                    </p>
+                    <p className="mt-2">
+                      The locked pipelines unlock automatically once the running one finishes.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
           {canCreatePipeline && (
-            <Button
-              variant="ghost"
-              onClick={handleCreate}
-              className="text-white hover:opacity-90 shadow-xs"
-              style={{ backgroundColor: 'var(--primary)' }}
-              data-testid="create-pipeline-btn"
-            >
+            <Button variant="primary" onClick={handleCreate} data-testid="create-pipeline-btn">
               <Plus className="h-4 w-4 mr-2" />
               Create Pipeline
             </Button>
@@ -506,13 +529,7 @@ function EmptyState({ canCreate, onCreate }: { canCreate: boolean; onCreate: () 
         started.
       </p>
       {canCreate && (
-        <Button
-          variant="ghost"
-          onClick={onCreate}
-          className="text-white hover:opacity-90 shadow-xs"
-          style={{ backgroundColor: 'var(--primary)' }}
-          data-testid="create-pipeline-empty-btn"
-        >
+        <Button variant="primary" onClick={onCreate} data-testid="create-pipeline-empty-btn">
           <Plus className="h-4 w-4 mr-2" />
           Create Pipeline
         </Button>

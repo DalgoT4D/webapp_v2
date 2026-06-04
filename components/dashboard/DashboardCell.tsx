@@ -2,10 +2,12 @@
 
 import React, { memo } from 'react';
 import { Eye, Edit, X } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { ChartElementV2 } from './chart-element-v2';
+import { KPIChartElement } from './kpi-chart-element';
 import { UnifiedTextElement } from './text-element-unified';
 import type { UnifiedTextConfig } from './text-element-unified';
-import { DashboardComponentType } from './dashboard-builder-v2';
+import { DashboardComponentType } from '@/types/dashboard';
 import type { DashboardFilterConfig } from '@/types/dashboard-filters';
 
 interface DashboardLayout {
@@ -62,6 +64,7 @@ function DashboardCellInner({
 }: DashboardCellProps) {
   const isChart = component.type === DashboardComponentType.CHART;
   const isText = component.type === DashboardComponentType.TEXT;
+  const isKPI = component.type === DashboardComponentType.KPI;
 
   return (
     <div
@@ -125,6 +128,22 @@ function DashboardCellInner({
         </div>
       )}
 
+      {/* Action Buttons for KPI Elements */}
+      {isKPI && (
+        <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(item.i);
+            }}
+            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-red-600"
+            title="Remove KPI From Dashboard"
+          >
+            <X className="w-3.5 h-3.5 text-gray-600" />
+          </button>
+        </div>
+      )}
+
       {/* Drag Handle Area - Top section for dragging */}
       <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-blue-50/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-move flex items-center justify-center z-20">
         <div className="text-xs text-gray-400 font-medium">Drag to move</div>
@@ -149,6 +168,17 @@ function DashboardCellInner({
             config={component.config as UnifiedTextConfig}
             isEditMode={true}
           />
+        )}
+        {isKPI && (
+          <Card className="h-full w-full flex flex-col">
+            <CardContent className="p-2 flex-1 flex flex-col min-h-0">
+              <KPIChartElement
+                kpiId={component.config.kpiId}
+                config={component.config}
+                isResizing={isResizing}
+              />
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

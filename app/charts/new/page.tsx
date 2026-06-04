@@ -247,10 +247,9 @@ function NewChartPageContent() {
         </Button>
         <Button
           onClick={handleContinue}
-          variant="ghost"
+          variant="primary"
           disabled={!canProceed}
-          className="min-w-[120px] text-white hover:opacity-90"
-          style={{ backgroundColor: 'var(--primary)' }}
+          className="min-w-[120px]"
         >
           Continue
         </Button>

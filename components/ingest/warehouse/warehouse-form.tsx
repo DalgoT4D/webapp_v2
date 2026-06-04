@@ -330,9 +330,8 @@ export function WarehouseForm({
               </Button>
               <Button
                 type="submit"
-                variant="ghost"
-                className="text-white hover:opacity-90 shadow-xs uppercase"
-                style={{ backgroundColor: 'var(--primary)' }}
+                variant="primary"
+                className="uppercase"
                 disabled={!parsedSpec || loading}
                 data-testid="save-warehouse-btn"
               >

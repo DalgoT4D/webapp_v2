@@ -59,7 +59,7 @@ const EDITED_THRESHOLD_MS = 1000;
 
 interface CommentPopoverProps {
   snapshotId: number;
-  targetType: 'summary' | 'chart';
+  targetType: 'summary' | 'chart' | 'kpi';
   chartId?: number;
   state: CommentIconState;
   triggerClassName?: string;
@@ -420,7 +420,8 @@ const CommentItem = memo(function CommentItem({
                 </Button>
                 <Button
                   size="sm"
-                  className="bg-primary text-white hover:opacity-90 uppercase text-xs font-semibold"
+                  variant="primary"
+                  className="uppercase text-xs font-semibold"
                   data-testid={`save-edit-btn-${comment.id}`}
                   onClick={handleSave}
                   disabled={!editText.trim() || isSaving}
@@ -555,7 +556,7 @@ function CommentPopoverInner({
         try {
           await markAsRead(snapshotId, {
             target_type: targetType,
-            chart_id: chartId,
+            target_id: chartId,
           });
           onStateChange?.();
         } catch {
@@ -579,7 +580,7 @@ function CommentPopoverInner({
     try {
       await createComment(snapshotId, {
         target_type: targetType,
-        chart_id: chartId,
+        target_id: chartId,
         content,
         mentioned_emails: extractMentionedEmails(content),
       });
@@ -697,7 +698,7 @@ function CommentPopoverInner({
           size="icon"
           className={triggerClassName}
           data-testid={`comment-trigger-${targetType}${chartId ? `-${chartId}` : ''}`}
-          aria-label={`${targetType === 'summary' ? 'Summary' : 'Chart'} comments`}
+          aria-label={`${targetType === 'summary' ? 'Summary' : targetType === 'kpi' ? 'KPI' : 'Chart'} comments`}
         >
           <CommentIcon state={state} className={open ? 'text-primary' : undefined} />
         </Button>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import GridLayoutLib, {
   Responsive as ResponsiveGridLayout,
@@ -10,6 +10,9 @@ const GridLayout = GridLayoutLib;
 const ResponsiveGrid = GridLayoutWidthProvider(ResponsiveGridLayout);
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
+import { DashboardTab, DashboardTabsData } from '@/types/dashboard';
+import { initializeTabsData, getActiveTabData } from './tabs/tab-utils';
+import { TabBar } from './tabs/TabBar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -59,11 +62,14 @@ import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
 import { compactVertical } from '@/lib/dashboard-animation-utils';
 import { UnifiedTextElement } from './text-element-unified';
+import { KPIChartElement } from './kpi-chart-element';
 import {
   DashboardFilterType,
   type ValueFilterSettings,
   type NumericalFilterSettings,
   type DateTimeFilterSettings,
+  type AppliedFilters,
+  type DashboardFilterConfig,
 } from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
 import { ShareModal } from '@/components/ui/share-modal';
@@ -71,7 +77,6 @@ import { getDashboardSharingStatus, updateDashboardSharing } from '@/hooks/api/u
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-filters';
 import type { FrozenChartConfig } from '@/types/reports';
 import type { CommentStates } from '@/types/comments';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
@@ -228,6 +233,7 @@ interface DashboardNativeViewProps {
   isReportMode?: boolean; // Report snapshot mode — frozen config, no editing
   frozenChartConfigs?: Record<string, FrozenChartConfig>; // Chart configs keyed by chart ID
   beforeContent?: React.ReactNode; // Content rendered above the chart grid inside the canvas
+  topRightContent?: React.ReactNode; // Content rendered above the tab bar in the right column (e.g. report summary)
   onContainerRef?: (el: HTMLDivElement | null) => void; // Callback to expose the canvas container ref
   isPrintMode?: boolean; // Print mode — removes height constraints for full-page PDF capture
   snapshotId?: number; // Report snapshot ID for comments
@@ -248,6 +254,7 @@ export function DashboardNativeView({
   isReportMode = false,
   frozenChartConfigs,
   beforeContent,
+  topRightContent,
   onContainerRef,
   isPrintMode = false,
   snapshotId,
@@ -277,6 +284,9 @@ export function DashboardNativeView({
   const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
   // Filters panel collapse state
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
+
+  // Tabs state for view mode - only need to track active tab for switching
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
   // Ref for the dashboard container
   const dashboardContainerRef = useRef<HTMLDivElement>(null);
@@ -383,6 +393,32 @@ export function DashboardNativeView({
 
   // Default filter values for report mode are computed synchronously in useState above.
   // No useEffect needed — this avoids a double-render cycle with empty filters.
+
+  // Derive tabs data from dashboard
+  const tabsData: DashboardTabsData | null = useMemo(() => {
+    if (!dashboard) return null;
+    return initializeTabsData(dashboard.tabs);
+  }, [dashboard]);
+
+  // Get effective active tab ID
+  const effectiveActiveTabId =
+    activeTabId || tabsData?.activeTabId || tabsData?.tabs?.[0]?.id || null;
+
+  // Derive the current tab's layout/components to render
+  const currentTab = useMemo(() => {
+    if (tabsData && effectiveActiveTabId) {
+      return tabsData.tabs.find((t) => t.id === effectiveActiveTabId) || null;
+    }
+    return null;
+  }, [tabsData, effectiveActiveTabId]);
+
+  // Handle tab change in view mode
+  const handleTabChange = useCallback((tabId: string) => {
+    setActiveTabId(tabId);
+  }, []);
+
+  // Check if we should show tabs (2 or more tabs)
+  const shouldShowTabs = tabsData && (tabsData.tabs?.length ?? 0) >= 2;
 
   // Allow editing in preview mode without any conditions
 
@@ -539,11 +575,12 @@ export function DashboardNativeView({
     await swrMutate('/api/currentuserv2');
   };
 
-  // Render dashboard components
+  // Render dashboard components (from active tab)
   const renderComponent = (componentId: string) => {
-    if (!dashboard?.components) return null;
+    const components = currentTab?.components;
+    if (!components) return null;
 
-    const component = dashboard.components[componentId];
+    const component = components[componentId];
     if (!component) return null;
 
     switch (component.type) {
@@ -603,6 +640,21 @@ export function DashboardNativeView({
             >
               {component.config?.text || 'Heading'}
             </HeadingTag>
+          </div>
+        );
+
+      case 'kpi':
+        return (
+          <div key={componentId} className="h-full">
+            <KPIChartElement
+              kpiId={component.config?.kpiId}
+              config={component.config}
+              dashboardFilters={selectedFilters}
+              snapshotId={isReportMode ? snapshotId : undefined}
+              commentStates={isReportMode ? commentStates : undefined}
+              onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
+              autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+            />
           </div>
         );
 
@@ -747,6 +799,9 @@ export function DashboardNativeView({
                       </Badge>
                     )}
                   </div>
+                  {dashboard.description && (
+                    <p className="text-xs text-gray-600 mt-1 truncate">{dashboard.description}</p>
+                  )}
                 </div>
               </div>
 
@@ -915,36 +970,36 @@ export function DashboardNativeView({
                   </Button>
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title">
+                  {/* Title row: title + badges + modified-by/last-updated inline */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title truncate flex-shrink-0 max-w-md">
                       {dashboard.title}
                     </h1>
                     {dashboard.is_published && (
-                      <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+                      <Badge
+                        variant="default"
+                        className="text-xs bg-green-100 text-green-800 flex-shrink-0"
+                      >
                         Published
                       </Badge>
                     )}
                     {isLocked && (
                       <Badge
                         variant={isLockedByOther ? 'destructive' : 'secondary'}
-                        className="text-xs"
+                        className="text-xs flex-shrink-0"
                       >
                         <Lock className="w-3 h-3 mr-1" />
                         {isLockedByOther ? `Locked by ${lockedBy}` : `Locked by you`}
                       </Badge>
                     )}
-                  </div>
-
-                  {/* Metadata below title */}
-                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                     {dashboard.last_modified_by && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-xs text-gray-500 flex-shrink-0">
                         <User className="w-3 h-3" />
                         <span>Updated by {dashboard.last_modified_by}</span>
                       </div>
                     )}
                     {dashboard.updated_at && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-xs text-gray-500 flex-shrink-0">
                         <Clock className="w-3 h-3" />
                         <span>
                           Modified{' '}
@@ -953,6 +1008,16 @@ export function DashboardNativeView({
                       </div>
                     )}
                   </div>
+
+                  {/* Subtitle / description below the title */}
+                  {dashboard.description && (
+                    <p
+                      className="text-sm text-gray-600 mt-1 line-clamp-2 max-w-3xl"
+                      data-testid="dashboard-description"
+                    >
+                      {dashboard.description}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1077,7 +1142,12 @@ export function DashboardNativeView({
       {showMinimalHeader && !isEmbedMode && (
         <div className="bg-white border-b flex-shrink-0 px-6 py-6">
           <div>
-            <h1 className="text-3xl font-bold">{dashboard.title}</h1>
+            <h1 className="text-3xl font-bold truncate">{dashboard.title}</h1>
+            {dashboard.description && (
+              <p className="text-base text-gray-600 mt-2 line-clamp-2 max-w-3xl">
+                {dashboard.description}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -1098,7 +1168,7 @@ export function DashboardNativeView({
       )}
       {/* Main Content Area */}
       <div className={cn('flex-1 flex overflow-hidden', isPrintMode && 'overflow-visible')}>
-        {/* Desktop Vertical Filters Sidebar - Only show on desktop */}
+        {/* Desktop Vertical Filters Sidebar — spans full height including tabs row */}
         {responsive.isDesktop && dashboardFilters.length > 0 && !isEmbedMode && (
           <UnifiedFiltersPanel
             initialFilters={dashboardFilters}
@@ -1115,115 +1185,156 @@ export function DashboardNativeView({
           />
         )}
 
-        {/* Dashboard Content - Scrollable Canvas Area */}
+        {/* Right side: Tab Bar + Canvas stacked vertically */}
         <div
-          className={cn(
-            'flex-1 overflow-auto min-w-0 bg-gray-50 p-4 pb-[150px]',
-            isPublicMode && 'pb-24 sm:pb-16',
-            isPrintMode && 'overflow-visible pb-4'
-          )}
+          className={cn('flex-1 flex flex-col overflow-hidden', isPrintMode && 'overflow-visible')}
         >
-          <div
-            ref={(el) => {
-              dashboardContainerRef.current = el;
-              onContainerRef?.(el);
-            }}
-            className={`dashboard-canvas relative z-10 ${
-              isEmbedMode ? (embedTheme === 'dark' ? 'bg-gray-800' : 'bg-white') : 'bg-white'
-            }`}
-            style={{
-              width: '100%',
-              minHeight: '100%',
-            }}
-          >
-            {/* Optional content above the chart grid (e.g. Executive Summary) */}
-            {beforeContent}
+          {/* Tab Bar sticky at top — only in non-report dashboard mode */}
+          {!isReportMode && shouldShowTabs && tabsData && effectiveActiveTabId && !isEmbedMode && (
+            <TabBar
+              tabs={tabsData.tabs}
+              activeTabId={effectiveActiveTabId}
+              isEditMode={false}
+              onTabChange={handleTabChange}
+              onTabAdd={() => {}} // No-op in view mode
+              onTabRemove={() => {}} // No-op in view mode
+              onTabRename={() => {}} // No-op in view mode
+            />
+          )}
 
-            {/* Show empty state if no layout config */}
-            {!dashboard?.layout_config || dashboard.layout_config.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <p className="text-lg mb-2">No Dashboard Components</p>
-                <p className="text-sm">
-                  This dashboard doesn't have any components configured yet.
-                </p>
+          {/* Scrollable area:
+              - Report mode: summary + tabs + canvas all scroll together
+              - Dashboard mode: only canvas scrolls (tabs stay sticky above) */}
+          <div className={cn('flex-1 overflow-auto min-h-0', isPrintMode && 'overflow-visible')}>
+            {/* Summary scrolls with content (only set in report mode) */}
+            {topRightContent}
+
+            {/* Tab Bar inside scroll area — report mode only */}
+            {isReportMode && shouldShowTabs && tabsData && effectiveActiveTabId && !isEmbedMode && (
+              <TabBar
+                tabs={tabsData.tabs}
+                activeTabId={effectiveActiveTabId}
+                isEditMode={false}
+                onTabChange={handleTabChange}
+                onTabAdd={() => {}} // No-op in view mode
+                onTabRemove={() => {}} // No-op in view mode
+                onTabRename={() => {}} // No-op in view mode
+              />
+            )}
+
+            {/* Dashboard Content - Canvas Area */}
+            <div
+              className={cn(
+                'min-w-0 bg-gray-50 p-4 pb-[150px]',
+                isPublicMode && 'pb-24 sm:pb-16',
+                isPrintMode && 'overflow-visible pb-4'
+              )}
+            >
+              <div
+                ref={(el) => {
+                  dashboardContainerRef.current = el;
+                  onContainerRef?.(el);
+                }}
+                className={`dashboard-canvas relative z-10 ${
+                  isEmbedMode ? (embedTheme === 'dark' ? 'bg-gray-800' : 'bg-white') : 'bg-white'
+                }`}
+                style={{
+                  width: '100%',
+                  minHeight: '100%',
+                }}
+              >
+                {/* Optional content above the chart grid (e.g. Executive Summary) */}
+                {beforeContent}
+
+                {/* Show empty state if no layout config */}
+                {(() => {
+                  const activeLayout = currentTab?.layout_config || [];
+                  return activeLayout.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">
+                      <p className="text-lg mb-2">No Dashboard Components</p>
+                      <p className="text-sm">
+                        This dashboard doesn't have any components configured yet.
+                      </p>
+                    </div>
+                  ) : null;
+                })()}
+
+                {/* Use exact layout for view mode - no height reduction needed since toolbar is now floating */}
+                {(() => {
+                  const modifiedLayout = currentTab?.layout_config || [];
+
+                  return effectiveScreenSize !== targetScreenSize ? (
+                    // Preview mode with different screen size - use responsive layout
+                    <ResponsiveGrid
+                      className="dashboard-grid"
+                      layouts={
+                        dashboard.responsive_layouts ||
+                        generateResponsiveLayoutsForPreview(modifiedLayout, targetScreenSize)
+                      }
+                      breakpoints={BREAKPOINTS}
+                      cols={COLS}
+                      rowHeight={20}
+                      width={actualContainerWidth}
+                      style={{
+                        width: '100% !important',
+                      }}
+                      isDraggable={false}
+                      isResizable={false}
+                      compactType={null}
+                      preventCollision={false}
+                      margin={[8, 8]}
+                      containerPadding={[8, 8]}
+                      autoSize={true}
+                      verticalCompact={false}
+                      onBreakpointChange={(newBreakpoint: string) => {
+                        setCurrentBreakpoint(newBreakpoint);
+                      }}
+                    >
+                      {modifiedLayout.map((layoutItem: any) => (
+                        <div key={layoutItem.i} className="dashboard-item">
+                          <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
+                            <CardContent className="p-2 h-full">
+                              {renderComponent(layoutItem.i)}
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ))}
+                    </ResponsiveGrid>
+                  ) : (
+                    // Target screen size or no preview override - grid model: render each
+                    // widget at its own (x,y,w,h) with gravity-up, matching the editor.
+                    <GridLayout
+                      className="dashboard-grid"
+                      layout={compactVertical(modifiedLayout, effectiveScreenConfig.cols)}
+                      cols={effectiveScreenConfig.cols}
+                      rowHeight={20}
+                      width={actualContainerWidth}
+                      style={{
+                        width: '100% !important',
+                      }}
+                      isDraggable={false}
+                      isResizable={false}
+                      compactType="vertical"
+                      preventCollision={false}
+                      allowOverlap={false}
+                      margin={[8, 8]}
+                      containerPadding={[8, 8]}
+                      autoSize={true}
+                    >
+                      {modifiedLayout.map((layoutItem: any) => (
+                        <div key={layoutItem.i} className="dashboard-item">
+                          <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
+                            <CardContent className="p-2 h-full">
+                              {renderComponent(layoutItem.i)}
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ))}
+                    </GridLayout>
+                  );
+                })()}
               </div>
-            ) : null}
-
-            {/* Use flowed layout for view mode — re-flows on render so legacy dashboards render packed */}
-            {(() => {
-              const modifiedLayout = dashboard.layout_config || [];
-
-              return effectiveScreenSize !== targetScreenSize ? (
-                // Preview mode with different screen size - use responsive layout.
-                // Gravity-up (compactType="vertical") keeps it packed and consistent with
-                // the editor and the same-size branch below.
-                <ResponsiveGrid
-                  className="dashboard-grid"
-                  layouts={
-                    dashboard.responsive_layouts ||
-                    generateResponsiveLayoutsForPreview(modifiedLayout, targetScreenSize)
-                  }
-                  breakpoints={BREAKPOINTS}
-                  cols={COLS}
-                  rowHeight={20}
-                  width={actualContainerWidth}
-                  style={{
-                    width: '100% !important',
-                  }}
-                  isDraggable={false}
-                  isResizable={false}
-                  compactType="vertical"
-                  preventCollision={false}
-                  margin={[8, 8]}
-                  containerPadding={[8, 8]}
-                  autoSize={true}
-                  onBreakpointChange={(newBreakpoint: string) => {
-                    setCurrentBreakpoint(newBreakpoint);
-                  }}
-                >
-                  {modifiedLayout.map((layoutItem: any) => (
-                    <div key={layoutItem.i} className="dashboard-item">
-                      <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
-                        <CardContent className="p-2 h-full">
-                          {renderComponent(layoutItem.i)}
-                        </CardContent>
-                      </Card>
-                    </div>
-                  ))}
-                </ResponsiveGrid>
-              ) : (
-                // Target screen size or no preview override - use flowed layout
-                <GridLayout
-                  className="dashboard-grid"
-                  data-fluid-flow="true"
-                  layout={flowedLayout}
-                  cols={effectiveScreenConfig.cols}
-                  rowHeight={20}
-                  width={actualContainerWidth}
-                  style={{
-                    width: '100% !important',
-                  }}
-                  isDraggable={false}
-                  isResizable={false}
-                  compactType="vertical"
-                  preventCollision={false}
-                  allowOverlap={false}
-                  margin={[8, 8]}
-                  containerPadding={[8, 8]}
-                  autoSize={true}
-                >
-                  {flowedLayout.map((layoutItem: any) => (
-                    <div key={layoutItem.i} className="dashboard-item">
-                      <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
-                        <CardContent className="p-2 h-full">
-                          {renderComponent(layoutItem.i)}
-                        </CardContent>
-                      </Card>
-                    </div>
-                  ))}
-                </GridLayout>
-              );
-            })()}
+            </div>
           </div>
         </div>
       </div>{' '}
