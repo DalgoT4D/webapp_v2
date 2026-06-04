@@ -37,14 +37,7 @@ import {
   pixelsToGridUnits,
   calculateTextDimensions,
 } from '@/lib/chart-size-constraints';
-import {
-  applyMutation,
-  computeInsertionIndex,
-  flowLayout,
-  moveItemToIndex,
-} from '@/lib/dashboard-animation-utils';
-import type { FluidFlowItem } from '@/lib/dashboard-animation-utils';
-import { InsertionLine } from '@/components/dashboard/InsertionLine';
+import { compactVertical, bottomY } from '@/lib/dashboard-animation-utils';
 import {
   Plus,
   Undo,
@@ -59,14 +52,12 @@ import {
   Filter,
   ArrowLeft,
   Eye,
+  ChevronsUp,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
 // ChartElementV2 and UnifiedTextElement are rendered via DashboardCell
 import { FilterConfigModal } from './filter-config-modal';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
-import { SnapIndicators } from './SnapIndicators';
-import { SpaceMakingIndicators } from './SpaceMakingIndicators';
-import { GridGuides } from './GridGuides';
 import { DashboardCell } from './DashboardCell';
 import { DashboardFilterType } from '@/types/dashboard-filters';
 import type {
@@ -78,56 +69,19 @@ import type {
 } from '@/types/dashboard-filters';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
 
-// Grid layout constants - used across GridLayout, SnapIndicators, SpaceMakingIndicators, and animation hooks
+// Grid layout constants
 const ROW_HEIGHT = 20;
-// Grid is fixed at 12 columns regardless of viewport (Superset-style); fluid-row-flow honors this.
+// Grid is fixed at 12 columns regardless of viewport (Superset-style). The grid model
+// gives each widget its own (x, y, w, h); RGL's vertical compaction (gravity-up) is the
+// only automatic behavior. New widgets land full-width at the bottom of the canvas.
 const FLUID_GRID_COLS = 12;
+const FULL_WIDTH_COLS = 12;
 
-/**
- * Converts a linear insertion index into pixel coordinates for the InsertionLine overlay.
- * Uses the same margin/padding values as the GridLayout (margin=[8,8], containerPadding=[8,8]).
- *
- * IMPORTANT: The default marginX/marginY values (8) MUST stay in sync with the GridLayout
- * `margin={[8, 8]}` and `containerPadding={[8, 8]}` props in the JSX below. If those change,
- * update the defaults here accordingly.
- */
-function gridIndexToPixel(
-  layout: FluidFlowItem[],
-  index: number,
-  containerWidthPx: number,
-  gridCols: number,
-  rowHeightPx: number,
-  marginX: number = 8,
-  marginY: number = 8
-): { pixelX: number; pixelY: number; pixelHeight: number } {
-  const colWidth = (containerWidthPx - marginX * (gridCols + 1)) / gridCols;
-  const target = layout[index];
-  if (!target) {
-    // Append at end: place line after the last item
-    const last = layout[layout.length - 1];
-    if (!last) return { pixelX: marginX, pixelY: marginY, pixelHeight: rowHeightPx };
-    // If the last item fills its row, the line goes to the start of the next row.
-    const fillsRow = last.x + last.w >= gridCols;
-    if (fillsRow) {
-      const nextRowY = last.y + last.h;
-      return {
-        pixelX: marginX,
-        pixelY: marginY + nextRowY * (rowHeightPx + marginY),
-        pixelHeight: rowHeightPx,
-      };
-    }
-    return {
-      pixelX: marginX + (last.x + last.w) * (colWidth + marginX),
-      pixelY: marginY + last.y * (rowHeightPx + marginY),
-      pixelHeight: last.h * rowHeightPx + (last.h - 1) * marginY,
-    };
-  }
-  return {
-    pixelX: marginX + target.x * (colWidth + marginX),
-    pixelY: marginY + target.y * (rowHeightPx + marginY),
-    pixelHeight: target.h * rowHeightPx + (target.h - 1) * marginY,
-  };
-}
+// Autoscroll while dragging near a canvas edge (DALGO-1219: drag bottom→top must reach the top).
+// Distance from the edge (px) at which autoscroll engages.
+const AUTOSCROLL_EDGE_PX = 60;
+// Max scroll speed (px/frame), capped to prevent runaway scroll. Spec: ~30px/frame.
+const AUTOSCROLL_MAX_SPEED_PX = 30;
 
 // Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
 function convertFilterToConfig(
@@ -293,16 +247,6 @@ interface DashboardBuilderV2Props {
 // Interface for the ref methods exposed to parent
 interface DashboardBuilderV2Ref {
   cleanup: () => Promise<void>;
-}
-
-// Helper function to adjust layout for different column counts
-// With fixed 12 columns (Superset-style), this simply returns the original layout
-function getAdjustedLayout(layout: DashboardLayout[], _targetCols: number): DashboardLayout[] {
-  if (!layout || layout.length === 0) return layout;
-
-  // Since we always use 12 columns (Superset-style), just return the original layout
-  // The column widths scale automatically with the container width
-  return layout;
 }
 
 // Helper function to generate responsive layouts from base layout
@@ -472,7 +416,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const {
       state,
       setState,
-      setStateWithoutHistory,
       undo: undoBase,
       redo: redoBase,
       canUndo,
@@ -958,27 +901,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       [dashboardId, lockToken, saveDashboard, unlockDashboard]
     );
 
-    // Track if we're currently dragging
-    // Keep state for UI rendering purposes
+    // Track if we're currently dragging (for cursor/visual state on the dragged cell)
     const [isDragging, setIsDragging] = useState(false);
-    // Pixel position for the InsertionLine overlay; null when no drag is in progress
-    const [insertionPos, setInsertionPos] = useState<{
-      pixelX: number;
-      pixelY: number;
-      pixelHeight: number;
-    } | null>(null);
     const [draggedItem, setDraggedItem] = useState<DashboardLayout | null>(null);
-    // Transient overlay for live in-row swap during drag. Owns the rendered layout while
-    // the user reorders charts within a single row, so neighbors slide out of the way
-    // instead of being hidden behind the dragged chart. Cleared on drag stop; the
-    // committed `state.layout` is the source of truth for history.
-    const [liveDragLayout, setLiveDragLayout] = useState<DashboardLayout[] | null>(null);
-    // Dedup key so we only call setLiveDragLayout when the swap target actually changes.
-    const lastLiveSwapKeyRef = useRef<string | null>(null);
 
     // IMPORTANT: Use refs for synchronous access in callbacks
     // React state updates are async, but react-grid-layout calls handlers synchronously
-    // Without refs, the values won't be available when handleLayoutChange is called
     const isDraggingRef = useRef(false);
 
     // Ref mirrors for mutable values accessed inside useCallback/rAF without adding deps
@@ -987,186 +915,141 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       stateRef.current = state;
     }, [state]);
 
-    const setStateWithoutHistoryRef = useRef(setStateWithoutHistory);
-    // setStateWithoutHistory is stable (useCallback in useUndoRedo), but keep ref pattern for safety
-    setStateWithoutHistoryRef.current = setStateWithoutHistory;
+    // Reapply per-component min-size constraints to a layout returned by RGL. Positions are
+    // owned by RGL's grid model; this only clamps w/h and stamps minW/minH/maxW so subsequent
+    // drags/resizes enforce them natively. Text widgets use content-aware minimums.
+    const applyItemConstraints = useCallback((items: DashboardLayout[]): DashboardLayout[] => {
+      const components = stateRef.current.components;
+      return items.map((item) => {
+        const component = components[item.i];
+        if (!component) return item;
+        const chartType = getChartTypeFromConfig(component.config);
+        let minDimensions: { w: number; h: number };
+        if (component.config.contentConstraints) {
+          minDimensions = {
+            w: Math.max(
+              1,
+              Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
+            ),
+            h: Math.max(1, pixelsToGridUnits(component.config.contentConstraints.minHeight, false)),
+          };
+        } else {
+          minDimensions = getMinGridDimensions(chartType);
+        }
+        return {
+          ...item,
+          w: Math.max(item.w, minDimensions.w),
+          h: Math.max(item.h, minDimensions.h),
+          minW: minDimensions.w,
+          minH: minDimensions.h,
+          maxW: FULL_WIDTH_COLS,
+        };
+      });
+    }, []);
 
-    const dashboardAnimationRef = useRef(dashboardAnimation);
-    useEffect(() => {
-      dashboardAnimationRef.current = dashboardAnimation;
-    }, [dashboardAnimation]);
+    // onLayoutChange is a no-op for state. In the grid model each widget owns its (x, y, w, h);
+    // RGL owns positions during a gesture and reports the final, gravity-up-compacted layout via
+    // onDragStop / onResizeStop — those are the single commit points to history. Writing here too
+    // would double-commit and pollute undo history.
+    const handleLayoutChange = useCallback(() => {}, []);
 
-    // rAF throttling for handleDrag: fires at most once per animation frame
-    const dragRafIdRef = useRef<number | null>(null);
-    const lastDragArgsRef = useRef<{ newItem: DashboardLayout } | null>(null);
-
-    // Handle layout changes for responsive grid.
-    // In fluid-row-flow mode, state.layout is owned exclusively by the *Stop handlers
-    // (handleDragStop, handleResizeStop, handleChartSelected, addTextComponent, removeComponent),
-    // which all funnel through applyMutation to write canonical flowed coords.
-    // RGL fires onLayoutChange both mid-gesture and immediately after stop with raw,
-    // un-flowed coords (because we use preventCollision={true} + allowOverlap={true} so
-    // RGL doesn't compact). Writing those raw coords to state.layout would clobber the
-    // applyMutation result and reintroduce overlap. So we keep the snap-zone side effect
-    // but skip the setState entirely.
-    const handleLayoutChange = useCallback(
-      (currentLayout: any[], _allLayouts: ResponsiveLayouts) => {
-        dashboardAnimationRef.current.updateSnapZones(currentLayout);
-      },
-      []
-    );
-
-    // Flowed render layout: apply flowLayout so RGL always renders canonical row-flow coordinates.
-    // This ensures initial load with legacy/stale coords matches what our reflow produces, and
-    // provides the stable flowed coords used by drag handlers below.
-    // While a drag is in progress, `liveDragLayout` overlays `state.layout` so in-row swaps
-    // appear immediately. The overlay is cleared on drag stop and never written to history.
-    const flowedRenderLayout = useMemo(
-      () =>
-        flowLayout(
-          getAdjustedLayout(liveDragLayout ?? state.layout, currentScreenConfig.cols),
-          FLUID_GRID_COLS
-        ),
-      [liveDragLayout, state.layout, currentScreenConfig.cols]
-    );
-
-    // Ref mirror so rAF callback always reads the latest flowed layout without dep churn
-    const flowedRenderLayoutRef = useRef(flowedRenderLayout);
-    useEffect(() => {
-      flowedRenderLayoutRef.current = flowedRenderLayout;
-    }, [flowedRenderLayout]);
-
-    // Ref mirror for isUndoRedoOperation so handleDragStop/handleResizeStop don't need it as dep
+    // Ref mirror for isUndoRedoOperation so *Stop handlers don't need it as a dep
     const isUndoRedoOperationRef = useRef(isUndoRedoOperation);
     useEffect(() => {
       isUndoRedoOperationRef.current = isUndoRedoOperation;
     }, [isUndoRedoOperation]);
 
-    // Ref mirror for actualContainerWidth so rAF closure reads the latest value
-    const actualContainerWidthRef = useRef(actualContainerWidth);
-    useEffect(() => {
-      actualContainerWidthRef.current = actualContainerWidth;
-    }, [actualContainerWidth]);
+    // --- Edge autoscroll while dragging -------------------------------------------------
+    // RGL has no native autoscroll. Scroll the canvas when the pointer nears its top/bottom
+    // edge so a widget can be dragged from the bottom of a tall dashboard up to the top
+    // (DALGO-1219 bug #2). Velocity is proportional to edge proximity, capped per frame.
+    const autoscrollPointerYRef = useRef<number | null>(null);
+    const autoscrollRafRef = useRef<number | null>(null);
 
-    // Handle drag start
-    const handleDragStart = useCallback((_layout: any[], _oldItem: any, _newItem: any) => {
-      isDraggingRef.current = true;
-      // No position snapshotting needed; reflow on stop is the source of truth.
-      setIsDragging(true);
-      setDraggedItem(_newItem);
-      // Reset transient swap state from any prior drag.
-      lastLiveSwapKeyRef.current = null;
-      setLiveDragLayout(null);
-    }, []);
-
-    // Handle drag (real-time updates during drag)
-    // rAF-throttled: executes at most once per animation frame to avoid per-mousemove layout walks
-    const handleDrag = useCallback((_layout: any[], _oldItem: any, newItem: DashboardLayout) => {
-      lastDragArgsRef.current = { newItem };
-      // Skip scheduling a new frame if one is already pending — the latest args are captured above
-      if (dragRafIdRef.current !== null) return;
-      dragRafIdRef.current = requestAnimationFrame(() => {
-        dragRafIdRef.current = null;
-        const args = lastDragArgsRef.current;
-        if (!args) return;
-        setDraggedItem(args.newItem);
-        if (!isDraggingRef.current) return;
-
-        // Live drag-time reorder: recompute against the *committed* layout so the overlay
-        // is a pure function of (committed state + current drag pos). We only apply a live
-        // swap when the dragged item visually overlaps another — pure drags into empty
-        // space leave the layout alone and resolve on drop, per the existing model.
-        // Containment in computeInsertionIndex handles the cross-row cases where a tall
-        // dragged item covers a row of shorter targets (its center sits below them).
-        const original = stateRef.current.layout;
-        const oldIdx = original.findIndex((it) => it.i === args.newItem.i);
-        const flowedOriginal = oldIdx >= 0 ? flowLayout(original, FLUID_GRID_COLS) : null;
-
-        let displayLayout: DashboardLayout[] = original;
-        let displayFlowed = flowedOriginal ?? flowedRenderLayoutRef.current;
-        let swapKey: string | null = null;
-
-        if (oldIdx >= 0 && flowedOriginal) {
-          const dx1 = args.newItem.x + args.newItem.w;
-          const dy1 = args.newItem.y + args.newItem.h;
-          const overlapsAny = flowedOriginal.some(
-            (o) =>
-              o.i !== args.newItem.i &&
-              !(args.newItem.x >= o.x + o.w) &&
-              !(dx1 <= o.x) &&
-              !(args.newItem.y >= o.y + o.h) &&
-              !(dy1 <= o.y)
+    const runAutoscroll = useCallback(() => {
+      const canvas = canvasRef.current;
+      const pointerY = autoscrollPointerYRef.current;
+      if (canvas && pointerY !== null) {
+        const rect = canvas.getBoundingClientRect();
+        const distTop = pointerY - rect.top;
+        const distBottom = rect.bottom - pointerY;
+        let dy = 0;
+        if (distTop < AUTOSCROLL_EDGE_PX) {
+          const intensity = Math.min(
+            1,
+            Math.max(0, (AUTOSCROLL_EDGE_PX - distTop) / AUTOSCROLL_EDGE_PX)
           );
-          if (overlapsAny) {
-            const newIdx = computeInsertionIndex(flowedOriginal, args.newItem, FLUID_GRID_COLS);
-            if (newIdx !== oldIdx) {
-              displayLayout = moveItemToIndex(original, args.newItem.i, newIdx);
-              displayFlowed = flowLayout(displayLayout, FLUID_GRID_COLS);
-              swapKey = `${args.newItem.i}:${newIdx}`;
-            }
-          }
+          dy = -intensity * AUTOSCROLL_MAX_SPEED_PX;
+        } else if (distBottom < AUTOSCROLL_EDGE_PX) {
+          const intensity = Math.min(
+            1,
+            Math.max(0, (AUTOSCROLL_EDGE_PX - distBottom) / AUTOSCROLL_EDGE_PX)
+          );
+          dy = intensity * AUTOSCROLL_MAX_SPEED_PX;
         }
-
-        if (lastLiveSwapKeyRef.current !== swapKey) {
-          lastLiveSwapKeyRef.current = swapKey;
-          setLiveDragLayout(swapKey === null ? null : displayLayout);
-        }
-
-        const idx = computeInsertionIndex(displayFlowed, args.newItem, FLUID_GRID_COLS);
-        setInsertionPos(
-          gridIndexToPixel(
-            displayFlowed,
-            idx,
-            actualContainerWidthRef.current,
-            FLUID_GRID_COLS,
-            ROW_HEIGHT
-          )
-        );
-      });
+        if (dy !== 0) canvas.scrollTop += dy;
+      }
+      autoscrollRafRef.current = requestAnimationFrame(runAutoscroll);
     }, []);
 
-    // Handle drag stop - compute insertion index from drop position, reflow
-    const handleDragStop = useCallback(
+    const startAutoscroll = useCallback(() => {
+      if (autoscrollRafRef.current === null) {
+        autoscrollRafRef.current = requestAnimationFrame(runAutoscroll);
+      }
+    }, [runAutoscroll]);
+
+    const stopAutoscroll = useCallback(() => {
+      if (autoscrollRafRef.current !== null) {
+        cancelAnimationFrame(autoscrollRafRef.current);
+        autoscrollRafRef.current = null;
+      }
+      autoscrollPointerYRef.current = null;
+    }, []);
+
+    // Stop autoscroll if the component unmounts mid-drag
+    useEffect(() => () => stopAutoscroll(), [stopAutoscroll]);
+
+    // --- Drag handlers ------------------------------------------------------------------
+    const handleDragStart = useCallback(
       (_layout: any[], _oldItem: any, newItem: DashboardLayout) => {
-        // Cancel any pending rAF so we don't write stale insertionPos after pointer release
-        if (dragRafIdRef.current !== null) {
-          cancelAnimationFrame(dragRafIdRef.current);
-          dragRafIdRef.current = null;
-        }
-        lastDragArgsRef.current = null;
+        isDraggingRef.current = true;
+        setIsDragging(true);
+        setDraggedItem(newItem);
+        startAutoscroll();
+      },
+      [startAutoscroll]
+    );
 
-        // Clear space-making state
-        dashboardAnimationRef.current.clearSpaceMaking();
+    // Track the pointer Y so the autoscroll loop knows how close we are to an edge.
+    const handleDrag = useCallback(
+      (
+        _layout: any[],
+        _oldItem: any,
+        _newItem: DashboardLayout,
+        _placeholder: any,
+        e: MouseEvent
+      ) => {
+        if (e && typeof e.clientY === 'number') autoscrollPointerYRef.current = e.clientY;
+      },
+      []
+    );
 
-        // Clear drag tracking (synchronous ref first, then async state)
+    // Handle drag stop - RGL returns the final, gravity-up-compacted layout. Commit it as
+    // one history entry. Each widget keeps its own (x, y, w, h); nothing is re-derived from
+    // array order, which is what made the old fluid model unpredictable (DALGO-1219).
+    const handleDragStop = useCallback(
+      (layout: DashboardLayout[], _oldItem: any, _newItem: DashboardLayout) => {
         isDraggingRef.current = false;
         setIsDragging(false);
         setDraggedItem(null);
-        setInsertionPos(null);
-        // Discard the transient overlay; the setState below commits the final layout to history,
-        // and this update is batched with it so the render swaps from overlay→committed atomically.
-        lastLiveSwapKeyRef.current = null;
-        setLiveDragLayout(null);
+        stopAutoscroll();
 
-        // Only save to history if we're not in an undo/redo operation
         if (!isUndoRedoOperationRef.current) {
-          setState((prev) => {
-            const allLayouts = prev.layouts || {};
-            const flowedPrev = flowLayout(prev.layout, FLUID_GRID_COLS);
-            const targetIndex = computeInsertionIndex(flowedPrev, newItem, FLUID_GRID_COLS);
-            return {
-              ...prev,
-              layout: applyMutation(
-                prev.layout,
-                (l) => moveItemToIndex(l, newItem.i, targetIndex),
-                FLUID_GRID_COLS
-              ),
-              layouts: allLayouts,
-            };
-          });
+          const next = applyItemConstraints(layout);
+          setState((prev) => ({ ...prev, layout: next }));
         }
       },
-      [setState]
+      [setState, stopAutoscroll, applyItemConstraints]
     );
 
     // Handle breakpoint changes
@@ -1187,7 +1070,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       []
     );
 
-    // Handle resize stop - save final size to history
+    // Handle resize stop - RGL pushes overlapped neighbors down and compacts; commit the
+    // final layout to history with min-size constraints reapplied. Live min-size enforcement
+    // during the drag is handled natively by RGL via each item's minW/minH.
     const handleResizeStop = useCallback(
       (layout: DashboardLayout[], _oldItem: DashboardLayout, newItem: DashboardLayout) => {
         setResizingItems((prev) => {
@@ -1197,119 +1082,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         });
         setIsResizing(false);
 
-        // Enforce minimum dimensions on final resize
-        const component = stateRef.current.components[newItem.i];
-        let finalLayout = layout;
-
-        if (component) {
-          const chartType = getChartTypeFromConfig(component.config);
-          let minDimensions;
-
-          // Use stored content constraints if available, otherwise use generic constraints
-          if (component.config.contentConstraints) {
-            // Convert content constraints to grid dimensions
-            minDimensions = {
-              w: Math.max(
-                1,
-                Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
-              ),
-              h: Math.max(
-                1,
-                pixelsToGridUnits(component.config.contentConstraints.minHeight, false)
-              ),
-            };
-
-            console.log(`🔒 Using content-aware resize constraints for ${chartType}:`, {
-              contentConstraints: component.config.contentConstraints,
-              gridConstraints: minDimensions,
-            });
-          } else {
-            minDimensions = getMinGridDimensions(chartType);
-          }
-
-          // Ensure the resized item meets minimum requirements
-          const constrainedItem = {
-            ...newItem,
-            w: Math.max(newItem.w, minDimensions.w),
-            h: Math.max(newItem.h, minDimensions.h),
-            minW: minDimensions.w,
-            minH: minDimensions.h,
-          };
-
-          // Update layout with constrained item
-          finalLayout = layout.map((item) => (item.i === newItem.i ? constrainedItem : item));
-        }
-
-        // Only save to history if we're not in an undo/redo operation
         if (!isUndoRedoOperationRef.current) {
-          const currentState = stateRef.current;
-          const allLayouts = currentState.layouts || {};
-          // Fluid row flow: reflow after resize so row positions remain canonical.
-          // finalLayout already has the constrained w/h for the resized item.
-          setState({
-            ...currentState,
-            layout: applyMutation(
-              currentState.layout,
-              (l) =>
-                l.map((item) => {
-                  const updated = finalLayout.find((f) => f.i === item.i);
-                  return updated ? { ...item, w: updated.w, h: updated.h } : item;
-                }),
-              FLUID_GRID_COLS
-            ),
-            layouts: allLayouts,
-          });
+          const next = applyItemConstraints(layout);
+          setState((prev) => ({ ...prev, layout: next }));
         }
       },
-      [setState]
+      [setState, applyItemConstraints]
     );
-
-    // Handle resize (during resize)
-    const handleResize = useCallback((layout: DashboardLayout[]) => {
-      // Enforce minimum dimensions during resize
-      const currentState = stateRef.current;
-      const constrainedLayout = layout.map((item) => {
-        const component = currentState.components[item.i];
-        if (component) {
-          const chartType = getChartTypeFromConfig(component.config);
-          let minDimensions;
-
-          // Use stored content constraints if available
-          if (component.config.contentConstraints) {
-            minDimensions = {
-              w: Math.max(
-                1,
-                Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
-              ),
-              h: Math.max(
-                1,
-                pixelsToGridUnits(component.config.contentConstraints.minHeight, false)
-              ),
-            };
-          } else {
-            minDimensions = getMinGridDimensions(chartType);
-          }
-
-          // Ensure item doesn't go below minimum dimensions
-          return {
-            ...item,
-            w: Math.max(item.w, minDimensions.w),
-            h: Math.max(item.h, minDimensions.h),
-            minW: minDimensions.w,
-            minH: minDimensions.h,
-          };
-        }
-        return item;
-      });
-
-      // Use setStateWithoutHistory during resize to avoid flooding history
-      const allLayouts = currentState.layouts || {};
-      setStateWithoutHistoryRef.current({
-        ...currentState,
-        layout: constrainedLayout,
-        layouts: allLayouts,
-      });
-    }, []);
 
     // Add chart component - optimized for speed
     const handleChartSelected = async (chartId: number) => {
@@ -1346,28 +1125,22 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           },
         };
 
-        // Fluid row flow: append at end of ordered list and reflow. Position is derived.
+        // Grid model: new widget lands full-width at the bottom of the canvas. The user
+        // drags & resizes it from there. Nothing else on the canvas reorganizes.
         const newLayoutItem: DashboardLayout = {
           i: newComponent.id,
           x: 0,
-          y: 0,
-          w: defaultDimensions.w,
+          y: bottomY(state.layout),
+          w: FULL_WIDTH_COLS,
           h: defaultDimensions.h,
           minW: minDimensions.w,
-          maxW: 12,
+          maxW: FULL_WIDTH_COLS,
           minH: minDimensions.h,
         };
 
-        const newLayout = applyMutation(
-          state.layout,
-          (l) => [...l, newLayoutItem],
-          FLUID_GRID_COLS
-        );
-        const newLayouts = generateResponsiveLayouts(newLayout);
-
         setState({
-          layout: newLayout,
-          layouts: newLayouts,
+          ...state,
+          layout: [...state.layout, newLayoutItem],
           components: {
             ...state.components,
             [newComponent.id]: newComponent,
@@ -1418,24 +1191,21 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       const textDimensions = getDefaultGridDimensions('text');
       const textMinDimensions = getMinGridDimensions('text');
 
-      // Fluid row flow: append at end of ordered list and reflow. Position is derived.
+      // Grid model: new text widget lands full-width at the bottom of the canvas.
       const newLayoutItem: DashboardLayout = {
         i: newComponent.id,
         x: 0,
-        y: 0,
-        w: textDimensions.w,
+        y: bottomY(state.layout),
+        w: FULL_WIDTH_COLS,
         h: textDimensions.h,
         minW: textMinDimensions.w,
-        maxW: 12,
+        maxW: FULL_WIDTH_COLS,
         minH: textMinDimensions.h,
       };
 
-      const newLayout = applyMutation(state.layout, (l) => [...l, newLayoutItem], FLUID_GRID_COLS);
-      const newLayouts = generateResponsiveLayouts(newLayout);
-
       setState({
-        layout: newLayout,
-        layouts: newLayouts,
+        ...state,
+        layout: [...state.layout, newLayoutItem],
         components: {
           ...state.components,
           [newComponent.id]: newComponent,
@@ -1449,24 +1219,28 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       scrollToComponentIfNeeded(newComponent.id);
     };
 
-    // Remove component
+    // Remove component. Anything below the removed widget slides up (gravity-up);
+    // side neighbours stay where they are. One history entry.
     const removeComponent = (componentId: string) => {
       const newComponents = { ...state.components };
       delete newComponents[componentId];
 
-      const newLayout = applyMutation(
-        state.layout,
-        (l) => l.filter((item) => item.i !== componentId),
+      const newLayout = compactVertical(
+        state.layout.filter((item) => item.i !== componentId),
         FLUID_GRID_COLS
       );
-      const newLayouts = generateResponsiveLayouts(newLayout);
 
       setState({
+        ...state,
         layout: newLayout,
-        layouts: newLayouts,
         components: newComponents,
-        // filters removed - managed independently outside undo/redo
       });
+    };
+
+    // "Compact dashboard" toolbar action — one-time gravity-up across the whole canvas.
+    // Single undo entry, not N.
+    const handleCompact = () => {
+      setState((prev) => ({ ...prev, layout: compactVertical(prev.layout, FLUID_GRID_COLS) }));
     };
 
     // Handle when filters are applied (causes chart re-renders)
@@ -1912,6 +1686,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 <Type className="w-3 h-3 mr-1" />
                 Text
               </Button>
+              <Button
+                onClick={handleCompact}
+                size="sm"
+                variant="outline"
+                className="flex-shrink-0 h-8 text-xs"
+                title="Slide every widget up to close vertical gaps"
+              >
+                <ChevronsUp className="w-3 h-3 mr-1" />
+                Compact
+              </Button>
               <div className="flex gap-1 ml-auto flex-shrink-0">
                 <Button
                   onClick={undo}
@@ -2038,6 +1822,17 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 <Button onClick={addTextComponent} size="sm" variant="outline">
                   <Type className="w-4 h-4 mr-2" />
                   Add Text
+                </Button>
+
+                <Button
+                  onClick={handleCompact}
+                  size="sm"
+                  variant="outline"
+                  title="Slide every widget up to close vertical gaps"
+                  data-testid="compact-dashboard-btn"
+                >
+                  <ChevronsUp className="w-4 h-4 mr-2" />
+                  Compact
                 </Button>
 
                 <div className="ml-2 flex gap-1">
@@ -2264,36 +2059,28 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 position: 'relative',
               }}
             >
-              {/* Visual grid guides - disabled, using SnapIndicators with neon effect instead */}
-              <GridGuides
-                containerWidth={actualContainerWidth}
-                containerHeight={dashboardActualHeight}
-                cols={12}
-                visible={false}
-              />
-
               <GridLayout
                 className="layout relative z-10"
-                data-fluid-flow="true"
-                layout={flowedRenderLayout}
+                data-grid-model="true"
+                layout={Array.isArray(state.layout) ? state.layout : []}
                 cols={currentScreenConfig.cols} // Always exactly 12 columns (Superset-style)
                 rowHeight={ROW_HEIGHT}
                 width={actualContainerWidth} // Use available container width - columns adjust to fit
-                onLayoutChange={(newLayout) => handleLayoutChange(newLayout, state.layouts || {})}
+                onLayoutChange={handleLayoutChange}
                 onDragStart={handleDragStart}
                 onDrag={handleDrag}
                 onDragStop={handleDragStop}
                 onResizeStart={handleResizeStart}
-                onResize={handleResize}
                 onResizeStop={handleResizeStop}
                 draggableCancel=".drag-cancel"
-                compactType={null}
-                preventCollision={true}
-                allowOverlap={true}
+                // Grid model: each widget owns its (x, y, w, h). Gravity-up is the only
+                // automatic behaviour; neighbours are pushed down (never sideways) on collision.
+                compactType="vertical"
+                preventCollision={false}
+                allowOverlap={false}
                 margin={[8, 8]} // Match preview mode spacing
                 containerPadding={[8, 8]} // Match preview mode padding
                 autoSize={true}
-                verticalCompact={false}
                 useCSSTransforms={true}
                 transformScale={1}
                 isDraggable={true}
@@ -2311,11 +2098,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                         item={item}
                         component={component}
                         isAnimating={dashboardAnimation.animatingComponents.has(item.i)}
-                        isBeingPushed={dashboardAnimation.affectedComponents.some(
-                          (affected) => affected.componentId === `${item.x}-${item.y}`
-                        )}
+                        isBeingPushed={false}
                         isDraggedComponent={draggedItem?.i === item.i}
-                        spaceMakingActive={dashboardAnimation.spaceMakingActive}
+                        spaceMakingActive={false}
                         animationStyles={dashboardAnimation.getAnimationStyles(item.i)}
                         isResizing={resizingItems.has(item.i)}
                         appliedFilters={appliedFilters}
@@ -2329,33 +2114,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   );
                 })}
               </GridLayout>
-
-              {/* Insertion line overlay: shown during drag to indicate where the chart will land */}
-              <InsertionLine
-                pixelX={insertionPos?.pixelX ?? 0}
-                pixelY={insertionPos?.pixelY ?? 0}
-                pixelHeight={insertionPos?.pixelHeight ?? 0}
-                visible={insertionPos !== null}
-              />
-
-              {/* Snap Indicators */}
-              <SnapIndicators
-                snapZones={dashboardAnimation.snapZones}
-                containerWidth={actualContainerWidth}
-                containerHeight={dashboardActualHeight}
-                rowHeight={ROW_HEIGHT}
-                visible={isDragging || isResizing}
-              />
-
-              {/* Space Making Indicators */}
-              <SpaceMakingIndicators
-                affectedComponents={dashboardAnimation.affectedComponents}
-                containerWidth={actualContainerWidth}
-                containerHeight={dashboardActualHeight}
-                rowHeight={ROW_HEIGHT}
-                colWidth={actualContainerWidth / currentScreenConfig.cols}
-                visible={dashboardAnimation.spaceMakingActive}
-              />
             </div>
           </div>
         </div>{' '}

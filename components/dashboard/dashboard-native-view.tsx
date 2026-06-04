@@ -57,7 +57,7 @@ import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
-import { flowLayout } from '@/lib/dashboard-animation-utils';
+import { compactVertical } from '@/lib/dashboard-animation-utils';
 import { UnifiedTextElement } from './text-element-unified';
 import {
   DashboardFilterType,
@@ -360,10 +360,12 @@ export function DashboardNativeView({
   const effectiveScreenSize = previewScreenSize || targetScreenSize;
   const effectiveScreenConfig = SCREEN_SIZES[effectiveScreenSize];
 
-  // Re-flow layout so legacy dashboards (stored without fluid ordering) render packed.
-  // View mode supports a "preview different screen size" feature, so cols can differ from 12.
+  // Grid model: each widget renders at its own (x, y, w, h). Gravity-up compaction closes
+  // any vertical gaps so legacy dashboards (and any with stale gaps) render packed, matching
+  // the editor. View mode supports a "preview different screen size" feature, so cols can
+  // differ from 12.
   const flowedLayout = useMemo(
-    () => flowLayout(dashboard?.layout_config ?? [], effectiveScreenConfig?.cols ?? 12),
+    () => compactVertical(dashboard?.layout_config ?? [], effectiveScreenConfig?.cols ?? 12),
     [dashboard?.layout_config, effectiveScreenConfig?.cols]
   );
 
@@ -1152,10 +1154,9 @@ export function DashboardNativeView({
               const modifiedLayout = dashboard.layout_config || [];
 
               return effectiveScreenSize !== targetScreenSize ? (
-                // TODO: The ResponsiveGrid branch below does not run applyMutation/fluid-row reflow
-                // before rendering, so legacy dashboards in preview-mode (different screen size)
-                // may show overlapping or uncompacted items. Defer to follow-up task.
-                // Preview mode with different screen size - use responsive layout
+                // Preview mode with different screen size - use responsive layout.
+                // Gravity-up (compactType="vertical") keeps it packed and consistent with
+                // the editor and the same-size branch below.
                 <ResponsiveGrid
                   className="dashboard-grid"
                   layouts={
@@ -1171,12 +1172,11 @@ export function DashboardNativeView({
                   }}
                   isDraggable={false}
                   isResizable={false}
-                  compactType={null}
+                  compactType="vertical"
                   preventCollision={false}
                   margin={[8, 8]}
                   containerPadding={[8, 8]}
                   autoSize={true}
-                  verticalCompact={false}
                   onBreakpointChange={(newBreakpoint: string) => {
                     setCurrentBreakpoint(newBreakpoint);
                   }}
@@ -1205,13 +1205,12 @@ export function DashboardNativeView({
                   }}
                   isDraggable={false}
                   isResizable={false}
-                  compactType={null}
-                  preventCollision={true}
+                  compactType="vertical"
+                  preventCollision={false}
                   allowOverlap={false}
                   margin={[8, 8]}
                   containerPadding={[8, 8]}
                   autoSize={true}
-                  verticalCompact={false}
                 >
                   {flowedLayout.map((layoutItem: any) => (
                     <div key={layoutItem.i} className="dashboard-item">

@@ -82,33 +82,35 @@
   visibility: hidden;
 }
 
-/* Show grid lines during drag - lighter blue and thinner (legacy mode only) */
+/* Grid model: RGL's native placeholder IS the "ghost outline" shown while dragging/resizing,
+   snapped to the target cells. (The old fluid-flow mode hid it and drew a custom InsertionLine.) */
 .react-grid-layout:not([data-fluid-flow]) .react-grid-item.react-grid-placeholder,
 .dashboard-builder:not([data-fluid-flow]) .react-grid-item.react-grid-placeholder {
   display: block !important;
-  opacity: 0.4 !important;
+  opacity: 0.75 !important;
   visibility: visible !important;
   z-index: 500 !important;
   border-radius: 8px;
-  border: 1px dashed rgb(191, 219, 254, 0.6) !important;
-  box-shadow: 0 2px 6px rgba(191, 219, 254, 0.1) !important;
+  border: 2px dashed rgb(96, 165, 250, 0.9) !important;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25) !important;
   position: relative !important;
   animation: placeholderPulse 1.5s ease-in-out infinite alternate;
 }
 
-/* In fluid-flow mode, hide RGL's placeholder entirely; we render our own InsertionLine. */
+/* Read-only/native view tags its grid [data-fluid-flow]; it isn't draggable, so hide any
+   placeholder there. The editor uses [data-grid-model] and keeps the ghost outline above. */
 .react-grid-layout[data-fluid-flow] .react-grid-item.react-grid-placeholder {
   display: none !important;
 }
 
 @keyframes placeholderPulse {
   0% {
-    background: rgb(191, 219, 254, 0.05);
-    border-color: rgb(191, 219, 254, 0.4);
+    background: rgb(96, 165, 250, 0.18);
+    border-color: rgb(96, 165, 250, 0.7);
   }
   100% {
-    background: rgb(191, 219, 254, 0.1);
-    border-color: rgb(191, 219, 254, 0.7);
+    background: rgb(96, 165, 250, 0.3);
+    border-color: rgb(59, 130, 246, 0.95);
   }
 }
 

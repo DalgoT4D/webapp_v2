@@ -258,6 +258,55 @@ export function flowLayout<T extends FluidFlowItem>(items: T[], gridCols: number
 }
 
 /**
+ * Gravity-up compaction (the grid-model contract).
+ *
+ * Each item keeps its own (x, w, h); only `y` is recomputed so the item slides up
+ * to close any empty space directly above it in the columns it occupies. Items are
+ * processed top-to-bottom, left-to-right, so the result is identical to
+ * react-grid-layout's `compactType="vertical"`. Side neighbours (different columns)
+ * are never pushed horizontally — they only move up when space opens above them.
+ *
+ * This replaces the old array-order `flowLayout` model: array order is no longer
+ * significant, position is owned by each item. Output preserves the input array order
+ * (so React keys / diffing stay stable); only `y` values change.
+ *
+ * Pure function: does not mutate input.
+ */
+export function compactVertical<T extends FluidFlowItem>(items: T[], _gridCols: number): T[] {
+  // Stable top-to-bottom, left-to-right ordering; ties broken by original index.
+  const order = items
+    .map((it, idx) => ({ it, idx }))
+    .sort((a, b) => a.it.y - b.it.y || a.it.x - b.it.x || a.idx - b.idx);
+
+  const placed: FluidFlowItem[] = [];
+  const result = new Array<T>(items.length);
+
+  const collidesAt = (item: FluidFlowItem, y: number): boolean =>
+    placed.some(
+      (p) => item.x < p.x + p.w && item.x + item.w > p.x && y < p.y + p.h && y + item.h > p.y
+    );
+
+  for (const { it, idx } of order) {
+    // Slide up to the highest non-colliding row (gravity-up).
+    let y = 0;
+    while (collidesAt(it, y)) y++;
+    const moved = { ...it, y } as T;
+    placed.push(moved);
+    result[idx] = moved;
+  }
+
+  return result;
+}
+
+/**
+ * Lowest empty row in the layout — i.e. the y at which a newly added widget should land
+ * so it sits below everything currently on the canvas.
+ */
+export function bottomY(items: FluidFlowItem[]): number {
+  return items.reduce((max, it) => Math.max(max, it.y + it.h), 0);
+}
+
+/**
  * Run a mutation against a layout array, then reflow.
  * Use this for every state change to keep storage and rendering in sync.
  *
