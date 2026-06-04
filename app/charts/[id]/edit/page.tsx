@@ -457,7 +457,9 @@ function EditChartPageContent() {
           formData.dimension_column &&
           formData.metrics.every(
             (metric) =>
-              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+              metric.column_expression ||
+              (metric.aggregation &&
+                (metric.aggregation.toLowerCase() === 'count' || metric.column))
           )
         );
       }
@@ -1172,7 +1174,9 @@ function EditChartPageContent() {
           formData.dimension_column &&
           formData.metrics.every(
             (metric) =>
-              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+              metric.column_expression ||
+              (metric.aggregation &&
+                (metric.aggregation.toLowerCase() === 'count' || metric.column))
           )
         );
       }
@@ -1809,7 +1813,7 @@ function EditChartPageContent() {
       <SaveOptionsDialog
         open={showSaveDialog}
         onOpenChange={setShowSaveDialog}
-        originalTitle={chart?.title || ''}
+        originalTitle={formData.title || ''}
         onSaveExisting={handleUpdateExisting}
         onSaveAsNew={handleSaveAsNew}
         isLoading={isMutating || isCreating}

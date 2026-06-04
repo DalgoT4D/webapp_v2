@@ -444,28 +444,13 @@ export function ChartElementView({
                       value,
                     }))
                   : []),
-                // Include resolved dashboard filters for all chart types
-                ...formatAsChartFilters(
-                  resolvedDashboardFilters.filter(
-                    (filter) =>
-                      filter.schema_name === effectiveChart.schema_name &&
-                      filter.table_name === effectiveChart.table_name
-                  )
-                ),
               ],
               pagination: effectiveChart.extra_config?.pagination,
               sort: effectiveChart.extra_config?.sort,
             },
-            // Dashboard filters passed separately (skip in report mode — synthetic
-            // filter IDs can't be resolved by the backend; extra_config.filters
-            // already contains the resolved filters via formatAsChartFilters above)
-            dashboard_filters:
-              !frozenChartConfig && Object.keys(dashboardFilters).length > 0
-                ? Object.entries(dashboardFilters).map(([filter_id, value]) => ({
-                    filter_id,
-                    value,
-                  }))
-                : undefined,
+            // Dashboard filters are sent via the `dashboard_filters` query
+            // string and resolved server-side (same as the chart-data and
+            // table-preview endpoints), so they are not injected here.
           }
         : null,
     [effectiveChart, tableDrillDownState, resolvedDashboardFilters, dashboardFilters]
@@ -1596,15 +1581,19 @@ export function ChartElementView({
         description: 'Fetching chart data from server',
       });
 
-      // Use appropriate endpoint based on public mode
+      // Pass dashboard filters as query string so the backend can resolve them
+      // against the chart's table (mirrors the chart-data-preview pattern).
+      const csvQueryString =
+        !frozenChartConfig && Object.keys(dashboardFilters).length > 0
+          ? `?dashboard_filters=${encodeURIComponent(JSON.stringify(dashboardFilters))}`
+          : '';
+
       let blob: Blob;
       if (isPublicMode && publicToken) {
-        // Public dashboard - use unauthenticated endpoint
-        const publicUrl = `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/download-csv/`;
+        const publicUrl = `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/download-csv/${csvQueryString}`;
         blob = await apiPostBinary(publicUrl, chartDataPayload);
       } else {
-        // Authenticated dashboard - use authenticated endpoint
-        blob = await apiPostBinary('/api/charts/download-csv/', chartDataPayload);
+        blob = await apiPostBinary(`/api/charts/download-csv/${csvQueryString}`, chartDataPayload);
       }
 
       // Generate filename

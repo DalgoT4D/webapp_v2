@@ -91,6 +91,14 @@ export const CHART_SIZE_CONSTRAINTS: Record<string, ChartSizeConstraint> = {
     defaultHeight: 180,
   },
 
+  // KPI charts - same as standard charts
+  kpi: {
+    minWidth: 80,
+    minHeight: 40,
+    defaultWidth: 500,
+    defaultHeight: 400,
+  },
+
   // Text components - flexible
   text: {
     minWidth: 80,
@@ -149,6 +157,14 @@ export function getDefaultGridDimensions(chartType: string): GridDimensions {
     return {
       w: STANDARD_DEFAULT_SIZE.w,
       h: COMPACT_DEFAULT_HEIGHT,
+    };
+  }
+
+  // KPI cards are more compact than full charts
+  if (chartType === 'kpi') {
+    return {
+      w: STANDARD_DEFAULT_SIZE.w,
+      h: 11, // 11 rows × 20px = 220px
     };
   }
 
