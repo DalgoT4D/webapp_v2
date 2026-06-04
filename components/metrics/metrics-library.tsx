@@ -71,6 +71,7 @@ export function MetricsLibrary() {
   const [sortBy, setSortBy] = useState<'name' | 'updated_at' | 'data_source'>('updated_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [formOpen, setFormOpen] = useState(searchParams.get('create') === 'true');
+  const highlightMetricId = searchParams.get('highlight');
   const [editingMetric, setEditingMetric] = useState<Metric | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingMetric, setDeletingMetric] = useState<Metric | null>(null);
@@ -254,7 +255,10 @@ export function MetricsLibrary() {
     const consumers = consumersMap[metric.id];
 
     return (
-      <TableRow key={metric.id} className="hover:bg-gray-50">
+      <TableRow
+        key={metric.id}
+        className={`hover:bg-gray-50 ${highlightMetricId === String(metric.id) ? 'bg-primary/5 ring-1 ring-primary/20' : ''}`}
+      >
         {/* Name */}
         <TableCell className="py-4">
           <div className="flex flex-col">

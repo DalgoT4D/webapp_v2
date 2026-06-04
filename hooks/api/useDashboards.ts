@@ -10,6 +10,7 @@ export type DashboardTabData = DashboardTab;
 export interface Dashboard {
   id: number;
   title: string;
+  description?: string;
   dashboard_type: 'native' | 'superset';
   grid_columns: number;
   target_screen_size?: 'desktop' | 'tablet' | 'mobile' | 'a4'; // Target screen size for design
