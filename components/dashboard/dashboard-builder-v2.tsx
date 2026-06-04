@@ -56,7 +56,6 @@ import {
   Filter,
   ArrowLeft,
   Eye,
-  ChevronsUp,
   Edit,
   Target,
 } from 'lucide-react';
@@ -1388,7 +1387,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       const defaultDimensions = getDefaultGridDimensions('kpi');
       const minDimensions = getMinGridDimensions('kpi');
 
-      // Grid model: new KPI lands full-width at the bottom of the canvas (same as charts/text).
+      // Grid model: new KPI lands full-width at the bottom (same as charts/text).
       const newLayoutItem: DashboardLayout = {
         i: newComponent.id,
         x: 0,
@@ -1491,12 +1490,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         layout: newLayout,
         components: newComponents,
       });
-    };
-
-    // "Compact dashboard" toolbar action — one-time gravity-up across the whole canvas.
-    // Single undo entry, not N.
-    const handleCompact = () => {
-      setState((prev) => ({ ...prev, layout: compactVertical(prev.layout, FLUID_GRID_COLS) }));
     };
 
     // Handle when filters are applied (causes chart re-renders)
@@ -1968,16 +1961,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 <Type className="w-3 h-3 mr-1" />
                 Text
               </Button>
-              <Button
-                onClick={handleCompact}
-                size="sm"
-                variant="outline"
-                className="flex-shrink-0 h-8 text-xs"
-                title="Slide every widget up to close vertical gaps"
-              >
-                <ChevronsUp className="w-3 h-3 mr-1" />
-                Compact
-              </Button>
               <div className="flex gap-1 ml-auto flex-shrink-0">
                 <Button
                   onClick={undo}
@@ -2125,17 +2108,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 <Button onClick={addTextComponent} size="sm" variant="outline">
                   <Type className="w-4 h-4 mr-2" />
                   Add Text
-                </Button>
-
-                <Button
-                  onClick={handleCompact}
-                  size="sm"
-                  variant="outline"
-                  title="Slide every widget up to close vertical gaps"
-                  data-testid="compact-dashboard-btn"
-                >
-                  <ChevronsUp className="w-4 h-4 mr-2" />
-                  Compact
                 </Button>
 
                 <div className="ml-2 flex gap-1">
