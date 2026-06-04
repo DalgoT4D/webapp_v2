@@ -230,26 +230,32 @@ export function ChartDataConfigurationV3({
     });
   };
 
-  // Auto-prefill when columns are loaded
+  // Auto-prefill when columns load — only once per (chart_type, schema, table).
+  // Without the key guard, removing the last metric on a number chart re-triggers prefill
+  // because nothing else in `hasExistingConfig` stays truthy for number charts.
+  const autoPrefillKeyRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (columns && formData.schema_name && formData.table_name && formData.chart_type) {
-      // Check if we should auto-prefill (no existing configuration)
-      const hasExistingConfig = !!(
-        formData.dimension_column ||
-        formData.aggregate_column ||
-        formData.geographic_column ||
-        formData.x_axis_column ||
-        formData.y_axis_column ||
-        formData.table_columns?.length ||
-        (formData.metrics && formData.metrics.length > 0)
-      );
+    if (!columns || !formData.schema_name || !formData.table_name || !formData.chart_type) return;
 
-      if (!hasExistingConfig) {
-        const autoConfig = generateAutoPrefilledConfig(formData.chart_type, normalizedColumns);
-        if (Object.keys(autoConfig).length > 0) {
-          console.log('🤖 [CHART-DATA-CONFIG-V3] Auto-prefilling configuration:', autoConfig);
-          onChange(autoConfig);
-        }
+    const key = `${formData.chart_type}|${formData.schema_name}|${formData.table_name}`;
+    if (autoPrefillKeyRef.current === key) return;
+    autoPrefillKeyRef.current = key;
+
+    const hasExistingConfig = !!(
+      formData.dimension_column ||
+      formData.aggregate_column ||
+      formData.geographic_column ||
+      formData.x_axis_column ||
+      formData.y_axis_column ||
+      formData.table_columns?.length ||
+      (formData.metrics && formData.metrics.length > 0)
+    );
+
+    if (!hasExistingConfig) {
+      const autoConfig = generateAutoPrefilledConfig(formData.chart_type, normalizedColumns);
+      if (Object.keys(autoConfig).length > 0) {
+        console.log('🤖 [CHART-DATA-CONFIG-V3] Auto-prefilling configuration:', autoConfig);
+        onChange(autoConfig);
       }
     }
   }, [
