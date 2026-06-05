@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LineChartCustomizations } from '../line/LineChartCustomizations';
 
@@ -78,23 +78,31 @@ describe('LineChartCustomizations', () => {
   });
 
   it('should handle axis configuration inputs', async () => {
-    const user = userEvent.setup();
-    render(
-      <LineChartCustomizations
-        {...defaultProps}
-        customizations={{ xAxisTitle: 'Months', yAxisTitle: 'Sales' }}
-      />
-    );
+    jest.useFakeTimers();
+    try {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      render(
+        <LineChartCustomizations
+          {...defaultProps}
+          customizations={{ xAxisTitle: 'Months', yAxisTitle: 'Sales' }}
+        />
+      );
 
-    expect(screen.getByDisplayValue('Months')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Sales')).toBeInTheDocument();
-    // Label Rotation fields are now just called "Label Rotation" within each section
-    expect(screen.getAllByLabelText('Label Rotation').length).toBe(2);
+      expect(screen.getByDisplayValue('Months')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Sales')).toBeInTheDocument();
+      // Label Rotation fields are now just called "Label Rotation" within each section
+      expect(screen.getAllByLabelText('Label Rotation').length).toBe(2);
 
-    // X-axis title input (first Title field)
-    const titleInputs = screen.getAllByLabelText('Title');
-    await user.type(titleInputs[0], 'D');
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisTitle', 'MonthsD');
+      // X-axis title input (first Title field)
+      const titleInputs = screen.getAllByLabelText('Title');
+      await user.type(titleInputs[0], 'D');
+      act(() => {
+        jest.runAllTimers();
+      });
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisTitle', 'MonthsD');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('should disable all controls when disabled is true', () => {

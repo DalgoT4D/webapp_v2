@@ -91,6 +91,8 @@ import {
 import { Star, StarOff, Settings } from 'lucide-react';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 // Define responsive breakpoints and column configurations (same as builder)
 // Superset-style: Always 12 columns, they just scale with container width
@@ -421,6 +423,13 @@ export function DashboardNativeView({
   const shouldShowTabs = tabsData && (tabsData.tabs?.length ?? 0) >= 2;
 
   // Allow editing in preview mode without any conditions
+
+  // Track dashboard view once per mount
+  useEffect(() => {
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_VIEWED, { dashboard_id: dashboardId });
+    // Fire once per mount — the dashboard id is stable for the view.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Update current screen size on resize
   useEffect(() => {

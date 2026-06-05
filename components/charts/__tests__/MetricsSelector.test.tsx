@@ -103,13 +103,10 @@ describe('MetricsSelector', () => {
 
       render(<MetricsSelector metrics={metrics} onChange={mockOnChange} columns={mockColumns} />);
 
-      const removeButtons = screen.getAllByRole('button');
-      const xButton = removeButtons.find(
-        (btn) => btn.querySelector('svg') && !btn.textContent?.includes('ADD')
-      );
+      const removeButtons = screen.getAllByRole('button', { name: /remove metric/i });
 
-      if (xButton) {
-        await user.click(xButton);
+      if (removeButtons[0]) {
+        await user.click(removeButtons[0]);
         expect(mockOnChange).toHaveBeenCalledWith([
           { column: 'quantity', aggregation: 'avg', alias: 'Avg Quantity' },
         ]);

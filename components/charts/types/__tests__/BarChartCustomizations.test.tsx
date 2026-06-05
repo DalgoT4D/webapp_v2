@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BarChartCustomizations } from '../bar/BarChartCustomizations';
 
@@ -78,37 +78,48 @@ describe('BarChartCustomizations', () => {
   });
 
   it('should handle axis configuration inputs', async () => {
-    const user = userEvent.setup();
-    render(
-      <BarChartCustomizations
-        {...defaultProps}
-        customizations={{ xAxisTitle: 'Time', yAxisTitle: 'Value' }}
-      />
-    );
+    jest.useFakeTimers();
+    try {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      render(
+        <BarChartCustomizations
+          {...defaultProps}
+          customizations={{ xAxisTitle: 'Time', yAxisTitle: 'Value' }}
+        />
+      );
 
-    expect(screen.getByDisplayValue('Time')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Value')).toBeInTheDocument();
-    // Label Rotation fields are now just called "Label Rotation" within each section
-    expect(screen.getAllByLabelText('Label Rotation').length).toBe(2);
+      expect(screen.getByDisplayValue('Time')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Value')).toBeInTheDocument();
+      // Label Rotation fields are now just called "Label Rotation" within each section
+      expect(screen.getAllByLabelText('Label Rotation').length).toBe(2);
 
-    // X-axis title input (first Title field)
-    const titleInputs = screen.getAllByLabelText('Title');
-    await user.type(titleInputs[0], 'M');
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisTitle', 'TimeM');
+      // X-axis title input (first Title field)
+      const titleInputs = screen.getAllByLabelText('Title');
+      await user.type(titleInputs[0], 'M');
+      act(() => {
+        jest.runAllTimers();
+      });
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisTitle', 'TimeM');
 
-    // Y-axis title input (second Title field)
-    await user.type(titleInputs[1], 's');
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('yAxisTitle', 'Values');
+      // Y-axis title input (second Title field)
+      await user.type(titleInputs[1], 's');
+      act(() => {
+        jest.runAllTimers();
+      });
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('yAxisTitle', 'Values');
 
-    // Label rotation selects
-    const rotationSelects = screen.getAllByLabelText('Label Rotation');
-    await user.click(rotationSelects[0]);
-    await user.click(screen.getByRole('option', { name: '45 degrees' }));
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisLabelRotation', '45');
+      // Label rotation selects
+      const rotationSelects = screen.getAllByLabelText('Label Rotation');
+      await user.click(rotationSelects[0]);
+      await user.click(screen.getByRole('option', { name: '45 degrees' }));
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisLabelRotation', '45');
 
-    await user.click(rotationSelects[1]);
-    await user.click(screen.getByRole('option', { name: 'Vertical (90°)' }));
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('yAxisLabelRotation', 'vertical');
+      await user.click(rotationSelects[1]);
+      await user.click(screen.getByRole('option', { name: 'Vertical (90°)' }));
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('yAxisLabelRotation', 'vertical');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('should disable all controls when disabled is true', () => {

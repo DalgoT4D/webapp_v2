@@ -5,6 +5,7 @@ import { AuthGuard } from '@/components/auth-guard';
 import { MainLayout } from '@/components/main-layout';
 import { NavigationTitleHandler } from '@/components/navigation-title-handler';
 import { Toaster } from 'sonner';
+import { usePostHogIdentify } from '@/hooks/usePostHogIdentify';
 
 // Define public routes that don't require authentication
 const publicRoutes = ['/login', '/forgot-password', '/resetpassword', '/invitations', '/welcome'];
@@ -14,6 +15,7 @@ interface ClientLayoutProps {
 }
 
 export function ClientLayout({ children }: ClientLayoutProps) {
+  usePostHogIdentify();
   const pathname = usePathname();
   const isPublicRoute =
     publicRoutes.includes(pathname) ||
