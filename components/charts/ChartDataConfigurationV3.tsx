@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Select,
   SelectContent,
@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
+import { DebouncedInput } from '@/components/charts/debounced-input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { BarChart3, PieChart, LineChart, Hash, MapPin, Check } from 'lucide-react';
@@ -115,11 +115,10 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
     } else {
       // Fallback to text input for in/not_in when no column values
       return (
-        <Input
-          type="text"
+        <DebouncedInput
           placeholder="value1, value2, value3"
           value={value || ''}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={onChange}
           disabled={disabled}
           className="h-8 flex-1"
         />
@@ -145,11 +144,10 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
 
   // Fallback to regular input
   return (
-    <Input
-      type="text"
+    <DebouncedInput
       placeholder="Enter value"
       value={value || ''}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={onChange}
       disabled={disabled}
       className="h-8 flex-1"
     />

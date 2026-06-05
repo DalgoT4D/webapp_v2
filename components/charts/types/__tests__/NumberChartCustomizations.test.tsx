@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { NumberChartCustomizations } from '../number/NumberChartCustomizations';
 
@@ -33,20 +33,28 @@ describe('NumberChartCustomizations', () => {
   });
 
   it('should handle size selection and subtitle input', async () => {
-    const user = userEvent.setup();
-    render(<NumberChartCustomizations {...defaultProps} />);
+    jest.useFakeTimers();
+    try {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      render(<NumberChartCustomizations {...defaultProps} />);
 
-    await user.click(screen.getByLabelText('Large'));
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('numberSize', 'large');
+      await user.click(screen.getByLabelText('Large'));
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('numberSize', 'large');
 
-    mockUpdateCustomization.mockClear();
-    await user.click(screen.getByLabelText('Small'));
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('numberSize', 'small');
+      mockUpdateCustomization.mockClear();
+      await user.click(screen.getByLabelText('Small'));
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('numberSize', 'small');
 
-    mockUpdateCustomization.mockClear();
-    const subtitleInput = screen.getByLabelText('Subtitle');
-    await user.type(subtitleInput, 'T');
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('subtitle', 'T');
+      mockUpdateCustomization.mockClear();
+      const subtitleInput = screen.getByLabelText('Subtitle');
+      await user.type(subtitleInput, 'T');
+      act(() => {
+        jest.runAllTimers();
+      });
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('subtitle', 'T');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('should handle number formatting options', () => {
@@ -57,22 +65,30 @@ describe('NumberChartCustomizations', () => {
   });
 
   it('should handle prefix and suffix inputs', async () => {
-    const user = userEvent.setup();
-    render(
-      <NumberChartCustomizations
-        {...defaultProps}
-        customizations={{ numberPrefix: '$', numberSuffix: 'M' }}
-      />
-    );
+    jest.useFakeTimers();
+    try {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      render(
+        <NumberChartCustomizations
+          {...defaultProps}
+          customizations={{ numberPrefix: '$', numberSuffix: 'M' }}
+        />
+      );
 
-    expect(screen.getByDisplayValue('$')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('M')).toBeInTheDocument();
-    expect(screen.getByText('Text that appears before the number')).toBeInTheDocument();
-    expect(screen.getByText('Text that appears after the number')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('$')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('M')).toBeInTheDocument();
+      expect(screen.getByText('Text that appears before the number')).toBeInTheDocument();
+      expect(screen.getByText('Text that appears after the number')).toBeInTheDocument();
 
-    const prefixInput = screen.getByLabelText('Prefix');
-    await user.type(prefixInput, '€');
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('numberPrefix', '$€');
+      const prefixInput = screen.getByLabelText('Prefix');
+      await user.type(prefixInput, '€');
+      act(() => {
+        jest.runAllTimers();
+      });
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('numberPrefix', '$€');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('should display existing customization values', () => {
