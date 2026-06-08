@@ -13,13 +13,13 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { X, Plus, Library, Save, Loader2, Info, ChevronDown } from 'lucide-react';
+import { X, Library, Save, Loader2, Info, ChevronDown } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { ChartMetric } from '@/types/charts';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { Combobox, highlightText } from '@/components/ui/combobox';
+import { DebouncedInput } from '@/components/charts/debounced-input';
 import { useMetrics, createMetric, validateMetric } from '@/hooks/api/useMetrics';
-import type { Metric } from '@/types/metrics';
 import { toastSuccess, toastError } from '@/lib/toast';
 
 interface MetricsSelectorProps {
@@ -70,11 +70,7 @@ export function MetricsSelector({
   const [metricName, setMetricName] = useState('');
   const [displayName, setDisplayName] = useState('');
 
-  const {
-    data: savedMetrics,
-    isLoading: savedMetricsLoading,
-    mutate: mutateSavedMetrics,
-  } = useMetrics({
+  const { data: savedMetrics, mutate: mutateSavedMetrics } = useMetrics({
     schemaName,
     tableName,
     pageSize: 50,
@@ -274,6 +270,8 @@ export function MetricsSelector({
                   <Button
                     variant="ghost"
                     size="sm"
+                    aria-label="Remove metric"
+                    data-testid={`remove-metric-${index}`}
                     className="h-7 w-7 p-0 text-gray-400 hover:text-red-500 shrink-0"
                     onClick={() => removeMetric(index)}
                     disabled={disabled}
@@ -282,10 +280,14 @@ export function MetricsSelector({
                   </Button>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-600">Display Name In Charts</Label>
-                  <Input
+                  <Label htmlFor={`metric-alias-${index}`} className="text-xs text-gray-600">
+                    Display Name In Charts
+                  </Label>
+                  <DebouncedInput
+                    id={`metric-alias-${index}`}
+                    data-testid={`metric-alias-${index}`}
                     value={metric.alias || ''}
-                    onChange={(e) => updateMetricAlias(index, e.target.value)}
+                    onChange={(value: string) => updateMetricAlias(index, value)}
                     placeholder="Pick a label"
                     className="h-8 text-sm"
                     disabled={disabled}

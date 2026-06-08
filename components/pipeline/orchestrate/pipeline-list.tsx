@@ -36,6 +36,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { usePipelines, deletePipeline, triggerPipelineRun } from '@/hooks/api/usePipelines';
 import type { Pipeline } from '@/types/pipeline';
@@ -75,6 +77,7 @@ export function PipelineList() {
     async (deploymentId: string) => {
       try {
         await triggerPipelineRun(deploymentId);
+        trackEvent(ANALYTICS_EVENTS.PIPELINE_TRIGGERED, { deployment_id: deploymentId });
         toastSuccess.generic('Pipeline started successfully');
         mutate(); // this cause the polling and based on lock condition the refreshinterval keeps on polling the data.
         return {};

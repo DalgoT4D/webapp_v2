@@ -3,6 +3,8 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { apiGet, apiPost } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useTransformStore } from '@/stores/transformStore';
 import { useAuthStore } from '@/stores/authStore';
 import type { TaskProgressLog, TransformTask } from '@/types/transform';
@@ -152,6 +154,8 @@ export function useWorkflowExecution(): UseWorkflowExecutionReturn {
           '/api/dbt/run_dbt_via_celery/',
           params
         )) as RunWorkflowResponse;
+
+        trackEvent(ANALYTICS_EVENTS.DBT_RUN_TRIGGERED);
 
         if (response?.task_id) {
           setTaskId(response.task_id);

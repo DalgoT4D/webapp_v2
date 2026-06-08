@@ -39,6 +39,8 @@ import {
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
 import { getApiCustomizations, mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -897,6 +899,7 @@ function ConfigureChartPageContent() {
 
     try {
       const result = await createChart(chartData);
+      trackEvent(ANALYTICS_EVENTS.CHART_CREATED, { chart_type: chartData.chart_type });
       // Reset unsaved changes state after successful save
       setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');
