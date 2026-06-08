@@ -1,5 +1,7 @@
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete, apiPublicGet } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type {
   ReportSnapshot,
   SnapshotViewData,
@@ -57,6 +59,7 @@ export function useSnapshotView(snapshotId: number | null) {
 
 export async function createSnapshot(data: CreateSnapshotPayload): Promise<ReportSnapshot> {
   const response: ApiResponse<ReportSnapshot> = await apiPost('/api/reports/', data);
+  trackEvent(ANALYTICS_EVENTS.REPORT_CREATED);
   return response.data;
 }
 
@@ -96,6 +99,8 @@ export async function updateReportSharing(
     `/api/reports/${snapshotId}/share/`,
     data
   );
+  // is_public lets analytics distinguish sharing from un-sharing (mirrors DASHBOARD_SHARED).
+  trackEvent(ANALYTICS_EVENTS.REPORT_SHARED, { is_public: data.is_public });
   return response.data;
 }
 
@@ -114,6 +119,7 @@ export async function shareReportViaEmail(
     `/api/reports/${snapshotId}/share/email/`,
     data
   );
+  trackEvent(ANALYTICS_EVENTS.REPORT_SHARED);
   return response.data;
 }
 

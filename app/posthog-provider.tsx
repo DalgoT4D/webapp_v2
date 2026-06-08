@@ -10,11 +10,18 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     // No key in local/dev without analytics configured → skip init silently.
     if (!key || posthog.__loaded) return;
 
+    // Ingestion host. We send events directly to PostHog rather than through the
+    // '/relay' reverse proxy (next.config.ts rewrites): that proxy depends on a
+    // Next rewrite that isn't reliable across our deployments and was returning
+    // 404 in production, dropping all analytics. Direct ingestion has no infra
+    // dependency. Trade-off: ad-blockers can block it (the only thing the proxy
+    // bought us). Override per-region via NEXT_PUBLIC_POSTHOG_INGEST_HOST
+    // (e.g. EU: https://eu.i.posthog.com). To switch back to the proxy, set this
+    // to '/relay' once the rewrite is confirmed working.
+    const ingestHost = process.env.NEXT_PUBLIC_POSTHOG_INGEST_HOST || 'https://us.i.posthog.com';
+
     posthog.init(key, {
-      // Reverse proxy (next.config.ts rewrites) — resists ad/tracking blockers.
-      // Path is '/relay' (not '/ingest') because the app already owns the
-      // '/ingest' route for its data-ingestion feature.
-      api_host: '/relay',
+      api_host: ingestHost,
       ui_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
       // Modern defaults: SPA pageview + pageleave autocapture, etc.
       defaults: '2026-01-30',

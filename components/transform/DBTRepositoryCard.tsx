@@ -18,6 +18,8 @@ import { Loader2, Info } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useDbtWorkspace, switchGitRepo, updateSchema } from '@/hooks/api/useDbtWorkspace';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
 import Image from 'next/image';
 import type { DbtWorkspaceFormData } from '@/types/transform';
@@ -93,6 +95,7 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
         if (data.defaultSchema) {
           await updateSchema(data.defaultSchema);
         }
+        trackEvent(ANALYTICS_EVENTS.TRANSFORM_GITHUB_CONNECTED);
         toastSuccess.generic('Git repository connected successfully');
       }
 
