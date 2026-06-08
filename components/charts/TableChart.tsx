@@ -418,7 +418,7 @@ export function TableChart({
   return (
     <div className="w-full h-full flex flex-col">
       {/* Search bar */}
-      <div className="flex-shrink-0 py-1">
+      <div className="flex-shrink-0 py-1 mb-2">
         <TableSearchBar
           query={search.query}
           onQueryChange={search.setQuery}

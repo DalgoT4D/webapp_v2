@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, Trash2, Info } from 'lucide-react';
+import { Plus, X, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -194,40 +194,16 @@ export function ConditionalFormattingSection({
                 onClick={() => handleDeleteRule(index)}
                 disabled={disabled}
                 aria-label="Delete rule"
-                className="absolute -top-2 -right-2 h-6 w-6 rounded-full border bg-background shadow-sm text-gray-400 hover:text-red-500"
+                title="Delete rule"
+                className="absolute top-2 right-2 h-6 w-6 text-muted-foreground hover:text-destructive flex-shrink-0"
               >
-                <Trash2 className="h-3 w-3" />
+                <X className="h-4 w-4" />
               </Button>
 
-              {/* Row 1: level scope (when applicable) + column. Level first so
-                  "All levels" is the leading control in drill-down mode. */}
-              <div className="flex items-center gap-1.5">
-                {showLevelRow && (
-                  <Select
-                    value={rule.level ?? '__all__'}
-                    onValueChange={(val) =>
-                      handleUpdateRule(index, 'level', val === '__all__' ? undefined : val)
-                    }
-                    disabled={disabled}
-                  >
-                    <SelectTrigger
-                      data-testid={`rule-level-${index}`}
-                      className="h-8 text-xs min-w-0 flex-1"
-                    >
-                      <span className="truncate">
-                        <SelectValue placeholder="All levels" />
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__all__">All levels</SelectItem>
-                      {orderedDimensions!.map((dimCol) => (
-                        <SelectItem key={dimCol} value={dimCol}>
-                          {dimCol} level
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+              {/* Row 1: column + level scope (when applicable). Column leads;
+                  "All levels" follows. pr-8 reserves room for the delete button
+                  so it never overlaps the dropdowns. */}
+              <div className="flex items-center gap-1.5 pr-8">
                 <Select
                   value={rule.column}
                   onValueChange={(val) => handleUpdateRule(index, 'column', val)}
@@ -235,7 +211,7 @@ export function ConditionalFormattingSection({
                 >
                   <SelectTrigger
                     data-testid={`rule-column-${index}`}
-                    className="h-8 text-xs min-w-0 flex-1"
+                    className="h-8 text-sm min-w-0 flex-1"
                   >
                     <span className="truncate">
                       <SelectValue />
@@ -261,6 +237,32 @@ export function ConditionalFormattingSection({
                     })}
                   </SelectContent>
                 </Select>
+                {showLevelRow && (
+                  <Select
+                    value={rule.level ?? '__all__'}
+                    onValueChange={(val) =>
+                      handleUpdateRule(index, 'level', val === '__all__' ? undefined : val)
+                    }
+                    disabled={disabled}
+                  >
+                    <SelectTrigger
+                      data-testid={`rule-level-${index}`}
+                      className="h-8 text-sm min-w-0 flex-1"
+                    >
+                      <span className="truncate">
+                        <SelectValue placeholder="All levels" />
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All levels</SelectItem>
+                      {orderedDimensions!.map((dimCol) => (
+                        <SelectItem key={dimCol} value={dimCol}>
+                          {dimCol} level
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               {/* Row 2: operator + value + color */}
@@ -278,7 +280,7 @@ export function ConditionalFormattingSection({
                 >
                   <SelectTrigger
                     data-testid={`rule-operator-${index}`}
-                    className="h-8 text-xs min-w-0 flex-1"
+                    className="h-8 text-sm min-w-0 flex-1"
                   >
                     <span className="truncate">
                       <SelectValue />
@@ -300,7 +302,7 @@ export function ConditionalFormattingSection({
                     onChange={(e) => handleUpdateRule(index, 'value', e.target.value)}
                     disabled={disabled}
                     placeholder="e.g. active"
-                    className="h-8 text-xs min-w-0 flex-1"
+                    className="h-8 text-sm min-w-0 flex-1"
                   />
                 ) : (
                   <Input
@@ -309,7 +311,7 @@ export function ConditionalFormattingSection({
                     value={rule.value as number}
                     onChange={(e) => handleUpdateRule(index, 'value', e.target.value)}
                     disabled={disabled}
-                    className="h-8 text-xs min-w-0 flex-1"
+                    className="h-8 text-sm min-w-0 flex-1"
                   />
                 )}
                 <Popover>
@@ -387,12 +389,12 @@ export function ConditionalFormattingSection({
 
       <Button
         type="button"
-        variant="primary"
-        size="default"
+        variant="outline"
+        size="sm"
         data-testid="add-formatting-rule-btn"
         onClick={handleAddRule}
         disabled={disabled}
-        className="w-full"
+        className="w-full border-dashed bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
       >
         <Plus className="h-4 w-4 mr-2" />
         ADD RULE

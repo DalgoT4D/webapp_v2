@@ -9,7 +9,6 @@ export const PRESET_COLORS = [
   { hex: '#E1BEE7', label: 'Light Purple' },
   { hex: '#B2DFDB', label: 'Light Teal' },
   { hex: '#FFF9C4', label: 'Light Yellow' },
-  { hex: '#F8BBD0', label: 'Light Pink' },
 ] as const;
 
 /** Operators for conditional formatting with display labels */

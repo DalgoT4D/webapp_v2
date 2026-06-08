@@ -277,7 +277,7 @@ export function TableChartCustomizations({
                     )}
                   </div>
                   {isExpanded && (
-                    <div className="ml-6 py-3 space-y-3">
+                    <div className="py-3 space-y-3">
                       <NumberFormatSection
                         idPrefix={`table-${column}`}
                         numberFormat={config?.numberFormat}

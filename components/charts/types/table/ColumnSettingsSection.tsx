@@ -65,7 +65,7 @@ function SortableColumnRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 p-2 rounded-md border bg-background hover:bg-muted/30 transition-colors"
+      className="flex items-center gap-2 p-2 rounded-md border hover:bg-muted/30 transition-colors"
     >
       <button
         type="button"
@@ -149,7 +149,7 @@ export function ColumnSettingsSection({
   if (columns.length === 0) {
     return (
       <div className="space-y-2">
-        <h4 className="text-sm font-medium">Columns</h4>
+        <h4 className="text-sm font-medium">Column formatting</h4>
         <p className="text-sm text-muted-foreground text-center py-2">No columns selected.</p>
       </div>
     );
@@ -157,10 +157,8 @@ export function ColumnSettingsSection({
 
   return (
     <div className="space-y-2">
-      <h4 className="text-sm font-medium">Columns</h4>
-      <p className="text-xs text-muted-foreground">
-        Drag to reorder. Auto: first column left, last column right, others by type.
-      </p>
+      <h4 className="text-sm font-medium">Column formatting</h4>
+      <p className="text-xs text-muted-foreground">Reorder columns order and alignment</p>
       <div className="space-y-1">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={columns} strategy={verticalListSortingStrategy}>
