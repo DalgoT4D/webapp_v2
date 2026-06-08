@@ -4,6 +4,8 @@
 import { useCallback, useState } from 'react';
 import { useSWRConfig } from 'swr';
 import { apiPost, apiPut, apiDelete } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { CANVAS_GRAPH_KEY } from './useCanvasGraph';
 import type {
   CanvasNodeDataResponse,
@@ -87,6 +89,9 @@ export function useCanvasOperations(): UseCanvasOperationsReturn {
           ...payload,
           input_node_uuid: inputNodeUuid,
         });
+        // Engagement signal: a transform step was added to a chain (distinct from
+        // TRANSFORM_MODEL_CREATED, which fires only when the chain is finalized).
+        trackEvent(ANALYTICS_EVENTS.TRANSFORM_OPERATION_CREATED);
         return response;
       } finally {
         setIsCreating(false);
@@ -150,6 +155,7 @@ export function useCanvasOperations(): UseCanvasOperationsReturn {
           `/api/transform/v2/dbt_project/operations/nodes/${nodeUuid}/terminate/`,
           payload
         );
+        trackEvent(ANALYTICS_EVENTS.TRANSFORM_MODEL_CREATED);
         await refreshGraph();
       } finally {
         setIsTerminating(false);

@@ -20,6 +20,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useRoles, useInvitationActions, useInvitations } from '@/hooks/api/useUserManagement';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface InviteUserDialogProps {
   open: boolean;
@@ -65,6 +67,8 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
         invited_role_uuid: roleUuid,
       });
       await mutate();
+      const invitedRole = roles?.find((role) => role.uuid === roleUuid);
+      trackEvent(ANALYTICS_EVENTS.USER_INVITED, { role: invitedRole?.slug ?? roleUuid });
       setIsSubmitting(false);
       handleDialogOpenChange(false);
     } catch (error) {
