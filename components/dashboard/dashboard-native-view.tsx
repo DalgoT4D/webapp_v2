@@ -60,6 +60,7 @@ import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
+import { compactVertical } from '@/lib/dashboard-animation-utils';
 import { UnifiedTextElement } from './text-element-unified';
 import { KPIChartElement } from './kpi-chart-element';
 import {
@@ -1300,10 +1301,11 @@ export function DashboardNativeView({
                       ))}
                     </ResponsiveGrid>
                   ) : (
-                    // Target screen size or no preview override - use exact layout
+                    // Target screen size or no preview override - grid model: render each
+                    // widget at its own (x,y,w,h) with gravity-up, matching the editor.
                     <GridLayout
                       className="dashboard-grid"
-                      layout={modifiedLayout}
+                      layout={compactVertical(modifiedLayout, effectiveScreenConfig.cols)}
                       cols={effectiveScreenConfig.cols}
                       rowHeight={20}
                       width={actualContainerWidth}
@@ -1312,13 +1314,12 @@ export function DashboardNativeView({
                       }}
                       isDraggable={false}
                       isResizable={false}
-                      compactType={null}
-                      preventCollision={true}
+                      compactType="vertical"
+                      preventCollision={false}
                       allowOverlap={false}
                       margin={[8, 8]}
                       containerPadding={[8, 8]}
                       autoSize={true}
-                      verticalCompact={false}
                     >
                       {modifiedLayout.map((layoutItem: any) => (
                         <div key={layoutItem.i} className="dashboard-item">
