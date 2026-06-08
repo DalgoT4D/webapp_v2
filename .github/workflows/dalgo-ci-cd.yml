@@ -151,6 +151,8 @@ jobs:
             NEXT_PUBLIC_AIRBYTE_URL=${{ secrets.NEXT_PUBLIC_AIRBYTE_URL }}
             NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
+            NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
+            NEXT_PUBLIC_POSTHOG_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
 
       - name: Deploy to staging
         uses: ./.github/actions/deploy

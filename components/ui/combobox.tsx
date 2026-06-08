@@ -28,6 +28,7 @@ interface ComboboxBaseProps {
   className?: string;
   id?: string;
   renderItem?: (item: ComboboxItem, isSelected: boolean, searchQuery: string) => React.ReactNode;
+  footer?: React.ReactNode;
 }
 
 interface SingleComboboxProps extends ComboboxBaseProps {
@@ -244,6 +245,7 @@ function SingleComboboxInner({
   autoFocus = false,
   compact = false,
   renderItem,
+  footer,
 }: SingleComboboxProps) {
   const [open, setOpen] = React.useState(autoFocus);
   const [search, setSearch] = React.useState('');
@@ -387,6 +389,8 @@ function SingleComboboxInner({
       <PopoverContent
         className="p-0 shadow-lg border border-gray-200"
         align="start"
+        side="bottom"
+        collisionBoundary={[] as Element[]}
         sideOffset={4}
         onOpenAutoFocus={(e) => e.preventDefault()}
         onFocusOutside={(e) => e.preventDefault()}
@@ -464,6 +468,7 @@ function SingleComboboxInner({
             })
           )}
         </div>
+        {footer && <div className="border-t px-3 py-2">{footer}</div>}
       </PopoverContent>
     </Popover>
   );
@@ -666,6 +671,8 @@ function MultiComboboxInner({
       <PopoverContent
         className="p-0 shadow-lg border border-gray-200"
         align="start"
+        side="bottom"
+        collisionBoundary={[] as Element[]}
         sideOffset={4}
         onOpenAutoFocus={(e) => e.preventDefault()}
         onFocusOutside={(e) => e.preventDefault()}

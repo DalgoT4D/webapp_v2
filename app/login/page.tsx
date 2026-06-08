@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import { AnimatedBackgroundSimple } from '@/components/ui/animated-background-simple';
 import { apiPost } from '@/lib/api';
 import { useAuthStore, type OrgUser } from '@/stores/authStore';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 
@@ -50,6 +52,7 @@ function LoginForm() {
 
       // Cookies are set automatically by the server
       setAuthenticated(true);
+      trackEvent(ANALYTICS_EVENTS.USER_LOGGED_IN);
 
       // Redirect to impact page - AuthGuard will handle authentication
     } catch (error: any) {

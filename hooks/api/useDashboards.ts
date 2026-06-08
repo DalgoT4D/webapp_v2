@@ -1,5 +1,7 @@
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete, apiPublicGet } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type { DashboardTab } from '@/types/dashboard';
 
 // API response shape for a tab (same as DashboardTab from types)
@@ -8,13 +10,12 @@ export type DashboardTabData = DashboardTab;
 export interface Dashboard {
   id: number;
   title: string;
+  description?: string;
   dashboard_type: 'native' | 'superset';
   grid_columns: number;
   target_screen_size?: 'desktop' | 'tablet' | 'mobile' | 'a4'; // Target screen size for design
   filter_layout?: 'vertical' | 'horizontal'; // Filter layout position
-  layout_config: any;
   responsive_layouts?: any; // Optional responsive layouts for different breakpoints
-  components: any;
   tabs: DashboardTabData[];
   is_published: boolean;
   published_at?: string;
@@ -235,7 +236,12 @@ export async function duplicateDashboard(dashboardId: number): Promise<Dashboard
 
 // Dashboard sharing functions
 export async function updateDashboardSharing(dashboardId: number, data: { is_public: boolean }) {
-  return apiPut(`/api/dashboards/${dashboardId}/share/`, data);
+  const result = await apiPut(`/api/dashboards/${dashboardId}/share/`, data);
+  trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, {
+    dashboard_id: dashboardId,
+    is_public: data.is_public,
+  });
+  return result;
 }
 
 export async function getDashboardSharingStatus(dashboardId: number) {

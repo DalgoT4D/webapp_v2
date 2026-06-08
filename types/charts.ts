@@ -11,9 +11,11 @@ export type ChartType = (typeof ChartTypes)[keyof typeof ChartTypes];
 
 // Chart metric configuration for multiple metrics on bar/line charts
 export interface ChartMetric {
-  column: string | null; // null for COUNT(*) operations
-  aggregation: string; // SUM, COUNT, AVG, MAX, MIN, etc.
+  column?: string | null; // null for COUNT(*) operations
+  aggregation?: string | null; // null for expression metrics
   alias?: string; // Display name for the metric
+  column_expression?: string; // Raw SQL expression (mutually exclusive with column + aggregation)
+  saved_metric_id?: number; // Reference to a saved Metric (resolved at query time)
 }
 
 // Chart dimension configuration for table charts with drill-down support

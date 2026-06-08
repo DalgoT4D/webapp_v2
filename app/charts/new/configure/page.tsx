@@ -43,6 +43,8 @@ import {
   mergeTableColumnFormatting,
   resolveTableColumnOrder,
 } from '@/lib/chart-payload-utils';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -275,7 +277,8 @@ function ConfigureChartPageContent() {
       if (formData.metrics && formData.metrics.length > 0) {
         return formData.metrics.every(
           (metric) =>
-            metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+            metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
         );
       }
       return false;
@@ -292,7 +295,9 @@ function ConfigureChartPageContent() {
           formData.dimension_column &&
           formData.metrics.every(
             (metric) =>
-              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+              metric.column_expression ||
+              (metric.aggregation &&
+                (metric.aggregation.toLowerCase() === 'count' || metric.column))
           )
         );
       }
@@ -838,7 +843,9 @@ function ConfigureChartPageContent() {
           formData.dimension_column &&
           formData.metrics.every(
             (metric) =>
-              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+              metric.column_expression ||
+              (metric.aggregation &&
+                (metric.aggregation.toLowerCase() === 'count' || metric.column))
           )
         );
       }
@@ -919,6 +926,7 @@ function ConfigureChartPageContent() {
 
     try {
       const result = await createChart(chartData);
+      trackEvent(ANALYTICS_EVENTS.CHART_CREATED, { chart_type: chartData.chart_type });
       // Reset unsaved changes state after successful save
       setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');

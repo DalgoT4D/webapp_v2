@@ -46,6 +46,8 @@ import { AlertCircle } from 'lucide-react';
 
 import { deepEqual } from '@/lib/form-utils';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type {
   ChartCreate,
   ChartUpdate,
@@ -461,7 +463,9 @@ function EditChartPageContent() {
           formData.dimension_column &&
           formData.metrics.every(
             (metric) =>
-              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+              metric.column_expression ||
+              (metric.aggregation &&
+                (metric.aggregation.toLowerCase() === 'count' || metric.column))
           )
         );
       }
@@ -1148,7 +1152,9 @@ function EditChartPageContent() {
           formData.dimension_column &&
           formData.metrics.every(
             (metric) =>
-              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+              metric.column_expression ||
+              (metric.aggregation &&
+                (metric.aggregation.toLowerCase() === 'count' || metric.column))
           )
         );
       }
@@ -1305,6 +1311,7 @@ function EditChartPageContent() {
         id: chartId,
         data: updateData,
       });
+      trackEvent(ANALYTICS_EVENTS.CHART_SAVED);
 
       // Update original data to reflect saved state
       setOriginalFormData({ ...formData });
