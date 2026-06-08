@@ -410,6 +410,16 @@ export function DashboardNativeView({
     setActiveTabId(tabId);
   }, []);
 
+  // After filter panel collapse, ECharts still sees the pre-animation container width.
+  // Wait for the slide transition (duration-300) to finish before firing resize so all
+  // chart instances remeasure against the final layout — 300ms transition + 50ms buffer.
+  const FILTER_PANEL_TRANSITION_MS = 350;
+
+  const handleFiltersCollapseChange = useCallback((collapsed: boolean) => {
+    setIsFiltersCollapsed(collapsed);
+    setTimeout(() => window.dispatchEvent(new Event('resize')), FILTER_PANEL_TRANSITION_MS);
+  }, []);
+
   // Check if we should show tabs (2 or more tabs)
   const shouldShowTabs = tabsData && (tabsData.tabs?.length ?? 0) >= 2;
 
@@ -1177,7 +1187,7 @@ export function DashboardNativeView({
             layout="vertical"
             onFiltersApplied={handleFiltersApplied}
             onFiltersCleared={handleFiltersCleared}
-            onCollapseChange={setIsFiltersCollapsed}
+            onCollapseChange={handleFiltersCollapseChange}
             isPublicMode={isPublicMode}
             publicToken={publicToken}
             initiallyCollapsed={showMinimalHeader || isPublicMode || isReportMode}
