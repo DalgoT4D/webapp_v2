@@ -372,15 +372,6 @@ export function DashboardNativeView({
   const effectiveScreenSize = previewScreenSize || targetScreenSize;
   const effectiveScreenConfig = SCREEN_SIZES[effectiveScreenSize];
 
-  // Grid model: each widget renders at its own (x, y, w, h). Gravity-up compaction closes
-  // any vertical gaps so legacy dashboards (and any with stale gaps) render packed, matching
-  // the editor. View mode supports a "preview different screen size" feature, so cols can
-  // differ from 12.
-  const flowedLayout = useMemo(
-    () => compactVertical(dashboard?.layout_config ?? [], effectiveScreenConfig?.cols ?? 12),
-    [dashboard?.layout_config, effectiveScreenConfig?.cols]
-  );
-
   // Get filter layout from dashboard data (same as edit mode)
   const filterLayout = (dashboard?.filter_layout as 'vertical' | 'horizontal') || 'vertical';
 
