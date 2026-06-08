@@ -62,15 +62,8 @@
   box-shadow: 0 8px 32px rgba(15, 148, 124, 0.15);
 }
 
-/* Superset-style: Subtle blur on other charts when dragging/resizing (legacy mode only) */
-.react-grid-layout:not([data-fluid-flow]):has(.react-draggable-dragging) .react-grid-item:not(.react-draggable-dragging),
-.react-grid-layout:not([data-fluid-flow]):has(.resizing) .react-grid-item:not(.resizing) {
-  filter: blur(1px);
-  opacity: 0.8;
-  transition: filter 200ms ease, opacity 200ms ease;
-}
-
-/* Keep the active item sharp and elevated */
+/* Keep the active item elevated above the others while dragging/resizing.
+   (Other charts are intentionally left untouched — no blur/dim.) */
 .react-grid-layout:has(.react-draggable-dragging) .react-grid-item.react-draggable-dragging,
 .react-grid-layout:has(.resizing) .react-grid-item.resizing {
   filter: none;
