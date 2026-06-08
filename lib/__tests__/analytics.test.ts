@@ -5,6 +5,8 @@ const mockIdentify = jest.fn();
 const mockGroup = jest.fn();
 const mockReset = jest.fn();
 const mockRegister = jest.fn();
+const mockSetPersonProperties = jest.fn();
+const mockGetDistinctId = jest.fn();
 
 jest.mock('posthog-js', () => ({
   __esModule: true,
@@ -14,6 +16,8 @@ jest.mock('posthog-js', () => ({
     group: (...args: unknown[]) => mockGroup(...args),
     reset: (...args: unknown[]) => mockReset(...args),
     register: (...args: unknown[]) => mockRegister(...args),
+    setPersonProperties: (...args: unknown[]) => mockSetPersonProperties(...args),
+    get_distinct_id: (...args: unknown[]) => mockGetDistinctId(...args),
   },
 }));
 
@@ -66,12 +70,30 @@ describe('trackFeatureView', () => {
 });
 
 describe('identifyUser', () => {
-  it('identifies by user_id (string), sends is_internal, registers role, never sends email', () => {
+  it('identifies by user_id, sets is_internal + current_role, registers role, never sends email', () => {
+    mockGetDistinctId.mockReturnValue('42');
     identifyUser(42, 'staff@dalgo.org', { role: 'account-manager' });
-    expect(mockIdentify).toHaveBeenCalledWith('42', { is_internal: true });
+    expect(mockIdentify).toHaveBeenCalledWith('42', {
+      is_internal: true,
+      current_role: 'account-manager',
+    });
     expect(mockRegister).toHaveBeenCalledWith({ role: 'account-manager' });
     const identifyArgs = mockIdentify.mock.calls[0];
     expect(JSON.stringify(identifyArgs)).not.toContain('staff@dalgo.org');
+  });
+  it('resets first when the current distinct_id is an old email identity, then identifies by id', () => {
+    mockGetDistinctId.mockReturnValue('jake@agency.fund');
+    identifyUser(101, 'jake@agency.fund', { role: 'viewer' });
+    expect(mockReset).toHaveBeenCalled();
+    expect(mockIdentify).toHaveBeenCalledWith('101', {
+      is_internal: false,
+      current_role: 'viewer',
+    });
+  });
+  it('does NOT reset when already identified by a numeric id', () => {
+    mockGetDistinctId.mockReturnValue('60');
+    identifyUser(60, 'user@ngo.example', { role: 'admin' });
+    expect(mockReset).not.toHaveBeenCalled();
   });
   it('no-ops when userId is falsy (backend not yet deployed)', () => {
     identifyUser(0, 'staff@dalgo.org', { role: 'admin' });
@@ -80,12 +102,17 @@ describe('identifyUser', () => {
 });
 
 describe('identifyOrg', () => {
-  it('calls posthog.group for the organization group type with enriched props', () => {
+  it('groups by organization and sets current_org_* person properties', () => {
     identifyOrg('ngo-slug', { name: 'NGO Name', plan: 'Free Trial' });
     expect(mockGroup).toHaveBeenCalledWith('organization', 'ngo-slug', {
       name: 'NGO Name',
       slug: 'ngo-slug',
       subscription_plan: 'Free Trial',
+    });
+    expect(mockSetPersonProperties).toHaveBeenCalledWith({
+      current_org_slug: 'ngo-slug',
+      current_org_name: 'NGO Name',
+      current_subscription_plan: 'Free Trial',
     });
   });
 });
