@@ -227,7 +227,7 @@ jobs:
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
             NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
             NEXT_PUBLIC_POSTHOG_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
-            NEXT_PUBLIC_POSTHOG_INGEST_HOST=https://us.i.posthog.com
+            NEXT_PUBLIC_POSTHOG_INGEST_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_INGEST_HOST }}
 
       - name: Deploy to production
         uses: ./.github/actions/deploy
