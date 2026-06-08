@@ -214,50 +214,6 @@ export type FluidFlowItem = {
 };
 
 /**
- * Flow algorithm — arrange items left-to-right, wrap to next row when full.
- *
- * Contract:
- *   - Array order is the source of truth for sequence (input order preserved in output).
- *   - (x, y) is recomputed; w and h are clamped to constraints.
- *   - `gridCols` is the absolute ceiling on `w`; a `maxW` larger than `gridCols` is silently clamped to `gridCols`.
- *   - When `minW > maxW` (caller passed inconsistent constraints), `minW` wins.
- *   - Row height = tallest item in that row. Next row starts at cumulative_y + max_h.
- *   - All non-positional fields are passed through unchanged.
- *
- * Pure function: does not mutate input.
- */
-export function flowLayout<T extends FluidFlowItem>(items: T[], gridCols: number): T[] {
-  const result: T[] = [];
-  let currentX = 0;
-  let currentY = 0;
-  let rowHeight = 0;
-
-  for (const original of items) {
-    const minW = original.minW ?? 1;
-    const maxW = original.maxW ?? gridCols;
-    const minH = original.minH ?? 1;
-    const maxH = original.maxH ?? Number.POSITIVE_INFINITY;
-
-    // gridCols is the absolute ceiling; minW/maxW operate within it. minW wins on conflict.
-    const w = Math.min(gridCols, Math.max(minW, Math.min(maxW, original.w)));
-    const h = Math.max(minH, Math.min(maxH, original.h));
-
-    if (currentX + w > gridCols) {
-      currentY += rowHeight;
-      currentX = 0;
-      rowHeight = 0;
-    }
-
-    result.push({ ...original, x: currentX, y: currentY, w, h });
-
-    currentX += w;
-    rowHeight = Math.max(rowHeight, h);
-  }
-
-  return result;
-}
-
-/**
  * Gravity-up compaction (the grid-model contract).
  *
  * Each item keeps its own (x, w, h); only `y` is recomputed so the item slides up
@@ -266,7 +222,7 @@ export function flowLayout<T extends FluidFlowItem>(items: T[], gridCols: number
  * react-grid-layout's `compactType="vertical"`. Side neighbours (different columns)
  * are never pushed horizontally — they only move up when space opens above them.
  *
- * This replaces the old array-order `flowLayout` model: array order is no longer
+ * This replaces the old array-order flow model: array order is no longer
  * significant, position is owned by each item. Output preserves the input array order
  * (so React keys / diffing stay stable); only `y` values change.
  *
@@ -304,116 +260,6 @@ export function compactVertical<T extends FluidFlowItem>(items: T[], _gridCols: 
  */
 export function bottomY(items: FluidFlowItem[]): number {
   return items.reduce((max, it) => Math.max(max, it.y + it.h), 0);
-}
-
-/**
- * Run a mutation against a layout array, then reflow.
- * Use this for every state change to keep storage and rendering in sync.
- *
- * @example
- *   setLayout(applyMutation(layout, (l) => l.filter((i) => i.i !== id), 12));
- */
-export function applyMutation<T extends FluidFlowItem>(
-  layout: T[],
-  mutate: (l: T[]) => T[],
-  gridCols: number
-): T[] {
-  return flowLayout(mutate(layout), gridCols);
-}
-
-/**
- * Given the *current flowed layout* and a newly-positioned item (from RGL drag),
- * compute the linear index at which the dragged item should be inserted.
- *
- * Two-stage strategy:
- *
- * 1. Containment-based displacement. If the dragged item's bounds fully cover one or
- *    more other items, treat it as a clear "take this slot" intent — even when the
- *    dragged item is much taller/wider than the targets and the center metric below
- *    would silently miss them (e.g. a tall chart dragged over a row of short cards
- *    has its center below the cards' row band). The slot returned is direction-aware:
- *    leftward intent inserts before the first contained item; rightward intent inserts
- *    after the last contained item, so a multi-card row collapses cleanly.
- *
- * 2. Center-based insertion (fallback). Compare the dragged item's center to each
- *    other item's row band and horizontal center. Insert before the first item that
- *    is "after" the cursor in reading order (top-to-bottom, left-to-right).
- *    Direction-aware horizontal tie-break: when the dragged item originally sat
- *    *after* the target in array order (leftward intent), reaching the target's
- *    center is enough to displace it (`<=`). When dragging from before (rightward
- *    intent), the dragged center must strictly pass it (`<`). Without this,
- *    equal-width siblings can never swap leftward — the dragged center clamps at
- *    half-width and exactly matches the target's center (e.g. x=0,w=4 → center=2).
- */
-export function computeInsertionIndex<T extends FluidFlowItem>(
-  layout: T[],
-  draggedItem: { i: string; x: number; y: number; w: number; h: number },
-  _gridCols: number
-): number {
-  const oldIdx = layout.findIndex((it) => it.i === draggedItem.i);
-  const others = layout.filter((it) => it.i !== draggedItem.i);
-  if (others.length === 0) return 0;
-
-  // Stage 1: containment-based displacement.
-  const dx0 = draggedItem.x;
-  const dx1 = draggedItem.x + draggedItem.w;
-  const dy0 = draggedItem.y;
-  const dy1 = draggedItem.y + draggedItem.h;
-  let firstContained = -1;
-  let lastContained = -1;
-  for (let idx = 0; idx < others.length; idx++) {
-    const o = others[idx];
-    if (dx0 <= o.x && dx1 >= o.x + o.w && dy0 <= o.y && dy1 >= o.y + o.h) {
-      if (firstContained === -1) firstContained = idx;
-      lastContained = idx;
-    }
-  }
-  if (firstContained !== -1) {
-    // Direction by comparing the first-contained item's original layout index against oldIdx.
-    const firstOrigIdx = firstContained < oldIdx ? firstContained : firstContained + 1;
-    const draggedFromBefore = oldIdx >= 0 && oldIdx < firstOrigIdx;
-    return draggedFromBefore ? lastContained + 1 : firstContained;
-  }
-
-  // Stage 2: center-based insertion.
-  const dCenterX = draggedItem.x + draggedItem.w / 2;
-  const dCenterY = draggedItem.y + draggedItem.h / 2;
-
-  for (let idx = 0; idx < others.length; idx++) {
-    const o = others[idx];
-    const oRowTop = o.y;
-    const oRowBottom = o.y + o.h;
-    const oCenterX = o.x + o.w / 2;
-
-    // Cursor is clearly above this item's row → insert before it
-    if (dCenterY < oRowTop) return idx;
-
-    // Cursor is in this item's row band (vertically overlaps) → compare horizontally
-    if (dCenterY < oRowBottom) {
-      const oOrigIdx = idx < oldIdx ? idx : idx + 1;
-      const draggedFromBefore = oldIdx >= 0 && oldIdx < oOrigIdx;
-      const passed = draggedFromBefore ? dCenterX < oCenterX : dCenterX <= oCenterX;
-      if (passed) return idx;
-    }
-    // Otherwise the cursor is below this item's row → keep walking
-  }
-  return others.length;
-}
-
-/**
- * Reorder: remove item with given id from layout, insert at targetIndex (in the
- * post-removal array). targetIndex of `layout.length - 1` appends at end.
- */
-export function moveItemToIndex<T extends FluidFlowItem>(
-  layout: T[],
-  id: string,
-  targetIndex: number
-): T[] {
-  const item = layout.find((it) => it.i === id);
-  if (!item) return layout;
-  const without = layout.filter((it) => it.i !== id);
-  const clamped = Math.max(0, Math.min(targetIndex, without.length));
-  return [...without.slice(0, clamped), item, ...without.slice(clamped)];
 }
 
 /**

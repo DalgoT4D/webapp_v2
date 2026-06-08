@@ -1,14 +1,6 @@
 'use client';
 
-import {
-  useState,
-  useEffect,
-  useRef,
-  forwardRef,
-  useImperativeHandle,
-  useCallback,
-  useMemo,
-} from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { useCharts } from '@/hooks/api/useChart';
 import { useRouter } from 'next/navigation';
 import GridLayout from 'react-grid-layout';
