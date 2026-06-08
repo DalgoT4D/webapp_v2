@@ -7,6 +7,8 @@ import { Loader2 } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { ElementaryStatus } from '@/types/data-quality';
 import { TASK_POLL_INTERVAL_MS, KEY_TO_FILENAME } from '@/constants/data-quality';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
   gitPull,
   checkDbtFiles,
@@ -142,6 +144,7 @@ export function ElementarySetup({ onSetupComplete }: ElementarySetupProps) {
         throw new Error('Failed to create EDR deployment');
       }
 
+      trackEvent(ANALYTICS_EVENTS.DATA_QUALITY_SETUP_COMPLETED);
       onSetupComplete();
     } catch (err: unknown) {
       toastError.api(err, 'Setup failed');

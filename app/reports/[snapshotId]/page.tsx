@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,8 @@ import { ReportShareMenu } from '@/components/reports/report-share-menu';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 export default function SnapshotViewerPage() {
   const params = useParams();
@@ -37,6 +39,15 @@ export default function SnapshotViewerPage() {
   const { hasPermission } = useUserPermissions();
   const canEdit = hasPermission('can_edit_dashboards');
   const canShare = hasPermission('can_share_dashboards');
+
+  // Fire REPORT_VIEWED once per mount when the report has successfully loaded
+  const reportViewedTracked = useRef(false);
+  useEffect(() => {
+    if (viewData && !reportViewedTracked.current) {
+      trackEvent(ANALYTICS_EVENTS.REPORT_VIEWED);
+      reportViewedTracked.current = true;
+    }
+  }, [viewData]);
 
   const { states: commentStates, mutate: mutateCommentStates } = useCommentStates(
     isValidId ? parsedId : null

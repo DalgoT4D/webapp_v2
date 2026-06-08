@@ -7,6 +7,8 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { API_BASE_URL } from '@/lib/config';
 import { formatDistanceToNow } from 'date-fns';
 import { LOCK_POLL_INTERVAL_MS } from '@/constants/data-quality';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
   fetchElementaryReport,
   refreshElementaryReport,
@@ -84,6 +86,7 @@ export function ElementaryReport() {
       setIsGenerating(true);
       const response = await refreshElementaryReport();
       if (response.flow_run_id) {
+        trackEvent(ANALYTICS_EVENTS.DATA_QUALITY_REPORT_GENERATED);
         toastSuccess.generic(
           'Your latest report is being generated. This may take a few minutes. Thank you for your patience'
         );
