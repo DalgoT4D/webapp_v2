@@ -25,6 +25,8 @@ import { Combobox } from '@/components/ui/combobox';
 import { useMetrics } from '@/hooks/api/useMetrics';
 import { useTableColumns } from '@/hooks/api/useWarehouse';
 import { createKPI, updateKPI, useProgramTags } from '@/hooks/api/useKPIs';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type { KPI, KPICreate, KPIUpdate } from '@/types/kpis';
 import { DIRECTION_OPTIONS, TIME_GRAIN_OPTIONS, METRIC_TYPE_TAG_OPTIONS } from '@/types/kpis';
 import { cn } from '@/lib/utils';
@@ -289,6 +291,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           program_tags: programTags,
         };
         await createKPI(createData);
+        trackEvent(ANALYTICS_EVENTS.KPI_CREATED);
       }
       onSuccess();
       onOpenChange(false);

@@ -17,6 +17,8 @@ import {
 import { buildFilters } from '@/lib/notifications';
 import type { NotificationTab } from '@/types/notifications';
 import { DEFAULT_PAGE_SIZE, NOTIFICATION_TABS } from '@/constants/notifications';
+import { trackFeatureView } from '@/lib/analytics';
+import { FEATURES } from '@/constants/analytics';
 
 const TAB_TRIGGER_CLASS =
   'relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-gray-500 cursor-pointer data-[state=active]:text-teal-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-teal-600';
@@ -103,6 +105,7 @@ export default function NotificationsPage() {
 
   const handleTabChange = (value: string) => {
     setActiveTab(value as NotificationTab);
+    trackFeatureView(FEATURES.NOTIFICATIONS, { tab: value });
   };
 
   const hasSelection = selectedIds.length > 0;
