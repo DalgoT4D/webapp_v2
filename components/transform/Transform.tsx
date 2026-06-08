@@ -19,6 +19,14 @@ import { UITransformTab } from './ui-transform/UITransformTab';
 import { DBTTransformTab } from './dbt-transform/DBTTransformTab';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { TransformTab } from '@/constants/transform';
+import { trackFeatureView } from '@/lib/analytics';
+import { FEATURES } from '@/constants/analytics';
+
+// Maps internal transform tab values to stable analytics identifiers.
+const TRANSFORM_TAB_ANALYTICS: Record<TransformTab, string> = {
+  [TransformTab.UI]: 'ui',
+  [TransformTab.GITHUB]: 'github_dbt',
+};
 
 export default function Transform() {
   const [workspaceSetup, setWorkspaceSetup] = useState(false);
@@ -102,6 +110,8 @@ export default function Transform() {
   const handleTabChange = async (value: string) => {
     const tabValue = value as TransformTab;
     setActiveTab(tabValue);
+
+    trackFeatureView(FEATURES.TRANSFORM, { tab: TRANSFORM_TAB_ANALYTICS[tabValue] });
 
     // Persist tab preference to backend (matching v1 cross-device sync)
     try {

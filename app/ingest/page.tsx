@@ -6,6 +6,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { WarehouseDisplay } from '@/components/ingest/warehouse/warehouse-display';
 import { SourceList } from '@/components/ingest/sources/SourceList';
 import { ConnectionsList } from '@/components/connections/connections-list';
+import { trackFeatureView } from '@/lib/analytics';
+import { FEATURES } from '@/constants/analytics';
 
 const DEFAULT_TAB = 'connections';
 const TABS = ['connections', 'sources', 'warehouse'] as const;
@@ -22,6 +24,7 @@ function IngestPageContent() {
 
   const handleTabChange = useCallback(
     (value: string) => {
+      trackFeatureView(FEATURES.INGEST, { tab: value });
       const params = new URLSearchParams(searchParams.toString());
       params.set('tab', value);
       router.push(`/ingest?${params.toString()}`);
