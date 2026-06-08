@@ -1,5 +1,5 @@
 import posthog from 'posthog-js';
-import type { AnalyticsEvent, Feature } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, type AnalyticsEvent, type Feature } from '@/constants/analytics';
 
 // Team email domains. Users on these are tagged is_internal so they can be
 // filtered out of PostHog dashboards (they are NOT excluded from capture).
@@ -17,7 +17,7 @@ export function trackEvent(event: AnalyticsEvent, properties?: Record<string, un
 // Breadth event for feature-adoption: one fixed event, the feature/tab vary as
 // properties (keeps the PostHog event list filterable).
 export function trackFeatureView(feature: Feature, opts?: { tab?: string }): void {
-  posthog.capture('feature:viewed', {
+  trackEvent(ANALYTICS_EVENTS.FEATURE_VIEWED, {
     feature,
     ...(opts?.tab ? { tab: opts.tab } : {}),
   });
