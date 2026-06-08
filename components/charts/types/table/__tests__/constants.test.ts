@@ -1,8 +1,8 @@
 import { PRESET_COLORS, CONDITIONAL_OPERATORS, HEX_COLOR_REGEX } from '../constants';
 
 describe('Table chart constants', () => {
-  it('has exactly 8 preset colors', () => {
-    expect(PRESET_COLORS).toHaveLength(8);
+  it('has exactly 7 preset colors', () => {
+    expect(PRESET_COLORS).toHaveLength(7);
   });
 
   it('all preset colors are valid hex codes', () => {

@@ -8,10 +8,10 @@ describe('ColorPicker', () => {
     mockOnChange.mockClear();
   });
 
-  it('renders 8 preset color swatches', () => {
+  it('renders 7 preset color swatches', () => {
     render(<ColorPicker value="#C8E6C9" onChange={mockOnChange} />);
     const swatches = screen.getAllByTestId(/^color-swatch-/);
-    expect(swatches).toHaveLength(8);
+    expect(swatches).toHaveLength(7);
   });
 
   it('calls onChange when a preset swatch is clicked', () => {

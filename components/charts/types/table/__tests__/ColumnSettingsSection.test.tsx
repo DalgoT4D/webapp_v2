@@ -49,7 +49,7 @@ describe('ColumnSettingsSection', () => {
 
   it('renders section heading', () => {
     render(<ColumnSettingsSection {...defaultProps} />);
-    expect(screen.getByText('Columns')).toBeInTheDocument();
+    expect(screen.getByText('Column formatting')).toBeInTheDocument();
   });
 
   it('renders all columns with drag handles and alignment dropdowns', () => {
