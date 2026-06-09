@@ -12,6 +12,7 @@ interface SuccessResponse<T> {
 export interface OrgDashboardAIChatSettings {
   feature_flag_enabled: boolean;
   ai_data_sharing_enabled: boolean;
+  dashboard_chat_share_pii_with_llms: boolean;
   ai_data_sharing_consented_by: string | null;
   ai_data_sharing_consented_at: string | null;
   org_context_markdown: string;
@@ -71,6 +72,7 @@ export interface DashboardChatBootstrap {
 
 export interface UpdateOrgDashboardAIChatPayload {
   ai_data_sharing_enabled?: boolean;
+  dashboard_chat_share_pii_with_llms?: boolean;
   org_context_markdown?: string;
 }
 
@@ -81,6 +83,38 @@ export interface UpdateDashboardAIContextPayload {
 export interface TriggerDashboardMetadataBuildPayload {
   dashboard_id?: number;
   builder_model?: string;
+}
+
+export interface DashboardChatPIIColumn {
+  dashboard_id: number;
+  dashboard_title: string;
+  schema_name: string;
+  table_name: string;
+  full_table_name: string;
+  model_name: string;
+  column_name: string;
+  data_type: string;
+  description: string;
+  semantic_role: string;
+  value_semantics: string;
+  inferred_pii: boolean;
+  override_pii: boolean | null;
+  effective_pii: boolean;
+}
+
+export interface DashboardChatPIIColumnsResponse {
+  columns: DashboardChatPIIColumn[];
+  total_column_count: number;
+  pii_column_count: number;
+}
+
+export interface UpdateDashboardChatPIIOverridesPayload {
+  overrides: Array<{
+    schema_name: string;
+    table_name: string;
+    column_name: string;
+    pii: boolean;
+  }>;
 }
 
 export function useDashboardAIChatSettings(enabled = true) {
@@ -151,6 +185,23 @@ export function useDashboardMetadataStatus(enabled = true) {
   };
 }
 
+export function useDashboardPIIColumns(enabled = true) {
+  const { data, error, isLoading, mutate } = useSWR<DashboardChatPIIColumnsResponse>(
+    enabled ? '/api/orgpreferences/ai-dashboard-chat/pii-columns' : null,
+    apiGet,
+    {
+      revalidateOnFocus: false,
+    }
+  );
+
+  return {
+    piiColumns: data,
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
 export function useDashboardChatBootstrap(dashboardId: number | null, enabled = true) {
   const { data, error, isLoading, mutate } = useSWR<DashboardChatBootstrap>(
     enabled && dashboardId ? `/api/dashboards/${dashboardId}/chat-bootstrap/` : null,
@@ -211,9 +262,23 @@ export function useDashboardAIChatActions() {
     }
   };
 
+  const updatePIIColumnOverrides = async (payload: UpdateDashboardChatPIIOverridesPayload) => {
+    try {
+      return (await apiPut(
+        '/api/orgpreferences/ai-dashboard-chat/pii-columns',
+        payload
+      )) as DashboardChatPIIColumnsResponse;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update PII column review';
+      toast.error(message);
+      throw error;
+    }
+  };
+
   return {
     updateSettings,
     updateDashboardContext,
     buildDashboardMetadata,
+    updatePIIColumnOverrides,
   };
 }
