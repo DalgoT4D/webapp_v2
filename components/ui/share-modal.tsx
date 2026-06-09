@@ -341,15 +341,14 @@ export function ShareModal({
                     onClick={handleSendEmails}
                     disabled={isSending || recipientEmails.length === 0}
                     className="w-full"
-                    variant="ghost"
-                    style={{ backgroundColor: 'var(--primary)' }}
+                    variant="primary"
                   >
                     {isSending ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
                       <Send className="h-4 w-4 mr-2" />
                     )}
-                    <span className="text-white">
+                    <span>
                       {isSending
                         ? 'Sending...'
                         : `Send to ${recipientEmails.length} recipient${recipientEmails.length !== 1 ? 's' : ''}`}

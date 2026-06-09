@@ -374,12 +374,13 @@ describe('Pipeline Utilities', () => {
 
   describe('Task Utilities', () => {
     it('handles task ordering and validation', () => {
-      // getTaskOrder - system commands
+      // getTaskOrder - system commands (matches backend TRANSFORM_TASKS_SEQ)
       expect(getTaskOrder('git-pull', 'system')).toBe(1);
       expect(getTaskOrder('dbt-clean', 'system')).toBe(2);
       expect(getTaskOrder('dbt-deps', 'system')).toBe(3);
-      expect(getTaskOrder('dbt-run', 'system')).toBe(4);
-      expect(getTaskOrder('dbt-test', 'system')).toBe(7);
+      expect(getTaskOrder('dbt-seed', 'system')).toBe(4);
+      expect(getTaskOrder('dbt-run', 'system')).toBe(5);
+      expect(getTaskOrder('dbt-test', 'system')).toBe(6);
 
       // getTaskOrder - custom commands
       expect(getTaskOrder('dbt-run', 'client')).toBe(5);

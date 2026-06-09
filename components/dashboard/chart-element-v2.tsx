@@ -51,6 +51,7 @@ import {
   applyLineBarChartFormatting,
   applyLineBarDateFormatting,
 } from '@/lib/chart-formatting-utils';
+import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 import { ChartTypes, type ChartDataPayload } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart, MapChart } from 'echarts/charts';
@@ -1022,6 +1023,12 @@ export function ChartElementV2({
         applyLineBarDateFormatting(modifiedConfig, customizations);
       }
 
+      // Apply stacked bar data labels (shows total at top of each stacked bar)
+      if (isBarChart) {
+        const stackedConfig = applyStackedBarLabels(modifiedConfig, customizations);
+        Object.assign(modifiedConfig, stackedConfig);
+      }
+
       // Set chart option with animation disabled for better performance
       chartInstance.current.setOption(modifiedConfig, {
         notMerge: true,
@@ -1098,6 +1105,18 @@ export function ChartElementV2({
     let resizeObserver: ResizeObserver | null = null;
     let rafId: number | null = null;
     let containerSizeTimeoutId: NodeJS.Timeout | null = null;
+    // Trailing-debounce timer + latest size for the "active resize" path (see below).
+    let activeResizeTimer: NodeJS.Timeout | null = null;
+    let latestSize = { width: 0, height: 0 };
+    // While a chart is being dragged-to-resize, the ResizeObserver fires ~60×/sec.
+    // Re-laying-out ECharts on every one of those frames competes with react-grid-layout's
+    // placeholder/handle updates on the main thread and makes the resize feel laggy
+    // ("ghost lags"). Instead we trailing-debounce the ECharts resize: during continuous
+    // dragging the timer keeps resetting so ECharts never re-layouts mid-motion (snappy
+    // ghost), and it fires only when the pointer pauses or the drag ends — always using the
+    // latest real container size, so the chart still re-fits correctly. Idle changes (mount,
+    // screen-size switch, neighbour reflow) resize immediately.
+    const ACTIVE_RESIZE_SETTLE_MS = 60;
 
     if (chartRef.current && window.ResizeObserver) {
       resizeObserver = new ResizeObserver((entries) => {
@@ -1113,20 +1132,33 @@ export function ChartElementV2({
         for (const entry of entries) {
           const { width, height } = entry.contentRect;
           if (width > 0 && height > 0) {
-            // IMMEDIATE: Visual resize via RAF - no React state, no re-renders
-            // This makes the chart boundaries move in real-time (snappy)
-            rafId = requestAnimationFrame(() => {
-              if (chartInstance.current) {
-                chartInstance.current.resize({
-                  width: Math.floor(width),
-                  height: Math.floor(height),
-                });
-              }
-            });
+            latestSize = { width, height };
 
-            // DEBOUNCED: Update containerSize state only when NOT actively resizing
-            // Skip state updates during resize to prevent re-renders
-            if (!isResizingRef.current) {
+            if (isResizingRef.current) {
+              // ACTIVE RESIZE: trailing-debounce so ECharts doesn't re-layout every frame.
+              if (activeResizeTimer) {
+                clearTimeout(activeResizeTimer);
+              }
+              activeResizeTimer = setTimeout(() => {
+                if (chartInstance.current) {
+                  chartInstance.current.resize({
+                    width: Math.floor(latestSize.width),
+                    height: Math.floor(latestSize.height),
+                  });
+                }
+              }, ACTIVE_RESIZE_SETTLE_MS);
+            } else {
+              // IDLE: immediate visual resize via RAF — no React state, no re-renders
+              rafId = requestAnimationFrame(() => {
+                if (chartInstance.current) {
+                  chartInstance.current.resize({
+                    width: Math.floor(width),
+                    height: Math.floor(height),
+                  });
+                }
+              });
+
+              // DEBOUNCED: update containerSize state once the resize settles
               containerSizeTimeoutId = setTimeout(() => {
                 setContainerSize((prev) => {
                   if (prev.width !== width || prev.height !== height) {
@@ -1152,6 +1184,9 @@ export function ChartElementV2({
       }
       if (containerSizeTimeoutId) {
         clearTimeout(containerSizeTimeoutId);
+      }
+      if (activeResizeTimer) {
+        clearTimeout(activeResizeTimer);
       }
     };
   }, []); // No dependencies to avoid re-creating observer

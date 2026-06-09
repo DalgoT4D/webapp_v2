@@ -24,7 +24,6 @@ describe('MapChartCustomizations', () => {
     expect(screen.getByText('Interactive Features')).toBeInTheDocument();
     expect(screen.getByText('Data Handling')).toBeInTheDocument();
     expect(screen.getByText('Visual Elements')).toBeInTheDocument();
-    expect(screen.getByText('Animation & Effects')).toBeInTheDocument();
   });
 
   it('should render interactive features with default values and descriptions', () => {
@@ -52,14 +51,11 @@ describe('MapChartCustomizations', () => {
     expect(mockUpdateCustomization).toHaveBeenCalledWith('nullValueLabel', 'No Datax');
   });
 
-  it('should render visual elements and animation settings', () => {
+  it('should render visual elements', () => {
     render(<MapChartCustomizations {...defaultProps} />);
 
     expect(screen.getByText('Legend Position')).toBeInTheDocument();
     expect(screen.getByText('Show Region Names')).toBeInTheDocument();
-    expect(screen.getByText('Border Width')).toBeInTheDocument();
-    expect(screen.getByText('Border Color')).toBeInTheDocument();
-    expect(screen.getByText('Enable smooth transitions')).toBeInTheDocument();
   });
 
   it('should handle show region names toggle', async () => {

@@ -14,6 +14,8 @@ import { StatisticsPane } from './StatisticsPane';
 import { toast } from 'sonner';
 import { EXPLORE_DIMENSIONS, ExploreTab } from '@/constants/explore';
 import { Database } from 'lucide-react';
+import { trackFeatureView, trackEvent } from '@/lib/analytics';
+import { FEATURES, ANALYTICS_EVENTS } from '@/constants/analytics';
 
 import 'react-resizable/css/styles.css';
 
@@ -56,6 +58,7 @@ export function Explore() {
     (schema: string, table: string) => {
       setSelectedTable({ schema, table });
       setActiveTab(ExploreTab.PREVIEW);
+      trackEvent(ANALYTICS_EVENTS.EXPLORE_TABLE_PREVIEWED);
     },
     [setSelectedTable, setActiveTab]
   );
@@ -66,6 +69,7 @@ export function Explore() {
       const freshTables = await syncWarehouseTables();
       mutateTables(freshTables, false);
       toast.success('Tables synced with warehouse');
+      trackEvent(ANALYTICS_EVENTS.EXPLORE_SYNCED);
     } catch (error) {
       toast.error('Failed to sync tables');
       console.error('Sync error:', error);
@@ -127,7 +131,11 @@ export function Explore() {
           {selectedTable ? (
             <Tabs
               value={activeTab}
-              onValueChange={(value) => setActiveTab(value as ExploreTab)}
+              onValueChange={(value) => {
+                const tabValue = value as ExploreTab;
+                setActiveTab(tabValue);
+                trackFeatureView(FEATURES.EXPLORE, { tab: tabValue });
+              }}
               className="flex flex-col h-full"
             >
               <div className="flex-shrink-0 border-y px-6" style={{ background: '#F5FAFA' }}>

@@ -45,6 +45,7 @@ jest.mock('@/hooks/usePdfDownload', () => ({
 jest.mock('@/components/dashboard/dashboard-native-view', () => ({
   DashboardNativeView: ({
     beforeContent,
+    topRightContent,
   }: {
     dashboardId: number;
     dashboardData: unknown;
@@ -52,8 +53,10 @@ jest.mock('@/components/dashboard/dashboard-native-view', () => ({
     frozenChartConfigs: unknown;
     hideHeader: boolean;
     beforeContent?: React.ReactNode;
+    topRightContent?: React.ReactNode;
   }) => (
     <div data-testid="dashboard-native-view">
+      {topRightContent}
       {beforeContent}
       <div>Mock Dashboard View</div>
     </div>
@@ -244,11 +247,15 @@ describe('SnapshotViewerPage', () => {
       expect(textarea.value).toBe('This is the initial summary.');
     });
 
-    it('renders action buttons (download, share, save)', () => {
+    it('renders action buttons (download, share, save)', async () => {
+      const user = userEvent.setup();
       renderPage();
 
       expect(screen.getByTestId('report-download-btn')).toBeInTheDocument();
       expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
+
+      // Save button only appears after entering edit mode
+      await user.click(screen.getByTestId('summary-edit-btn'));
       expect(screen.getByTestId('report-save-btn')).toBeInTheDocument();
     });
   });
@@ -345,10 +352,16 @@ describe('SnapshotViewerPage', () => {
 
     it('shows success toast after successful save', async () => {
       const user = userEvent.setup();
-      (useReportsHook.updateSnapshot as jest.Mock).mockResolvedValue({ summary: 'test' });
+      (useReportsHook.updateSnapshot as jest.Mock).mockResolvedValue({
+        summary: 'Updated summary',
+      });
 
       renderPage();
 
+      await user.click(screen.getByTestId('summary-edit-btn'));
+      const textarea = screen.getByTestId('report-summary-textarea') as HTMLTextAreaElement;
+      await user.clear(textarea);
+      await user.type(textarea, 'Updated summary');
       const saveBtn = screen.getByTestId('report-save-btn');
       await user.click(saveBtn);
 
@@ -363,6 +376,10 @@ describe('SnapshotViewerPage', () => {
 
       renderPage();
 
+      await user.click(screen.getByTestId('summary-edit-btn'));
+      const textarea = screen.getByTestId('report-summary-textarea') as HTMLTextAreaElement;
+      await user.clear(textarea);
+      await user.type(textarea, 'Updated summary');
       const saveBtn = screen.getByTestId('report-save-btn');
       await user.click(saveBtn);
 
@@ -501,16 +518,19 @@ describe('SnapshotViewerPage', () => {
       expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
     });
 
-    it('shows all action buttons when user has full permissions and is creator', () => {
+    it('shows all action buttons when user has full permissions and is creator', async () => {
+      const user = userEvent.setup();
       mockHasPermission.mockReturnValue(true);
       mockGetCurrentUserEmail.mockReturnValue('user@test.com');
       renderPage();
 
       expect(screen.getByTestId('report-download-btn')).toBeInTheDocument();
       expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
-      expect(screen.getByTestId('report-save-btn')).toBeInTheDocument();
       expect(screen.getByTestId('summary-edit-btn')).toBeInTheDocument();
       expect(screen.getByTestId('mock-comment-popover')).toBeInTheDocument();
+      // Save button only appears after entering edit mode
+      await user.click(screen.getByTestId('summary-edit-btn'));
+      expect(screen.getByTestId('report-save-btn')).toBeInTheDocument();
     });
   });
 

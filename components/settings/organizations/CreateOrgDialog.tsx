@@ -57,7 +57,7 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
     end_date: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const { refreshOrganizations } = useAuthStore();
+  const { refreshOrganizations, setSelectedOrg } = useAuthStore();
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -118,12 +118,20 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
         end_date: formData.end_date || undefined,
       };
 
-      await createOrganization(payload);
-
-      await refreshOrganizations();
+      const response = await createOrganization(payload);
 
       handleClose();
-    } catch (error) {
+      await refreshOrganizations()
+        .then(() => {
+          if (response?.slug) {
+            setSelectedOrg(response.slug);
+          }
+          window.location.reload();
+        })
+        .catch(() => {
+          // refreshOrganizations failed, org switch skipped
+        });
+    } catch {
       // Error is handled in the hook
     } finally {
       setIsSubmitting(false);

@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { ReadyState } from 'react-use-websocket';
 import { Loader2 } from 'lucide-react';
 import {
@@ -14,13 +16,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Combobox, highlightText } from '@/components/ui/combobox';
+import type { ComboboxItem } from '@/components/ui/combobox';
 import { useSources } from '@/hooks/api/useSources';
 import { useConnection, createConnection, updateConnection } from '@/hooks/api/useConnections';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
@@ -47,6 +44,16 @@ export function ConnectionForm({ mode, connectionId, onClose, onSuccess }: Conne
 
   const { data: sources } = useSources();
   const { data: connection } = useConnection(!isCreate ? (connectionId ?? null) : null);
+
+  const sourceItems = React.useMemo<ComboboxItem[]>(
+    () =>
+      sources.map((source) => ({
+        value: source.sourceId,
+        label: source.name,
+        icon: source.icon,
+      })),
+    [sources]
+  );
 
   const [name, setName] = useState('');
   const [destinationSchema, setDestinationSchema] = useState('staging');
@@ -177,6 +184,7 @@ export function ConnectionForm({ mode, connectionId, onClose, onSuccess }: Conne
           syncCatalog: discoveredCatalog!,
           catalogId: catalogId || undefined,
         });
+        trackEvent(ANALYTICS_EVENTS.CONNECTION_CREATED);
         toastSuccess.created('Connection');
       } else if (connectionId) {
         await updateConnection(connectionId, {
@@ -266,35 +274,35 @@ export function ConnectionForm({ mode, connectionId, onClose, onSuccess }: Conne
           {/* Source selection (create) or read-only display (edit/view) */}
           {isCreate ? (
             <div>
-              <label htmlFor="source-select" className="text-[15px] font-medium">
+              <label htmlFor="source-select-input" className="text-[15px] font-medium">
                 Source <span className="text-destructive">*</span>
               </label>
-              <Select
-                value={selectedSourceId ?? ''}
-                onValueChange={handleSourceChange}
-                disabled={isSaving}
-              >
-                <SelectTrigger id="source-select" className="mt-1.5" data-testid="source-select">
-                  <SelectValue placeholder="Select a source" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sources.map((source) => (
-                    <SelectItem key={source.sourceId} value={source.sourceId}>
-                      <div className="flex items-center gap-2">
-                        <img
-                          src={source.icon || '/icons/connection.svg'}
-                          alt=""
-                          className="h-4 w-4"
-                          onError={(e) => {
-                            e.currentTarget.src = '/icons/connection.svg';
-                          }}
-                        />
-                        {source.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="mt-1.5">
+                <Combobox
+                  id="source-select"
+                  items={sourceItems}
+                  value={selectedSourceId ?? ''}
+                  onValueChange={handleSourceChange}
+                  placeholder="Select a source"
+                  searchPlaceholder="Search sources..."
+                  emptyMessage="No sources found."
+                  disabled={isSaving}
+                  renderItem={(item, _isSelected, searchQuery) => (
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={(item.icon as string) || '/icons/connection.svg'}
+                        alt=""
+                        className="h-4 w-4 flex-shrink-0"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.src = '/icons/connection.svg';
+                        }}
+                      />
+                      <span className="text-sm">{highlightText(item.label, searchQuery)}</span>
+                    </div>
+                  )}
+                />
+              </div>
             </div>
           ) : connection ? (
             <div>
@@ -366,9 +374,8 @@ export function ConnectionForm({ mode, connectionId, onClose, onSuccess }: Conne
               Cancel
             </Button>
             <Button
-              variant="ghost"
-              className="text-white hover:opacity-90 shadow-xs uppercase"
-              style={{ backgroundColor: 'var(--primary)' }}
+              variant="primary"
+              className="uppercase"
               onClick={handleSave}
               disabled={
                 isSaving || !name.trim() || !hasSelectedStreams || (isCreate && !selectedSourceId)

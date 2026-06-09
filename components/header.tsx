@@ -26,6 +26,8 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuthStore } from '@/stores/authStore';
 import { apiPost } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useUnreadCount } from '@/hooks/api/useNotifications';
 import { CreateOrgDialog } from '@/components/settings/organizations/CreateOrgDialog';
@@ -87,27 +89,11 @@ export function Header({
     setOrgSwitching(true);
 
     // Update the selected org in store and localStorage
+    trackEvent(ANALYTICS_EVENTS.ORG_SWITCHED, { org_slug: orgSlug });
     setSelectedOrg(orgSlug);
 
-    try {
-      // Show loader for minimum 2 seconds to give substantial feel
-      const minDelay = new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Wait for minimum delay then refresh
-      await minDelay;
-
-      // Refresh the page to trigger data refetch with new org context
-      // This is essential for all API calls to use the new org header
-      router.refresh();
-
-      // Clear switching state after a slight delay to allow refresh to complete
-      setTimeout(() => {
-        setOrgSwitching(false);
-      }, 500);
-    } catch (error) {
-      // If anything goes wrong, clear the switching state
-      setOrgSwitching(false);
-    }
+    // Full reload ensures all API calls use the new org header cleanly
+    window.location.reload();
   };
 
   const handleLogout = async () => {
@@ -120,6 +106,7 @@ export function Header({
     }
 
     // Clear local state and redirect
+    trackEvent(ANALYTICS_EVENTS.USER_LOGGED_OUT);
     logout();
   };
 

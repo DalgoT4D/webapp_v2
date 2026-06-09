@@ -53,11 +53,11 @@ export function ReportShareMenu({ snapshotId, reportTitle }: ReportShareMenuProp
         <DropdownMenuTrigger asChild>
           <Button
             data-testid="report-share-btn"
-            variant="ghost"
-            size="icon"
+            variant="outline"
+            size="sm"
             aria-label="Share report"
           >
-            <Share2 className="h-4 w-4" />
+            <Share2 className="w-4 h-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">

@@ -14,6 +14,8 @@ import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import type * as echarts from 'echarts';
 import type { ChartDataPayload } from '@/types/charts';
 import { apiPostBinary } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface ChartExportDropdownProps {
   chartTitle: string;
@@ -125,6 +127,7 @@ export function ChartExportDropdown({
         });
       }
 
+      trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, { format });
       onExportComplete?.();
     } catch (error: any) {
       console.error('Export error:', error);

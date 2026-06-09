@@ -4,6 +4,7 @@ import * as React from 'react';
 import { format } from 'date-fns';
 import { CalendarIcon, Pencil } from 'lucide-react';
 import type { Matcher } from 'react-day-picker';
+import { useState, useEffect } from 'react';
 
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -64,6 +65,13 @@ export function DatePicker({
   onEditTextChange,
   onEditSubmit,
 }: DatePickerProps) {
+  const [month, setMonth] = useState<Date | undefined>(selected);
+
+  // When selected date changes externally, navigate calendar to that month
+  useEffect(() => {
+    if (selected) setMonth(selected);
+  }, [selected]);
+
   // Build the disabled matcher for Calendar
   const calendarDisabled = React.useMemo(() => {
     const matchers: Matcher[] = [];
@@ -143,6 +151,8 @@ export function DatePicker({
             disabled={calendarDisabled}
             captionLayout="dropdown"
             fixedWeeks
+            month={month}
+            onMonthChange={setMonth}
           />
 
           {showFooter && (

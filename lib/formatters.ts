@@ -105,6 +105,33 @@ export function formatDate(value: string, option: DateFormatOptions): string {
   return dateFnsFormat(date, pattern);
 }
 
+/**
+ * Compact display format for KPI values.
+ * null/undefined → em dash, ≥1M → "1.2M", ≥1K → locale integer, else up to 1 decimal.
+ */
+export function formatMetricValue(v: number | null | undefined): string {
+  if (v === null || v === undefined) return '\u2014';
+  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(v) >= 1_000) return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  return v.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
+/**
+ * Compute period-over-period percentage changes for a list of values.
+ * Returns an array of the same length where each element is the % change
+ * from the previous value, or null if it can't be computed.
+ *
+ * Example: [100, 120, 90] → [null, 20, -25]
+ */
+export function computePopChanges(values: (number | null)[]): (number | null)[] {
+  return values.map((current, i) => {
+    if (i === 0) return null;
+    const previous = values[i - 1];
+    if (current == null || previous == null || previous === 0) return null;
+    return ((current - previous) / Math.abs(previous)) * 100;
+  });
+}
+
 export function formatNumber(value: number, options: FormatOptions | NumberFormat): string {
   if (value === null || value === undefined || isNaN(value)) {
     return '';

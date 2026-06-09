@@ -27,6 +27,8 @@ import {
   updateSource,
 } from '@/hooks/api/useSources';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { toastSuccess, toastError } from '@/lib/toast';
 
 // WebSocket endpoint for source connection check
@@ -198,6 +200,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
           sourceDefId: selectedDefId!,
           config,
         });
+        trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED);
         toastSuccess.created('Source');
       }
       onSuccess();
@@ -369,9 +372,8 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
             </Button>
             <Button
               type="submit"
-              variant="ghost"
-              className="text-white hover:opacity-90 shadow-xs uppercase"
-              style={{ backgroundColor: 'var(--primary)' }}
+              variant="primary"
+              className="uppercase"
               disabled={loading || !selectedDefId || !sourceName.trim() || !parsedSpec}
               data-testid="source-save-btn"
             >
