@@ -13,6 +13,7 @@ export interface Permission {
 }
 
 export interface OrgUser {
+  user_id: number;
   email: string;
   org: Org;
   active: boolean;
@@ -20,6 +21,7 @@ export interface OrgUser {
   permissions: Permission[];
   landing_dashboard_id?: number | null; // Personal landing page dashboard ID
   org_default_dashboard_id?: number | null; // Organization default dashboard ID
+  subscription_plan?: string | null; // Org base plan, used for analytics segmentation
 }
 
 interface AuthState {
@@ -106,9 +108,6 @@ export const useAuthStore = createAppStore<AuthState>(
         isAuthenticated: false,
         isOrgSwitching: false,
       });
-
-      // Note: iframe logout is handled automatically by SharedIframe component
-      // monitoring the auth state change
     },
 
     initialize: () => {

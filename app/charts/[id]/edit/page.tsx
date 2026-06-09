@@ -35,13 +35,15 @@ import {
 } from '@/hooks/api/useChart';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { ChartTypes, type ChartType } from '@/types/charts';
-import { getApiCustomizations } from '@/lib/chart-payload-utils';
+import { getApiCustomizations, mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
 import { deepEqual } from '@/lib/form-utils';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type {
   ChartCreate,
   ChartUpdate,
@@ -457,7 +459,9 @@ function EditChartPageContent() {
           formData.dimension_column &&
           formData.metrics.every(
             (metric) =>
-              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+              metric.column_expression ||
+              (metric.aggregation &&
+                (metric.aggregation.toLowerCase() === 'count' || metric.column))
           )
         );
       }
@@ -1172,7 +1176,9 @@ function EditChartPageContent() {
           formData.dimension_column &&
           formData.metrics.every(
             (metric) =>
-              metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+              metric.column_expression ||
+              (metric.aggregation &&
+                (metric.aggregation.toLowerCase() === 'count' || metric.column))
           )
         );
       }
@@ -1329,6 +1335,7 @@ function EditChartPageContent() {
         id: chartId,
         data: updateData,
       });
+      trackEvent(ANALYTICS_EVENTS.CHART_SAVED);
 
       // Update original data to reflect saved state
       setOriginalFormData({ ...formData });
@@ -1521,10 +1528,9 @@ function EditChartPageContent() {
             <Button
               data-testid="chart-edit-save-button"
               onClick={handleSave}
-              variant="ghost"
+              variant="primary"
               disabled={!isFormValid() || isMutating || isCreating}
-              className="px-8 h-11 text-white hover:opacity-90"
-              style={{ backgroundColor: 'var(--primary)' }}
+              className="px-8 h-11"
             >
               {isMutating || isCreating ? 'Saving...' : 'Save Chart'}
             </Button>
@@ -1682,7 +1688,7 @@ function EditChartPageContent() {
                           data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
                           config={{
                             table_columns: tableChartData?.columns || formData.table_columns,
-                            column_formatting: formData.customizations?.columnFormatting || {},
+                            column_formatting: mergeTableColumnFormatting(formData.customizations),
                             sort: formData.sort,
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
                           }}
@@ -1810,7 +1816,7 @@ function EditChartPageContent() {
       <SaveOptionsDialog
         open={showSaveDialog}
         onOpenChange={setShowSaveDialog}
-        originalTitle={chart?.title || ''}
+        originalTitle={formData.title || ''}
         onSaveExisting={handleUpdateExisting}
         onSaveAsNew={handleSaveAsNew}
         isLoading={isMutating || isCreating}

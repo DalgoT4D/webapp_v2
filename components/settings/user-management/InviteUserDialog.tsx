@@ -20,6 +20,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useRoles, useInvitationActions, useInvitations } from '@/hooks/api/useUserManagement';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface InviteUserDialogProps {
   open: boolean;
@@ -65,6 +67,8 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
         invited_role_uuid: roleUuid,
       });
       await mutate();
+      const invitedRole = roles?.find((role) => role.uuid === roleUuid);
+      trackEvent(ANALYTICS_EVENTS.USER_INVITED, { role: invitedRole?.slug ?? roleUuid });
       setIsSubmitting(false);
       handleDialogOpenChange(false);
     } catch (error) {
@@ -107,6 +111,7 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
               onChange={(e) => setEmail(e.target.value)}
               placeholder="user@example.com"
               className={errors.email ? 'border-red-500' : ''}
+              data-testid="invite-email-input"
             />
             {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
           </div>
@@ -114,7 +119,10 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
           <div className="space-y-2">
             <Label htmlFor="role">Role</Label>
             <Select value={roleUuid} onValueChange={setRoleUuid}>
-              <SelectTrigger className={errors.role ? 'border-red-500' : ''}>
+              <SelectTrigger
+                className={errors.role ? 'border-red-500' : ''}
+                data-testid="invite-role-select"
+              >
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>
@@ -132,7 +140,7 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
             <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting} data-testid="invite-submit-button">
               {isSubmitting ? 'Sending...' : 'Send Invitation'}
             </Button>
           </DialogFooter>

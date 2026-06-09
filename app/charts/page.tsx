@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Plus,
   BarChart2,
@@ -119,17 +119,11 @@ export default function ChartsPage() {
   const {
     data: allCharts,
     total: apiTotal,
-    page: apiPage,
-    pageSize: apiPageSize,
     totalPages: apiTotalPages,
     isLoading,
     isError,
     mutate,
-  } = useCharts({
-    page: currentPage,
-    pageSize,
-    // Remove search and chartType - we'll handle filtering client-side
-  });
+  } = useCharts({ page: currentPage, pageSize });
   const { trigger: deleteChart } = useDeleteChart();
   const { trigger: bulkDeleteCharts } = useBulkDeleteCharts();
   const { trigger: createChart } = useCreateChart();
@@ -932,12 +926,32 @@ export default function ChartsPage() {
     );
   };
 
-  // Calculate pagination for filtered results
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedCharts = filteredAndSortedCharts.slice(startIndex, endIndex);
-  const total = filteredAndSortedCharts.length;
-  const totalPages = Math.ceil(filteredAndSortedCharts.length / pageSize);
+  // Reset to page 1 whenever filters or sort changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    nameFilters.text,
+    nameFilters.showFavorites,
+    dataSourceFilters,
+    chartTypeFilters,
+    dateFilters.range,
+    dateFilters.customStart,
+    dateFilters.customEnd,
+    sortBy,
+    sortOrder,
+  ]);
+
+  // Clamp currentPage if total pages shrinks (e.g. after deletes)
+  useEffect(() => {
+    if (apiTotalPages > 0 && currentPage > apiTotalPages) {
+      setCurrentPage(apiTotalPages);
+    }
+  }, [apiTotalPages, currentPage]);
+
+  // Server handles pagination; use its values for display
+  const paginatedCharts = filteredAndSortedCharts;
+  const total = apiTotal;
+  const totalPages = apiTotalPages;
 
   if (isError) {
     return (
@@ -968,12 +982,7 @@ export default function ChartsPage() {
 
           {hasPermission('can_create_charts') && (
             <Link id="charts-create-link" href="/charts/new">
-              <Button
-                id="charts-create-button"
-                variant="ghost"
-                className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: 'var(--primary)' }}
-              >
+              <Button id="charts-create-button" variant="primary" data-testid="charts-create-btn">
                 <Plus id="charts-create-icon" className="w-4 h-4 mr-2" />
                 CREATE CHART
               </Button>
@@ -1281,9 +1290,8 @@ export default function ChartsPage() {
                 <Link id="charts-empty-create-link" href="/charts/new">
                   <Button
                     id="charts-empty-create-button"
-                    variant="ghost"
-                    className="text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: 'var(--primary)' }}
+                    variant="primary"
+                    data-testid="charts-empty-create-btn"
                   >
                     <Plus id="charts-empty-create-icon" className="w-4 h-4 mr-2" />
                     CREATE YOUR FIRST CHART

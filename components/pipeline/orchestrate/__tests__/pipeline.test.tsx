@@ -12,7 +12,8 @@ import { PipelineForm } from '../pipeline-form';
 import { TaskSequence } from '../task-sequence';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
 import * as usePermissionsHook from '@/hooks/api/usePermissions';
-import type { Pipeline, TransformTask, Connection, PipelineDetailResponse } from '@/types/pipeline';
+import type { Pipeline, TransformTask, PipelineDetailResponse } from '@/types/pipeline';
+import type { Connection } from '@/types/connections';
 import { LockStatus } from '@/constants/pipeline';
 
 // ============ Mocks ============
@@ -112,13 +113,13 @@ const createConnection = (overrides: Partial<Connection> = {}): Connection => ({
   connectionId: 'conn-1',
   deploymentId: 'dep-1',
   catalogId: 'cat-1',
-  destination: { destinationId: 'dest-1', destinationName: 'Dest 1' },
-  source: { sourceId: 'src-1', sourceName: 'Source 1' },
+  destination: { destinationId: 'dest-1', name: 'Dest 1', destinationName: 'Dest 1' },
+  source: { sourceId: 'src-1', name: 'Source 1', sourceName: 'Source 1' },
   lock: null,
   lastRun: null,
   normalize: false,
   status: 'active',
-  syncCatalog: {},
+  syncCatalog: { streams: [] },
   resetConnDeploymentId: null,
   clearConnDeploymentId: null,
   queuedFlowRunWaitTime: null,
@@ -413,12 +414,12 @@ describe('PipelineForm', () => {
     expect(mockPush).toHaveBeenCalledWith('/orchestrate');
   });
 
-  it('renders edit mode with existing data and toggles simple/advanced task modes', async () => {
-    const user = userEvent.setup();
+  it('renders edit mode with existing data and shows transform tasks when pipeline has tasks', async () => {
     const existingPipeline: PipelineDetailResponse = {
       name: 'Existing Pipeline',
       cron: '0 9 * * *',
       isScheduleActive: true,
+      continueOnSyncFailure: false,
       connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
       transformTasks: [
         { uuid: 'task-1', seq: 1 },
@@ -444,20 +445,12 @@ describe('PipelineForm', () => {
       expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Existing Pipeline');
     });
 
-    // Simple mode shows "Run all tasks" when tasks are aligned
-    expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
+    // Checkbox is checked since pipeline has transform tasks
+    const checkbox = screen.getByLabelText('Run transform tasks');
+    expect(checkbox).toBeChecked();
 
-    // Switch to advanced
-    await user.click(screen.getByText('Advanced'));
-    await waitFor(() => {
-      expect(screen.queryByLabelText('Run all tasks')).not.toBeInTheDocument();
-    });
-
-    // Switch back to simple
-    await user.click(screen.getByText('Simple'));
-    await waitFor(() => {
-      expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
-    });
+    // TaskSequence is visible when checkbox is checked
+    expect(screen.getByText('Reset to default')).toBeInTheDocument();
   });
 });
 
@@ -501,12 +494,13 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     (usePipelinesHook.updatePipeline as jest.Mock).mockResolvedValue({});
   });
 
-  it('populates form in simple mode when tasks align and switches to advanced when they do not', async () => {
-    // Aligned tasks → simple mode
-    const alignedPipeline: PipelineDetailResponse = {
-      name: 'Aligned Pipeline',
+  it('shows checkbox checked when pipeline has tasks and unchecked when it has none', async () => {
+    // Pipeline with tasks → checkbox checked, task list visible
+    const pipelineWithTasks: PipelineDetailResponse = {
+      name: 'Pipeline With Tasks',
       cron: '0 9 * * *',
       isScheduleActive: true,
+      continueOnSyncFailure: false,
       connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
       transformTasks: [
         { uuid: 'task-1', seq: 1 },
@@ -516,7 +510,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     };
 
     (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
-      pipeline: alignedPipeline,
+      pipeline: pipelineWithTasks,
       isLoading: false,
       isError: null,
       mutate: jest.fn(),
@@ -531,16 +525,18 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     const { unmount } = render(<PipelineForm deploymentId="test-dep-id" />);
 
     await waitFor(() => {
-      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Aligned Pipeline');
+      expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Pipeline With Tasks');
     });
-    expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
+    expect(screen.getByLabelText('Run transform tasks')).toBeChecked();
+    expect(screen.getByText('Reset to default')).toBeInTheDocument();
     unmount();
 
-    // Non-aligned tasks → advanced mode
+    // Pipeline with custom order tasks → checkbox checked, task list visible
     const customOrderPipeline: PipelineDetailResponse = {
       name: 'Custom Order Pipeline',
       cron: '0 14 * * *',
       isScheduleActive: false,
+      continueOnSyncFailure: false,
       connections: [{ id: 'conn-2', name: 'Connection 2', seq: 1 }],
       transformTasks: [
         { uuid: 'task-3', seq: 1 },
@@ -560,7 +556,8 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     await waitFor(() => {
       expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Custom Order Pipeline');
     });
-    expect(screen.queryByLabelText('Run all tasks')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Run transform tasks')).toBeChecked();
+    expect(screen.getByText('Reset to default')).toBeInTheDocument();
   });
 
   it('handles dbt_cloud scenarios and missing task edge cases', async () => {
@@ -569,6 +566,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       name: 'DBT Cloud Pipeline',
       cron: '30 10 * * 1,3,5',
       isScheduleActive: true,
+      continueOnSyncFailure: false,
       connections: [
         { id: 'conn-1', name: 'Connection 1', seq: 1 },
         { id: 'conn-2', name: 'Connection 2', seq: 2 },
@@ -595,7 +593,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('DBT Cloud Pipeline');
     });
     expect(screen.getByTestId('activeSwitch')).toBeInTheDocument();
-    expect(screen.getByLabelText('Run all tasks')).not.toBeChecked();
+    expect(screen.getByLabelText('Run transform tasks')).not.toBeChecked();
     unmount();
 
     // dbt_cloud: no tasks available at all
@@ -603,6 +601,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       name: 'DBT Cloud No Tasks',
       cron: null,
       isScheduleActive: false,
+      continueOnSyncFailure: false,
       connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
       transformTasks: [],
     };
@@ -633,6 +632,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       name: 'Pipeline With Missing Tasks',
       cron: '0 8 * * *',
       isScheduleActive: true,
+      continueOnSyncFailure: false,
       connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
       transformTasks: [
         { uuid: 'deleted-task-1', seq: 1 },
@@ -692,6 +692,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       name: 'Mixed Tasks Pipeline',
       cron: '0 9 * * *',
       isScheduleActive: true,
+      continueOnSyncFailure: false,
       connections: [],
       transformTasks: [{ uuid: 'system-default', seq: 1 }],
     };
@@ -714,7 +715,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     await waitFor(() => {
       expect((screen.getByTestId('name') as HTMLInputElement).value).toBe('Mixed Tasks Pipeline');
     });
-    expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
+    expect(screen.getByLabelText('Run transform tasks')).toBeInTheDocument();
     unmount();
 
     // Schedule status update failure
@@ -722,6 +723,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       name: 'Status Fail Pipeline',
       cron: '0 9 * * *',
       isScheduleActive: true,
+      continueOnSyncFailure: false,
       connections: [],
       transformTasks: [],
     };
@@ -768,6 +770,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       name: 'Manual Pipeline',
       cron: null,
       isScheduleActive: false,
+      continueOnSyncFailure: false,
       connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
       transformTasks: [{ uuid: 'task-1', seq: 1 }],
     };
@@ -792,6 +795,119 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
     });
 
     expect(screen.queryByTestId('cronTimeOfDay')).not.toBeInTheDocument();
+  });
+
+  it('renders continueOnSyncFailure checkbox unchecked by default in create mode', async () => {
+    const user = userEvent.setup();
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline: null,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useConnections as jest.Mock).mockReturnValue({
+      connections: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm />);
+
+    // Checkbox is hidden behind Optional toggle
+    expect(screen.queryByTestId('continue-on-sync-failure-checkbox')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('advanced-settings-toggle'));
+
+    const checkbox = screen.getByTestId('continue-on-sync-failure-checkbox');
+    expect(checkbox).toBeInTheDocument();
+    expect(checkbox).not.toBeChecked();
+  });
+
+  it('renders continueOnSyncFailure checkbox checked when pipeline has flag set', async () => {
+    const user = userEvent.setup();
+    const pipelineWithFlag: PipelineDetailResponse = {
+      name: 'Pipeline With Flag',
+      cron: '0 9 * * *',
+      isScheduleActive: true,
+      continueOnSyncFailure: true,
+      connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
+      transformTasks: [],
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline: pipelineWithFlag,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useConnections as jest.Mock).mockReturnValue({
+      connections: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm deploymentId="test-dep" />);
+
+    await user.click(screen.getByTestId('advanced-settings-toggle'));
+
+    await waitFor(() => {
+      const checkbox = screen.getByTestId('continue-on-sync-failure-checkbox');
+      expect(checkbox).toBeChecked();
+    });
+  });
+
+  it('defaults continueOnSyncFailure to false for existing pipelines without the flag', async () => {
+    const user = userEvent.setup();
+    const oldPipeline: PipelineDetailResponse = {
+      name: 'Old Pipeline',
+      cron: '0 9 * * *',
+      isScheduleActive: true,
+      continueOnSyncFailure: false,
+      connections: [],
+      transformTasks: [],
+    };
+
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline: oldPipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    (usePipelinesHook.useConnections as jest.Mock).mockReturnValue({
+      connections: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm deploymentId="old-dep" />);
+
+    await user.click(screen.getByTestId('advanced-settings-toggle'));
+
+    await waitFor(() => {
+      const checkbox = screen.getByTestId('continue-on-sync-failure-checkbox');
+      expect(checkbox).not.toBeChecked();
+    });
   });
 });
 
@@ -825,7 +941,7 @@ describe('TaskSequence', () => {
     // Components and tasks rendered
     expect(screen.getByTestId('task-selector-input')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /reset to default/i })).toBeInTheDocument();
-    expect(screen.getByText(/These are your transformation tasks/)).toBeInTheDocument();
+    expect(screen.getByText(/Add custom tasks from the dropdown above/)).toBeInTheDocument();
     expect(screen.getByText('git pull')).toBeInTheDocument();
     expect(screen.getByText('dbt run')).toBeInTheDocument();
     expect(screen.getByText('1')).toBeInTheDocument();

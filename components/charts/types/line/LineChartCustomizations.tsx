@@ -1,7 +1,7 @@
 'use client';
 
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+import { DebouncedInput } from '@/components/charts/debounced-input';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
@@ -11,14 +11,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { NumberFormat } from '@/lib/formatters';
+import type { NumberFormat, DateFormat } from '@/lib/formatters';
 import { NumberFormatSection } from '../shared/NumberFormatSection';
+import { DateFormatSection } from '../shared/DateFormatSection';
 
 interface LineChartCustomizationsProps {
   customizations: Record<string, any>;
   updateCustomization: (key: string, value: any) => void;
   disabled?: boolean;
   hasNumericXAxis?: boolean;
+  hasDateXAxis?: boolean;
 }
 
 export function LineChartCustomizations({
@@ -26,6 +28,7 @@ export function LineChartCustomizations({
   updateCustomization,
   disabled,
   hasNumericXAxis = false,
+  hasDateXAxis = false,
 }: LineChartCustomizationsProps) {
   return (
     <div className="space-y-6">
@@ -171,10 +174,10 @@ export function LineChartCustomizations({
 
         <div className="space-y-2">
           <Label htmlFor="xAxisTitle">Title</Label>
-          <Input
+          <DebouncedInput
             id="xAxisTitle"
             value={customizations.xAxisTitle || ''}
-            onChange={(e) => updateCustomization('xAxisTitle', e.target.value)}
+            onChange={(value) => updateCustomization('xAxisTitle', value)}
             placeholder="Enter X-axis title"
             disabled={disabled}
           />
@@ -209,6 +212,16 @@ export function LineChartCustomizations({
             disabled={disabled}
           />
         )}
+
+        {/* X-Axis Date Formatting - only shown for date X-axis */}
+        {hasDateXAxis && (
+          <DateFormatSection
+            idPrefix="xAxis"
+            dateFormat={customizations.xAxisDateFormat as DateFormat}
+            onDateFormatChange={(value) => updateCustomization('xAxisDateFormat', value)}
+            disabled={disabled}
+          />
+        )}
       </div>
 
       {/* Y-Axis Configuration */}
@@ -217,10 +230,10 @@ export function LineChartCustomizations({
 
         <div className="space-y-2">
           <Label htmlFor="yAxisTitle">Title</Label>
-          <Input
+          <DebouncedInput
             id="yAxisTitle"
             value={customizations.yAxisTitle || ''}
-            onChange={(e) => updateCustomization('yAxisTitle', e.target.value)}
+            onChange={(value) => updateCustomization('yAxisTitle', value)}
             placeholder="Enter Y-axis title"
             disabled={disabled}
           />

@@ -33,10 +33,10 @@ import {
   usePrefectTasks,
   runPrefectDeployment,
   runPrefectTask,
-  fetchFlowRunLogs,
   fetchFlowRunStatus,
   deletePrefectTask,
 } from '@/hooks/api/usePrefectTasks';
+import { fetchFlowRunLogs } from '@/hooks/api/usePipelines';
 import { LogCard } from '@/components/pipeline/log-card';
 import { PipelineRunDisplayStatus, LockStatus } from '@/constants/pipeline';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
@@ -100,7 +100,10 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
       if (currCount >= maxLimit) return;
 
       try {
-        const response = await fetchFlowRunLogs(runId, currCount, maxLimit - currCount);
+        const response = await fetchFlowRunLogs(runId, {
+          offset: currCount,
+          limit: maxLimit - currCount,
+        });
 
         if (response?.logs?.logs?.length > 0) {
           const newLogStrings = response.logs.logs.map((logObj) => logObj.message);
@@ -263,11 +266,9 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
           <Button
             onClick={onNewTask}
             size="sm"
-            variant="ghost"
+            variant="primary"
             disabled={!canCreateTask}
             data-testid="new-task-btn"
-            className="text-white hover:opacity-90 shadow-xs"
-            style={{ backgroundColor: 'var(--primary)' }}
           >
             <Plus className="h-4 w-4 mr-2" />
             NEW TASK
@@ -329,10 +330,9 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
                               onClick={() => handleRunTask(task)}
                               disabled={!!runningTask || isAnyTaskLocked || !canRunTask}
                               size="sm"
-                              variant="ghost"
+                              variant="primary"
                               data-testid={`run-task-${task.uuid}`}
-                              className="text-white hover:opacity-90 shadow-xs min-w-[110px]"
-                              style={{ backgroundColor: 'var(--primary)' }}
+                              className="min-w-[110px]"
                             >
                               {isTaskRunning(task) ? (
                                 <>

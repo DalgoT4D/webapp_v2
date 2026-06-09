@@ -59,7 +59,7 @@ const EDITED_THRESHOLD_MS = 1000;
 
 interface CommentPopoverProps {
   snapshotId: number;
-  targetType: 'summary' | 'chart';
+  targetType: 'summary' | 'chart' | 'kpi';
   chartId?: number;
   state: CommentIconState;
   triggerClassName?: string;
@@ -115,7 +115,7 @@ const MentionDropdown = memo(function MentionDropdown({
           type="button"
           data-testid={`mention-user-${user.email}`}
           className={cn(
-            'w-full text-left px-3 py-2 text-sm flex items-center gap-2',
+            'w-full text-left px-4 py-3 text-sm flex items-center gap-3',
             idx === highlightedIndex ? 'bg-accent' : 'hover:bg-accent'
           )}
           onMouseDown={(e) => {
@@ -124,7 +124,7 @@ const MentionDropdown = memo(function MentionDropdown({
           }}
           onMouseEnter={() => onHighlightChange(idx)}
         >
-          <Avatar className="h-5 w-5 text-[10px] flex-shrink-0">
+          <Avatar className="h-7 w-7 text-xs flex-shrink-0">
             <AvatarFallback
               style={{ backgroundColor: getAvatarColor(user.email) }}
               className="text-white"
@@ -420,7 +420,8 @@ const CommentItem = memo(function CommentItem({
                 </Button>
                 <Button
                   size="sm"
-                  className="bg-primary text-white hover:opacity-90 uppercase text-xs font-semibold"
+                  variant="primary"
+                  className="uppercase text-xs font-semibold"
                   data-testid={`save-edit-btn-${comment.id}`}
                   onClick={handleSave}
                   disabled={!editText.trim() || isSaving}
@@ -546,25 +547,25 @@ function CommentPopoverInner({
     return () => clearTimeout(timer);
   }, [open, comments.length]);
 
-  // Mark as read on close
+  // Mark as read on open (like LinkedIn/Slack — notifications clear when you open the panel)
   const handleOpenChange = useCallback(
     async (isOpen: boolean) => {
       setOpen(isOpen);
-      if (!isOpen) {
-        // Reset state
-        setDraft('');
-        closeMentions();
-
-        // Mark as read
+      if (isOpen) {
+        // Mark as read immediately when popover opens so the dot clears while user is reading
         try {
           await markAsRead(snapshotId, {
             target_type: targetType,
-            chart_id: chartId,
+            target_id: chartId,
           });
           onStateChange?.();
         } catch {
           // Silent fail for mark-as-read
         }
+      } else {
+        // Reset draft state on close
+        setDraft('');
+        closeMentions();
       }
     },
     [snapshotId, targetType, chartId, onStateChange, setDraft, closeMentions]
@@ -579,12 +580,19 @@ function CommentPopoverInner({
     try {
       await createComment(snapshotId, {
         target_type: targetType,
-        chart_id: chartId,
+        target_id: chartId,
         content,
         mentioned_emails: extractMentionedEmails(content),
       });
       setDraft('');
       await mutateComments();
+      // New comment is created with is_new: true — mark as read immediately so
+      // the icon shows outline dot (read) instead of filled red dot (unread)
+      try {
+        await markAsRead(snapshotId, { target_type: targetType, chart_id: chartId });
+      } catch {
+        // Silent fail
+      }
       onStateChange?.();
       setTimeout(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -690,7 +698,7 @@ function CommentPopoverInner({
           size="icon"
           className={triggerClassName}
           data-testid={`comment-trigger-${targetType}${chartId ? `-${chartId}` : ''}`}
-          aria-label={`${targetType === 'summary' ? 'Summary' : 'Chart'} comments`}
+          aria-label={`${targetType === 'summary' ? 'Summary' : targetType === 'kpi' ? 'KPI' : 'Chart'} comments`}
         >
           <CommentIcon state={state} className={open ? 'text-primary' : undefined} />
         </Button>
@@ -730,8 +738,8 @@ function CommentPopoverInner({
         )}
 
         {/* Add comment input */}
-        <div className={cn('p-3 flex-shrink-0', visibleComments.length > 0 && 'border-t')}>
-          <div className="relative">
+        <div className={cn('p-3 flex-shrink-0', visibleComments.length > 0 && 'border-t relative')}>
+          <div>
             <MentionDropdown
               filteredUsers={filteredMentionUsers}
               onSelect={handleMentionSelect}

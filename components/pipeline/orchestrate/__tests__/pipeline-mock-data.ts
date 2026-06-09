@@ -4,7 +4,8 @@
  * Extracted from MSW handlers for use with Jest mocks.
  */
 
-import type { Pipeline, TransformTask, Connection, PipelineDetailResponse } from '@/types/pipeline';
+import type { Pipeline, TransformTask, PipelineDetailResponse } from '@/types/pipeline';
+import type { Connection } from '@/types/connections';
 import { LockStatus } from '@/constants/pipeline';
 
 // ============ Mock Data Factories ============
@@ -22,16 +23,16 @@ export const createMockPipeline = (overrides: Partial<Pipeline> = {}): Pipeline 
 });
 
 export const createMockTask = (overrides: Partial<TransformTask> = {}): TransformTask => ({
-  label: 'Git Pull',
-  slug: 'git-pull',
+  label: 'DBT Run',
+  slug: 'dbt-run',
   deploymentId: null,
   lock: null,
-  command: 'git pull',
+  command: 'dbt run',
   generated_by: 'system',
   uuid: 'task-uuid-1',
   seq: 1,
   pipeline_default: true,
-  order: 1,
+  order: 5,
   ...overrides,
 });
 
@@ -40,13 +41,13 @@ export const createMockConnection = (overrides: Partial<Connection> = {}): Conne
   connectionId: 'conn-123',
   deploymentId: 'dep-123',
   catalogId: 'cat-123',
-  destination: { destinationId: 'dest-1', destinationName: 'Warehouse' },
-  source: { sourceId: 'src-1', sourceName: 'Database' },
+  destination: { destinationId: 'dest-1', name: 'Warehouse', destinationName: 'Warehouse' },
+  source: { sourceId: 'src-1', name: 'Database', sourceName: 'Database' },
   lock: null,
   lastRun: null,
   normalize: false,
   status: 'active',
-  syncCatalog: {},
+  syncCatalog: { streams: [] },
   resetConnDeploymentId: null,
   clearConnDeploymentId: null,
   queuedFlowRunWaitTime: null,
@@ -76,7 +77,6 @@ export const mockPipelines: Pipeline[] = [
 ];
 
 export const mockTasks: TransformTask[] = [
-  createMockTask({ uuid: 'task-1', slug: 'git-pull', command: 'git pull', order: 1 }),
   createMockTask({ uuid: 'task-2', slug: 'dbt-run', command: 'dbt run', order: 5 }),
   createMockTask({ uuid: 'task-3', slug: 'dbt-test', command: 'dbt test', order: 6 }),
 ];
@@ -90,10 +90,11 @@ export const mockPipelineDetail: PipelineDetailResponse = {
   name: 'Pipeline Detail',
   cron: '0 9 * * *',
   isScheduleActive: true,
+  continueOnSyncFailure: false,
   connections: [{ id: 'conn-1', name: 'Postgres Source', seq: 1 }],
   transformTasks: [
-    { uuid: 'task-1', seq: 1 },
-    { uuid: 'task-2', seq: 2 },
+    { uuid: 'task-2', seq: 1 },
+    { uuid: 'task-3', seq: 2 },
   ],
 };
 

@@ -21,6 +21,8 @@ import {
 } from '@/hooks/api/useNotifications';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { PERMISSIONS } from '@/constants/notifications';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface NotificationPreferencesDialogProps {
   open: boolean;
@@ -133,6 +135,10 @@ export function NotificationPreferencesDialog({
       if (discordChanged) {
         await mutateOrgPrefs();
         toast.success('Discord preferences updated');
+      }
+
+      if (emailChanged || discordChanged) {
+        trackEvent(ANALYTICS_EVENTS.NOTIFICATION_PREFERENCES_UPDATED);
       }
 
       onOpenChange(false);

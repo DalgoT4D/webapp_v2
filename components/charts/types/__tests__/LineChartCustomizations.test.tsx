@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LineChartCustomizations } from '../line/LineChartCustomizations';
 
@@ -78,23 +78,31 @@ describe('LineChartCustomizations', () => {
   });
 
   it('should handle axis configuration inputs', async () => {
-    const user = userEvent.setup();
-    render(
-      <LineChartCustomizations
-        {...defaultProps}
-        customizations={{ xAxisTitle: 'Months', yAxisTitle: 'Sales' }}
-      />
-    );
+    jest.useFakeTimers();
+    try {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      render(
+        <LineChartCustomizations
+          {...defaultProps}
+          customizations={{ xAxisTitle: 'Months', yAxisTitle: 'Sales' }}
+        />
+      );
 
-    expect(screen.getByDisplayValue('Months')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Sales')).toBeInTheDocument();
-    // Label Rotation fields are now just called "Label Rotation" within each section
-    expect(screen.getAllByLabelText('Label Rotation').length).toBe(2);
+      expect(screen.getByDisplayValue('Months')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Sales')).toBeInTheDocument();
+      // Label Rotation fields are now just called "Label Rotation" within each section
+      expect(screen.getAllByLabelText('Label Rotation').length).toBe(2);
 
-    // X-axis title input (first Title field)
-    const titleInputs = screen.getAllByLabelText('Title');
-    await user.type(titleInputs[0], 'D');
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisTitle', 'MonthsD');
+      // X-axis title input (first Title field)
+      const titleInputs = screen.getAllByLabelText('Title');
+      await user.type(titleInputs[0], 'D');
+      act(() => {
+        jest.runAllTimers();
+      });
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisTitle', 'MonthsD');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('should disable all controls when disabled is true', () => {
@@ -146,6 +154,47 @@ describe('LineChartCustomizations', () => {
       );
 
       expect(screen.getByLabelText('Decimal Places')).toHaveValue(2);
+    });
+  });
+
+  describe('Date Formatting', () => {
+    it('should not show Date Format when hasDateXAxis is false', () => {
+      render(<LineChartCustomizations {...defaultProps} hasDateXAxis={false} />);
+
+      expect(screen.queryByLabelText('Date Format')).not.toBeInTheDocument();
+    });
+
+    it('should show Date Format in X-Axis section when hasDateXAxis is true', () => {
+      render(<LineChartCustomizations {...defaultProps} hasDateXAxis={true} />);
+
+      expect(screen.getByLabelText('Date Format')).toBeInTheDocument();
+    });
+
+    it('should call updateCustomization when date format changes', async () => {
+      const user = userEvent.setup();
+      render(<LineChartCustomizations {...defaultProps} hasDateXAxis={true} />);
+
+      const formatSelect = screen.getByLabelText('Date Format');
+      await user.click(formatSelect);
+      await user.click(screen.getByRole('option', { name: '%d/%m/%Y (14/01/2019)' }));
+
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisDateFormat', 'dd_mm_yyyy');
+    });
+
+    it('should not show both number and date format simultaneously', () => {
+      // When X-axis is numeric, show number format
+      const { rerender } = render(
+        <LineChartCustomizations {...defaultProps} hasNumericXAxis={true} hasDateXAxis={false} />
+      );
+      expect(screen.getAllByLabelText('Number Format').length).toBe(2);
+      expect(screen.queryByLabelText('Date Format')).not.toBeInTheDocument();
+
+      // When X-axis is date, show date format
+      rerender(
+        <LineChartCustomizations {...defaultProps} hasNumericXAxis={false} hasDateXAxis={true} />
+      );
+      expect(screen.getAllByLabelText('Number Format').length).toBe(1); // Only Y-axis
+      expect(screen.getByLabelText('Date Format')).toBeInTheDocument();
     });
   });
 });

@@ -1,6 +1,5 @@
 'use client';
 
-import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { ChartElementView } from '@/components/dashboard/chart-element-view';
@@ -63,15 +62,9 @@ export function PrintLayout({
   publicToken,
   isPublicMode = true,
 }: PrintLayoutProps) {
-  const components = dashboardData.components || {};
-  const layoutConfig: LayoutItem[] = dashboardData.layout_config || [];
+  const tabs = dashboardData.tabs || [];
 
-  const rows = useMemo(
-    () => groupLayoutByRows(layoutConfig, components),
-    [layoutConfig, components]
-  );
-
-  const renderItem = (layoutItem: LayoutItem) => {
+  const renderItem = (layoutItem: LayoutItem, components: Record<string, any>) => {
     const component = components[layoutItem.i];
     if (!component) return null;
 
@@ -140,11 +133,20 @@ export function PrintLayout({
 
   return (
     <div className="px-2 py-2">
-      {rows.map((row) => (
-        <div key={`row-${row.y}`} className="flex gap-2 mb-2" style={{ breakInside: 'avoid' }}>
-          {row.items.map(renderItem)}
-        </div>
-      ))}
+      {tabs.map((tab) => {
+        const tabComponents = tab.components || {};
+        const tabLayout: LayoutItem[] = (tab.layout_config as LayoutItem[]) || [];
+        const tabRows = groupLayoutByRows(tabLayout, tabComponents);
+        return tabRows.map((row) => (
+          <div
+            key={`${tab.id}-row-${row.y}`}
+            className="flex gap-2 mb-2"
+            style={{ breakInside: 'avoid' }}
+          >
+            {row.items.map((item) => renderItem(item, tabComponents))}
+          </div>
+        ));
+      })}
     </div>
   );
 }

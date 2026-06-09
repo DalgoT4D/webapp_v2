@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import type { ChartDataPayload } from '@/types/charts';
+import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 import type * as echarts from 'echarts';
 
 interface ChartDetailClientProps {
@@ -817,8 +818,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                       config={{
                         table_columns:
                           tableData?.columns || chart.extra_config?.table_columns || [],
-                        column_formatting:
-                          chart.extra_config?.customizations?.columnFormatting || {},
+                        column_formatting: mergeTableColumnFormatting(
+                          chart.extra_config?.customizations
+                        ),
                         sort: chart.extra_config?.sort || [],
                         pagination: chart.extra_config?.pagination || {
                           enabled: true,

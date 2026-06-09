@@ -303,7 +303,7 @@ describe('TaskSequence - Removal and Visual Elements', () => {
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText('system')).toBeInTheDocument();
     expect(screen.getByText('client')).toBeInTheDocument();
-    expect(screen.getByText(/These are your transformation tasks/i)).toBeInTheDocument();
+    expect(screen.getByText(/Add custom tasks from the dropdown above/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /reset to default/i })).toBeInTheDocument();
 
     // Remove first task

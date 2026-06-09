@@ -1,11 +1,35 @@
 import { ChartTypes, type ChartType } from '@/types/charts';
 
 /**
- * Filters frontend-only formatting keys from customizations before sending to API.
- * Number formatting is applied on the frontend only and should not be persisted.
+ * Merges columnFormatting and dateColumnFormatting from customizations into the
+ * column_formatting shape expected by TableChart.
  *
- * - pie/number/map charts: exclude global numberFormat and decimalPlaces
- * - line/bar charts: exclude axis-specific formatting keys
+ * columnFormatting holds number formatting per column; dateColumnFormatting holds
+ * date formatting per column. Both are merged so TableChart receives them via a
+ * single column_formatting prop.
+ */
+export function mergeTableColumnFormatting(
+  customizations: Record<string, any> | undefined
+): Record<string, Record<string, unknown>> {
+  const columnFormatting = customizations?.columnFormatting || {};
+  const dateColumnFormatting = customizations?.dateColumnFormatting || {};
+
+  const dateEntries = Object.fromEntries(
+    Object.entries(dateColumnFormatting).map(([col, format]) => [
+      col,
+      { dateFormat: (format as { dateFormat?: string })?.dateFormat || 'default' },
+    ])
+  );
+
+  return { ...columnFormatting, ...dateEntries };
+}
+
+/**
+ * Filters frontend-only formatting keys from customizations before sending to API.
+ * Number and date formatting is applied on the frontend only and should not be persisted.
+ *
+ * - pie/number/map charts: exclude global numberFormat, decimalPlaces, dateFormat
+ * - line/bar charts: exclude axis-specific number and date formatting keys
  * - table charts: customizations are excluded entirely (handled by caller)
  */
 export function getApiCustomizations(
@@ -19,7 +43,7 @@ export function getApiCustomizations(
   ) {
     return Object.fromEntries(
       Object.entries(customizations || {}).filter(
-        ([key]) => key !== 'numberFormat' && key !== 'decimalPlaces'
+        ([key]) => key !== 'numberFormat' && key !== 'decimalPlaces' && key !== 'dateFormat'
       )
     );
   }
@@ -31,7 +55,8 @@ export function getApiCustomizations(
           key !== 'yAxisNumberFormat' &&
           key !== 'yAxisDecimalPlaces' &&
           key !== 'xAxisNumberFormat' &&
-          key !== 'xAxisDecimalPlaces'
+          key !== 'xAxisDecimalPlaces' &&
+          key !== 'xAxisDateFormat'
       )
     );
   }

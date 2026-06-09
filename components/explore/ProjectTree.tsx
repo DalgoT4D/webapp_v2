@@ -8,7 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { OverflowTooltip } from './OverflowTooltip';
-import { Search, RefreshCw, Folder, FolderOpen, Table2, Loader2, Plus, Trash2 } from 'lucide-react';
+import {
+  Search,
+  RefreshCw,
+  Folder,
+  FolderOpen,
+  Database,
+  Loader2,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { useExploreStore } from '@/stores/exploreStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import type { WarehouseTable, TreeNode } from '@/types/explore';
@@ -202,7 +211,7 @@ export function ProjectTree({
               <Folder className="h-[18px] w-[18px] flex-shrink-0 text-gray-500" />
             )
           ) : (
-            <Table2
+            <Database
               className={cn(
                 'h-[18px] w-[18px] flex-shrink-0',
                 isSelected ? 'text-teal-600' : 'text-gray-400'

@@ -187,6 +187,7 @@ describe('Pipeline Mutation Functions', () => {
       connections: [{ id: 'conn-1', seq: 1 }],
       cron: '0 9 * * *',
       transformTasks: [{ uuid: 'task-1', seq: 1 }],
+      continueOnSyncFailure: false,
     });
     expect(apiPost).toHaveBeenCalledWith('/api/prefect/v1/flows/', expect.any(Object));
     expect(createResult.name).toBe('New Pipeline');
@@ -198,6 +199,7 @@ describe('Pipeline Mutation Functions', () => {
       connections: [],
       cron: '',
       transformTasks: [],
+      continueOnSyncFailure: true,
     });
     expect(apiPut).toHaveBeenCalledWith('/api/prefect/v1/flows/dep-id', expect.any(Object));
 
@@ -223,12 +225,12 @@ describe('Pipeline Mutation Functions', () => {
     // Fetch logs with and without task_run_id
     (apiGet as jest.Mock).mockResolvedValue({ logs: { logs: [{ message: 'test' }] } });
 
-    await fetchFlowRunLogs('flow-id', 'task-id', 0, 100);
+    await fetchFlowRunLogs('flow-id', { taskRunId: 'task-id', offset: 0, limit: 100 });
     expect(apiGet).toHaveBeenCalledWith(
       '/api/prefect/flow_runs/flow-id/logs?offset=0&limit=100&task_run_id=task-id'
     );
 
-    await fetchFlowRunLogs('flow-id', undefined, -10, 100); // negative offset becomes 0
+    await fetchFlowRunLogs('flow-id', { offset: -10, limit: 100 }); // negative offset becomes 0
     expect(apiGet).toHaveBeenCalledWith('/api/prefect/flow_runs/flow-id/logs?offset=0&limit=100');
 
     // Trigger log summary

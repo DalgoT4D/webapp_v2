@@ -3,7 +3,7 @@ import { Anek_Latin } from 'next/font/google';
 import './globals.css';
 import { SWRProvider } from '@/lib/swr';
 import { ClientLayout } from '@/components/client-layout';
-import { PendoScript } from '@/components/pendo-script';
+import { PostHogProvider } from '@/app/posthog-provider';
 
 const anekLatin = Anek_Latin({
   variable: '--font-anek-latin',
@@ -42,10 +42,11 @@ export default function RootLayout({
         className={`${anekLatin.variable} ${anekMono.variable} antialiased font-sans`}
         suppressHydrationWarning={true}
       >
-        <PendoScript />
-        <SWRProvider>
-          <ClientLayout>{children}</ClientLayout>
-        </SWRProvider>
+        <PostHogProvider>
+          <SWRProvider>
+            <ClientLayout>{children}</ClientLayout>
+          </SWRProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

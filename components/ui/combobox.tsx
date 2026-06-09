@@ -28,6 +28,7 @@ interface ComboboxBaseProps {
   className?: string;
   id?: string;
   renderItem?: (item: ComboboxItem, isSelected: boolean, searchQuery: string) => React.ReactNode;
+  footer?: React.ReactNode;
 }
 
 interface SingleComboboxProps extends ComboboxBaseProps {
@@ -244,6 +245,7 @@ function SingleComboboxInner({
   autoFocus = false,
   compact = false,
   renderItem,
+  footer,
 }: SingleComboboxProps) {
   const [open, setOpen] = React.useState(autoFocus);
   const [search, setSearch] = React.useState('');
@@ -387,6 +389,8 @@ function SingleComboboxInner({
       <PopoverContent
         className="p-0 shadow-lg border border-gray-200"
         align="start"
+        side="bottom"
+        collisionBoundary={[] as Element[]}
         sideOffset={4}
         onOpenAutoFocus={(e) => e.preventDefault()}
         onFocusOutside={(e) => e.preventDefault()}
@@ -464,6 +468,7 @@ function SingleComboboxInner({
             })
           )}
         </div>
+        {footer && <div className="border-t px-3 py-2">{footer}</div>}
       </PopoverContent>
     </Popover>
   );
@@ -530,6 +535,28 @@ function MultiComboboxInner({
     },
     [safeValues, onValuesChange]
   );
+
+  const allFilteredSelected = React.useMemo(
+    () => filtered.length > 0 && filtered.every((item) => safeValues.includes(item.value)),
+    [filtered, safeValues]
+  );
+
+  const someFilteredSelected = React.useMemo(
+    () => filtered.some((item) => safeValues.includes(item.value)) && !allFilteredSelected,
+    [filtered, safeValues, allFilteredSelected]
+  );
+
+  const handleSelectAll = React.useCallback(() => {
+    if (allFilteredSelected) {
+      // Deselect only filtered items, preserve selections outside current search
+      const filteredValueSet = new Set(filtered.map((item) => item.value));
+      onValuesChange(safeValues.filter((v) => !filteredValueSet.has(v)));
+    } else {
+      // Add all filtered items that aren't already selected
+      const filteredValues = filtered.map((item) => item.value);
+      onValuesChange([...safeValues, ...filteredValues.filter((v) => !safeValues.includes(v))]);
+    }
+  }, [allFilteredSelected, filtered, safeValues, onValuesChange]);
 
   const handleRemove = (val: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -644,6 +671,8 @@ function MultiComboboxInner({
       <PopoverContent
         className="p-0 shadow-lg border border-gray-200"
         align="start"
+        side="bottom"
+        collisionBoundary={[] as Element[]}
         sideOffset={4}
         onOpenAutoFocus={(e) => e.preventDefault()}
         onFocusOutside={(e) => e.preventDefault()}
@@ -654,6 +683,23 @@ function MultiComboboxInner({
         }}
         style={{ width: 'var(--radix-popper-anchor-width)' }}
       >
+        {!loading && filtered.length > 0 && (
+          <div
+            data-testid={`${baseId}-select-all`}
+            className="flex items-center gap-2 w-full py-2 px-3 cursor-pointer border-b border-gray-200 bg-gray-50 hover:bg-gray-100"
+            onClick={handleSelectAll}
+          >
+            <Checkbox
+              id={`${baseId}-checkbox-select-all`}
+              data-testid={`${baseId}-checkbox-select-all`}
+              checked={allFilteredSelected ? true : someFilteredSelected ? 'indeterminate' : false}
+              onCheckedChange={handleSelectAll}
+              onClick={(e) => e.stopPropagation()}
+              className="h-4 w-4"
+            />
+            <span className="flex-1 text-sm font-medium text-gray-700">Select all</span>
+          </div>
+        )}
         <div
           ref={listRef}
           id={`${baseId}-listbox`}

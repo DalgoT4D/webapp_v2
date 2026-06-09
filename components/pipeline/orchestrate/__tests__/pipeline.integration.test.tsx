@@ -81,7 +81,7 @@ beforeEach(() => {
     if (url === '/api/prefect/v1/flows/') {
       return Promise.resolve(mockPipelines);
     }
-    if (url === '/api/prefect/tasks/transform/') {
+    if (url.startsWith('/api/prefect/tasks/transform/')) {
       return Promise.resolve(mockTasks);
     }
     if (url === '/api/airbyte/v1/connections') {
@@ -408,24 +408,18 @@ describe('Pipeline Form - Integration Tests', () => {
     expect(screen.getByText('Transform Tasks')).toBeInTheDocument();
     expect(screen.getByText('Connections')).toBeInTheDocument();
 
-    // Simple mode default
-    expect(screen.getByLabelText('Run all tasks')).toBeInTheDocument();
-
-    // Toggle run all tasks
-    const checkbox = screen.getByLabelText('Run all tasks');
+    // Checkbox for transform tasks - unchecked by default in create mode
+    const checkbox = screen.getByLabelText('Run transform tasks');
     expect(checkbox).not.toBeChecked();
+
+    // Check the box to enable transform tasks
     await user.click(checkbox);
     expect(checkbox).toBeChecked();
 
-    // Switch to advanced mode
-    await user.click(screen.getByText('Advanced'));
-    await waitFor(() => {
-      expect(screen.queryByLabelText('Run all tasks')).not.toBeInTheDocument();
-      expect(screen.getByTestId('task-selector-input')).toBeInTheDocument();
-    });
+    // TaskSequence is now visible
+    expect(screen.getByTestId('task-selector-input')).toBeInTheDocument();
 
     // Validation error on empty submit
-    await user.click(screen.getByText('Simple'));
     await user.click(screen.getByRole('button', { name: /create pipeline/i }));
     await waitFor(() => {
       expect(screen.getByText('Schedule is required')).toBeInTheDocument();
@@ -436,22 +430,22 @@ describe('Pipeline Form - Integration Tests', () => {
     expect(mockPush).toHaveBeenCalledWith('/orchestrate');
   });
 
-  it('loads existing pipeline in edit mode with various schedule types and task alignment detection', async () => {
-    // Daily schedule with aligned tasks → simple mode
+  it('loads existing pipeline in edit mode with various schedule types and task detection', async () => {
+    // Daily schedule with tasks → checkbox checked
     const dailyPipeline = {
       name: 'Existing Daily Pipeline',
       cron: '30 9 * * *',
       isScheduleActive: true,
       connections: [{ id: 'conn-1', name: 'Postgres Source', seq: 1 }],
       transformTasks: [
-        { uuid: 'task-1', seq: 1 },
-        { uuid: 'task-2', seq: 2 },
+        { uuid: 'task-2', seq: 1 },
+        { uuid: 'task-3', seq: 2 },
       ],
     };
 
     mockApiGet.mockImplementation((url: string) => {
       if (url === '/api/prefect/v1/flows/existing-dep') return Promise.resolve(dailyPipeline);
-      if (url === '/api/prefect/tasks/transform/') return Promise.resolve(mockTasks);
+      if (url.startsWith('/api/prefect/tasks/transform/')) return Promise.resolve(mockTasks);
       if (url === '/api/airbyte/v1/connections') return Promise.resolve(mockConnections);
       return Promise.reject(new Error(`Unmocked GET: ${url}`));
     });
@@ -470,6 +464,7 @@ describe('Pipeline Form - Integration Tests', () => {
     expect(screen.getByText('Update Pipeline')).toBeInTheDocument();
     expect(screen.getByTestId('activeSwitch')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument();
+    expect(screen.getByLabelText('Run transform tasks')).toBeChecked();
     unmount();
 
     // Manual schedule (null cron)
@@ -482,7 +477,7 @@ describe('Pipeline Form - Integration Tests', () => {
           connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
           transformTasks: [],
         });
-      if (url === '/api/prefect/tasks/transform/') return Promise.resolve(mockTasks);
+      if (url.startsWith('/api/prefect/tasks/transform/')) return Promise.resolve(mockTasks);
       if (url === '/api/airbyte/v1/connections') return Promise.resolve(mockConnections);
       return Promise.reject(new Error(`Unmocked GET: ${url}`));
     });
@@ -497,9 +492,10 @@ describe('Pipeline Form - Integration Tests', () => {
       expect(screen.getByTestId('name')).toHaveValue('Manual Pipeline');
     });
     expect(screen.queryByTestId('cronTimeOfDay')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Run transform tasks')).not.toBeChecked();
     unmount2();
 
-    // Non-aligned tasks → advanced mode
+    // Custom order tasks → checkbox checked, task list visible
     mockApiGet.mockImplementation((url: string) => {
       if (url === '/api/prefect/v1/flows/custom-order-dep')
         return Promise.resolve({
@@ -509,10 +505,10 @@ describe('Pipeline Form - Integration Tests', () => {
           connections: [],
           transformTasks: [
             { uuid: 'task-3', seq: 1 },
-            { uuid: 'task-1', seq: 2 },
+            { uuid: 'task-2', seq: 2 },
           ],
         });
-      if (url === '/api/prefect/tasks/transform/') return Promise.resolve(mockTasks);
+      if (url.startsWith('/api/prefect/tasks/transform/')) return Promise.resolve(mockTasks);
       if (url === '/api/airbyte/v1/connections') return Promise.resolve(mockConnections);
       return Promise.reject(new Error(`Unmocked GET: ${url}`));
     });
@@ -526,7 +522,7 @@ describe('Pipeline Form - Integration Tests', () => {
     await waitFor(() => {
       expect(screen.getByTestId('name')).toHaveValue('Custom Order Pipeline');
     });
-    expect(screen.queryByLabelText('Run all tasks')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Run transform tasks')).toBeChecked();
   });
 
   it('toggles active status in edit mode', async () => {
@@ -644,7 +640,7 @@ describe('Pipeline Form - Integration Tests', () => {
     await waitFor(() => {
       expect(screen.getByTestId('name')).toHaveValue('DBT Cloud Pipeline');
     });
-    expect(screen.getByLabelText('Run all tasks')).not.toBeChecked();
+    expect(screen.getByLabelText('Run transform tasks')).not.toBeChecked();
   });
 });
 

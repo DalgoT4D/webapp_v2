@@ -95,7 +95,7 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
       className={`${canInteractWithCanvas() ? 'cursor-grab' : 'cursor-pointer'} relative`}
       style={{
         border: isSelected ? '2px dotted #000' : 'none',
-        borderRadius: 5,
+        borderRadius: 8,
         padding: isSelected ? 0 : 2,
       }}
       onClick={handleNodeClick}
@@ -139,10 +139,9 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
 
       <div
         style={{
-          width: 90,
-          height: 100,
+          width: 96,
           background: '#fff',
-          borderRadius: 5,
+          borderRadius: 8,
           boxShadow: '0px 2px 4px 0px rgba(0, 0, 0, 0.16)',
           display: 'flex',
           flexDirection: 'column',
@@ -152,7 +151,7 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
         {/* Icon area */}
         <div
           style={{
-            flex: 1,
+            height: 56,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -178,9 +177,6 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
             </span>
           )}
         </div>
-
-        {/* Divider */}
-        <div style={{ borderTop: '1px solid #EEEEEE' }} />
 
         {/* Label */}
         <div style={{ padding: 8, textAlign: 'center' }}>
