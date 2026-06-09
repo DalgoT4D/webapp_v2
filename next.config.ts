@@ -10,6 +10,18 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  async rewrites() {
+    // PostHog reverse proxy. Path is '/relay' (not PostHog's default '/ingest')
+    // because the app already owns the '/ingest' route for data ingestion.
+    const proxyHost = process.env.POSTHOG_PROXY_HOST ?? 'https://us.i.posthog.com';
+    const assetsHost = process.env.POSTHOG_PROXY_ASSETS_HOST ?? 'https://us-assets.i.posthog.com';
+    return [
+      { source: '/relay/static/:path*', destination: `${assetsHost}/static/:path*` },
+      { source: '/relay/array/:path*', destination: `${assetsHost}/array/:path*` },
+      { source: '/relay/:path*', destination: `${proxyHost}/:path*` },
+    ];
+  },
+  skipTrailingSlashRedirect: true,
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,

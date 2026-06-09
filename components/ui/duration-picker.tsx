@@ -13,9 +13,18 @@ interface DurationPickerProps {
   dateTo: Date | undefined;
   onApply: (from: Date | undefined, to: Date | undefined) => void;
   align?: 'start' | 'center' | 'end';
+  minDate?: Date;
+  maxDate?: Date;
 }
 
-export function DurationPicker({ dateFrom, dateTo, onApply, align = 'end' }: DurationPickerProps) {
+export function DurationPicker({
+  dateFrom,
+  dateTo,
+  onApply,
+  align = 'end',
+  minDate,
+  maxDate,
+}: DurationPickerProps) {
   const [open, setOpen] = useState(false);
   const [selecting, setSelecting] = useState<'from' | 'to'>('from');
   const [localFrom, setLocalFrom] = useState<Date | undefined>(dateFrom);
@@ -86,6 +95,13 @@ export function DurationPicker({ dateFrom, dateTo, onApply, align = 'end' }: Dur
                 setLocalTo(d);
               }
             }}
+            defaultMonth={localFrom || minDate || new Date()}
+            disabled={[
+              ...(minDate ? [{ before: minDate }] : []),
+              ...(maxDate ? [{ after: maxDate }] : []),
+              ...(selecting === 'to' && localFrom ? [{ before: localFrom }] : []),
+              ...(selecting === 'from' && localTo ? [{ after: localTo }] : []),
+            ]}
           />
           <div className="flex justify-end gap-2 pt-1">
             <Button

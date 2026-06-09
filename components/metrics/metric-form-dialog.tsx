@@ -36,6 +36,8 @@ import {
 import type { Metric, MetricPayload, MetricConsumersResponse } from '@/types/metrics';
 import { AGGREGATION_OPTIONS } from '@/types/metrics';
 import { ConsumerLinks } from './consumer-links';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 const NUMERIC_TYPES = [
   'integer',
@@ -248,6 +250,7 @@ export function MetricFormDialog({
         await updateMetric(metric.id, payload);
       } else {
         await createMetric(payload);
+        trackEvent(ANALYTICS_EVENTS.METRIC_CREATED);
       }
       onSuccess();
       onOpenChange(false);

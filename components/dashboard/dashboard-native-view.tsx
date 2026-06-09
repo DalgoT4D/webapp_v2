@@ -60,6 +60,7 @@ import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
+import { compactVertical } from '@/lib/dashboard-animation-utils';
 import { UnifiedTextElement } from './text-element-unified';
 import { KPIChartElement } from './kpi-chart-element';
 import {
@@ -91,6 +92,8 @@ import {
 import { Star, StarOff, Settings } from 'lucide-react';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 // Define responsive breakpoints and column configurations (same as builder)
 // Superset-style: Always 12 columns, they just scale with container width
@@ -407,10 +410,27 @@ export function DashboardNativeView({
     setActiveTabId(tabId);
   }, []);
 
+  // After filter panel collapse, ECharts still sees the pre-animation container width.
+  // Wait for the slide transition (duration-300) to finish before firing resize so all
+  // chart instances remeasure against the final layout — 300ms transition + 50ms buffer.
+  const FILTER_PANEL_TRANSITION_MS = 350;
+
+  const handleFiltersCollapseChange = useCallback((collapsed: boolean) => {
+    setIsFiltersCollapsed(collapsed);
+    setTimeout(() => window.dispatchEvent(new Event('resize')), FILTER_PANEL_TRANSITION_MS);
+  }, []);
+
   // Check if we should show tabs (2 or more tabs)
   const shouldShowTabs = tabsData && (tabsData.tabs?.length ?? 0) >= 2;
 
   // Allow editing in preview mode without any conditions
+
+  // Track dashboard view once per mount
+  useEffect(() => {
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_VIEWED, { dashboard_id: dashboardId });
+    // Fire once per mount — the dashboard id is stable for the view.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Update current screen size on resize
   useEffect(() => {
@@ -789,6 +809,9 @@ export function DashboardNativeView({
                       </Badge>
                     )}
                   </div>
+                  {dashboard.description && (
+                    <p className="text-xs text-gray-600 mt-1 truncate">{dashboard.description}</p>
+                  )}
                 </div>
               </div>
 
@@ -957,36 +980,36 @@ export function DashboardNativeView({
                   </Button>
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title">
+                  {/* Title row: title + badges + modified-by/last-updated inline */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title truncate flex-shrink-0 max-w-md">
                       {dashboard.title}
                     </h1>
                     {dashboard.is_published && (
-                      <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+                      <Badge
+                        variant="default"
+                        className="text-xs bg-green-100 text-green-800 flex-shrink-0"
+                      >
                         Published
                       </Badge>
                     )}
                     {isLocked && (
                       <Badge
                         variant={isLockedByOther ? 'destructive' : 'secondary'}
-                        className="text-xs"
+                        className="text-xs flex-shrink-0"
                       >
                         <Lock className="w-3 h-3 mr-1" />
                         {isLockedByOther ? `Locked by ${lockedBy}` : `Locked by you`}
                       </Badge>
                     )}
-                  </div>
-
-                  {/* Metadata below title */}
-                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                     {dashboard.last_modified_by && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-xs text-gray-500 flex-shrink-0">
                         <User className="w-3 h-3" />
                         <span>Updated by {dashboard.last_modified_by}</span>
                       </div>
                     )}
                     {dashboard.updated_at && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-xs text-gray-500 flex-shrink-0">
                         <Clock className="w-3 h-3" />
                         <span>
                           Modified{' '}
@@ -995,6 +1018,16 @@ export function DashboardNativeView({
                       </div>
                     )}
                   </div>
+
+                  {/* Subtitle / description below the title */}
+                  {dashboard.description && (
+                    <p
+                      className="text-sm text-gray-600 mt-1 line-clamp-2 max-w-3xl"
+                      data-testid="dashboard-description"
+                    >
+                      {dashboard.description}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1119,7 +1152,12 @@ export function DashboardNativeView({
       {showMinimalHeader && !isEmbedMode && (
         <div className="bg-white border-b flex-shrink-0 px-6 py-6">
           <div>
-            <h1 className="text-3xl font-bold">{dashboard.title}</h1>
+            <h1 className="text-3xl font-bold truncate">{dashboard.title}</h1>
+            {dashboard.description && (
+              <p className="text-base text-gray-600 mt-2 line-clamp-2 max-w-3xl">
+                {dashboard.description}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -1149,7 +1187,7 @@ export function DashboardNativeView({
             layout="vertical"
             onFiltersApplied={handleFiltersApplied}
             onFiltersCleared={handleFiltersCleared}
-            onCollapseChange={setIsFiltersCollapsed}
+            onCollapseChange={handleFiltersCollapseChange}
             isPublicMode={isPublicMode}
             publicToken={publicToken}
             initiallyCollapsed={showMinimalHeader || isPublicMode || isReportMode}
@@ -1273,10 +1311,11 @@ export function DashboardNativeView({
                       ))}
                     </ResponsiveGrid>
                   ) : (
-                    // Target screen size or no preview override - use exact layout
+                    // Target screen size or no preview override - grid model: render each
+                    // widget at its own (x,y,w,h) with gravity-up, matching the editor.
                     <GridLayout
                       className="dashboard-grid"
-                      layout={modifiedLayout}
+                      layout={compactVertical(modifiedLayout, effectiveScreenConfig.cols)}
                       cols={effectiveScreenConfig.cols}
                       rowHeight={20}
                       width={actualContainerWidth}
@@ -1285,13 +1324,12 @@ export function DashboardNativeView({
                       }}
                       isDraggable={false}
                       isResizable={false}
-                      compactType={null}
-                      preventCollision={true}
+                      compactType="vertical"
+                      preventCollision={false}
                       allowOverlap={false}
                       margin={[8, 8]}
                       containerPadding={[8, 8]}
                       autoSize={true}
-                      verticalCompact={false}
                     >
                       {modifiedLayout.map((layoutItem: any) => (
                         <div key={layoutItem.i} className="dashboard-item">

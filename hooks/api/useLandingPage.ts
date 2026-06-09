@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { apiPost, apiDelete, apiGet } from '@/lib/api';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface LandingPageResponse {
   success: boolean;
@@ -46,6 +48,7 @@ export function useLandingPage() {
         // Revalidate user data to update landing page indicators
         await mutate('/api/currentuserv2');
 
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_SET_AS_LANDING);
         toastSuccess.generic(response.message || 'Dashboard set as landing page');
         return true;
       }

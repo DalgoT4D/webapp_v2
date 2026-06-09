@@ -39,6 +39,8 @@ import {
   utcTimeToLocal,
 } from '../utils';
 import { WEEKDAYS, SCHEDULE_OPTIONS } from '@/constants/pipeline';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface PipelineFormProps {
   deploymentId?: string;
@@ -280,6 +282,7 @@ function PipelineFormContent({
           continueOnSyncFailure: data.continueOnSyncFailure,
         });
 
+        trackEvent(ANALYTICS_EVENTS.PIPELINE_CREATED);
         toastSuccess.created('Pipeline');
       }
 

@@ -27,6 +27,8 @@ import {
 } from '@/hooks/api/useWarehouse';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { DESTINATION_CHECK_WS_PATH } from '@/constants/warehouse';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { toastSuccess, toastError } from '@/lib/toast';
 import type { Warehouse } from '@/types/warehouse';
 import type { ParsedSpec } from '@/components/connectors/types';
@@ -125,6 +127,7 @@ export function WarehouseForm({
           destinationDefId: selectedDefId!,
           airbyteConfig: config,
         });
+        trackEvent(ANALYTICS_EVENTS.WAREHOUSE_CREATED);
         toastSuccess.created('Warehouse');
       }
       onSuccess();

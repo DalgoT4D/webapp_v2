@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import * as echarts from 'echarts';
 import { format as formatDate } from 'date-fns';
 import { formatMetricValue, computePopChanges } from '@/lib/formatters';
+import { useAuthStore } from '@/stores/authStore';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -158,9 +159,16 @@ export function KPIDetailDrawer({
         <div className="px-6 pt-5 pb-3 border-b">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">{kpi.name}</h2>
+              <a
+                href={`/metrics?highlight=${kpi.metric.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-lg font-semibold text-gray-900 hover:underline block"
+              >
+                {kpi.name}
+              </a>
               <p className="text-sm text-muted-foreground">
-                {kpi.program_tags.length > 0 && <>{kpi.program_tags.join(', ')} &middot; </>}
+                {kpi.metric.description && <>{kpi.metric.description} &middot; </>}
                 <span style={{ color: 'var(--primary)' }}>
                   {kpi.metric.schema_name}.{kpi.metric.table_name}
                 </span>
@@ -225,6 +233,16 @@ export function KPIDetailDrawer({
                     setDateFrom(from);
                     setDateTo(to);
                   }}
+                  minDate={
+                    defaultPeriods[0]?.period_date
+                      ? new Date(defaultPeriods[0].period_date)
+                      : undefined
+                  }
+                  maxDate={
+                    defaultPeriods[defaultPeriods.length - 1]?.period_date
+                      ? new Date(defaultPeriods[defaultPeriods.length - 1].period_date)
+                      : undefined
+                  }
                 />
                 <Select value={activeTimeGrain} onValueChange={setTimeGrain}>
                   <SelectTrigger className="w-28 h-8 text-xs">
@@ -281,6 +299,7 @@ function NotesSection({
   periods: { period: string; period_date: string | null; value: number | null }[];
 }) {
   const { annotations, mutate } = useAnnotations(kpi.id);
+  const currentUserEmail = useAuthStore((s) => s.getCurrentOrgUser()?.email ?? '');
   const [showForm, setShowForm] = useState(false);
   const [noteType, setNoteType] = useState<NoteType>('beneficiary_quote');
   const [periodKey, setPeriodKey] = useState('');
@@ -421,7 +440,7 @@ function NotesSection({
                   <SelectValue placeholder="Select period" />
                 </SelectTrigger>
                 <SelectContent>
-                  {periods.map((p) => (
+                  {[...periods].reverse().map((p) => (
                     <SelectItem key={p.period} value={p.period}>
                       {p.period}
                     </SelectItem>
@@ -580,13 +599,15 @@ function NotesSection({
                           <Pencil className="w-3.5 h-3.5 mr-1.5" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(entry.id)}
-                          className="cursor-pointer text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                          Delete
-                        </DropdownMenuItem>
+                        {entry.created_by_email === currentUserEmail && (
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(entry.id)}
+                            className="cursor-pointer text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

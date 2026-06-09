@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useSWRConfig } from 'swr';
 import {
   Plus,
@@ -32,7 +32,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useKPIs, useKPIData, deleteKPI } from '@/hooks/api/useKPIs';
+import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
 import { KPIDeleteDialog } from './kpi-delete-dialog';
@@ -121,8 +121,10 @@ function KPICardWithData({
 
 export function KPIPageComponent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [metricTypeFilter, setMetricTypeFilter] = useState('');
+  const [programTagFilter, setProgramTagFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
@@ -147,11 +149,14 @@ export function KPIPageComponent() {
     pageSize: PAGE_SIZE,
     search: search || undefined,
     metricType: metricTypeFilter || undefined,
+    programTag: programTagFilter || undefined,
   });
 
+  const { tags: programTags } = useProgramTags();
   const { mutate: globalMutate } = useSWRConfig();
 
-  // Auto-open drawer when ?open={kpiId} is in the URL
+  // Auto-open drawer when ?open={kpiId} is in the URL, then strip the param
+  // so a refresh doesn't reopen the drawer after the user has closed it.
   useEffect(() => {
     const openId = searchParams.get('open');
     if (openId && kpis.length > 0) {
@@ -160,13 +165,18 @@ export function KPIPageComponent() {
         setSelectedKpi(kpi);
         setDrawerOpen(true);
       }
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete('open');
+      const qs = next.toString();
+      router.replace(qs ? `/kpis?${qs}` : '/kpis', { scroll: false });
     }
-  }, [searchParams, kpis]);
+  }, [searchParams, kpis, router]);
 
   const handleFormSuccess = useCallback(() => {
     setCurrentPage(1);
     mutate();
-  }, [mutate]);
+    globalMutate('/api/kpis/program-tags/');
+  }, [mutate, globalMutate]);
 
   const handleCreate = () => {
     setEditingKpi(null);
@@ -248,7 +258,7 @@ export function KPIPageComponent() {
         <div className="border rounded-lg bg-white p-5 h-full flex flex-col overflow-hidden">
           {/* Filters + Pagination */}
           <div className="flex items-center gap-3 mb-4">
-            <div className="relative flex-1 max-w-sm">
+            <div className="relative w-full max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search KPIs..."
@@ -280,6 +290,27 @@ export function KPIPageComponent() {
                 ))}
               </SelectContent>
             </Select>
+            {programTags.length > 0 && (
+              <Select
+                value={programTagFilter || 'all'}
+                onValueChange={(v) => {
+                  setProgramTagFilter(v === 'all' ? '' : v);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="w-40 h-9">
+                  <SelectValue placeholder="Program" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Programs</SelectItem>
+                  {programTags.map((tag) => (
+                    <SelectItem key={tag} value={tag}>
+                      {tag}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Select
               value={statusFilter || 'all'}
               onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}

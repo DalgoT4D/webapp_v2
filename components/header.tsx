@@ -26,6 +26,8 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuthStore } from '@/stores/authStore';
 import { apiPost } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useUnreadCount } from '@/hooks/api/useNotifications';
 import { CreateOrgDialog } from '@/components/settings/organizations/CreateOrgDialog';
@@ -87,6 +89,7 @@ export function Header({
     setOrgSwitching(true);
 
     // Update the selected org in store and localStorage
+    trackEvent(ANALYTICS_EVENTS.ORG_SWITCHED, { org_slug: orgSlug });
     setSelectedOrg(orgSlug);
 
     // Full reload ensures all API calls use the new org header cleanly
@@ -103,6 +106,7 @@ export function Header({
     }
 
     // Clear local state and redirect
+    trackEvent(ANALYTICS_EVENTS.USER_LOGGED_OUT);
     logout();
   };
 

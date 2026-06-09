@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef } from 'react';
+import { format } from 'date-fns';
 import {
   Select,
   SelectContent,
@@ -8,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
+import { DebouncedInput } from '@/components/charts/debounced-input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { BarChart3, PieChart, LineChart, Hash, MapPin, Check } from 'lucide-react';
@@ -19,6 +20,7 @@ import {
   isTimestampColumn,
   isDateAndTimestampColumn,
 } from '@/lib/columnTypeIcons';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Combobox, highlightText } from '@/components/ui/combobox';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
@@ -26,7 +28,12 @@ import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfiguration';
 import { TableDimensionsSelector } from '@/components/charts/TableDimensionsSelector';
 import { TimeGrainSelector } from '@/components/charts/TimeGrainSelector';
-import type { ChartBuilderFormData, ChartMetric, ChartDimension } from '@/types/charts';
+import type {
+  ChartBuilderFormData,
+  ChartMetric,
+  ChartDimension,
+  ChartFilter,
+} from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 
 interface ChartDataConfigurationV3Props {
@@ -61,6 +68,7 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   value,
   onChange,
   disabled,
+  dataType,
 }: {
   schema?: string;
   table?: string;
@@ -69,7 +77,10 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   value: any;
   onChange: (value: any) => void;
   disabled?: boolean;
+  dataType?: string;
 }) {
+  const [datePickerOpen, setDatePickerOpen] = React.useState(false);
+
   // Get column values using the warehouse API
   const { data: columnValues } = useColumnValues(schema || null, table || null, column || null);
 
@@ -115,16 +126,40 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
     } else {
       // Fallback to text input for in/not_in when no column values
       return (
-        <Input
-          type="text"
+        <DebouncedInput
           placeholder="value1, value2, value3"
           value={value || ''}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={onChange}
           disabled={disabled}
           className="h-8 flex-1"
         />
       );
     }
+  }
+
+  // Date/timestamp columns get a calendar picker
+  if (dataType && isDateAndTimestampColumn(dataType)) {
+    const selectedDate = !value
+      ? undefined
+      : value.includes('T')
+        ? new Date(value)
+        : new Date(value + 'T00:00:00');
+    return (
+      <div className="flex-1">
+        <DatePicker
+          value={selectedDate}
+          placeholder="Pick a date"
+          disabled={disabled}
+          open={datePickerOpen}
+          onOpenChange={setDatePickerOpen}
+          selected={selectedDate}
+          onSelect={(date) => {
+            onChange(date ? format(date, 'yyyy-MM-dd') : '');
+            setDatePickerOpen(false);
+          }}
+        />
+      </div>
+    );
   }
 
   // If we have column values, show searchable dropdown
@@ -145,11 +180,10 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
 
   // Fallback to regular input
   return (
-    <Input
-      type="text"
+    <DebouncedInput
       placeholder="Enter value"
       value={value || ''}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={onChange}
       disabled={disabled}
       className="h-8 flex-1"
     />
@@ -161,6 +195,18 @@ export function ChartDataConfigurationV3({
   onChange,
   disabled,
 }: ChartDataConfigurationV3Props) {
+  const filterIds = useRef<string[]>([]);
+  const nextFilterId = useRef(0);
+
+  // Keep filter IDs in sync with formData.filters length
+  const filters = formData.filters || [];
+  while (filterIds.current.length < filters.length) {
+    filterIds.current.push(`filter-${nextFilterId.current++}`);
+  }
+  if (filterIds.current.length > filters.length) {
+    filterIds.current.length = filters.length;
+  }
+
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
   // Filter columns by type
@@ -230,26 +276,32 @@ export function ChartDataConfigurationV3({
     });
   };
 
-  // Auto-prefill when columns are loaded
+  // Auto-prefill when columns load — only once per (chart_type, schema, table).
+  // Without the key guard, removing the last metric on a number chart re-triggers prefill
+  // because nothing else in `hasExistingConfig` stays truthy for number charts.
+  const autoPrefillKeyRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (columns && formData.schema_name && formData.table_name && formData.chart_type) {
-      // Check if we should auto-prefill (no existing configuration)
-      const hasExistingConfig = !!(
-        formData.dimension_column ||
-        formData.aggregate_column ||
-        formData.geographic_column ||
-        formData.x_axis_column ||
-        formData.y_axis_column ||
-        formData.table_columns?.length ||
-        (formData.metrics && formData.metrics.length > 0)
-      );
+    if (!columns || !formData.schema_name || !formData.table_name || !formData.chart_type) return;
 
-      if (!hasExistingConfig) {
-        const autoConfig = generateAutoPrefilledConfig(formData.chart_type, normalizedColumns);
-        if (Object.keys(autoConfig).length > 0) {
-          console.log('🤖 [CHART-DATA-CONFIG-V3] Auto-prefilling configuration:', autoConfig);
-          onChange(autoConfig);
-        }
+    const key = `${formData.chart_type}|${formData.schema_name}|${formData.table_name}`;
+    if (autoPrefillKeyRef.current === key) return;
+    autoPrefillKeyRef.current = key;
+
+    const hasExistingConfig = !!(
+      formData.dimension_column ||
+      formData.aggregate_column ||
+      formData.geographic_column ||
+      formData.x_axis_column ||
+      formData.y_axis_column ||
+      formData.table_columns?.length ||
+      (formData.metrics && formData.metrics.length > 0)
+    );
+
+    if (!hasExistingConfig) {
+      const autoConfig = generateAutoPrefilledConfig(formData.chart_type, normalizedColumns);
+      if (Object.keys(autoConfig).length > 0) {
+        console.log('🤖 [CHART-DATA-CONFIG-V3] Auto-prefilling configuration:', autoConfig);
+        onChange(autoConfig);
       }
     }
   }, [
@@ -620,93 +672,113 @@ export function ChartDataConfigurationV3({
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-900">Data Filters</Label>
           <div className="space-y-2">
-            {(formData.filters || []).map((filter, index) => (
-              <div key={index} className="flex gap-2 items-center">
-                <Combobox
-                  items={columnItems}
-                  value={filter.column}
-                  onValueChange={(value) => {
-                    const newFilters = [...(formData.filters || [])];
-                    newFilters[index] = { ...filter, column: value };
-                    onChange({ filters: newFilters });
-                  }}
-                  disabled={disabled}
-                  searchPlaceholder="Search columns..."
-                  placeholder="Column"
-                  compact
-                  className="flex-1"
-                  renderItem={(item, _isSelected, searchQuery) => (
-                    <div className="flex items-center gap-2 min-w-0">
-                      <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
-                      <span className="truncate">{highlightText(item.label, searchQuery)}</span>
-                    </div>
-                  )}
-                />
+            {filters.map((filter, index) => {
+              const filterId = filterIds.current[index];
+              const filterColumnDataType = normalizedColumns.find(
+                (col) => col.column_name === filter.column
+              )?.data_type;
 
-                <Select
-                  value={filter.operator}
-                  onValueChange={(value) => {
-                    const newFilters = [...(formData.filters || [])];
-                    newFilters[index] = { ...filter, operator: value as any };
-                    onChange({ filters: newFilters });
-                  }}
-                  disabled={disabled}
-                >
-                  <SelectTrigger className="h-8 w-32">
-                    <SelectValue placeholder="Operator" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="equals">Equals</SelectItem>
-                    <SelectItem value="not_equals">Not equals</SelectItem>
-                    <SelectItem value="greater_than">Greater than (&gt;)</SelectItem>
-                    <SelectItem value="greater_than_equal">Greater or equal (&gt;=)</SelectItem>
-                    <SelectItem value="less_than">Less than (&lt;)</SelectItem>
-                    <SelectItem value="less_than_equal">Less or equal (&lt;=)</SelectItem>
-                    <SelectItem value="like">Like</SelectItem>
-                    <SelectItem value="like_case_insensitive">Like (case insensitive)</SelectItem>
-                    <SelectItem value="in">In</SelectItem>
-                    <SelectItem value="not_in">Not in</SelectItem>
-                    <SelectItem value="is_null">Is null</SelectItem>
-                    <SelectItem value="is_not_null">Is not null</SelectItem>
-                  </SelectContent>
-                </Select>
+              return (
+                <div key={filterId} className="flex gap-2 items-center">
+                  <Combobox
+                    items={columnItems}
+                    value={filter.column}
+                    onValueChange={(value) => {
+                      const newColDataType = normalizedColumns.find(
+                        (col) => col.column_name === value
+                      )?.data_type;
+                      const newFilters = [...(formData.filters || [])];
+                      newFilters[index] = {
+                        ...filter,
+                        column: value,
+                        value: '',
+                        ...(newColDataType && { data_type: newColDataType }),
+                      };
+                      onChange({ filters: newFilters });
+                    }}
+                    disabled={disabled}
+                    searchPlaceholder="Search columns..."
+                    placeholder="Column"
+                    compact
+                    className="flex-1"
+                    renderItem={(item, _isSelected, searchQuery) => (
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
+                        <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+                      </div>
+                    )}
+                  />
 
-                <SearchableValueInput
-                  schema={formData.schema_name}
-                  table={formData.table_name}
-                  column={filter.column}
-                  operator={filter.operator}
-                  value={filter.value}
-                  onChange={(value) => {
-                    const newFilters = [...(formData.filters || [])];
-                    newFilters[index] = { ...filter, value };
-                    onChange({ filters: newFilters });
-                  }}
-                  disabled={disabled}
-                />
+                  <Select
+                    value={filter.operator}
+                    onValueChange={(value) => {
+                      const newFilters = [...(formData.filters || [])];
+                      newFilters[index] = { ...filter, operator: value as ChartFilter['operator'] };
+                      onChange({ filters: newFilters });
+                    }}
+                    disabled={disabled}
+                  >
+                    <SelectTrigger className="h-8 w-32">
+                      <SelectValue placeholder="Operator" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="equals">Equals</SelectItem>
+                      <SelectItem value="not_equals">Not equals</SelectItem>
+                      <SelectItem value="greater_than">Greater than (&gt;)</SelectItem>
+                      <SelectItem value="greater_than_equal">Greater or equal (&gt;=)</SelectItem>
+                      <SelectItem value="less_than">Less than (&lt;)</SelectItem>
+                      <SelectItem value="less_than_equal">Less or equal (&lt;=)</SelectItem>
+                      <SelectItem value="like">Like</SelectItem>
+                      <SelectItem value="like_case_insensitive">Like (case insensitive)</SelectItem>
+                      <SelectItem value="in">In</SelectItem>
+                      <SelectItem value="not_in">Not in</SelectItem>
+                      <SelectItem value="is_null">Is null</SelectItem>
+                      <SelectItem value="is_not_null">Is not null</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => {
-                    const newFilters = (formData.filters || []).filter((_, i) => i !== index);
-                    onChange({ filters: newFilters });
-                  }}
-                  disabled={disabled}
-                >
-                  ✕
-                </Button>
-              </div>
-            ))}
+                  <SearchableValueInput
+                    schema={formData.schema_name}
+                    table={formData.table_name}
+                    column={filter.column}
+                    operator={filter.operator}
+                    value={filter.value}
+                    dataType={filterColumnDataType}
+                    onChange={(value) => {
+                      const newFilters = [...(formData.filters || [])];
+                      newFilters[index] = { ...filter, value };
+                      onChange({ filters: newFilters });
+                    }}
+                    disabled={disabled}
+                  />
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label="Remove filter"
+                    data-testid={`remove-filter-${index}`}
+                    onClick={() => {
+                      filterIds.current.splice(index, 1);
+                      const newFilters = filters.filter((_, i) => i !== index);
+                      onChange({ filters: newFilters });
+                    }}
+                    disabled={disabled}
+                  >
+                    ✕
+                  </Button>
+                </div>
+              );
+            })}
 
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
+                filterIds.current.push(`filter-${nextFilterId.current++}`);
                 const newFilters = [
-                  ...(formData.filters || []),
-                  { column: '', operator: 'equals' as any, value: '' },
+                  ...filters,
+                  { column: '', operator: 'equals' as ChartFilter['operator'], value: '' },
                 ];
                 onChange({ filters: newFilters });
               }}

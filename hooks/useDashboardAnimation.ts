@@ -9,19 +9,15 @@ import {
   Size,
   ComponentBounds,
   SnapZone,
-  AutoArrangeOptions,
   AnimationConfig,
   SpaceMakingConfig,
   AffectedComponent,
   calculateSnapZones,
   applyMagneticSnapping,
-  autoArrangeComponents,
-  findOptimalPosition,
   createTransitionStyles,
   detectSpaceMakingNeeds,
   calculateSpaceMakingLayout,
   ANIMATION_PRESETS,
-  AUTO_ARRANGE_PRESETS,
   DEFAULT_SPACE_MAKING_CONFIG,
   SNAP_THRESHOLD,
 } from '@/lib/dashboard-animation-utils';
@@ -75,7 +71,6 @@ export function useDashboardAnimation({
     ...spaceMakingConfig,
   });
 
-  const animationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const snapZonesRef = useRef<SnapZone[]>([]);
 
   // Calculate column width
@@ -129,81 +124,6 @@ export function useDashboardAnimation({
       };
     },
     [enabled, colWidth, gridCols]
-  );
-
-  /**
-   * Find optimal position for new component
-   */
-  const findBestPosition = useCallback(
-    (size: Size, layout: DashboardLayout[], preferredPosition?: Position): Position => {
-      if (!enabled) {
-        // Fallback to simple positioning - try top first
-        return { x: 0, y: 0 };
-      }
-
-      const componentBounds: ComponentBounds[] = layout.map((item) => ({
-        x: item.x,
-        y: item.y,
-        w: item.w,
-        h: item.h,
-      }));
-
-      // Always try to place at top first (y: 0), then find optimal
-      const topPosition = { x: 0, y: 0 };
-      return findOptimalPosition(size, gridCols, componentBounds, topPosition);
-    },
-    [enabled, gridCols]
-  );
-
-  /**
-   * Auto-arrange layout with animation
-   */
-  const autoArrange = useCallback(
-    async (
-      layout: DashboardLayout[],
-      preset: keyof typeof AUTO_ARRANGE_PRESETS = 'dashboard'
-    ): Promise<DashboardLayout[]> => {
-      if (!enabled) return layout;
-
-      const options = AUTO_ARRANGE_PRESETS[preset];
-      const componentBounds: ComponentBounds[] = layout.map((item) => ({
-        x: item.x,
-        y: item.y,
-        w: item.w,
-        h: item.h,
-      }));
-
-      const arrangedBounds = autoArrangeComponents(componentBounds, gridCols, options);
-
-      const newLayout: DashboardLayout[] = layout.map((item, index) => ({
-        ...item,
-        x: arrangedBounds[index].x,
-        y: arrangedBounds[index].y,
-      }));
-
-      // Set animation state
-      setAnimationState((prev) => ({
-        ...prev,
-        isAnimating: true,
-        animatingComponents: new Set(layout.map((item) => item.i)),
-      }));
-
-      // Clear animation state after animation completes
-      if (animationTimeoutRef.current) {
-        clearTimeout(animationTimeoutRef.current);
-      }
-
-      animationTimeoutRef.current = setTimeout(() => {
-        setAnimationState((prev) => ({
-          ...prev,
-          isAnimating: false,
-          animatingComponents: new Set(),
-        }));
-      }, options.animationDuration + 100);
-
-      return newLayout;
-    },
-    [enabled, gridCols]
   );
 
   /**
@@ -434,15 +354,6 @@ export function useDashboardAnimation({
     };
   }, []);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (animationTimeoutRef.current) {
-        clearTimeout(animationTimeoutRef.current);
-      }
-    };
-  }, []);
-
   return {
     // State
     isAnimating: animationState.isAnimating,
@@ -454,8 +365,6 @@ export function useDashboardAnimation({
     // Functions
     updateSnapZones,
     applySnapping,
-    findBestPosition,
-    autoArrange,
     getAnimationStyles,
     pushAway,
     animateComponent,

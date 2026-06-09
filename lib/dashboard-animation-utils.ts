@@ -22,14 +22,6 @@ export interface SnapZone {
   direction: 'horizontal' | 'vertical' | 'both';
 }
 
-export interface AutoArrangeOptions {
-  algorithm: 'pack' | 'flow' | 'distribute';
-  spacing: number;
-  maintainAspectRatio: boolean;
-  respectUserPositions: boolean;
-  animationDuration: number;
-}
-
 export interface SpaceMakingConfig {
   anticipationRadius: number; // How close before components start moving
   pushForce: number; // How far components get pushed
@@ -98,37 +90,6 @@ export const ANIMATION_PRESETS: Record<string, AnimationConfig> = {
     duration: 600,
     easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)', // ease-out-quad
     stagger: 100,
-  },
-};
-
-export const AUTO_ARRANGE_PRESETS: Record<string, AutoArrangeOptions> = {
-  dashboard: {
-    algorithm: 'pack',
-    spacing: 4,
-    maintainAspectRatio: true,
-    respectUserPositions: false,
-    animationDuration: 400,
-  },
-  presentation: {
-    algorithm: 'distribute',
-    spacing: 8,
-    maintainAspectRatio: true,
-    respectUserPositions: false,
-    animationDuration: 600,
-  },
-  dense: {
-    algorithm: 'pack',
-    spacing: 2,
-    maintainAspectRatio: false,
-    respectUserPositions: false,
-    animationDuration: 300,
-  },
-  flow: {
-    algorithm: 'flow',
-    spacing: 6,
-    maintainAspectRatio: true,
-    respectUserPositions: true,
-    animationDuration: 500,
   },
 };
 
@@ -237,163 +198,68 @@ export function applyMagneticSnapping(
 }
 
 /**
- * Pack algorithm - arrange components with minimal gaps
+ * Type for any item that participates in fluid row flow.
+ * Generic so callers can pass richer objects (e.g. RGL Layout items with i/static/etc).
  */
-export function packLayout(
-  components: ComponentBounds[],
-  gridCols: number,
-  spacing: number = 4
-): ComponentBounds[] {
-  const sorted = [...components].sort((a, b) => {
-    // Sort by size (larger first), then by current position
-    const areaA = a.w * a.h;
-    const areaB = b.w * b.h;
-    if (areaA !== areaB) return areaB - areaA;
-    return a.y - b.y || a.x - b.x;
-  });
+export type FluidFlowItem = {
+  i?: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  minW?: number;
+  maxW?: number;
+  minH?: number;
+  maxH?: number;
+};
 
-  const result: ComponentBounds[] = [];
-  const occupiedGrid: boolean[][] = [];
+/**
+ * Gravity-up compaction (the grid-model contract).
+ *
+ * Each item keeps its own (x, w, h); only `y` is recomputed so the item slides up
+ * to close any empty space directly above it in the columns it occupies. Items are
+ * processed top-to-bottom, left-to-right, so the result is identical to
+ * react-grid-layout's `compactType="vertical"`. Side neighbours (different columns)
+ * are never pushed horizontally — they only move up when space opens above them.
+ *
+ * This replaces the old array-order flow model: array order is no longer
+ * significant, position is owned by each item. Output preserves the input array order
+ * (so React keys / diffing stay stable); only `y` values change.
+ *
+ * Pure function: does not mutate input.
+ */
+export function compactVertical<T extends FluidFlowItem>(items: T[], _gridCols: number): T[] {
+  // Stable top-to-bottom, left-to-right ordering; ties broken by original index.
+  const order = items
+    .map((it, idx) => ({ it, idx }))
+    .sort((a, b) => a.it.y - b.it.y || a.it.x - b.it.x || a.idx - b.idx);
 
-  // Initialize grid
-  const maxHeight = Math.max(...components.map((c) => c.y + c.h)) + 10;
-  for (let y = 0; y < maxHeight; y++) {
-    occupiedGrid[y] = new Array(gridCols).fill(false);
+  const placed: FluidFlowItem[] = [];
+  const result = new Array<T>(items.length);
+
+  const collidesAt = (item: FluidFlowItem, y: number): boolean =>
+    placed.some(
+      (p) => item.x < p.x + p.w && item.x + item.w > p.x && y < p.y + p.h && y + item.h > p.y
+    );
+
+  for (const { it, idx } of order) {
+    // Slide up to the highest non-colliding row (gravity-up).
+    let y = 0;
+    while (collidesAt(it, y)) y++;
+    const moved = { ...it, y } as T;
+    placed.push(moved);
+    result[idx] = moved;
   }
 
-  sorted.forEach((component) => {
-    const { w, h } = component;
-    let placed = false;
-
-    // Try to place component starting from top-left
-    for (let y = 0; y < maxHeight - h && !placed; y++) {
-      for (let x = 0; x <= gridCols - w && !placed; x++) {
-        // Check if position is free
-        let canPlace = true;
-        for (let dy = 0; dy < h && canPlace; dy++) {
-          for (let dx = 0; dx < w && canPlace; dx++) {
-            if (occupiedGrid[y + dy] && occupiedGrid[y + dy][x + dx]) {
-              canPlace = false;
-            }
-          }
-        }
-
-        if (canPlace) {
-          // Mark grid as occupied
-          for (let dy = 0; dy < h; dy++) {
-            for (let dx = 0; dx < w; dx++) {
-              if (!occupiedGrid[y + dy]) occupiedGrid[y + dy] = new Array(gridCols).fill(false);
-              occupiedGrid[y + dy][x + dx] = true;
-            }
-          }
-
-          result.push({ ...component, x, y });
-          placed = true;
-        }
-      }
-    }
-
-    // If couldn't place, put at bottom
-    if (!placed) {
-      const y = occupiedGrid.length;
-      result.push({ ...component, x: 0, y });
-    }
-  });
-
   return result;
 }
 
 /**
- * Flow algorithm - arrange components in reading order
+ * Lowest empty row in the layout — i.e. the y at which a newly added widget should land
+ * so it sits below everything currently on the canvas.
  */
-export function flowLayout(
-  components: ComponentBounds[],
-  gridCols: number,
-  spacingPx: number = 6
-): ComponentBounds[] {
-  const sorted = [...components].sort((a, b) => a.y - b.y || a.x - b.x);
-  const result: ComponentBounds[] = [];
-
-  let currentX = 0;
-  let currentY = 0;
-  let rowHeight = 0;
-  const spacing = spacingPx / 30; // Convert pixels to grid units
-
-  sorted.forEach((component) => {
-    const { w, h } = component;
-
-    // Check if component fits in current row
-    if (currentX + w > gridCols) {
-      // Move to next row
-      currentX = 0;
-      currentY += rowHeight + spacing;
-      rowHeight = 0;
-    }
-
-    result.push({
-      ...component,
-      x: currentX,
-      y: Math.floor(currentY),
-    });
-
-    currentX += w + spacing;
-    rowHeight = Math.max(rowHeight, h);
-  });
-
-  return result;
-}
-
-/**
- * Distribute algorithm - evenly space components
- */
-export function distributeLayout(
-  components: ComponentBounds[],
-  gridCols: number,
-  spacingPx: number = 8
-): ComponentBounds[] {
-  if (components.length === 0) return [];
-
-  const sorted = [...components].sort((a, b) => a.y - b.y || a.x - b.x);
-  const result: ComponentBounds[] = [];
-
-  // Calculate available space
-  const totalWidth = components.reduce((sum, c) => sum + c.w, 0);
-  const availableSpace = gridCols - totalWidth;
-  const gaps = Math.max(1, components.length - 1);
-  const gapSize = availableSpace / gaps;
-
-  let currentX = 0;
-  sorted.forEach((component) => {
-    result.push({
-      ...component,
-      x: Math.floor(currentX),
-      y: component.y,
-    });
-
-    currentX += component.w + gapSize;
-  });
-
-  return result;
-}
-
-/**
- * Auto-arrange components using specified algorithm
- */
-export function autoArrangeComponents(
-  components: ComponentBounds[],
-  gridCols: number,
-  options: AutoArrangeOptions
-): ComponentBounds[] {
-  switch (options.algorithm) {
-    case 'pack':
-      return packLayout(components, gridCols, options.spacing);
-    case 'flow':
-      return flowLayout(components, gridCols, options.spacing);
-    case 'distribute':
-      return distributeLayout(components, gridCols, options.spacing);
-    default:
-      return components;
-  }
+export function bottomY(items: FluidFlowItem[]): number {
+  return items.reduce((max, it) => Math.max(max, it.y + it.h), 0);
 }
 
 /**
@@ -429,88 +295,6 @@ export function wouldCollide(
       newBounds.y + newBounds.h <= existing.y
     );
   });
-}
-
-/**
- * Find optimal position with collision avoidance
- * Strategy:
- * 1. Try preferred position first (usually 0,0)
- * 2. Try to fit in the remaining horizontal space of the first row (y=0)
- * 3. Try to fit in the LAST row (the row with charts that have the highest starting Y)
- * 4. If last row is full, create a new row below everything, starting from x=0
- */
-export function findOptimalPosition(
-  size: Size,
-  gridCols: number,
-  existingComponents: ComponentBounds[],
-  preferredPosition?: Position
-): Position {
-  const { w, h } = size;
-
-  // If no existing components, place at origin
-  if (existingComponents.length === 0) {
-    return preferredPosition || { x: 0, y: 0 };
-  }
-
-  // Try preferred position first
-  if (preferredPosition) {
-    const bounds = { ...preferredPosition, ...size };
-    if (!wouldCollide(bounds, existingComponents)) {
-      return preferredPosition;
-    }
-  }
-
-  // Strategy 1: Try to fit in the first row (y=0) - scan only horizontal positions
-  for (let x = 0; x <= gridCols - w; x++) {
-    const bounds = { x, y: 0, w, h };
-    if (!wouldCollide(bounds, existingComponents)) {
-      return { x, y: 0 };
-    }
-  }
-
-  // Strategy 2: Find the LAST row (highest starting Y) and try to fit there
-  // This fills rows before creating new ones
-  const lastRowY = Math.max(...existingComponents.map((c) => c.y));
-
-  // Scan the last row from left to right for available space
-  for (let x = 0; x <= gridCols - w; x++) {
-    const bounds = { x, y: lastRowY, w, h };
-    if (!wouldCollide(bounds, existingComponents)) {
-      return { x, y: lastRowY };
-    }
-  }
-
-  // Strategy 3: Last row is full, create a new row below everything
-  // Find the bottom of all existing components
-  const bottomY = Math.max(...existingComponents.map((c) => c.y + c.h));
-
-  // Try to place at (0, bottomY) first - start new row from left
-  const bottomLeftBounds = { x: 0, y: bottomY, w, h };
-  if (!wouldCollide(bottomLeftBounds, existingComponents)) {
-    return { x: 0, y: bottomY };
-  }
-
-  // Strategy 4: If bottom-left doesn't work, scan the new row from left to right
-  for (let x = 0; x <= gridCols - w; x++) {
-    const bounds = { x, y: bottomY, w, h };
-    if (!wouldCollide(bounds, existingComponents)) {
-      return { x, y: bottomY };
-    }
-  }
-
-  // Strategy 5: Full scan as fallback (shouldn't normally reach here)
-  const maxY = bottomY + 10;
-  for (let y = 0; y <= maxY; y++) {
-    for (let x = 0; x <= gridCols - w; x++) {
-      const bounds = { x, y, w, h };
-      if (!wouldCollide(bounds, existingComponents)) {
-        return { x, y };
-      }
-    }
-  }
-
-  // Fallback: place at bottom-left
-  return { x: 0, y: maxY + 1 };
 }
 
 /**

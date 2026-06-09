@@ -160,6 +160,14 @@ export function getDefaultGridDimensions(chartType: string): GridDimensions {
     };
   }
 
+  // KPI cards are more compact than full charts
+  if (chartType === 'kpi') {
+    return {
+      w: STANDARD_DEFAULT_SIZE.w,
+      h: 11, // 11 rows × 20px = 220px
+    };
+  }
+
   // Use standard default size for consistent starting point
   // This ensures all new charts start as a roughly square shape (4 cols × 18 rows ≈ 356px × 360px)
   // The standard size is responsive - it scales proportionally with the grid
