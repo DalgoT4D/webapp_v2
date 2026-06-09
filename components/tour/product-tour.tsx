@@ -171,6 +171,14 @@ export function ProductTour() {
         router.push(step.route);
       }
 
+      // Centered "you're all set" closing screen: no element spotlight, just a
+      // modal in the middle of the page. Skip the content wait/highlight.
+      if (step.center) {
+        driverRef.current?.highlight({ popover: contentPopover(index) });
+        transitioningRef.current = false;
+        return;
+      }
+
       // Phase 2 — wait for the page content, then spotlight it.
       await waitForElement(step.selector);
       if (!activeRef.current) return;
@@ -253,7 +261,7 @@ export function ProductTour() {
 
   return (
     <>
-      <GuestWelcomeModal suppressed={isRunning} onStart={() => startTour(1)} />
+      <GuestWelcomeModal suppressed={isRunning} onStart={() => startTour(0)} />
       <button
         type="button"
         onClick={() => startTour(0)}

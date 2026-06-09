@@ -10,13 +10,10 @@
  *
  * Order: Ingest (Warehouse → Sources → Connections) → Transform → Orchestrate →
  * Overview → Explore (opens a table to show real data) → Charts → Dashboards →
- * live dashboard → User Management.
+ * Reports → Metrics → KPIs → Impact → User Management → "you're all set" finish.
  *
  * Plain-language copy only — no technical jargon.
  */
-
-// The demo dashboard built in Session 2 (Education Access & Equity).
-export const DEMO_DASHBOARD_ID = 11;
 
 // The warehouse table opened in the Explore step.
 export const DEMO_EXPLORE_TABLE = {
@@ -43,6 +40,11 @@ export interface TourStep {
   navTitle?: string;
   /** When true, open the demo Explore table so real data is on screen. */
   selectExploreTable?: boolean;
+  /**
+   * When true, show the popover as a centered modal with no element spotlight
+   * (used for the closing "you're all set" screen). `selector`/`side` are ignored.
+   */
+  center?: boolean;
 }
 
 const CONTENT = '#main-layout-main-content';
@@ -57,19 +59,9 @@ export const tourSteps: TourStep[] = [
     align: ALIGN,
     icon: '👋',
     title: 'Welcome to Dalgo',
-    content:
-      "Let's take a quick tour. I'll walk you through each part of the platform in plain language — what it is and what it's for. Press Next to begin.",
-  },
-  {
-    route: '/ingest?tab=warehouse',
-    selector: CONTENT,
-    side: SIDE,
-    align: ALIGN,
-    icon: '🏠',
-    title: 'Your Warehouse',
     navTitle: 'Ingest',
     content:
-      'Think of this as the central home for all your data — everything kept together, neatly, in one safe place.',
+      "Let's take a quick tour. We'll start with your Warehouse — the central home for all your data, kept together neatly in one safe place. Press Next to continue.",
   },
   {
     route: '/ingest?tab=sources',
@@ -158,18 +150,51 @@ export const tourSteps: TourStep[] = [
     title: 'Dashboards',
     navTitle: 'Dashboards',
     content:
-      "Bring your charts together into one page you can share with your team. Let's open one and take a look.",
+      'Bring your charts together into one page you can share with your team — this is the list of dashboards you can build and open.',
   },
   {
-    route: `/dashboards/${DEMO_DASHBOARD_ID}`,
+    route: '/reports',
     selector: CONTENT,
     side: SIDE,
     align: ALIGN,
-    icon: '🌟',
-    title: 'A live dashboard',
-    navTitle: 'Dashboards',
+    icon: '📄',
+    title: 'Reports',
+    navTitle: 'Reports',
     content:
-      'This is a ready-made dashboard telling a full story from your data — headline numbers, charts and notes in one view.',
+      'Generate polished, ready-to-share reports of your data — perfect for sending to funders, partners or your team.',
+  },
+  {
+    route: '/metrics',
+    selector: CONTENT,
+    side: SIDE,
+    align: ALIGN,
+    icon: '🔢',
+    title: 'Metrics',
+    navTitle: 'Metrics',
+    content:
+      'Define the key numbers you care about — like people reached or funds spent — and track each one over time, all in one place.',
+  },
+  {
+    route: '/kpis',
+    selector: CONTENT,
+    side: SIDE,
+    align: ALIGN,
+    icon: '🎯',
+    title: 'KPIs',
+    navTitle: 'KPIs',
+    content:
+      "Set targets for the numbers that matter most and see at a glance whether you're on track to meet your goals.",
+  },
+  {
+    route: '/impact',
+    selector: CONTENT,
+    side: SIDE,
+    align: ALIGN,
+    icon: '🏠',
+    title: 'Impact',
+    navTitle: 'Impact',
+    content:
+      "For now, pick one dashboard to be your home page — a single overview of how your programs are doing. It's the first thing you'll see each time you log in.",
   },
   {
     route: '/settings/user-management',
@@ -180,6 +205,17 @@ export const tourSteps: TourStep[] = [
     title: 'User Management',
     navTitle: 'User Management',
     content:
-      "Invite your team and choose what each person can see and do. That's the tour — you're all set to explore on your own!",
+      'Invite your team and choose what each person can see and do — control who has access to what.',
+  },
+  {
+    route: '/settings/user-management',
+    selector: '',
+    side: SIDE,
+    align: ALIGN,
+    icon: '🎉',
+    title: "You're all set!",
+    center: true,
+    content:
+      "That's the tour. Have a click around and explore Dalgo on your own — you can restart this tour any time from the button in the bottom-right corner.",
   },
 ];
