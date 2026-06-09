@@ -31,6 +31,7 @@ import {
 } from '@/hooks/api/useDashboardAIChat';
 import { DashboardChatConsentCard } from '@/components/settings/dashboard-chat-consent-card';
 import { DashboardChatMetadataCard } from '@/components/settings/dashboard-chat-metadata-card';
+import { DashboardChatPIISettingsCard } from '@/components/settings/dashboard-chat-pii-settings-card';
 import { MarkdownContextEditorCard } from '@/components/settings/markdown-context-editor-card';
 import { SettingsStateCard } from '@/components/settings/settings-state-card';
 
@@ -141,6 +142,8 @@ export default function OrganizationSettings() {
   const [isSavingOrgContext, setIsSavingOrgContext] = useState(false);
   const [isSavingDashboardContext, setIsSavingDashboardContext] = useState(false);
   const [isUpdatingConsent, setIsUpdatingConsent] = useState(false);
+  const [isUpdatingPiiSharing, setIsUpdatingPiiSharing] = useState(false);
+  const [piiRefreshToken, setPiiRefreshToken] = useState(0);
   const [consentDialogOpen, setConsentDialogOpen] = useState(false);
   const [isBuildingAllMetadata, setIsBuildingAllMetadata] = useState(false);
   const [isBuildingSelectedMetadata, setIsBuildingSelectedMetadata] = useState(false);
@@ -216,6 +219,23 @@ export default function OrganizationSettings() {
     }
   };
 
+  const handlePiiSharingChange = async (checked: boolean) => {
+    setIsUpdatingPiiSharing(true);
+    try {
+      await updateSettings({ dashboard_chat_share_pii_with_llms: checked });
+      await mutateSettings();
+      toast.success(
+        checked
+          ? 'PII sharing with LLMs has been turned on'
+          : 'PII sharing with LLMs has been turned off'
+      );
+    } catch (error) {
+      toast.error(`Failed to update PII sharing: ${getErrorMessage(error)}`);
+    } finally {
+      setIsUpdatingPiiSharing(false);
+    }
+  };
+
   const saveOrgContext = async () => {
     setIsSavingOrgContext(true);
     try {
@@ -253,6 +273,7 @@ export default function OrganizationSettings() {
     try {
       await buildDashboardMetadata({ builder_model: 'o4-mini' });
       await Promise.all([mutateMetadataStatus(), mutateSettings(), mutateDashboardContext()]);
+      setPiiRefreshToken((value) => value + 1);
       toast.success('Dashboard chat metadata rebuilt for all dashboards');
     } catch (error) {
       toast.error(`Failed to build metadata: ${getErrorMessage(error)}`);
@@ -272,6 +293,7 @@ export default function OrganizationSettings() {
         builder_model: 'o4-mini',
       });
       await Promise.all([mutateMetadataStatus(), mutateSettings(), mutateDashboardContext()]);
+      setPiiRefreshToken((value) => value + 1);
       toast.success('Dashboard chat metadata rebuilt for the selected dashboard');
     } catch (error) {
       toast.error(`Failed to build metadata: ${getErrorMessage(error)}`);
@@ -326,10 +348,13 @@ export default function OrganizationSettings() {
 
         <DashboardChatConsentCard
           aiDataSharingEnabled={settings.ai_data_sharing_enabled}
+          sharePiiWithLlms={settings.dashboard_chat_share_pii_with_llms}
           aiDataSharingConsentedAt={formatTimestamp(settings.ai_data_sharing_consented_at)}
           metadataLastBuiltAt={formatTimestamp(settings.metadata_last_built_at)}
           isUpdatingConsent={isUpdatingConsent}
+          isUpdatingPiiSharing={isUpdatingPiiSharing}
           onConsentChange={handleConsentChange}
+          onPiiSharingChange={handlePiiSharingChange}
         />
 
         {settings.ai_data_sharing_enabled ? (
@@ -362,6 +387,11 @@ export default function OrganizationSettings() {
                 onBuildSelected={buildSelectedMetadata}
               />
             ) : null}
+
+            <DashboardChatPIISettingsCard
+              enabled={canLoadProtectedData && settings.ai_data_sharing_enabled}
+              refreshToken={piiRefreshToken}
+            />
 
             <MarkdownContextEditorCard
               title="Organization AI context"

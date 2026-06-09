@@ -6,10 +6,13 @@ import { Switch } from '@/components/ui/switch';
 
 interface DashboardChatConsentCardProps {
   aiDataSharingEnabled: boolean;
+  sharePiiWithLlms: boolean;
   aiDataSharingConsentedAt: string;
   metadataLastBuiltAt: string;
   isUpdatingConsent: boolean;
+  isUpdatingPiiSharing: boolean;
   onConsentChange: (checked: boolean) => void | Promise<void>;
+  onPiiSharingChange: (checked: boolean) => void | Promise<void>;
 }
 
 interface FreshnessItemProps {
@@ -27,10 +30,13 @@ function FreshnessItem({ label, value }: FreshnessItemProps) {
 
 export function DashboardChatConsentCard({
   aiDataSharingEnabled,
+  sharePiiWithLlms,
   aiDataSharingConsentedAt,
   metadataLastBuiltAt,
   isUpdatingConsent,
+  isUpdatingPiiSharing,
   onConsentChange,
+  onPiiSharingChange,
 }: DashboardChatConsentCardProps) {
   return (
     <Card>
@@ -56,6 +62,24 @@ export function DashboardChatConsentCard({
             checked={aiDataSharingEnabled}
             disabled={isUpdatingConsent}
             onCheckedChange={onConsentChange}
+          />
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border p-4">
+          <div className="space-y-1">
+            <Label htmlFor="pii-sharing-toggle" className="text-base font-medium">
+              Share PII with LLMs
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              Keep this on to send raw PII values to AI models. Turn it off after reviewing the PII
+              column list below; runtime queries will mask reviewed PII columns before model calls.
+            </p>
+          </div>
+          <Switch
+            id="pii-sharing-toggle"
+            checked={sharePiiWithLlms}
+            disabled={!aiDataSharingEnabled || isUpdatingPiiSharing}
+            onCheckedChange={onPiiSharingChange}
           />
         </div>
 
