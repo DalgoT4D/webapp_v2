@@ -5,6 +5,8 @@ export interface Org {
   slug: string;
   name: string;
   viz_url: string;
+  logo_url?: string | null;
+  logo_filename?: string | null;
 }
 
 export interface Permission {

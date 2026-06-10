@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { PoweredByDalgoImage } from '@/components/ui/powered-by-dalgo-image';
+import { OrgBrand } from '@/components/ui/org-brand';
 import { toast } from 'sonner';
 import {
   AlertCircle,
@@ -133,6 +135,7 @@ interface ChartElementViewProps {
   commentStates?: CommentStates; // Comment states array with target_type and chart_id
   onCommentStateChange?: () => void; // Callback when comment state changes
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open
+  orgLogoUrl?: string | null; // Organization logo URL for fullscreen overlay
 }
 
 interface DrillDownLevel {
@@ -161,6 +164,7 @@ export function ChartElementView({
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
+  orgLogoUrl,
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
@@ -1629,12 +1633,8 @@ export function ChartElementView({
   };
 
   const handleToggleFullscreen = () => {
-    // Use wrapper ref for stable fullscreen (prevents exit on drill down)
-    // For tables, use tableRef; for all charts (including maps), use wrapperRef
-    const targetRef = isTableChart ? tableRef.current : wrapperRef.current;
-    if (!targetRef) return;
-
-    toggleFullscreen(targetRef);
+    if (!wrapperRef.current) return;
+    toggleFullscreen(wrapperRef.current);
   };
 
   // Handle chart resize when fullscreen state changes
@@ -1731,6 +1731,24 @@ export function ChartElementView({
         }),
       }}
     >
+      {/* Fullscreen overlay: org branding + chart title + powered by */}
+      {isFullscreen && (
+        <>
+          <div className="flex-shrink-0 flex items-center justify-between px-2 pb-2 pointer-events-none">
+            {/* Left: org logo + name */}
+            <OrgBrand logoUrl={orgLogoUrl} />
+            {/* Center: chart title + timestamp */}
+            <span className="absolute left-1/2 -translate-x-1/2 text-sm font-semibold text-gray-800 truncate max-w-[50%]">
+              {effectiveChart?.title}
+            </span>
+          </div>
+          {/* Bottom-right: Powered by Dalgo */}
+          <div className="absolute bottom-4 right-4 z-10 pointer-events-none">
+            <PoweredByDalgoImage />
+          </div>
+        </>
+      )}
+
       {/* Chart toolbar - only visible on hover in view mode (non-report) */}
       {viewMode && !frozenChartConfig && (
         <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -1768,8 +1786,10 @@ export function ChartElementView({
         </div>
       )}
 
-      {/* Chart title row — comment icon sits inline to prevent overlap in report mode */}
-      <div className="flex items-start gap-2 px-2 pt-2 flex-shrink-0">
+      {/* Chart title row — hidden in fullscreen (title shown in overlay instead) */}
+      <div
+        className={cn('flex items-start gap-2 px-2 pt-2 flex-shrink-0', isFullscreen && 'hidden')}
+      >
         <div className="flex-1 min-w-0">
           <ChartTitleEditor
             chartData={frozenChartConfig || (isPublicMode ? effectiveChart : chartMetadata)}

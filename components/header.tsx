@@ -31,6 +31,7 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useUnreadCount } from '@/hooks/api/useNotifications';
 import { CreateOrgDialog } from '@/components/settings/organizations/CreateOrgDialog';
+import { OrgBrand } from '@/components/ui/org-brand';
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -171,11 +172,14 @@ export function Header({
           <span className="sr-only">Notifications</span>
         </Button>
 
-        {/* Current Organization Name */}
+        {/* Current Organization — logo if set, else name */}
         {currentOrg && (
-          <span className="text-sm font-semibold text-foreground truncate max-w-[200px]">
-            {currentOrg.name}
-          </span>
+          <OrgBrand
+            logoUrl={currentOrg.logo_url}
+            name={currentOrg.name}
+            logoClassName="h-8 max-w-[160px]"
+            nameClassName="text-sm text-foreground truncate max-w-[200px]"
+          />
         )}
 
         {/* Profile Menu */}

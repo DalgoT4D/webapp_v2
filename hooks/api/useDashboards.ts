@@ -36,6 +36,9 @@ export interface Dashboard {
   last_public_accessed?: string;
   // Thumbnail field for dashboard screenshots
   thumbnail_url?: string;
+  // Public view fields
+  org_name?: string;
+  org_logo_url?: string;
 }
 
 export interface DashboardFilter {

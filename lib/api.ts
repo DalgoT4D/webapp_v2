@@ -75,9 +75,16 @@ function handleAuthFailure() {
 async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0): Promise<any> {
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
 
+  const isFormData = options.body instanceof FormData;
+  const defaultHeaders = getHeaders();
+  if (isFormData) {
+    // Let browser set Content-Type with multipart boundary automatically
+    delete (defaultHeaders as Record<string, string>)['Content-Type'];
+  }
+
   const headers: HeadersInit = {
     ...(options.headers || {}),
-    ...getHeaders(),
+    ...defaultHeaders,
   };
 
   try {
@@ -214,6 +221,19 @@ export function apiPut(path: string, body: any, options: RequestInit = {}) {
 // Helper for DELETE requests
 export function apiDelete(path: string, options: RequestInit = {}) {
   return apiFetch(path, { ...options, method: 'DELETE' });
+}
+
+// Helper for FormData POST requests (file uploads)
+// Does NOT set Content-Type — browser sets it automatically with multipart boundary
+export function apiPostFormData(path: string, formData: FormData) {
+  const selectedOrgSlug = getSelectOrg();
+  return apiFetch(path, {
+    method: 'POST',
+    body: formData,
+    headers: {
+      ...(selectedOrgSlug ? { 'x-dalgo-org': selectedOrgSlug } : {}),
+    },
+  });
 }
 
 // Helper for public GET requests (no auth, no cookies)
