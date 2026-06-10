@@ -76,16 +76,17 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
 
   const isFormData = options.body instanceof FormData;
-  const defaultHeaders = getHeaders();
-  if (isFormData) {
-    // Let browser set Content-Type with multipart boundary automatically
-    delete (defaultHeaders as Record<string, string>)['Content-Type'];
-  }
 
   const headers: HeadersInit = {
     ...(options.headers || {}),
-    ...defaultHeaders,
+    ...getHeaders(),
   };
+
+  if (isFormData) {
+    // Delete after merge so Content-Type from either source is removed,
+    // letting the browser set multipart/form-data boundary automatically
+    delete (headers as Record<string, string>)['Content-Type'];
+  }
 
   try {
     const response = await fetch(url, {

@@ -5,20 +5,13 @@ interface OrgBrandProps {
   name?: string | null;
   logoClassName?: string;
   nameClassName?: string;
-  className?: string;
 }
 
 /**
  * Shows the org logo if available, otherwise falls back to the org name as text.
  * Renders nothing if neither is provided.
  */
-export function OrgBrand({
-  logoUrl,
-  name,
-  logoClassName,
-  nameClassName,
-  className,
-}: OrgBrandProps) {
+export function OrgBrand({ logoUrl, name, logoClassName, nameClassName }: OrgBrandProps) {
   if (logoUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element

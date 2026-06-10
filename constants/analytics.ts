@@ -46,6 +46,8 @@ export const ANALYTICS_EVENTS = {
   DATA_QUALITY_REPORT_GENERATED: 'data_quality:report_generated',
   // Settings
   USER_INVITED: 'settings:user_invited',
+  BRANDING_LOGO_SAVED: 'settings:branding_logo_saved',
+  BRANDING_LOGO_REMOVED: 'settings:branding_logo_removed',
   // Notifications
   NOTIFICATION_PREFERENCES_UPDATED: 'notification:preferences_updated',
 } as const;
@@ -73,6 +75,7 @@ export const FEATURES = {
   SETTINGS_USER_MANAGEMENT: 'settings_user_management',
   SETTINGS_ABOUT: 'settings_about',
   SETTINGS_SUPERSET_USAGE: 'settings_superset_usage',
+  SETTINGS_BRANDING: 'settings_branding',
 } as const;
 
 export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
@@ -99,6 +102,7 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/settings/billing', feature: FEATURES.SETTINGS_BILLING },
   { prefix: '/settings/user-management', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
   { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
+  { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
 ];
 
 export function featureForPathname(pathname: string): Feature | null {

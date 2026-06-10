@@ -28,7 +28,7 @@ export function EmbedCodeDropdown({ token, dashboardTitle }: EmbedCodeDropdownPr
   });
 
   const generateEmbedCode = () => {
-    const baseUrl = window.location.origin;
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
     const params = new URLSearchParams({
       embed: 'true',
       title: embedOptions.showTitle.toString(),

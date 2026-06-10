@@ -20,6 +20,8 @@ import { useSWRConfig } from 'swr';
 import { apiDelete, apiPost, apiPostFormData } from '@/lib/api';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface OrgLogoData {
   logo_url: string;
@@ -173,6 +175,10 @@ export default function Branding() {
 
       await mutate('/api/currentuserv2');
 
+      trackEvent(ANALYTICS_EVENTS.BRANDING_LOGO_SAVED, {
+        logo_source: activeTab,
+        filename: activeTab === 'upload' ? (selectedFile?.name ?? null) : null,
+      });
       toastSuccess.saved('Organization logo');
     } catch (error) {
       toastError.save(error, 'logo');
@@ -202,13 +208,14 @@ export default function Branding() {
 
       await mutate('/api/currentuserv2');
 
+      trackEvent(ANALYTICS_EVENTS.BRANDING_LOGO_REMOVED, { logo_source: savedLogoSource });
       toastSuccess.saved('Organization logo removed');
     } catch (error) {
       toastError.save(error, 'logo');
     } finally {
       setIsRemoving(false);
     }
-  }, [currentOrg, orgUsers, setOrgUsers, mutate]);
+  }, [currentOrg, orgUsers, setOrgUsers, mutate, savedLogoSource]);
 
   const hasChanges =
     (activeTab === 'upload' && selectedFile !== null) ||
