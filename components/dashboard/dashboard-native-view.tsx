@@ -779,7 +779,7 @@ export function DashboardNativeView({
       )}
     >
       {/* Fixed Header - Conditional rendering for landing page */}
-      {!hideHeader && !showMinimalHeader && !isEmbedMode && (
+      {!hideHeader && !showMinimalHeader && !isPublicMode && (
         <div className="bg-white border-b shadow-sm flex-shrink-0">
           {/* Mobile Header */}
           <div className="lg:hidden">

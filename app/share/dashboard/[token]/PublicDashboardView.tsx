@@ -4,7 +4,8 @@ import type { ErrorInfo, ReactNode } from 'react';
 import React, { Component } from 'react';
 import Link from 'next/link';
 
-import { Eye, ExternalLink, AlertCircle } from 'lucide-react';
+import { Eye, ExternalLink, AlertCircle, Clock } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { usePublicDashboard } from '@/hooks/api/useDashboards';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { Button } from '@/components/ui/button';
@@ -129,6 +130,15 @@ export function PublicDashboardView({
                   <Badge variant="secondary" className="text-xs">
                     Read Only
                   </Badge>
+                  {dashboard.updated_at && (
+                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                      <Clock className="h-3 w-3" />
+                      <span>
+                        Modified{' '}
+                        {formatDistanceToNow(new Date(dashboard.updated_at), { addSuffix: true })}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {dashboard.description && (
                   <p className="text-sm text-gray-600 mt-0.5">{dashboard.description}</p>

@@ -32,6 +32,7 @@ import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useUnreadCount } from '@/hooks/api/useNotifications';
 import { CreateOrgDialog } from '@/components/settings/organizations/CreateOrgDialog';
 import { OrgBrand } from '@/components/ui/org-brand';
+import { cn } from '@/lib/utils';
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -172,74 +173,102 @@ export function Header({
           <span className="sr-only">Notifications</span>
         </Button>
 
-        {/* Current Organization — logo if set, else name */}
-        {currentOrg && (
-          <OrgBrand
-            logoUrl={currentOrg.logo_url}
-            name={currentOrg.name}
-            logoClassName="h-8 max-w-[160px]"
-            nameClassName="text-sm text-foreground truncate max-w-[200px]"
-          />
-        )}
+        {/* Org logo + avatar — bordered card when logo is set, plain when not */}
+        <div
+          className={cn(
+            'flex items-center',
+            currentOrg?.logo_url
+              ? 'gap-2 px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50'
+              : 'gap-4'
+          )}
+        >
+          {currentOrg && (
+            <OrgBrand
+              logoUrl={currentOrg.logo_url}
+              name={currentOrg.name}
+              logoClassName="h-8 max-w-[160px]"
+              nameClassName="text-sm text-foreground truncate max-w-[200px]"
+            />
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="relative h-9 w-9 rounded-full hover:bg-accent hover:ring-2 hover:ring-primary/20 transition-all duration-200 cursor-pointer"
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback
+                    className="text-sm font-medium text-blue-700"
+                    style={{ backgroundColor: '#E0F2FE' }}
+                  >
+                    {getInitials(userEmail)}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-80 p-2" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal px-3 py-2.5">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-base font-medium leading-snug truncate">{userEmail}</p>
+                  {currentOrg && (
+                    <p className="text-sm leading-tight text-muted-foreground truncate">
+                      {currentOrg.name} • {currentOrgUser?.new_role_slug || 'User'}
+                    </p>
+                  )}
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator className="mx-2" />
 
-        {/* Profile Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="relative h-9 w-9 rounded-full hover:bg-accent hover:ring-2 hover:ring-primary/20 transition-all duration-200 cursor-pointer"
-            >
-              <Avatar className="h-8 w-8">
-                <AvatarFallback
-                  className="text-sm font-medium text-blue-700"
-                  style={{ backgroundColor: '#E0F2FE' }}
-                >
-                  {getInitials(userEmail)}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-80 p-2" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal px-3 py-2.5">
-              <div className="flex flex-col space-y-1">
-                <p className="text-base font-medium leading-snug truncate">{userEmail}</p>
-                {currentOrg && (
-                  <p className="text-sm leading-tight text-muted-foreground truncate">
-                    {currentOrg.name} • {currentOrgUser?.new_role_slug || 'User'}
-                  </p>
-                )}
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator className="mx-2" />
-
-            {/* Organization switching - only show if more than 1 organization */}
-            {availableOrgs.length > 1 && (
-              <>
-                <DropdownMenuLabel className="text-sm text-muted-foreground px-3 py-1.5 pb-1">
-                  Organizations
-                </DropdownMenuLabel>
-                <div className="px-1 pb-1.5 max-h-[500px] overflow-y-auto">
-                  {availableOrgs
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((org) => (
+              {/* Organization switching - only show if more than 1 organization */}
+              {availableOrgs.length > 1 && (
+                <>
+                  <DropdownMenuLabel className="text-sm text-muted-foreground px-3 py-1.5 pb-1">
+                    Organizations
+                  </DropdownMenuLabel>
+                  <div className="px-1 pb-1.5 max-h-[500px] overflow-y-auto">
+                    {availableOrgs
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((org) => (
+                        <DropdownMenuItem
+                          key={org.slug}
+                          onClick={() => handleOrgChange(org.slug)}
+                          className={`mx-1 my-0.5 px-3 py-2 rounded-md ${
+                            currentOrg?.slug === org.slug ? 'bg-muted' : ''
+                          }`}
+                          disabled={isOrgSwitching}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className="truncate font-medium text-base">{org.name}</span>
+                            {currentOrg?.slug === org.slug && (
+                              <span className="ml-2 text-sm text-primary font-medium">Current</span>
+                            )}
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                  </div>
+                  {canCreateOrg && (
+                    <div className="px-1 pb-1.5">
                       <DropdownMenuItem
-                        key={org.slug}
-                        onClick={() => handleOrgChange(org.slug)}
-                        className={`mx-1 my-0.5 px-3 py-2 rounded-md ${
-                          currentOrg?.slug === org.slug ? 'bg-muted' : ''
-                        }`}
-                        disabled={isOrgSwitching}
+                        onClick={() => setShowCreateOrgDialog(true)}
+                        className="mx-1 my-0.5 px-3 py-2 rounded-md"
                       >
-                        <div className="flex items-center justify-between w-full">
-                          <span className="truncate font-medium text-base">{org.name}</span>
-                          {currentOrg?.slug === org.slug && (
-                            <span className="ml-2 text-sm text-primary font-medium">Current</span>
-                          )}
+                        <div className="flex items-center w-full">
+                          <Plus className="mr-3 h-4 w-4" />
+                          <span className="font-medium text-base">Create Organization</span>
                         </div>
                       </DropdownMenuItem>
-                    ))}
-                </div>
-                {canCreateOrg && (
+                    </div>
+                  )}
+                  <DropdownMenuSeparator className="mx-2" />
+                </>
+              )}
+
+              {/* Show create org option even if user has only one org but has permission */}
+              {availableOrgs.length === 1 && canCreateOrg && (
+                <>
+                  <DropdownMenuLabel className="text-sm text-muted-foreground px-3 py-1.5 pb-1">
+                    Organizations
+                  </DropdownMenuLabel>
                   <div className="px-1 pb-1.5">
                     <DropdownMenuItem
                       onClick={() => setShowCreateOrgDialog(true)}
@@ -251,53 +280,32 @@ export function Header({
                       </div>
                     </DropdownMenuItem>
                   </div>
-                )}
-                <DropdownMenuSeparator className="mx-2" />
-              </>
-            )}
+                  <DropdownMenuSeparator className="mx-2" />
+                </>
+              )}
 
-            {/* Show create org option even if user has only one org but has permission */}
-            {availableOrgs.length === 1 && canCreateOrg && (
-              <>
-                <DropdownMenuLabel className="text-sm text-muted-foreground px-3 py-1.5 pb-1">
-                  Organizations
-                </DropdownMenuLabel>
-                <div className="px-1 pb-1.5">
-                  <DropdownMenuItem
-                    onClick={() => setShowCreateOrgDialog(true)}
-                    className="mx-1 my-0.5 px-3 py-2 rounded-md"
-                  >
-                    <div className="flex items-center w-full">
-                      <Plus className="mr-3 h-4 w-4" />
-                      <span className="font-medium text-base">Create Organization</span>
-                    </div>
-                  </DropdownMenuItem>
-                </div>
-                <DropdownMenuSeparator className="mx-2" />
-              </>
-            )}
-
-            <DropdownMenuGroup className="px-1 py-1.5">
-              <DropdownMenuItem
-                onClick={() => router.push('/change-password')}
-                className="mx-1 my-0.5 px-3 py-2 rounded-md"
-              >
-                <Key className="mr-3 h-4 w-4" />
-                <span className="font-medium text-base">Change Password</span>
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator className="mx-2" />
-            <div className="px-1 py-1.5">
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="mx-1 my-0.5 px-3 py-2 rounded-md text-red-600 focus:text-red-600 focus:bg-red-50"
-              >
-                <LogOut className="mr-3 h-4 w-4" />
-                <span className="font-medium text-base">Log out</span>
-              </DropdownMenuItem>
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuGroup className="px-1 py-1.5">
+                <DropdownMenuItem
+                  onClick={() => router.push('/change-password')}
+                  className="mx-1 my-0.5 px-3 py-2 rounded-md"
+                >
+                  <Key className="mr-3 h-4 w-4" />
+                  <span className="font-medium text-base">Change Password</span>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator className="mx-2" />
+              <div className="px-1 py-1.5">
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="mx-1 my-0.5 px-3 py-2 rounded-md text-red-600 focus:text-red-600 focus:bg-red-50"
+                >
+                  <LogOut className="mr-3 h-4 w-4" />
+                  <span className="font-medium text-base">Log out</span>
+                </DropdownMenuItem>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Create Organization Dialog */}
