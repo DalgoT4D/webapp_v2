@@ -3,6 +3,8 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Plus, Search, Loader2 } from 'lucide-react';
 import ConnectionIcon from '@/assets/icons/connection';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -153,6 +155,7 @@ export function ConnectionsList() {
       try {
         setSyncingIds((prev) => [...prev, conn.connectionId]);
         const result = await triggerSync(conn.deploymentId);
+        trackEvent(ANALYTICS_EVENTS.CONNECTION_SYNC_TRIGGERED);
         // Immediately refresh so the connection's lock status is picked up
         // This activates SWR's smart 3s polling for locked connections
         mutate();

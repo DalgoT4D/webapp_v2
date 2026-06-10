@@ -60,6 +60,7 @@ import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
+import { compactVertical } from '@/lib/dashboard-animation-utils';
 import { UnifiedTextElement } from './text-element-unified';
 import { KPIChartElement } from './kpi-chart-element';
 import {
@@ -416,6 +417,16 @@ export function DashboardNativeView({
   // Handle tab change in view mode
   const handleTabChange = useCallback((tabId: string) => {
     setActiveTabId(tabId);
+  }, []);
+
+  // After filter panel collapse, ECharts still sees the pre-animation container width.
+  // Wait for the slide transition (duration-300) to finish before firing resize so all
+  // chart instances remeasure against the final layout — 300ms transition + 50ms buffer.
+  const FILTER_PANEL_TRANSITION_MS = 350;
+
+  const handleFiltersCollapseChange = useCallback((collapsed: boolean) => {
+    setIsFiltersCollapsed(collapsed);
+    setTimeout(() => window.dispatchEvent(new Event('resize')), FILTER_PANEL_TRANSITION_MS);
   }, []);
 
   // Check if we should show tabs (2 or more tabs)
@@ -1204,7 +1215,7 @@ export function DashboardNativeView({
             layout="vertical"
             onFiltersApplied={handleFiltersApplied}
             onFiltersCleared={handleFiltersCleared}
-            onCollapseChange={setIsFiltersCollapsed}
+            onCollapseChange={handleFiltersCollapseChange}
             isPublicMode={isPublicMode}
             publicToken={publicToken}
             initiallyCollapsed={showMinimalHeader || isPublicMode || isReportMode}
@@ -1328,10 +1339,11 @@ export function DashboardNativeView({
                       ))}
                     </ResponsiveGrid>
                   ) : (
-                    // Target screen size or no preview override - use exact layout
+                    // Target screen size or no preview override - grid model: render each
+                    // widget at its own (x,y,w,h) with gravity-up, matching the editor.
                     <GridLayout
                       className="dashboard-grid"
-                      layout={modifiedLayout}
+                      layout={compactVertical(modifiedLayout, effectiveScreenConfig.cols)}
                       cols={effectiveScreenConfig.cols}
                       rowHeight={20}
                       width={actualContainerWidth}
@@ -1340,13 +1352,12 @@ export function DashboardNativeView({
                       }}
                       isDraggable={false}
                       isResizable={false}
-                      compactType={null}
-                      preventCollision={true}
+                      compactType="vertical"
+                      preventCollision={false}
                       allowOverlap={false}
                       margin={[8, 8]}
                       containerPadding={[8, 8]}
                       autoSize={true}
-                      verticalCompact={false}
                     >
                       {modifiedLayout.map((layoutItem: any) => (
                         <div key={layoutItem.i} className="dashboard-item">
