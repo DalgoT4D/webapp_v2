@@ -36,6 +36,9 @@ interface OrgLogoApiResponse {
 
 type LogoSource = 'upload' | 'url';
 
+// Must match MAX_FILE_SIZE_BYTES in DDP_backend/ddpui/utils/s3_utils.py
+const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+
 function UnsavedChangesDialog({
   open,
   onOpenChange,
@@ -103,6 +106,10 @@ export default function Branding() {
   }, [currentOrg?.slug, currentOrg?.logo_url, currentOrg?.logo_filename]);
 
   const handleFileSelect = useCallback((file: File) => {
+    if (file.size > MAX_LOGO_SIZE_BYTES) {
+      toastError.api('File size exceeds the 5MB limit. Please choose a smaller image.');
+      return;
+    }
     const localUrl = URL.createObjectURL(file);
     setSelectedFile(file);
     setPreviewLogoUrl(localUrl);
