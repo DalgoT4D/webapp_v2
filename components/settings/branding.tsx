@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ImageIcon, Link2, TriangleAlert, Trash2 } from 'lucide-react';
 import { BrandingPreview } from './branding-preview';
+import { DebouncedInput } from '@/components/charts/debounced-input';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -38,6 +39,15 @@ type LogoSource = 'upload' | 'url';
 
 // Must match MAX_FILE_SIZE_BYTES in DDP_backend/ddpui/utils/s3_utils.py
 const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+
+const isValidHttpUrl = (url: string): boolean => {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
 
 function UnsavedChangesDialog({
   open,
@@ -81,8 +91,8 @@ export default function Branding() {
 
   const [activeTab, setActiveTab] = useState<'upload' | 'link'>('upload');
   const [currentLogoUrl, setCurrentLogoUrl] = useState<string | null>(currentOrg?.logo_url ?? null);
-  const [previewLogoUrl, setPreviewLogoUrl] = useState<string | null>(currentOrg?.logo_url ?? null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
   const [linkInput, setLinkInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
@@ -95,7 +105,6 @@ export default function Branding() {
   useEffect(() => {
     const logoUrl = currentOrg?.logo_url ?? null;
     setCurrentLogoUrl(logoUrl);
-    setPreviewLogoUrl(logoUrl);
     const source: LogoSource | null = logoUrl
       ? currentOrg?.logo_filename
         ? 'upload'
@@ -109,8 +118,11 @@ export default function Branding() {
   useEffect(() => {
     if (!selectedFile) return undefined;
     const url = URL.createObjectURL(selectedFile);
-    setPreviewLogoUrl(url);
-    return () => URL.revokeObjectURL(url);
+    setUploadPreviewUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+      setUploadPreviewUrl(null);
+    };
   }, [selectedFile]);
 
   const handleFileSelect = useCallback((file: File) => {
@@ -142,9 +154,8 @@ export default function Branding() {
     e.preventDefault();
   }, []);
 
-  const handleLinkChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setLinkInput(e.target.value);
-    setPreviewLogoUrl(e.target.value || null);
+  const handleLinkChange = useCallback((value: string) => {
+    setLinkInput(value);
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -166,7 +177,6 @@ export default function Branding() {
       }
 
       setCurrentLogoUrl(savedUrl);
-      setPreviewLogoUrl(savedUrl);
       setSelectedFile(null);
       setLinkInput('');
       setIsEditingLink(false);
@@ -208,7 +218,6 @@ export default function Branding() {
       await apiDelete('/api/org/logo/');
 
       setCurrentLogoUrl(null);
-      setPreviewLogoUrl(null);
       setSavedLogoSource(null);
 
       if (currentOrg) {
@@ -224,7 +233,7 @@ export default function Branding() {
       await mutate('/api/currentuserv2');
 
       trackEvent(ANALYTICS_EVENTS.BRANDING_LOGO_REMOVED, { logo_source: savedLogoSource });
-      toastSuccess.saved('Organization logo removed');
+      toastSuccess.deleted('Organization logo');
     } catch (error) {
       toastError.save(error, 'logo');
     } finally {
@@ -237,12 +246,11 @@ export default function Branding() {
     (activeTab === 'link' && linkInput.trim() !== '');
 
   const doCancel = useCallback(() => {
-    setPreviewLogoUrl(currentLogoUrl);
     setSelectedFile(null);
     setLinkInput('');
     setIsEditingLink(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
-  }, [currentLogoUrl]);
+  }, []);
 
   const handleCancel = useCallback(() => {
     if (hasChanges) {
@@ -273,7 +281,6 @@ export default function Branding() {
                 onValueChange={(v) => {
                   setActiveTab(v as 'upload' | 'link');
                   setIsEditingLink(false);
-                  setLinkInput('');
                 }}
               >
                 <TabsList className="mb-4 h-11 gap-1 p-1 rounded-md">
@@ -324,10 +331,10 @@ export default function Branding() {
                       className="border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-gray-50 transition-colors"
                       style={{ minHeight: '200px' }}
                     >
-                      {selectedFile && previewLogoUrl ? (
+                      {selectedFile && uploadPreviewUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={previewLogoUrl}
+                          src={uploadPreviewUrl}
                           alt="Logo preview"
                           className="object-contain max-h-40 p-4"
                         />
@@ -359,27 +366,26 @@ export default function Branding() {
                       className="border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center"
                       style={{ minHeight: '200px' }}
                     >
-                      {currentLogoUrl && !linkInput.trim() && !isEditingLink ? (
+                      {isValidHttpUrl(linkInput.trim()) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={linkInput.trim()}
+                          alt="Logo preview"
+                          className="object-contain max-h-40 p-4"
+                        />
+                      ) : currentLogoUrl && !isEditingLink ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={currentLogoUrl}
                           alt="Logo"
                           className="object-contain max-h-40 p-4"
                         />
-                      ) : linkInput.trim() && previewLogoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={previewLogoUrl}
-                          alt="Logo preview"
-                          className="object-contain max-h-40 p-4"
-                          onError={() => setPreviewLogoUrl(null)}
-                        />
                       ) : (
                         <div className="flex flex-col items-center gap-3 text-muted-foreground p-8">
                           <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
                             <Link2 className="h-6 w-6 opacity-50" />
                           </div>
-                          <p className="text-sm text-center">Upload your image here</p>
+                          <p className="text-sm text-center">Enter an image URL below</p>
                         </div>
                       )}
                     </div>
@@ -387,14 +393,15 @@ export default function Branding() {
                     {currentLogoUrl && !linkInput.trim() && !isEditingLink ? (
                       <p className="text-xs text-gray-500 truncate px-1">{currentLogoUrl}</p>
                     ) : (
-                      <input
+                      <DebouncedInput
                         id="branding-logo-url"
                         data-testid="branding-logo-url-input"
                         type="url"
                         placeholder="https://example.com/logo.png"
                         value={linkInput}
                         onChange={handleLinkChange}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md outline-none focus:border-primary transition-colors"
+                        debounceMs={400}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md outline-none focus:border-primary transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                       />
                     )}
                   </div>
@@ -466,7 +473,15 @@ export default function Branding() {
 
             {/* Right: Dashboard preview */}
             <div className="flex-1 flex min-h-[320px]">
-              <BrandingPreview logoUrl={previewLogoUrl ?? currentLogoUrl} />
+              <BrandingPreview
+                logoUrl={
+                  activeTab === 'upload'
+                    ? (uploadPreviewUrl ?? currentLogoUrl)
+                    : isValidHttpUrl(linkInput.trim())
+                      ? linkInput.trim()
+                      : currentLogoUrl
+                }
+              />
             </div>
           </div>
         </div>

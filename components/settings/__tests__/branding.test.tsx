@@ -9,6 +9,13 @@ import { TestWrapper } from '@/test-utils/render';
 global.URL.createObjectURL = jest.fn(() => 'blob:mock-url');
 global.URL.revokeObjectURL = jest.fn();
 
+jest.mock('@/components/charts/debounced-input', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  DebouncedInput: ({ onChange, value, debounceMs, ...props }: any) => (
+    <input value={value} onChange={(e) => onChange(e.target.value)} {...props} />
+  ),
+}));
+
 jest.mock('swr', () => ({
   ...jest.requireActual('swr'),
   useSWRConfig: () => ({ mutate: jest.fn() }),
