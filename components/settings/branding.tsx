@@ -105,14 +105,20 @@ export default function Branding() {
     if (source) setActiveTab(source === 'upload' ? 'upload' : 'link');
   }, [currentOrg?.slug, currentOrg?.logo_url, currentOrg?.logo_filename]);
 
+  // Blob URL lifecycle: create when a file is selected, revoke on change or unmount
+  useEffect(() => {
+    if (!selectedFile) return undefined;
+    const url = URL.createObjectURL(selectedFile);
+    setPreviewLogoUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [selectedFile]);
+
   const handleFileSelect = useCallback((file: File) => {
     if (file.size > MAX_LOGO_SIZE_BYTES) {
       toastError.api('File size exceeds the 5MB limit. Please choose a smaller image.');
       return;
     }
-    const localUrl = URL.createObjectURL(file);
     setSelectedFile(file);
-    setPreviewLogoUrl(localUrl);
   }, []);
 
   const handleFileInputChange = useCallback(
@@ -145,14 +151,15 @@ export default function Branding() {
     setIsSaving(true);
     try {
       let savedUrl: string | null = null;
+      let res: OrgLogoApiResponse | null = null;
 
       if (activeTab === 'upload' && selectedFile) {
         const formData = new FormData();
         formData.append('file', selectedFile);
-        const res: OrgLogoApiResponse = await apiPostFormData('/api/org/logo/upload/', formData);
+        res = await apiPostFormData('/api/org/logo/upload/', formData);
         savedUrl = res.data.logo_url;
       } else if (activeTab === 'link' && linkInput.trim()) {
-        const res: OrgLogoApiResponse = await apiPost('/api/org/logo/url/', {
+        res = await apiPost('/api/org/logo/url/', {
           image_url: linkInput.trim(),
         });
         savedUrl = res.data.logo_url;
@@ -166,7 +173,7 @@ export default function Branding() {
       if (fileInputRef.current) fileInputRef.current.value = '';
 
       if (currentOrg) {
-        const savedFilename = activeTab === 'upload' && selectedFile ? selectedFile.name : null;
+        const savedFilename = res?.data?.logo_filename ?? null;
         setSavedLogoSource(savedUrl ? (activeTab === 'upload' ? 'upload' : 'url') : null);
         setOrgUsers(
           orgUsers.map((ou) =>
@@ -184,7 +191,8 @@ export default function Branding() {
 
       trackEvent(ANALYTICS_EVENTS.BRANDING_LOGO_SAVED, {
         logo_source: activeTab,
-        filename: activeTab === 'upload' ? (selectedFile?.name ?? null) : null,
+        filename: res?.data?.logo_filename ?? null,
+        logo_url: savedUrl,
       });
       toastSuccess.saved('Organization logo');
     } catch (error) {

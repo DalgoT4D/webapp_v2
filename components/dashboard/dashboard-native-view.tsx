@@ -910,9 +910,9 @@ export function DashboardNativeView({
                   <Maximize2 className="w-4 h-4" />
                 </Button>
 
-                {!isPublicMode && (
+                {!isPublicMode && dashboard?.public_share_token && (
                   <EmbedCodeDropdown
-                    token={dashboard?.public_share_token ?? ''}
+                    token={dashboard.public_share_token}
                     dashboardTitle={dashboard?.title ?? ''}
                   />
                 )}
@@ -1122,9 +1122,9 @@ export function DashboardNativeView({
                   <Maximize2 className="w-4 h-4" />
                 </Button>
 
-                {!isPublicMode && (
+                {!isPublicMode && dashboard?.public_share_token && (
                   <EmbedCodeDropdown
-                    token={dashboard?.public_share_token ?? ''}
+                    token={dashboard.public_share_token}
                     dashboardTitle={dashboard?.title ?? ''}
                   />
                 )}

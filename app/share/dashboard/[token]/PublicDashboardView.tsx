@@ -105,6 +105,12 @@ export function PublicDashboardView({
     );
   }
 
+  const updatedAt = dashboard.updated_at ? new Date(dashboard.updated_at) : null;
+  const updatedAtDisplay =
+    updatedAt && !isNaN(updatedAt.getTime())
+      ? formatDistanceToNow(updatedAt, { addSuffix: true })
+      : null;
+
   // Apply theme and padding options
   const containerClasses = isEmbedMode
     ? `h-full flex flex-col w-full overflow-x-hidden ${
@@ -130,13 +136,10 @@ export function PublicDashboardView({
                   <Badge variant="secondary" className="text-xs">
                     Read Only
                   </Badge>
-                  {dashboard.updated_at && (
+                  {updatedAtDisplay && (
                     <div className="flex items-center gap-1 text-xs text-gray-500">
                       <Clock className="h-3 w-3" />
-                      <span>
-                        Modified{' '}
-                        {formatDistanceToNow(new Date(dashboard.updated_at), { addSuffix: true })}
-                      </span>
+                      <span>Modified {updatedAtDisplay}</span>
                     </div>
                   )}
                 </div>
