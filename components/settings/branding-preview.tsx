@@ -93,18 +93,21 @@ export function BrandingPreview({ logoUrl }: { logoUrl: string | null }) {
 
   return (
     <div className="flex flex-col h-full rounded-lg w-full">
-      <div className="flex-1 bg-[#f1f5f9] p-3 pb-0 rounded-md overflow-hidden flex flex-col">
+      <div className="  flex-1 bg-[#f1f5f9] p-3 pb-0 rounded-md overflow-hidden flex flex-col">
         <div className="py-2 text-xs text-muted-foreground font-medium mb-4">
           Preview: {PREVIEW_TYPES[slide].label} ({slide + 1}/{PREVIEW_SLIDES})
         </div>
-        <div className="flex-1 p-4 pb-0 flex flex-col gap-3 bg-white">
-          <PreviewSlide
-            logoUrl={logoUrl}
-            pageLabel={PREVIEW_TYPES[slide].pageLabel}
-            showPoweredBy={slide === PREVIEW_SLIDES - 1}
-          />
+        <div className="relative w-full bg-white/80 h-[200px] mt-auto">
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[90%] h-[110%] p-4 pb-0 flex flex-col gap-3 bg-white">
+            <PreviewSlide
+              logoUrl={logoUrl}
+              pageLabel={PREVIEW_TYPES[slide].pageLabel}
+              showPoweredBy={slide === PREVIEW_SLIDES - 1}
+            />
+          </div>
         </div>
       </div>
+
       <div className="flex items-center justify-center gap-2 px-4 py-2 bg-white">
         <button
           aria-label="Previous preview"
