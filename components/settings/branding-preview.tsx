@@ -7,9 +7,9 @@ import { PoweredByDalgoImage } from '@/components/ui/powered-by-dalgo-image';
 const PREVIEW_SLIDES = 3;
 
 const PREVIEW_TYPES: Array<{ label: string; pageLabel: string }> = [
-  { label: 'Dashboard', pageLabel: 'DASHBOARD' },
-  { label: 'Reports', pageLabel: 'REPORTS' },
-  { label: 'Public Links', pageLabel: 'CHARTS' },
+  { label: 'Public Dashboard', pageLabel: 'DASHBOARD' },
+  { label: 'Public Reports', pageLabel: 'REPORTS' },
+  { label: 'Public Links & PDFs', pageLabel: 'CHARTS' },
 ];
 
 function PreviewTopBar({
@@ -102,7 +102,7 @@ export function BrandingPreview({ logoUrl }: { logoUrl: string | null }) {
             <PreviewSlide
               logoUrl={logoUrl}
               pageLabel={PREVIEW_TYPES[slide].pageLabel}
-              showPoweredBy={slide === PREVIEW_SLIDES - 1}
+              showPoweredBy={true}
             />
           </div>
         </div>
