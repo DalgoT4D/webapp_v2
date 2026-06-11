@@ -264,7 +264,7 @@ export function cronToString(expression: string | null): string {
     const parts = localCron.split(' ');
     if (parts.length !== 5) return expression;
 
-    const [minutes, hours, , , dayOfWeek] = parts;
+    const [minutes, hours, dayOfMonth, , dayOfWeek] = parts;
     const hour = parseInt(hours, 10);
     const minute = parseInt(minutes, 10);
 
@@ -272,6 +272,20 @@ export function cronToString(expression: string | null): string {
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const hour12 = hour % 12 || 12;
     const timeStr = `${hour12}:${minute.toString().padStart(2, '0')} ${ampm}`;
+
+    // Monthly: DOM is a specific day-of-month, DOW is "*"
+    if (dayOfWeek === '*' && /^\d+$/.test(dayOfMonth)) {
+      const dom = parseInt(dayOfMonth, 10);
+      const suffix =
+        dom === 1 || dom === 21 || dom === 31
+          ? 'st'
+          : dom === 2 || dom === 22
+            ? 'nd'
+            : dom === 3 || dom === 23
+              ? 'rd'
+              : 'th';
+      return `Monthly on the ${dom}${suffix} at ${timeStr}`;
+    }
 
     if (dayOfWeek === '*') {
       return `Daily at ${timeStr}`;
