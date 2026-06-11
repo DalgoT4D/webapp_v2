@@ -159,14 +159,24 @@ export function KPIDetailDrawer({
         <div className="px-6 pt-5 pb-3 border-b">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <a
-                href={`/metrics?highlight=${kpi.metric.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-lg font-semibold text-gray-900 hover:underline block"
-              >
-                {kpi.name}
-              </a>
+              <div className="flex items-center gap-2 flex-wrap">
+                <a
+                  href={`/metrics?highlight=${kpi.metric.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-lg font-semibold text-gray-900 hover:underline"
+                >
+                  {kpi.name}
+                </a>
+                {kpi.created_by && (
+                  <span
+                    data-testid="kpi-detail-created-by"
+                    className="text-xs text-muted-foreground"
+                  >
+                    · Created by {kpi.created_by}
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground">
                 {kpi.metric.description && <>{kpi.metric.description} &middot; </>}
                 <span style={{ color: 'var(--primary)' }}>

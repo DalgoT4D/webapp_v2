@@ -89,8 +89,6 @@ export interface KPICardData {
 interface KPICardProps {
   name: string;
   subtitle?: string;
-  /** Creator's email, shown under the name on the list card (omit on dashboards) */
-  createdBy?: string;
   data: KPICardData;
   headerActions?: React.ReactNode;
   menuItems?: React.ReactNode;
@@ -107,7 +105,6 @@ interface KPICardProps {
 export function KPICard({
   name,
   subtitle,
-  createdBy,
   data,
   headerActions,
   menuItems,
@@ -235,11 +232,6 @@ export function KPICard({
       <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-2 border-b">
         <div className="min-w-0">
           <h3 className="font-semibold text-gray-900 truncate">{name}</h3>
-          {createdBy && (
-            <p data-testid="kpi-card-created-by" className="text-xs text-muted-foreground truncate">
-              Created by: {createdBy}
-            </p>
-          )}
           {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
         </div>
         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
