@@ -17,6 +17,7 @@ export const ANALYTICS_EVENTS = {
   DASHBOARD_SAVED: 'dashboard:dashboard_saved',
   DASHBOARD_VIEWED: 'dashboard:dashboard_viewed',
   DASHBOARD_SHARED: 'dashboard:dashboard_shared',
+  DASHBOARD_EMBED_CODE_COPIED: 'dashboard:embed_code_copied',
   DASHBOARD_SET_AS_LANDING: 'dashboard:dashboard_set_as_landing',
   // Reports
   REPORT_CREATED: 'report:report_created',

@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Code, Copy, Check } from 'lucide-react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -54,6 +56,7 @@ export function EmbedCodeDropdown({ token, dashboardTitle }: EmbedCodeDropdownPr
       await navigator.clipboard.writeText(generateEmbedCode());
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_EMBED_CODE_COPIED, { theme: embedOptions.theme });
     } catch (error) {
       console.error('Failed to copy embed code:', error);
     }
