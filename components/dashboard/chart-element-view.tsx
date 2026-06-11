@@ -58,7 +58,7 @@ import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 import { ChartTypes, type ChartDataPayload } from '@/types/charts';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
-import { ChartExporter, generateFilename } from '@/lib/chart-export';
+import { ChartExporter, generateFilename, BrandingOptions } from '@/lib/chart-export';
 import { apiPostBinary } from '@/lib/api';
 import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 import {
@@ -1515,37 +1515,34 @@ export function ChartElementView({
     mapChartInstance.current = chart;
   };
 
-  // Original working download function for PNG/Image export
+  // Download PNG with org branding (logo top-left, title top-center, powered-by bottom-right)
   const handleDownloadImage = async () => {
+    const branding: BrandingOptions = {
+      orgLogoUrl,
+      chartTitle: effectiveChart?.title,
+    };
+
     try {
-      // Handle table chart export
       if (isTableChart && tableRef.current) {
         const filename = generateFilename(
           chartMetadata?.title || frozenChartConfig?.title || `table-${chartId}`,
           'png'
         );
-        await ChartExporter.exportTableAsImage(tableRef.current, {
-          filename,
-          format: 'png',
-          backgroundColor: '#ffffff',
-        });
+        await ChartExporter.exportTableWithBranding(tableRef.current, { filename, ...branding });
         toast.success('Table downloaded successfully');
         return;
       }
 
-      // Use the appropriate chart instance based on chart type (maps and regular charts)
       const activeChartInstance = isMapChart ? mapChartInstance.current : chartInstance.current;
-
       if (activeChartInstance) {
-        const url = activeChartInstance.getDataURL({
-          type: 'png',
-          pixelRatio: 2,
-          backgroundColor: '#fff',
+        const filename = generateFilename(
+          effectiveChart?.title || `${isMapChart ? 'map' : 'chart'}-${chartId}`,
+          'png'
+        );
+        await ChartExporter.exportEChartsWithBranding(activeChartInstance, {
+          filename,
+          ...branding,
         });
-        const link = document.createElement('a');
-        link.download = `${isMapChart ? 'map' : 'chart'}-${chartId}.png`;
-        link.href = url;
-        link.click();
         toast.success('Chart downloaded successfully');
       }
     } catch (error) {
