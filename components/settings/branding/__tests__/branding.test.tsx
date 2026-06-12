@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import Branding from '../branding';
+import Branding from '../Branding';
 import { TestWrapper } from '@/test-utils/render';
 
 // ============ Mocks ============
