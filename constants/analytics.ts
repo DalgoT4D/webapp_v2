@@ -131,6 +131,8 @@ export const ANALYTICS_EVENTS = {
   BILLING_UPGRADE_REQUESTED: 'settings:billing_upgrade_requested',
   // Auth / account
   PASSWORD_CHANGED: 'auth:password_changed',
+  DASHBOARD_CHAT_PII_SHARING_UPDATED: 'settings:dashboard_chat_pii_sharing_updated',
+  DASHBOARD_CHAT_PII_COLUMN_REVIEWED: 'settings:dashboard_chat_pii_column_reviewed',
   // Notifications
   NOTIFICATION_PREFERENCES_UPDATED: 'notification:preferences_updated',
   NOTIFICATIONS_ALL_READ: 'notification:all_marked_read',

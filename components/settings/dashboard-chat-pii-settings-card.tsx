@@ -1,34 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
 import {
   type DashboardChatPIIColumn,
   useDashboardAIChatActions,
   useDashboardPIIColumns,
 } from '@/hooks/api/useDashboardAIChat';
 import { DashboardChatPIICard } from '@/components/settings/dashboard-chat-pii-card';
+import { getDashboardChatPIIColumnKey } from '@/components/settings/dashboard-chat-pii-utils';
 import { SettingsStateCard } from '@/components/settings/settings-state-card';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { trackEvent } from '@/lib/analytics';
+import { toastError, toastSuccess } from '@/lib/toast';
 
 interface DashboardChatPIISettingsCardProps {
   enabled: boolean;
   refreshToken: number;
-}
-
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  if (typeof error === 'string' && error) {
-    return error;
-  }
-  return 'Please try again.';
-}
-
-function columnKey(
-  column: Pick<DashboardChatPIIColumn, 'schema_name' | 'table_name' | 'column_name'>
-) {
-  return `${column.schema_name}.${column.table_name}.${column.column_name}`;
 }
 
 export function DashboardChatPIISettingsCard({
@@ -51,7 +38,7 @@ export function DashboardChatPIISettingsCard({
   }, [enabled, mutatePIIColumns, refreshToken]);
 
   const updateColumnPiiOverride = async (column: DashboardChatPIIColumn, pii: boolean) => {
-    const key = columnKey(column);
+    const key = getDashboardChatPIIColumnKey(column);
     setUpdatingPIIColumnKey(key);
     try {
       await updatePIIColumnOverrides({
@@ -65,9 +52,12 @@ export function DashboardChatPIISettingsCard({
         ],
       });
       await mutatePIIColumns();
-      toast.success('PII column review saved');
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_CHAT_PII_COLUMN_REVIEWED, {
+        pii,
+      });
+      toastSuccess.generic('PII column review saved');
     } catch (error) {
-      toast.error(`Failed to save PII column review: ${getErrorMessage(error)}`);
+      toastError.api(error, 'Failed to save PII column review. Please try again.');
     } finally {
       setUpdatingPIIColumnKey(null);
     }
