@@ -19,6 +19,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  getDashboardChatPIIColumnKey,
+  getDashboardChatPIIColumnTestId,
+} from './dashboard-chat-pii-utils';
 import type { DashboardChatPIIColumn } from '@/hooks/api/useDashboardAIChat';
 
 interface DashboardChatPIICardProps {
@@ -28,10 +32,6 @@ interface DashboardChatPIICardProps {
   isLoading: boolean;
   updatingColumnKey: string | null;
   onColumnPIIChange: (column: DashboardChatPIIColumn, pii: boolean) => void | Promise<void>;
-}
-
-function columnKey(column: DashboardChatPIIColumn) {
-  return `${column.schema_name}.${column.table_name}.${column.column_name}`;
 }
 
 export function DashboardChatPIICard({
@@ -92,12 +92,17 @@ export function DashboardChatPIICard({
       <CardContent className="space-y-4">
         <div className="grid gap-3 md:grid-cols-[1fr_180px]">
           <Input
+            id="dashboard-chat-pii-column-search"
+            data-testid="dashboard-chat-pii-column-search"
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
             placeholder="Search dashboard, table, column, or description..."
           />
           <Select value={filter} onValueChange={setFilter}>
-            <SelectTrigger>
+            <SelectTrigger
+              id="dashboard-chat-pii-column-filter"
+              data-testid="dashboard-chat-pii-column-filter"
+            >
               <SelectValue placeholder="Filter columns" />
             </SelectTrigger>
             <SelectContent>
@@ -122,10 +127,14 @@ export function DashboardChatPIICard({
             </TableHeader>
             <TableBody>
               {visibleColumns.map((column) => {
-                const key = columnKey(column);
+                const key = getDashboardChatPIIColumnKey(column);
+                const testId = getDashboardChatPIIColumnTestId(column);
                 const isUpdating = updatingColumnKey === key;
                 return (
-                  <TableRow key={`${column.dashboard_id}:${key}`}>
+                  <TableRow
+                    key={`${column.dashboard_id}:${key}`}
+                    data-testid={`pii-column-row-${testId}`}
+                  >
                     <TableCell className="max-w-[180px] whitespace-normal text-sm">
                       {column.dashboard_title}
                     </TableCell>
@@ -155,7 +164,11 @@ export function DashboardChatPIICard({
                         disabled={isLoading || isUpdating}
                         onValueChange={(value) => onColumnPIIChange(column, value === 'true')}
                       >
-                        <SelectTrigger className="w-[130px]">
+                        <SelectTrigger
+                          id={`pii-column-review-${testId}`}
+                          data-testid={`pii-column-review-${testId}`}
+                          className="w-[130px]"
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

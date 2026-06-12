@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -22,8 +21,11 @@ import {
 } from '@/components/ui/dialog';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
-import { useDashboards } from '@/hooks/api/useDashboards';
+import { useDashboards, type Dashboard } from '@/hooks/api/useDashboards';
 import {
+  type DashboardAIContext,
+  type OrgDashboardAIChatMetadataStatus,
+  type OrgDashboardAIChatSettings,
   useDashboardAIChatActions,
   useDashboardAIChatSettings,
   useDashboardAIContext,
@@ -34,6 +36,9 @@ import { DashboardChatMetadataCard } from '@/components/settings/dashboard-chat-
 import { DashboardChatPIISettingsCard } from '@/components/settings/dashboard-chat-pii-settings-card';
 import { MarkdownContextEditorCard } from '@/components/settings/markdown-context-editor-card';
 import { SettingsStateCard } from '@/components/settings/settings-state-card';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { trackEvent } from '@/lib/analytics';
+import { toastError, toastSuccess } from '@/lib/toast';
 
 function formatTimestamp(timestamp: string | null) {
   if (!timestamp) {
@@ -45,16 +50,6 @@ function formatTimestamp(timestamp: string | null) {
   } catch {
     return timestamp;
   }
-}
-
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  if (typeof error === 'string' && error) {
-    return error;
-  }
-  return 'Please try again.';
 }
 
 function DashboardChatConsentDialog({
@@ -88,15 +83,219 @@ function DashboardChatConsentDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            data-testid="cancel-ai-dashboard-chat-consent-btn"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
-          <Button onClick={onConfirm} disabled={isUpdatingConsent}>
+          <Button
+            data-testid="confirm-ai-dashboard-chat-consent-btn"
+            onClick={onConfirm}
+            disabled={isUpdatingConsent}
+          >
             {isUpdatingConsent ? 'Enabling...' : 'Confirm and enable'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+interface DashboardChatSettingsContentProps {
+  settings: OrgDashboardAIChatSettings;
+  metadataStatus: OrgDashboardAIChatMetadataStatus | undefined;
+  metadataStatusLoading: boolean;
+  metadataStatusError: unknown;
+  dashboardContext: DashboardAIContext | undefined;
+  dashboardContextLoading: boolean;
+  dashboardContextError: unknown;
+  dashboardsLoading: boolean;
+  nativeDashboards: Dashboard[];
+  selectedDashboardId: number | null;
+  orgContextDraft: string;
+  dashboardContextDraft: string;
+  isUpdatingConsent: boolean;
+  isUpdatingPiiSharing: boolean;
+  isSavingOrgContext: boolean;
+  isSavingDashboardContext: boolean;
+  isBuildingAllMetadata: boolean;
+  isBuildingSelectedMetadata: boolean;
+  canLoadProtectedData: boolean;
+  piiRefreshToken: number;
+  onConsentChange: (checked: boolean) => void | Promise<void>;
+  onPiiSharingChange: (checked: boolean) => void | Promise<void>;
+  onBuildAllMetadata: () => void | Promise<void>;
+  onBuildSelectedMetadata: () => void | Promise<void>;
+  onOrgContextDraftChange: (value: string) => void;
+  onDashboardContextDraftChange: (value: string) => void;
+  onSaveOrgContext: () => void | Promise<void>;
+  onSaveDashboardContext: () => void | Promise<void>;
+  onSelectedDashboardChange: (dashboardId: number) => void;
+}
+
+function DashboardChatSettingsContent({
+  settings,
+  metadataStatus,
+  metadataStatusLoading,
+  metadataStatusError,
+  dashboardContext,
+  dashboardContextLoading,
+  dashboardContextError,
+  dashboardsLoading,
+  nativeDashboards,
+  selectedDashboardId,
+  orgContextDraft,
+  dashboardContextDraft,
+  isUpdatingConsent,
+  isUpdatingPiiSharing,
+  isSavingOrgContext,
+  isSavingDashboardContext,
+  isBuildingAllMetadata,
+  isBuildingSelectedMetadata,
+  canLoadProtectedData,
+  piiRefreshToken,
+  onConsentChange,
+  onPiiSharingChange,
+  onBuildAllMetadata,
+  onBuildSelectedMetadata,
+  onOrgContextDraftChange,
+  onDashboardContextDraftChange,
+  onSaveOrgContext,
+  onSaveDashboardContext,
+  onSelectedDashboardChange,
+}: DashboardChatSettingsContentProps) {
+  return (
+    <>
+      <DashboardChatConsentCard
+        aiDataSharingEnabled={settings.ai_data_sharing_enabled}
+        sharePiiWithLlms={settings.dashboard_chat_share_pii_with_llms}
+        aiDataSharingConsentedAt={formatTimestamp(settings.ai_data_sharing_consented_at)}
+        metadataLastBuiltAt={formatTimestamp(settings.metadata_last_built_at)}
+        isUpdatingConsent={isUpdatingConsent}
+        isUpdatingPiiSharing={isUpdatingPiiSharing}
+        onConsentChange={onConsentChange}
+        onPiiSharingChange={onPiiSharingChange}
+      />
+
+      {settings.ai_data_sharing_enabled ? (
+        <>
+          {metadataStatusLoading ? (
+            <SettingsStateCard
+              title="Dashboard chat metadata"
+              description="Loading dashboard metadata status..."
+            />
+          ) : metadataStatusError ? (
+            <SettingsStateCard
+              title="Dashboard chat metadata"
+              description={
+                metadataStatusError instanceof Error
+                  ? metadataStatusError.message
+                  : 'Unable to load dashboard metadata status.'
+              }
+            />
+          ) : metadataStatus ? (
+            <DashboardChatMetadataCard
+              dashboards={metadataStatus.dashboards}
+              readyCount={metadataStatus.ready_dashboard_count}
+              totalCount={metadataStatus.total_dashboard_count}
+              lastBuiltAt={formatTimestamp(metadataStatus.last_built_at)}
+              isLoading={metadataStatusLoading}
+              isBuildingAll={isBuildingAllMetadata}
+              isBuildingSelected={isBuildingSelectedMetadata}
+              selectedDashboardId={selectedDashboardId}
+              onBuildAll={onBuildAllMetadata}
+              onBuildSelected={onBuildSelectedMetadata}
+            />
+          ) : null}
+
+          <DashboardChatPIISettingsCard
+            enabled={canLoadProtectedData && settings.ai_data_sharing_enabled}
+            refreshToken={piiRefreshToken}
+          />
+
+          <MarkdownContextEditorCard
+            title="Organization AI context"
+            description="Add stable organization-level context that should be available to every dashboard chat."
+            markdown={orgContextDraft}
+            onMarkdownChange={onOrgContextDraftChange}
+            onSave={onSaveOrgContext}
+            isSaving={isSavingOrgContext}
+            updatedBy={settings.org_context_updated_by || 'nobody yet'}
+            updatedAt={formatTimestamp(settings.org_context_updated_at)}
+            saveLabel="Save organization context"
+            placeholder="Add organization-wide context in markdown..."
+            emptyPreviewMessage="Organization context preview will appear here."
+          />
+
+          {nativeDashboards.length === 0 ? (
+            <SettingsStateCard
+              title="Dashboard AI context"
+              description="Create a native dashboard before adding dashboard-specific AI context."
+            />
+          ) : dashboardContextLoading ? (
+            <SettingsStateCard
+              title="Dashboard AI context"
+              description="Loading dashboard context..."
+            />
+          ) : dashboardContextError ? (
+            <SettingsStateCard
+              title="Dashboard AI context"
+              description={
+                dashboardContextError instanceof Error
+                  ? dashboardContextError.message
+                  : 'Unable to load dashboard context.'
+              }
+            />
+          ) : (
+            <MarkdownContextEditorCard
+              title="Dashboard AI context"
+              description="Add markdown context for a specific native dashboard."
+              markdown={dashboardContextDraft}
+              onMarkdownChange={onDashboardContextDraftChange}
+              onSave={onSaveDashboardContext}
+              isSaving={isSavingDashboardContext}
+              updatedBy={dashboardContext?.dashboard_context_updated_by || 'nobody yet'}
+              updatedAt={formatTimestamp(dashboardContext?.dashboard_context_updated_at ?? null)}
+              saveLabel="Save dashboard context"
+              placeholder="Add dashboard-specific context in markdown..."
+              emptyPreviewMessage="Dashboard context preview will appear here."
+              controls={
+                <div className="space-y-2">
+                  <Label htmlFor="dashboard-ai-context-select">Dashboard</Label>
+                  <Select
+                    value={selectedDashboardId ? String(selectedDashboardId) : undefined}
+                    onValueChange={(value) => onSelectedDashboardChange(Number(value))}
+                    disabled={dashboardsLoading}
+                  >
+                    <SelectTrigger
+                      id="dashboard-ai-context-select"
+                      data-testid="dashboard-ai-context-select"
+                    >
+                      <SelectValue placeholder="Select a dashboard" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {nativeDashboards.map((dashboard) => (
+                        <SelectItem key={dashboard.id} value={String(dashboard.id)}>
+                          {dashboard.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              }
+              disabled={!selectedDashboardId}
+            />
+          )}
+        </>
+      ) : (
+        <SettingsStateCard
+          title="AI context editors"
+          description="Turn on consent first to edit organization and dashboard context."
+        />
+      )}
+    </>
   );
 }
 
@@ -197,9 +396,9 @@ export default function OrganizationSettings() {
     try {
       await updateSettings({ ai_data_sharing_enabled: false });
       await mutateSettings();
-      toast.success('AI data sharing has been turned off');
+      toastSuccess.generic('AI data sharing has been turned off');
     } catch (error) {
-      toast.error(`Failed to turn off AI data sharing: ${getErrorMessage(error)}`);
+      toastError.api(error, 'Failed to turn off AI data sharing. Please try again.');
     } finally {
       setIsUpdatingConsent(false);
     }
@@ -210,10 +409,10 @@ export default function OrganizationSettings() {
     try {
       await updateSettings({ ai_data_sharing_enabled: true });
       await mutateSettings();
-      toast.success('AI data sharing has been enabled');
+      toastSuccess.generic('AI data sharing has been enabled');
       setConsentDialogOpen(false);
     } catch (error) {
-      toast.error(`Failed to turn on AI data sharing: ${getErrorMessage(error)}`);
+      toastError.api(error, 'Failed to turn on AI data sharing. Please try again.');
     } finally {
       setIsUpdatingConsent(false);
     }
@@ -224,13 +423,16 @@ export default function OrganizationSettings() {
     try {
       await updateSettings({ dashboard_chat_share_pii_with_llms: checked });
       await mutateSettings();
-      toast.success(
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_CHAT_PII_SHARING_UPDATED, {
+        enabled: checked,
+      });
+      toastSuccess.generic(
         checked
           ? 'PII sharing with LLMs has been turned on'
           : 'PII sharing with LLMs has been turned off'
       );
     } catch (error) {
-      toast.error(`Failed to update PII sharing: ${getErrorMessage(error)}`);
+      toastError.api(error, 'Failed to update PII sharing. Please try again.');
     } finally {
       setIsUpdatingPiiSharing(false);
     }
@@ -241,9 +443,9 @@ export default function OrganizationSettings() {
     try {
       await updateSettings({ org_context_markdown: orgContextDraft });
       await mutateSettings();
-      toast.success('Organization AI context saved');
+      toastSuccess.generic('Organization AI context saved');
     } catch (error) {
-      toast.error(`Failed to save settings: ${getErrorMessage(error)}`);
+      toastError.api(error, 'Failed to save organization AI context. Please try again.');
     } finally {
       setIsSavingOrgContext(false);
     }
@@ -260,9 +462,9 @@ export default function OrganizationSettings() {
         dashboard_context_markdown: dashboardContextDraft,
       });
       await mutateDashboardContext();
-      toast.success('Dashboard AI context saved');
+      toastSuccess.generic('Dashboard AI context saved');
     } catch (error) {
-      toast.error(`Failed to save settings: ${getErrorMessage(error)}`);
+      toastError.api(error, 'Failed to save dashboard AI context. Please try again.');
     } finally {
       setIsSavingDashboardContext(false);
     }
@@ -274,9 +476,9 @@ export default function OrganizationSettings() {
       await buildDashboardMetadata({ builder_model: 'o4-mini' });
       await Promise.all([mutateMetadataStatus(), mutateSettings(), mutateDashboardContext()]);
       setPiiRefreshToken((value) => value + 1);
-      toast.success('Dashboard chat metadata rebuilt for all dashboards');
+      toastSuccess.generic('Dashboard chat metadata rebuilt for all dashboards');
     } catch (error) {
-      toast.error(`Failed to build metadata: ${getErrorMessage(error)}`);
+      toastError.api(error, 'Failed to build dashboard chat metadata. Please try again.');
     } finally {
       setIsBuildingAllMetadata(false);
     }
@@ -294,9 +496,9 @@ export default function OrganizationSettings() {
       });
       await Promise.all([mutateMetadataStatus(), mutateSettings(), mutateDashboardContext()]);
       setPiiRefreshToken((value) => value + 1);
-      toast.success('Dashboard chat metadata rebuilt for the selected dashboard');
+      toastSuccess.generic('Dashboard chat metadata rebuilt for the selected dashboard');
     } catch (error) {
-      toast.error(`Failed to build metadata: ${getErrorMessage(error)}`);
+      toastError.api(error, 'Failed to build dashboard chat metadata. Please try again.');
     } finally {
       setIsBuildingSelectedMetadata(false);
     }
@@ -346,130 +548,37 @@ export default function OrganizationSettings() {
           </p>
         </div>
 
-        <DashboardChatConsentCard
-          aiDataSharingEnabled={settings.ai_data_sharing_enabled}
-          sharePiiWithLlms={settings.dashboard_chat_share_pii_with_llms}
-          aiDataSharingConsentedAt={formatTimestamp(settings.ai_data_sharing_consented_at)}
-          metadataLastBuiltAt={formatTimestamp(settings.metadata_last_built_at)}
+        <DashboardChatSettingsContent
+          settings={settings}
+          metadataStatus={metadataStatus}
+          metadataStatusLoading={metadataStatusLoading}
+          metadataStatusError={metadataStatusError}
+          dashboardContext={dashboardContext}
+          dashboardContextLoading={dashboardContextLoading}
+          dashboardContextError={dashboardContextError}
+          dashboardsLoading={dashboardsLoading}
+          nativeDashboards={nativeDashboards}
+          selectedDashboardId={selectedDashboardId}
+          orgContextDraft={orgContextDraft}
+          dashboardContextDraft={dashboardContextDraft}
           isUpdatingConsent={isUpdatingConsent}
           isUpdatingPiiSharing={isUpdatingPiiSharing}
+          isSavingOrgContext={isSavingOrgContext}
+          isSavingDashboardContext={isSavingDashboardContext}
+          isBuildingAllMetadata={isBuildingAllMetadata}
+          isBuildingSelectedMetadata={isBuildingSelectedMetadata}
+          canLoadProtectedData={canLoadProtectedData}
+          piiRefreshToken={piiRefreshToken}
           onConsentChange={handleConsentChange}
           onPiiSharingChange={handlePiiSharingChange}
+          onBuildAllMetadata={buildAllMetadata}
+          onBuildSelectedMetadata={buildSelectedMetadata}
+          onOrgContextDraftChange={setOrgContextDraft}
+          onDashboardContextDraftChange={setDashboardContextDraft}
+          onSaveOrgContext={saveOrgContext}
+          onSaveDashboardContext={saveDashboardContext}
+          onSelectedDashboardChange={setSelectedDashboardId}
         />
-
-        {settings.ai_data_sharing_enabled ? (
-          <>
-            {metadataStatusLoading ? (
-              <SettingsStateCard
-                title="Dashboard chat metadata"
-                description="Loading dashboard metadata status..."
-              />
-            ) : metadataStatusError ? (
-              <SettingsStateCard
-                title="Dashboard chat metadata"
-                description={
-                  metadataStatusError instanceof Error
-                    ? metadataStatusError.message
-                    : 'Unable to load dashboard metadata status.'
-                }
-              />
-            ) : metadataStatus ? (
-              <DashboardChatMetadataCard
-                dashboards={metadataStatus.dashboards}
-                readyCount={metadataStatus.ready_dashboard_count}
-                totalCount={metadataStatus.total_dashboard_count}
-                lastBuiltAt={formatTimestamp(metadataStatus.last_built_at)}
-                isLoading={metadataStatusLoading}
-                isBuildingAll={isBuildingAllMetadata}
-                isBuildingSelected={isBuildingSelectedMetadata}
-                selectedDashboardId={selectedDashboardId}
-                onBuildAll={buildAllMetadata}
-                onBuildSelected={buildSelectedMetadata}
-              />
-            ) : null}
-
-            <DashboardChatPIISettingsCard
-              enabled={canLoadProtectedData && settings.ai_data_sharing_enabled}
-              refreshToken={piiRefreshToken}
-            />
-
-            <MarkdownContextEditorCard
-              title="Organization AI context"
-              description="Add stable organization-level context that should be available to every dashboard chat."
-              markdown={orgContextDraft}
-              onMarkdownChange={setOrgContextDraft}
-              onSave={saveOrgContext}
-              isSaving={isSavingOrgContext}
-              updatedBy={settings.org_context_updated_by || 'nobody yet'}
-              updatedAt={formatTimestamp(settings.org_context_updated_at)}
-              saveLabel="Save organization context"
-              placeholder="Add organization-wide context in markdown..."
-              emptyPreviewMessage="Organization context preview will appear here."
-            />
-
-            {nativeDashboards.length === 0 ? (
-              <SettingsStateCard
-                title="Dashboard AI context"
-                description="Create a native dashboard before adding dashboard-specific AI context."
-              />
-            ) : dashboardContextLoading ? (
-              <SettingsStateCard
-                title="Dashboard AI context"
-                description="Loading dashboard context..."
-              />
-            ) : dashboardContextError ? (
-              <SettingsStateCard
-                title="Dashboard AI context"
-                description={
-                  dashboardContextError instanceof Error
-                    ? dashboardContextError.message
-                    : 'Unable to load dashboard context.'
-                }
-              />
-            ) : (
-              <MarkdownContextEditorCard
-                title="Dashboard AI context"
-                description="Add markdown context for a specific native dashboard."
-                markdown={dashboardContextDraft}
-                onMarkdownChange={setDashboardContextDraft}
-                onSave={saveDashboardContext}
-                isSaving={isSavingDashboardContext}
-                updatedBy={dashboardContext?.dashboard_context_updated_by || 'nobody yet'}
-                updatedAt={formatTimestamp(dashboardContext?.dashboard_context_updated_at ?? null)}
-                saveLabel="Save dashboard context"
-                placeholder="Add dashboard-specific context in markdown..."
-                emptyPreviewMessage="Dashboard context preview will appear here."
-                controls={
-                  <div className="space-y-2">
-                    <Label htmlFor="dashboard-ai-context-select">Dashboard</Label>
-                    <Select
-                      value={selectedDashboardId ? String(selectedDashboardId) : undefined}
-                      onValueChange={(value) => setSelectedDashboardId(Number(value))}
-                      disabled={dashboardsLoading}
-                    >
-                      <SelectTrigger id="dashboard-ai-context-select">
-                        <SelectValue placeholder="Select a dashboard" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {nativeDashboards.map((dashboard) => (
-                          <SelectItem key={dashboard.id} value={String(dashboard.id)}>
-                            {dashboard.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                }
-                disabled={!selectedDashboardId}
-              />
-            )}
-          </>
-        ) : (
-          <SettingsStateCard
-            title="AI context editors"
-            description="Turn on consent first to edit organization and dashboard context."
-          />
-        )}
       </div>
 
       <DashboardChatConsentDialog

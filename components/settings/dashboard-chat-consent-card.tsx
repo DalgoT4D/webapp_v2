@@ -59,6 +59,7 @@ export function DashboardChatConsentCard({
           </div>
           <Switch
             id="ai-consent-toggle"
+            data-testid="ai-consent-toggle"
             checked={aiDataSharingEnabled}
             disabled={isUpdatingConsent}
             onCheckedChange={onConsentChange}
@@ -77,6 +78,7 @@ export function DashboardChatConsentCard({
           </div>
           <Switch
             id="pii-sharing-toggle"
+            data-testid="pii-sharing-toggle"
             checked={sharePiiWithLlms}
             disabled={!aiDataSharingEnabled || isUpdatingPiiSharing}
             onCheckedChange={onPiiSharingChange}

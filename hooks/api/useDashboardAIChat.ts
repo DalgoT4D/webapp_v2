@@ -1,7 +1,6 @@
 'use client';
 
 import useSWR from 'swr';
-import { toast } from 'sonner';
 import { apiGet, apiPost, apiPut } from '@/lib/api';
 
 interface SuccessResponse<T> {
@@ -127,8 +126,10 @@ export function useDashboardAIChatSettings(enabled = true) {
   );
 
   return {
+    data: data?.res,
     settings: data?.res,
     isLoading,
+    isError: error,
     error,
     mutate,
   };
@@ -144,8 +145,10 @@ export function useDashboardAIChatStatus(enabled = true) {
   );
 
   return {
+    data: data?.res,
     status: data?.res,
     isLoading,
+    isError: error,
     error,
     mutate,
   };
@@ -161,8 +164,10 @@ export function useDashboardAIContext(dashboardId: number | null, enabled = true
   );
 
   return {
+    data,
     context: data,
     isLoading,
+    isError: error,
     error,
     mutate,
   };
@@ -178,8 +183,10 @@ export function useDashboardMetadataStatus(enabled = true) {
   );
 
   return {
+    data,
     status: data,
     isLoading,
+    isError: error,
     error,
     mutate,
   };
@@ -195,8 +202,10 @@ export function useDashboardPIIColumns(enabled = true) {
   );
 
   return {
+    data,
     piiColumns: data,
     isLoading,
+    isError: error,
     error,
     mutate,
   };
@@ -212,8 +221,10 @@ export function useDashboardChatBootstrap(dashboardId: number | null, enabled = 
   );
 
   return {
+    data,
     bootstrap: data,
     isLoading,
+    isError: error,
     error,
     mutate,
   };
@@ -221,58 +232,32 @@ export function useDashboardChatBootstrap(dashboardId: number | null, enabled = 
 
 export function useDashboardAIChatActions() {
   const updateSettings = async (payload: UpdateOrgDashboardAIChatPayload) => {
-    try {
-      const response = await apiPut('/api/orgpreferences/ai-dashboard-chat', payload);
-      return (response as SuccessResponse<OrgDashboardAIChatSettings>).res;
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to update dashboard chat settings';
-      toast.error(message);
-      throw error;
-    }
+    const response = await apiPut('/api/orgpreferences/ai-dashboard-chat', payload);
+    return (response as SuccessResponse<OrgDashboardAIChatSettings>).res;
   };
 
   const updateDashboardContext = async (
     dashboardId: number,
     payload: UpdateDashboardAIContextPayload
   ) => {
-    try {
-      return (await apiPut(
-        `/api/dashboards/${dashboardId}/ai-context/`,
-        payload
-      )) as DashboardAIContext;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to update dashboard context';
-      toast.error(message);
-      throw error;
-    }
+    return (await apiPut(
+      `/api/dashboards/${dashboardId}/ai-context/`,
+      payload
+    )) as DashboardAIContext;
   };
 
   const buildDashboardMetadata = async (payload: TriggerDashboardMetadataBuildPayload) => {
-    try {
-      return (await apiPost(
-        '/api/orgpreferences/ai-dashboard-chat/metadata/build',
-        payload
-      )) as OrgDashboardAIChatMetadataStatus;
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to build dashboard chat metadata';
-      toast.error(message);
-      throw error;
-    }
+    return (await apiPost(
+      '/api/orgpreferences/ai-dashboard-chat/metadata/build',
+      payload
+    )) as OrgDashboardAIChatMetadataStatus;
   };
 
   const updatePIIColumnOverrides = async (payload: UpdateDashboardChatPIIOverridesPayload) => {
-    try {
-      return (await apiPut(
-        '/api/orgpreferences/ai-dashboard-chat/pii-columns',
-        payload
-      )) as DashboardChatPIIColumnsResponse;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to update PII column review';
-      toast.error(message);
-      throw error;
-    }
+    return (await apiPut(
+      '/api/orgpreferences/ai-dashboard-chat/pii-columns',
+      payload
+    )) as DashboardChatPIIColumnsResponse;
   };
 
   return {
