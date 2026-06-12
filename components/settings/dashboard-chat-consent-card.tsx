@@ -6,10 +6,13 @@ import { Switch } from '@/components/ui/switch';
 
 interface DashboardChatConsentCardProps {
   aiDataSharingEnabled: boolean;
+  sharePiiWithLlms: boolean;
   aiDataSharingConsentedAt: string;
-  vectorLastIngestedAt: string;
+  metadataLastBuiltAt: string;
   isUpdatingConsent: boolean;
+  isUpdatingPiiSharing: boolean;
   onConsentChange: (checked: boolean) => void | Promise<void>;
+  onPiiSharingChange: (checked: boolean) => void | Promise<void>;
 }
 
 interface FreshnessItemProps {
@@ -27,10 +30,13 @@ function FreshnessItem({ label, value }: FreshnessItemProps) {
 
 export function DashboardChatConsentCard({
   aiDataSharingEnabled,
+  sharePiiWithLlms,
   aiDataSharingConsentedAt,
-  vectorLastIngestedAt,
+  metadataLastBuiltAt,
   isUpdatingConsent,
+  isUpdatingPiiSharing,
   onConsentChange,
+  onPiiSharingChange,
 }: DashboardChatConsentCardProps) {
   return (
     <Card>
@@ -53,21 +59,41 @@ export function DashboardChatConsentCard({
           </div>
           <Switch
             id="ai-consent-toggle"
+            data-testid="ai-consent-toggle"
             checked={aiDataSharingEnabled}
             disabled={isUpdatingConsent}
             onCheckedChange={onConsentChange}
           />
         </div>
 
+        <div className="flex items-center justify-between rounded-lg border p-4">
+          <div className="space-y-1">
+            <Label htmlFor="pii-sharing-toggle" className="text-base font-medium">
+              Share PII with LLMs
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              Keep this on to send raw PII values to AI models. Turn it off after reviewing the PII
+              column list below; runtime queries will mask reviewed PII columns before model calls.
+            </p>
+          </div>
+          <Switch
+            id="pii-sharing-toggle"
+            data-testid="pii-sharing-toggle"
+            checked={sharePiiWithLlms}
+            disabled={!aiDataSharingEnabled || isUpdatingPiiSharing}
+            onCheckedChange={onPiiSharingChange}
+          />
+        </div>
+
         <div className="grid gap-2 rounded-lg border bg-slate-50 p-4 md:grid-cols-2">
           <FreshnessItem label="Last consent update" value={aiDataSharingConsentedAt} />
-          <FreshnessItem label="Dalgo AI context refreshed" value={vectorLastIngestedAt} />
+          <FreshnessItem label="Metadata last built" value={metadataLastBuiltAt} />
         </div>
 
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
           <p>
-            Organization and dashboard context changes appear in Dalgo AI after the next context
-            refresh. Allow up to 3 hours for saved updates to show up in chat.
+            Organization and dashboard context changes do not affect chat until dashboard metadata
+            is rebuilt. Use the metadata build controls below after changing context or dashboards.
           </p>
         </div>
       </CardContent>
