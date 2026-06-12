@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TriangleAlert, Trash2 } from 'lucide-react';
+import { useSWRConfig } from 'swr';
 import { BrandingPreview } from './branding-preview';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,13 +17,29 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { isValidHttpUrl } from '@/lib/utils';
-import { toastError } from '@/lib/toast';
-import { useBranding } from '@/hooks/useBranding';
+import { toastError, toastSuccess } from '@/lib/toast';
+import { useAuthStore } from '@/stores/authStore';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { apiDelete, apiPost, apiPostFormData } from '@/lib/api';
 import { UploadTabContent } from './branding-upload-tab';
 import { LinkTabContent } from './branding-link-tab';
 
 // Must match MAX_FILE_SIZE_BYTES in DDP_backend/ddpui/utils/s3_utils.py
 const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024;
+
+interface OrgLogoData {
+  logo_url: string;
+  logo_filename: string | null;
+  updated_at: string;
+}
+
+interface OrgLogoApiResponse {
+  success: boolean;
+  data: OrgLogoData;
+}
+
+type LogoSource = 'upload' | 'url';
 
 function UnsavedChangesDialog({
   open,
@@ -61,8 +78,16 @@ function UnsavedChangesDialog({
 }
 
 export default function Branding() {
-  const { currentOrg, currentLogoUrl, savedLogoSource, isSaving, isRemoving, save, remove } =
-    useBranding();
+  const { orgUsers, setOrgUsers, currentOrg } = useAuthStore();
+  const { mutate } = useSWRConfig();
+
+  // Derived from store — setOrgUsers updates currentOrg synchronously so no local copy needed
+  const currentLogoUrl: string | null = currentOrg?.logo_url ?? null;
+  const savedLogoSource: LogoSource | null = currentLogoUrl
+    ? currentOrg?.logo_filename
+      ? 'upload'
+      : 'url'
+    : null;
 
   const [activeTab, setActiveTab] = useState<'upload' | 'link'>('upload');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -70,6 +95,8 @@ export default function Branding() {
   const [linkInput, setLinkInput] = useState('');
   const [isEditingLink, setIsEditingLink] = useState(false);
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync active tab when org switches and has an existing logo
@@ -146,13 +173,74 @@ export default function Branding() {
   }, [hasChanges, doCancel]);
 
   const handleSave = useCallback(async () => {
-    const ok = await save(activeTab, selectedFile, linkInput);
-    if (ok) doCancel();
-  }, [save, activeTab, selectedFile, linkInput, doCancel]);
+    setIsSaving(true);
+    try {
+      let savedUrl: string | null = null;
+      let res: OrgLogoApiResponse | null = null;
+
+      if (activeTab === 'upload' && selectedFile) {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        res = await apiPostFormData('/api/org/logo/upload/', formData);
+        savedUrl = res.data.logo_url;
+      } else if (activeTab === 'link' && linkInput.trim()) {
+        res = await apiPost('/api/org/logo/url/', { image_url: linkInput.trim() });
+        savedUrl = res.data.logo_url;
+      }
+
+      if (currentOrg) {
+        const savedFilename = res?.data?.logo_filename ?? null;
+        setOrgUsers(
+          orgUsers.map((ou) =>
+            ou.org.slug === currentOrg.slug
+              ? {
+                  ...ou,
+                  org: { ...ou.org, logo_url: savedUrl ?? undefined, logo_filename: savedFilename },
+                }
+              : ou
+          )
+        );
+      }
+
+      await mutate('/api/currentuserv2');
+      trackEvent(ANALYTICS_EVENTS.BRANDING_LOGO_SAVED, {
+        logo_source: activeTab,
+        filename: res?.data?.logo_filename ?? null,
+        logo_url: savedUrl,
+      });
+      toastSuccess.saved('Organization logo');
+      doCancel();
+    } catch (error) {
+      toastError.save(error, 'logo');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [activeTab, selectedFile, linkInput, currentOrg, orgUsers, setOrgUsers, mutate, doCancel]);
 
   const handleRemove = useCallback(async () => {
-    await remove();
-  }, [remove]);
+    setIsRemoving(true);
+    try {
+      await apiDelete('/api/org/logo/');
+
+      if (currentOrg) {
+        setOrgUsers(
+          orgUsers.map((ou) =>
+            ou.org.slug === currentOrg.slug
+              ? { ...ou, org: { ...ou.org, logo_url: undefined, logo_filename: null } }
+              : ou
+          )
+        );
+      }
+
+      await mutate('/api/currentuserv2');
+      trackEvent(ANALYTICS_EVENTS.BRANDING_LOGO_REMOVED, { logo_source: savedLogoSource });
+      toastSuccess.deleted('Organization logo');
+    } catch (error) {
+      toastError.save(error, 'logo');
+    } finally {
+      setIsRemoving(false);
+    }
+  }, [currentOrg, orgUsers, setOrgUsers, mutate, savedLogoSource]);
 
   const previewLogoUrl =
     activeTab === 'upload'
