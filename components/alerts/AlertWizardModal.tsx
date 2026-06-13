@@ -395,8 +395,7 @@ export function AlertWizardModal({
             sourceLocked={
               !!initial?.metricId ||
               !!initial?.kpiId ||
-              isEdit ||
-              defineState.alertType !== AlertType.STANDALONE
+              (!isEdit && defineState.alertType !== AlertType.STANDALONE)
             }
             errors={step1Errors}
           />

@@ -5,14 +5,13 @@ import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns';
 import {
   ChevronDown,
   ChevronUp,
-  ChevronLeft,
-  ChevronRight,
   CheckCircle2,
   XCircle,
   Mail,
   Slack,
   AlertCircle,
   FileText,
+  Loader2,
 } from 'lucide-react';
 import { FullScreenModal } from '@/components/ui/full-screen-modal';
 import { Button } from '@/components/ui/button';
@@ -119,7 +118,7 @@ function LogRowCard({ log }: { log: AlertLog }) {
 
         {/* Current value */}
         <div className="col-span-2 px-4 py-4 text-sm text-gray-900">
-          <span className="font-semibold">{log.value ?? '—'}</span>
+          <span>{log.value ?? '—'}</span>
         </div>
 
         {/* Alert condition */}
@@ -268,18 +267,35 @@ function HeaderRow() {
 
 export function AlertLogModal({ open, onOpenChange, alertId, alertName }: AlertLogModalProps) {
   const [page, setPage] = useState(1);
+  const [accumulated, setAccumulated] = useState<AlertLog[]>([]);
   const pageSize = 10;
 
   useEffect(() => {
     setPage(1);
+    setAccumulated([]);
   }, [alertId]);
 
   const {
-    data: logs,
-    total,
+    data: newLogs,
     totalPages,
     isLoading,
   } = useAlertLogs(open ? alertId : null, { page, pageSize });
+
+  useEffect(() => {
+    if (newLogs.length === 0) return;
+    setAccumulated((prev) => {
+      if (page === 1) return newLogs;
+      const existingIds = new Set(prev.map((l) => l.id));
+      const fresh = newLogs.filter((l) => !existingIds.has(l.id));
+      if (fresh.length === 0) return prev;
+      return [...prev, ...fresh];
+    });
+  }, [newLogs, page]);
+
+  const displayedLogs = accumulated.length > 0 ? accumulated : newLogs;
+  const hasMore = page < totalPages;
+  const showInitialLoading = isLoading && displayedLogs.length === 0;
+  const loadingMore = isLoading && displayedLogs.length > 0;
 
   const subtitle = useMemo(() => alertName ?? null, [alertName]);
 
@@ -289,8 +305,8 @@ export function AlertLogModal({ open, onOpenChange, alertId, alertName }: AlertL
         <HeaderRow />
 
         <div className="mt-2 flex-1 space-y-2 overflow-y-auto pb-4" data-testid="alert-log-list">
-          {isLoading && <LogsTableSkeleton />}
-          {!isLoading && logs.length === 0 && (
+          {showInitialLoading && <LogsTableSkeleton />}
+          {!showInitialLoading && displayedLogs.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
                 <FileText className="h-6 w-6 text-gray-400" />
@@ -301,37 +317,28 @@ export function AlertLogModal({ open, onOpenChange, alertId, alertName }: AlertL
               </p>
             </div>
           )}
-          {!isLoading && logs.map((log) => <LogRowCard key={log.id} log={log} />)}
-        </div>
+          {displayedLogs.map((log) => (
+            <LogRowCard key={log.id} log={log} />
+          ))}
 
-        {!isLoading && total > 0 && (
-          <div className="flex flex-shrink-0 items-center justify-between border-t pt-3 text-xs text-gray-600">
-            <div>
-              Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
-            </div>
-            <div className="flex items-center gap-2">
+          {hasMore && (
+            <div className="flex justify-center py-6">
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span>
-                {page} of {totalPages || 1}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
+                variant="outline"
                 onClick={() => setPage((p) => p + 1)}
-                disabled={page >= totalPages}
+                disabled={loadingMore}
+                className="min-w-[200px]"
               >
-                <ChevronRight className="h-4 w-4" />
+                {loadingMore ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 mr-2" />
+                )}
+                Load More
               </Button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </FullScreenModal>
   );
