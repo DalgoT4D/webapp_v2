@@ -737,6 +737,11 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               </Link>
             )}
             <h1 className="text-lg font-semibold">{chart.title}</h1>
+            {chart.created_by && (
+              <span data-testid="chart-detail-created-by" className="text-sm text-muted-foreground">
+                · Created by {chart.created_by}
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
             {hasPermission('can_edit_charts') && (

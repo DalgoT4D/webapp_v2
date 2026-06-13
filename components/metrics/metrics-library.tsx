@@ -16,6 +16,7 @@ import {
   Filter,
   X,
   Target,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -302,6 +303,17 @@ export function MetricsLibrary() {
         <TableCell className="py-4">
           {consumers ? <ConsumerLinks consumers={consumers} /> : <Skeleton className="h-4 w-16" />}
         </TableCell>
+        {/* Created by */}
+        <TableCell className="py-4">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+              <User className="w-3 h-3 text-gray-600" />
+            </div>
+            <span className="text-sm text-gray-600" data-testid={`metric-created-by-${metric.id}`}>
+              {metric.created_by || 'Unknown'}
+            </span>
+          </div>
+        </TableCell>
         {/* Last Updated */}
         <TableCell className="py-4 text-sm text-gray-500">
           {metric.updated_at
@@ -348,7 +360,7 @@ export function MetricsLibrary() {
 
   const columnHeaders = (
     <TableRow className="bg-gray-50">
-      <TableHead className="w-[22%]">
+      <TableHead className="w-[20%]">
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -393,8 +405,8 @@ export function MetricsLibrary() {
           </Popover>
         </div>
       </TableHead>
-      <TableHead className="w-[10%] font-medium text-base">Mode</TableHead>
-      <TableHead className="w-[16%]">
+      <TableHead className="w-[8%] font-medium text-base">Mode</TableHead>
+      <TableHead className="w-[14%]">
         <Button
           variant="ghost"
           className="h-auto p-0 font-medium text-base hover:bg-transparent"
@@ -406,9 +418,10 @@ export function MetricsLibrary() {
           </div>
         </Button>
       </TableHead>
-      <TableHead className="w-[18%] font-medium text-base">Expression</TableHead>
+      <TableHead className="w-[16%] font-medium text-base">Expression</TableHead>
       <TableHead className="w-[12%] font-medium text-base">Used By</TableHead>
-      <TableHead className="w-[12%]">
+      <TableHead className="w-[14%] font-medium text-base">Created by</TableHead>
+      <TableHead className="w-[11%]">
         <Button
           variant="ghost"
           className="h-auto p-0 font-medium text-base hover:bg-transparent"
@@ -501,6 +514,9 @@ export function MetricsLibrary() {
                         </TableCell>
                         <TableCell>
                           <Skeleton className="h-3 w-16" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-24" />
                         </TableCell>
                         <TableCell>
                           <Skeleton className="h-3 w-12" />
