@@ -9,6 +9,7 @@ export interface Metric {
   column: string | null;
   aggregation: string | null;
   column_expression: string | null;
+  created_by?: string; // creator's email
   created_at: string;
   updated_at: string;
 }
