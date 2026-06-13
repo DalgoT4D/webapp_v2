@@ -11,6 +11,7 @@ import {
   Pencil,
   Trash2,
   Eye,
+  BellRing,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -33,6 +34,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
+import { ALERT_PERMISSIONS } from '@/types/alerts';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
 import { KPIDeleteDialog } from './kpi-delete-dialog';
@@ -51,12 +55,16 @@ function KPICardWithData({
   onClick,
   onEdit,
   onDelete,
+  onCreateAlert,
+  canCreateAlert,
   statusFilter,
 }: {
   kpi: KPI;
   onClick: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onCreateAlert?: () => void;
+  canCreateAlert?: boolean;
   statusFilter?: string;
 }) {
   const { chartData, echartsConfig, isLoading } = useKPIData(kpi.id);
@@ -104,6 +112,12 @@ function KPICardWithData({
               <Pencil className="w-4 h-4 mr-2" />
               Edit KPI
             </DropdownMenuItem>
+            {canCreateAlert && onCreateAlert && (
+              <DropdownMenuItem onClick={onCreateAlert} className="cursor-pointer">
+                <BellRing className="w-4 h-4 mr-2" />
+                Create alert
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={onDelete}
@@ -134,6 +148,10 @@ export function KPIPageComponent() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingKpi, setDeletingKpi] = useState<KPI | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [alertKpiId, setAlertKpiId] = useState<number | null>(null);
+
+  const { hasPermission } = useUserPermissions();
+  const canCreateAlert = hasPermission(ALERT_PERMISSIONS.create);
 
   const PAGE_SIZE = 10;
 
@@ -378,6 +396,8 @@ export function KPIPageComponent() {
                     onClick={() => handleCardClick(kpi)}
                     onEdit={() => handleEdit(kpi)}
                     onDelete={() => handleDeleteClick(kpi)}
+                    onCreateAlert={() => setAlertKpiId(kpi.id)}
+                    canCreateAlert={canCreateAlert}
                     statusFilter={statusFilter || undefined}
                   />
                 ))}
@@ -432,6 +452,12 @@ export function KPIPageComponent() {
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteConfirm}
         isDeleting={isDeleting}
+      />
+
+      <AlertWizardModal
+        open={alertKpiId !== null}
+        onOpenChange={(o) => !o && setAlertKpiId(null)}
+        initial={{ alertType: 'kpi_rag', kpiId: alertKpiId }}
       />
     </div>
   );
