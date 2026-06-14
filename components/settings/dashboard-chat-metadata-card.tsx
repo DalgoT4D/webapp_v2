@@ -63,12 +63,14 @@ export function DashboardChatMetadataCard({
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button
+              data-testid="dashboard-chat-build-selected-metadata"
               onClick={onBuildSelected}
               disabled={isLoading || !selectedDashboardId || isBuildingAll || isBuildingSelected}
             >
               {isBuildingSelected ? 'Building selected...' : 'Build selected dashboard'}
             </Button>
             <Button
+              data-testid="dashboard-chat-build-all-metadata"
               variant="outline"
               onClick={onBuildAll}
               disabled={isLoading || isBuildingAll || isBuildingSelected}
