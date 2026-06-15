@@ -251,20 +251,14 @@ export function KPIPageComponent() {
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="flex-shrink-0 border-b bg-background">
-        <div className="flex items-center justify-between p-6 pb-4">
+        <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
             <h1 className="text-3xl font-bold">KPI</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <p className="text-muted-foreground mt-1">
               Track business objectives with measurable KPIs linked to your metrics
             </p>
           </div>
-          <Button
-            variant="ghost"
-            className="text-white hover:opacity-90 shadow-xs"
-            style={{ backgroundColor: 'var(--primary)' }}
-            onClick={handleCreate}
-            data-testid="create-kpi-btn"
-          >
+          <Button variant="primary" onClick={handleCreate} data-testid="create-kpi-btn">
             <Plus className="w-4 h-4 mr-2" />
             CREATE KPI
           </Button>
@@ -409,12 +403,7 @@ export function KPIPageComponent() {
                   {search ? 'No KPIs match your search' : 'No KPIs yet'}
                 </p>
                 {!search && (
-                  <Button
-                    variant="ghost"
-                    className="text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: 'var(--primary)' }}
-                    onClick={handleCreate}
-                  >
+                  <Button variant="primary" onClick={handleCreate}>
                     <Plus className="w-4 h-4 mr-2" />
                     CREATE YOUR FIRST KPI
                   </Button>

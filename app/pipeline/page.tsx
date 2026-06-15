@@ -8,7 +8,7 @@ export default function PipelineOverviewPage() {
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
             <h1 className="text-3xl font-bold">Pipeline Overview</h1>
-            <p className="text-muted-foreground mt-1">Monitor And Track Your Pipeline Runs</p>
+            <p className="text-muted-foreground mt-1">Monitor and track your pipeline runs</p>
           </div>
         </div>
       </div>

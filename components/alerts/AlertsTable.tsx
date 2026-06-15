@@ -192,7 +192,7 @@ export function AlertsTable({
             </TableHead>
 
             {/* Enabled */}
-            <TableHead className="w-[9%] text-center font-medium text-base">Enabled</TableHead>
+            <TableHead className="w-[9%] font-medium text-base">Enabled</TableHead>
 
             {/* Frequency (sort) */}
             <TableHead className="w-[12%]">
@@ -238,7 +238,7 @@ export function AlertsTable({
             </TableHead>
 
             {/* Actions */}
-            <TableHead className="w-[10%] text-right font-medium text-base">Actions</TableHead>
+            <TableHead className="w-[10%] font-medium text-base">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -328,7 +328,7 @@ export function AlertsTable({
                   </TableCell>
 
                   {/* Enabled toggle */}
-                  <TableCell className="py-4 text-center">
+                  <TableCell className="py-4">
                     <span title={canEdit ? '' : 'You need Edit Alerts permission to change this.'}>
                       <Switch
                         checked={a.is_active}
@@ -360,7 +360,7 @@ export function AlertsTable({
                   </TableCell>
 
                   {/* Actions */}
-                  <TableCell className="py-4 text-right">
+                  <TableCell className="py-4">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button

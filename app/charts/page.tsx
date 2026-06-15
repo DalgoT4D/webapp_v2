@@ -822,14 +822,14 @@ export default function ChartsPage() {
 
         {/* Data Source Column */}
         <TableCell className="py-4">
-          <div className="flex items-center gap-2 justify-center">
+          <div className="flex items-center gap-2">
             <div className="text-base text-gray-700">{dataSource}</div>
           </div>
         </TableCell>
 
         {/* Chart Type Column */}
         <TableCell className="py-4">
-          <div className="flex justify-center">
+          <div className="flex">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -850,7 +850,7 @@ export default function ChartsPage() {
 
         {/* Created by Column */}
         <TableCell className="py-4">
-          <div className="flex items-center gap-2 justify-center">
+          <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
               <User className="w-3 h-3 text-gray-600" />
             </div>
@@ -861,7 +861,7 @@ export default function ChartsPage() {
         </TableCell>
 
         {/* Last Modified Column */}
-        <TableCell className="py-4 text-base text-gray-600 text-center">
+        <TableCell className="py-4 text-base text-gray-600">
           {chart.updated_at
             ? formatDistanceToNow(new Date(chart.updated_at), { addSuffix: true })
             : 'Unknown'}
@@ -869,7 +869,7 @@ export default function ChartsPage() {
 
         {/* Actions Column */}
         <TableCell className="py-4">
-          <div className="flex items-center gap-2 justify-end">
+          <div className="flex items-center gap-2">
             {hasPermission('can_edit_charts') && (
               <Link href={`/charts/${chart.id}/edit`}>
                 <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
@@ -989,7 +989,7 @@ export default function ChartsPage() {
               Charts
             </h1>
             <p id="charts-page-description" className="text-muted-foreground mt-1">
-              Create And Manage Your Visualizations
+              Create and manage your visualizations
             </p>
           </div>
 
@@ -1135,7 +1135,7 @@ export default function ChartsPage() {
                           <Skeleton className="h-4 w-24" />
                         </TableCell>
                         <TableCell>
-                          <div className="flex justify-center">
+                          <div className="flex">
                             <Skeleton className="h-10 w-10 rounded-lg" />
                           </div>
                         </TableCell>
@@ -1170,7 +1170,7 @@ export default function ChartsPage() {
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
-                            className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                            className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                             onClick={() => handleSort('title')}
                           >
                             <div className="flex items-center gap-2">
@@ -1198,7 +1198,7 @@ export default function ChartsPage() {
                         </div>
                       </TableHead>
                       <TableHead className="w-[22%]">
-                        <div className="flex items-center gap-2 justify-center">
+                        <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
                             className="h-auto p-0 font-medium text-base hover:bg-transparent"
@@ -1229,7 +1229,7 @@ export default function ChartsPage() {
                         </div>
                       </TableHead>
                       <TableHead className="w-[8%]">
-                        <div className="flex items-center gap-2 justify-center">
+                        <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
                             className="h-auto p-0 font-medium text-base hover:bg-transparent"
@@ -1259,11 +1259,9 @@ export default function ChartsPage() {
                           </Popover>
                         </div>
                       </TableHead>
-                      <TableHead className="w-[18%] font-medium text-base text-center">
-                        Created by
-                      </TableHead>
+                      <TableHead className="w-[18%] font-medium text-base">Created by</TableHead>
                       <TableHead className="w-[17%]">
-                        <div className="flex items-center gap-2 justify-center">
+                        <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
                             className="h-auto p-0 font-medium text-base hover:bg-transparent"
@@ -1293,9 +1291,7 @@ export default function ChartsPage() {
                           </Popover>
                         </div>
                       </TableHead>
-                      <TableHead className="w-[5%] font-medium text-base text-right">
-                        Actions
-                      </TableHead>
+                      <TableHead className="w-[5%] font-medium text-base">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

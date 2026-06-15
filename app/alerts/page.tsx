@@ -87,24 +87,19 @@ export default function AlertsPage() {
     <div id="alerts-list-container" className="h-full flex flex-col">
       {/* Fixed Header */}
       <div id="alerts-header" className="flex-shrink-0 border-b bg-background">
-        <div id="alerts-title-section" className="flex items-center justify-between p-6 pb-4">
+        <div id="alerts-title-section" className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
             <h1 className="text-3xl font-bold">Alerts</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <p className="text-muted-foreground mt-1">
               Monitor your critical business metrics and set up automated notifications to stay
               ahead of anomalies.
             </p>
           </div>
           {canCreate && (
             <CreateAlertMenu onSelect={setCreateType} align="end">
-              <Button
-                variant="ghost"
-                className="text-white hover:opacity-90 shadow-xs"
-                style={{ backgroundColor: 'var(--primary)' }}
-                data-testid="create-alert-btn"
-              >
+              <Button variant="primary" data-testid="create-alert-btn">
                 <Plus className="w-4 h-4 mr-2" />
-                Create Alert
+                CREATE ALERT
               </Button>
             </CreateAlertMenu>
           )}
@@ -157,6 +152,7 @@ export default function AlertsPage() {
                   <SelectItem value="10">10</SelectItem>
                   <SelectItem value="20">20</SelectItem>
                   <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
                 </SelectContent>
               </Select>
             </div>

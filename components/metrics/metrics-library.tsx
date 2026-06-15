@@ -471,22 +471,16 @@ export function MetricsLibrary() {
     <div id="metrics-list-container" className="h-full flex flex-col">
       {/* Fixed Header */}
       <div id="metrics-header" className="flex-shrink-0 border-b bg-background">
-        <div id="metrics-title-section" className="flex items-center justify-between p-6 pb-4">
+        <div id="metrics-title-section" className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
             <h1 className="text-3xl font-bold">Metrics</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Define reusable metric definitions that power your KPIs &amp; Charts
+            <p className="text-muted-foreground mt-1">
+              Define reusable metric definitions that power your KPIs &amp; charts
             </p>
           </div>
-          <Button
-            variant="ghost"
-            className="text-white hover:opacity-90 shadow-xs"
-            style={{ backgroundColor: 'var(--primary)' }}
-            onClick={handleCreate}
-            data-testid="create-metric-btn"
-          >
+          <Button variant="primary" onClick={handleCreate} data-testid="create-metric-btn">
             <Plus className="w-4 h-4 mr-2" />
-            Create Metric
+            CREATE METRIC
           </Button>
         </div>
 
@@ -568,14 +562,9 @@ export function MetricsLibrary() {
                   <p className="text-sm text-muted-foreground">
                     Create your first metric to start building KPIs and tracking what matters most.
                   </p>
-                  <Button
-                    variant="ghost"
-                    className="text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: 'var(--primary)' }}
-                    onClick={handleCreate}
-                  >
+                  <Button variant="primary" onClick={handleCreate}>
                     <Plus className="w-4 h-4 mr-2" />
-                    Create Metric
+                    CREATE METRIC
                   </Button>
                 </>
               )}
@@ -612,6 +601,7 @@ export function MetricsLibrary() {
                   <SelectItem value="10">10</SelectItem>
                   <SelectItem value="20">20</SelectItem>
                   <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
                 </SelectContent>
               </Select>
             </div>

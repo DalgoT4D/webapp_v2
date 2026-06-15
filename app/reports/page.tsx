@@ -31,7 +31,7 @@ import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import {
   FileText,
   Filter,
-  MoreHorizontal,
+  MoreVertical,
   Plus,
   Trash2,
   User,
@@ -250,12 +250,12 @@ export default function ReportsPage() {
   return (
     <div className="h-full flex flex-col">
       {/* Fixed Header */}
-      <div className="flex-shrink-0 border-b bg-background px-6 py-4">
+      <div className="flex-shrink-0 border-b bg-background">
         {/* Title Section */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
             <h1 className="text-3xl font-bold">Reports</h1>
-            <p className="text-muted-foreground mt-1">Create And Manage Your Reports</p>
+            <p className="text-muted-foreground mt-1">Create and manage your reports</p>
           </div>
           {canCreate && (
             <CreateSnapshotDialog
@@ -271,7 +271,7 @@ export default function ReportsPage() {
 
         {/* Filter Summary */}
         {getActiveFilterCount() > 0 && (
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex items-center gap-2 px-6 pb-0">
             <span className="text-sm text-gray-600">
               {getActiveFilterCount()} filter{getActiveFilterCount() > 1 ? 's' : ''} active
             </span>
@@ -379,7 +379,7 @@ export default function ReportsPage() {
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
-                            className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                            className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                             onClick={() => handleSort('title')}
                           >
                             <div className="flex items-center gap-2">
@@ -433,7 +433,7 @@ export default function ReportsPage() {
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
-                            className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                            className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                             onClick={() => handleSort('dashboard_title')}
                           >
                             <div className="flex items-center gap-2">
@@ -487,7 +487,7 @@ export default function ReportsPage() {
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
-                            className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                            className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                             onClick={() => handleSort('created_by')}
                           >
                             <div className="flex items-center gap-2">
@@ -617,7 +617,7 @@ export default function ReportsPage() {
                                     className="h-8 w-8 p-0 hover:bg-gray-100"
                                     aria-label="Report actions"
                                   >
-                                    <MoreHorizontal className="w-4 h-4 text-gray-600" />
+                                    <MoreVertical className="w-4 h-4 text-gray-600" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
