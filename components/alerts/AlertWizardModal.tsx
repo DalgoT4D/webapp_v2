@@ -392,11 +392,7 @@ export function AlertWizardModal({
           <AlertDefineStep
             value={defineState}
             onChange={setDefineState}
-            sourceLocked={
-              !!initial?.metricId ||
-              !!initial?.kpiId ||
-              (!isEdit && defineState.alertType !== AlertType.STANDALONE)
-            }
+            sourceLocked={!!initial?.metricId || !!initial?.kpiId}
             errors={step1Errors}
           />
         )}

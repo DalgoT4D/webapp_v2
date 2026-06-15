@@ -18,7 +18,6 @@ interface UseAlertsParams {
   search?: string;
   isActive?: boolean;
   frequency?: string;
-  fired?: boolean;
 }
 
 function buildListUrl(base: string, params?: UseAlertsParams) {
@@ -28,29 +27,12 @@ function buildListUrl(base: string, params?: UseAlertsParams) {
   if (params?.search) queryParams.append('search', params.search);
   if (params?.isActive !== undefined) queryParams.append('is_active', String(params.isActive));
   if (params?.frequency) queryParams.append('frequency', params.frequency);
-  if (params?.fired !== undefined) queryParams.append('fired', String(params.fired));
   const qs = queryParams.toString();
   return qs ? `${base}?${qs}` : base;
 }
 
 export function useAlerts(params?: UseAlertsParams) {
   const url = buildListUrl('/api/alerts/', params);
-  const { data, error, mutate } = useSWR<AlertListResponse>(url, apiGet);
-
-  return {
-    data: data?.data || [],
-    total: data?.total || 0,
-    page: data?.page || 1,
-    pageSize: data?.page_size || 10,
-    totalPages: data?.total_pages || 1,
-    isLoading: !error && !data,
-    isError: error,
-    mutate,
-  };
-}
-
-export function useFiringAlerts(params?: Pick<UseAlertsParams, 'page' | 'pageSize'>) {
-  const url = buildListUrl('/api/alerts/firing/', params);
   const { data, error, mutate } = useSWR<AlertListResponse>(url, apiGet);
 
   return {

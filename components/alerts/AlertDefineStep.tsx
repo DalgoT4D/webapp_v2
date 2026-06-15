@@ -1,12 +1,10 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -16,9 +14,12 @@ import {
 } from '@/components/ui/select';
 import { Combobox } from '@/components/ui/combobox';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
+import { MetricPicker } from '@/components/metrics/MetricPicker';
+import { KpiPicker } from '@/components/kpis/KpiPicker';
 import { useTableColumns } from '@/hooks/api/useWarehouse';
-import { useMetric, useMetrics } from '@/hooks/api/useMetrics';
-import { useKPI, useKPIs } from '@/hooks/api/useKPIs';
+import { useMetric } from '@/hooks/api/useMetrics';
+import { useKPI } from '@/hooks/api/useKPIs';
+import { formatMetricExpression } from '@/lib/metrics';
 import { AGGREGATION_OPTIONS } from '@/types/metrics';
 import {
   RAG_STATE_OPTIONS,
@@ -65,32 +66,9 @@ export function AlertDefineStep({ value, onChange, sourceLocked, errors }: Alert
   const { metric } = useMetric(value.alertType === 'metric_threshold' ? value.metricId : null);
   const { kpi } = useKPI(value.alertType === 'kpi_rag' ? value.kpiId : null);
 
-  // Populate pickers only when the source can be switched (i.e. editing from /alerts).
+  // Pickers appear when the source can be switched (creating from /alerts, or editing).
   const canPickMetric = value.alertType === 'metric_threshold' && !sourceLocked;
   const canPickKpi = value.alertType === 'kpi_rag' && !sourceLocked;
-  const { data: allMetrics } = useMetrics(canPickMetric ? { pageSize: 100 } : undefined);
-  const { data: allKpis } = useKPIs(canPickKpi ? { pageSize: 100 } : undefined);
-
-  const metricItems = useMemo(
-    () =>
-      allMetrics.map((m) => ({
-        value: String(m.id),
-        label: m.name,
-        data_type: `${m.schema_name}.${m.table_name}${m.description ? ' · ' + m.description : ''}`,
-        disabled: false,
-      })),
-    [allMetrics]
-  );
-  const kpiItems = useMemo(
-    () =>
-      allKpis.map((k) => ({
-        value: String(k.id),
-        label: k.name,
-        data_type: `${k.metric?.schema_name ?? ''}.${k.metric?.table_name ?? ''} · target ${k.target_value ?? '—'} · ${k.direction === 'increase' ? 'increase is better' : 'decrease is better'}`,
-        disabled: false,
-      })),
-    [allKpis]
-  );
 
   const { data: tableColumns } = useTableColumns(
     value.alertType === 'standalone' ? value.standaloneConfig.schema_name || null : null,
@@ -160,50 +138,26 @@ export function AlertDefineStep({ value, onChange, sourceLocked, errors }: Alert
         <div className="space-y-1">
           <Label>Metric {canPickMetric && <span className="text-destructive">*</span>}</Label>
           {canPickMetric ? (
-            <Combobox
-              items={metricItems}
-              value={value.metricId ? String(value.metricId) : ''}
-              onValueChange={(v) => onChange({ ...value, metricId: v ? parseInt(v, 10) : null })}
-              placeholder="Search from your Metrics Library"
-              searchPlaceholder="Search metrics..."
-              renderItem={(item) => {
-                const m = allMetrics.find((x) => String(x.id) === item.value);
-                return (
-                  <div className="flex items-center justify-between w-full gap-2">
-                    <div className="min-w-0">
-                      <div className="font-medium">{item.label}</div>
-                      <div className="text-xs text-muted-foreground truncate">{item.data_type}</div>
-                    </div>
-                    <span
-                      className={cn(
-                        'shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border',
-                        m?.column_expression
-                          ? 'bg-green-50 text-green-700 border-green-200'
-                          : 'bg-gray-50 text-gray-600 border-gray-200'
-                      )}
-                    >
-                      {m?.column_expression ? 'Calculated' : 'Simple'}
-                    </span>
-                  </div>
-                );
-              }}
-              footer={
-                <a
-                  href="/metrics?create=true"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1.5 w-full py-1 text-sm font-medium"
-                  style={{ color: 'var(--primary)' }}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  CREATE A NEW METRIC
-                </a>
-              }
-            />
+            <div className="space-y-1">
+              <MetricPicker
+                value={value.metricId}
+                onChange={(id) => onChange({ ...value, metricId: id })}
+              />
+              {metric && (
+                <p className="text-[11px] text-muted-foreground font-mono">
+                  {metric.schema_name}.{metric.table_name} · {formatMetricExpression(metric)}
+                </p>
+              )}
+            </div>
           ) : value.metricId && metric ? (
-            <Badge variant="secondary" className="text-sm" data-testid="source-chip-metric">
-              {metric.name}
-            </Badge>
+            <div className="space-y-1">
+              <Badge variant="secondary" className="text-sm" data-testid="source-chip-metric">
+                {metric.name}
+              </Badge>
+              <p className="text-[11px] text-muted-foreground font-mono">
+                {metric.schema_name}.{metric.table_name} · {formatMetricExpression(metric)}
+              </p>
+            </div>
           ) : (
             <p className="text-xs text-muted-foreground italic">
               {sourceLocked ? 'Loading metric…' : 'Open this wizard from a Metric to scope it.'}
@@ -217,31 +171,7 @@ export function AlertDefineStep({ value, onChange, sourceLocked, errors }: Alert
           <Label>KPI {canPickKpi && <span className="text-destructive">*</span>}</Label>
           {canPickKpi ? (
             <div className="space-y-1">
-              <Combobox
-                items={kpiItems}
-                value={value.kpiId ? String(value.kpiId) : ''}
-                onValueChange={(v) => onChange({ ...value, kpiId: v ? parseInt(v, 10) : null })}
-                placeholder="Search from your KPI Library"
-                searchPlaceholder="Search KPIs..."
-                renderItem={(item) => (
-                  <div className="min-w-0 w-full">
-                    <div className="font-medium">{item.label}</div>
-                    <div className="text-xs text-muted-foreground truncate">{item.data_type}</div>
-                  </div>
-                )}
-                footer={
-                  <a
-                    href="/kpis?create=true"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1.5 w-full py-1 text-sm font-medium"
-                    style={{ color: 'var(--primary)' }}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    CREATE A NEW KPI
-                  </a>
-                }
-              />
+              <KpiPicker value={value.kpiId} onChange={(id) => onChange({ ...value, kpiId: id })} />
               {kpi && (
                 <p className="text-[11px] text-muted-foreground">
                   Target {kpi.target_value ?? '—'} · Green ±{kpi.green_threshold_pct}% · Amber ±

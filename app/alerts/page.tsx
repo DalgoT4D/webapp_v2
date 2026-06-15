@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -24,14 +23,11 @@ import {
 import { toast } from 'sonner';
 import { deleteAlert, toggleAlert, useAlerts } from '@/hooks/api/useAlerts';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
-import {
-  AlertsTable,
-  AllAlertsEmptyState,
-  FiringEmptyState,
-} from '@/components/alerts/AlertsTable';
+import { CreateAlertMenu } from '@/components/alerts/CreateAlertMenu';
+import { AlertsTable, AllAlertsEmptyState } from '@/components/alerts/AlertsTable';
 import { AlertLogModal } from '@/components/alerts/AlertLogModal';
 import type { AlertListItem } from '@/types/alerts';
-import { ALERT_PERMISSIONS } from '@/types/alerts';
+import { AlertType, ALERT_PERMISSIONS } from '@/types/alerts';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 
 export default function AlertsPage() {
@@ -40,11 +36,10 @@ export default function AlertsPage() {
   const canEdit = hasPermission(ALERT_PERMISSIONS.edit);
   const canDelete = hasPermission(ALERT_PERMISSIONS.delete);
 
-  const [tab, setTab] = useState<'all' | 'firing'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createType, setCreateType] = useState<AlertType | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deletingAlert, setDeletingAlert] = useState<AlertListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -59,7 +54,6 @@ export default function AlertsPage() {
   } = useAlerts({
     page: currentPage,
     pageSize,
-    fired: tab === 'firing' ? true : undefined,
   });
 
   const handleToggle = async (a: AlertListItem) => {
@@ -89,9 +83,6 @@ export default function AlertsPage() {
     }
   };
 
-  const totalForActiveTab = total;
-  const totalPagesForActiveTab = totalPages;
-
   return (
     <div id="alerts-list-container" className="h-full flex flex-col">
       {/* Fixed Header */}
@@ -105,85 +96,46 @@ export default function AlertsPage() {
             </p>
           </div>
           {canCreate && (
-            <Button
-              variant="ghost"
-              className="text-white hover:opacity-90 shadow-xs"
-              style={{ backgroundColor: 'var(--primary)' }}
-              onClick={() => setCreateOpen(true)}
-              data-testid="create-alert-btn"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Alert
-            </Button>
+            <CreateAlertMenu onSelect={setCreateType} align="end">
+              <Button
+                variant="ghost"
+                className="text-white hover:opacity-90 shadow-xs"
+                style={{ backgroundColor: 'var(--primary)' }}
+                data-testid="create-alert-btn"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Alert
+              </Button>
+            </CreateAlertMenu>
           )}
         </div>
       </div>
 
-      <Tabs
-        value={tab}
-        onValueChange={(v) => {
-          setTab(v as 'all' | 'firing');
-          setCurrentPage(1);
-        }}
-        className="flex-1 flex flex-col min-h-0"
-      >
-        {/* Tabs row — full width with bottom border, like the header */}
-        <div className="flex-shrink-0 border-b border-gray-200 bg-gray-50/30 px-6">
-          <TabsList className="h-auto w-fit justify-start gap-6 rounded-none bg-transparent p-0">
-            <TabsTrigger
-              value="all"
-              data-testid="tab-all"
-              className="relative h-auto cursor-pointer rounded-none border-0 bg-transparent px-0 pb-3 pt-2 text-base font-medium text-gray-500 shadow-none transition-colors hover:text-gray-900 data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:shadow-none after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-transparent hover:after:bg-gray-300 data-[state=active]:[color:var(--primary)] data-[state=active]:after:[background-color:var(--primary)]"
-            >
-              All Alerts
-            </TabsTrigger>
-            <TabsTrigger
-              value="firing"
-              data-testid="tab-firing"
-              className="relative h-auto cursor-pointer rounded-none border-0 bg-transparent px-0 pb-3 pt-2 text-base font-medium text-gray-500 shadow-none transition-colors hover:text-gray-900 data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:shadow-none after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-transparent hover:after:bg-gray-300 data-[state=active]:[color:var(--primary)] data-[state=active]:after:[background-color:var(--primary)]"
-            >
-              Firing
-            </TabsTrigger>
-          </TabsList>
+      <div id="alerts-content-wrapper" className="flex-1 overflow-hidden px-6">
+        <div id="alerts-scrollable-content" className="h-full overflow-y-auto py-4">
+          <AlertsTable
+            alerts={alerts}
+            isLoading={isLoading}
+            emptyState={
+              <AllAlertsEmptyState canCreate={canCreate} onCreate={(t) => setCreateType(t)} />
+            }
+            canEdit={canEdit}
+            canDelete={canDelete}
+            onEdit={(a) => setEditingId(a.id)}
+            onDelete={(a) => setDeletingAlert(a)}
+            onToggle={handleToggle}
+            onOpenLog={(a) => setLogModalAlert(a)}
+          />
         </div>
-
-        {/* Scrollable Content */}
-        <div id="alerts-content-wrapper" className="flex-1 overflow-hidden px-6">
-          <div id="alerts-scrollable-content" className="h-full overflow-y-auto py-4">
-            {/* Same table for both tabs — switching tabs refetches with `fired` filter. */}
-            <TabsContent value={tab} forceMount className="mt-0">
-              <AlertsTable
-                alerts={alerts}
-                isLoading={isLoading}
-                emptyState={
-                  tab === 'firing' ? (
-                    <FiringEmptyState />
-                  ) : (
-                    <AllAlertsEmptyState
-                      canCreate={canCreate}
-                      onCreate={() => setCreateOpen(true)}
-                    />
-                  )
-                }
-                canEdit={canEdit}
-                canDelete={canDelete}
-                onEdit={(a) => setEditingId(a.id)}
-                onDelete={(a) => setDeletingAlert(a)}
-                onToggle={handleToggle}
-                onOpenLog={(a) => setLogModalAlert(a)}
-              />
-            </TabsContent>
-          </div>
-        </div>
-      </Tabs>
+      </div>
 
       {/* Pagination Footer */}
       <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/30 py-3 px-6">
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-600">
-            {totalForActiveTab === 0
+            {total === 0
               ? '0–0 of 0'
-              : `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, totalForActiveTab)} of ${totalForActiveTab}`}
+              : `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, total)} of ${total}`}
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
@@ -219,13 +171,13 @@ export default function AlertsPage() {
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <span className="text-sm text-gray-600 px-3 py-1">
-                {currentPage} of {totalPagesForActiveTab || 1}
+                {currentPage} of {totalPages || 1}
               </span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage >= totalPagesForActiveTab}
+                disabled={currentPage >= totalPages}
                 className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -236,10 +188,10 @@ export default function AlertsPage() {
       </div>
 
       <AlertWizardModal
-        open={createOpen}
-        onOpenChange={setCreateOpen}
+        open={createType !== null}
+        onOpenChange={(o) => !o && setCreateType(null)}
         onSuccess={() => mutate()}
-        initial={{ alertType: 'standalone' }}
+        initial={createType ? { alertType: createType } : undefined}
       />
 
       <AlertWizardModal

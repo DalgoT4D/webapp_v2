@@ -11,7 +11,6 @@ import {
   ChevronUp,
   ChevronDown,
   BellRing,
-  AlertTriangle,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cronToString, localTimezone } from '@/components/pipeline/utils';
@@ -37,6 +36,7 @@ import {
 import { cn } from '@/lib/utils';
 import { bandStatement } from '@/lib/kpi-rag';
 import { AlertType, type AlertListItem, type KpiRagContext, type RagState } from '@/types/alerts';
+import { CreateAlertMenu } from './CreateAlertMenu';
 
 const RAG_CHIP_STYLE: Record<RagState, { label: string; dot: string }> = {
   red: { label: 'Red', dot: 'bg-red-500' },
@@ -408,13 +408,13 @@ export function AlertsTable({
   );
 }
 
-/** Empty-state for the All alerts tab. */
+/** Empty-state for the alerts list. */
 export function AllAlertsEmptyState({
   canCreate,
   onCreate,
 }: {
   canCreate: boolean;
-  onCreate: () => void;
+  onCreate: (type: AlertType) => void;
 }) {
   return (
     <div className="flex flex-col items-center justify-center text-center py-12 px-6">
@@ -423,33 +423,16 @@ export function AllAlertsEmptyState({
       <p className="text-sm text-muted-foreground mt-1 max-w-md">
         Get notified when your Metrics, KPIs, or datasets cross a threshold you care about.
       </p>
-      <div className="flex gap-2 mt-4">
-        {canCreate && (
-          <Button onClick={onCreate} data-testid="empty-create-alert">
-            <BellRing className="w-4 h-4 mr-2" />
-            Create alert
-          </Button>
-        )}
-        <Button asChild variant="outline">
-          <Link href="/metrics">Go to Metrics</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href="/kpis">Go to KPIs</Link>
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/** Empty-state for the Firing tab. */
-export function FiringEmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center text-center py-12 px-6">
-      <AlertTriangle className="w-10 h-10 text-muted-foreground mb-3" />
-      <p className="text-base font-medium text-gray-700">No alerts firing</p>
-      <p className="text-sm text-muted-foreground mt-1">
-        None of your alerts fired on their last scheduled run.
-      </p>
+      {canCreate && (
+        <div className="mt-4">
+          <CreateAlertMenu onSelect={onCreate} align="center">
+            <Button data-testid="empty-create-alert">
+              <BellRing className="w-4 h-4 mr-2" />
+              Create alert
+            </Button>
+          </CreateAlertMenu>
+        </div>
+      )}
     </div>
   );
 }

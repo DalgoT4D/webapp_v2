@@ -140,7 +140,6 @@ export interface AlertListItem {
   is_active: boolean;
   last_fire_at: string | null;
   fire_streak: number;
-  most_recent_fired: boolean;
 }
 
 export interface AlertListResponse {

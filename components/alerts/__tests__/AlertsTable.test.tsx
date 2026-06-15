@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { AlertsTable, AllAlertsEmptyState, FiringEmptyState } from '../AlertsTable';
+import { AlertsTable, AllAlertsEmptyState } from '../AlertsTable';
 import type { AlertListItem } from '@/types/alerts';
 
 // Stub next/link so jsdom doesn't need router context.
@@ -29,7 +29,6 @@ function makeAlert(overrides: Partial<AlertListItem> = {}): AlertListItem {
     is_active: true,
     last_fire_at: null,
     fire_streak: 0,
-    most_recent_fired: false,
     ...overrides,
   };
 }
@@ -196,10 +195,5 @@ describe('AlertsTable empty states', () => {
   it('AllAlertsEmptyState hides Create Alert when not allowed', () => {
     render(<AllAlertsEmptyState canCreate={false} onCreate={() => {}} />);
     expect(screen.queryByTestId('empty-create-alert')).not.toBeInTheDocument();
-  });
-
-  it('FiringEmptyState renders the expected copy', () => {
-    render(<FiringEmptyState />);
-    expect(screen.getByText('No alerts firing')).toBeInTheDocument();
   });
 });

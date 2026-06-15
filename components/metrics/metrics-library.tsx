@@ -57,6 +57,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useMetrics, deleteMetric, getMetricConsumers } from '@/hooks/api/useMetrics';
 import type { Metric, MetricConsumersResponse } from '@/types/metrics';
+import { formatMetricExpression } from '@/lib/metrics';
 import { MetricFormDialog } from './metric-form-dialog';
 import { ConsumerLinks } from './consumer-links';
 import { KPIForm } from '@/components/kpis/kpi-form';
@@ -226,15 +227,8 @@ export function MetricsLibrary() {
   const hasCascadeAlerts = cascadeAlerts.length > 0;
 
   const formatExpression = (metric: Metric) => {
-    if (metric.column_expression) {
-      return metric.column_expression.length > 30
-        ? metric.column_expression.slice(0, 30) + '…'
-        : metric.column_expression;
-    }
-    if (metric.aggregation === 'count' && !metric.column) {
-      return 'COUNT(*)';
-    }
-    return `${(metric.aggregation || '').toUpperCase()}(${metric.column})`;
+    const expr = formatMetricExpression(metric);
+    return expr.length > 30 ? expr.slice(0, 30) + '…' : expr;
   };
 
   const getMode = (metric: Metric) => (metric.column_expression ? 'Calculated' : 'Simple');
