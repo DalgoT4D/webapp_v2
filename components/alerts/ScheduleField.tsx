@@ -9,6 +9,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { TimePicker } from '@/components/ui/time-picker';
+import { localTimezone } from '@/components/pipeline/utils';
 import { DAYS_OF_WEEK, FREQUENCY_OPTIONS, type ScheduleSpec } from '@/types/alerts';
 
 interface ScheduleFieldProps {
@@ -68,7 +70,10 @@ export function ScheduleField({ value, onChange }: ScheduleFieldProps) {
           <Label className="text-xs">
             Time of day <span className="text-destructive">*</span>
           </Label>
-          <Input type="time" value={timeStr} onChange={(e) => setHourMinute(e.target.value)} />
+          <div className="flex items-center gap-2">
+            <TimePicker value={timeStr} onChange={(v) => setHourMinute(v)} />
+            <span className="text-xs text-gray-500">({localTimezone()})</span>
+          </div>
         </div>
       </div>
 
