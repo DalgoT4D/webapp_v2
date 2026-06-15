@@ -20,7 +20,7 @@ export function KpiPicker({
   placeholder = 'Search from your KPI Library',
   pageSize = 100,
 }: KpiPickerProps) {
-  const { data: kpis } = useKPIs({ pageSize });
+  const { data: kpis, isLoading } = useKPIs({ pageSize });
 
   const items = useMemo(
     () =>
@@ -48,16 +48,18 @@ export function KpiPicker({
         </div>
       )}
       footer={
-        <a
-          href="/kpis?create=true"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1.5 w-full py-1 text-sm font-medium"
-          style={{ color: 'var(--primary)' }}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          CREATE A NEW KPI
-        </a>
+        isLoading ? undefined : (
+          <a
+            href="/kpis?create=true"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 w-full py-1 text-sm font-medium"
+            style={{ color: 'var(--primary)' }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            CREATE A NEW KPI
+          </a>
+        )
       }
     />
   );

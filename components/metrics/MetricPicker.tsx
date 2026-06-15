@@ -21,7 +21,7 @@ export function MetricPicker({
   placeholder = 'Search from your Metrics Library',
   pageSize = 100,
 }: MetricPickerProps) {
-  const { data: metrics } = useMetrics({ pageSize });
+  const { data: metrics, isLoading } = useMetrics({ pageSize });
 
   const items = useMemo(
     () =>
@@ -64,16 +64,18 @@ export function MetricPicker({
         );
       }}
       footer={
-        <a
-          href="/metrics?create=true"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1.5 w-full py-1 text-sm font-medium"
-          style={{ color: 'var(--primary)' }}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          CREATE A NEW METRIC
-        </a>
+        isLoading ? undefined : (
+          <a
+            href="/metrics?create=true"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 w-full py-1 text-sm font-medium"
+            style={{ color: 'var(--primary)' }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            CREATE A NEW METRIC
+          </a>
+        )
       }
     />
   );
