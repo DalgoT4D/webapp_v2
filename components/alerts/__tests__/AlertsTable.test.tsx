@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AlertsTable, AllAlertsEmptyState } from '../AlertsTable';
 import type { AlertListItem } from '@/types/alerts';
@@ -183,13 +183,20 @@ describe('AlertsTable permission gating', () => {
 });
 
 describe('AlertsTable empty states', () => {
-  it('AllAlertsEmptyState shows Create Alert when allowed', () => {
+  it('AllAlertsEmptyState shows Create Alert dropdown when allowed', async () => {
+    const user = userEvent.setup();
     const onCreate = jest.fn();
     render(<AllAlertsEmptyState canCreate={true} onCreate={onCreate} />);
     expect(screen.getByText('No alerts yet')).toBeInTheDocument();
-    expect(screen.getByTestId('empty-create-alert')).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('empty-create-alert'));
-    expect(onCreate).toHaveBeenCalled();
+
+    // The trigger opens the dropdown; menu items dispatch onCreate(type).
+    const trigger = screen.getByTestId('empty-create-alert');
+    expect(trigger).toBeInTheDocument();
+    await user.click(trigger);
+
+    const customItem = await screen.findByTestId('create-standalone-alert');
+    await user.click(customItem);
+    expect(onCreate).toHaveBeenCalledWith('standalone');
   });
 
   it('AllAlertsEmptyState hides Create Alert when not allowed', () => {
