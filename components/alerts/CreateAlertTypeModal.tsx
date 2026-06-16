@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import {
   Dialog,
@@ -40,7 +39,7 @@ const OPTIONS: Option[] = [
     description: 'Notify stakeholders on key state changes',
     testId: 'create-kpi-alert',
     createPath: '/kpis?create=true',
-    createLabel: 'Create KPI',
+    createLabel: 'CREATE KPI',
   },
   {
     value: AlertType.METRIC_THRESHOLD,
@@ -48,7 +47,7 @@ const OPTIONS: Option[] = [
     description: 'Trigger alerts against your computed metrics',
     testId: 'create-metric-alert',
     createPath: '/metrics?create=true',
-    createLabel: 'Create metric',
+    createLabel: 'CREATE METRIC',
   },
   {
     value: AlertType.STANDALONE,
@@ -59,7 +58,6 @@ const OPTIONS: Option[] = [
 ];
 
 export function CreateAlertTypeModal({ onSelect, children }: CreateAlertTypeModalProps) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<AlertType>(AlertType.KPI_RAG);
 
@@ -87,11 +85,6 @@ export function CreateAlertTypeModal({ onSelect, children }: CreateAlertTypeModa
     setOpen(false);
   };
 
-  const goToCreate = (path: string) => {
-    setOpen(false);
-    router.push(path);
-  };
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -114,7 +107,7 @@ export function CreateAlertTypeModal({ onSelect, children }: CreateAlertTypeModa
                 className={cn(
                   'flex items-start justify-between gap-3 rounded-md border p-4 transition-colors',
                   isDisabled
-                    ? 'border-border opacity-60'
+                    ? 'border-border'
                     : isSelected
                       ? 'border-primary'
                       : 'border-border hover:bg-muted/50'
@@ -125,7 +118,7 @@ export function CreateAlertTypeModal({ onSelect, children }: CreateAlertTypeModa
                   data-testid={opt.testId}
                   className={cn(
                     'flex items-start gap-3 flex-1',
-                    isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'
+                    isDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
                   )}
                 >
                   <RadioGroupItem
@@ -140,14 +133,16 @@ export function CreateAlertTypeModal({ onSelect, children }: CreateAlertTypeModa
                   </div>
                 </label>
                 {isDisabled && opt.createPath && opt.createLabel && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => goToCreate(opt.createPath!)}
-                    data-testid={`${opt.testId}-create`}
-                  >
-                    <Plus className="w-3 h-3 mr-1" />
-                    {opt.createLabel}
+                  <Button size="sm" variant="primary" className="shrink-0 shadow-sm" asChild>
+                    <a
+                      href={opt.createPath}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      data-testid={`${opt.testId}-create`}
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" />
+                      {opt.createLabel}
+                    </a>
                   </Button>
                 )}
               </div>
