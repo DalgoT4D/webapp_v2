@@ -255,10 +255,9 @@ export default function ReportsPage() {
         {/* Title Section */}
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <div className="flex items-center gap-2">
+            <DocsLink path="/reports">
               <h1 className="text-3xl font-bold">Reports</h1>
-              <DocsLink path="/reports" />
-            </div>
+            </DocsLink>
             <p className="text-muted-foreground mt-1">Create and manage your reports</p>
           </div>
           {canCreate && (

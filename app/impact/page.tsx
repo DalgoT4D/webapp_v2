@@ -120,9 +120,10 @@ export default function ImpactAtAGlancePage() {
       <div className="text-center space-y-6">
         {/* Header */}
         <div className="space-y-2">
-          <div className="flex items-center justify-center gap-2">
-            <h1 className="text-3xl font-bold tracking-tight">Impact at a Glance</h1>
-            <DocsLink path="/impact" />
+          <div className="flex justify-center">
+            <DocsLink path="/impact">
+              <h1 className="text-3xl font-bold tracking-tight">Impact at a Glance</h1>
+            </DocsLink>
           </div>
           <p className="text-muted-foreground">
             Your personalized dashboard for quick insights and data overview

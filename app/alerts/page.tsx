@@ -90,10 +90,9 @@ export default function AlertsPage() {
       <div id="alerts-header" className="flex-shrink-0 border-b bg-background">
         <div id="alerts-title-section" className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <div className="flex items-center gap-2">
+            <DocsLink path="/alerts">
               <h1 className="text-3xl font-bold">Alerts</h1>
-              <DocsLink path="/alerts" />
-            </div>
+            </DocsLink>
             <p className="text-muted-foreground mt-1">
               Monitor your critical business metrics and set up automated notifications to stay
               ahead of anomalies.

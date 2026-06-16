@@ -1607,12 +1607,11 @@ export function DashboardListV2() {
           className="flex items-center justify-between mb-6 p-6 pb-0"
         >
           <div id="dashboard-title-wrapper">
-            <div className="flex items-center gap-2">
+            <DocsLink path="/dashboards">
               <h1 id="dashboard-page-title" className="text-3xl font-bold">
                 Dashboards
               </h1>
-              <DocsLink path="/dashboards" />
-            </div>
+            </DocsLink>
             <p id="dashboard-page-description" className="text-muted-foreground mt-1">
               Create and manage your dashboards
             </p>

@@ -986,12 +986,11 @@ export default function ChartsPage() {
         {/* Title Section */}
         <div id="charts-title-section" className="flex items-center justify-between mb-6 p-6 pb-0">
           <div id="charts-title-wrapper">
-            <div className="flex items-center gap-2">
+            <DocsLink path="/charts">
               <h1 id="charts-page-title" className="text-3xl font-bold">
                 Charts
               </h1>
-              <DocsLink path="/charts" />
-            </div>
+            </DocsLink>
             <p id="charts-page-description" className="text-muted-foreground mt-1">
               Create and manage your visualizations
             </p>

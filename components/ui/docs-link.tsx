@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen } from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -12,13 +12,21 @@ export function buildDocsUrl(path: string): string | null {
 
 interface DocsLinkProps {
   path: string;
+  /** The title element (typically an h1) that the link wraps. */
+  children: React.ReactNode;
   label?: string;
   className?: string;
 }
 
-export function DocsLink({ path, label = 'View documentation', className }: DocsLinkProps) {
+export function DocsLink({
+  path,
+  children,
+  label = 'View documentation',
+  className,
+}: DocsLinkProps) {
   const href = buildDocsUrl(path);
-  if (!href) return null;
+  // Without a configured docs base URL we render the title as-is — no link, no icon.
+  if (!href) return <>{children}</>;
 
   return (
     <Tooltip delayDuration={300}>
@@ -29,12 +37,10 @@ export function DocsLink({ path, label = 'View documentation', className }: Docs
           rel="noopener noreferrer"
           aria-label={label}
           data-testid="docs-link"
-          className={cn(
-            'inline-flex items-center justify-center text-muted-foreground hover:text-teal-600 transition-colors',
-            className
-          )}
+          className={cn('group inline-flex items-center gap-2', className)}
         >
-          <BookOpen className="w-5 h-5" />
+          <span className="group-hover:underline">{children}</span>
+          <HelpCircle className="w-4 h-4 text-muted-foreground group-hover:text-teal-600 transition-colors" />
         </a>
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>

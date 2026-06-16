@@ -141,10 +141,9 @@ export default function Transform() {
       <div className="h-full flex flex-col">
         <div className="flex-shrink-0 border-b bg-background">
           <div className="p-6 pb-6">
-            <div className="flex items-center gap-2">
+            <DocsLink path="/data/transform">
               <h1 className="text-3xl font-bold">Transform</h1>
-              <DocsLink path="/data/transform" />
-            </div>
+            </DocsLink>
             <p className="text-muted-foreground mt-1">
               Build and manage data transformation workflows
             </p>
@@ -193,10 +192,9 @@ export default function Transform() {
         {/* Header - Fixed */}
         <div className="flex-shrink-0 border-b bg-background">
           <div className="p-6 pb-4">
-            <div className="flex items-center gap-2">
+            <DocsLink path="/data/transform">
               <h1 className="text-3xl font-bold">Transform</h1>
-              <DocsLink path="/data/transform" />
-            </div>
+            </DocsLink>
             <p className="text-muted-foreground mt-2">
               Build and manage data transformation workflows
             </p>

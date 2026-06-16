@@ -36,27 +36,35 @@ import {
 import { cn } from '@/lib/utils';
 import { bandStatement } from '@/lib/kpi-rag';
 import { AlertType, type AlertListItem, type KpiRagContext, type RagState } from '@/types/alerts';
+import { RAG_COLORS } from '@/types/kpis';
 import { CreateAlertTypeModal } from './CreateAlertTypeModal';
 
-const RAG_CHIP_STYLE: Record<RagState, { label: string; dot: string }> = {
-  red: { label: 'Red', dot: 'bg-red-500' },
-  amber: { label: 'Amber', dot: 'bg-amber-500' },
-  green: { label: 'Green', dot: 'bg-green-500' },
+const RAG_CHIP_LABEL: Record<RagState, string> = {
+  red: 'Red',
+  amber: 'Amber',
+  green: 'Green',
 };
 
 function RagChips({ states, ctx }: { states: RagState[]; ctx: KpiRagContext | null }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {states.map((s) => {
-        const info = RAG_CHIP_STYLE[s];
-        if (!info) return null;
-        const tooltip = ctx ? bandStatement(s, ctx) : `Fires when KPI lands in ${info.label} band.`;
+        const colors = RAG_COLORS[s];
+        const label = RAG_CHIP_LABEL[s];
+        if (!colors) return null;
+        const tooltip = ctx ? bandStatement(s, ctx) : `Fires when KPI lands in ${label} band.`;
         return (
           <Tooltip key={s}>
             <TooltipTrigger asChild>
-              <span className="inline-flex cursor-default items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-sm text-gray-700">
-                <span className={cn('h-2 w-2 rounded-full', info.dot)} />
-                {info.label}
+              <span
+                className={cn(
+                  'inline-flex cursor-default items-center gap-1.5 rounded-full px-2.5 py-0.5 text-sm',
+                  colors.bg,
+                  colors.text
+                )}
+              >
+                <span className={cn('h-2 w-2 rounded-full', colors.dot)} />
+                {label}
               </span>
             </TooltipTrigger>
             <TooltipContent>{tooltip}</TooltipContent>

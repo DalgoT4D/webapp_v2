@@ -8,10 +8,9 @@ export default function PipelineOverviewPage() {
       <div className="flex-shrink-0 border-b bg-background">
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <div className="flex items-center gap-2">
+            <DocsLink path="/data/overview">
               <h1 className="text-3xl font-bold">Pipeline Overview</h1>
-              <DocsLink path="/data/overview" />
-            </div>
+            </DocsLink>
             <p className="text-muted-foreground mt-1">Monitor and track your pipeline runs</p>
           </div>
         </div>

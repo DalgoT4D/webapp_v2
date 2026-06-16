@@ -139,10 +139,9 @@ export function PipelineList() {
       <div className="flex-shrink-0 border-b bg-background">
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <div className="flex items-center gap-2">
+            <DocsLink path="/data/orchestrate">
               <h1 className="text-3xl font-bold">Pipelines</h1>
-              <DocsLink path="/data/orchestrate" />
-            </div>
+            </DocsLink>
             <div className="flex items-center gap-1 md:gap-2 mt-1">
               <p className="text-muted-foreground">
                 Manage your data sync and transformation workflows

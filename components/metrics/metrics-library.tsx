@@ -487,10 +487,9 @@ export function MetricsLibrary() {
       <div id="metrics-header" className="flex-shrink-0 border-b bg-background">
         <div id="metrics-title-section" className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <div className="flex items-center gap-2">
+            <DocsLink path="/data/metrics">
               <h1 className="text-3xl font-bold">Metrics</h1>
-              <DocsLink path="/data/metrics" />
-            </div>
+            </DocsLink>
             <p className="text-muted-foreground mt-1">
               Define reusable metric definitions that power your KPIs &amp; charts
             </p>
