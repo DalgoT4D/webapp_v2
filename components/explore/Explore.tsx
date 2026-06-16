@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Resizable } from 'react-resizable';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DocsLink } from '@/components/ui/docs-link';
 import { useExploreStore } from '@/stores/exploreStore';
 import { useWarehouseTables, syncWarehouseTables } from '@/hooks/api/useWarehouse';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
@@ -79,9 +80,12 @@ export function Explore() {
       <div className="flex-shrink-0 border-b bg-background">
         <div className="flex items-center justify-between p-6 pb-6">
           <div>
-            <h1 className="text-3xl font-bold" data-testid="explore-page-title">
-              Explore
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold" data-testid="explore-page-title">
+                Explore
+              </h1>
+              <DocsLink path="/data/explore" />
+            </div>
             <p className="text-muted-foreground mt-1" data-testid="explore-page-subtitle">
               View your tables in the warehouse
             </p>

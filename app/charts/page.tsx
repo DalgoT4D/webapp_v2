@@ -36,6 +36,7 @@ import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DocsLink } from '@/components/ui/docs-link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Table as TableComponent,
@@ -985,9 +986,12 @@ export default function ChartsPage() {
         {/* Title Section */}
         <div id="charts-title-section" className="flex items-center justify-between mb-6 p-6 pb-0">
           <div id="charts-title-wrapper">
-            <h1 id="charts-page-title" className="text-3xl font-bold">
-              Charts
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 id="charts-page-title" className="text-3xl font-bold">
+                Charts
+              </h1>
+              <DocsLink path="/charts" />
+            </div>
             <p id="charts-page-description" className="text-muted-foreground mt-1">
               Create and manage your visualizations
             </p>

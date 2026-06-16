@@ -2,6 +2,7 @@
 
 import { Loader2 } from 'lucide-react';
 import { useElementaryStatus } from '@/hooks/api/useElementaryStatus';
+import { DocsLink } from '@/components/ui/docs-link';
 import { DbtNotConfigured } from './dbt-not-configured';
 import { ElementarySetup } from './elementary-setup';
 import { ElementaryReport } from './elementary-report';
@@ -43,7 +44,10 @@ export function DataQuality() {
       <div id="data-quality-header" className="flex-shrink-0 border-b bg-background">
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <h1 className="text-3xl font-bold">Data Quality</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold">Data Quality</h1>
+              <DocsLink path="/data/quality" />
+            </div>
             <p className="text-muted-foreground mt-1">
               Monitor and manage your data quality with Elementary
             </p>

@@ -33,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DocsLink } from '@/components/ui/docs-link';
 import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
@@ -141,7 +142,7 @@ export function KPIPageComponent() {
   const [programTagFilter, setProgramTagFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [formOpen, setFormOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(searchParams.get('create') === 'true');
   const [editingKpi, setEditingKpi] = useState<KPI | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedKpi, setSelectedKpi] = useState<KPI | null>(null);
@@ -189,6 +190,18 @@ export function KPIPageComponent() {
       router.replace(qs ? `/kpis?${qs}` : '/kpis', { scroll: false });
     }
   }, [searchParams, kpis, router]);
+
+  // Strip `?create=true` after consuming it on mount so a refresh doesn't
+  // re-open the create form.
+  useEffect(() => {
+    if (searchParams.get('create') === 'true') {
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete('create');
+      const qs = next.toString();
+      router.replace(qs ? `/kpis?${qs}` : '/kpis', { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFormSuccess = useCallback(() => {
     setCurrentPage(1);
@@ -253,7 +266,10 @@ export function KPIPageComponent() {
       <div className="flex-shrink-0 border-b bg-background">
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <h1 className="text-3xl font-bold">KPI</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold">KPI</h1>
+              <DocsLink path="/kpis" />
+            </div>
             <p className="text-muted-foreground mt-1">
               Track business objectives with measurable KPIs linked to your metrics
             </p>

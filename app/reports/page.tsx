@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { DocsLink } from '@/components/ui/docs-link';
 import {
   FileText,
   Filter,
@@ -254,7 +255,10 @@ export default function ReportsPage() {
         {/* Title Section */}
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <h1 className="text-3xl font-bold">Reports</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold">Reports</h1>
+              <DocsLink path="/reports" />
+            </div>
             <p className="text-muted-foreground mt-1">Create and manage your reports</p>
           </div>
           {canCreate && (

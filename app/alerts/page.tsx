@@ -23,9 +23,10 @@ import {
 import { toast } from 'sonner';
 import { deleteAlert, toggleAlert, useAlerts } from '@/hooks/api/useAlerts';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
-import { CreateAlertMenu } from '@/components/alerts/CreateAlertMenu';
+import { CreateAlertTypeModal } from '@/components/alerts/CreateAlertTypeModal';
 import { AlertsTable, AllAlertsEmptyState } from '@/components/alerts/AlertsTable';
 import { AlertLogModal } from '@/components/alerts/AlertLogModal';
+import { DocsLink } from '@/components/ui/docs-link';
 import type { AlertListItem } from '@/types/alerts';
 import { AlertType, ALERT_PERMISSIONS } from '@/types/alerts';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
@@ -89,19 +90,22 @@ export default function AlertsPage() {
       <div id="alerts-header" className="flex-shrink-0 border-b bg-background">
         <div id="alerts-title-section" className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <h1 className="text-3xl font-bold">Alerts</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold">Alerts</h1>
+              <DocsLink path="/alerts" />
+            </div>
             <p className="text-muted-foreground mt-1">
               Monitor your critical business metrics and set up automated notifications to stay
               ahead of anomalies.
             </p>
           </div>
           {canCreate && (
-            <CreateAlertMenu onSelect={setCreateType} align="end">
+            <CreateAlertTypeModal onSelect={setCreateType}>
               <Button variant="primary" data-testid="create-alert-btn">
                 <Plus className="w-4 h-4 mr-2" />
                 CREATE ALERT
               </Button>
-            </CreateAlertMenu>
+            </CreateAlertTypeModal>
           )}
         </div>
       </div>

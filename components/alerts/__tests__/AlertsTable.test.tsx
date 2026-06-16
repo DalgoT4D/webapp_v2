@@ -13,6 +13,12 @@ jest.mock('next/link', () => ({
   ),
 }));
 
+// Stub next/navigation — the CreateAlertTypeModal calls useRouter() to
+// route users to the KPI/metric create forms when those lists are empty.
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+}));
+
 function makeAlert(overrides: Partial<AlertListItem> = {}): AlertListItem {
   return {
     id: 1,
@@ -183,19 +189,21 @@ describe('AlertsTable permission gating', () => {
 });
 
 describe('AlertsTable empty states', () => {
-  it('AllAlertsEmptyState shows Create Alert dropdown when allowed', async () => {
+  it('AllAlertsEmptyState shows Create Alert modal when allowed', async () => {
     const user = userEvent.setup();
     const onCreate = jest.fn();
     render(<AllAlertsEmptyState canCreate={true} onCreate={onCreate} />);
     expect(screen.getByText('No alerts yet')).toBeInTheDocument();
 
-    // The trigger opens the dropdown; menu items dispatch onCreate(type).
+    // The trigger opens the modal; user picks a type and clicks Next to dispatch onCreate(type).
     const trigger = screen.getByTestId('empty-create-alert');
     expect(trigger).toBeInTheDocument();
     await user.click(trigger);
 
-    const customItem = await screen.findByTestId('create-standalone-alert');
-    await user.click(customItem);
+    const customOption = await screen.findByTestId('create-standalone-alert');
+    await user.click(customOption);
+    const next = await screen.findByTestId('alert-type-next');
+    await user.click(next);
     expect(onCreate).toHaveBeenCalledWith('standalone');
   });
 

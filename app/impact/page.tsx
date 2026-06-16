@@ -10,6 +10,7 @@ import { useLandingPage } from '@/hooks/api/useLandingPage';
 import { useAuthStore } from '@/stores/authStore';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { IndividualDashboardView } from '@/components/dashboard/individual-dashboard-view';
+import { DocsLink } from '@/components/ui/docs-link';
 import { useDashboard } from '@/hooks/api/useDashboards';
 
 export default function ImpactAtAGlancePage() {
@@ -119,7 +120,10 @@ export default function ImpactAtAGlancePage() {
       <div className="text-center space-y-6">
         {/* Header */}
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Impact at a Glance</h1>
+          <div className="flex items-center justify-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight">Impact at a Glance</h1>
+            <DocsLink path="/impact" />
+          </div>
           <p className="text-muted-foreground">
             Your personalized dashboard for quick insights and data overview
           </p>

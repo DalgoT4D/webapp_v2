@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus,
   MoreVertical,
@@ -22,6 +22,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DocsLink } from '@/components/ui/docs-link';
 import {
   Table as TableComponent,
   TableBody,
@@ -70,6 +71,7 @@ import { cn } from '@/lib/utils';
 
 export function MetricsLibrary() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [nameFilter, setNameFilter] = useState('');
   const [openFilters, setOpenFilters] = useState({ name: false });
   const [currentPage, setCurrentPage] = useState(1);
@@ -90,6 +92,18 @@ export function MetricsLibrary() {
   const [alertPreselectedMetricId, setAlertPreselectedMetricId] = useState<number | null>(null);
   const { hasPermission: hasAlertPermission } = useUserPermissions();
   const canCreateAlert = hasAlertPermission(ALERT_PERMISSIONS.create);
+
+  // Strip `?create=true` after consuming it on mount so a refresh doesn't
+  // re-open the create form.
+  useEffect(() => {
+    if (searchParams.get('create') === 'true') {
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete('create');
+      const qs = next.toString();
+      router.replace(qs ? `/metrics?${qs}` : '/metrics', { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Lazy-loaded consumers for "Used By" column
   const [consumersMap, setConsumersMap] = useState<Record<number, MetricConsumersResponse>>({});
@@ -473,7 +487,10 @@ export function MetricsLibrary() {
       <div id="metrics-header" className="flex-shrink-0 border-b bg-background">
         <div id="metrics-title-section" className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <h1 className="text-3xl font-bold">Metrics</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold">Metrics</h1>
+              <DocsLink path="/data/metrics" />
+            </div>
             <p className="text-muted-foreground mt-1">
               Define reusable metric definitions that power your KPIs &amp; charts
             </p>

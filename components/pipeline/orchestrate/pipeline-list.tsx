@@ -35,6 +35,7 @@ import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { DocsLink } from '@/components/ui/docs-link';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -138,7 +139,10 @@ export function PipelineList() {
       <div className="flex-shrink-0 border-b bg-background">
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <h1 className="text-3xl font-bold">Pipelines</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold">Pipelines</h1>
+              <DocsLink path="/data/orchestrate" />
+            </div>
             <div className="flex items-center gap-1 md:gap-2 mt-1">
               <p className="text-muted-foreground">
                 Manage your data sync and transformation workflows

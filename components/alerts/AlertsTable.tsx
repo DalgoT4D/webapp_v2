@@ -36,7 +36,7 @@ import {
 import { cn } from '@/lib/utils';
 import { bandStatement } from '@/lib/kpi-rag';
 import { AlertType, type AlertListItem, type KpiRagContext, type RagState } from '@/types/alerts';
-import { CreateAlertMenu } from './CreateAlertMenu';
+import { CreateAlertTypeModal } from './CreateAlertTypeModal';
 
 const RAG_CHIP_STYLE: Record<RagState, { label: string; dot: string }> = {
   red: { label: 'Red', dot: 'bg-red-500' },
@@ -425,12 +425,12 @@ export function AllAlertsEmptyState({
       </p>
       {canCreate && (
         <div className="mt-4">
-          <CreateAlertMenu onSelect={onCreate} align="center">
+          <CreateAlertTypeModal onSelect={onCreate}>
             <Button data-testid="empty-create-alert">
               <BellRing className="w-4 h-4 mr-2" />
               Create alert
             </Button>
-          </CreateAlertMenu>
+          </CreateAlertTypeModal>
         </div>
       )}
     </div>

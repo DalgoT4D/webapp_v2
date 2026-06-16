@@ -13,6 +13,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DocsLink } from '@/components/ui/docs-link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -1606,9 +1607,12 @@ export function DashboardListV2() {
           className="flex items-center justify-between mb-6 p-6 pb-0"
         >
           <div id="dashboard-title-wrapper">
-            <h1 id="dashboard-page-title" className="text-3xl font-bold">
-              Dashboards
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 id="dashboard-page-title" className="text-3xl font-bold">
+                Dashboards
+              </h1>
+              <DocsLink path="/dashboards" />
+            </div>
             <p id="dashboard-page-description" className="text-muted-foreground mt-1">
               Create and manage your dashboards
             </p>

@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { DocsLink } from '@/components/ui/docs-link';
 import { useTransformStore } from '@/stores/transformStore';
 import {
   useTransformType,
@@ -140,7 +141,10 @@ export default function Transform() {
       <div className="h-full flex flex-col">
         <div className="flex-shrink-0 border-b bg-background">
           <div className="p-6 pb-6">
-            <h1 className="text-3xl font-bold">Transform</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold">Transform</h1>
+              <DocsLink path="/data/transform" />
+            </div>
             <p className="text-muted-foreground mt-1">
               Build and manage data transformation workflows
             </p>
@@ -189,7 +193,10 @@ export default function Transform() {
         {/* Header - Fixed */}
         <div className="flex-shrink-0 border-b bg-background">
           <div className="p-6 pb-4">
-            <h1 className="text-3xl font-bold">Transform</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold">Transform</h1>
+              <DocsLink path="/data/transform" />
+            </div>
             <p className="text-muted-foreground mt-2">
               Build and manage data transformation workflows
             </p>
