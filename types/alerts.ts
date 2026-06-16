@@ -287,8 +287,12 @@ export function localScheduleToUtcCron(spec: ScheduleSpec): string {
   );
   const utcMinute = local.getUTCMinutes();
   const utcHour = local.getUTCHours();
-  const dayShift =
-    local.getUTCDate() !== local.getDate() ? (local.getUTCDate() > local.getDate() ? 1 : -1) : 0;
+  // dayShift = how many calendar days UTC is ahead of local for this instant
+  // (-1, 0, or +1). Compare midnight timestamps so month boundaries (1 vs 31)
+  // don't fool a naive numeric `>` on day-of-month.
+  const localMid = Date.UTC(local.getFullYear(), local.getMonth(), local.getDate());
+  const utcMid = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate());
+  const dayShift = localMid === utcMid ? 0 : utcMid > localMid ? 1 : -1;
 
   if (spec.frequency === 'daily') {
     return `${utcMinute} ${utcHour} * * *`;
@@ -325,8 +329,12 @@ export function utcCronToLocalSchedule(cron: string): ScheduleSpec | null {
   );
   const localHour = utc.getHours();
   const localMinute = utc.getMinutes();
-  const dayShift =
-    utc.getUTCDate() !== utc.getDate() ? (utc.getUTCDate() > utc.getDate() ? -1 : 1) : 0;
+  // dayShift = how many calendar days local is ahead of UTC for this instant
+  // (-1, 0, or +1). Compare midnight timestamps so month boundaries (1 vs 31)
+  // don't fool a naive numeric `>` on day-of-month.
+  const localMid = Date.UTC(utc.getFullYear(), utc.getMonth(), utc.getDate());
+  const utcMid = Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate());
+  const dayShift = localMid === utcMid ? 0 : localMid > utcMid ? 1 : -1;
 
   if (domStr === '*' && dowStr === '*') {
     return { frequency: 'daily', hour: localHour, minute: localMinute };
