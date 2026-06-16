@@ -572,12 +572,9 @@ export default function ReportsPage() {
                           onClick={() => router.push(`/reports/${snapshot.id}`)}
                         >
                           <TableCell className="py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 shrink-0" />
-                              <span className="font-medium text-lg text-gray-900">
-                                {snapshot.title}
-                              </span>
-                            </div>
+                            <span className="font-medium text-lg text-gray-900">
+                              {snapshot.title}
+                            </span>
                           </TableCell>
                           <TableCell className="py-4 text-base text-gray-700">
                             {snapshot.dashboard_title || '—'}
