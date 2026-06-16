@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus,
   MoreVertical,
@@ -17,10 +17,12 @@ import {
   X,
   Target,
   User,
+  BellRing,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DocsLink } from '@/components/ui/docs-link';
 import {
   Table as TableComponent,
   TableBody,
@@ -56,15 +58,20 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useMetrics, deleteMetric, getMetricConsumers } from '@/hooks/api/useMetrics';
 import type { Metric, MetricConsumersResponse } from '@/types/metrics';
+import { formatMetricExpression } from '@/lib/metrics';
 import { MetricFormDialog } from './metric-form-dialog';
 import { ConsumerLinks } from './consumer-links';
 import { KPIForm } from '@/components/kpis/kpi-form';
+import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
+import { ALERT_PERMISSIONS } from '@/types/alerts';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
 export function MetricsLibrary() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [nameFilter, setNameFilter] = useState('');
   const [openFilters, setOpenFilters] = useState({ name: false });
   const [currentPage, setCurrentPage] = useState(1);
@@ -81,6 +88,22 @@ export function MetricsLibrary() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [kpiFormOpen, setKpiFormOpen] = useState(false);
   const [kpiPreselectedMetricId, setKpiPreselectedMetricId] = useState<number | undefined>();
+  const [alertFormOpen, setAlertFormOpen] = useState(false);
+  const [alertPreselectedMetricId, setAlertPreselectedMetricId] = useState<number | null>(null);
+  const { hasPermission: hasAlertPermission } = useUserPermissions();
+  const canCreateAlert = hasAlertPermission(ALERT_PERMISSIONS.create);
+
+  // Strip `?create=true` after consuming it on mount so a refresh doesn't
+  // re-open the create form.
+  useEffect(() => {
+    if (searchParams.get('create') === 'true') {
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete('create');
+      const qs = next.toString();
+      router.replace(qs ? `/metrics?${qs}` : '/metrics', { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Lazy-loaded consumers for "Used By" column
   const [consumersMap, setConsumersMap] = useState<Record<number, MetricConsumersResponse>>({});
@@ -210,19 +233,16 @@ export function MetricsLibrary() {
     }
   };
 
-  const hasDeleteConsumers =
+  // Charts / KPIs block deletion (consistent with existing behavior).
+  // Alerts CASCADE on metric delete, so they only trigger a warning, not a block.
+  const hasBlockingConsumers =
     deleteConsumers && (deleteConsumers.charts.length > 0 || deleteConsumers.kpis.length > 0);
+  const cascadeAlerts = deleteConsumers?.alerts ?? [];
+  const hasCascadeAlerts = cascadeAlerts.length > 0;
 
   const formatExpression = (metric: Metric) => {
-    if (metric.column_expression) {
-      return metric.column_expression.length > 30
-        ? metric.column_expression.slice(0, 30) + '…'
-        : metric.column_expression;
-    }
-    if (metric.aggregation === 'count' && !metric.column) {
-      return 'COUNT(*)';
-    }
-    return `${(metric.aggregation || '').toUpperCase()}(${metric.column})`;
+    const expr = formatMetricExpression(metric);
+    return expr.length > 30 ? expr.slice(0, 30) + '…' : expr;
   };
 
   const getMode = (metric: Metric) => (metric.column_expression ? 'Calculated' : 'Simple');
@@ -343,6 +363,18 @@ export function MetricsLibrary() {
                 <Target className="w-4 h-4 mr-2" />
                 Create KPI
               </DropdownMenuItem>
+              {canCreateAlert && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setAlertPreselectedMetricId(metric.id);
+                    setAlertFormOpen(true);
+                  }}
+                  className="cursor-pointer"
+                >
+                  <BellRing className="w-4 h-4 mr-2" />
+                  Create alert
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => handleDeleteClick(metric)}
@@ -453,22 +485,18 @@ export function MetricsLibrary() {
     <div id="metrics-list-container" className="h-full flex flex-col">
       {/* Fixed Header */}
       <div id="metrics-header" className="flex-shrink-0 border-b bg-background">
-        <div id="metrics-title-section" className="flex items-center justify-between p-6 pb-4">
+        <div id="metrics-title-section" className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <h1 className="text-3xl font-bold">Metrics</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Define reusable metric definitions that power your KPIs &amp; Charts
+            <DocsLink path="/data/metrics">
+              <h1 className="text-3xl font-bold">Metrics</h1>
+            </DocsLink>
+            <p className="text-muted-foreground mt-1">
+              Define reusable metric definitions that power your KPIs &amp; charts
             </p>
           </div>
-          <Button
-            variant="ghost"
-            className="text-white hover:opacity-90 shadow-xs"
-            style={{ backgroundColor: 'var(--primary)' }}
-            onClick={handleCreate}
-            data-testid="create-metric-btn"
-          >
+          <Button variant="primary" onClick={handleCreate} data-testid="create-metric-btn">
             <Plus className="w-4 h-4 mr-2" />
-            Create Metric
+            CREATE METRIC
           </Button>
         </div>
 
@@ -550,14 +578,9 @@ export function MetricsLibrary() {
                   <p className="text-sm text-muted-foreground">
                     Create your first metric to start building KPIs and tracking what matters most.
                   </p>
-                  <Button
-                    variant="ghost"
-                    className="text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: 'var(--primary)' }}
-                    onClick={handleCreate}
-                  >
+                  <Button variant="primary" onClick={handleCreate}>
                     <Plus className="w-4 h-4 mr-2" />
-                    Create Metric
+                    CREATE METRIC
                   </Button>
                 </>
               )}
@@ -594,6 +617,7 @@ export function MetricsLibrary() {
                   <SelectItem value="10">10</SelectItem>
                   <SelectItem value="20">20</SelectItem>
                   <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -648,12 +672,23 @@ export function MetricsLibrary() {
         preselectedMetricId={kpiPreselectedMetricId}
       />
 
+      <AlertWizardModal
+        open={alertFormOpen}
+        onOpenChange={(o) => {
+          setAlertFormOpen(o);
+          if (!o) setAlertPreselectedMetricId(null);
+        }}
+        initial={{ alertType: 'metric_threshold', metricId: alertPreselectedMetricId }}
+      />
+
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-bold">
-              {hasDeleteConsumers || consumerCheckFailed ? 'Cannot Delete Metric' : 'Delete Metric'}
+              {hasBlockingConsumers || consumerCheckFailed
+                ? 'Cannot Delete Metric'
+                : 'Delete Metric'}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-4">
@@ -661,7 +696,7 @@ export function MetricsLibrary() {
                   <p className="text-sm text-destructive">
                     Could not verify if this metric is in use. Please try again.
                   </p>
-                ) : hasDeleteConsumers ? (
+                ) : hasBlockingConsumers ? (
                   <>
                     <p className="text-base text-foreground">
                       This metric has been used in multiple places. Remove these dependencies before
@@ -673,12 +708,27 @@ export function MetricsLibrary() {
                     </div>
                   </>
                 ) : (
-                  <p className="text-base text-foreground">
-                    Are you sure you want to delete Metric{' '}
-                    <span className="font-bold">&quot;{deletingMetric?.name}&quot;</span> ?
-                    <br />
-                    This change cannot be undone.
-                  </p>
+                  <>
+                    <p className="text-base text-foreground">
+                      Are you sure you want to delete Metric{' '}
+                      <span className="font-bold">&quot;{deletingMetric?.name}&quot;</span> ?
+                      <br />
+                      This change cannot be undone.
+                    </p>
+                    {hasCascadeAlerts && (
+                      <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
+                        <p className="text-sm font-medium text-amber-700 mb-1">
+                          Deleting this metric will also remove {cascadeAlerts.length} alert
+                          {cascadeAlerts.length > 1 ? 's' : ''}:
+                        </p>
+                        <ul className="text-sm text-amber-800 list-disc pl-5 space-y-0.5">
+                          {cascadeAlerts.map((a) => (
+                            <li key={a.id}>{a.name}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
                 )}
                 {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
               </div>
@@ -688,7 +738,7 @@ export function MetricsLibrary() {
             <AlertDialogCancel className="border-destructive text-destructive hover:bg-destructive/5">
               CANCEL
             </AlertDialogCancel>
-            {!hasDeleteConsumers && !consumerCheckFailed && (
+            {!hasBlockingConsumers && !consumerCheckFailed && (
               <AlertDialogAction
                 onClick={(e) => {
                   e.preventDefault();

@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Pencil, X, MoreVertical, Trash2 } from 'lucide-react';
+import { Pencil, X, MoreVertical, Trash2, BellRing } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +39,9 @@ import { RAG_COLORS, TIME_GRAIN_OPTIONS } from '@/types/kpis';
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
+import { ALERT_PERMISSIONS } from '@/types/alerts';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 
 const grainLabel: Record<string, string> = {
   daily: 'day',
@@ -103,6 +106,9 @@ export function KPIDetailDrawer({
   const [defaultPeriods, setDefaultPeriods] = useState<
     { period: string; period_date: string | null; value: number | null }[]
   >([]);
+  const [alertWizardOpen, setAlertWizardOpen] = useState(false);
+  const { hasPermission: hasAlertPermission } = useUserPermissions();
+  const canCreateAlert = hasAlertPermission(ALERT_PERMISSIONS.create);
 
   // Reset filters when KPI changes or drawer closes
   useEffect(() => {
@@ -185,6 +191,18 @@ export function KPIDetailDrawer({
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
+              {canCreateAlert && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setAlertWizardOpen(true)}
+                  aria-label="Create alert"
+                  title="Create alert"
+                >
+                  <BellRing className="w-4 h-4" />
+                </Button>
+              )}
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
                 <Pencil className="w-4 h-4" />
               </Button>
@@ -295,6 +313,11 @@ export function KPIDetailDrawer({
         {/* Notes section */}
         <NotesSection kpi={kpi} periods={defaultPeriods} />
       </SheetContent>
+      <AlertWizardModal
+        open={alertWizardOpen}
+        onOpenChange={setAlertWizardOpen}
+        initial={{ alertType: 'kpi_rag', kpiId: kpi?.id ?? null }}
+      />
     </Sheet>
   );
 }
