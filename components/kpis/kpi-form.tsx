@@ -167,8 +167,8 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
       name: '',
       target_value: '',
       direction: 'increase',
-      green_threshold_pct: '80',
-      amber_threshold_pct: '50',
+      green_threshold_pct: '100',
+      amber_threshold_pct: '80',
       time_grain: 'monthly',
       time_dimension_column: '',
       metric_type_tag: '',
@@ -222,8 +222,8 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           name: '',
           target_value: '',
           direction: 'increase',
-          green_threshold_pct: '80',
-          amber_threshold_pct: '50',
+          green_threshold_pct: '100',
+          amber_threshold_pct: '80',
           time_grain: 'monthly',
           time_dimension_column: '',
           metric_type_tag: '',
@@ -392,11 +392,11 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                   onValueChange={(v) => {
                     field.onChange(v);
                     if (v === 'increase') {
-                      setValue('green_threshold_pct', '80');
-                      setValue('amber_threshold_pct', '50');
-                    } else {
                       setValue('green_threshold_pct', '100');
-                      setValue('amber_threshold_pct', '120');
+                      setValue('amber_threshold_pct', '80');
+                    } else {
+                      setValue('green_threshold_pct', '80');
+                      setValue('amber_threshold_pct', '100');
                     }
                   }}
                 >

@@ -205,12 +205,6 @@ export interface AlertTestResponse {
   error: string | null;
 }
 
-export interface RecipientCandidate {
-  orguser_id: number;
-  email: string;
-  name: string;
-}
-
 // ── Constants ─────────────────────────────────────────────────────────────
 
 export const ALERT_PERMISSIONS = {

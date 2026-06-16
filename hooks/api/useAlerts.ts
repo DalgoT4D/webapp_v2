@@ -8,7 +8,6 @@ import type {
   AlertTestPayload,
   AlertTestResponse,
   AlertUpdatePayload,
-  RecipientCandidate,
   SlackWebhookTestResponse,
 } from '@/types/alerts';
 
@@ -100,17 +99,4 @@ export async function testSlackWebhook(webhookUrl: string): Promise<SlackWebhook
 
 export async function dryRunAlert(payload: AlertTestPayload): Promise<AlertTestResponse> {
   return apiPost('/api/alerts/test/', payload);
-}
-
-export function useAlertRecipientCandidates() {
-  const { data, error, mutate } = useSWR<RecipientCandidate[]>(
-    '/api/alerts/recipients/orgusers/',
-    apiGet
-  );
-  return {
-    candidates: data || [],
-    isLoading: !error && !data,
-    isError: error,
-    mutate,
-  };
 }
