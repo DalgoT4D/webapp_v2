@@ -49,6 +49,7 @@ export interface KPI {
   metric_type_tag: string | null;
   program_tags: string[];
   display_order: number;
+  created_by?: string; // creator's email
   created_at: string;
   updated_at: string;
 }
