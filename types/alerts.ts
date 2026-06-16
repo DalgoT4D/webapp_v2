@@ -86,6 +86,11 @@ export interface AlertCreatePayload {
 
 export interface AlertUpdatePayload {
   name?: string;
+  // Source change — only the field matching the alert's existing alert_type is
+  // honored; alert_type itself is immutable. Switching alert types requires
+  // delete + recreate.
+  metric_id?: number | null;
+  kpi_id?: number | null;
   standalone_config?: StandaloneConfig | null;
   condition?: AlertCondition;
   schedule_cron?: string;

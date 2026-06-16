@@ -334,7 +334,14 @@ export function AlertWizardModal({
           message_template: notifyState.messageTemplate,
           recipients: notifyState.recipients,
         };
-        // Only send standalone_config for standalone alerts
+        // Source — backend honors only the field matching the alert's stored
+        // alert_type (which is immutable on update).
+        if (defineState.alertType === AlertType.METRIC_THRESHOLD && defineState.metricId) {
+          payload.metric_id = defineState.metricId;
+        }
+        if (defineState.alertType === AlertType.KPI_RAG && defineState.kpiId) {
+          payload.kpi_id = defineState.kpiId;
+        }
         if (defineState.alertType === AlertType.STANDALONE) {
           payload.standalone_config = defineState.standaloneConfig;
         }
