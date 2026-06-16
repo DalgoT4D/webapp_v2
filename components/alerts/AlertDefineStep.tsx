@@ -163,6 +163,7 @@ export function AlertDefineStep({ value, onChange, sourceLocked, errors }: Alert
               {sourceLocked ? 'Loading metric…' : 'Open this wizard from a Metric to scope it.'}
             </p>
           )}
+          {errors?.source && <p className="text-xs text-destructive">{errors.source}</p>}
         </div>
       )}
 
@@ -196,6 +197,7 @@ export function AlertDefineStep({ value, onChange, sourceLocked, errors }: Alert
               {sourceLocked ? 'Loading KPI…' : 'Open this wizard from a KPI to scope it.'}
             </p>
           )}
+          {errors?.source && <p className="text-xs text-destructive">{errors.source}</p>}
         </div>
       )}
 
