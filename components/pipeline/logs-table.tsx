@@ -3,6 +3,8 @@
 import * as React from 'react';
 import { useState, useCallback } from 'react';
 import { format, isValid } from 'date-fns';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { FileText, Sparkles, Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -281,8 +283,11 @@ function TaskRunRow({
   const showAISummaryButton = enableAISummary && task.isFailed && onStartSummary;
 
   const handleToggleLogs = useCallback(async () => {
-    if (!showLogs && logs.length === 0 && onFetchLogs) {
-      await loadLogs();
+    if (!showLogs) {
+      if (logs.length === 0 && onFetchLogs) {
+        await loadLogs();
+      }
+      trackEvent(ANALYTICS_EVENTS.PIPELINE_LOGS_VIEWED);
     }
     setShowLogs((prev) => !prev);
     setShowSummary(false);
@@ -296,6 +301,7 @@ function TaskRunRow({
 
     try {
       const taskId = await onStartSummary(flowRunId, task.id);
+      trackEvent(ANALYTICS_EVENTS.PIPELINE_LOG_SUMMARY_REQUESTED);
       setPollTaskId(taskId); // starts SWR polling
     } catch (error) {
       console.error('Failed to start summary:', error);

@@ -32,6 +32,8 @@ import {
   extractMentionedEmails,
 } from './utils';
 import { toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
 import {
   useComments,
@@ -584,6 +586,7 @@ function CommentPopoverInner({
         content,
         mentioned_emails: extractMentionedEmails(content),
       });
+      trackEvent(ANALYTICS_EVENTS.REPORT_COMMENT_CREATED, { target_type: targetType });
       setDraft('');
       await mutateComments();
       // New comment is created with is_new: true — mark as read immediately so
@@ -665,6 +668,7 @@ function CommentPopoverInner({
           content,
           mentioned_emails: extractMentionedEmails(content),
         });
+        trackEvent(ANALYTICS_EVENTS.REPORT_COMMENT_UPDATED);
         mutateComments();
         onStateChange?.();
       } catch (error) {
@@ -679,6 +683,7 @@ function CommentPopoverInner({
     async (commentId: number) => {
       try {
         await deleteComment(snapshotId, commentId);
+        trackEvent(ANALYTICS_EVENTS.REPORT_COMMENT_DELETED);
         mutateComments();
         onStateChange?.();
       } catch (error) {

@@ -127,7 +127,7 @@ export function ChartExportDropdown({
         });
       }
 
-      trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, { format });
+      trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, { format, chart_type: chartType });
       onExportComplete?.();
     } catch (error: any) {
       console.error('Export error:', error);

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -274,6 +276,7 @@ export function UsersTable() {
         toupdate_email: editingUser,
         role_uuid: selectedRole,
       });
+      trackEvent(ANALYTICS_EVENTS.USER_ROLE_CHANGED);
       mutate();
       setEditingUser(null);
       setSelectedRole('');

@@ -899,7 +899,10 @@ function ConfigureChartPageContent() {
 
     try {
       const result = await createChart(chartData);
-      trackEvent(ANALYTICS_EVENTS.CHART_CREATED, { chart_type: chartData.chart_type });
+      trackEvent(ANALYTICS_EVENTS.CHART_CREATED, {
+        chart_type: chartData.chart_type,
+        computation_type: chartData.computation_type,
+      });
       // Reset unsaved changes state after successful save
       setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');

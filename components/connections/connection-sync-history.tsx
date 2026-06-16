@@ -9,6 +9,8 @@ import { useSyncHistory, fetchSyncLogs, triggerLogSummary } from '@/hooks/api/us
 import { fetchFlowRunLogs, extractFlowRunLogMessages } from '@/hooks/api/usePipelines';
 import { apiGet } from '@/lib/api';
 import { toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
   SYNC_HISTORY_PAGE_SIZE,
   LOG_SUMMARY_POLL_INTERVAL_MS,
@@ -212,6 +214,7 @@ export function ConnectionSyncHistory({
 
       try {
         const { task_id } = await triggerLogSummary(connectionId, job.job_id, job.last_attempt_no);
+        trackEvent(ANALYTICS_EVENTS.CONNECTION_LOG_SUMMARY_REQUESTED);
 
         const pollTask = async () => {
           try {

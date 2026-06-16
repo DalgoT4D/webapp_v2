@@ -7,6 +7,8 @@ import { useWarehouse, deleteWarehouse } from '@/hooks/api/useWarehouse';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { WAREHOUSE_PERMISSIONS, DALGO_IP_ADDRESSES } from '@/constants/warehouse';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { getWarehouseTableData } from './warehouse-table-data';
 import { WarehouseForm } from './warehouse-form';
 import {
@@ -98,6 +100,7 @@ export function WarehouseDisplay() {
     setIsDeleting(true);
     try {
       await deleteWarehouse();
+      trackEvent(ANALYTICS_EVENTS.WAREHOUSE_DELETED);
       await mutate(undefined, { revalidate: true });
       toastSuccess.deleted('Warehouse');
       setDeleteDialogOpen(false);

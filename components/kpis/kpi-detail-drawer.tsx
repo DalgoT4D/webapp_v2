@@ -38,6 +38,8 @@ import type { RAGStatus } from '@/types/kpis';
 import { RAG_COLORS, TIME_GRAIN_OPTIONS } from '@/types/kpis';
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 
 const grainLabel: Record<string, string> = {
@@ -352,6 +354,7 @@ function NotesSection({
         snapshot_value: snapshotValue ?? undefined,
         snapshot_pop_change: snapshotPopChange ?? undefined,
       });
+      trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_CREATED, { note_type: noteType });
       mutate();
       setShowForm(false);
       setContent('');
@@ -367,6 +370,7 @@ function NotesSection({
   const handleDelete = async (entryId: number) => {
     try {
       await deleteAnnotation(kpi.id, entryId);
+      trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_DELETED);
       mutate();
       toastSuccess.deleted('Note');
     } catch (err: any) {
@@ -405,6 +409,7 @@ function NotesSection({
         snapshot_value: snapshotValue ?? undefined,
         snapshot_pop_change: snapshotPopChange ?? undefined,
       });
+      trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_UPDATED, { note_type: editNoteType });
       mutate();
       setEditingId(null);
     } catch (err: any) {

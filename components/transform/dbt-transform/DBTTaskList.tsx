@@ -41,6 +41,8 @@ import { LogCard } from '@/components/pipeline/log-card';
 import { PipelineRunDisplayStatus, LockStatus } from '@/constants/pipeline';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
   TASK_DBTRUN,
   TASK_DBTTEST,
@@ -160,6 +162,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
       return;
     }
 
+    trackEvent(ANALYTICS_EVENTS.TRANSFORM_DBT_TASK_TRIGGERED);
     setFlowRunId(response.flow_run_id);
     mutate(); // Refresh task list to show lock status
 
@@ -186,6 +189,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
 
     const isSuccess = response?.status === 'success';
     if (isSuccess) {
+      trackEvent(ANALYTICS_EVENTS.TRANSFORM_DBT_TASK_TRIGGERED);
       toastSuccess.generic(`${task.label} ran successfully`);
       setLogStatus(PipelineRunDisplayStatus.SUCCESS);
     } else {
@@ -232,6 +236,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
     setDeleteLoading(true);
     try {
       await deletePrefectTask(deleteTaskId);
+      trackEvent(ANALYTICS_EVENTS.TRANSFORM_CUSTOM_TASK_DELETED);
       toastSuccess.deleted('Task');
       mutate(); // Refresh task list
       setDeleteTaskId(null);

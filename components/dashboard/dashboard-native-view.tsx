@@ -545,6 +545,7 @@ export function DashboardNativeView({
 
     try {
       await deleteDashboard(dashboardId);
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED);
 
       toast({
         title: 'Dashboard deleted',

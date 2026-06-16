@@ -16,6 +16,8 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { apiGet, apiPost } from '@/lib/api';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface PublishModalProps {
   open: boolean;
@@ -79,6 +81,7 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
       });
 
       if (response.success) {
+        trackEvent(ANALYTICS_EVENTS.TRANSFORM_CHANGES_PUBLISHED);
         toastSuccess.published('Changes');
         onPublishSuccess?.();
         onClose();

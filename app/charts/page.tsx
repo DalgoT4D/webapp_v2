@@ -65,6 +65,8 @@ import {
 // AlertDialog imports removed - now using ChartDeleteDialog component
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
 
@@ -311,6 +313,7 @@ export default function ChartsPage() {
 
       try {
         await deleteChart(chartId);
+        trackEvent(ANALYTICS_EVENTS.CHART_DELETED);
         await mutate();
         toastSuccess.deleted(chartTitle);
       } catch (error) {
@@ -396,6 +399,9 @@ export default function ChartsPage() {
         };
 
         const result = await createChart(duplicateChartData);
+        trackEvent(ANALYTICS_EVENTS.CHART_DUPLICATED, {
+          chart_type: originalChart.chart_type,
+        });
         // Refresh the charts list
         await mutate();
 
@@ -476,6 +482,7 @@ export default function ChartsPage() {
         await Promise.all(deletePromises);
       }
 
+      trackEvent(ANALYTICS_EVENTS.CHARTS_BULK_DELETED, { count: selectedCharts.size });
       await mutate();
       toastSuccess.generic(
         `${selectedCharts.size} chart${selectedCharts.size === 1 ? '' : 's'} deleted successfully`

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -83,6 +85,7 @@ export default function NotificationsPage() {
 
     const success = await markAllAsRead();
     if (success) {
+      trackEvent(ANALYTICS_EVENTS.NOTIFICATIONS_ALL_READ);
       await mutate();
       await mutateUnreadCount();
       setSelectedIds([]);

@@ -44,6 +44,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useSnapshots, deleteSnapshot } from '@/hooks/api/useReports';
 import type { ReportSnapshot } from '@/types/reports';
 import { CreateSnapshotDialog } from '@/components/reports/create-snapshot-dialog';
@@ -238,6 +240,7 @@ export default function ReportsPage() {
       if (!confirmed) return;
       try {
         await deleteSnapshot(snapshot.id);
+        trackEvent(ANALYTICS_EVENTS.REPORT_DELETED);
         mutate();
         toastSuccess.deleted('Report');
       } catch (error) {

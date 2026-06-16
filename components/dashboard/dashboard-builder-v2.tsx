@@ -1357,6 +1357,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           },
         });
 
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_CHART_ADDED, { chart_type: chartType });
+
         // Animate component entrance
         dashboardAnimation.animateComponent(newComponent.id, 500);
 
@@ -1402,6 +1404,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         },
       });
 
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_KPI_ADDED);
       dashboardAnimation.animateComponent(newComponent.id, 500);
       scrollToComponentIfNeeded(newComponent.id);
     };
@@ -1461,6 +1464,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         },
       });
 
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_ELEMENT_ADDED);
+
       // Animate component entrance
       dashboardAnimation.animateComponent(newComponent.id, 500);
 
@@ -1471,6 +1476,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Remove component. Anything below the removed widget slides up (gravity-up);
     // side neighbours stay where they are. One history entry.
     const removeComponent = (componentId: string) => {
+      const removedType = state.components[componentId]?.type;
       const newComponents = { ...state.components };
       delete newComponents[componentId];
 
@@ -1484,6 +1490,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         layout: newLayout,
         components: newComponents,
       });
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_ELEMENT_REMOVED, { element_type: removedType });
     };
 
     // Handle when filters are applied (causes chart re-renders)
@@ -1535,6 +1542,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             filterId,
             updateData
           );
+          trackEvent(ANALYTICS_EVENTS.DASHBOARD_FILTER_UPDATED, {
+            filter_type: updateData.filter_type,
+          });
 
           // Note: Filter components will handle their own state updates
 
@@ -1568,6 +1578,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           column_name: filterPayload.column_name,
           settings: filterPayload.settings,
         });
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_FILTER_CREATED, {
+          filter_type: filterPayload.filter_type,
+        });
 
         // Convert API response to frontend config format (no position needed)
         const filterConfig = convertFilterToConfig(newFilterFromAPI, {
@@ -1599,6 +1612,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       try {
         // Call backend API to delete the filter
         await deleteDashboardFilter(dashboardId, parseInt(filterId));
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_FILTER_DELETED);
 
         // Refresh dashboard data to update filter list
         const { mutate } = await import('swr');
@@ -1828,7 +1842,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 <Button
                   onClick={() => {
                     // Fire only on explicit user save (not the autosave/title-blur/resize paths).
-                    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED, { dashboard_id: dashboardId });
+                    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED, {
+                      dashboard_id: dashboardId,
+                      num_components: Object.keys(state.components).length,
+                    });
                     saveDashboard();
                   }}
                   size="sm"
@@ -2246,7 +2263,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 <Button
                   onClick={() => {
                     // Fire only on explicit user save (not the autosave/title-blur/resize paths).
-                    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED, { dashboard_id: dashboardId });
+                    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED, {
+                      dashboard_id: dashboardId,
+                      num_components: Object.keys(state.components).length,
+                    });
                     saveDashboard();
                   }}
                   size="sm"

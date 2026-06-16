@@ -30,7 +30,11 @@ export function trackFeatureView(feature: Feature, opts?: { tab?: string }): voi
 // current_role person property (latest value, for visibility on the profile).
 // No-ops if userId is falsy (e.g. backend not yet deployed with user_id), so
 // analytics degrades gracefully instead of breaking.
-export function identifyUser(userId: number, email: string, { role }: { role?: string }): void {
+export function identifyUser(
+  userId: number,
+  email: string,
+  { role, workDomain }: { role?: string; workDomain?: string | null }
+): void {
   if (!userId) return;
   // Migrate users still on the old email-based identity (from a previous build)
   // onto user_id. posthog.identify() won't override an already-identified
@@ -42,6 +46,8 @@ export function identifyUser(userId: number, email: string, { role }: { role?: s
   posthog.identify(String(userId), {
     is_internal: isInternalEmail(email),
     current_role: role,
+    // NGO's work email domain — firmographic segmentation (not PII; domain only).
+    work_domain: workDomain ?? null,
   });
   posthog.register({ role });
 }

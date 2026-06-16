@@ -76,10 +76,20 @@ describe('identifyUser', () => {
     expect(mockIdentify).toHaveBeenCalledWith('42', {
       is_internal: true,
       current_role: 'account-manager',
+      work_domain: null,
     });
     expect(mockRegister).toHaveBeenCalledWith({ role: 'account-manager' });
     const identifyArgs = mockIdentify.mock.calls[0];
     expect(JSON.stringify(identifyArgs)).not.toContain('staff@dalgo.org');
+  });
+  it('sends work_domain as a person property when provided', () => {
+    mockGetDistinctId.mockReturnValue('7');
+    identifyUser(7, 'user@ngo.example', { role: 'viewer', workDomain: 'ngo.example' });
+    expect(mockIdentify).toHaveBeenCalledWith('7', {
+      is_internal: false,
+      current_role: 'viewer',
+      work_domain: 'ngo.example',
+    });
   });
   it('resets first when the current distinct_id is an old email identity, then identifies by id', () => {
     mockGetDistinctId.mockReturnValue('jake@agency.fund');
@@ -88,6 +98,7 @@ describe('identifyUser', () => {
     expect(mockIdentify).toHaveBeenCalledWith('101', {
       is_internal: false,
       current_role: 'viewer',
+      work_domain: null,
     });
   });
   it('does NOT reset when already identified by a numeric id', () => {

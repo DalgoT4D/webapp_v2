@@ -22,6 +22,7 @@ export interface OrgUser {
   landing_dashboard_id?: number | null; // Personal landing page dashboard ID
   org_default_dashboard_id?: number | null; // Organization default dashboard ID
   subscription_plan?: string | null; // Org base plan, used for analytics segmentation
+  work_domain?: string | null; // NGO's work email domain, sent to PostHog as a person property
 }
 
 interface AuthState {
