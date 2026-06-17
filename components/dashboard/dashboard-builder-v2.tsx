@@ -30,7 +30,6 @@ import {
   getDefaultGridDimensions,
   getMinGridDimensions,
   getChartTypeFromConfig,
-  pixelsToGridUnits,
   calculateTextDimensions,
 } from '@/lib/chart-size-constraints';
 import { compactVertical, bottomY } from '@/lib/dashboard-animation-utils';
@@ -1134,18 +1133,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         const component = components[item.i];
         if (!component) return item;
         const chartType = getChartTypeFromConfig(component.config);
-        let minDimensions: { w: number; h: number };
-        if (component.config.contentConstraints) {
-          minDimensions = {
-            w: Math.max(
-              1,
-              Math.min(12, pixelsToGridUnits(component.config.contentConstraints.minWidth, true))
-            ),
-            h: Math.max(1, pixelsToGridUnits(component.config.contentConstraints.minHeight, false)),
-          };
-        } else {
-          minDimensions = getMinGridDimensions(chartType);
-        }
+        // Always use base chart-type constraints for resize limits so every
+        // component (including text) stays freely resizable. This matches the
+        // initial-load and creation paths. Previously text used the stored
+        // contentConstraints here, which ratcheted minW/minH up after the first
+        // resize/drag and blocked any further shrinking.
+        const minDimensions = getMinGridDimensions(chartType);
         return {
           ...item,
           w: Math.max(item.w, minDimensions.w),
