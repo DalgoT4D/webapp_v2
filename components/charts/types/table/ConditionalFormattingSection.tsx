@@ -352,20 +352,20 @@ export function ConditionalFormattingSection({
                   // Rule on a deeper drill dim — fires only after drilling in
                   const dimIdx = orderedDimensions.indexOf(rule.column);
                   const parent = orderedDimensions[dimIdx - 1];
-                  message = `Only applies after drilling into ${parent}. Won't show at the top level.`;
+                  message = `This rule applies only after you drill into ${parent}, and it won't be shown at the top level.`;
                 } else if (isDimColumn && rule.column === topLevelDim) {
                   // Rule on the first drill dim — fires only at the top level
-                  message = `Only applies at the top level. Won't show after drilling in.`;
+                  message = `This rule applies only at the top level, and it won't be shown once you drill in.`;
                 } else if (rule.level !== undefined) {
                   // Metric rule with an explicit level scope
                   if (rule.level === topLevelDim) {
-                    message = `Only applies at the top level. Won't show after drilling in.`;
+                    message = `This rule applies only at the top level, and it won't be shown once you drill in.`;
                   } else {
-                    message = `Only applies at the ${rule.level} level. Won't show at the top level.`;
+                    message = `This rule applies only at the ${rule.level} level, and it won't be shown at the top level.`;
                   }
                 } else if (!isDimColumn) {
                   // Metric rule with no level scope → applies at every drill level
-                  message = `Applies at every drill level.`;
+                  message = `This rule applies at every drill level.`;
                 }
 
                 if (!message) return null;
