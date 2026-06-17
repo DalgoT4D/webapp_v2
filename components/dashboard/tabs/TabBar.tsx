@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect, memo, useMemo } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { DashboardTab } from '@/types/dashboard';
 import { TAB_TITLE_MAX_LENGTH, createNewTab, getNextTabNumber } from './tab-utils';
@@ -152,22 +153,26 @@ const TabItem = memo(function TabItem({
           onClick={(e) => e.stopPropagation()}
         />
       ) : (
-        <button
-          type="button"
-          className={cn(
-            'truncate max-w-32 text-sm bg-transparent border-none p-0',
-            isEditMode && isActive && !isOnlyTab
-              ? 'cursor-pointer hover:underline'
-              : 'cursor-default pointer-events-none'
-          )}
-          title={tab.title}
-          data-testid={`tab-title-${tab.id}`}
-          onClick={handleTitleClick}
-          aria-label={`Rename ${tab.title} tab`}
-          tabIndex={isEditMode && isActive && !isOnlyTab ? 0 : -1}
-        >
-          {tab.title}
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                'truncate max-w-32 text-sm bg-transparent border-none p-0',
+                isEditMode && isActive && !isOnlyTab
+                  ? 'cursor-pointer hover:underline'
+                  : 'cursor-default'
+              )}
+              data-testid={`tab-title-${tab.id}`}
+              onClick={handleTitleClick}
+              aria-label={`Rename ${tab.title} tab`}
+              tabIndex={isEditMode && isActive && !isOnlyTab ? 0 : -1}
+            >
+              {tab.title}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{tab.title}</TooltipContent>
+        </Tooltip>
       )}
 
       {/* Remove button - only show in edit mode and when more than 1 tab */}
