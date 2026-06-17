@@ -153,6 +153,25 @@ describe('SchemaChangeForm', () => {
     });
   });
 
+  it('stops loading and shows an error when the task-status request fails', () => {
+    // Poll endpoint hard-fails (e.g. /api/tasks/stp/{id} returns 400) — SWR sets error,
+    // task never reaches completed/failed. Loader must not spin forever.
+    (useConnectionsHook.useTaskProgress as jest.Mock).mockReturnValue({
+      progress: null,
+      isComplete: false,
+      isFailed: false,
+      isLoading: false,
+      isError: new Error('Request failed with status 400'),
+    });
+
+    render(<SchemaChangeForm {...defaultProps} />);
+
+    expect(screen.queryByText('Refreshing schema...')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Failed to fetch schema changes. Please try again.')
+    ).toBeInTheDocument();
+  });
+
   it('calls onClose when cancel is clicked', async () => {
     const user = userEvent.setup();
     render(<SchemaChangeForm {...defaultProps} />);
