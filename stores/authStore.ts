@@ -5,6 +5,7 @@ export interface Org {
   slug: string;
   name: string;
   viz_url: string;
+  created_at?: string | null; // ISO 8601 org onboarding date; sent to PostHog as `onboarded_date` (group) for tenure cohorts
 }
 
 export interface Permission {

@@ -43,6 +43,7 @@ export function usePostHogIdentify(): void {
       identifyOrg(currentOrg.slug, {
         name: currentOrg.name,
         plan: orgUser?.subscription_plan ?? null,
+        onboardedDate: currentOrg.created_at ?? null,
       });
     }
   }, [isAuthenticated, currentOrg?.slug, getCurrentOrgUser]);

@@ -114,11 +114,16 @@ describe('identifyUser', () => {
 
 describe('identifyOrg', () => {
   it('groups by organization and sets current_org_* person properties', () => {
-    identifyOrg('ngo-slug', { name: 'NGO Name', plan: 'Free Trial' });
+    identifyOrg('ngo-slug', {
+      name: 'NGO Name',
+      plan: 'Free Trial',
+      onboardedDate: '2025-01-15T00:00:00Z',
+    });
     expect(mockGroup).toHaveBeenCalledWith('organization', 'ngo-slug', {
       name: 'NGO Name',
       slug: 'ngo-slug',
       subscription_plan: 'Free Trial',
+      onboarded_date: '2025-01-15T00:00:00Z',
     });
     expect(mockSetPersonProperties).toHaveBeenCalledWith({
       current_org_slug: 'ngo-slug',

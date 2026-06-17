@@ -61,12 +61,19 @@ export function identifyUser(
 // person properties for profile visibility and show only the user's latest org.
 export function identifyOrg(
   slug: string,
-  { name, plan }: { name: string; plan?: string | null }
+  {
+    name,
+    plan,
+    onboardedDate,
+  }: { name: string; plan?: string | null; onboardedDate?: string | null }
 ): void {
   posthog.group('organization', slug, {
     name,
     slug,
     subscription_plan: plan ?? null,
+    // ISO 8601 onboarding date. client_tenure (new <90d / existing) is derived from
+    // this in PostHog (a cohort/filter), NOT stored — so it never goes stale.
+    onboarded_date: onboardedDate ?? null,
   });
   posthog.setPersonProperties({
     current_org_slug: slug,
