@@ -1,4 +1,4 @@
-// components/explore/OverflowTooltip.tsx
+// components/ui/overflow-tooltip.tsx
 'use client';
 
 import { useRef, useState, useCallback } from 'react';
