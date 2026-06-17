@@ -16,6 +16,7 @@ import { useFullscreen } from '@/hooks/useFullscreen';
 import { RAG_COLORS } from '@/types/kpis';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { formatMetricValue } from '@/lib/formatters';
+import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 import type { RAGStatus } from '@/types/kpis';
 import { formatDistanceToNow, format as formatDate, parseISO, isValid } from 'date-fns';
 
@@ -231,8 +232,10 @@ export function KPICard({
       {/* Header */}
       <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-2 border-b">
         <div className="min-w-0">
-          <h3 className="font-semibold text-gray-900 truncate">{name}</h3>
-          {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
+          <OverflowTooltip text={name} className="font-semibold text-gray-900" />
+          {subtitle && (
+            <OverflowTooltip text={subtitle} className="text-xs text-muted-foreground" />
+          )}
         </div>
         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
           {ragInfo && (
