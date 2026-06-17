@@ -37,9 +37,16 @@ export interface MetricPreviewResponse {
   error: string | null;
 }
 
+export interface MetricConsumerAlert {
+  id: number;
+  name: string;
+  alert_type: string;
+}
+
 export interface MetricConsumersResponse {
   charts: { id: number; title: string; chart_type: string }[];
   kpis: { id: number; name: string }[];
+  alerts: MetricConsumerAlert[];
 }
 
 export const AGGREGATION_OPTIONS = [

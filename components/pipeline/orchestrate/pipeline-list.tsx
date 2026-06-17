@@ -6,7 +6,7 @@ import {
   Plus,
   Lock,
   Loader2,
-  MoreHorizontal,
+  MoreVertical,
   History,
   RefreshCw,
   Pencil,
@@ -35,6 +35,7 @@ import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { DocsLink } from '@/components/ui/docs-link';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -138,7 +139,9 @@ export function PipelineList() {
       <div className="flex-shrink-0 border-b bg-background">
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <h1 className="text-3xl font-bold">Pipelines</h1>
+            <DocsLink path="/data/orchestrate">
+              <h1 className="text-3xl font-bold">Pipelines</h1>
+            </DocsLink>
             <div className="flex items-center gap-1 md:gap-2 mt-1">
               <p className="text-muted-foreground">
                 Manage your data sync and transformation workflows
@@ -173,7 +176,7 @@ export function PipelineList() {
           {canCreatePipeline && (
             <Button variant="primary" onClick={handleCreate} data-testid="create-pipeline-btn">
               <Plus className="h-4 w-4 mr-2" />
-              Create Pipeline
+              CREATE PIPELINE
             </Button>
           )}
         </div>
@@ -189,12 +192,12 @@ export function PipelineList() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50 hover:bg-gray-50">
-                    <TableHead className="text-base font-medium text-center">Pipeline</TableHead>
-                    <TableHead className="text-base font-medium text-center">Schedule</TableHead>
-                    <TableHead className="text-base font-medium text-center">Status</TableHead>
-                    <TableHead className="text-base font-medium text-center">Last Run</TableHead>
-                    <TableHead className="text-base font-medium text-center">Result</TableHead>
-                    <TableHead className="text-base font-medium text-center">Actions</TableHead>
+                    <TableHead className="text-base font-medium">Pipeline</TableHead>
+                    <TableHead className="text-base font-medium">Schedule</TableHead>
+                    <TableHead className="text-base font-medium">Status</TableHead>
+                    <TableHead className="text-base font-medium">Last Run</TableHead>
+                    <TableHead className="text-base font-medium">Result</TableHead>
+                    <TableHead className="text-base font-medium">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -380,7 +383,7 @@ function PipelineRow({
 
       {/* Actions */}
       <TableCell className="py-4">
-        <div className="flex items-center justify-center gap-1">
+        <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
@@ -418,7 +421,7 @@ function PipelineRow({
                 className="h-8 w-8 p-0 hover:bg-gray-100"
                 data-testid={`more-btn-${deploymentId}`}
               >
-                <MoreHorizontal className="w-4 h-4 text-gray-600" />
+                <MoreVertical className="w-4 h-4 text-gray-600" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">

@@ -13,6 +13,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DocsLink } from '@/components/ui/docs-link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -68,7 +69,6 @@ import {
   User,
   Lock,
   Trash2,
-  MoreHorizontal,
   MoreVertical,
   Copy,
   Download,
@@ -905,7 +905,7 @@ export function DashboardListV2() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
-                  <MoreHorizontal className="w-4 h-4 text-gray-600" />
+                  <MoreVertical className="w-4 h-4 text-gray-600" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -1447,7 +1447,7 @@ export function DashboardListV2() {
                       size="icon"
                       className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
                     >
-                      <MoreHorizontal className="w-3 h-3 text-gray-700" />
+                      <MoreVertical className="w-3 h-3 text-gray-700" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
@@ -1602,15 +1602,20 @@ export function DashboardListV2() {
   return (
     <div id="dashboard-list-container" className="h-full flex flex-col">
       {/* Fixed Header */}
-      <div id="dashboard-header" className="flex-shrink-0 border-b bg-background px-6 py-4">
+      <div id="dashboard-header" className="flex-shrink-0 border-b bg-background">
         {/* Title Section */}
-        <div id="dashboard-title-section" className="flex items-center justify-between mb-3">
+        <div
+          id="dashboard-title-section"
+          className="flex items-center justify-between mb-6 p-6 pb-0"
+        >
           <div id="dashboard-title-wrapper">
-            <h1 id="dashboard-page-title" className="text-3xl font-bold">
-              Dashboards
-            </h1>
+            <DocsLink path="/dashboards">
+              <h1 id="dashboard-page-title" className="text-3xl font-bold">
+                Dashboards
+              </h1>
+            </DocsLink>
             <p id="dashboard-page-description" className="text-muted-foreground mt-1">
-              Create And Manage Your Dashboards
+              Create and manage your dashboards
             </p>
           </div>
 
@@ -1626,7 +1631,7 @@ export function DashboardListV2() {
 
         {/* Filter Summary - Only shows when filters are active to save space */}
         {getActiveFilterCount() > 0 && (
-          <div id="dashboard-filters-section" className="flex items-center gap-2 mt-2">
+          <div id="dashboard-filters-section" className="flex items-center gap-2 px-6 pb-0">
             <span className="text-sm text-gray-600">
               {getActiveFilterCount()} filter{getActiveFilterCount() > 1 ? 's' : ''} active
             </span>
@@ -1759,7 +1764,7 @@ export function DashboardListV2() {
                           <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                              className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                               onClick={() => handleSort('name')}
                             >
                               <div className="flex items-center gap-2">
@@ -1792,7 +1797,7 @@ export function DashboardListV2() {
                           <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                              className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                               onClick={() => handleSort('created_by')}
                             >
                               <div className="flex items-center gap-2">
@@ -1823,7 +1828,7 @@ export function DashboardListV2() {
                           <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                              className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                               onClick={() => handleSort('updated_at')}
                             >
                               <div className="flex items-center gap-2">
