@@ -73,13 +73,12 @@ export function SchemaChangeForm({ connectionId, onClose, onSuccess }: SchemaCha
           : 'Failed to fetch schema changes'
       );
     }
-  }, [isComplete, isFailed, progress]);
-
-  useEffect(() => {
+    // Surface a hard request failure (e.g. the task-status endpoint 400s) so the
+    // loader stops instead of spinning forever.
     if (isError) {
       setError('Failed to fetch schema changes. Please try again.');
     }
-  }, [isError]);
+  }, [isComplete, isFailed, isError, progress]);
 
   const transforms = useMemo(() => catalogDiff?.transforms ?? [], [catalogDiff]);
 
