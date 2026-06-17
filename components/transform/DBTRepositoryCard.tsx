@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Loader2, Info } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { buildDocsUrl } from '@/components/ui/docs-link';
 import { useDbtWorkspace, switchGitRepo, updateSchema } from '@/hooks/api/useDbtWorkspace';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { trackEvent } from '@/lib/analytics';
@@ -186,7 +187,7 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                               If you want access to the repository or wish to manage it yourself,
                               please refer to our{' '}
                               <a
-                                href={process.env.NEXT_PUBLIC_TRANSFORM_DOCS_URL || '#'}
+                                href={buildDocsUrl('/data/transform/switching-repositories') || '#'}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-primary hover:underline font-medium"

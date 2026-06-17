@@ -8,6 +8,7 @@ import { Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { TimePicker } from '@/components/ui/time-picker';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
@@ -506,12 +507,10 @@ function PipelineFormContent({
                     control={control}
                     rules={{ required: 'Time of day is required' }}
                     render={({ field }) => (
-                      <Input
-                        type="time"
+                      <TimePicker
                         value={field.value}
                         onChange={field.onChange}
                         data-testid="cronTimeOfDay"
-                        className="h-10 w-36 text-[15px]"
                       />
                     )}
                   />

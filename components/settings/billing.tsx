@@ -174,7 +174,7 @@ export default function Billing() {
                             className="text-muted-foreground"
                           >
                             <Info className="h-5 w-5" />
-                          </button>{' '}
+                          </button>
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>The request to upgrade the plan has been registered</p>

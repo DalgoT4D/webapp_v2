@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Loader2, MoreHorizontal, Play, Plus, Settings, Trash2, Lock, Clock } from 'lucide-react';
+import { Loader2, MoreVertical, Play, Plus, Settings, Trash2, Lock, Clock } from 'lucide-react';
 import {
   usePrefectTasks,
   runPrefectDeployment,
@@ -294,7 +294,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
                   <TableRow className="bg-gray-50 hover:bg-gray-50">
                     <TableHead className="text-base font-medium pl-4">Label</TableHead>
                     <TableHead className="text-base font-medium pl-4">Command</TableHead>
-                    <TableHead className="text-base font-medium text-right pr-4">Actions</TableHead>
+                    <TableHead className="w-[200px] text-base font-medium">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -307,8 +307,8 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
                         <TableCell className="py-4 pl-4 text-base text-gray-700">
                           {task.command}
                         </TableCell>
-                        <TableCell className="py-4 pr-4">
-                          <div className="flex items-center justify-end gap-3">
+                        <TableCell className="py-4">
+                          <div className="flex items-center gap-3">
                             {/* Show "Triggered by" when task is locked */}
                             {task.lock && isAnyTaskLocked && (
                               <div className="flex items-center gap-2">
@@ -361,7 +361,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
                                     data-testid={`task-menu-${task.uuid}`}
                                     className={runningTask || isAnyTaskLocked ? 'invisible' : ''}
                                   >
-                                    <MoreHorizontal className="h-4 w-4" />
+                                    <MoreVertical className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">

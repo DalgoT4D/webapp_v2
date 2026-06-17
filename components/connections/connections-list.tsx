@@ -324,9 +324,7 @@ export function ConnectionsList() {
                     Source → Destination
                   </TableHead>
                   <TableHead className="text-base font-medium w-[25%]">Last sync</TableHead>
-                  <TableHead className="text-base font-medium text-right w-[15%]">
-                    Actions
-                  </TableHead>
+                  <TableHead className="text-base font-medium w-[15%]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

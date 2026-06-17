@@ -31,28 +31,26 @@ export default function UserManagement() {
         }
         className="w-full flex-1 flex flex-col min-h-0"
       >
-        <div className="flex-shrink-0 w-full mx-auto px-6 pt-6 border-b  mb-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="flex-shrink-0 border-b bg-background">
+          <div className="flex items-center justify-between mb-6 p-6 pb-0">
             <div>
-              <h1 className="text-3xl font-bold mb-2">User Management</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-3xl font-bold">User Management</h1>
+              <p className="text-muted-foreground mt-1">
                 Manage users and invitations for your organization
               </p>
             </div>
 
             <Button
-              variant="ghost"
+              variant="primary"
               onClick={() => setShowInviteDialog(true)}
               disabled={!canCreateInvitation}
-              className="flex items-center gap-2 text-white hover:opacity-90 shadow-xs"
-              style={{ backgroundColor: 'var(--primary)' }}
               data-testid="invite-user-button"
             >
-              <UserPlus className="h-4 w-4" />
-              Invite User
+              <UserPlus className="h-4 w-4 mr-2" />
+              INVITE USER
             </Button>
           </div>
-          <div className="flex items-center gap-2 pb-0">
+          <div className="flex items-center gap-2 px-6 pb-0">
             <TabsList className="bg-transparent p-0 h-auto gap-4">
               <TabsTrigger value="users" className={TAB_TRIGGER_CLASS} data-testid="tab-users">
                 Users
@@ -98,7 +96,7 @@ export default function UserManagement() {
           </div>
         </div>
 
-        <div className="flex-1 w-full px-6 pb-6 overflow-y-auto min-h-0">
+        <div className="flex-1 w-full px-6 pt-6 pb-6 overflow-y-auto min-h-0">
           <TabsContent value="users" className="mt-0">
             <UsersTable />
           </TabsContent>

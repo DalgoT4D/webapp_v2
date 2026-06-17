@@ -11,6 +11,7 @@ import {
   Pencil,
   Trash2,
   Eye,
+  BellRing,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -32,7 +33,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DocsLink } from '@/components/ui/docs-link';
 import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
+import { ALERT_PERMISSIONS } from '@/types/alerts';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
 import { KPIDeleteDialog } from './kpi-delete-dialog';
@@ -53,12 +58,16 @@ function KPICardWithData({
   onClick,
   onEdit,
   onDelete,
+  onCreateAlert,
+  canCreateAlert,
   statusFilter,
 }: {
   kpi: KPI;
   onClick: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onCreateAlert?: () => void;
+  canCreateAlert?: boolean;
   statusFilter?: string;
 }) {
   const { chartData, echartsConfig, isLoading } = useKPIData(kpi.id);
@@ -106,6 +115,12 @@ function KPICardWithData({
               <Pencil className="w-4 h-4 mr-2" />
               Edit KPI
             </DropdownMenuItem>
+            {canCreateAlert && onCreateAlert && (
+              <DropdownMenuItem onClick={onCreateAlert} className="cursor-pointer">
+                <BellRing className="w-4 h-4 mr-2" />
+                Create alert
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={onDelete}
@@ -129,13 +144,17 @@ export function KPIPageComponent() {
   const [programTagFilter, setProgramTagFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [formOpen, setFormOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(searchParams.get('create') === 'true');
   const [editingKpi, setEditingKpi] = useState<KPI | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedKpi, setSelectedKpi] = useState<KPI | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingKpi, setDeletingKpi] = useState<KPI | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [alertKpiId, setAlertKpiId] = useState<number | null>(null);
+
+  const { hasPermission } = useUserPermissions();
+  const canCreateAlert = hasPermission(ALERT_PERMISSIONS.create);
 
   const PAGE_SIZE = 10;
 
@@ -173,6 +192,18 @@ export function KPIPageComponent() {
       router.replace(qs ? `/kpis?${qs}` : '/kpis', { scroll: false });
     }
   }, [searchParams, kpis, router]);
+
+  // Strip `?create=true` after consuming it on mount so a refresh doesn't
+  // re-open the create form.
+  useEffect(() => {
+    if (searchParams.get('create') === 'true') {
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete('create');
+      const qs = next.toString();
+      router.replace(qs ? `/kpis?${qs}` : '/kpis', { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFormSuccess = useCallback(() => {
     setCurrentPage(1);
@@ -238,20 +269,16 @@ export function KPIPageComponent() {
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="flex-shrink-0 border-b bg-background">
-        <div className="flex items-center justify-between p-6 pb-4">
+        <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <h1 className="text-3xl font-bold">KPI</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <DocsLink path="/kpis">
+              <h1 className="text-3xl font-bold">KPI</h1>
+            </DocsLink>
+            <p className="text-muted-foreground mt-1">
               Track business objectives with measurable KPIs linked to your metrics
             </p>
           </div>
-          <Button
-            variant="ghost"
-            className="text-white hover:opacity-90 shadow-xs"
-            style={{ backgroundColor: 'var(--primary)' }}
-            onClick={handleCreate}
-            data-testid="create-kpi-btn"
-          >
+          <Button variant="primary" onClick={handleCreate} data-testid="create-kpi-btn">
             <Plus className="w-4 h-4 mr-2" />
             CREATE KPI
           </Button>
@@ -383,6 +410,8 @@ export function KPIPageComponent() {
                     onClick={() => handleCardClick(kpi)}
                     onEdit={() => handleEdit(kpi)}
                     onDelete={() => handleDeleteClick(kpi)}
+                    onCreateAlert={() => setAlertKpiId(kpi.id)}
+                    canCreateAlert={canCreateAlert}
                     statusFilter={statusFilter || undefined}
                   />
                 ))}
@@ -394,12 +423,7 @@ export function KPIPageComponent() {
                   {search ? 'No KPIs match your search' : 'No KPIs yet'}
                 </p>
                 {!search && (
-                  <Button
-                    variant="ghost"
-                    className="text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: 'var(--primary)' }}
-                    onClick={handleCreate}
-                  >
+                  <Button variant="primary" onClick={handleCreate}>
                     <Plus className="w-4 h-4 mr-2" />
                     CREATE YOUR FIRST KPI
                   </Button>
@@ -437,6 +461,12 @@ export function KPIPageComponent() {
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteConfirm}
         isDeleting={isDeleting}
+      />
+
+      <AlertWizardModal
+        open={alertKpiId !== null}
+        onOpenChange={(o) => !o && setAlertKpiId(null)}
+        initial={{ alertType: 'kpi_rag', kpiId: alertKpiId }}
       />
     </div>
   );
