@@ -47,6 +47,8 @@ import type { KPI } from '@/types/kpis';
 import { RAG_COLORS, METRIC_TYPE_TAG_OPTIONS, TIME_GRAIN_OPTIONS } from '@/types/kpis';
 import type { RAGStatus } from '@/types/kpis';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { formatDistanceToNow } from 'date-fns';
 import { computePopChanges } from '@/lib/formatters';
 
@@ -215,6 +217,7 @@ export function KPIPageComponent() {
   };
 
   const handleCardClick = (kpi: KPI) => {
+    trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, { metric_type_tag: kpi.metric_type_tag || null });
     setSelectedKpi(kpi);
     setDrawerOpen(true);
   };
@@ -235,6 +238,9 @@ export function KPIPageComponent() {
     setIsDeleting(true);
     try {
       await deleteKPI(deletingKpi.id);
+      trackEvent(ANALYTICS_EVENTS.KPI_DELETED, {
+        metric_type_tag: deletingKpi.metric_type_tag || null,
+      });
       if (kpis.length === 1 && currentPage > 1) {
         setCurrentPage(currentPage - 1);
       }

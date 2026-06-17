@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -97,6 +99,7 @@ export function AlertNotifyStep({ value, onChange, alertType, errors }: AlertNot
     try {
       const res = await testSlackWebhook(value.slackWebhookUrl.trim());
       if (res.success) {
+        trackEvent(ANALYTICS_EVENTS.ALERT_SLACK_WEBHOOK_TESTED);
         setTestState('success');
         setTestMessage(`Sent — HTTP ${res.http_status}.`);
       } else {

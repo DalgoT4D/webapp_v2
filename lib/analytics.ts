@@ -1,5 +1,10 @@
 import posthog from 'posthog-js';
-import { ANALYTICS_EVENTS, type AnalyticsEvent, type Feature } from '@/constants/analytics';
+import {
+  ANALYTICS_EVENTS,
+  VALUE_ACTION_EVENTS,
+  type AnalyticsEvent,
+  type Feature,
+} from '@/constants/analytics';
 
 // Team email domains. Users on these are tagged is_internal so they can be
 // filtered out of PostHog dashboards (they are NOT excluded from capture).
@@ -11,7 +16,13 @@ export function isInternalEmail(email: string): boolean {
 }
 
 export function trackEvent(event: AnalyticsEvent, properties?: Record<string, unknown>): void {
-  posthog.capture(event, properties);
+  // Auto-stamp `is_value_action: true` on the North Star events (spec §2.1) so
+  // the metric is one PostHog filter, not a hand-maintained event-name list.
+  // Membership is defined once in VALUE_ACTION_EVENTS — call sites don't repeat it.
+  const props = VALUE_ACTION_EVENTS.has(event)
+    ? { ...properties, is_value_action: true }
+    : properties;
+  posthog.capture(event, props);
 }
 
 // Breadth event for feature-adoption: one fixed event, the feature/tab vary as
@@ -30,7 +41,11 @@ export function trackFeatureView(feature: Feature, opts?: { tab?: string }): voi
 // current_role person property (latest value, for visibility on the profile).
 // No-ops if userId is falsy (e.g. backend not yet deployed with user_id), so
 // analytics degrades gracefully instead of breaking.
-export function identifyUser(userId: number, email: string, { role }: { role?: string }): void {
+export function identifyUser(
+  userId: number,
+  email: string,
+  { role, workDomain }: { role?: string; workDomain?: string | null }
+): void {
   if (!userId) return;
   // Migrate users still on the old email-based identity (from a previous build)
   // onto user_id. posthog.identify() won't override an already-identified
@@ -42,6 +57,10 @@ export function identifyUser(userId: number, email: string, { role }: { role?: s
   posthog.identify(String(userId), {
     is_internal: isInternalEmail(email),
     current_role: role,
+    // The user's work FUNCTION at the NGO (M&E / program / data-tech / leadership /
+    // field), self-selected at signup. This is the spec's `function` segmentation
+    // lens — answers "value for whom". Categorical enum, not PII.
+    work_domain: workDomain ?? null,
   });
   posthog.register({ role });
 }
@@ -53,12 +72,19 @@ export function identifyUser(userId: number, email: string, { role }: { role?: s
 // person properties for profile visibility and show only the user's latest org.
 export function identifyOrg(
   slug: string,
-  { name, plan }: { name: string; plan?: string | null }
+  {
+    name,
+    plan,
+    onboardedDate,
+  }: { name: string; plan?: string | null; onboardedDate?: string | null }
 ): void {
   posthog.group('organization', slug, {
     name,
     slug,
     subscription_plan: plan ?? null,
+    // ISO 8601 onboarding date. client_tenure (new <90d / existing) is derived from
+    // this in PostHog (a cohort/filter), NOT stored — so it never goes stale.
+    onboarded_date: onboardedDate ?? null,
   });
   posthog.setPersonProperties({
     current_org_slug: slug,

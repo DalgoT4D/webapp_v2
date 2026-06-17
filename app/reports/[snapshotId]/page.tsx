@@ -78,6 +78,7 @@ export default function SnapshotViewerPage() {
     setIsSaving(true);
     try {
       await updateSnapshot(parsedId, { summary: summaryDraft });
+      trackEvent(ANALYTICS_EVENTS.REPORT_UPDATED);
       await mutate();
       setSummaryTouched(false);
       setIsEditingSummary(false);
@@ -180,7 +181,10 @@ export default function SnapshotViewerPage() {
               variant="outline"
               size="sm"
               aria-label="Download report as PDF"
-              onClick={handleDownload}
+              onClick={async () => {
+                await handleDownload();
+                trackEvent(ANALYTICS_EVENTS.REPORT_EXPORTED, { format: 'pdf' });
+              }}
               disabled={isExporting}
             >
               {isExporting ? (

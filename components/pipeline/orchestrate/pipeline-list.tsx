@@ -78,7 +78,9 @@ export function PipelineList() {
     async (deploymentId: string) => {
       try {
         await triggerPipelineRun(deploymentId);
-        trackEvent(ANALYTICS_EVENTS.PIPELINE_TRIGGERED, { deployment_id: deploymentId });
+        // Fires only on a manual run (the user clicked Run) — scheduled runs happen
+        // in the backend and are not captured here.
+        trackEvent(ANALYTICS_EVENTS.PIPELINE_TRIGGERED);
         toastSuccess.generic('Pipeline started successfully');
         mutate(); // this cause the polling and based on lock condition the refreshinterval keeps on polling the data.
         return {};
@@ -112,6 +114,7 @@ export function PipelineList() {
         try {
           const result = await deletePipeline(deploymentId);
           if (result?.success) {
+            trackEvent(ANALYTICS_EVENTS.PIPELINE_DELETED);
             toastSuccess.deleted('Pipeline');
             mutate();
           } else {
