@@ -5,6 +5,8 @@ import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { DashboardTab } from '@/types/dashboard';
 import { TAB_TITLE_MAX_LENGTH, createNewTab, getNextTabNumber } from './tab-utils';
 import { DeleteTabDialog } from './DeleteTabDialog';
@@ -118,6 +120,7 @@ const TabItem = memo(function TabItem({
 
   const handleConfirmDelete = useCallback(() => {
     setShowDeleteDialog(false);
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_TAB_DELETED);
     onRemove(tab.id);
   }, [onRemove, tab.id]);
 
@@ -210,6 +213,7 @@ export const TabBar = memo(function TabBar({
   const handleAddTab = useCallback(() => {
     const nextNumber = getNextTabNumber(safeTabs);
     const newTab = createNewTab(nextNumber);
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_TAB_CREATED);
     onTabAdd(newTab);
   }, [safeTabs, onTabAdd]);
 

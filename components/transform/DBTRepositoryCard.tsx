@@ -74,10 +74,12 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
         if (schemaChanged && !gitRepoChanged) {
           // Only schema changed — use the schema-only endpoint
           await updateSchema(data.defaultSchema);
+          trackEvent(ANALYTICS_EVENTS.TRANSFORM_SCHEMA_UPDATED);
           toastSuccess.updated('Schema');
         } else if (gitRepoChanged) {
           // Git repo changed — use the switch_git_repo endpoint
           await switchGitRepo(data.gitrepoUrl, data.gitrepoAccessToken);
+          trackEvent(ANALYTICS_EVENTS.TRANSFORM_GITHUB_REPO_UPDATED);
           toastSuccess.updated('Git repository');
           // If schema also changed, update it separately
           if (schemaChanged) {

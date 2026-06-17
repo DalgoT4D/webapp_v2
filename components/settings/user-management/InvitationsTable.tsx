@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -322,6 +324,7 @@ export function InvitationsTable() {
     setResendingId(invitationId);
     try {
       await resendInvitation(invitationId);
+      trackEvent(ANALYTICS_EVENTS.INVITATION_RESENT);
     } catch (error) {
       // Error is handled in the hook
     } finally {

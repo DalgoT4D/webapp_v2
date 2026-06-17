@@ -98,6 +98,8 @@ import {
 } from '@/hooks/api/useDashboards';
 import { ShareModal } from '@/components/ui/share-modal';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
@@ -420,6 +422,7 @@ export function DashboardListV2() {
 
       try {
         await deleteDashboard(dashboardId);
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED);
 
         // Refresh the dashboard list
         await mutate();
@@ -442,6 +445,7 @@ export function DashboardListV2() {
 
       try {
         const newDashboard = await duplicateDashboard(dashboardId);
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DUPLICATED);
 
         // Refresh the dashboard list
         await mutate();

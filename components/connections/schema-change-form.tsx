@@ -17,6 +17,8 @@ import {
   useTaskProgress,
 } from '@/hooks/api/useConnections';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
   CatalogTransformType,
   FieldTransformType,
@@ -87,6 +89,7 @@ export function SchemaChangeForm({ connectionId, onClose, onSuccess }: SchemaCha
     setIsSubmitting(true);
     try {
       await scheduleSchemaUpdate(connectionId, { catalogDiff });
+      trackEvent(ANALYTICS_EVENTS.CONNECTION_SCHEMA_CHANGES_APPLIED);
       toastSuccess.generic('Schema changes accepted');
       onSuccess();
     } catch (err) {

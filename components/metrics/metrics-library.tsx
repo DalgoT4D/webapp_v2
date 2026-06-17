@@ -67,6 +67,8 @@ import { ALERT_PERMISSIONS } from '@/types/alerts';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 
 export function MetricsLibrary() {
@@ -222,6 +224,9 @@ export function MetricsLibrary() {
     setIsDeleting(true);
     try {
       await deleteMetric(deletingMetric.id);
+      trackEvent(ANALYTICS_EVENTS.METRIC_DELETED, {
+        aggregation: deletingMetric.aggregation || null,
+      });
       mutate();
       setDeleteDialogOpen(false);
       toastSuccess.deleted(deletingMetric.name);

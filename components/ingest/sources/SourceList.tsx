@@ -5,6 +5,8 @@ import { Plus, Search, MoreVertical, Pencil, Trash2, Loader2 } from 'lucide-reac
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
   Table,
   TableBody,
@@ -87,6 +89,7 @@ export function SourceList() {
       if (confirmed) {
         try {
           await deleteSource(sourceId);
+          trackEvent(ANALYTICS_EVENTS.SOURCE_DELETED);
           toastSuccess.deleted(sourceName);
           mutate();
         } catch (error) {

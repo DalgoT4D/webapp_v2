@@ -257,6 +257,9 @@ function PipelineFormContent({
         if (activeChanged) {
           try {
             await setScheduleStatus(deploymentId, data.active);
+            trackEvent(ANALYTICS_EVENTS.PIPELINE_SCHEDULE_TOGGLED, {
+              new_status: data.active ? 'active' : 'inactive',
+            });
           } catch (statusError: any) {
             scheduleStatusFailed = true;
             toastError.api(
@@ -272,6 +275,9 @@ function PipelineFormContent({
         mutate('/api/prefect/v1/flows/', undefined, { revalidate: false });
 
         if (!scheduleStatusFailed) {
+          trackEvent(ANALYTICS_EVENTS.PIPELINE_UPDATED, {
+            has_schedule: Boolean(cronExpression) && cronExpression !== 'manual',
+          });
           toastSuccess.updated('Pipeline');
         }
       } else {
@@ -283,7 +289,9 @@ function PipelineFormContent({
           continueOnSyncFailure: data.continueOnSyncFailure,
         });
 
-        trackEvent(ANALYTICS_EVENTS.PIPELINE_CREATED);
+        trackEvent(ANALYTICS_EVENTS.PIPELINE_CREATED, {
+          has_schedule: Boolean(cronExpression) && cronExpression !== 'manual',
+        });
         toastSuccess.created('Pipeline');
       }
 

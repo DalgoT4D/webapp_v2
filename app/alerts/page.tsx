@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -60,6 +62,7 @@ export default function AlertsPage() {
   const handleToggle = async (a: AlertListItem) => {
     try {
       await toggleAlert(a.id, !a.is_active);
+      trackEvent(ANALYTICS_EVENTS.ALERT_TOGGLED, { enabled: !a.is_active });
       toast.success(a.is_active ? 'Alert disabled.' : 'Alert enabled.');
       mutate();
     } catch {
@@ -72,6 +75,7 @@ export default function AlertsPage() {
     setIsDeleting(true);
     try {
       await deleteAlert(deletingAlert.id);
+      trackEvent(ANALYTICS_EVENTS.ALERT_DELETED);
       toast.success('Alert deleted.');
       setDeletingAlert(null);
       mutate();
@@ -122,7 +126,10 @@ export default function AlertsPage() {
             onEdit={(a) => setEditingId(a.id)}
             onDelete={(a) => setDeletingAlert(a)}
             onToggle={handleToggle}
-            onOpenLog={(a) => setLogModalAlert(a)}
+            onOpenLog={(a) => {
+              trackEvent(ANALYTICS_EVENTS.ALERT_LOGS_VIEWED);
+              setLogModalAlert(a);
+            }}
           />
         </div>
       </div>

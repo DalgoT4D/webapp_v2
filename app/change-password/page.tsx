@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -63,6 +65,7 @@ export default function ChangePasswordPage() {
         password: data.password,
         confirmPassword: data.confirmPassword,
       });
+      trackEvent(ANALYTICS_EVENTS.PASSWORD_CHANGED);
       setShowSuccess(true);
       toast({
         title: 'Success',

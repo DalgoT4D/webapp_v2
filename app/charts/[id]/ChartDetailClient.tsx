@@ -22,6 +22,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type { ChartDataPayload } from '@/types/charts';
 import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 import type * as echarts from 'echarts';
@@ -55,6 +57,14 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const isFromDashboard = searchParams.get('from') === 'dashboard';
   const { hasPermission } = useUserPermissions();
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
+  // Fire CHART_VIEWED once per mount when the chart loads (WAVO consume signal).
+  const chartViewedTracked = useRef(false);
+  useEffect(() => {
+    if (chart && !chartViewedTracked.current) {
+      trackEvent(ANALYTICS_EVENTS.CHART_VIEWED, { chart_type: chart.chart_type });
+      chartViewedTracked.current = true;
+    }
+  }, [chart]);
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
   const [tableChartPage, setTableChartPage] = useState(1);
   const [tableChartPageSize, setTableChartPageSize] = useState(20);

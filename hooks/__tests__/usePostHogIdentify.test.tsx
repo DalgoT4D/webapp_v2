@@ -54,6 +54,7 @@ it('identifies user and org when authenticated', () => {
   expect(mockIdentifyOrg).toHaveBeenCalledWith('ngo-1', {
     name: 'NGO One',
     plan: 'Free Trial',
+    onboardedDate: null,
   });
   expect(mockResetAnalytics).not.toHaveBeenCalled();
 });
@@ -121,5 +122,9 @@ it('re-identifies on org switch (same user_id) so the role super-property refres
   // identifyUser must fire again so the registered role is updated to 'admin'.
   expect(mockIdentifyUser).toHaveBeenCalledTimes(2);
   expect(mockIdentifyUser).toHaveBeenLastCalledWith(42, 'u@ngo.example', { role: 'admin' });
-  expect(mockIdentifyOrg).toHaveBeenLastCalledWith('ngo-2', { name: 'NGO Two', plan: 'Paid' });
+  expect(mockIdentifyOrg).toHaveBeenLastCalledWith('ngo-2', {
+    name: 'NGO Two',
+    plan: 'Paid',
+    onboardedDate: null,
+  });
 });
