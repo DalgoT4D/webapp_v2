@@ -131,6 +131,50 @@ export const ANALYTICS_EVENTS = {
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
 
+// Value actions — "creating or consuming insight" (spec §2.1). Every event here
+// is auto-stamped with `is_value_action: true` by trackEvent, so the North Star
+// ("unique users doing ≥1 value action") is one PostHog filter
+// (is_value_action = true) instead of a hand-maintained list of event names.
+// Add a new value event HERE and it's counted automatically — nothing to change
+// in PostHog. Plumbing (pipeline/connection/source/warehouse/transform), config
+// (alert toggle, set-as-landing), deletes, and granular dashboard sub-edits
+// (DASHBOARD_SAVED already covers the edit) are deliberately NOT value actions.
+export const VALUE_ACTION_EVENTS: ReadonlySet<AnalyticsEvent> = new Set([
+  // Charts — view / edit / create / export
+  ANALYTICS_EVENTS.CHART_VIEWED,
+  ANALYTICS_EVENTS.CHART_CREATED,
+  ANALYTICS_EVENTS.CHART_SAVED,
+  ANALYTICS_EVENTS.CHART_SAVED_AS_NEW,
+  ANALYTICS_EVENTS.CHART_DUPLICATED,
+  ANALYTICS_EVENTS.CHART_EXPORTED,
+  // Dashboards — view / edit / create / share
+  ANALYTICS_EVENTS.DASHBOARD_VIEWED,
+  ANALYTICS_EVENTS.DASHBOARD_CREATED,
+  ANALYTICS_EVENTS.DASHBOARD_SAVED,
+  ANALYTICS_EVENTS.DASHBOARD_DUPLICATED,
+  ANALYTICS_EVENTS.DASHBOARD_SHARED,
+  // Reports — view / edit / create / share / export / comment
+  ANALYTICS_EVENTS.REPORT_VIEWED,
+  ANALYTICS_EVENTS.REPORT_CREATED,
+  ANALYTICS_EVENTS.REPORT_UPDATED,
+  ANALYTICS_EVENTS.REPORT_SHARED,
+  ANALYTICS_EVENTS.REPORT_EXPORTED,
+  ANALYTICS_EVENTS.REPORT_COMMENT_CREATED,
+  // KPIs — view / edit / create / annotate
+  ANALYTICS_EVENTS.KPI_VIEWED,
+  ANALYTICS_EVENTS.KPI_CREATED,
+  ANALYTICS_EVENTS.KPI_UPDATED,
+  ANALYTICS_EVENTS.KPI_ANNOTATION_CREATED,
+  ANALYTICS_EVENTS.KPI_ANNOTATION_UPDATED,
+  // Metrics — use (consume) / edit / create
+  ANALYTICS_EVENTS.METRIC_USED,
+  ANALYTICS_EVENTS.METRIC_CREATED,
+  ANALYTICS_EVENTS.METRIC_UPDATED,
+  // Alerts — edit / create
+  ANALYTICS_EVENTS.ALERT_CREATED,
+  ANALYTICS_EVENTS.ALERT_UPDATED,
+]);
+
 // Stable feature identifiers for the feature:viewed breadth event. One per
 // nav item / submenu (see components/main-layout.tsx).
 export const FEATURES = {

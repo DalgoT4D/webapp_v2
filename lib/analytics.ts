@@ -1,5 +1,10 @@
 import posthog from 'posthog-js';
-import { ANALYTICS_EVENTS, type AnalyticsEvent, type Feature } from '@/constants/analytics';
+import {
+  ANALYTICS_EVENTS,
+  VALUE_ACTION_EVENTS,
+  type AnalyticsEvent,
+  type Feature,
+} from '@/constants/analytics';
 
 // Team email domains. Users on these are tagged is_internal so they can be
 // filtered out of PostHog dashboards (they are NOT excluded from capture).
@@ -11,7 +16,13 @@ export function isInternalEmail(email: string): boolean {
 }
 
 export function trackEvent(event: AnalyticsEvent, properties?: Record<string, unknown>): void {
-  posthog.capture(event, properties);
+  // Auto-stamp `is_value_action: true` on the North Star events (spec §2.1) so
+  // the metric is one PostHog filter, not a hand-maintained event-name list.
+  // Membership is defined once in VALUE_ACTION_EVENTS — call sites don't repeat it.
+  const props = VALUE_ACTION_EVENTS.has(event)
+    ? { ...properties, is_value_action: true }
+    : properties;
+  posthog.capture(event, props);
 }
 
 // Breadth event for feature-adoption: one fixed event, the feature/tab vary as
