@@ -452,9 +452,7 @@ export function InvitationsTable() {
                   </Popover>
                 </div>
               </TableHead>
-              <TableHead className="w-[10%] text-right font-medium text-base px-4 py-3">
-                Actions
-              </TableHead>
+              <TableHead className="w-[10%] font-medium text-base px-4 py-3">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -475,7 +473,7 @@ export function InvitationsTable() {
                     ? format(new Date(invitation.invited_on), 'MMM dd, yyyy')
                     : '—'}
                 </TableCell>
-                <TableCell className="px-4 py-3 text-right">
+                <TableCell className="px-4 py-3">
                   {(canResendInvitation || canDeleteInvitation) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

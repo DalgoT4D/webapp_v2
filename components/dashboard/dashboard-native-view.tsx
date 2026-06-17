@@ -409,6 +409,16 @@ export function DashboardNativeView({
     setActiveTabId(tabId);
   }, []);
 
+  // After filter panel collapse, ECharts still sees the pre-animation container width.
+  // Wait for the slide transition (duration-300) to finish before firing resize so all
+  // chart instances remeasure against the final layout — 300ms transition + 50ms buffer.
+  const FILTER_PANEL_TRANSITION_MS = 350;
+
+  const handleFiltersCollapseChange = useCallback((collapsed: boolean) => {
+    setIsFiltersCollapsed(collapsed);
+    setTimeout(() => window.dispatchEvent(new Event('resize')), FILTER_PANEL_TRANSITION_MS);
+  }, []);
+
   // Check if we should show tabs (2 or more tabs)
   const shouldShowTabs = tabsData && (tabsData.tabs?.length ?? 0) >= 2;
 
@@ -1176,7 +1186,7 @@ export function DashboardNativeView({
             layout="vertical"
             onFiltersApplied={handleFiltersApplied}
             onFiltersCleared={handleFiltersCleared}
-            onCollapseChange={setIsFiltersCollapsed}
+            onCollapseChange={handleFiltersCollapseChange}
             isPublicMode={isPublicMode}
             publicToken={publicToken}
             initiallyCollapsed={showMinimalHeader || isPublicMode || isReportMode}
@@ -1300,9 +1310,15 @@ export function DashboardNativeView({
                       ))}
                     </ResponsiveGrid>
                   ) : (
-                    // Target screen size or no preview override - use exact layout
+                    // Target screen size or no preview override - grid model: render each
+                    // widget at its own (x,y,w,h) with gravity-up, matching the editor.
                     <GridLayout
                       className="dashboard-grid"
+                      // Pass the raw layout and let RGL's compactType="vertical" handle
+                      // compaction — identical to the editor canvas. A prior compactVertical()
+                      // pass here used a "global topmost free slot" search that let items jump
+                      // a full-width separator into an exactly-sized gap above it, so the view
+                      // reflowed differently from edit. See git history / dashboard 328.
                       layout={modifiedLayout}
                       cols={effectiveScreenConfig.cols}
                       rowHeight={20}
@@ -1312,13 +1328,12 @@ export function DashboardNativeView({
                       }}
                       isDraggable={false}
                       isResizable={false}
-                      compactType={null}
-                      preventCollision={true}
+                      compactType="vertical"
+                      preventCollision={false}
                       allowOverlap={false}
                       margin={[8, 8]}
                       containerPadding={[8, 8]}
                       autoSize={true}
-                      verticalCompact={false}
                     >
                       {modifiedLayout.map((layoutItem: any) => (
                         <div key={layoutItem.i} className="dashboard-item">

@@ -137,6 +137,30 @@ export function useKPIDashboards(kpiId: number | null) {
   };
 }
 
+export interface KPIConsumerAlert {
+  id: number;
+  name: string;
+  alert_type: string;
+}
+
+export interface KPIConsumersResponse {
+  dashboards: KPIDashboard[];
+  alerts: KPIConsumerAlert[];
+}
+
+export function useKPIConsumers(kpiId: number | null) {
+  const { data, error } = useSWR<KPIConsumersResponse>(
+    kpiId ? `/api/kpis/${kpiId}/consumers/` : null,
+    apiGet,
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
+  );
+  return {
+    data: data || { dashboards: [], alerts: [] },
+    isLoading: !error && !data && !!kpiId,
+    isError: error,
+  };
+}
+
 // ── Annotations ───────────────────────────────────────────────────────
 
 export function useAnnotations(kpiId: number | null) {

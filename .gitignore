@@ -41,7 +41,9 @@ yarn-error.log*
 next-env.d.ts
 
 # ai dev tool related
-.claude
+# Share team config (CLAUDE.md, rules/, skills/, agents/, settings.json) — ignore only personal/local bits
+.claude/settings.local.json
+.claude/worktrees/
 
 # Playwright
 node_modules/

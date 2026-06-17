@@ -2,7 +2,7 @@
 
 import { useCallback, memo } from 'react';
 import {
-  MoreHorizontal,
+  MoreVertical,
   RefreshCw,
   Trash2,
   Pencil,
@@ -164,7 +164,7 @@ export const ConnectionRow = memo(function ConnectionRow({
 
       {/* Actions */}
       <TableCell className="py-4">
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex items-center gap-1">
           {/* History button */}
           <Button
             variant="ghost"
@@ -217,7 +217,7 @@ export const ConnectionRow = memo(function ConnectionRow({
                 className="h-8 w-8 p-0 hover:bg-gray-100"
                 data-testid={`connection-menu-${conn.connectionId}`}
               >
-                <MoreHorizontal className="w-4 h-4 text-gray-600" />
+                <MoreVertical className="w-4 h-4 text-gray-600" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">

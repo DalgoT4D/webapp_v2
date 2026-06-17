@@ -20,6 +20,7 @@ export enum DashboardComponentType {
   CHART = 'chart',
   TEXT = 'text',
   FILTER = 'filter',
+  KPI = 'kpi',
 }
 
 // Dashboard Component - represents a chart, text, or filter element

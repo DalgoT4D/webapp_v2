@@ -167,11 +167,47 @@ describe('Pipeline Utilities', () => {
       expect(result).toMatch(/^\d+ \d+ \* \* \d+$/);
     });
 
-    it('returns original expression if day-of-month or month is not *', () => {
+    it('returns original expression if month is not *', () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
-      expect(cronToLocalTZ('0 10 15 * 3')).toBe('0 10 15 * 3'); // day-of-month = 15
       expect(cronToLocalTZ('0 10 * 6 3')).toBe('0 10 * 6 3'); // month = 6
       consoleSpy.mockRestore();
+    });
+
+    it('returns original expression if DOM is an unsupported shape', () => {
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+      expect(cronToLocalTZ('0 10 1,15 * *')).toBe('0 10 1,15 * *'); // DOM list
+      expect(cronToLocalTZ('0 10 1-7 * *')).toBe('0 10 1-7 * *'); // DOM range
+      consoleSpy.mockRestore();
+    });
+
+    it('converts monthly schedule to local TZ (no day shift)', () => {
+      // IST +5:30 — UTC 10:00 on the 15th → local 15:30 on the 15th. Same day.
+      const restore = mockTimezone(15, 30, 15, 15);
+
+      const result = cronToLocalTZ('0 10 15 * *');
+      expect(result).toBe('30 15 15 * *');
+
+      restore();
+    });
+
+    it('shifts monthly DOM forward when local crosses midnight forward', () => {
+      // IST +5:30 — UTC 22:00 on the 14th → local 03:30 on the 15th.
+      const restore = mockTimezone(3, 30, 15, 14);
+
+      const result = cronToLocalTZ('0 22 14 * *');
+      expect(result).toBe('30 3 15 * *');
+
+      restore();
+    });
+
+    it('shifts monthly DOM backward when local crosses midnight backward', () => {
+      // PST -5:00 — UTC 02:00 on the 15th → local 21:00 on the 14th.
+      const restore = mockTimezone(21, 0, 14, 15);
+
+      const result = cronToLocalTZ('0 2 15 * *');
+      expect(result).toBe('0 21 14 * *');
+
+      restore();
     });
 
     it('preserves wildcard day-of-week (*) regardless of day shift', () => {

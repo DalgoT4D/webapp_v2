@@ -6,6 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { WarehouseDisplay } from '@/components/ingest/warehouse/warehouse-display';
 import { SourceList } from '@/components/ingest/sources/SourceList';
 import { ConnectionsList } from '@/components/connections/connections-list';
+import { DocsLink } from '@/components/ui/docs-link';
 import { trackFeatureView } from '@/lib/analytics';
 import { FEATURES } from '@/constants/analytics';
 
@@ -41,16 +42,18 @@ function IngestPageContent() {
     >
       {/* Fixed Header */}
       <div className="flex-shrink-0 border-b bg-background">
-        <div className="flex items-center justify-between p-6 pb-0">
+        <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <h1 className="text-3xl font-bold">Ingest</h1>
+            <DocsLink path="/data/ingest">
+              <h1 className="text-3xl font-bold">Ingest</h1>
+            </DocsLink>
             <p className="text-muted-foreground mt-1">
-              Manage Your Data Sources, Connections And Warehouse
+              Manage your data sources, connections and warehouse
             </p>
           </div>
         </div>
 
-        <div className="px-6 pt-4 pb-0">
+        <div className="px-6 pb-0">
           <TabsList className="bg-transparent p-0 h-auto gap-4">
             <TabsTrigger
               value="connections"
