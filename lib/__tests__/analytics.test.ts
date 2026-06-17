@@ -45,13 +45,31 @@ describe('isInternalEmail', () => {
 });
 
 describe('trackEvent', () => {
-  it('forwards a fixed event name and properties to posthog.capture', () => {
-    trackEvent(ANALYTICS_EVENTS.CHART_CREATED, { chart_type: 'bar' });
-    expect(mockCapture).toHaveBeenCalledWith('chart:chart_created', { chart_type: 'bar' });
+  it('forwards a fixed event name and properties to posthog.capture (non-value event)', () => {
+    // A plumbing event is NOT a value action, so properties pass through untouched.
+    trackEvent(ANALYTICS_EVENTS.CONNECTION_SYNC_TRIGGERED, { source_type: 'postgres' });
+    expect(mockCapture).toHaveBeenCalledWith('connection:connection_sync_triggered', {
+      source_type: 'postgres',
+    });
   });
   it('works with no properties', () => {
     trackEvent(ANALYTICS_EVENTS.USER_LOGGED_IN);
     expect(mockCapture).toHaveBeenCalledWith('auth:user_logged_in', undefined);
+  });
+  it('stamps is_value_action on a value-action event, alongside its own properties', () => {
+    trackEvent(ANALYTICS_EVENTS.CHART_CREATED, { chart_type: 'bar' });
+    expect(mockCapture).toHaveBeenCalledWith('chart:chart_created', {
+      chart_type: 'bar',
+      is_value_action: true,
+    });
+  });
+  it('stamps is_value_action even when the value event has no other properties', () => {
+    trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_CREATED);
+    expect(mockCapture).toHaveBeenCalledWith('kpi:annotation_created', { is_value_action: true });
+  });
+  it('does NOT stamp is_value_action on a plumbing event', () => {
+    trackEvent(ANALYTICS_EVENTS.PIPELINE_TRIGGERED, { is_manual: true });
+    expect(mockCapture).toHaveBeenCalledWith('pipeline:pipeline_triggered', { is_manual: true });
   });
 });
 
