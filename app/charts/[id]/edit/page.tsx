@@ -1335,10 +1335,7 @@ function EditChartPageContent() {
         id: chartId,
         data: updateData,
       });
-      trackEvent(ANALYTICS_EVENTS.CHART_SAVED, {
-        chart_type: chartData.chart_type,
-        computation_type: chartData.computation_type,
-      });
+      trackEvent(ANALYTICS_EVENTS.CHART_SAVED, { chart_type: chartData.chart_type });
 
       // Update original data to reflect saved state
       setOriginalFormData({ ...formData });
@@ -1370,10 +1367,7 @@ function EditChartPageContent() {
       };
 
       const result = await createChart(newChartData);
-      trackEvent(ANALYTICS_EVENTS.CHART_SAVED_AS_NEW, {
-        source_chart_id: chartId,
-        chart_type: newChartData.chart_type,
-      });
+      trackEvent(ANALYTICS_EVENTS.CHART_SAVED_AS_NEW, { chart_type: newChartData.chart_type });
 
       toastSuccess.created(`Chart "${newTitle}"`);
 

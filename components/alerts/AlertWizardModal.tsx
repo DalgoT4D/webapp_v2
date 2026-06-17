@@ -352,10 +352,7 @@ export function AlertWizardModal({
           payload.slack_webhook_url = notifyState.slackWebhookUrl.trim();
         }
         const updated = await updateAlert(alertId, payload);
-        trackEvent(ANALYTICS_EVENTS.ALERT_UPDATED, {
-          alert_type: defineState.alertType,
-          delivery_channels: notifyState.channels,
-        });
+        trackEvent(ANALYTICS_EVENTS.ALERT_UPDATED, { alert_type: defineState.alertType });
         toast.success('Alert updated.');
         onSuccess?.(updated);
         onOpenChange(false);
@@ -380,10 +377,7 @@ export function AlertWizardModal({
         recipients: notifyState.recipients,
       };
       const created = await createAlert(payload);
-      trackEvent(ANALYTICS_EVENTS.ALERT_CREATED, {
-        alert_type: defineState.alertType,
-        delivery_channels: notifyState.channels,
-      });
+      trackEvent(ANALYTICS_EVENTS.ALERT_CREATED, { alert_type: defineState.alertType });
       toast.success('Alert created. It will run on its next scheduled time.');
       onSuccess?.(created);
       onOpenChange(false);

@@ -277,8 +277,6 @@ function PipelineFormContent({
         if (!scheduleStatusFailed) {
           trackEvent(ANALYTICS_EVENTS.PIPELINE_UPDATED, {
             has_schedule: Boolean(cronExpression) && cronExpression !== 'manual',
-            num_connections: selectedConns.length,
-            num_transform_tasks: transformTasks.length,
           });
           toastSuccess.updated('Pipeline');
         }
@@ -293,8 +291,6 @@ function PipelineFormContent({
 
         trackEvent(ANALYTICS_EVENTS.PIPELINE_CREATED, {
           has_schedule: Boolean(cronExpression) && cronExpression !== 'manual',
-          num_connections: selectedConns.length,
-          num_transform_tasks: transformTasks.length,
         });
         toastSuccess.created('Pipeline');
       }

@@ -1843,7 +1843,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   onClick={() => {
                     // Fire only on explicit user save (not the autosave/title-blur/resize paths).
                     trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED, {
-                      dashboard_id: dashboardId,
                       num_components: Object.keys(state.components).length,
                     });
                     saveDashboard();
@@ -2264,7 +2263,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   onClick={() => {
                     // Fire only on explicit user save (not the autosave/title-blur/resize paths).
                     trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED, {
-                      dashboard_id: dashboardId,
                       num_components: Object.keys(state.components).length,
                     });
                     saveDashboard();

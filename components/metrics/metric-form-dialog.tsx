@@ -248,16 +248,10 @@ export function MetricFormDialog({
     try {
       if (isEdit && metric) {
         await updateMetric(metric.id, payload);
-        trackEvent(ANALYTICS_EVENTS.METRIC_UPDATED, {
-          aggregation: payload.aggregation || null,
-          mode: data.mode,
-        });
+        trackEvent(ANALYTICS_EVENTS.METRIC_UPDATED, { mode: data.mode });
       } else {
         await createMetric(payload);
-        trackEvent(ANALYTICS_EVENTS.METRIC_CREATED, {
-          aggregation: payload.aggregation || null,
-          mode: data.mode,
-        });
+        trackEvent(ANALYTICS_EVENTS.METRIC_CREATED, { mode: data.mode });
       }
       onSuccess();
       onOpenChange(false);

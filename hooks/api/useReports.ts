@@ -59,10 +59,7 @@ export function useSnapshotView(snapshotId: number | null) {
 
 export async function createSnapshot(data: CreateSnapshotPayload): Promise<ReportSnapshot> {
   const response: ApiResponse<ReportSnapshot> = await apiPost('/api/reports/', data);
-  trackEvent(ANALYTICS_EVENTS.REPORT_CREATED, {
-    dashboard_id: data.dashboard_id,
-    has_date_filter: !!data.date_column,
-  });
+  trackEvent(ANALYTICS_EVENTS.REPORT_CREATED, { has_date_filter: !!data.date_column });
   return response.data;
 }
 

@@ -279,9 +279,6 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
         await updateKPI(kpi.id, updateData);
         trackEvent(ANALYTICS_EVENTS.KPI_UPDATED, {
           metric_type_tag: data.metric_type_tag || null,
-          direction: data.direction,
-          time_grain: data.time_grain,
-          has_target: !!data.target_value,
         });
       } else {
         const createData: KPICreate = {
@@ -299,9 +296,6 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
         await createKPI(createData);
         trackEvent(ANALYTICS_EVENTS.KPI_CREATED, {
           metric_type_tag: data.metric_type_tag || null,
-          direction: data.direction,
-          time_grain: data.time_grain,
-          has_target: !!data.target_value,
         });
         // A metric was consumed to build a KPI (metric adoption signal).
         if (data.metric_id) {
