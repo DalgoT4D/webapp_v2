@@ -235,7 +235,7 @@ export function ChartExportDropdownForList({
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent>
         {chartType === 'table' ? (
-          // Table charts show CSV export only
+          // Table charts show CSV export
           <DropdownMenuItem
             onClick={() => handleExport('csv')}
             className="cursor-pointer"
