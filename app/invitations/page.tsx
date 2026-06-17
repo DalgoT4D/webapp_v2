@@ -222,6 +222,7 @@ function InvitationAcceptanceForm() {
                     <SelectItem value="program_manager">Program Manager</SelectItem>
                     <SelectItem value="data_tech">Data & Tech</SelectItem>
                     <SelectItem value="leadership">Leadership (COO, Founder, CTO etc.)</SelectItem>
+                    <SelectItem value="consultant">Consultant</SelectItem>
                     <SelectItem value="field_worker">Field worker</SelectItem>
                   </SelectContent>
                 </Select>
