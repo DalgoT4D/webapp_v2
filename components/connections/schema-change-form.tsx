@@ -39,7 +39,7 @@ export function SchemaChangeForm({ connectionId, onClose, onSuccess }: SchemaCha
   const [error, setError] = useState<string | null>(null);
   const [hasBreakingChanges, setHasBreakingChanges] = useState(false);
 
-  const { progress, isComplete, isFailed } = useTaskProgress(taskId);
+  const { progress, isComplete, isFailed, isError } = useTaskProgress(taskId);
 
   // Start catalog refresh on mount
   useEffect(() => {
@@ -75,7 +75,12 @@ export function SchemaChangeForm({ connectionId, onClose, onSuccess }: SchemaCha
           : 'Failed to fetch schema changes'
       );
     }
-  }, [isComplete, isFailed, progress]);
+    // Surface a hard request failure (e.g. the task-status endpoint 400s) so the
+    // loader stops instead of spinning forever.
+    if (isError) {
+      setError('Failed to fetch schema changes. Please try again.');
+    }
+  }, [isComplete, isFailed, isError, progress]);
 
   const transforms = useMemo(() => catalogDiff?.transforms ?? [], [catalogDiff]);
 
@@ -106,7 +111,7 @@ export function SchemaChangeForm({ connectionId, onClose, onSuccess }: SchemaCha
     return { removed, added, updated };
   }, [transforms]);
 
-  const isLoading = taskId !== null && !isComplete && !isFailed;
+  const isLoading = taskId !== null && !isComplete && !isFailed && !isError;
 
   return (
     <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
