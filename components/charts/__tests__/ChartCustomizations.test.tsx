@@ -101,8 +101,8 @@ describe('ChartCustomizations', () => {
         />
       );
       expect(screen.getByText('Number Formatting')).toBeInTheDocument();
-      expect(screen.getByText('budget')).toBeInTheDocument();
-      expect(screen.getByText('revenue')).toBeInTheDocument();
+      expect(screen.getByTestId('column-row-budget')).toBeInTheDocument();
+      expect(screen.getByTestId('column-row-revenue')).toBeInTheDocument();
     });
   });
 
@@ -159,11 +159,11 @@ describe('ChartCustomizations', () => {
         />
       );
       expect(screen.getByText('Number Formatting')).toBeInTheDocument();
-      // Only budget should be shown (numeric type)
-      expect(screen.getByText('budget')).toBeInTheDocument();
-      // Non-numeric columns should not be shown
-      expect(screen.queryByText('name')).not.toBeInTheDocument();
-      expect(screen.queryByText('category')).not.toBeInTheDocument();
+      // Only budget should be shown in Number Formatting (numeric type)
+      expect(screen.getByTestId('column-row-budget')).toBeInTheDocument();
+      // Non-numeric columns should not have a Number Formatting row
+      expect(screen.queryByTestId('column-row-name')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('column-row-category')).not.toBeInTheDocument();
     });
 
     it('should show metric columns and numeric dimension columns in aggregated mode', () => {
@@ -188,12 +188,12 @@ describe('ChartCustomizations', () => {
       );
       expect(screen.getByText('Number Formatting')).toBeInTheDocument();
       // Metric columns should be shown (aggregation results are always numeric)
-      expect(screen.getByText('total_revenue')).toBeInTheDocument();
-      expect(screen.getByText('count_quantity')).toBeInTheDocument();
+      expect(screen.getByTestId('column-row-total_revenue')).toBeInTheDocument();
+      expect(screen.getByTestId('column-row-count_quantity')).toBeInTheDocument();
       // Numeric dimension column should be shown
-      expect(screen.getByText('budget')).toBeInTheDocument();
-      // Non-numeric dimension columns should not be shown
-      expect(screen.queryByText('category')).not.toBeInTheDocument();
+      expect(screen.getByTestId('column-row-budget')).toBeInTheDocument();
+      // Non-numeric dimension columns should not have a Number Formatting row
+      expect(screen.queryByTestId('column-row-category')).not.toBeInTheDocument();
     });
 
     it('should show no columns when all columns are non-numeric in raw mode', () => {
@@ -211,9 +211,9 @@ describe('ChartCustomizations', () => {
       // No numeric or date columns available, so the component shows separate empty states
       expect(screen.getByText('No numeric columns to format.')).toBeInTheDocument();
       expect(screen.getByText('No date columns to format.')).toBeInTheDocument();
-      // No numeric columns, so none should be shown for formatting
-      expect(screen.queryByText('name')).not.toBeInTheDocument();
-      expect(screen.queryByText('category')).not.toBeInTheDocument();
+      // No numeric columns, so no Number Formatting rows should render
+      expect(screen.queryByTestId('column-row-name')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('column-row-category')).not.toBeInTheDocument();
     });
   });
 
