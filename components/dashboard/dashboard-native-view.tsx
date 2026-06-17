@@ -60,7 +60,6 @@ import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
-import { compactVertical } from '@/lib/dashboard-animation-utils';
 import { UnifiedTextElement } from './text-element-unified';
 import { KPIChartElement } from './kpi-chart-element';
 import {
@@ -1315,7 +1314,12 @@ export function DashboardNativeView({
                     // widget at its own (x,y,w,h) with gravity-up, matching the editor.
                     <GridLayout
                       className="dashboard-grid"
-                      layout={compactVertical(modifiedLayout, effectiveScreenConfig.cols)}
+                      // Pass the raw layout and let RGL's compactType="vertical" handle
+                      // compaction — identical to the editor canvas. A prior compactVertical()
+                      // pass here used a "global topmost free slot" search that let items jump
+                      // a full-width separator into an exactly-sized gap above it, so the view
+                      // reflowed differently from edit. See git history / dashboard 328.
+                      layout={modifiedLayout}
                       cols={effectiveScreenConfig.cols}
                       rowHeight={20}
                       width={actualContainerWidth}

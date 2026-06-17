@@ -7,7 +7,7 @@ import useResizeObserver from '@/hooks/useResizeObserver';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { OverflowTooltip } from './OverflowTooltip';
+import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 import {
   Search,
   RefreshCw,

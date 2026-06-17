@@ -103,6 +103,7 @@ import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
 import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
+import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => any>(
@@ -1332,9 +1333,10 @@ export function DashboardListV2() {
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-medium truncate">
-                    {dashboard.title || dashboard.dashboard_title}
-                  </h3>
+                  <OverflowTooltip
+                    text={dashboard.title || dashboard.dashboard_title || ''}
+                    className="font-medium"
+                  />
                   {/* COMMENTED OUT: Type badge - not needed anymore */}
                   {/* <Badge variant={isNative ? 'default' : 'secondary'} className="text-xs">
                     {isNative ? 'Native' : 'Superset'}
