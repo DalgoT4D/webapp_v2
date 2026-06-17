@@ -37,7 +37,7 @@ export function SchemaChangeForm({ connectionId, onClose, onSuccess }: SchemaCha
   const [error, setError] = useState<string | null>(null);
   const [hasBreakingChanges, setHasBreakingChanges] = useState(false);
 
-  const { progress, isComplete, isFailed } = useTaskProgress(taskId);
+  const { progress, isComplete, isFailed, isError } = useTaskProgress(taskId);
 
   // Start catalog refresh on mount
   useEffect(() => {
@@ -75,6 +75,12 @@ export function SchemaChangeForm({ connectionId, onClose, onSuccess }: SchemaCha
     }
   }, [isComplete, isFailed, progress]);
 
+  useEffect(() => {
+    if (isError) {
+      setError('Failed to fetch schema changes. Please try again.');
+    }
+  }, [isError]);
+
   const transforms = useMemo(() => catalogDiff?.transforms ?? [], [catalogDiff]);
 
   const handleAccept = useCallback(async () => {
@@ -103,7 +109,7 @@ export function SchemaChangeForm({ connectionId, onClose, onSuccess }: SchemaCha
     return { removed, added, updated };
   }, [transforms]);
 
-  const isLoading = taskId !== null && !isComplete && !isFailed;
+  const isLoading = taskId !== null && !isComplete && !isFailed && !isError;
 
   return (
     <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
