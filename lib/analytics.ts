@@ -46,7 +46,9 @@ export function identifyUser(
   posthog.identify(String(userId), {
     is_internal: isInternalEmail(email),
     current_role: role,
-    // NGO's work email domain — firmographic segmentation (not PII; domain only).
+    // The user's work FUNCTION at the NGO (M&E / program / data-tech / leadership /
+    // field), self-selected at signup. This is the spec's `function` segmentation
+    // lens — answers "value for whom". Categorical enum, not PII.
     work_domain: workDomain ?? null,
   });
   posthog.register({ role });

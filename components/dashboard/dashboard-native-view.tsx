@@ -425,9 +425,12 @@ export function DashboardNativeView({
 
   // Allow editing in preview mode without any conditions
 
-  // Track dashboard view once per mount
+  // Track dashboard view once per mount. Skip public (shared-link) views — those are
+  // anonymous external opens we don't track, and firing here would log dashboard_id:0.
   useEffect(() => {
-    trackEvent(ANALYTICS_EVENTS.DASHBOARD_VIEWED, { dashboard_id: dashboardId });
+    if (!isPublicMode) {
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_VIEWED, { dashboard_id: dashboardId });
+    }
     // Fire once per mount — the dashboard id is stable for the view.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -10,6 +10,7 @@ export const ANALYTICS_EVENTS = {
   FEATURE_VIEWED: 'feature:viewed',
   // Charts (CHART_SAVED is the edit/update event)
   CHART_CREATED: 'chart:chart_created',
+  CHART_VIEWED: 'chart:chart_viewed',
   CHART_SAVED: 'chart:chart_saved',
   CHART_DELETED: 'chart:chart_deleted',
   CHART_DUPLICATED: 'chart:chart_duplicated',
@@ -45,11 +46,13 @@ export const ANALYTICS_EVENTS = {
   REPORT_COMMENT_DELETED: 'report:comment_deleted',
   // KPIs & metrics
   KPI_CREATED: 'kpi:kpi_created',
+  KPI_VIEWED: 'kpi:kpi_viewed',
   KPI_UPDATED: 'kpi:kpi_updated',
   KPI_DELETED: 'kpi:kpi_deleted',
   KPI_ANNOTATION_CREATED: 'kpi:annotation_created',
   KPI_ANNOTATION_UPDATED: 'kpi:annotation_updated',
   KPI_ANNOTATION_DELETED: 'kpi:annotation_deleted',
+  METRIC_USED: 'metric:metric_used',
   METRIC_CREATED: 'metric:metric_created',
   METRIC_UPDATED: 'metric:metric_updated',
   METRIC_DELETED: 'metric:metric_deleted',
@@ -100,6 +103,13 @@ export const ANALYTICS_EVENTS = {
   EXPLORE_SYNCED: 'explore:synced',
   // Warehouse table data preview pane (shared by Explore + Transform canvas)
   DATA_TABLE_DOWNLOADED: 'data:table_downloaded',
+  // Alerts
+  ALERT_CREATED: 'alert:alert_created',
+  ALERT_UPDATED: 'alert:alert_updated',
+  ALERT_DELETED: 'alert:alert_deleted',
+  ALERT_TOGGLED: 'alert:alert_toggled',
+  ALERT_SLACK_WEBHOOK_TESTED: 'alert:slack_webhook_tested',
+  ALERT_LOGS_VIEWED: 'alert:logs_viewed',
   // Data quality (Elementary-based)
   DATA_QUALITY_SETUP_COMPLETED: 'data_quality:setup_completed',
   DATA_QUALITY_REPORT_GENERATED: 'data_quality:report_generated',

@@ -217,6 +217,7 @@ export function KPIPageComponent() {
   };
 
   const handleCardClick = (kpi: KPI) => {
+    trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, { metric_type_tag: kpi.metric_type_tag || null });
     setSelectedKpi(kpi);
     setDrawerOpen(true);
   };

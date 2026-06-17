@@ -303,6 +303,10 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           time_grain: data.time_grain,
           has_target: !!data.target_value,
         });
+        // A metric was consumed to build a KPI (metric adoption signal).
+        if (data.metric_id) {
+          trackEvent(ANALYTICS_EVENTS.METRIC_USED, { metric_id: data.metric_id });
+        }
       }
       onSuccess();
       onOpenChange(false);
