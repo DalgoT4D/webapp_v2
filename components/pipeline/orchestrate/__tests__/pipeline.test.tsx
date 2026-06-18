@@ -310,13 +310,12 @@ describe('PipelineList', () => {
     await waitFor(() => expect(mockTriggerRun).toHaveBeenCalledWith('test-dep-id'));
     unmount();
 
-    // Run button disabled without run permission
+    // Run button hidden without run permission
     (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
       hasPermission: (p: string) => p !== 'can_run_pipeline',
     });
     const { unmount: unmount2 } = render(<PipelineList />);
-    const disabledRunButton = screen.getByRole('button', { name: /run/i });
-    expect(disabledRunButton).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /run/i })).not.toBeInTheDocument();
     unmount2();
 
     // History button disabled without view permission

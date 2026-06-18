@@ -39,13 +39,14 @@ import { TransformTypeEnum as TransformType, useTransformType } from '@/hooks/ap
 import Image from 'next/image';
 
 // Define types for navigation items
-interface NavItemType {
+export interface NavItemType {
   title: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   isActive: boolean;
   children?: NavItemType[];
-  hide?: boolean; // Add hide property for feature flag control
+  hide?: boolean;
+  visibleToRoles?: string[];
 }
 
 // Menu items to hide in production environment
@@ -87,27 +88,27 @@ const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
 };
 
 // Define the navigation items with their routes and icons
-const getNavItems = (
+export const getNavItems = (
   currentPath: string,
   hasSupersetSetup: boolean = false,
   isFeatureFlagEnabled: (flag: FeatureFlagKeys) => boolean,
-  transformType?: string
+  transformType?: string,
+  roleSlug: string = ''
 ): NavItemType[] => {
-  // Build dashboard children based on feature flags AND Superset setup
-  const dashboardChildren: NavItemType[] = [];
-
   const allNavItems: NavItemType[] = [
     {
       title: 'Impact',
       href: '/impact',
       icon: Home,
       isActive: currentPath === '/impact',
+      visibleToRoles: ['admin', 'analyst'],
     },
     {
       title: 'KPIs',
       href: '/kpis',
       icon: Target,
       isActive: currentPath.startsWith('/kpis'),
+      visibleToRoles: ['admin', 'analyst'],
     },
     {
       title: 'Charts',
@@ -130,9 +131,10 @@ const getNavItems = (
     },
     {
       title: 'Data',
-      href: '/pipeline', // Direct navigation to overview page (default)
+      href: '/pipeline',
       icon: Database,
-      isActive: false, // Never highlight the parent Data menu
+      isActive: false,
+      visibleToRoles: ['admin', 'analyst'],
       children: [
         {
           title: 'Overview',
@@ -189,21 +191,23 @@ const getNavItems = (
     },
     {
       title: 'Settings',
-      href: '/settings/billing',
+      href: '/settings/about',
       icon: Settings,
-      isActive: false, // Never highlight the parent Settings menu
+      isActive: false,
       children: [
         {
           title: 'Billing',
           href: '/settings/billing',
           icon: CreditCard,
           isActive: currentPath.startsWith('/settings/billing'),
+          visibleToRoles: ['admin'],
         },
         {
           title: 'User Management',
           href: '/settings/user-management',
           icon: Users,
           isActive: currentPath.startsWith('/settings/user-management'),
+          visibleToRoles: ['admin'],
         },
         {
           title: 'About',
@@ -225,8 +229,21 @@ const getNavItems = (
     },
   ];
 
-  // Filter menu items for production environment
-  return filterMenuItemsForProduction(allNavItems);
+  // Apply role visibility: set hide=true for items whose visibleToRoles excludes the current role.
+  // Composes with existing feature-flag hide — both must pass for an item to show.
+  // An empty roleSlug (user not yet loaded) is treated as most-restrictive.
+  const applyRoleFilter = (items: NavItemType[]): NavItemType[] =>
+    items.map((item) => {
+      const hiddenByRole = !!(item.visibleToRoles && !item.visibleToRoles.includes(roleSlug));
+      const children = item.children ? applyRoleFilter(item.children) : undefined;
+      return {
+        ...item,
+        hide: item.hide || hiddenByRole,
+        ...(children !== undefined ? { children } : {}),
+      };
+    });
+
+  return applyRoleFilter(filterMenuItemsForProduction(allNavItems));
 };
 
 // A parent menu item is "active" when the current path lives inside any of its visible children.
@@ -478,11 +495,12 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   // state persists — navigating out of a subtree does NOT auto-close the parent.
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const responsive = useResponsiveLayout();
-  const { currentOrg } = useAuthStore();
+  const { currentOrg, getCurrentOrgUser } = useAuthStore();
   const { isFeatureFlagEnabled } = useFeatureFlags();
   const { transformType } = useTransformType();
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
-  const navItems = getNavItems(pathname, hasSupersetSetup, isFeatureFlagEnabled, transformType);
+  const roleSlug = getCurrentOrgUser()?.new_role_slug ?? '';
+  const navItems = getNavItems(pathname, hasSupersetSetup, isFeatureFlagEnabled, transformType, roleSlug);
 
   // Auto-open a parent's submenu when the current path enters its subtree. Never auto-closes.
   useEffect(() => {

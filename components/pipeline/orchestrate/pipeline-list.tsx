@@ -399,21 +399,23 @@ function PipelineRow({
             <History className="w-4 h-4 text-gray-600" />
           </Button>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleRunClick}
-            disabled={isDisabled || !canRunPipeline}
-            data-testid={`run-btn-${deploymentId}`}
-            className={cn('h-8 w-8 p-0 hover:bg-gray-100', isRunning && 'cursor-not-allowed')}
-            aria-label="Run"
-          >
-            {isRunning ? (
-              <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4 text-gray-600" />
-            )}
-          </Button>
+          {(canRunPipeline || isRunning) && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRunClick}
+              disabled={isDisabled || isRunning}
+              data-testid={`run-btn-${deploymentId}`}
+              className={cn('h-8 w-8 p-0 hover:bg-gray-100', isRunning && 'cursor-not-allowed')}
+              aria-label="Run"
+            >
+              {isRunning ? (
+                <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4 text-gray-600" />
+              )}
+            </Button>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
