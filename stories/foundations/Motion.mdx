@@ -1,0 +1,42 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+import { Loader2 } from 'lucide-react';
+
+<Meta title="Foundations/Motion" />
+
+# Motion
+
+Dalgo uses **`tw-animate-css`** for keyframe animations and Tailwind's
+`transition-*` utilities for state changes. Keep motion subtle and fast — the app
+is data-dense; animation should aid, not distract.
+
+## Transitions
+
+Default interaction transition is `transition-all` (used on buttons, cards).
+Duration ~150–200ms. Hover a button (UI/Button) to see it.
+
+<div style={{ display: 'flex', gap: 16, marginTop: 12 }}>
+  {['transition-all', 'transition-colors', 'transition-opacity'].map((cls) => (
+    <code key={cls} style={{ fontSize: 12 }}>{cls}</code>
+  ))}
+</div>
+
+## Spinner
+
+The standard loading indicator is `Loader2` + `animate-spin` (used in 44 files).
+
+<div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
+  <Loader2 className="animate-spin" style={{ width: 24, height: 24, color: 'var(--primary)' }} />
+  <code style={{ fontSize: 12 }}>{'<Loader2 className="animate-spin" />'}</code>
+</div>
+
+## Enter/exit (Radix overlays)
+
+Dialogs, popovers, tooltips use `tw-animate-css` data-state animations:
+`fade-in-0`, `zoom-in-95`, `slide-in-from-*`. See `ui/tooltip.tsx` and
+`ui/dialog.tsx` for the canonical recipe — don't roll your own.
+
+<div style={{ marginTop: 12 }}>
+  <code style={{ fontSize: 11 }}>
+    animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out
+  </code>
+</div>
