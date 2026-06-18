@@ -13,10 +13,12 @@ import {
 } from '@/hooks/api/useChart';
 import { ChartPreview } from '@/components/charts/ChartPreview';
 import { TableChart } from '@/components/charts/TableChart';
+import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
+import type { PivotTableResponse } from '@/types/pivot-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Edit, Lock } from 'lucide-react';
+import { ArrowLeft, Edit, Lock, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
@@ -126,6 +128,15 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               aggregate_col:
                 chart.extra_config?.aggregate_column || chart.extra_config?.value_column,
             }),
+            // Pivot table fields
+            ...(chart.chart_type === 'pivot_table' && {
+              row_dimensions: chart.extra_config?.row_dimensions || [],
+              column_dimensions: chart.extra_config?.column_dimensions || [],
+              column_time_grains: chart.extra_config?.column_time_grains || {},
+              show_row_subtotals: chart.extra_config?.show_row_subtotals ?? false,
+              show_column_subtotals: chart.extra_config?.show_column_subtotals ?? false,
+              show_grand_total: chart.extra_config?.show_grand_total ?? false,
+            }),
             // For table charts, include dimensions array with drill-down support
             ...(chart.chart_type === 'table' && {
               dimensions: (() => {
@@ -186,6 +197,15 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               sort: chart.extra_config?.sort,
               time_grain: chart.extra_config?.time_grain,
               table_columns: chart.extra_config?.table_columns,
+              // Pivot table fields
+              ...(chart.chart_type === 'pivot_table' && {
+                row_dimensions: chart.extra_config?.row_dimensions || [],
+                column_dimensions: chart.extra_config?.column_dimensions || [],
+                column_time_grains: chart.extra_config?.column_time_grains || {},
+                show_row_subtotals: chart.extra_config?.show_row_subtotals ?? false,
+                show_column_subtotals: chart.extra_config?.show_column_subtotals ?? false,
+                show_grand_total: chart.extra_config?.show_grand_total ?? false,
+              }),
             },
           }
         : null,
@@ -779,7 +799,11 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                     }
                   : undefined
               }
-              tableElement={chart.chart_type === 'table' ? chartContentRef.current : undefined}
+              tableElement={
+                chart.chart_type === 'table' || chart.chart_type === 'pivot_table'
+                  ? chartContentRef.current
+                  : undefined
+              }
               drillFilters={
                 chart.chart_type === 'table' && tableDrillDownState?.appliedFilters
                   ? tableDrillDownState.appliedFilters
@@ -812,6 +836,31 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   onDrillUp={handleDrillUp}
                   onDrillHome={handleDrillHome}
                 />
+              ) : chart?.chart_type === 'pivot_table' ? (
+                <div className="w-full h-full">
+                  {dataLoading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : dataError ? (
+                    <div className="flex items-center justify-center h-full text-destructive">
+                      Failed to load pivot table data
+                    </div>
+                  ) : chartData?.data ? (
+                    <PivotTableChart
+                      data={chartData.data as unknown as PivotTableResponse}
+                      rowDimLabels={chart.extra_config?.row_dimensions || []}
+                      customizations={chart.extra_config?.customizations || {}}
+                      subtotalLabel={chart.extra_config?.subtotal_label || 'Subtotal'}
+                      columnSubtotalLabel={chart.extra_config?.column_subtotal_label || 'Subtotal'}
+                      grandTotalLabel={chart.extra_config?.grand_total_label || 'Grand Total'}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                      No data available
+                    </div>
+                  )}
+                </div>
               ) : chart?.chart_type === 'table' ? (
                 <div className="w-full h-full flex flex-col">
                   {/* Breadcrumb navigation for drill-down */}

@@ -39,7 +39,7 @@ export const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
 /** Default theme id used when no theme is specified */
 export const DEFAULT_THEME_ID = 'gray';
 
-/** Predefined color themes for table charts */
+/** Predefined color themes for table and pivot table charts */
 export const TABLE_THEMES: TableTheme[] = [
   {
     id: 'gray',

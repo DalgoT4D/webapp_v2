@@ -102,6 +102,11 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         nullValueLabel: 'No Data',
         title: '',
       };
+    case ChartTypes.PIVOT_TABLE:
+      return {
+        numberFormat: 'default',
+        decimalPlaces: 0,
+      };
     default:
       return {};
   }
@@ -284,6 +289,10 @@ function ConfigureChartPageContent() {
       return false;
     }
 
+    if (formData.chart_type === 'pivot_table') {
+      return !!(formData.extra_config?.row_dimensions?.length && formData.metrics?.length);
+    }
+
     {
       // For bar/line charts with multiple metrics
       if (
@@ -330,6 +339,15 @@ function ConfigureChartPageContent() {
             }),
             // Multiple metrics for bar/line charts
             ...(formData.metrics && { metrics: formData.metrics }),
+            // Pivot table top-level fields (backend reads these directly on the payload)
+            ...(formData.chart_type === 'pivot_table' && {
+              row_dimensions: formData.extra_config?.row_dimensions || [],
+              column_dimensions: formData.extra_config?.column_dimensions || [],
+              column_time_grains: formData.extra_config?.column_time_grains || {},
+              show_row_subtotals: formData.extra_config?.show_row_subtotals ?? false,
+              show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
+              show_grand_total: formData.extra_config?.show_grand_total ?? false,
+            }),
             // For table charts, include dimensions array with drill-down support
             ...(formData.chart_type === 'table' &&
               formData.dimensions &&
@@ -379,9 +397,10 @@ function ConfigureChartPageContent() {
               }),
             }),
             // Number formatting is frontend-only - exclude from API payload
-            ...(formData.chart_type !== ChartTypes.TABLE && {
-              customizations: getApiCustomizations(formData.chart_type, formData.customizations),
-            }),
+            ...(formData.chart_type !== ChartTypes.TABLE &&
+              formData.chart_type !== ChartTypes.PIVOT_TABLE && {
+                customizations: getApiCustomizations(formData.chart_type, formData.customizations),
+              }),
             extra_config: {
               filters: [
                 ...(formData.filters || []),
@@ -397,6 +416,15 @@ function ConfigureChartPageContent() {
               pagination: formData.pagination,
               sort: formData.sort,
               time_grain: formData.time_grain,
+              // Pivot table fields
+              ...(formData.chart_type === 'pivot_table' && {
+                row_dimensions: formData.extra_config?.row_dimensions || [],
+                column_dimensions: formData.extra_config?.column_dimensions || [],
+                column_time_grains: formData.extra_config?.column_time_grains || {},
+                show_row_subtotals: formData.extra_config?.show_row_subtotals ?? false,
+                show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
+                show_grand_total: formData.extra_config?.show_grand_total ?? false,
+              }),
             },
           }
         : null,
@@ -519,10 +547,16 @@ function ConfigureChartPageContent() {
     data: dataPreview,
     error: previewError,
     isLoading: previewLoading,
-  } = useChartDataPreview(chartDataPayload, dataPreviewPage, dataPreviewPageSize);
+  } = useChartDataPreview(
+    formData.chart_type !== 'pivot_table' ? chartDataPayload : null,
+    dataPreviewPage,
+    dataPreviewPageSize
+  );
 
   // Fetch total rows for chart data preview pagination
-  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(chartDataPayload);
+  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(
+    formData.chart_type !== 'pivot_table' ? chartDataPayload : null
+  );
 
   // Fetch table chart data for table charts with server-side pagination
   const {
@@ -832,6 +866,18 @@ function ConfigureChartPageContent() {
       return true; // Tables just need schema, table, title which are already checked above
     }
 
+    if (formData.chart_type === 'pivot_table') {
+      // Pivot tables need at least one row dimension and one metric
+      const hasRowDimensions = (formData.extra_config?.row_dimensions || []).length > 0;
+      const hasMetrics =
+        (formData.metrics || []).length > 0 &&
+        formData.metrics!.every(
+          (metric) =>
+            metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+        );
+      return hasRowDimensions && hasMetrics;
+    }
+
     {
       // For bar/line/table charts with multiple metrics
       if (
@@ -920,6 +966,17 @@ function ConfigureChartPageContent() {
               : [],
           // Keep table_columns for backward compatibility
           table_columns: formData.table_columns,
+        }),
+        // Pivot table extra_config fields
+        ...(formData.chart_type === 'pivot_table' && {
+          row_dimensions: formData.extra_config?.row_dimensions || [],
+          column_dimensions: formData.extra_config?.column_dimensions || [],
+          column_time_grains: formData.extra_config?.column_time_grains || {},
+          show_row_subtotals: formData.extra_config?.show_row_subtotals ?? false,
+          show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
+          show_grand_total: formData.extra_config?.show_grand_total ?? false,
+          subtotal_label: formData.extra_config?.subtotal_label || 'Subtotal',
+          grand_total_label: formData.extra_config?.grand_total_label || 'Grand Total',
         }),
       },
     };
@@ -1224,7 +1281,14 @@ function ConfigureChartPageContent() {
                     <div className="w-full h-full">
                       <ChartPreview
                         key={`${formData.schema_name}-${formData.table_name}`}
-                        config={chartData?.echarts_config}
+                        config={
+                          formData.chart_type === 'pivot_table'
+                            ? { extra_config: formData.extra_config }
+                            : chartData?.echarts_config
+                        }
+                        tableData={
+                          formData.chart_type === 'pivot_table' ? chartData?.data : undefined
+                        }
                         isLoading={chartLoading}
                         error={chartError}
                         chartType={formData.chart_type}
@@ -1238,13 +1302,17 @@ function ConfigureChartPageContent() {
               <TabsContent value="data" className="h-[calc(100%-73px)] overflow-y-auto">
                 <div className="p-4">
                   <Tabs
-                    defaultValue={formData.chart_type === 'table' ? 'raw-data' : 'chart-data'}
+                    defaultValue={
+                      formData.chart_type === 'table' || formData.chart_type === 'pivot_table'
+                        ? 'raw-data'
+                        : 'chart-data'
+                    }
                     className="h-full flex flex-col"
                   >
                     <TabsList
-                      className={`grid w-full ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
+                      className={`grid w-full ${formData.chart_type === 'table' || formData.chart_type === 'pivot_table' ? 'grid-cols-1' : 'grid-cols-2'}`}
                     >
-                      {formData.chart_type !== 'table' && (
+                      {formData.chart_type !== 'table' && formData.chart_type !== 'pivot_table' && (
                         <TabsTrigger value="chart-data" className="flex items-center gap-2">
                           <BarChart3 className="h-4 w-4" />
                           Chart Data
@@ -1256,7 +1324,7 @@ function ConfigureChartPageContent() {
                       </TabsTrigger>
                     </TabsList>
 
-                    {formData.chart_type !== 'table' && (
+                    {formData.chart_type !== 'table' && formData.chart_type !== 'pivot_table' && (
                       <TabsContent value="chart-data" className="flex-1">
                         <DataPreview
                           data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}

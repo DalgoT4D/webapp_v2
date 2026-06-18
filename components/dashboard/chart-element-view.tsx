@@ -13,6 +13,8 @@ import {
   FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
+import type { PivotTableResponse } from '@/types/pivot-table';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPublicPost } from '@/lib/api';
@@ -307,6 +309,7 @@ export function ChartElementView({
 
   // Determine chart type using effective chart
   const isTableChart = effectiveChart?.chart_type === ChartTypes.TABLE;
+  const isPivotTableChart = effectiveChart?.chart_type === ChartTypes.PIVOT_TABLE;
   const isMapChart = effectiveChart?.chart_type === ChartTypes.MAP;
   const isPieChart = effectiveChart?.chart_type === ChartTypes.PIE;
   const isNumberChart = effectiveChart?.chart_type === ChartTypes.NUMBER;
@@ -1514,8 +1517,8 @@ export function ChartElementView({
   // Original working download function for PNG/Image export
   const handleDownloadImage = async () => {
     try {
-      // Handle table chart export
-      if (isTableChart && tableRef.current) {
+      // Handle table/pivot chart export
+      if ((isTableChart || isPivotTableChart) && tableRef.current) {
         const filename = generateFilename(
           chartMetadata?.title || frozenChartConfig?.title || `table-${chartId}`,
           'png'
@@ -1630,8 +1633,8 @@ export function ChartElementView({
 
   const handleToggleFullscreen = () => {
     // Use wrapper ref for stable fullscreen (prevents exit on drill down)
-    // For tables, use tableRef; for all charts (including maps), use wrapperRef
-    const targetRef = isTableChart ? tableRef.current : wrapperRef.current;
+    // For tables/pivots, use tableRef; for all charts (including maps), use wrapperRef
+    const targetRef = isTableChart || isPivotTableChart ? tableRef.current : wrapperRef.current;
     if (!targetRef) return;
 
     toggleFullscreen(targetRef);
@@ -1641,8 +1644,8 @@ export function ChartElementView({
   useEffect(() => {
     // Trigger chart resize after fullscreen change
     const resizeTimer = setTimeout(() => {
-      if (!isTableChart) {
-        // Only resize ECharts instances, not tables
+      if (!isTableChart && !isPivotTableChart) {
+        // Only resize ECharts instances, not tables/pivots
         if (chartInstance.current) {
           chartInstance.current.resize();
         }
@@ -1650,11 +1653,11 @@ export function ChartElementView({
           mapChartInstance.current.resize();
         }
       }
-      // Tables don't need explicit resize - they automatically adjust with CSS flexbox
+      // Tables/pivots don't need explicit resize - they automatically adjust with CSS flexbox
     }, 100);
 
     return () => clearTimeout(resizeTimer);
-  }, [isFullscreen, isTableChart]);
+  }, [isFullscreen, isTableChart, isPivotTableChart]);
 
   if (
     isLoading ||
@@ -1828,7 +1831,26 @@ export function ChartElementView({
       )}
 
       {/* Chart container */}
-      {isTableChart ? (
+      {isPivotTableChart ? (
+        <div ref={tableRef} className="w-full flex-1 h-full overflow-auto p-2">
+          {chartData?.data ? (
+            <PivotTableChart
+              data={chartData.data as unknown as PivotTableResponse}
+              rowDimLabels={effectiveChart?.extra_config?.row_dimensions || []}
+              customizations={effectiveChart?.extra_config?.customizations || {}}
+              subtotalLabel={effectiveChart?.extra_config?.subtotal_label || 'Subtotal'}
+              columnSubtotalLabel={
+                effectiveChart?.extra_config?.column_subtotal_label || 'Subtotal'
+              }
+              grandTotalLabel={effectiveChart?.extra_config?.grand_total_label || 'Grand Total'}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              {isLoading ? <Loader2 className="h-8 w-8 animate-spin" /> : 'No data available'}
+            </div>
+          )}
+        </div>
+      ) : isTableChart ? (
         <div
           ref={tableRef}
           className={cn(
