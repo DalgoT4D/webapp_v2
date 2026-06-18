@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/nextjs';
 import { Calculator, Calendar, CreditCard, Settings, Smile, User } from 'lucide-react';
 import {
   Command,

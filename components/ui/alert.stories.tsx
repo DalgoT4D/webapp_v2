@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/nextjs';
 import { Alert, AlertTitle, AlertDescription } from './alert';
 
 const VARIANTS = ['default', 'destructive', 'warning', 'info', 'success'] as const;

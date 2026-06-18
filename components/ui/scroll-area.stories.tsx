@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/nextjs';
 import { ScrollArea, ScrollBar } from './scroll-area';
 
 const TAGS = Array.from({ length: 40 }, (_, i) => `Dataset v${i + 1}`);

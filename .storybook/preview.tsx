@@ -1,4 +1,4 @@
-import type { Preview, Decorator } from '@storybook/nextjs-vite';
+import type { Preview, Decorator } from '@storybook/nextjs';
 import { Anek_Latin } from 'next/font/google';
 import { Toaster } from 'sonner';
 import React from 'react';

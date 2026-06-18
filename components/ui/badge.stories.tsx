@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/nextjs';
 import { Badge } from './badge';
 
 const VARIANTS = ['default', 'secondary', 'destructive', 'outline'] as const;
