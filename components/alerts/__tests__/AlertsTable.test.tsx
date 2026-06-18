@@ -35,6 +35,7 @@ function makeAlert(overrides: Partial<AlertListItem> = {}): AlertListItem {
     is_active: true,
     last_fire_at: null,
     fire_streak: 0,
+    created_by_email: 'creator@example.com',
     ...overrides,
   };
 }

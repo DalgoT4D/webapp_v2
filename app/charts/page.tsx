@@ -23,9 +23,9 @@ import {
   ArrowUpDown,
   Filter,
   Star,
-  User,
 } from 'lucide-react';
 import Link from 'next/link';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
 import type { ChartCreate } from '@/types/charts';
 import { useDeleteChart, useBulkDeleteCharts, useCreateChart } from '@/hooks/api/useChart';
@@ -857,15 +857,8 @@ export default function ChartsPage() {
         </TableCell>
 
         {/* Created by Column */}
-        <TableCell className="py-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-              <User className="w-3 h-3 text-gray-600" />
-            </div>
-            <span className="text-base text-gray-700" data-testid={`chart-created-by-${chart.id}`}>
-              {chart.created_by || 'Unknown'}
-            </span>
-          </div>
+        <TableCell className="py-4 text-center">
+          <UserAvatar email={chart.created_by || ''} data-testid={`chart-created-by-${chart.id}`} />
         </TableCell>
 
         {/* Last Modified Column */}
@@ -1269,7 +1262,9 @@ export default function ChartsPage() {
                           </Popover>
                         </div>
                       </TableHead>
-                      <TableHead className="w-[18%] font-medium text-base">Created by</TableHead>
+                      <TableHead className="w-[18%] font-medium text-base text-center">
+                        Created by
+                      </TableHead>
                       <TableHead className="w-[17%]">
                         <div className="flex items-center gap-2">
                           <Button

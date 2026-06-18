@@ -86,6 +86,7 @@ import {
   Calendar as CalendarIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -868,15 +869,8 @@ export function DashboardListV2() {
         </TableCell> */}
 
         {/* Owner Column */}
-        <TableCell className="py-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-              <User className="w-3 h-3 text-gray-600" />
-            </div>
-            <span className="text-base text-gray-700">
-              {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
-            </span>
-          </div>
+        <TableCell className="py-4 text-center">
+          <UserAvatar email={dashboard.created_by || dashboard.changed_by_name || ''} />
         </TableCell>
 
         {/* Last Modified Column */}
@@ -1375,20 +1369,10 @@ export function DashboardListV2() {
                 </div>
 
                 <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center">
-                          <User className="w-3 h-3 text-gray-600" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="bg-gray-900 text-white border-gray-700">
-                        <p className="text-sm">
-                          {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <UserAvatar
+                    email={dashboard.created_by || dashboard.changed_by_name || ''}
+                    className="h-5 w-5"
+                  />
                   <span className="flex items-center gap-1" title="Last Updated">
                     <Clock className="w-3 h-3" />
                     Modified{' '}
@@ -1662,7 +1646,7 @@ export function DashboardListV2() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gray-50">
-                        <TableHead className="w-[40%]">
+                        <TableHead className="w-[42%]">
                           <div className="flex items-center gap-2">
                             <Skeleton className="h-4 w-20" />
                             <Skeleton className="h-4 w-4" />
@@ -1672,19 +1656,19 @@ export function DashboardListV2() {
                         {/* <TableHead className="w-[15%]">
                           <Skeleton className="h-4 w-16" />
                         </TableHead> */}
-                        <TableHead className="w-[35%]">
+                        <TableHead className="w-[13%]">
                           <div className="flex items-center gap-2">
                             <Skeleton className="h-4 w-16" />
                             <Skeleton className="h-4 w-4" />
                           </div>
                         </TableHead>
-                        <TableHead className="w-[15%]">
+                        <TableHead className="w-[30%]">
                           <div className="flex items-center gap-2">
                             <Skeleton className="h-4 w-20" />
                             <Skeleton className="h-4 w-4" />
                           </div>
                         </TableHead>
-                        <TableHead className="w-[10%]">
+                        <TableHead className="w-[15%]">
                           <Skeleton className="h-4 w-16" />
                         </TableHead>
                       </TableRow>
@@ -1764,7 +1748,7 @@ export function DashboardListV2() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gray-50">
-                        <TableHead className="w-[40%]">
+                        <TableHead className="w-[42%]">
                           <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
@@ -1797,8 +1781,10 @@ export function DashboardListV2() {
                         </TableHead>
                         {/* Commenting Type column as all dashboards are Native for now */}
                         {/* <TableHead className="w-[15%] font-medium">Type</TableHead> */}
-                        <TableHead className="w-[35%]">
-                          <div className="flex items-center gap-2">
+                        <TableHead className="w-[13%]">
+                          <div className="flex w-full items-center justify-center gap-2">
+                            {/* invisible spacer balances the trailing filter button so the label centers */}
+                            <span className="w-6 shrink-0" aria-hidden="true" />
                             <Button
                               variant="ghost"
                               className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
@@ -1828,7 +1814,7 @@ export function DashboardListV2() {
                             </Popover>
                           </div>
                         </TableHead>
-                        <TableHead className="w-[15%]">
+                        <TableHead className="w-[30%]">
                           <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
@@ -1859,7 +1845,7 @@ export function DashboardListV2() {
                             </Popover>
                           </div>
                         </TableHead>
-                        <TableHead className="w-[10%] font-medium text-base">Actions</TableHead>
+                        <TableHead className="w-[15%] font-medium text-base">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
