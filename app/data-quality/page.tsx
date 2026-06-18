@@ -1,5 +1,10 @@
 import { DataQuality } from '@/components/data-quality/data-quality';
+import { DataSectionGuard } from '@/components/data-section-guard';
 
 export default function DataQualityPage() {
-  return <DataQuality />;
+  return (
+    <DataSectionGuard>
+      <DataQuality />
+    </DataSectionGuard>
+  );
 }

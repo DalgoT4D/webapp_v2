@@ -1,8 +1,10 @@
 import { PipelineOverview } from '@/components/pipeline/overview/pipeline-overview';
 import { DocsLink } from '@/components/ui/docs-link';
+import { DataSectionGuard } from '@/components/data-section-guard';
 
 export default function PipelineOverviewPage() {
   return (
+    <DataSectionGuard>
     <div className="h-full flex flex-col">
       {/* Fixed Header */}
       <div className="flex-shrink-0 border-b bg-background">
@@ -21,5 +23,6 @@ export default function PipelineOverviewPage() {
         <PipelineOverview />
       </div>
     </div>
+    </DataSectionGuard>
   );
 }

@@ -90,13 +90,13 @@ describe('trackFeatureView', () => {
 describe('identifyUser', () => {
   it('identifies by user_id, sets is_internal + current_role, registers role, never sends email', () => {
     mockGetDistinctId.mockReturnValue('42');
-    identifyUser(42, 'staff@dalgo.org', { role: 'account-manager' });
+    identifyUser(42, 'staff@dalgo.org', { role: 'admin' });
     expect(mockIdentify).toHaveBeenCalledWith('42', {
       is_internal: true,
-      current_role: 'account-manager',
+      current_role: 'admin',
       work_domain: null,
     });
-    expect(mockRegister).toHaveBeenCalledWith({ role: 'account-manager' });
+    expect(mockRegister).toHaveBeenCalledWith({ role: 'admin' });
     const identifyArgs = mockIdentify.mock.calls[0];
     expect(JSON.stringify(identifyArgs)).not.toContain('staff@dalgo.org');
   });

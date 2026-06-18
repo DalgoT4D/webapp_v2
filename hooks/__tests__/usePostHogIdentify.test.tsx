@@ -42,14 +42,14 @@ it('identifies user and org when authenticated', () => {
   authState.getCurrentOrgUser = () => ({
     user_id: 42,
     email: 'u@ngo.example',
-    new_role_slug: 'account-manager',
+    new_role_slug: 'admin',
     subscription_plan: 'Free Trial',
   });
 
   renderHook(() => usePostHogIdentify());
 
   expect(mockIdentifyUser).toHaveBeenCalledWith(42, 'u@ngo.example', {
-    role: 'account-manager',
+    role: 'admin',
   });
   expect(mockIdentifyOrg).toHaveBeenCalledWith('ngo-1', {
     name: 'NGO One',
@@ -71,7 +71,7 @@ it('does not re-identify the user when user_id is unchanged, but re-identifies w
   authState.getCurrentOrgUser = () => ({
     user_id: 42,
     email: 'u@ngo.example',
-    new_role_slug: 'account-manager',
+    new_role_slug: 'admin',
     subscription_plan: 'Free Trial',
   });
 
@@ -102,7 +102,7 @@ it('re-identifies on org switch (same user_id) so the role super-property refres
   authState.getCurrentOrgUser = () => ({
     user_id: 42,
     email: 'u@ngo.example',
-    new_role_slug: 'account-manager',
+    new_role_slug: 'admin',
     subscription_plan: 'Free Trial',
   });
 
