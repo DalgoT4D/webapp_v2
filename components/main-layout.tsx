@@ -101,14 +101,12 @@ export const getNavItems = (
       href: '/impact',
       icon: Home,
       isActive: currentPath === '/impact',
-      visibleToRoles: ['admin', 'analyst'],
     },
     {
       title: 'KPIs',
       href: '/kpis',
       icon: Target,
       isActive: currentPath.startsWith('/kpis'),
-      visibleToRoles: ['admin', 'analyst'],
     },
     {
       title: 'Charts',

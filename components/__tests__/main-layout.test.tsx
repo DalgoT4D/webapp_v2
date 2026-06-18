@@ -46,13 +46,15 @@ describe('getNavItems', () => {
     expect(dataItem?.hide).toBe(true);
   });
 
-  it('hides Impact and KPIs for the member role', () => {
-    const items = getNavItems('/', false, () => false, undefined, 'member');
-    expect(items.find((i) => i.title === 'Impact')?.hide).toBe(true);
-    expect(items.find((i) => i.title === 'KPIs')?.hide).toBe(true);
+  it('shows Impact and KPIs for all roles including member', () => {
+    for (const role of ['member', 'analyst', 'admin']) {
+      const items = getNavItems('/', false, () => false, undefined, role);
+      expect(items.find((i) => i.title === 'Impact')?.hide).toBeFalsy();
+      expect(items.find((i) => i.title === 'KPIs')?.hide).toBeFalsy();
+    }
   });
 
-  it('shows Dashboards, Charts, and Alerts for the member role', () => {
+  it('shows Dashboards, Charts, and Alerts for all roles including member', () => {
     const items = getNavItems('/', false, () => false, undefined, 'member');
     expect(items.find((i) => i.title === 'Dashboards')?.hide).toBeFalsy();
     expect(items.find((i) => i.title === 'Charts')?.hide).toBeFalsy();
