@@ -16,7 +16,6 @@ import {
   Filter,
   X,
   Target,
-  User,
   BellRing,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -61,6 +60,7 @@ import type { Metric, MetricConsumersResponse } from '@/types/metrics';
 import { formatMetricExpression } from '@/lib/metrics';
 import { MetricFormDialog } from './metric-form-dialog';
 import { ConsumerLinks } from './consumer-links';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { KPIForm } from '@/components/kpis/kpi-form';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { ALERT_PERMISSIONS } from '@/types/alerts';
@@ -329,15 +329,12 @@ export function MetricsLibrary() {
           {consumers ? <ConsumerLinks consumers={consumers} /> : <Skeleton className="h-4 w-16" />}
         </TableCell>
         {/* Created by */}
-        <TableCell className="py-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-              <User className="w-3 h-3 text-gray-600" />
-            </div>
-            <span className="text-sm text-gray-600" data-testid={`metric-created-by-${metric.id}`}>
-              {metric.created_by || 'Unknown'}
-            </span>
-          </div>
+        <TableCell className="py-4 text-center">
+          {metric.created_by ? (
+            <UserAvatar email={metric.created_by} data-testid={`metric-created-by-${metric.id}`} />
+          ) : (
+            <span className="text-gray-400">—</span>
+          )}
         </TableCell>
         {/* Last Updated */}
         <TableCell className="py-4 text-sm text-gray-500">
@@ -457,7 +454,7 @@ export function MetricsLibrary() {
       </TableHead>
       <TableHead className="w-[16%] font-medium text-base">Expression</TableHead>
       <TableHead className="w-[12%] font-medium text-base">Used By</TableHead>
-      <TableHead className="w-[14%] font-medium text-base">Created by</TableHead>
+      <TableHead className="w-[14%] font-medium text-base text-center">Created by</TableHead>
       <TableHead className="w-[11%]">
         <Button
           variant="ghost"
