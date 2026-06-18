@@ -5,8 +5,10 @@ name: Deploy Storybook
 # committed to the repo (see .gitignore).
 on:
   push:
-    branches: [main, chore/storybook-setup]
-  workflow_dispatch: # allow manual runs from the Actions tab
+    branches: [main] # deploy the canonical Storybook from main
+  pull_request:
+    branches: [main] # PRs only build (deploy is gated below) — a "stories still compile" check
+  workflow_dispatch: # manual run (e.g. preview a branch before merge)
 
 # Least-privilege permissions required by the Pages deploy flow.
 permissions:
@@ -43,6 +45,9 @@ jobs:
 
   deploy:
     needs: build
+    # Only publish from main (or a manual dispatch). PRs run `build` above as a
+    # check but skip this deploy job, so the live URL only ever mirrors main.
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
