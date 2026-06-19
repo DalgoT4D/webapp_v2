@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Loader2, Info } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { buildDocsUrl } from '@/components/ui/docs-link';
 import { useDbtWorkspace, switchGitRepo, updateSchema } from '@/hooks/api/useDbtWorkspace';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { trackEvent } from '@/lib/analytics';
@@ -73,10 +74,12 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
         if (schemaChanged && !gitRepoChanged) {
           // Only schema changed — use the schema-only endpoint
           await updateSchema(data.defaultSchema);
+          trackEvent(ANALYTICS_EVENTS.TRANSFORM_SCHEMA_UPDATED);
           toastSuccess.updated('Schema');
         } else if (gitRepoChanged) {
           // Git repo changed — use the switch_git_repo endpoint
           await switchGitRepo(data.gitrepoUrl, data.gitrepoAccessToken);
+          trackEvent(ANALYTICS_EVENTS.TRANSFORM_GITHUB_REPO_UPDATED);
           toastSuccess.updated('Git repository');
           // If schema also changed, update it separately
           if (schemaChanged) {
@@ -184,7 +187,7 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                               If you want access to the repository or wish to manage it yourself,
                               please refer to our{' '}
                               <a
-                                href={process.env.NEXT_PUBLIC_TRANSFORM_DOCS_URL || '#'}
+                                href={buildDocsUrl('/data/transform/switching-repositories') || '#'}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-primary hover:underline font-medium"

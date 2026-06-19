@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { Plus, Search, MoreHorizontal, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Search, MoreVertical, Pencil, Trash2, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
   Table,
   TableBody,
@@ -87,6 +89,7 @@ export function SourceList() {
       if (confirmed) {
         try {
           await deleteSource(sourceId);
+          trackEvent(ANALYTICS_EVENTS.SOURCE_DELETED);
           toastSuccess.deleted(sourceName);
           mutate();
         } catch (error) {
@@ -186,7 +189,7 @@ export function SourceList() {
                 <TableRow className="bg-gray-50 hover:bg-gray-50">
                   <TableHead className="text-base font-medium">Source details</TableHead>
                   <TableHead className="text-base font-medium">Type</TableHead>
-                  <TableHead className="text-base font-medium text-right">Actions</TableHead>
+                  <TableHead className="text-base font-medium">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -227,7 +230,7 @@ export function SourceList() {
                       </TableCell>
 
                       {/* Actions */}
-                      <TableCell className="py-4 text-right">
+                      <TableCell className="py-4">
                         {(canEdit || canDelete) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -237,7 +240,7 @@ export function SourceList() {
                                 className="h-8 w-8 p-0 hover:bg-gray-100"
                                 data-testid={`source-actions-${source.sourceId}`}
                               >
-                                <MoreHorizontal className="w-4 h-4 text-gray-600" />
+                                <MoreVertical className="w-4 h-4 text-gray-600" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-40">

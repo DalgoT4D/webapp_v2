@@ -60,7 +60,6 @@ import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
-import { compactVertical } from '@/lib/dashboard-animation-utils';
 import { UnifiedTextElement } from './text-element-unified';
 import { KPIChartElement } from './kpi-chart-element';
 import {
@@ -425,9 +424,12 @@ export function DashboardNativeView({
 
   // Allow editing in preview mode without any conditions
 
-  // Track dashboard view once per mount
+  // Track dashboard view once per mount. Skip public (shared-link) views — those are
+  // anonymous external opens we don't track, and firing here would log dashboard_id:0.
   useEffect(() => {
-    trackEvent(ANALYTICS_EVENTS.DASHBOARD_VIEWED, { dashboard_id: dashboardId });
+    if (!isPublicMode) {
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_VIEWED, { dashboard_id: dashboardId });
+    }
     // Fire once per mount — the dashboard id is stable for the view.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -545,6 +547,7 @@ export function DashboardNativeView({
 
     try {
       await deleteDashboard(dashboardId);
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED);
 
       toast({
         title: 'Dashboard deleted',
@@ -1315,7 +1318,12 @@ export function DashboardNativeView({
                     // widget at its own (x,y,w,h) with gravity-up, matching the editor.
                     <GridLayout
                       className="dashboard-grid"
-                      layout={compactVertical(modifiedLayout, effectiveScreenConfig.cols)}
+                      // Pass the raw layout and let RGL's compactType="vertical" handle
+                      // compaction — identical to the editor canvas. A prior compactVertical()
+                      // pass here used a "global topmost free slot" search that let items jump
+                      // a full-width separator into an exactly-sized gap above it, so the view
+                      // reflowed differently from edit. See git history / dashboard 328.
+                      layout={modifiedLayout}
                       cols={effectiveScreenConfig.cols}
                       rowHeight={20}
                       width={actualContainerWidth}

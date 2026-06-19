@@ -199,10 +199,15 @@ function adjustDayOfWeek(dowField: string, shift: number): string {
 }
 
 /**
- * Convert UTC cron to local timezone cron
- * minutes, hours, day of month, month, day of week
- * 0 1 * * *
- * WE ASSUME AND REQUIRE that d-o-m and m are always "*"
+ * Convert UTC cron to local timezone cron.
+ * Fields: minute, hour, day-of-month, month, day-of-week.
+ *
+ * Supports the three shapes our wizards produce:
+ *   daily:   `m h * * *`
+ *   weekly:  `m h * * <dow>`
+ *   monthly: `m h <dom> * *`
+ *
+ * Anything else (specific month, ranges in DOM, etc.) is returned unchanged.
  */
 export function cronToLocalTZ(expression: string): string {
   if (!expression) return '';
@@ -218,9 +223,16 @@ export function cronToLocalTZ(expression: string): string {
     return '';
   }
 
-  // Validating that day of month and month are always "*"
-  if (fields[2] !== '*' || fields[3] !== '*') {
-    console.warn('cronToLocalTZ: Expected day of month and month to be "*"');
+  // Month must be wildcard. DOM is either wildcard (daily/weekly) or a single
+  // day number (monthly); other DOM shapes (ranges, lists) we don't produce.
+  const domStr = fields[2];
+  const monthStr = fields[3];
+  if (monthStr !== '*') {
+    console.warn('cronToLocalTZ: Expected month to be "*"');
+    return expression;
+  }
+  if (domStr !== '*' && !/^\d+$/.test(domStr)) {
+    console.warn('cronToLocalTZ: Unsupported day-of-month shape');
     return expression;
   }
 
@@ -244,7 +256,17 @@ export function cronToLocalTZ(expression: string): string {
     // Adjust day-of-week field if needed
     const adjustedDow = adjustDayOfWeek(fields[4], dayShift);
 
-    return `${localMinutes} ${localHours} ${fields[2]} ${fields[3]} ${adjustedDow}`;
+    // Monthly: shift DOM the same way DOW shifts; clamp to [1, 28] (matches
+    // the wizard's UI cap so we don't land on a day some months lack).
+    let dom = domStr;
+    if (/^\d+$/.test(dom) && dayShift !== 0) {
+      let shifted = parseInt(dom, 10) + dayShift;
+      if (shifted < 1) shifted = 1;
+      if (shifted > 28) shifted = 28;
+      dom = String(shifted);
+    }
+
+    return `${localMinutes} ${localHours} ${dom} ${monthStr} ${adjustedDow}`;
   } catch (error) {
     console.error('Error converting cron expression to local timezone:', error);
     return expression;
@@ -264,7 +286,7 @@ export function cronToString(expression: string | null): string {
     const parts = localCron.split(' ');
     if (parts.length !== 5) return expression;
 
-    const [minutes, hours, , , dayOfWeek] = parts;
+    const [minutes, hours, dayOfMonth, , dayOfWeek] = parts;
     const hour = parseInt(hours, 10);
     const minute = parseInt(minutes, 10);
 
@@ -272,6 +294,20 @@ export function cronToString(expression: string | null): string {
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const hour12 = hour % 12 || 12;
     const timeStr = `${hour12}:${minute.toString().padStart(2, '0')} ${ampm}`;
+
+    // Monthly: DOM is a specific day-of-month, DOW is "*"
+    if (dayOfWeek === '*' && /^\d+$/.test(dayOfMonth)) {
+      const dom = parseInt(dayOfMonth, 10);
+      const suffix =
+        dom === 1 || dom === 21 || dom === 31
+          ? 'st'
+          : dom === 2 || dom === 22
+            ? 'nd'
+            : dom === 3 || dom === 23
+              ? 'rd'
+              : 'th';
+      return `Monthly on the ${dom}${suffix} at ${timeStr}`;
+    }
 
     if (dayOfWeek === '*') {
       return `Daily at ${timeStr}`;

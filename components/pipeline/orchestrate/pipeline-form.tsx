@@ -8,6 +8,7 @@ import { Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { TimePicker } from '@/components/ui/time-picker';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
@@ -256,6 +257,9 @@ function PipelineFormContent({
         if (activeChanged) {
           try {
             await setScheduleStatus(deploymentId, data.active);
+            trackEvent(ANALYTICS_EVENTS.PIPELINE_SCHEDULE_TOGGLED, {
+              new_status: data.active ? 'active' : 'inactive',
+            });
           } catch (statusError: any) {
             scheduleStatusFailed = true;
             toastError.api(
@@ -271,6 +275,9 @@ function PipelineFormContent({
         mutate('/api/prefect/v1/flows/', undefined, { revalidate: false });
 
         if (!scheduleStatusFailed) {
+          trackEvent(ANALYTICS_EVENTS.PIPELINE_UPDATED, {
+            has_schedule: Boolean(cronExpression) && cronExpression !== 'manual',
+          });
           toastSuccess.updated('Pipeline');
         }
       } else {
@@ -282,7 +289,9 @@ function PipelineFormContent({
           continueOnSyncFailure: data.continueOnSyncFailure,
         });
 
-        trackEvent(ANALYTICS_EVENTS.PIPELINE_CREATED);
+        trackEvent(ANALYTICS_EVENTS.PIPELINE_CREATED, {
+          has_schedule: Boolean(cronExpression) && cronExpression !== 'manual',
+        });
         toastSuccess.created('Pipeline');
       }
 
@@ -494,12 +503,10 @@ function PipelineFormContent({
                     control={control}
                     rules={{ required: 'Time of day is required' }}
                     render={({ field }) => (
-                      <Input
-                        type="time"
+                      <TimePicker
                         value={field.value}
                         onChange={field.onChange}
                         data-testid="cronTimeOfDay"
-                        className="h-10 w-36 text-[15px]"
                       />
                     )}
                   />

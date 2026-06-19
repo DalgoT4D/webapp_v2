@@ -19,9 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Plus, Download, Upload, Target, Hammer, X } from 'lucide-react';
+import { Loader2, Download, Upload, Target, Hammer, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Combobox } from '@/components/ui/combobox';
+import { MetricPicker } from '@/components/metrics/MetricPicker';
 import { useMetrics } from '@/hooks/api/useMetrics';
 import { useTableColumns } from '@/hooks/api/useWarehouse';
 import { createKPI, updateKPI, useProgramTags } from '@/hooks/api/useKPIs';
@@ -277,6 +277,9 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           program_tags: programTags,
         };
         await updateKPI(kpi.id, updateData);
+        trackEvent(ANALYTICS_EVENTS.KPI_UPDATED, {
+          metric_type_tag: data.metric_type_tag || null,
+        });
       } else {
         const createData: KPICreate = {
           metric_id: data.metric_id!,
@@ -291,7 +294,13 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           program_tags: programTags,
         };
         await createKPI(createData);
-        trackEvent(ANALYTICS_EVENTS.KPI_CREATED);
+        trackEvent(ANALYTICS_EVENTS.KPI_CREATED, {
+          metric_type_tag: data.metric_type_tag || null,
+        });
+        // A metric was consumed to build a KPI (metric adoption signal).
+        if (data.metric_id) {
+          trackEvent(ANALYTICS_EVENTS.METRIC_USED, { metric_id: data.metric_id });
+        }
       }
       onSuccess();
       onOpenChange(false);
@@ -339,53 +348,10 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
               name="metric_id"
               rules={{ required: 'Metric is required' }}
               render={({ field }) => (
-                <Combobox
+                <MetricPicker
                   disabled={isEdit}
-                  items={metrics.map((m) => ({
-                    value: m.id.toString(),
-                    label: m.name,
-                    data_type: `${m.schema_name}.${m.table_name}${m.description ? ' · ' + m.description : ''}`,
-                    disabled: false,
-                  }))}
-                  value={field.value?.toString() || ''}
-                  onValueChange={(v) => handleSelectMetric(parseInt(v))}
-                  placeholder="Search from your Metrics Library"
-                  searchPlaceholder="Search metrics..."
-                  renderItem={(item) => {
-                    const metric = metrics.find((m) => m.id.toString() === item.value);
-                    return (
-                      <div className="flex items-center justify-between w-full gap-2">
-                        <div className="min-w-0">
-                          <div className="font-medium">{item.label}</div>
-                          <div className="text-xs text-muted-foreground truncate">
-                            {item.data_type}
-                          </div>
-                        </div>
-                        <span
-                          className={cn(
-                            'shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border',
-                            metric?.column_expression
-                              ? 'bg-green-50 text-green-700 border-green-200'
-                              : 'bg-gray-50 text-gray-600 border-gray-200'
-                          )}
-                        >
-                          {metric?.column_expression ? 'Calculated' : 'Simple'}
-                        </span>
-                      </div>
-                    );
-                  }}
-                  footer={
-                    <a
-                      href="/metrics?create=true"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-1.5 w-full py-1 text-sm font-medium"
-                      style={{ color: 'var(--primary)' }}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      CREATE A NEW METRIC
-                    </a>
-                  }
+                  value={field.value ?? null}
+                  onChange={(id) => id !== null && handleSelectMetric(id)}
                 />
               )}
             />
@@ -438,8 +404,8 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                       setValue('green_threshold_pct', '100');
                       setValue('amber_threshold_pct', '80');
                     } else {
-                      setValue('green_threshold_pct', '100');
-                      setValue('amber_threshold_pct', '120');
+                      setValue('green_threshold_pct', '80');
+                      setValue('amber_threshold_pct', '100');
                     }
                   }}
                 >

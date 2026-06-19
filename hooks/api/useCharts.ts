@@ -13,6 +13,7 @@ export interface Chart {
   render_config?: any;
   created_at: string;
   updated_at: string;
+  created_by?: string; // creator's email
 }
 
 export interface ChartListResponse {

@@ -38,7 +38,11 @@ import {
 } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
-import { getApiCustomizations, mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
+import {
+  getApiCustomizations,
+  mergeTableColumnFormatting,
+  resolveTableColumnOrder,
+} from '@/lib/chart-payload-utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
@@ -307,91 +311,122 @@ function ConfigureChartPageContent() {
     }
   };
 
-  // Build payload for chart data
-  const chartDataPayload: ChartDataPayload | null = isChartDataReady()
-    ? {
-        chart_type: formData.chart_type!,
-        computation_type: formData.computation_type!,
-        schema_name: formData.schema_name!,
-        table_name: formData.table_name!,
-        ...(formData.x_axis_column && { x_axis: formData.x_axis_column }),
-        ...(formData.y_axis_column && { y_axis: formData.y_axis_column }),
-        ...(formData.dimension_column && { dimension_col: formData.dimension_column }),
-        ...(formData.aggregate_column && { aggregate_col: formData.aggregate_column }),
-        ...(formData.aggregate_function && { aggregate_func: formData.aggregate_function }),
-        ...(formData.extra_dimension_column && {
-          extra_dimension: formData.extra_dimension_column,
-        }),
-        // Multiple metrics for bar/line charts
-        ...(formData.metrics && { metrics: formData.metrics }),
-        // For table charts, include dimensions array with drill-down support
-        ...(formData.chart_type === 'table' &&
-          formData.dimensions &&
-          formData.dimensions.length > 0 && {
-            dimensions: (() => {
-              const isDrillDownEnabled = formData.dimensions.some(
-                (dim) => dim.enable_drill_down === true
-              );
+  // Build payload for chart data - memoized to prevent infinite re-render loops
+  const chartDataPayload: ChartDataPayload | null = useMemo(
+    () =>
+      isChartDataReady()
+        ? {
+            chart_type: formData.chart_type!,
+            computation_type: formData.computation_type!,
+            schema_name: formData.schema_name!,
+            table_name: formData.table_name!,
+            ...(formData.x_axis_column && { x_axis: formData.x_axis_column }),
+            ...(formData.y_axis_column && { y_axis: formData.y_axis_column }),
+            ...(formData.dimension_column && { dimension_col: formData.dimension_column }),
+            ...(formData.aggregate_column && { aggregate_col: formData.aggregate_column }),
+            ...(formData.aggregate_function && { aggregate_func: formData.aggregate_function }),
+            ...(formData.extra_dimension_column && {
+              extra_dimension: formData.extra_dimension_column,
+            }),
+            // Multiple metrics for bar/line charts
+            ...(formData.metrics && { metrics: formData.metrics }),
+            // For table charts, include dimensions array with drill-down support
+            ...(formData.chart_type === 'table' &&
+              formData.dimensions &&
+              formData.dimensions.length > 0 && {
+                dimensions: (() => {
+                  const isDrillDownEnabled = formData.dimensions.some(
+                    (dim) => dim.enable_drill_down === true
+                  );
 
-              if (!isDrillDownEnabled) {
-                // Show all dimensions if drill-down disabled
-                return formData.dimensions.map((d) => d.column).filter(Boolean);
-              }
+                  if (!isDrillDownEnabled) {
+                    // Show all dimensions if drill-down disabled
+                    return formData.dimensions.map((d) => d.column).filter(Boolean);
+                  }
 
-              // When drill-down is enabled, only use dimensions with enable_drill_down
-              const drillDownDimensions = formData.dimensions
-                .filter((dim) => dim.enable_drill_down)
-                .map((d) => d.column)
-                .filter(Boolean);
+                  // When drill-down is enabled, only use dimensions with enable_drill_down
+                  const drillDownDimensions = formData.dimensions
+                    .filter((dim) => dim.enable_drill_down)
+                    .map((d) => d.column)
+                    .filter(Boolean);
 
-              // When drill-down is enabled and active, use only the current level dimension
-              if (tableDrillDownState) {
-                const nextIndex = Math.min(
-                  tableDrillDownState.currentLevel + 1,
-                  drillDownDimensions.length - 1
-                );
-                return [drillDownDimensions[nextIndex]]; // Only current level
-              }
+                  // When drill-down is enabled and active, use only the current level dimension
+                  if (tableDrillDownState) {
+                    const nextIndex = Math.min(
+                      tableDrillDownState.currentLevel + 1,
+                      drillDownDimensions.length - 1
+                    );
+                    return [drillDownDimensions[nextIndex]]; // Only current level
+                  }
 
-              // Drill-down enabled but not yet started: use top-level dimension only
-              return [drillDownDimensions[0]]; // Only first dimension
-            })(),
-          }),
-        ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
-        ...(formData.value_column && { value_column: formData.value_column }),
-        ...(formData.selected_geojson_id && { selected_geojson_id: formData.selected_geojson_id }),
-        ...(formData.chart_type === 'map' &&
-          formData.layers?.[0]?.geojson_id && {
-            selected_geojson_id: formData.layers[0].geojson_id,
-          }),
-        ...(formData.chart_type === 'map' && {
-          ...(formData.geographic_column && { dimension_col: formData.geographic_column }),
-          ...((formData.aggregate_column || formData.value_column) && {
-            aggregate_col: formData.aggregate_column || formData.value_column,
-          }),
-        }),
-        // Number formatting is frontend-only - exclude from API payload
-        ...(formData.chart_type !== ChartTypes.TABLE && {
-          customizations: getApiCustomizations(formData.chart_type, formData.customizations),
-        }),
-        extra_config: {
-          filters: [
-            ...(formData.filters || []),
-            // Add drill-down filters from tableDrillDownState
-            ...(formData.chart_type === 'table' && tableDrillDownState?.appliedFilters
-              ? Object.entries(tableDrillDownState.appliedFilters).map(([column, value]) => ({
-                  column,
-                  operator: 'equals',
-                  value,
-                }))
-              : []),
-          ],
-          pagination: formData.pagination,
-          sort: formData.sort,
-          time_grain: formData.time_grain,
-        },
-      }
-    : null;
+                  // Drill-down enabled but not yet started: use top-level dimension only
+                  return [drillDownDimensions[0]]; // Only first dimension
+                })(),
+              }),
+            ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
+            ...(formData.value_column && { value_column: formData.value_column }),
+            ...(formData.selected_geojson_id && {
+              selected_geojson_id: formData.selected_geojson_id,
+            }),
+            ...(formData.chart_type === 'map' &&
+              formData.layers?.[0]?.geojson_id && {
+                selected_geojson_id: formData.layers[0].geojson_id,
+              }),
+            ...(formData.chart_type === 'map' && {
+              ...(formData.geographic_column && { dimension_col: formData.geographic_column }),
+              ...((formData.aggregate_column || formData.value_column) && {
+                aggregate_col: formData.aggregate_column || formData.value_column,
+              }),
+            }),
+            // Number formatting is frontend-only - exclude from API payload
+            ...(formData.chart_type !== ChartTypes.TABLE && {
+              customizations: getApiCustomizations(formData.chart_type, formData.customizations),
+            }),
+            extra_config: {
+              filters: [
+                ...(formData.filters || []),
+                // Add drill-down filters from tableDrillDownState
+                ...(formData.chart_type === 'table' && tableDrillDownState?.appliedFilters
+                  ? Object.entries(tableDrillDownState.appliedFilters).map(([column, value]) => ({
+                      column,
+                      operator: 'equals',
+                      value,
+                    }))
+                  : []),
+              ],
+              pagination: formData.pagination,
+              sort: formData.sort,
+              time_grain: formData.time_grain,
+            },
+          }
+        : null,
+    [
+      formData.chart_type,
+      formData.computation_type,
+      formData.schema_name,
+      formData.table_name,
+      formData.x_axis_column,
+      formData.y_axis_column,
+      formData.dimension_column,
+      formData.aggregate_column,
+      formData.aggregate_function,
+      formData.extra_dimension_column,
+      formData.metrics,
+      formData.geographic_column,
+      formData.value_column,
+      formData.selected_geojson_id,
+      formData.layers,
+      formData.dimensions,
+      formData.table_columns,
+      formData.customizations,
+      formData.filters,
+      formData.pagination,
+      formData.sort,
+      formData.time_grain,
+      formData.extra_config,
+      tableDrillDownState,
+    ]
+  );
 
   // Fetch chart data
   const {
@@ -526,9 +561,9 @@ function ConfigureChartPageContent() {
   // Get all columns for raw data
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
-  const handleFormChange = (updates: Partial<ChartBuilderFormData>) => {
+  const handleFormChange = useCallback((updates: Partial<ChartBuilderFormData>) => {
     setFormData((prev) => ({ ...prev, ...updates }));
-  };
+  }, []);
 
   // Auto-prefill when columns are loaded
   useEffect(() => {
@@ -855,15 +890,7 @@ function ConfigureChartPageContent() {
         value_column: formData.value_column,
         selected_geojson_id: selectedGeojsonId,
         layers: formData.layers,
-        // For table charts: send columnFormatting and dateColumnFormatting to API
-        // For all other charts (including number): send all customizations
-        customizations:
-          formData.chart_type === 'table'
-            ? {
-                columnFormatting: formData.customizations?.columnFormatting,
-                dateColumnFormatting: formData.customizations?.dateColumnFormatting,
-              }
-            : formData.customizations,
+        customizations: formData.customizations,
         filters: formData.filters,
         pagination: formData.pagination,
         sort: formData.sort,
@@ -1068,6 +1095,9 @@ function ConfigureChartPageContent() {
                       formData={formData}
                       onChange={handleFormChange}
                       columns={columns}
+                      currentDrillLevel={
+                        tableDrillDownState ? tableDrillDownState.currentLevel + 1 : 0
+                      }
                     />
                   )}
                 </div>
@@ -1136,10 +1166,32 @@ function ConfigureChartPageContent() {
                         <TableChart
                           data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
                           config={{
-                            table_columns: tableChartData?.columns || formData.table_columns || [],
+                            table_columns: (() => {
+                              const cols = tableChartData?.columns || formData.table_columns || [];
+                              const drillDownDimensions =
+                                formData.dimensions
+                                  ?.filter((d) => d.enable_drill_down)
+                                  .map((d) => d.column)
+                                  .filter(Boolean) || [];
+                              const currentDim = tableDrillDownState
+                                ? drillDownDimensions[tableDrillDownState.currentLevel + 1]
+                                : drillDownDimensions[0];
+                              return resolveTableColumnOrder({
+                                cols,
+                                savedOrder: formData.customizations?.columnOrder,
+                                drillDownDimensions,
+                                currentDimensionColumn: currentDim,
+                              });
+                            })(),
                             column_formatting: mergeTableColumnFormatting(formData.customizations),
                             sort: formData.sort || [],
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
+                            conditionalFormatting:
+                              formData.customizations?.conditionalFormatting || [],
+                            columnAlignment: formData.customizations?.columnAlignment || {},
+                            zebraRows: formData.customizations?.zebraRows ?? true,
+                            freezeFirstColumn: formData.customizations?.freezeFirstColumn || false,
+                            theme: formData.customizations?.theme,
                           }}
                           isLoading={tableChartLoading}
                           error={tableChartError}

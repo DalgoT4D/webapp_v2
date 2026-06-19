@@ -94,6 +94,9 @@ export function useTaskProgress(taskId: string | null) {
         return TASK_PROGRESS_POLL_INTERVAL_MS;
       },
       revalidateOnFocus: false,
+      // Don't re-poll a hard failure (e.g. 400 from the task endpoint) every 3s forever —
+      // surface the error instead. SWR stops polling once it stops retrying on error.
+      shouldRetryOnError: false,
     }
   );
   const lastMessage = data?.progress?.[data.progress.length - 1];

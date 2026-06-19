@@ -248,9 +248,10 @@ export function MetricFormDialog({
     try {
       if (isEdit && metric) {
         await updateMetric(metric.id, payload);
+        trackEvent(ANALYTICS_EVENTS.METRIC_UPDATED, { mode: data.mode });
       } else {
         await createMetric(payload);
-        trackEvent(ANALYTICS_EVENTS.METRIC_CREATED);
+        trackEvent(ANALYTICS_EVENTS.METRIC_CREATED, { mode: data.mode });
       }
       onSuccess();
       onOpenChange(false);

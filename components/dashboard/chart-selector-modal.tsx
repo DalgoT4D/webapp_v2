@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { useCharts } from '@/hooks/api/useCharts';
 import { StaticChartPreview } from '@/components/charts/StaticChartPreview';
+import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 import { Loader2, Search, Plus } from 'lucide-react';
 import Link from 'next/link';
 
@@ -91,7 +92,11 @@ export function ChartSelectorModal({
                       <StaticChartPreview chartType={chart.chart_type} />
                     </div>
                     <div className="text-center">
-                      <h4 className="text-sm font-medium truncate mb-1">{chart.title}</h4>
+                      <OverflowTooltip
+                        text={chart.title}
+                        className="text-sm font-medium mb-1"
+                        tooltipAlign="center"
+                      />
                       <p className="text-xs text-gray-500 capitalize">{chart.chart_type}</p>
                       {isAlreadyAdded && (
                         <p className="text-xs text-orange-600 font-medium mt-1">Already added</p>

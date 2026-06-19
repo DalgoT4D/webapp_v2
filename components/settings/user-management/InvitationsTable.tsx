@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -322,6 +324,7 @@ export function InvitationsTable() {
     setResendingId(invitationId);
     try {
       await resendInvitation(invitationId);
+      trackEvent(ANALYTICS_EVENTS.INVITATION_RESENT);
     } catch (error) {
       // Error is handled in the hook
     } finally {
@@ -452,9 +455,7 @@ export function InvitationsTable() {
                   </Popover>
                 </div>
               </TableHead>
-              <TableHead className="w-[10%] text-right font-medium text-base px-4 py-3">
-                Actions
-              </TableHead>
+              <TableHead className="w-[10%] font-medium text-base px-4 py-3">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -475,7 +476,7 @@ export function InvitationsTable() {
                     ? format(new Date(invitation.invited_on), 'MMM dd, yyyy')
                     : '—'}
                 </TableCell>
-                <TableCell className="px-4 py-3 text-right">
+                <TableCell className="px-4 py-3">
                   {(canResendInvitation || canDeleteInvitation) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

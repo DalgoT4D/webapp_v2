@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -83,6 +85,7 @@ export default function NotificationsPage() {
 
     const success = await markAllAsRead();
     if (success) {
+      trackEvent(ANALYTICS_EVENTS.NOTIFICATIONS_ALL_READ);
       await mutate();
       await mutateUnreadCount();
       setSelectedIds([]);
@@ -114,7 +117,7 @@ export default function NotificationsPage() {
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="flex-shrink-0 border-b bg-background">
-        <div className="flex items-center justify-between p-6 pb-0 mb-6">
+        <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold">Notifications</h1>
@@ -127,7 +130,7 @@ export default function NotificationsPage() {
                 </Badge>
               )}
             </div>
-            <p className="text-muted-foreground mt-1">View And Manage Your Notifications</p>
+            <p className="text-muted-foreground mt-1">View and manage your notifications</p>
           </div>
 
           {/* Action Buttons */}

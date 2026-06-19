@@ -140,6 +140,7 @@ export function ConnectionsList() {
       if (confirmed) {
         try {
           await deleteConnection(conn.connectionId);
+          trackEvent(ANALYTICS_EVENTS.CONNECTION_DELETED);
           toastSuccess.deleted(conn.name);
           mutate();
         } catch (error) {
@@ -155,7 +156,9 @@ export function ConnectionsList() {
       try {
         setSyncingIds((prev) => [...prev, conn.connectionId]);
         const result = await triggerSync(conn.deploymentId);
-        trackEvent(ANALYTICS_EVENTS.CONNECTION_SYNC_TRIGGERED);
+        trackEvent(ANALYTICS_EVENTS.CONNECTION_SYNC_TRIGGERED, {
+          source_type: conn.source?.sourceName,
+        });
         // Immediately refresh so the connection's lock status is picked up
         // This activates SWR's smart 3s polling for locked connections
         mutate();
@@ -174,6 +177,7 @@ export function ConnectionsList() {
       if (!conn.lock?.flowRunId) return;
       try {
         await cancelQueuedSync(conn.lock.flowRunId);
+        trackEvent(ANALYTICS_EVENTS.CONNECTION_SYNC_CANCELLED);
         toastSuccess.generic('Sync cancelled');
         mutate();
       } catch (error) {
@@ -214,6 +218,9 @@ export function ConnectionsList() {
             }));
           await clearSelectedStreams(clearDeploymentId, clearStreamConnectionId, selected);
         }
+        trackEvent(ANALYTICS_EVENTS.CONNECTION_RESET, {
+          reset_type: allSelected ? 'all' : 'selected',
+        });
         toastSuccess.generic('Stream clear initiated');
         setClearStreamConnectionId(null);
         mutate();
@@ -317,9 +324,7 @@ export function ConnectionsList() {
                     Source → Destination
                   </TableHead>
                   <TableHead className="text-base font-medium w-[25%]">Last sync</TableHead>
-                  <TableHead className="text-base font-medium text-right w-[15%]">
-                    Actions
-                  </TableHead>
+                  <TableHead className="text-base font-medium w-[15%]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

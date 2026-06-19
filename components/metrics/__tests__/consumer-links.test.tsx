@@ -6,7 +6,7 @@ import type { MetricConsumersResponse } from '@/types/metrics';
 
 describe('ConsumerLinks', () => {
   it('shows "unused" when no consumers', () => {
-    const consumers: MetricConsumersResponse = { charts: [], kpis: [] };
+    const consumers: MetricConsumersResponse = { charts: [], kpis: [], alerts: [] };
     render(<ConsumerLinks consumers={consumers} />);
     expect(screen.getByText('unused')).toBeInTheDocument();
   });
@@ -15,6 +15,7 @@ describe('ConsumerLinks', () => {
     const consumers: MetricConsumersResponse = {
       charts: [{ id: 1, title: 'Chart A', chart_type: 'bar' }],
       kpis: [],
+      alerts: [],
     };
     render(<ConsumerLinks consumers={consumers} />);
     expect(screen.getByText('1 Chart')).toBeInTheDocument();
@@ -24,6 +25,7 @@ describe('ConsumerLinks', () => {
     const consumers: MetricConsumersResponse = {
       charts: [],
       kpis: [{ id: 1, name: 'KPI A' }],
+      alerts: [],
     };
     render(<ConsumerLinks consumers={consumers} />);
     expect(screen.getByText('1 KPI')).toBeInTheDocument();
@@ -36,6 +38,7 @@ describe('ConsumerLinks', () => {
         { id: 2, title: 'Chart B', chart_type: 'line' },
       ],
       kpis: [{ id: 1, name: 'KPI A' }],
+      alerts: [],
     };
     render(<ConsumerLinks consumers={consumers} />);
     expect(screen.getByText('2 Charts')).toBeInTheDocument();
@@ -51,6 +54,7 @@ describe('ConsumerLinks', () => {
         { id: 2, name: 'KPI B' },
         { id: 3, name: 'KPI C' },
       ],
+      alerts: [],
     };
     render(<ConsumerLinks consumers={consumers} />);
     expect(screen.getByText('1 Chart')).toBeInTheDocument();
@@ -65,6 +69,7 @@ describe('ConsumerLinks', () => {
         { id: 2, title: 'Trend Chart', chart_type: 'line' },
       ],
       kpis: [],
+      alerts: [],
     };
     render(<ConsumerLinks consumers={consumers} />);
 
@@ -78,6 +83,7 @@ describe('ConsumerLinks', () => {
     const consumers: MetricConsumersResponse = {
       charts: [{ id: 42, title: 'My Chart', chart_type: 'bar' }],
       kpis: [],
+      alerts: [],
     };
     render(<ConsumerLinks consumers={consumers} />);
 
@@ -91,9 +97,27 @@ describe('ConsumerLinks', () => {
     const consumers: MetricConsumersResponse = {
       charts: [{ id: 1, title: 'Chart', chart_type: 'bar' }],
       kpis: [],
+      alerts: [],
     };
     render(<ConsumerLinks consumers={consumers} variant="inherit" />);
     const button = screen.getByText('1 Chart');
     expect(button).toHaveClass('text-amber-700');
+  });
+
+  it('shows alert count and link to /alerts page', async () => {
+    const user = userEvent.setup();
+    const consumers: MetricConsumersResponse = {
+      charts: [],
+      kpis: [],
+      alerts: [
+        { id: 7, name: 'Latency alert', alert_type: 'metric_threshold' },
+        { id: 8, name: 'Errors alert', alert_type: 'metric_threshold' },
+      ],
+    };
+    render(<ConsumerLinks consumers={consumers} />);
+    expect(screen.getByText('2 Alerts')).toBeInTheDocument();
+    await user.click(screen.getByText('2 Alerts'));
+    const link = screen.getByText('Latency alert').closest('a');
+    expect(link).toHaveAttribute('href', '/alerts');
   });
 });

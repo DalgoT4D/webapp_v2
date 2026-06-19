@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -81,6 +83,7 @@ function InvitationAcceptanceForm() {
         showToast
       );
 
+      trackEvent(ANALYTICS_EVENTS.INVITATION_ACCEPTED);
       // Success - redirect to login page
       router.push('/login?invitation=accepted');
     } catch (error: any) {
@@ -219,6 +222,7 @@ function InvitationAcceptanceForm() {
                     <SelectItem value="program_manager">Program Manager</SelectItem>
                     <SelectItem value="data_tech">Data & Tech</SelectItem>
                     <SelectItem value="leadership">Leadership (COO, Founder, CTO etc.)</SelectItem>
+                    <SelectItem value="consultant">Consultant</SelectItem>
                     <SelectItem value="field_worker">Field worker</SelectItem>
                   </SelectContent>
                 </Select>

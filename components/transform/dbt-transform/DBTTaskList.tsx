@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Loader2, MoreHorizontal, Play, Plus, Settings, Trash2, Lock, Clock } from 'lucide-react';
+import { Loader2, MoreVertical, Play, Plus, Settings, Trash2, Lock, Clock } from 'lucide-react';
 import {
   usePrefectTasks,
   runPrefectDeployment,
@@ -41,6 +41,8 @@ import { LogCard } from '@/components/pipeline/log-card';
 import { PipelineRunDisplayStatus, LockStatus } from '@/constants/pipeline';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
   TASK_DBTRUN,
   TASK_DBTTEST,
@@ -160,6 +162,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
       return;
     }
 
+    trackEvent(ANALYTICS_EVENTS.TRANSFORM_DBT_TASK_TRIGGERED);
     setFlowRunId(response.flow_run_id);
     mutate(); // Refresh task list to show lock status
 
@@ -186,6 +189,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
 
     const isSuccess = response?.status === 'success';
     if (isSuccess) {
+      trackEvent(ANALYTICS_EVENTS.TRANSFORM_DBT_TASK_TRIGGERED);
       toastSuccess.generic(`${task.label} ran successfully`);
       setLogStatus(PipelineRunDisplayStatus.SUCCESS);
     } else {
@@ -232,6 +236,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
     setDeleteLoading(true);
     try {
       await deletePrefectTask(deleteTaskId);
+      trackEvent(ANALYTICS_EVENTS.TRANSFORM_CUSTOM_TASK_DELETED);
       toastSuccess.deleted('Task');
       mutate(); // Refresh task list
       setDeleteTaskId(null);
@@ -289,7 +294,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
                   <TableRow className="bg-gray-50 hover:bg-gray-50">
                     <TableHead className="text-base font-medium pl-4">Label</TableHead>
                     <TableHead className="text-base font-medium pl-4">Command</TableHead>
-                    <TableHead className="text-base font-medium text-right pr-4">Actions</TableHead>
+                    <TableHead className="w-[200px] text-base font-medium">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -302,8 +307,8 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
                         <TableCell className="py-4 pl-4 text-base text-gray-700">
                           {task.command}
                         </TableCell>
-                        <TableCell className="py-4 pr-4">
-                          <div className="flex items-center justify-end gap-3">
+                        <TableCell className="py-4">
+                          <div className="flex items-center gap-3">
                             {/* Show "Triggered by" when task is locked */}
                             {task.lock && isAnyTaskLocked && (
                               <div className="flex items-center gap-2">
@@ -356,7 +361,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
                                     data-testid={`task-menu-${task.uuid}`}
                                     className={runningTask || isAnyTaskLocked ? 'invisible' : ''}
                                   >
-                                    <MoreHorizontal className="h-4 w-4" />
+                                    <MoreVertical className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">

@@ -94,6 +94,7 @@ export interface Chart {
   is_favorite?: boolean;
   extra_config: Record<string, any>;
   echarts_config: Record<string, any>;
+  created_by?: string; // creator's email
   created_at: string;
   updated_at: string;
 }

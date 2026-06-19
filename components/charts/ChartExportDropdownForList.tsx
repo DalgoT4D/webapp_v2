@@ -9,6 +9,8 @@ import {
   DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { ChartExporter, generateFilename, type TableData } from '@/lib/chart-export';
 import { MapExportHandler } from '@/lib/map-export-handler';
 
@@ -66,6 +68,7 @@ export function ChartExportDropdownForList({
       }
 
       const formatName = format.toUpperCase();
+      trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, { format, chart_type: chartType });
       toastSuccess.exported(chartTitle, format);
       onExportComplete?.();
     } catch (error: any) {
@@ -232,7 +235,7 @@ export function ChartExportDropdownForList({
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent>
         {chartType === 'table' ? (
-          // Table charts show CSV export only
+          // Table charts show CSV export
           <DropdownMenuItem
             onClick={() => handleExport('csv')}
             className="cursor-pointer"
