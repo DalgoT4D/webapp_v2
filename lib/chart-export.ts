@@ -23,7 +23,6 @@ export interface BrandingOptions {
 // Dimensions at 2× scale — matches pixelRatio:2 used in ECharts getDataURL
 const BRAND_SCALE = 2;
 const HEADER_H = 56 * BRAND_SCALE;
-const FOOTER_H = 44 * BRAND_SCALE;
 const PAD_X = 16 * BRAND_SCALE;
 const LOGO_MAX_H = 32 * BRAND_SCALE; // same as powered-by height
 const POWERED_MAX_W = 120 * BRAND_SCALE;
@@ -130,7 +129,7 @@ export class ChartExporter {
   // Proxy through backend so the browser receives a same-origin blob — avoids S3/external CORS on canvas
   private static async fetchLogoAsObjectUrl(): Promise<string | null> {
     try {
-      const blob = await apiGetBinary('/api/org/logo/proxy/');
+      const blob = await apiGetBinary('/api/org/logo/');
       return URL.createObjectURL(blob);
     } catch {
       return null;

@@ -21,7 +21,7 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { apiDelete, apiPost, apiPostFormData } from '@/lib/api';
+import { apiDelete, apiPost, apiPostFormData, apiPut } from '@/lib/api';
 import { UploadTabContent } from './branding-upload-tab';
 import { LinkTabContent } from './branding-link-tab';
 
@@ -181,10 +181,10 @@ export default function Branding() {
       if (activeTab === 'upload' && selectedFile) {
         const formData = new FormData();
         formData.append('file', selectedFile);
-        res = await apiPostFormData('/api/org/logo/upload/', formData);
+        res = await apiPostFormData('/api/org/logo/', formData);
         savedUrl = res.data.logo_url;
       } else if (activeTab === 'link' && linkInput.trim()) {
-        res = await apiPost('/api/org/logo/url/', { image_url: linkInput.trim() });
+        res = await apiPut('/api/org/logo/', { image_url: linkInput.trim() });
         savedUrl = res.data.logo_url;
       }
 
