@@ -7,6 +7,7 @@ export interface Org {
   viz_url: string;
   logo_url?: string | null;
   logo_filename?: string | null;
+  created_at?: string | null; // ISO 8601 org onboarding date; sent to PostHog as `onboarded_date` (group) for tenure cohorts
 }
 
 export interface Permission {
@@ -24,6 +25,7 @@ export interface OrgUser {
   landing_dashboard_id?: number | null; // Personal landing page dashboard ID
   org_default_dashboard_id?: number | null; // Organization default dashboard ID
   subscription_plan?: string | null; // Org base plan, used for analytics segmentation
+  work_domain?: string | null; // User's work function at the NGO (M&E/program/data-tech/leadership/field), self-selected at signup; sent to PostHog as the `function` segmentation property
 }
 
 interface AuthState {

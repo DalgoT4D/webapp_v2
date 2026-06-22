@@ -184,7 +184,9 @@ export function ConnectionForm({ mode, connectionId, onClose, onSuccess }: Conne
           syncCatalog: discoveredCatalog!,
           catalogId: catalogId || undefined,
         });
-        trackEvent(ANALYTICS_EVENTS.CONNECTION_CREATED);
+        trackEvent(ANALYTICS_EVENTS.CONNECTION_CREATED, {
+          source_type: sources?.find((s) => s.sourceId === selectedSourceId)?.sourceName,
+        });
         toastSuccess.created('Connection');
       } else if (connectionId) {
         await updateConnection(connectionId, {
@@ -195,6 +197,9 @@ export function ConnectionForm({ mode, connectionId, onClose, onSuccess }: Conne
           destinationSchema: destinationSchema || undefined,
           syncCatalog: connection?.syncCatalog,
           catalogId: catalogId || undefined,
+        });
+        trackEvent(ANALYTICS_EVENTS.CONNECTION_UPDATED, {
+          source_type: connection?.source?.sourceName,
         });
         toastSuccess.updated('Connection');
       }

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +35,7 @@ export function DeleteUserDialog({
     setIsDeleting(true);
     try {
       await deleteUser(userEmail);
+      trackEvent(ANALYTICS_EVENTS.USER_DELETED);
       onSuccess();
     } catch (error) {
       // Error is handled in the hook

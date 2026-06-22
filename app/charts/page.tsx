@@ -23,6 +23,7 @@ import {
   ArrowUpDown,
   Filter,
   Star,
+  User,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
@@ -35,6 +36,7 @@ import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DocsLink } from '@/components/ui/docs-link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Table as TableComponent,
@@ -64,6 +66,8 @@ import {
 // AlertDialog imports removed - now using ChartDeleteDialog component
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
 
@@ -310,6 +314,7 @@ export default function ChartsPage() {
 
       try {
         await deleteChart(chartId);
+        trackEvent(ANALYTICS_EVENTS.CHART_DELETED);
         await mutate();
         toastSuccess.deleted(chartTitle);
       } catch (error) {
@@ -395,6 +400,9 @@ export default function ChartsPage() {
         };
 
         const result = await createChart(duplicateChartData);
+        trackEvent(ANALYTICS_EVENTS.CHART_DUPLICATED, {
+          chart_type: originalChart.chart_type,
+        });
         // Refresh the charts list
         await mutate();
 
@@ -475,6 +483,7 @@ export default function ChartsPage() {
         await Promise.all(deletePromises);
       }
 
+      trackEvent(ANALYTICS_EVENTS.CHARTS_BULK_DELETED, { count: selectedCharts.size });
       await mutate();
       toastSuccess.generic(
         `${selectedCharts.size} chart${selectedCharts.size === 1 ? '' : 's'} deleted successfully`
@@ -828,7 +837,7 @@ export default function ChartsPage() {
 
         {/* Chart Type Column */}
         <TableCell className="py-4">
-          <div className="flex justify-center">
+          <div className="flex">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -844,6 +853,18 @@ export default function ChartsPage() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          </div>
+        </TableCell>
+
+        {/* Created by Column */}
+        <TableCell className="py-4">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+              <User className="w-3 h-3 text-gray-600" />
+            </div>
+            <span className="text-base text-gray-700" data-testid={`chart-created-by-${chart.id}`}>
+              {chart.created_by || 'Unknown'}
+            </span>
           </div>
         </TableCell>
 
@@ -972,11 +993,13 @@ export default function ChartsPage() {
         {/* Title Section */}
         <div id="charts-title-section" className="flex items-center justify-between mb-6 p-6 pb-0">
           <div id="charts-title-wrapper">
-            <h1 id="charts-page-title" className="text-3xl font-bold">
-              Charts
-            </h1>
+            <DocsLink path="/charts">
+              <h1 id="charts-page-title" className="text-3xl font-bold">
+                Charts
+              </h1>
+            </DocsLink>
             <p id="charts-page-description" className="text-muted-foreground mt-1">
-              Create And Manage Your Visualizations
+              Create and manage your visualizations
             </p>
           </div>
 
@@ -1077,25 +1100,28 @@ export default function ChartsPage() {
                 <TableComponent>
                   <TableHeader>
                     <TableRow className="bg-gray-50">
-                      <TableHead className="w-[35%]">
+                      <TableHead className="w-[30%]">
                         <div className="flex items-center gap-2">
                           <Skeleton className="h-4 w-16" />
                           <Skeleton className="h-4 w-4" />
                         </div>
                       </TableHead>
-                      <TableHead className="w-[30%]">
+                      <TableHead className="w-[22%]">
                         <div className="flex items-center gap-2">
                           <Skeleton className="h-4 w-20" />
                           <Skeleton className="h-4 w-4" />
                         </div>
                       </TableHead>
-                      <TableHead className="w-[10%]">
+                      <TableHead className="w-[8%]">
                         <div className="flex items-center gap-2">
                           <Skeleton className="h-4 w-12" />
                           <Skeleton className="h-4 w-4" />
                         </div>
                       </TableHead>
-                      <TableHead className="w-[20%]">
+                      <TableHead className="w-[18%]">
+                        <Skeleton className="h-4 w-20" />
+                      </TableHead>
+                      <TableHead className="w-[17%]">
                         <div className="flex items-center gap-2">
                           <Skeleton className="h-4 w-20" />
                           <Skeleton className="h-4 w-4" />
@@ -1119,8 +1145,14 @@ export default function ChartsPage() {
                           <Skeleton className="h-4 w-24" />
                         </TableCell>
                         <TableCell>
-                          <div className="flex justify-center">
+                          <div className="flex">
                             <Skeleton className="h-10 w-10 rounded-lg" />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Skeleton className="h-6 w-6 rounded-full" />
+                            <Skeleton className="h-4 w-24" />
                           </div>
                         </TableCell>
                         <TableCell>
@@ -1144,11 +1176,11 @@ export default function ChartsPage() {
                 <TableComponent>
                   <TableHeader>
                     <TableRow className="bg-gray-50">
-                      <TableHead className="w-[35%]">
+                      <TableHead className="w-[30%]">
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
-                            className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                            className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                             onClick={() => handleSort('title')}
                           >
                             <div className="flex items-center gap-2">
@@ -1175,11 +1207,11 @@ export default function ChartsPage() {
                           </Popover>
                         </div>
                       </TableHead>
-                      <TableHead className="w-[30%]">
+                      <TableHead className="w-[22%]">
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
-                            className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                            className="h-auto p-0 font-medium text-base hover:bg-transparent"
                             onClick={() => handleSort('data_source')}
                           >
                             <div className="flex items-center gap-2">
@@ -1206,11 +1238,11 @@ export default function ChartsPage() {
                           </Popover>
                         </div>
                       </TableHead>
-                      <TableHead className="w-[10%]">
+                      <TableHead className="w-[8%]">
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
-                            className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                            className="h-auto p-0 font-medium text-base hover:bg-transparent"
                             onClick={() => handleSort('chart_type')}
                           >
                             <div className="flex items-center gap-2">
@@ -1237,11 +1269,12 @@ export default function ChartsPage() {
                           </Popover>
                         </div>
                       </TableHead>
-                      <TableHead className="w-[20%]">
+                      <TableHead className="w-[18%] font-medium text-base">Created by</TableHead>
+                      <TableHead className="w-[17%]">
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
-                            className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                            className="h-auto p-0 font-medium text-base hover:bg-transparent"
                             onClick={() => handleSort('updated_at')}
                           >
                             <div className="flex items-center gap-2">

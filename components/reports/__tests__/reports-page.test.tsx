@@ -93,7 +93,7 @@ describe('ReportsPage', () => {
       renderPage();
 
       expect(screen.getByText('Reports')).toBeInTheDocument();
-      expect(screen.getByText('Create And Manage Your Reports')).toBeInTheDocument();
+      expect(screen.getByText('Create and manage your reports')).toBeInTheDocument();
     });
 
     it('renders create report button', () => {

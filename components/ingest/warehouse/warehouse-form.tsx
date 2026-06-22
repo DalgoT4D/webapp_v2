@@ -118,6 +118,7 @@ export function WarehouseForm({
           config,
           destinationDefId: warehouse.destinationDefinitionId,
         });
+        trackEvent(ANALYTICS_EVENTS.WAREHOUSE_UPDATED);
         toastSuccess.updated('Warehouse');
       } else {
         const selectedDef = definitions.find((d) => d.destinationDefinitionId === selectedDefId);
@@ -127,7 +128,9 @@ export function WarehouseForm({
           destinationDefId: selectedDefId!,
           airbyteConfig: config,
         });
-        trackEvent(ANALYTICS_EVENTS.WAREHOUSE_CREATED);
+        trackEvent(ANALYTICS_EVENTS.WAREHOUSE_CREATED, {
+          warehouse_type: (selectedDef?.name ?? '').toLowerCase(),
+        });
         toastSuccess.created('Warehouse');
       }
       onSuccess();

@@ -37,6 +37,8 @@ interface ChartExportDropdownProps {
   isPublicMode?: boolean;
   publicToken?: string;
   chartId?: number;
+  // T12: drill-down filter context — when set, appended to filename and label changes
+  drillFilters?: Record<string, string>;
 }
 
 export function ChartExportDropdown({
@@ -55,10 +57,17 @@ export function ChartExportDropdown({
   isPublicMode = false,
   publicToken,
   chartId,
+  drillFilters,
 }: ChartExportDropdownProps) {
   const [isExporting, setIsExporting] = useState(false);
   const currentOrg = useAuthStore((state) => state.currentOrg);
   const orgLogoUrl = currentOrg?.logo_url ?? null;
+
+  // T12: when drill-down filters are active, append them to the export title
+  const effectiveTitle =
+    drillFilters && Object.keys(drillFilters).length > 0
+      ? `${chartTitle} - ${Object.values(drillFilters).join(' - ')}`
+      : chartTitle;
 
   const handleExport = async (format: 'png' | 'pdf' | 'csv') => {
     if (isExporting) return;
@@ -67,7 +76,7 @@ export function ChartExportDropdown({
     onExportStart?.();
 
     try {
-      const filename = generateFilename(chartTitle, format);
+      const filename = generateFilename(effectiveTitle, format);
       const exportOptions = {
         filename,
         format,
@@ -142,7 +151,7 @@ export function ChartExportDropdown({
         });
       }
 
-      trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, { format });
+      trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, { format, chart_type: chartType });
       onExportComplete?.();
     } catch (error: any) {
       console.error('Export error:', error);
@@ -165,7 +174,12 @@ export function ChartExportDropdown({
           ) : (
             <Download className={`w-4 h-4 ${showText ? 'mr-2' : ''}`} />
           )}
-          {showText && (isExporting ? 'Exporting...' : 'Export')}
+          {showText &&
+            (isExporting
+              ? 'Exporting...'
+              : drillFilters && Object.keys(drillFilters).length > 0
+                ? 'Export current view'
+                : 'Export')}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">

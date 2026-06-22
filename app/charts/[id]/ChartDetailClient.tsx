@@ -22,6 +22,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
 import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type { ChartDataPayload } from '@/types/charts';
 import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 import type * as echarts from 'echarts';
@@ -55,6 +57,14 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const isFromDashboard = searchParams.get('from') === 'dashboard';
   const { hasPermission } = useUserPermissions();
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
+  // Fire CHART_VIEWED once per mount when the chart loads (WAVO consume signal).
+  const chartViewedTracked = useRef(false);
+  useEffect(() => {
+    if (chart && !chartViewedTracked.current) {
+      trackEvent(ANALYTICS_EVENTS.CHART_VIEWED, { chart_type: chart.chart_type });
+      chartViewedTracked.current = true;
+    }
+  }, [chart]);
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
   const [tableChartPage, setTableChartPage] = useState(1);
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
@@ -737,6 +747,11 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               </Link>
             )}
             <h1 className="text-lg font-semibold">{chart.title}</h1>
+            {chart.created_by && (
+              <span data-testid="chart-detail-created-by" className="text-sm text-muted-foreground">
+                · Created by {chart.created_by}
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
             {hasPermission('can_edit_charts') && (
@@ -765,6 +780,11 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   : undefined
               }
               tableElement={chart.chart_type === 'table' ? chartContentRef.current : undefined}
+              drillFilters={
+                chart.chart_type === 'table' && tableDrillDownState?.appliedFilters
+                  ? tableDrillDownState.appliedFilters
+                  : undefined
+              }
             />
           </div>
         </div>
@@ -816,8 +836,19 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                     <TableChart
                       data={Array.isArray(tableData?.data) ? tableData.data : []}
                       config={{
-                        table_columns:
-                          tableData?.columns || chart.extra_config?.table_columns || [],
+                        table_columns: (() => {
+                          const cols =
+                            tableData?.columns || chart.extra_config?.table_columns || [];
+                          const order = chart.extra_config?.customizations?.columnOrder;
+                          if (
+                            order?.length &&
+                            order.length === cols.length &&
+                            order.every((c: string) => cols.includes(c))
+                          ) {
+                            return order;
+                          }
+                          return cols;
+                        })(),
                         column_formatting: mergeTableColumnFormatting(
                           chart.extra_config?.customizations
                         ),
@@ -826,6 +857,13 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                           enabled: true,
                           page_size: 20,
                         },
+                        conditionalFormatting:
+                          chart.extra_config?.customizations?.conditionalFormatting || [],
+                        columnAlignment: chart.extra_config?.customizations?.columnAlignment || {},
+                        zebraRows: chart.extra_config?.customizations?.zebraRows ?? true,
+                        freezeFirstColumn:
+                          chart.extra_config?.customizations?.freezeFirstColumn || false,
+                        theme: chart.extra_config?.customizations?.theme,
                       }}
                       isLoading={tableLoading}
                       error={tableError}
@@ -854,6 +892,10 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                               ?.filter((dim: any) => dim.enable_drill_down)
                               .map((d: any) => d.column)
                               .filter(Boolean)[0]
+                      }
+                      currentDrillLevel={
+                        // 0-based index of the currently-displayed dimension
+                        tableDrillDownState ? tableDrillDownState.currentLevel + 1 : 0
                       }
                     />
                   </div>

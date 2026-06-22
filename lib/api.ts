@@ -219,6 +219,15 @@ export function apiPut(path: string, body: any, options: RequestInit = {}) {
   });
 }
 
+// Helper for PATCH requests
+export function apiPatch(path: string, body: any, options: RequestInit = {}) {
+  return apiFetch(path, {
+    ...options,
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
 // Helper for DELETE requests
 export function apiDelete(path: string, options: RequestInit = {}) {
   return apiFetch(path, { ...options, method: 'DELETE' });

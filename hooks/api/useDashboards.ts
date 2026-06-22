@@ -240,10 +240,7 @@ export async function duplicateDashboard(dashboardId: number): Promise<Dashboard
 // Dashboard sharing functions
 export async function updateDashboardSharing(dashboardId: number, data: { is_public: boolean }) {
   const result = await apiPut(`/api/dashboards/${dashboardId}/share/`, data);
-  trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, {
-    dashboard_id: dashboardId,
-    is_public: data.is_public,
-  });
+  trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { is_public: data.is_public });
   return result;
 }
 

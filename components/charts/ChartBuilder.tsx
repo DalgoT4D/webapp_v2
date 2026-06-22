@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useInsertionEffect } from 'react';
+import { useState, useEffect, useCallback, useInsertionEffect, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -141,6 +141,21 @@ export function ChartBuilder({
   const [rawDataPage, setRawDataPage] = useState(1);
   const [tableChartPage, setTableChartPage] = useState(1);
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
+  // T7: shown when user reorders drill-down dimensions while level-scoped CF rules exist
+  const [showDrillReorderWarning, setShowDrillReorderWarning] = useState(false);
+
+  // T7 + T9: compute CF rule level-scope context for dimension warnings
+  const cfLevelScopeContext = useMemo(() => {
+    const cfRules: Array<{ level?: string }> = formData.customizations?.conditionalFormatting || [];
+    const hasLevelScopedRules = cfRules.some((r) => r.level !== undefined);
+    const scopedRuleCountByLevel: Record<string, number> = {};
+    cfRules.forEach((r) => {
+      if (r.level !== undefined) {
+        scopedRuleCountByLevel[r.level] = (scopedRuleCountByLevel[r.level] ?? 0) + 1;
+      }
+    });
+    return { hasLevelScopedRules, scopedRuleCountByLevel };
+  }, [formData.customizations?.conditionalFormatting]);
 
   // Drill-down state for maps
   const [drillDownState, setDrillDownState] = useState<{
@@ -177,11 +192,25 @@ export function ChartBuilder({
             dimension_col: formData.geographic_column,
             aggregate_col: formData.aggregate_column || formData.value_column,
           }),
-          // For table charts, include dimensions array and selected columns
+          // For table charts, include dimensions array and selected columns.
+          // When drill-down is enabled the editor preview mirrors the dashboard:
+          // only the first drill-down dimension is shown alongside the metrics.
           ...(formData.chart_type === 'table' && {
             ...(formData.dimensions &&
               formData.dimensions.length > 0 && {
-                dimensions: formData.dimensions.map((d) => d.column).filter(Boolean),
+                dimensions: (() => {
+                  const isDrillDownEnabled = formData.dimensions.some(
+                    (d) => d.enable_drill_down === true
+                  );
+                  if (!isDrillDownEnabled) {
+                    return formData.dimensions.map((d) => d.column).filter(Boolean);
+                  }
+                  const drillDownDimensions = formData.dimensions
+                    .filter((d) => d.enable_drill_down)
+                    .map((d) => d.column)
+                    .filter(Boolean);
+                  return drillDownDimensions.length > 0 ? [drillDownDimensions[0]] : [];
+                })(),
               }),
             table_columns: formData.table_columns,
           }),
@@ -935,11 +964,30 @@ export function ChartBuilder({
               </div>
             ) : formData.chart_type === 'table' ? (
               <div className="space-y-6">
+                {/* T7: reorder warning banner — shown when dimension order changes with level-scoped CF rules */}
+                {showDrillReorderWarning && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 flex items-start justify-between gap-2">
+                    <span>
+                      Drill-down order changed. Review your conditional formatting rules —
+                      level-scoped rules may now target different columns.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowDrillReorderWarning(false)}
+                      className="underline font-medium flex-shrink-0"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
                 {/* Table configuration - same as other charts but simpler */}
                 <ChartDataConfigurationV3
                   formData={formData}
                   onChange={handleFormChange}
                   disabled={!formData.chart_type}
+                  hasLevelScopedRules={cfLevelScopeContext.hasLevelScopedRules}
+                  onReorderWithScopedRules={() => setShowDrillReorderWarning(true)}
+                  scopedRuleCountByLevel={cfLevelScopeContext.scopedRuleCountByLevel}
                 />
 
                 {/* Table-specific column configuration */}

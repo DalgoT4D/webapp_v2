@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { apiGet, apiPost } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -95,6 +97,7 @@ export default function Billing() {
     try {
       const response = await apiPost('/api/orgpreferences/org-plan/upgrade', {});
       if (response.success) {
+        trackEvent(ANALYTICS_EVENTS.BILLING_UPGRADE_REQUESTED);
         toast({
           title: 'Success',
           description: 'Upgrade request has been successfully registered',
@@ -171,7 +174,7 @@ export default function Billing() {
                             className="text-muted-foreground"
                           >
                             <Info className="h-5 w-5" />
-                          </button>{' '}
+                          </button>
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>The request to upgrade the plan has been registered</p>

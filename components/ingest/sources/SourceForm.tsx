@@ -193,6 +193,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
           config,
           sourceId,
         });
+        trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED);
         toastSuccess.updated('Source');
       } else {
         await createSource({
@@ -200,7 +201,9 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
           sourceDefId: selectedDefId!,
           config,
         });
-        trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED);
+        trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, {
+          source_type: definitions?.find((d) => d.sourceDefinitionId === selectedDefId)?.name,
+        });
         toastSuccess.created('Source');
       }
       onSuccess();

@@ -45,13 +45,31 @@ describe('isInternalEmail', () => {
 });
 
 describe('trackEvent', () => {
-  it('forwards a fixed event name and properties to posthog.capture', () => {
-    trackEvent(ANALYTICS_EVENTS.CHART_CREATED, { chart_type: 'bar' });
-    expect(mockCapture).toHaveBeenCalledWith('chart:chart_created', { chart_type: 'bar' });
+  it('forwards a fixed event name and properties to posthog.capture (non-value event)', () => {
+    // A plumbing event is NOT a value action, so properties pass through untouched.
+    trackEvent(ANALYTICS_EVENTS.CONNECTION_SYNC_TRIGGERED, { source_type: 'postgres' });
+    expect(mockCapture).toHaveBeenCalledWith('connection:connection_sync_triggered', {
+      source_type: 'postgres',
+    });
   });
   it('works with no properties', () => {
     trackEvent(ANALYTICS_EVENTS.USER_LOGGED_IN);
     expect(mockCapture).toHaveBeenCalledWith('auth:user_logged_in', undefined);
+  });
+  it('stamps is_value_action on a value-action event, alongside its own properties', () => {
+    trackEvent(ANALYTICS_EVENTS.CHART_CREATED, { chart_type: 'bar' });
+    expect(mockCapture).toHaveBeenCalledWith('chart:chart_created', {
+      chart_type: 'bar',
+      is_value_action: true,
+    });
+  });
+  it('stamps is_value_action even when the value event has no other properties', () => {
+    trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_CREATED);
+    expect(mockCapture).toHaveBeenCalledWith('kpi:annotation_created', { is_value_action: true });
+  });
+  it('does NOT stamp is_value_action on a plumbing event', () => {
+    trackEvent(ANALYTICS_EVENTS.PIPELINE_TRIGGERED, { is_manual: true });
+    expect(mockCapture).toHaveBeenCalledWith('pipeline:pipeline_triggered', { is_manual: true });
   });
 });
 
@@ -76,10 +94,20 @@ describe('identifyUser', () => {
     expect(mockIdentify).toHaveBeenCalledWith('42', {
       is_internal: true,
       current_role: 'account-manager',
+      work_domain: null,
     });
     expect(mockRegister).toHaveBeenCalledWith({ role: 'account-manager' });
     const identifyArgs = mockIdentify.mock.calls[0];
     expect(JSON.stringify(identifyArgs)).not.toContain('staff@dalgo.org');
+  });
+  it('sends work_domain as a person property when provided', () => {
+    mockGetDistinctId.mockReturnValue('7');
+    identifyUser(7, 'user@ngo.example', { role: 'viewer', workDomain: 'ngo.example' });
+    expect(mockIdentify).toHaveBeenCalledWith('7', {
+      is_internal: false,
+      current_role: 'viewer',
+      work_domain: 'ngo.example',
+    });
   });
   it('resets first when the current distinct_id is an old email identity, then identifies by id', () => {
     mockGetDistinctId.mockReturnValue('jake@agency.fund');
@@ -88,6 +116,7 @@ describe('identifyUser', () => {
     expect(mockIdentify).toHaveBeenCalledWith('101', {
       is_internal: false,
       current_role: 'viewer',
+      work_domain: null,
     });
   });
   it('does NOT reset when already identified by a numeric id', () => {
@@ -103,11 +132,16 @@ describe('identifyUser', () => {
 
 describe('identifyOrg', () => {
   it('groups by organization and sets current_org_* person properties', () => {
-    identifyOrg('ngo-slug', { name: 'NGO Name', plan: 'Free Trial' });
+    identifyOrg('ngo-slug', {
+      name: 'NGO Name',
+      plan: 'Free Trial',
+      onboardedDate: '2025-01-15T00:00:00Z',
+    });
     expect(mockGroup).toHaveBeenCalledWith('organization', 'ngo-slug', {
       name: 'NGO Name',
       slug: 'ngo-slug',
       subscription_plan: 'Free Trial',
+      onboarded_date: '2025-01-15T00:00:00Z',
     });
     expect(mockSetPersonProperties).toHaveBeenCalledWith({
       current_org_slug: 'ngo-slug',

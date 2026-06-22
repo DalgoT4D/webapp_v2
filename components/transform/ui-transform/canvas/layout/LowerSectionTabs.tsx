@@ -5,6 +5,8 @@ import { useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Maximize2, Minimize2, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { LogsPane } from '@/components/explore/LogsPane';
 import { PreviewPane } from '@/components/explore/PreviewPane';
 import { StatisticsPane } from '@/components/explore/StatisticsPane';
@@ -41,6 +43,14 @@ export function LowerSectionTabs({
   const selectedTab = useTransformStore((s) => s.selectedLowerTab) as LowerTab;
   const setSelectedTab = useTransformStore((s) => s.setSelectedLowerTab);
   const { isFeatureFlagEnabled } = useFeatureFlags();
+
+  // Fire analytics on a deliberate tab click (not the auto-switch effects below).
+  const handleTabSelect = (key: LowerTab) => {
+    if (key === 'preview') trackEvent(ANALYTICS_EVENTS.TRANSFORM_DATA_PREVIEWED);
+    else if (key === 'data statistics')
+      trackEvent(ANALYTICS_EVENTS.TRANSFORM_DATA_STATISTICS_VIEWED);
+    setSelectedTab(key);
+  };
 
   const TABS = useMemo(() => {
     const tabs: { key: LowerTab; label: string }[] = [
@@ -84,7 +94,7 @@ export function LowerSectionTabs({
           {TABS.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setSelectedTab(tab.key)}
+              onClick={() => handleTabSelect(tab.key)}
               className={cn(
                 'relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide cursor-pointer',
                 'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent',
