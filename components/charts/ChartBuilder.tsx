@@ -18,6 +18,7 @@ import { DataPreview } from './DataPreview';
 import { MapDataConfigurationV3 } from './map/MapDataConfigurationV3';
 import { MapCustomizations } from './map/MapCustomizations';
 import { MapPreview } from './map/MapPreview';
+import { sanitizeCustomizationsForChartType } from '@/lib/chart-formatting-utils';
 import { DynamicLevelConfig } from './map/DynamicLevelConfig';
 import {
   useChartData,
@@ -930,10 +931,15 @@ export function ChartBuilder({
                   preservedFields.dataLabelPosition = existingCustomizations.dataLabelPosition;
                 }
 
-                updates.customizations = {
-                  ...newDefaults,
-                  ...preservedFields,
-                };
+                // Coerce dataLabelPosition (or drop it) so a preserved value that's invalid for
+                // the new chart type doesn't fail validation on save (e.g. bar 'top' → pie).
+                updates.customizations = sanitizeCustomizationsForChartType(
+                  {
+                    ...newDefaults,
+                    ...preservedFields,
+                  },
+                  newChartType
+                );
 
                 // Preserve chart-level filters, pagination, and sorting
                 if (formData.filters) updates.filters = formData.filters;

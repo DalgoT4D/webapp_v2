@@ -256,4 +256,133 @@ describe('MetricsSelector', () => {
       expect(screen.getByText('COUNT(*)')).toBeInTheDocument();
     });
   });
+
+  /**
+   * Live draft — the open Simple-mode form is mirrored into the payload as a trailing metric
+   * WITHOUT requiring an explicit "+ ADD ANOTHER METRIC" click. Regression coverage for the
+   * "metrics: Field required" / "At least one metric is required" save & preview failures.
+   */
+  describe('Live draft in payload', () => {
+    // Controlled wrapper that echoes onChange back into the metrics prop (mirrors real usage in
+    // ChartDataConfigurationV3, where formData.metrics is the source of truth).
+    function Harness({
+      initial = [],
+      chartType = 'bar',
+      maxMetrics,
+    }: {
+      initial?: ChartMetric[];
+      chartType?: string;
+      maxMetrics?: number;
+    }) {
+      const [metrics, setMetrics] = React.useState<ChartMetric[]>(initial);
+      return (
+        <>
+          <MetricsSelector
+            metrics={metrics}
+            onChange={setMetrics}
+            columns={mockColumns}
+            chartType={chartType}
+            maxMetrics={maxMetrics}
+          />
+          <div data-testid="metrics-json">{JSON.stringify(metrics)}</div>
+        </>
+      );
+    }
+
+    const readMetrics = (): ChartMetric[] =>
+      JSON.parse(screen.getByTestId('metrics-json').textContent || '[]');
+
+    it('adds a count draft to the payload as soon as the form opens', async () => {
+      render(<MetricsSelector metrics={[]} onChange={mockOnChange} columns={mockColumns} />);
+
+      await userEvent.setup().click(screen.getByRole('button', { name: /add another metric/i }));
+
+      expect(mockOnChange).toHaveBeenCalledWith([
+        expect.objectContaining({ aggregation: 'count', column: null }),
+      ]);
+    });
+
+    it('pre-fills the Display Name field with the auto-generated label (matches the legend)', async () => {
+      const user = userEvent.setup();
+      render(<MetricsSelector metrics={[]} onChange={mockOnChange} columns={mockColumns} />);
+
+      await user.click(screen.getByRole('button', { name: /add another metric/i }));
+
+      // Default count draft → field shows "COUNT(*)" rather than being blank.
+      expect(screen.getByDisplayValue('COUNT(*)')).toBeInTheDocument();
+    });
+
+    it('keeps the draft out of the committed list while the form is open', async () => {
+      const user = userEvent.setup();
+      render(<Harness initial={[{ column: null, aggregation: 'count', alias: 'Total Count' }]} />);
+
+      await user.click(screen.getByRole('button', { name: /add another metric/i }));
+
+      // Draft is in the payload (2 metrics) ...
+      expect(readMetrics()).toHaveLength(2);
+      // ... but only the committed metric renders as a removable pill.
+      expect(screen.getAllByRole('button', { name: /remove metric/i })).toHaveLength(1);
+    });
+
+    it('discards the draft when the form is cancelled with X', async () => {
+      const user = userEvent.setup();
+      render(<Harness />);
+
+      await user.click(screen.getByRole('button', { name: /add another metric/i }));
+      expect(readMetrics()).toHaveLength(1);
+
+      const xButton = screen
+        .getAllByRole('button')
+        .find((btn) => btn.querySelector('svg') && !btn.textContent);
+      if (xButton) await user.click(xButton);
+
+      expect(readMetrics()).toHaveLength(0);
+    });
+
+    it('keeps the form open and editable for capped charts (pie) so the single metric stays changeable', async () => {
+      const user = userEvent.setup();
+      // Capped chart with no committed metric (e.g. user removed the default).
+      render(<Harness chartType="pie" maxMetrics={1} />);
+
+      await user.click(screen.getByRole('button', { name: /add another metric/i }));
+
+      // The metric is live in the payload immediately ...
+      expect(readMetrics()).toHaveLength(1);
+      // ... the draft shows in the open form (Metric field visible), NOT collapsed into a pill,
+      // so Function/Column remain changeable — the cap must not hide the edit form mid-edit.
+      expect(screen.getByText(/^Metric \*/)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /remove metric/i })).not.toBeInTheDocument();
+      // No "+ ADD ANOTHER METRIC" commit button while at the single-metric cap.
+      expect(screen.queryByRole('button', { name: /add another metric/i })).not.toBeInTheDocument();
+    });
+
+    it('shows the single metric as a committed pill (no form) when it is not a draft', () => {
+      // A loaded/prefilled capped chart: one committed metric, form closed, cap reached.
+      render(
+        <MetricsSelector
+          metrics={[{ column: null, aggregation: 'count', alias: 'Total Count' }]}
+          onChange={mockOnChange}
+          columns={mockColumns}
+          chartType="pie"
+          maxMetrics={1}
+        />
+      );
+
+      expect(screen.getByRole('button', { name: /remove metric/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /add another metric/i })).not.toBeInTheDocument();
+    });
+
+    it('commits the draft and opens a fresh one on "+ ADD ANOTHER METRIC"', async () => {
+      const user = userEvent.setup();
+      render(<Harness />);
+
+      const openBtn = screen.getByRole('button', { name: /add another metric/i });
+      await user.click(openBtn); // opens form + count draft → 1 metric
+      await user.click(screen.getByRole('button', { name: /add another metric/i })); // commit + fresh draft
+
+      // One committed metric + one fresh draft = 2 in payload, 1 committed pill rendered.
+      expect(readMetrics()).toHaveLength(2);
+      expect(screen.getAllByRole('button', { name: /remove metric/i })).toHaveLength(1);
+    });
+  });
 });
