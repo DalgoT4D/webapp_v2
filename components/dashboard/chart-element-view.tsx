@@ -1734,21 +1734,17 @@ export function ChartElementView({
           <div className="flex-shrink-0 flex items-center justify-between px-2 pb-2 pointer-events-none">
             {/* Left: org logo + name */}
             <OrgBrand logoUrl={orgLogoUrl} />
-            {/* Center: chart title + timestamp */}
+            {/* Center: chart title */}
             <span className="absolute left-1/2 -translate-x-1/2 text-sm font-semibold text-gray-800 truncate max-w-[50%]">
               {effectiveChart?.title}
             </span>
-          </div>
-          {/* Bottom-right: Powered by Dalgo */}
-          <div className="absolute bottom-4 right-4 z-10 pointer-events-none">
-            <PoweredByDalgoImage />
           </div>
         </>
       )}
 
       {/* Chart toolbar - only visible on hover in view mode (non-report) */}
       {viewMode && !frozenChartConfig && (
-        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="absolute top-2 right-2 z-10 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1780,6 +1776,11 @@ export function ChartElementView({
               <Maximize2 className="h-3.5 w-3.5" />
             </Button>
           </div>
+          {isFullscreen && (
+            <div className="pointer-events-none pr-2">
+              <PoweredByDalgoImage imageClassName="max-h-9" />
+            </div>
+          )}
         </div>
       )}
 

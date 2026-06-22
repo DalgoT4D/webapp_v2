@@ -32,7 +32,6 @@ import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { useUnreadCount } from '@/hooks/api/useNotifications';
 import { CreateOrgDialog } from '@/components/settings/organizations/CreateOrgDialog';
 import { OrgBrand } from '@/components/ui/org-brand';
-import { cn } from '@/lib/utils';
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -156,7 +155,7 @@ export function Header({
       </div>
 
       {/* Right side actions */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-6">
         {/* Notifications Bell */}
         <Button
           variant="ghost"
@@ -173,15 +172,8 @@ export function Header({
           <span className="sr-only">Notifications</span>
         </Button>
 
-        {/* Org logo + avatar — bordered card when logo is set, plain when not */}
-        <div
-          className={cn(
-            'flex items-center',
-            currentOrg?.logo_url
-              ? 'gap-2 px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50'
-              : 'gap-4'
-          )}
-        >
+        {/* Org logo + avatar */}
+        <div className="flex items-center gap-2">
           {currentOrg && (
             <OrgBrand
               logoUrl={currentOrg.logo_url}

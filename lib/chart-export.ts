@@ -143,7 +143,7 @@ export class ChartExporter {
   ): Promise<string> {
     const chartImg = await this.loadImage(chartDataUrl);
     const canvasW = chartImg.naturalWidth;
-    const canvasH = chartImg.naturalHeight + HEADER_H + FOOTER_H;
+    const canvasH = chartImg.naturalHeight + HEADER_H;
 
     const canvas = document.createElement('canvas');
     canvas.width = canvasW;
@@ -156,7 +156,7 @@ export class ChartExporter {
     ctx.fillStyle = '#e5e7eb';
     ctx.fillRect(0, HEADER_H - 1, canvasW, 1);
 
-    // logoDrawnW drives the title center calculation — must be set before drawing the title
+    // Draw logo top-left
     let logoDrawnW = 0;
     if (orgLogoUrl) {
       const blobUrl = await this.fetchLogoAsObjectUrl();
@@ -175,24 +175,8 @@ export class ChartExporter {
       }
     }
 
-    // Title is centered in the space right of the logo, not the full canvas — prevents overlap
-    if (chartTitle) {
-      const logoZoneEnd = PAD_X + logoDrawnW + PAD_X;
-      const titleAvailW = canvasW - logoZoneEnd - PAD_X;
-      const titleCenterX = logoZoneEnd + titleAvailW / 2;
-      ctx.fillStyle = '#1f2937';
-      ctx.font = `bold ${14 * BRAND_SCALE}px Inter, system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(this.truncateText(ctx, chartTitle, titleAvailW), titleCenterX, HEADER_H / 2);
-    }
-
-    ctx.drawImage(chartImg, 0, HEADER_H);
-
-    const footerY = HEADER_H + chartImg.naturalHeight;
-    ctx.fillStyle = '#e5e7eb';
-    ctx.fillRect(0, footerY, canvasW, 1);
-
+    // Draw powered-by top-right
+    let poweredDrawnW = 0;
     try {
       const poweredBy = await this.loadImage(
         `${typeof window !== 'undefined' ? window.location.origin : ''}/powered-by-dalgo.png`
@@ -204,10 +188,27 @@ export class ChartExporter {
       );
       const pw = poweredBy.naturalWidth * scale;
       const ph = poweredBy.naturalHeight * scale;
-      ctx.drawImage(poweredBy, canvasW - PAD_X - pw, footerY + (FOOTER_H - ph) / 2, pw, ph);
+      ctx.drawImage(poweredBy, canvasW - PAD_X - pw, (HEADER_H - ph) / 2, pw, ph);
+      poweredDrawnW = pw;
     } catch {
       // Powered-by image failed — skip silently
     }
+
+    // Title centered between logo zone and powered-by zone
+    if (chartTitle) {
+      const logoZoneEnd = PAD_X + logoDrawnW + PAD_X;
+      const poweredZoneStart =
+        poweredDrawnW > 0 ? canvasW - PAD_X - poweredDrawnW - PAD_X : canvasW - PAD_X;
+      const titleAvailW = poweredZoneStart - logoZoneEnd;
+      const titleCenterX = logoZoneEnd + titleAvailW / 2;
+      ctx.fillStyle = '#1f2937';
+      ctx.font = `bold ${14 * BRAND_SCALE}px Inter, system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(this.truncateText(ctx, chartTitle, titleAvailW), titleCenterX, HEADER_H / 2);
+    }
+
+    ctx.drawImage(chartImg, 0, HEADER_H);
 
     return canvas.toDataURL('image/png');
   }
@@ -277,21 +278,14 @@ export class ChartExporter {
       header.appendChild(title);
     }
 
-    // Right spacer to balance the logo on the left
-    header.appendChild(document.createElement('div'));
-
-    // Footer
-    const footer = document.createElement('div');
-    footer.style.cssText =
-      'display:flex;justify-content:flex-end;align-items:center;padding:8px 16px;border-top:1px solid #e5e7eb;background:#ffffff;min-height:44px;';
+    // Right: powered-by top-right in header
     const poweredByImg = document.createElement('img');
     poweredByImg.src = `${typeof window !== 'undefined' ? window.location.origin : ''}/powered-by-dalgo.png`;
-    poweredByImg.style.cssText = 'max-height:32px;width:auto;object-fit:contain;';
-    footer.appendChild(poweredByImg);
+    poweredByImg.style.cssText = 'max-height:32px;width:auto;object-fit:contain;flex-shrink:0;';
+    header.appendChild(poweredByImg);
 
     wrapper.appendChild(header);
     wrapper.appendChild(tableElement.cloneNode(true) as HTMLElement);
-    wrapper.appendChild(footer);
     document.body.appendChild(wrapper);
 
     try {

@@ -16,6 +16,7 @@ import type { ChartDataPayload } from '@/types/charts';
 import { apiPostBinary } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useAuthStore } from '@/stores/authStore';
 
 interface ChartExportDropdownProps {
   chartTitle: string;
@@ -56,6 +57,8 @@ export function ChartExportDropdown({
   chartId,
 }: ChartExportDropdownProps) {
   const [isExporting, setIsExporting] = useState(false);
+  const currentOrg = useAuthStore((state) => state.currentOrg);
+  const orgLogoUrl = currentOrg?.logo_url ?? null;
 
   const handleExport = async (format: 'png' | 'pdf' | 'csv') => {
     if (isExporting) return;
@@ -113,14 +116,26 @@ export function ChartExportDropdown({
           if (!tableElement) {
             throw new Error('Table element is not available for export');
           }
-          await ChartExporter.exportTableAsImage(tableElement, exportOptions);
+          await ChartExporter.exportTableWithBranding(tableElement, {
+            ...exportOptions,
+            orgLogoUrl,
+            chartTitle,
+          });
           toast.success(`Table exported as PNG`, {
             description: 'High resolution image',
           });
         }
       } else {
-        // Export chart as PNG/PDF
-        await ChartExporter.exportChart(chartElement, chartInstance, exportOptions);
+        // PNG gets org logo + powered-by branding; PDF stays plain
+        if (format === 'png' && chartInstance) {
+          await ChartExporter.exportEChartsWithBranding(chartInstance, {
+            ...exportOptions,
+            orgLogoUrl,
+            chartTitle,
+          });
+        } else {
+          await ChartExporter.exportChart(chartElement, chartInstance, exportOptions);
+        }
         const formatName = format.toUpperCase();
         toast.success(`Chart exported as ${formatName}`, {
           description: format === 'pdf' ? 'Portable Document Format' : 'High resolution image',
