@@ -16,6 +16,7 @@ import { TableChart } from '@/components/charts/TableChart';
 import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import type { PivotTableResponse } from '@/types/pivot-table';
+import { PIVOT_DEFAULT_PAGE_SIZE } from '@/constants/pivot-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Edit, Lock, Loader2 } from 'lucide-react';
@@ -70,6 +71,8 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
   const [tableChartPage, setTableChartPage] = useState(1);
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
+  // Pivot tables paginate by top-level row groups (1-based); backend reads page from extra_config.
+  const [pivotPage, setPivotPage] = useState(1);
 
   // ✅ ADD: Drill-down state management for table charts
   const [tableDrillDownState, setTableDrillDownState] = useState<{
@@ -205,11 +208,14 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                 show_row_subtotals: chart.extra_config?.show_row_subtotals ?? false,
                 show_column_subtotals: chart.extra_config?.show_column_subtotals ?? false,
                 show_grand_total: chart.extra_config?.show_grand_total ?? false,
+                // Group-level pagination (1-based); backend reads these from extra_config.
+                page: pivotPage,
+                page_size: PIVOT_DEFAULT_PAGE_SIZE,
               }),
             },
           }
         : null,
-    [chart, tableDrillDownState]
+    [chart, tableDrillDownState, pivotPage]
   );
 
   // For non-map charts (including tables), use the standard chart data hook
@@ -854,6 +860,13 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                       subtotalLabel={chart.extra_config?.subtotal_label || 'Subtotal'}
                       columnSubtotalLabel={chart.extra_config?.column_subtotal_label || 'Subtotal'}
                       grandTotalLabel={chart.extra_config?.grand_total_label || 'Grand Total'}
+                      pagination={{
+                        page: pivotPage,
+                        pageSize: PIVOT_DEFAULT_PAGE_SIZE,
+                        totalGroups:
+                          (chartData.data as unknown as PivotTableResponse).total_row_groups || 0,
+                        onPageChange: setPivotPage,
+                      }}
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full text-muted-foreground">
