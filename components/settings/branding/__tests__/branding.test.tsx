@@ -23,10 +23,8 @@ jest.mock('swr', () => ({
 
 jest.mock('@/lib/api', () => ({
   apiGet: jest.fn(),
-  apiPost: jest.fn(),
   apiPut: jest.fn(),
   apiDelete: jest.fn(),
-  apiPostFormData: jest.fn(),
 }));
 
 jest.mock('@/lib/toast', () => ({

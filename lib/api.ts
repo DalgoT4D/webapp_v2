@@ -210,12 +210,13 @@ export function apiPost(path: string, body: any, options: RequestInit = {}) {
   });
 }
 
-// Helper for PUT requests
+// Helper for PUT requests. Pass a FormData body for file uploads — apiFetch
+// already strips Content-Type so the browser sets the multipart boundary.
 export function apiPut(path: string, body: any, options: RequestInit = {}) {
   return apiFetch(path, {
     ...options,
     method: 'PUT',
-    body: JSON.stringify(body),
+    body: body instanceof FormData ? body : JSON.stringify(body),
   });
 }
 
@@ -231,19 +232,6 @@ export function apiPatch(path: string, body: any, options: RequestInit = {}) {
 // Helper for DELETE requests
 export function apiDelete(path: string, options: RequestInit = {}) {
   return apiFetch(path, { ...options, method: 'DELETE' });
-}
-
-// Helper for FormData POST requests (file uploads)
-// Does NOT set Content-Type — browser sets it automatically with multipart boundary
-export function apiPostFormData(path: string, formData: FormData) {
-  const selectedOrgSlug = getSelectOrg();
-  return apiFetch(path, {
-    method: 'POST',
-    body: formData,
-    headers: {
-      ...(selectedOrgSlug ? { 'x-dalgo-org': selectedOrgSlug } : {}),
-    },
-  });
 }
 
 // Helper for public GET requests (no auth, no cookies)
