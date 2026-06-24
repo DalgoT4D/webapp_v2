@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { AuthGuard } from '@/components/auth-guard';
 import { MainLayout } from '@/components/main-layout';
 import { NavigationTitleHandler } from '@/components/navigation-title-handler';
+import { ProductTour } from '@/components/tour/product-tour';
 import { Toaster } from 'sonner';
 import { usePostHogIdentify } from '@/hooks/usePostHogIdentify';
 import { useFeatureTracking } from '@/hooks/useFeatureTracking';
@@ -56,6 +57,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
       <NavigationTitleHandler />
       <AuthGuard>
         <MainLayout>{children}</MainLayout>
+        <ProductTour />
         <Toaster richColors position="top-center" />
       </AuthGuard>
     </div>
