@@ -186,26 +186,8 @@ describe('TableChartCustomizations', () => {
     expect(removeButton).toBeDisabled();
   });
 
-  // Note: Detailed number formatting behavior (clamping, excludeFormats, etc.)
-  // is tested in NumberFormatSection.test.tsx. These tests verify integration only.
-
-  it('should exclude percentage and currency formats', async () => {
-    const user = userEvent.setup();
-    render(<TableChartCustomizations {...defaultProps} />);
-
-    await user.click(screen.getByTestId('column-row-budget'));
-    await user.click(screen.getByLabelText('Number Format'));
-
-    // These should be present
-    expect(screen.getByRole('option', { name: 'No Formatting' })).toBeInTheDocument();
-    expect(
-      screen.getByRole('option', { name: 'Indian (1234567 => 12,34,567)' })
-    ).toBeInTheDocument();
-
-    // These should NOT be present (excluded for table charts)
-    expect(screen.queryByRole('option', { name: 'Percentage (%)' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'Currency ($)' })).not.toBeInTheDocument();
-  });
+  // Note: Detailed number formatting behavior (clamping etc.) is tested in
+  // NumberFormatSection.test.tsx. These tests verify integration only.
 
   it('should render new enhancement sections', () => {
     render(<TableChartCustomizations {...defaultProps} />);

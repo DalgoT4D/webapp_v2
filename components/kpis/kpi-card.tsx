@@ -24,9 +24,11 @@ import { formatDistanceToNow, format as formatDate, parseISO, isValid } from 'da
 function EChartsRenderer({
   config,
   height = 'h-32',
+  customizations,
 }: {
   config: Record<string, any>;
   height?: string;
+  customizations?: KPICustomizations;
 }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -38,7 +40,20 @@ function EChartsRenderer({
       chartInstance.current.dispose();
     }
     chartInstance.current = echarts.init(chartRef.current);
-    chartInstance.current.setOption(config);
+
+    // Inject a tooltip valueFormatter so trendline hover values render with
+    // the KPI's customizations (matches the card's current value + target).
+    const effectiveConfig = customizations
+      ? {
+          ...config,
+          tooltip: {
+            ...(config.tooltip || {}),
+            valueFormatter: (value: number | null) => formatKPIValue(value, customizations),
+          },
+        }
+      : config;
+
+    chartInstance.current.setOption(effectiveConfig);
 
     const handleResize = () => chartInstance.current?.resize();
     window.addEventListener('resize', handleResize);
@@ -53,7 +68,7 @@ function EChartsRenderer({
       chartInstance.current?.dispose();
       chartInstance.current = null;
     };
-  }, [config]);
+  }, [config, customizations]);
 
   if (!config || Object.keys(config).length === 0) {
     return (
@@ -314,7 +329,11 @@ export function KPICard({
         {isLoading ? (
           <Skeleton className="h-32 w-full" />
         ) : (
-          <EChartsRenderer config={echartsConfig || {}} height="h-full" />
+          <EChartsRenderer
+            config={echartsConfig || {}}
+            height="h-full"
+            customizations={data.customizations}
+          />
         )}
       </div>
 
