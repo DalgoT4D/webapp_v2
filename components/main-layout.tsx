@@ -25,6 +25,7 @@ import {
   CreditCard,
   Users,
   Target,
+  Palette,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -189,10 +190,16 @@ const getNavItems = (
     },
     {
       title: 'Settings',
-      href: '/settings/billing',
+      href: '/settings/branding',
       icon: Settings,
       isActive: false, // Never highlight the parent Settings menu
       children: [
+        {
+          title: 'Branding',
+          href: '/settings/branding',
+          icon: Palette,
+          isActive: currentPath.startsWith('/settings/branding'),
+        },
         {
           title: 'Billing',
           href: '/settings/billing',
@@ -345,7 +352,12 @@ function ExpandedNavItem({
                 <child.icon
                   className={cn(
                     'flex-shrink-0',
-                    child.title === 'About' || child.title === 'Billing' ? 'h-5 w-5' : 'h-6 w-6'
+                    child.title === 'About' ||
+                      child.title === 'Billing' ||
+                      child.title === 'Branding' ||
+                      child.title === 'User Management'
+                      ? 'h-5 w-5'
+                      : 'h-6 w-6'
                   )}
                   style={{ strokeWidth: 1.5 }}
                 />
@@ -440,7 +452,12 @@ function MobileNavItem({
                 <child.icon
                   className={cn(
                     'flex-shrink-0',
-                    child.title === 'About' || child.title === 'Billing' ? 'h-5 w-5' : 'h-6 w-6'
+                    child.title === 'About' ||
+                      child.title === 'Billing' ||
+                      child.title === 'Branding' ||
+                      child.title === 'User Management'
+                      ? 'h-5 w-5'
+                      : 'h-6 w-6'
                   )}
                   style={{ strokeWidth: 1.5 }}
                 />

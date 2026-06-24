@@ -22,6 +22,18 @@ const nextConfig: NextConfig = {
     ];
   },
   skipTrailingSlashRedirect: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.s3.*.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.s3.amazonaws.com',
+      },
+    ],
+  },
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
