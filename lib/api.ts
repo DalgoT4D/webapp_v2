@@ -75,10 +75,18 @@ function handleAuthFailure() {
 async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0): Promise<any> {
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
 
+  const isFormData = options.body instanceof FormData;
+
   const headers: HeadersInit = {
     ...(options.headers || {}),
     ...getHeaders(),
   };
+
+  if (isFormData) {
+    // Delete after merge so Content-Type from either source is removed,
+    // letting the browser set multipart/form-data boundary automatically
+    delete (headers as Record<string, string>)['Content-Type'];
+  }
 
   try {
     const response = await fetch(url, {
@@ -206,12 +214,13 @@ export function apiPost(path: string, body: any, options: RequestInit = {}) {
   });
 }
 
-// Helper for PUT requests
+// Helper for PUT requests. Pass a FormData body for file uploads — apiFetch
+// already strips Content-Type so the browser sets the multipart boundary.
 export function apiPut(path: string, body: any, options: RequestInit = {}) {
   return apiFetch(path, {
     ...options,
     method: 'PUT',
-    body: JSON.stringify(body),
+    body: body instanceof FormData ? body : JSON.stringify(body),
   });
 }
 

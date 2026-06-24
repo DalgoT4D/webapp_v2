@@ -127,7 +127,7 @@ export async function shareReportViaEmail(
 
 export function usePublicReport(token: string) {
   const { data, error, mutate } = useSWR<
-    SnapshotViewData & { org_name: string; is_valid: boolean }
+    SnapshotViewData & { org_name: string; org_logo_url?: string; is_valid: boolean }
   >(token ? `/api/v1/public/reports/${token}/view/` : null, apiPublicGet);
   return {
     viewData: data,
