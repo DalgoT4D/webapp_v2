@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import * as echarts from 'echarts';
 import { format as formatDate } from 'date-fns';
-import { formatMetricValue, computePopChanges } from '@/lib/formatters';
+import { formatMetricValue, formatKPIValue, computePopChanges } from '@/lib/formatters';
 import { useAuthStore } from '@/stores/authStore';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -229,11 +229,11 @@ export function KPIDetailDrawer({
               ) : (
                 <>
                   <p className="text-4xl font-bold text-gray-900">
-                    {formatMetricValue(currentValue)}
+                    {formatKPIValue(currentValue, kpi.extra_config?.customizations)}
                   </p>
                   {kpi.target_value !== null && (
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      Target: {formatMetricValue(kpi.target_value)}
+                      Target: {formatKPIValue(kpi.target_value, kpi.extra_config?.customizations)}
                     </p>
                   )}
                   {popChange !== null && (

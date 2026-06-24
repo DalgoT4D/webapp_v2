@@ -15,7 +15,8 @@ import { Download, FileImage, FileText, Maximize2, MoreVertical } from 'lucide-r
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { RAG_COLORS } from '@/types/kpis';
 import { toastSuccess, toastError } from '@/lib/toast';
-import { formatMetricValue } from '@/lib/formatters';
+import { formatKPIValue } from '@/lib/formatters';
+import type { KPICustomizations } from '@/types/kpis';
 import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 import type { RAGStatus } from '@/types/kpis';
 import { formatDistanceToNow, format as formatDate, parseISO, isValid } from 'date-fns';
@@ -85,6 +86,11 @@ export interface KPICardData {
   updatedAt: string;
   isLoading: boolean;
   periods?: { period: string; period_date?: string | null; value: number | null }[];
+  /**
+   * Display customizations for the current value + target. When undefined,
+   * the card falls back to the legacy compact display via formatKPIValue.
+   */
+  customizations?: KPICustomizations;
 }
 
 interface KPICardProps {
@@ -278,11 +284,11 @@ export function KPICard({
         ) : (
           <>
             <div className="text-4xl font-bold text-gray-900">
-              {formatMetricValue(currentValue)}
+              {formatKPIValue(currentValue, data.customizations)}
             </div>
             {targetValue !== null && targetValue !== undefined && (
               <p className="text-sm text-muted-foreground mt-0.5">
-                Target: {formatMetricValue(targetValue)}
+                Target: {formatKPIValue(targetValue, data.customizations)}
               </p>
             )}
             {popChange !== null && (

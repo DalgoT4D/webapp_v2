@@ -117,6 +117,46 @@ export function formatMetricValue(v: number | null | undefined): string {
 }
 
 /**
+ * Customizations subset accepted by formatKPIValue. Matches the shape on
+ * KPI.extra_config.customizations. All fields optional.
+ */
+type FormatKPIValueCustomizations = {
+  numberFormat?: NumberFormat;
+  decimalPlaces?: number;
+  numberPrefix?: string;
+  numberSuffix?: string;
+};
+
+/**
+ * Render a KPI value with user-configured number formatting and prefix/suffix.
+ * When no customizations are set, shows the raw number as-is (no grouping,
+ * no compression).
+ *
+ * Returns "No data" for null/NaN -- without wrapping prefix/suffix. Matches
+ * the backend format_number_v2 contract so alert emails and the KPI card
+ * stay byte-identical.
+ */
+export function formatKPIValue(
+  value: number | null | undefined,
+  customizations?: FormatKPIValueCustomizations
+): string {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return 'No data';
+  }
+  if (!customizations || !customizations.numberFormat) {
+    // No formatting configured -- show the raw number as-is
+    return String(value);
+  }
+  const formatted = formatNumber(value, {
+    format: customizations.numberFormat,
+    decimalPlaces: customizations.decimalPlaces,
+  });
+  const prefix = customizations.numberPrefix ?? '';
+  const suffix = customizations.numberSuffix ?? '';
+  return `${prefix}${formatted}${suffix}`;
+}
+
+/**
  * Compute period-over-period percentage changes for a list of values.
  * Returns an array of the same length where each element is the % change
  * from the previous value, or null if it can't be computed.

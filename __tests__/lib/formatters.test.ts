@@ -2,7 +2,7 @@
  * Tests for formatters utility
  */
 
-import { formatNumber, formatDate, type DateFormat } from '@/lib/formatters';
+import { formatNumber, formatDate, formatKPIValue, type DateFormat } from '@/lib/formatters';
 
 describe('formatNumber', () => {
   it.each([
@@ -68,6 +68,42 @@ describe('formatNumber', () => {
     [150000000, { format: 'adaptive_indian', decimalPlaces: 0 }, '15Cr'],
   ])('formatNumber(%s, %j) => %s (adaptive with decimal places)', (value, options, expected) => {
     expect(formatNumber(value as number, options as any)).toBe(expected);
+  });
+});
+
+describe('formatKPIValue', () => {
+  it('returns "No data" for null/undefined/NaN — no prefix/suffix wrap', () => {
+    expect(formatKPIValue(null, { numberPrefix: '₹', numberSuffix: '%' })).toBe('No data');
+    expect(formatKPIValue(undefined, { numberFormat: 'indian' })).toBe('No data');
+    expect(formatKPIValue(NaN, { numberPrefix: '$' })).toBe('No data');
+  });
+
+  it('shows the raw number as-is when no customizations are set', () => {
+    // No grouping, no compression — pure String(value)
+    expect(formatKPIValue(1_234_567)).toBe('1234567');
+    expect(formatKPIValue(85.5)).toBe('85.5');
+  });
+
+  it('shows raw number when customizations object has no numberFormat', () => {
+    // Edge: prefix/suffix without format → still no formatting applied
+    expect(formatKPIValue(1500, { numberPrefix: '₹' })).toBe('1500');
+  });
+
+  it.each([
+    [123456, { numberFormat: 'indian', decimalPlaces: 0, numberPrefix: '₹' }, '₹1,23,456'],
+    [85, { numberFormat: 'percentage', decimalPlaces: 0 }, '85%'],
+    [
+      1500,
+      { numberFormat: 'default', decimalPlaces: 0, numberPrefix: '', numberSuffix: ' people' },
+      '1500 people',
+    ],
+    [
+      2_500_000,
+      { numberFormat: 'adaptive_international', decimalPlaces: 2, numberPrefix: '$' },
+      '$2.50M',
+    ],
+  ])('formatKPIValue(%s, %j) => %s', (value, customizations, expected) => {
+    expect(formatKPIValue(value as number, customizations as any)).toBe(expected);
   });
 });
 
