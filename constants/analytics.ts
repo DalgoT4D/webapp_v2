@@ -24,6 +24,7 @@ export const ANALYTICS_EVENTS = {
   DASHBOARD_DUPLICATED: 'dashboard:dashboard_duplicated',
   DASHBOARD_VIEWED: 'dashboard:dashboard_viewed',
   DASHBOARD_SHARED: 'dashboard:dashboard_shared',
+  DASHBOARD_EMBED_CODE_COPIED: 'dashboard:embed_code_copied',
   DASHBOARD_SET_AS_LANDING: 'dashboard:dashboard_set_as_landing',
   DASHBOARD_CHART_ADDED: 'dashboard:chart_added',
   DASHBOARD_KPI_ADDED: 'dashboard:kpi_added',
@@ -115,6 +116,8 @@ export const ANALYTICS_EVENTS = {
   DATA_QUALITY_REPORT_GENERATED: 'data_quality:report_generated',
   // Settings — user management & org
   USER_INVITED: 'settings:user_invited',
+  BRANDING_LOGO_SAVED: 'settings:branding_logo_saved',
+  BRANDING_LOGO_REMOVED: 'settings:branding_logo_removed',
   INVITATION_RESENT: 'settings:invitation_resent',
   INVITATION_DELETED: 'settings:invitation_deleted',
   INVITATION_ACCEPTED: 'settings:invitation_accepted',
@@ -196,6 +199,7 @@ export const FEATURES = {
   SETTINGS_USER_MANAGEMENT: 'settings_user_management',
   SETTINGS_ABOUT: 'settings_about',
   SETTINGS_SUPERSET_USAGE: 'settings_superset_usage',
+  SETTINGS_BRANDING: 'settings_branding',
 } as const;
 
 export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
@@ -222,6 +226,7 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/settings/billing', feature: FEATURES.SETTINGS_BILLING },
   { prefix: '/settings/user-management', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
   { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
+  { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
 ];
 
 export function featureForPathname(pathname: string): Feature | null {

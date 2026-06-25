@@ -93,6 +93,7 @@ import { useFullscreen } from '@/hooks/useFullscreen';
 import { ADMIN_ROLES, PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { EmbedCodeDropdown } from '@/components/dashboard/embed-code-dropdown';
 
 // Define responsive breakpoints and column configurations (same as builder)
 // Superset-style: Always 12 columns, they just scale with container width
@@ -333,6 +334,14 @@ export function DashboardNativeView({
   // Use pre-fetched data for public/report mode, otherwise use API data
   const dashboard =
     (isPublicMode || isReportMode) && dashboardData ? dashboardData : dashboardFromApi;
+
+  // Org logo for fullscreen overlays:
+  // - Private mode: user is logged in, auth store has the org logo
+  // - Public mode: no auth store, logo comes from backend dashboard API response
+  const currentOrg = useAuthStore((state) => state.currentOrg);
+  const orgLogoUrl = isPublicMode
+    ? (dashboard?.org_logo_url ?? null)
+    : (currentOrg?.logo_url ?? null);
 
   // Override loading and error states when we have pre-fetched data
   const isLoading = (isPublicMode || isReportMode) && dashboardData ? false : apiIsLoading;
@@ -617,6 +626,7 @@ export function DashboardNativeView({
               commentStates={isReportMode ? commentStates : undefined}
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+              orgLogoUrl={orgLogoUrl}
             />
           </div>
         );
@@ -771,7 +781,7 @@ export function DashboardNativeView({
       )}
     >
       {/* Fixed Header - Conditional rendering for landing page */}
-      {!hideHeader && !showMinimalHeader && !isEmbedMode && (
+      {!hideHeader && !showMinimalHeader && !isPublicMode && (
         <div className="bg-white border-b shadow-sm flex-shrink-0">
           {/* Mobile Header */}
           <div className="lg:hidden">
@@ -790,9 +800,11 @@ export function DashboardNativeView({
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-lg font-bold text-gray-900 truncate dashboard-header-title">
-                      {dashboard.title}
-                    </h1>
+                    {(!isPublicMode || isFullscreen) && (
+                      <h1 className="text-lg font-bold text-gray-900 truncate dashboard-header-title">
+                        {dashboard.title}
+                      </h1>
+                    )}
                     {dashboard.is_published && (
                       <Badge
                         variant="default"
@@ -811,7 +823,7 @@ export function DashboardNativeView({
                       </Badge>
                     )}
                   </div>
-                  {dashboard.description && (
+                  {dashboard.description && (!isPublicMode || isFullscreen) && (
                     <p className="text-xs text-gray-600 mt-1 truncate">{dashboard.description}</p>
                   )}
                 </div>
@@ -899,6 +911,13 @@ export function DashboardNativeView({
                 >
                   <Maximize2 className="w-4 h-4" />
                 </Button>
+
+                {!isPublicMode && dashboard?.public_share_token && (
+                  <EmbedCodeDropdown
+                    token={dashboard.public_share_token}
+                    dashboardTitle={dashboard?.title ?? ''}
+                  />
+                )}
               </div>
             </div>
 
@@ -984,9 +1003,11 @@ export function DashboardNativeView({
                 <div className="min-w-0 flex-1">
                   {/* Title row: title + badges + modified-by/last-updated inline */}
                   <div className="flex items-center gap-3 min-w-0">
-                    <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title truncate flex-shrink-0 max-w-md">
-                      {dashboard.title}
-                    </h1>
+                    {(!isPublicMode || isFullscreen) && (
+                      <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title truncate flex-shrink-0 max-w-md">
+                        {dashboard.title}
+                      </h1>
+                    )}
                     {dashboard.is_published && (
                       <Badge
                         variant="default"
@@ -1022,7 +1043,7 @@ export function DashboardNativeView({
                   </div>
 
                   {/* Subtitle / description below the title */}
-                  {dashboard.description && (
+                  {dashboard.description && (!isPublicMode || isFullscreen) && (
                     <p
                       className="text-sm text-gray-600 mt-1 line-clamp-2 max-w-3xl"
                       data-testid="dashboard-description"
@@ -1102,6 +1123,13 @@ export function DashboardNativeView({
                 <Button variant="outline" size="sm" onClick={handleToggleFullscreen}>
                   <Maximize2 className="w-4 h-4" />
                 </Button>
+
+                {!isPublicMode && dashboard?.public_share_token && (
+                  <EmbedCodeDropdown
+                    token={dashboard.public_share_token}
+                    dashboardTitle={dashboard?.title ?? ''}
+                  />
+                )}
 
                 {/* COMMENTED OUT: Device Size Preview Selector - not needed in view mode */}
                 {/* <Select
