@@ -480,6 +480,10 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     }
   }, [chart, chartData, mapDataOverlay]);
 
+  // Computed once per render so it's a stable primitive in handleRegionClick's deps,
+  // instead of calling the (unstable-reference) hasPermission multiple times inside the callback
+  const canEditCharts = hasPermission('can_edit_charts');
+
   // Handle region click for drill-down
   // Stable reference — MapPreview's chart-init effect depends on onRegionClick;
   // an unstable reference here would re-trigger that effect (and the map render) every render
@@ -604,7 +608,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
       // Fallback to legacy layers system
       if (!chart?.extra_config?.layers) {
         toast.info('🗺️ No further drill-down levels configured', {
-          description: hasPermission('can_edit_charts')
+          description: canEditCharts
             ? 'Configure additional layers in edit mode to enable deeper drill-down'
             : 'This chart needs additional layers configured for deeper drill-down',
           position: 'top-right',
@@ -618,7 +622,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
       if (!nextLayer) {
         // No next layer configured
         toast.info('🗺️ No further drill-down levels configured', {
-          description: hasPermission('can_edit_charts')
+          description: canEditCharts
             ? 'Configure additional layers in edit mode to enable deeper drill-down'
             : 'This chart needs additional layers configured for deeper drill-down',
           position: 'top-right',
@@ -663,15 +667,15 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           });
         } else {
           toast.info(`🗺️ ${regionName} not configured for drill-down`, {
-            description: hasPermission('can_edit_charts')
+            description: canEditCharts
               ? 'Configure this region in edit mode to enable drill-down'
               : 'This region is not configured for drill-down',
             position: 'top-right',
             duration: 4000,
-            ...(hasPermission('can_edit_charts') && {
+            ...(canEditCharts && {
               action: {
                 label: 'Edit Chart',
-                onClick: () => (window.location.href = `/charts/${chartId}/edit`),
+                onClick: () => router.push(`/charts/${chartId}/edit`),
               },
             }),
           });
@@ -697,8 +701,16 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
 
       setDrillDownPath([...drillDownPath, newLevel]);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- hasPermission omitted: unstable reference, value doesn't affect correctness within a render
-    [chart, regions, drillDownPath, activeGeographicColumn, currentLevel, chartId]
+    [
+      chart,
+      regions,
+      drillDownPath,
+      activeGeographicColumn,
+      currentLevel,
+      chartId,
+      canEditCharts,
+      router,
+    ]
   );
 
   // Handle drill up to a specific level
