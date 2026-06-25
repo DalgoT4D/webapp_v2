@@ -75,16 +75,19 @@ jest.mock('@/components/reports/comment-popover', () => ({
 
 // Mock useRbac — default: all permissions granted
 const mockHasPermission = jest.fn().mockReturnValue(true);
-jest.mock('@/lib/rbac', () => ({
-  ...jest.requireActual('@/lib/rbac'),
-  useRbac: () => ({
-    hasPermission: mockHasPermission,
-    hasAnyPermission: jest.fn().mockReturnValue(true),
-    hasAllPermissions: jest.fn().mockReturnValue(true),
-    hasRole: jest.fn().mockReturnValue(true),
-    role: 'admin',
-  }),
-}));
+jest.mock('@/lib/rbac', () => {
+  const actual = jest.requireActual('@/lib/rbac');
+  return {
+    ...actual,
+    useRbac: () => ({
+      hasPermission: mockHasPermission,
+      hasAnyPermission: jest.fn().mockReturnValue(true),
+      hasAllPermissions: jest.fn().mockReturnValue(true),
+      hasRole: jest.fn().mockReturnValue(true),
+      role: actual.ROLES.ADMIN,
+    }),
+  };
+});
 
 // Mock useAuthStore — return current user email matching created_by in mock data
 const mockGetCurrentUserEmail = jest.fn().mockReturnValue('user@test.com');

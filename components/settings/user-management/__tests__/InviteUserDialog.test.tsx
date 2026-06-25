@@ -1,14 +1,15 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { InviteUserDialog } from '../InviteUserDialog';
+import { ROLES } from '@/lib/rbac';
 
 const mockInviteUser = jest.fn();
 const mockMutate = jest.fn();
 
 const RBAC_ROLES = [
-  { uuid: 'uuid-admin', slug: 'admin', name: 'Admin' },
-  { uuid: 'uuid-analyst', slug: 'analyst', name: 'Analyst' },
-  { uuid: 'uuid-member', slug: 'member', name: 'Member' },
+  { uuid: 'uuid-admin', slug: ROLES.ADMIN, name: 'Admin' },
+  { uuid: 'uuid-analyst', slug: ROLES.ANALYST, name: 'Analyst' },
+  { uuid: 'uuid-member', slug: ROLES.MEMBER, name: 'Member' },
 ];
 
 jest.mock('@/hooks/api/useUserManagement', () => ({

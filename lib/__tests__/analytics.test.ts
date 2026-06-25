@@ -1,4 +1,5 @@
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ROLES } from '@/lib/rbac';
 
 const mockCapture = jest.fn();
 const mockIdentify = jest.fn();
@@ -90,13 +91,13 @@ describe('trackFeatureView', () => {
 describe('identifyUser', () => {
   it('identifies by user_id, sets is_internal + current_role, registers role, never sends email', () => {
     mockGetDistinctId.mockReturnValue('42');
-    identifyUser(42, 'staff@dalgo.org', { role: 'admin' });
+    identifyUser(42, 'staff@dalgo.org', { role: ROLES.ADMIN });
     expect(mockIdentify).toHaveBeenCalledWith('42', {
       is_internal: true,
-      current_role: 'admin',
+      current_role: ROLES.ADMIN,
       work_domain: null,
     });
-    expect(mockRegister).toHaveBeenCalledWith({ role: 'admin' });
+    expect(mockRegister).toHaveBeenCalledWith({ role: ROLES.ADMIN });
     const identifyArgs = mockIdentify.mock.calls[0];
     expect(JSON.stringify(identifyArgs)).not.toContain('staff@dalgo.org');
   });
@@ -121,11 +122,11 @@ describe('identifyUser', () => {
   });
   it('does NOT reset when already identified by a numeric id', () => {
     mockGetDistinctId.mockReturnValue('60');
-    identifyUser(60, 'user@ngo.example', { role: 'admin' });
+    identifyUser(60, 'user@ngo.example', { role: ROLES.ADMIN });
     expect(mockReset).not.toHaveBeenCalled();
   });
   it('no-ops when userId is falsy (backend not yet deployed)', () => {
-    identifyUser(0, 'staff@dalgo.org', { role: 'admin' });
+    identifyUser(0, 'staff@dalgo.org', { role: ROLES.ADMIN });
     expect(mockIdentify).not.toHaveBeenCalled();
   });
 });

@@ -61,16 +61,19 @@ jest.mock('@/components/ui/confirmation-dialog', () => ({
   }),
 }));
 
-jest.mock('@/lib/rbac', () => ({
-  ...jest.requireActual('@/lib/rbac'),
-  useRbac: () => ({
-    hasPermission: () => true,
-    hasAnyPermission: () => true,
-    hasAllPermissions: () => true,
-    hasRole: () => true,
-    role: 'admin',
-  }),
-}));
+jest.mock('@/lib/rbac', () => {
+  const actual = jest.requireActual('@/lib/rbac');
+  return {
+    ...actual,
+    useRbac: () => ({
+      hasPermission: () => true,
+      hasAnyPermission: () => true,
+      hasAllPermissions: () => true,
+      hasRole: () => true,
+      role: actual.ROLES.ADMIN,
+    }),
+  };
+});
 
 jest.mock('../pipeline-run-history', () => ({
   PipelineRunHistory: (): null => null,
