@@ -39,7 +39,7 @@ import { DocsLink } from '@/components/ui/docs-link';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { usePipelines, deletePipeline, triggerPipelineRun } from '@/hooks/api/usePipelines';
 import type { Pipeline } from '@/types/pipeline';
 import {
@@ -55,7 +55,7 @@ import { cn } from '@/lib/utils';
 
 export function PipelineList() {
   const router = useRouter();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
   const { pipelines, isLoading, mutate } = usePipelines();
   const { confirm, DialogComponent } = useConfirmationDialog();
 
@@ -63,11 +63,11 @@ export function PipelineList() {
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
 
   // Permissions
-  const canViewPipeline = hasPermission('can_view_pipeline');
-  const canCreatePipeline = hasPermission('can_create_pipeline');
-  const canRunPipeline = hasPermission('can_run_pipeline');
-  const canEditPipeline = hasPermission('can_edit_pipeline');
-  const canDeletePipeline = hasPermission('can_delete_pipeline');
+  const canViewPipeline = hasPermission(PERMISSIONS.CAN_VIEW_PIPELINE);
+  const canCreatePipeline = hasPermission(PERMISSIONS.CAN_CREATE_PIPELINE);
+  const canRunPipeline = hasPermission(PERMISSIONS.CAN_RUN_PIPELINE);
+  const canEditPipeline = hasPermission(PERMISSIONS.CAN_EDIT_PIPELINE);
+  const canDeletePipeline = hasPermission(PERMISSIONS.CAN_DELETE_PIPELINE);
 
   const handleViewHistory = useCallback((pipeline: Pipeline) => {
     setSelectedPipeline(pipeline);

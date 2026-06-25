@@ -9,14 +9,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SourceList } from '../SourceList';
 import * as useSourcesHook from '@/hooks/api/useSources';
-import * as usePermissionsHook from '@/hooks/api/usePermissions';
+import * as rbac from '@/lib/rbac';
 import type { Source, SourceDefinition } from '@/types/source';
 import { createMockSource, createMockDefinition } from './sources-mock-data';
 
 // ============ Mocks ============
 
 jest.mock('@/hooks/api/useSources');
-jest.mock('@/hooks/api/usePermissions');
+jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
 
 // SourceForm is tested separately — mock it out so SourceList tests are isolated
 jest.mock('../SourceForm', () => ({
@@ -75,7 +75,7 @@ describe('SourceList', () => {
     jest.clearAllMocks();
     mockSources([]);
     mockDefinitions([]);
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: () => true,
     });
   });
@@ -103,7 +103,7 @@ describe('SourceList', () => {
     unmount();
 
     // Without create permission — add button hidden
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (p: string) => p !== 'can_create_source',
     });
     render(<SourceList />);
@@ -310,7 +310,7 @@ describe('SourceList', () => {
       isError: null,
       mutate: mockMutate,
     });
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (p: string) => p !== 'can_edit_source' && p !== 'can_delete_source',
     });
 

@@ -56,9 +56,14 @@ jest.mock('@/hooks/api/useFeatureFlags', () => ({
   },
 }));
 
-jest.mock('@/hooks/api/usePermissions', () => ({
-  useUserPermissions: jest.fn(() => ({
+jest.mock('@/lib/rbac', () => ({
+  ...jest.requireActual('@/lib/rbac'),
+  useRbac: jest.fn(() => ({
     hasPermission: jest.fn(() => true),
+    hasAnyPermission: jest.fn(() => true),
+    hasAllPermissions: jest.fn(() => true),
+    hasRole: jest.fn(() => true),
+    role: 'admin',
   })),
 }));
 

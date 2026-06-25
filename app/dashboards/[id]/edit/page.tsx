@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DashboardBuilderV2 } from '@/components/dashboard/dashboard-builder-v2';
 import { useDashboard } from '@/hooks/api/useDashboards';
 import { useAuthStore } from '@/stores/authStore';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Lock, User, Clock, AlertTriangle, Eye, Loader2 } from 'lucide-react';
@@ -24,7 +24,7 @@ export default function EditDashboardPage() {
   const currentUser = getCurrentOrgUser();
 
   // Get user permissions
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
   const { data: dashboard, isLoading, isError, mutate } = useDashboard(dashboardId);
 
@@ -194,7 +194,7 @@ export default function EditDashboardPage() {
   }
 
   // Check if user has edit permissions
-  if (!hasPermission('can_edit_dashboards')) {
+  if (!hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS)) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">

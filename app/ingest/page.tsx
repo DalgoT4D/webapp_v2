@@ -9,7 +9,7 @@ import { ConnectionsList } from '@/components/connections/connections-list';
 import { DocsLink } from '@/components/ui/docs-link';
 import { trackFeatureView } from '@/lib/analytics';
 import { FEATURES } from '@/constants/analytics';
-import { DataSectionGuard } from '@/components/data-section-guard';
+import { DATA_SECTION_ROLES, RoleGuard } from '@/lib/rbac';
 
 const DEFAULT_TAB = 'connections';
 const TABS = ['connections', 'sources', 'warehouse'] as const;
@@ -97,10 +97,10 @@ function IngestPageContent() {
 
 export default function IngestPage() {
   return (
-    <DataSectionGuard>
+    <RoleGuard roles={DATA_SECTION_ROLES}>
       <Suspense fallback={<div className="p-6">Loading...</div>}>
         <IngestPageContent />
       </Suspense>
-    </DataSectionGuard>
+    </RoleGuard>
   );
 }

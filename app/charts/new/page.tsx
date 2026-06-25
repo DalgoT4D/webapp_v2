@@ -10,7 +10,7 @@ import { ArrowLeft, BarChart2, PieChart, LineChart, Hash, MapPin, Table, Lock } 
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
 // Chart type definitions with descriptions
 const chartTypes = [
@@ -67,7 +67,7 @@ const chartTypes = [
 function NewChartPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [selectedSchema, setSelectedSchema] = useState<string>('');
   const [selectedChartType, setSelectedChartType] = useState<string>('');
@@ -75,7 +75,7 @@ function NewChartPageContent() {
   const isFromDashboard = searchParams.get('from') === 'dashboard';
 
   // Check if user has create permissions
-  if (!hasPermission('can_create_charts')) {
+  if (!hasPermission(PERMISSIONS.CAN_CREATE_CHARTS)) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">

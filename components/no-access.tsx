@@ -4,10 +4,7 @@ import { Lock } from 'lucide-react';
 
 export function NoAccess() {
   return (
-    <div
-      data-testid="no-access"
-      className="h-full flex items-center justify-center bg-gray-50"
-    >
+    <div data-testid="no-access" className="h-full flex items-center justify-center bg-gray-50">
       <div className="text-center max-w-sm">
         <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
           <Lock className="w-6 h-6 text-red-600" aria-hidden="true" />

@@ -1,9 +1,9 @@
 import UserManagement from '@/components/settings/user-management/UserManagement';
-import { RoleGuard } from '@/components/role-guard';
+import { ADMIN_ROLES, RoleGuard } from '@/lib/rbac';
 
 export default function UserManagementPage() {
   return (
-    <RoleGuard allowedRoles={['admin']}>
+    <RoleGuard roles={ADMIN_ROLES}>
       <UserManagement />
     </RoleGuard>
   );

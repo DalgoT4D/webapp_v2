@@ -37,6 +37,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { TransformTypeEnum as TransformType, useTransformType } from '@/hooks/api/useTransform';
 import Image from 'next/image';
+import { ADMIN_ROLES, DATA_SECTION_ROLES, Role, useRbac } from '@/lib/rbac';
 
 // Define types for navigation items
 export interface NavItemType {
@@ -46,7 +47,7 @@ export interface NavItemType {
   isActive: boolean;
   children?: NavItemType[];
   hide?: boolean;
-  visibleToRoles?: string[];
+  visibleToRoles?: Role[];
 }
 
 // Menu items to hide in production environment
@@ -93,7 +94,7 @@ export const getNavItems = (
   hasSupersetSetup: boolean = false,
   isFeatureFlagEnabled: (flag: FeatureFlagKeys) => boolean,
   transformType?: string,
-  roleSlug: string = ''
+  roleSlug: Role | '' = ''
 ): NavItemType[] => {
   const allNavItems: NavItemType[] = [
     {
@@ -132,7 +133,7 @@ export const getNavItems = (
       href: '/pipeline',
       icon: Database,
       isActive: false,
-      visibleToRoles: ['admin', 'analyst'],
+      visibleToRoles: DATA_SECTION_ROLES,
       children: [
         {
           title: 'Overview',
@@ -198,14 +199,14 @@ export const getNavItems = (
           href: '/settings/billing',
           icon: CreditCard,
           isActive: currentPath.startsWith('/settings/billing'),
-          visibleToRoles: ['admin'],
+          visibleToRoles: ADMIN_ROLES,
         },
         {
           title: 'User Management',
           href: '/settings/user-management',
           icon: Users,
           isActive: currentPath.startsWith('/settings/user-management'),
-          visibleToRoles: ['admin'],
+          visibleToRoles: ADMIN_ROLES,
         },
         {
           title: 'About',
@@ -232,7 +233,10 @@ export const getNavItems = (
   // An empty roleSlug (user not yet loaded) is treated as most-restrictive.
   const applyRoleFilter = (items: NavItemType[]): NavItemType[] =>
     items.map((item) => {
-      const hiddenByRole = !!(item.visibleToRoles && !item.visibleToRoles.includes(roleSlug));
+      const hiddenByRole = !!(
+        item.visibleToRoles &&
+        (!roleSlug || !item.visibleToRoles.includes(roleSlug as Role))
+      );
       const children = item.children ? applyRoleFilter(item.children) : undefined;
       return {
         ...item,
@@ -493,12 +497,18 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   // state persists — navigating out of a subtree does NOT auto-close the parent.
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const responsive = useResponsiveLayout();
-  const { currentOrg, getCurrentOrgUser } = useAuthStore();
+  const { currentOrg } = useAuthStore();
+  const { role } = useRbac();
   const { isFeatureFlagEnabled } = useFeatureFlags();
   const { transformType } = useTransformType();
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
-  const roleSlug = getCurrentOrgUser()?.new_role_slug ?? '';
-  const navItems = getNavItems(pathname, hasSupersetSetup, isFeatureFlagEnabled, transformType, roleSlug);
+  const navItems = getNavItems(
+    pathname,
+    hasSupersetSetup,
+    isFeatureFlagEnabled,
+    transformType,
+    role ?? ''
+  );
 
   // Auto-open a parent's submenu when the current path enters its subtree. Never auto-closes.
   useEffect(() => {

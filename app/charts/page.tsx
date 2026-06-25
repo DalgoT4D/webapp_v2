@@ -32,7 +32,7 @@ import { useDeleteChart, useBulkDeleteCharts, useCreateChart } from '@/hooks/api
 import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
 import { ChartExportDropdownForList } from '@/components/charts/ChartExportDropdownForList';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -134,7 +134,7 @@ export default function ChartsPage() {
   const { confirm, DialogComponent } = useConfirmationDialog();
 
   // Get user permissions
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
   // If API doesn't support pagination, implement client-side filtering and sorting
   const charts = allCharts || [];
@@ -819,7 +819,7 @@ export default function ChartsPage() {
             </Button>
             <div className="flex flex-col">
               <Link
-                href={hasPermission('can_view_charts') ? `/charts/${chart.id}` : '#'}
+                href={hasPermission(PERMISSIONS.CAN_VIEW_CHARTS) ? `/charts/${chart.id}` : '#'}
                 className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
               >
                 {chart.title}
@@ -878,7 +878,7 @@ export default function ChartsPage() {
         {/* Actions Column */}
         <TableCell className="py-4">
           <div className="flex items-center gap-2">
-            {hasPermission('can_edit_charts') && (
+            {hasPermission(PERMISSIONS.CAN_EDIT_CHARTS) && (
               <Link href={`/charts/${chart.id}/edit`}>
                 <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
                   <Edit className="w-4 h-4 text-gray-600" />
@@ -896,7 +896,7 @@ export default function ChartsPage() {
                   <CheckSquare className="w-4 h-4 mr-2" />
                   Select
                 </DropdownMenuItem>
-                {hasPermission('can_create_charts') && (
+                {hasPermission(PERMISSIONS.CAN_CREATE_CHARTS) && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -913,14 +913,14 @@ export default function ChartsPage() {
                     </DropdownMenuItem>
                   </>
                 )}
-                {hasPermission('can_view_charts') && (
+                {hasPermission(PERMISSIONS.CAN_VIEW_CHARTS) && (
                   <ChartExportDropdownForList
                     chartId={chart.id}
                     chartTitle={chart.title}
                     chartType={chart.chart_type}
                   />
                 )}
-                {hasPermission('can_delete_charts') && (
+                {hasPermission(PERMISSIONS.CAN_DELETE_CHARTS) && (
                   <>
                     <DropdownMenuSeparator />
                     <ChartDeleteDialog
@@ -1003,7 +1003,7 @@ export default function ChartsPage() {
             </p>
           </div>
 
-          {hasPermission('can_create_charts') && (
+          {hasPermission(PERMISSIONS.CAN_CREATE_CHARTS) && (
             <Link id="charts-create-link" href="/charts/new">
               <Button id="charts-create-button" variant="primary" data-testid="charts-create-btn">
                 <Plus id="charts-create-icon" className="w-4 h-4 mr-2" />
@@ -1054,7 +1054,7 @@ export default function ChartsPage() {
               </div>
             </div>
 
-            {hasPermission('can_delete_charts') && (
+            {hasPermission(PERMISSIONS.CAN_DELETE_CHARTS) && (
               <Button
                 variant="destructive"
                 size="sm"
@@ -1319,7 +1319,7 @@ export default function ChartsPage() {
               <p id="charts-empty-text" className="text-muted-foreground">
                 {getActiveFilterCount() > 0 ? 'No charts found' : 'No charts yet'}
               </p>
-              {hasPermission('can_create_charts') && (
+              {hasPermission(PERMISSIONS.CAN_CREATE_CHARTS) && (
                 <Link id="charts-empty-create-link" href="/charts/new">
                   <Button
                     id="charts-empty-create-button"

@@ -1,10 +1,10 @@
 import Transform from '@/components/transform/Transform';
-import { DataSectionGuard } from '@/components/data-section-guard';
+import { DATA_SECTION_ROLES, RoleGuard } from '@/lib/rbac';
 
 export default function TransformPage() {
   return (
-    <DataSectionGuard>
+    <RoleGuard roles={DATA_SECTION_ROLES}>
       <Transform />
-    </DataSectionGuard>
+    </RoleGuard>
   );
 }

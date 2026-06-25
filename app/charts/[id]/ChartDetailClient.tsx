@@ -21,7 +21,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type { ChartDataPayload } from '@/types/charts';
@@ -55,7 +55,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isFromDashboard = searchParams.get('from') === 'dashboard';
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
   // Fire CHART_VIEWED once per mount when the chart loads (WAVO consume signal).
   const chartViewedTracked = useRef(false);
@@ -76,7 +76,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   } | null>(null);
 
   // Check if user has view permissions
-  if (!hasPermission('can_view_charts')) {
+  if (!hasPermission(PERMISSIONS.CAN_VIEW_CHARTS)) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
@@ -443,12 +443,12 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
       setTimeout(
         () => {
           toast('💡 Configure drill-down layers to see filtered regions', {
-            description: hasPermission('can_edit_charts')
+            description: hasPermission(PERMISSIONS.CAN_EDIT_CHARTS)
               ? "Click 'Edit Chart' to set up geographic layers"
               : 'Chart needs geographic layers to show filtered regions',
             duration: 7000,
             position: 'top-right',
-            ...(hasPermission('can_edit_charts') && {
+            ...(hasPermission(PERMISSIONS.CAN_EDIT_CHARTS) && {
               action: {
                 label: 'Edit Chart',
                 onClick: () => (window.location.href = `/charts/${chartId}/edit`),
@@ -594,7 +594,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     // Fallback to legacy layers system
     if (!chart?.extra_config?.layers) {
       toast.info('🗺️ No further drill-down levels configured', {
-        description: hasPermission('can_edit_charts')
+        description: hasPermission(PERMISSIONS.CAN_EDIT_CHARTS)
           ? 'Configure additional layers in edit mode to enable deeper drill-down'
           : 'This chart needs additional layers configured for deeper drill-down',
         position: 'top-right',
@@ -608,7 +608,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     if (!nextLayer) {
       // No next layer configured
       toast.info('🗺️ No further drill-down levels configured', {
-        description: hasPermission('can_edit_charts')
+        description: hasPermission(PERMISSIONS.CAN_EDIT_CHARTS)
           ? 'Configure additional layers in edit mode to enable deeper drill-down'
           : 'This chart needs additional layers configured for deeper drill-down',
         position: 'top-right',
@@ -653,12 +653,12 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
         });
       } else {
         toast.info(`🗺️ ${regionName} not configured for drill-down`, {
-          description: hasPermission('can_edit_charts')
+          description: hasPermission(PERMISSIONS.CAN_EDIT_CHARTS)
             ? 'Configure this region in edit mode to enable drill-down'
             : 'This region is not configured for drill-down',
           position: 'top-right',
           duration: 4000,
-          ...(hasPermission('can_edit_charts') && {
+          ...(hasPermission(PERMISSIONS.CAN_EDIT_CHARTS) && {
             action: {
               label: 'Edit Chart',
               onClick: () => (window.location.href = `/charts/${chartId}/edit`),
@@ -754,7 +754,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
             )}
           </div>
           <div className="flex gap-2">
-            {hasPermission('can_edit_charts') && (
+            {hasPermission(PERMISSIONS.CAN_EDIT_CHARTS) && (
               <Link
                 data-testid="chart-detail-edit-link"
                 href={`/charts/${chartId}/edit${isFromDashboard ? '?from=dashboard' : ''}`}

@@ -1,28 +1,28 @@
 import { PipelineOverview } from '@/components/pipeline/overview/pipeline-overview';
 import { DocsLink } from '@/components/ui/docs-link';
-import { DataSectionGuard } from '@/components/data-section-guard';
+import { DATA_SECTION_ROLES, RoleGuard } from '@/lib/rbac';
 
 export default function PipelineOverviewPage() {
   return (
-    <DataSectionGuard>
-    <div className="h-full flex flex-col">
-      {/* Fixed Header */}
-      <div className="flex-shrink-0 border-b bg-background">
-        <div className="flex items-center justify-between mb-6 p-6 pb-0">
-          <div>
-            <DocsLink path="/data/overview">
-              <h1 className="text-3xl font-bold">Pipeline Overview</h1>
-            </DocsLink>
-            <p className="text-muted-foreground mt-1">Monitor and track your pipeline runs</p>
+    <RoleGuard roles={DATA_SECTION_ROLES}>
+      <div className="h-full flex flex-col">
+        {/* Fixed Header */}
+        <div className="flex-shrink-0 border-b bg-background">
+          <div className="flex items-center justify-between mb-6 p-6 pb-0">
+            <div>
+              <DocsLink path="/data/overview">
+                <h1 className="text-3xl font-bold">Pipeline Overview</h1>
+              </DocsLink>
+              <p className="text-muted-foreground mt-1">Monitor and track your pipeline runs</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <PipelineOverview />
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <PipelineOverview />
+        </div>
       </div>
-    </div>
-    </DataSectionGuard>
+    </RoleGuard>
   );
 }

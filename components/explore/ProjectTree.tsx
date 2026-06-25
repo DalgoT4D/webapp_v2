@@ -19,7 +19,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useExploreStore } from '@/stores/exploreStore';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import type { WarehouseTable, TreeNode } from '@/types/explore';
 import { EXPLORE_DIMENSIONS } from '@/constants/explore';
 import { cn } from '@/lib/utils';
@@ -72,10 +72,10 @@ export function ProjectTree({
   // Use local state in canvas mode to avoid polluting explore page search
   const searchTerm = mode === ProjectTreeMode.CANVAS ? localSearchTerm : globalSearchTerm;
   const setSearchTerm = mode === ProjectTreeMode.CANVAS ? setLocalSearchTerm : setGlobalSearchTerm;
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
-  const canCreateModel = hasPermission('can_create_dbt_model');
-  const canSyncSources = hasPermission('can_sync_sources');
+  const canCreateModel = hasPermission(PERMISSIONS.CAN_CREATE_DBT_MODEL);
+  const canSyncSources = hasPermission(PERMISSIONS.CAN_SYNC_SOURCES);
 
   // Build tree data structure
   const treeData = useMemo<TreeNode[]>(() => {

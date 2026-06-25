@@ -18,7 +18,7 @@ import { Loader2, Info } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { buildDocsUrl } from '@/components/ui/docs-link';
 import { useDbtWorkspace, switchGitRepo, updateSchema } from '@/hooks/api/useDbtWorkspace';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
@@ -34,13 +34,13 @@ interface DBTRepositoryCardProps {
 
 export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
   const { data: workspace, mutate } = useDbtWorkspace();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
   const [showDialog, setShowDialog] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const isConnected = !!(workspace && workspace.gitrepo_url);
-  const canCreate = hasPermission('can_create_dbt_workspace');
-  const canEdit = hasPermission('can_edit_dbt_workspace');
+  const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_DBT_WORKSPACE);
+  const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_DBT_WORKSPACE);
 
   const form = useForm<DbtWorkspaceFormData>({
     defaultValues: {

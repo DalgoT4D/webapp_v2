@@ -28,7 +28,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { apiPost } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useUnreadCount } from '@/hooks/api/useNotifications';
 import { CreateOrgDialog } from '@/components/settings/organizations/CreateOrgDialog';
 
@@ -61,8 +61,8 @@ export function Header({
 
   const [showCreateOrgDialog, setShowCreateOrgDialog] = useState(false);
 
-  const { hasPermission } = useUserPermissions();
-  const canCreateOrg = hasPermission('can_create_org');
+  const { hasPermission } = useRbac();
+  const canCreateOrg = hasPermission(PERMISSIONS.CAN_CREATE_ORG);
 
   // Fetch unread notification count (uses SWR with 30s polling)
   const { unreadCount } = useUnreadCount();

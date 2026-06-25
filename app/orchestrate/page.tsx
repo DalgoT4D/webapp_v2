@@ -1,12 +1,12 @@
 'use client';
 
 import { PipelineList } from '@/components/pipeline/orchestrate/pipeline-list';
-import { DataSectionGuard } from '@/components/data-section-guard';
+import { DATA_SECTION_ROLES, RoleGuard } from '@/lib/rbac';
 
 export default function OrchestratePage() {
   return (
-    <DataSectionGuard>
+    <RoleGuard roles={DATA_SECTION_ROLES}>
       <PipelineList />
-    </DataSectionGuard>
+    </RoleGuard>
   );
 }

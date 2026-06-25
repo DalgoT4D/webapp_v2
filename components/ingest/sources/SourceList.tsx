@@ -23,15 +23,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useSources, useSourceDefinitions, deleteSource } from '@/hooks/api/useSources';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
-import { SOURCE_PERMISSIONS } from '@/constants/source';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { SourceForm } from './SourceForm';
 
 export function SourceList() {
   const { data: sources, isLoading, mutate } = useSources();
   const { data: definitions } = useSourceDefinitions();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
   const { confirm, DialogComponent } = useConfirmationDialog();
 
   // Build lookup: sourceDefinitionId -> docker tag info + source type label
@@ -54,9 +53,9 @@ export function SourceList() {
   const [formOpen, setFormOpen] = useState(false);
   const [editSourceId, setEditSourceId] = useState<string | undefined>(undefined);
 
-  const canCreate = hasPermission(SOURCE_PERMISSIONS.CREATE);
-  const canEdit = hasPermission(SOURCE_PERMISSIONS.EDIT);
-  const canDelete = hasPermission(SOURCE_PERMISSIONS.DELETE);
+  const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_SOURCE);
+  const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_SOURCE);
+  const canDelete = hasPermission(PERMISSIONS.CAN_DELETE_SOURCE);
 
   const filteredSources = useMemo(() => {
     const sorted = [...sources].sort((a, b) => a.name.localeCompare(b.name));

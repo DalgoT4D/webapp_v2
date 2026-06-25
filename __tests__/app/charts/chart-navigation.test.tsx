@@ -99,9 +99,14 @@ jest.mock('@/hooks/api/useChart', () => ({
   useRegionGeoJSONs: (): { data: null } => ({ data: null }),
 }));
 
-jest.mock('@/hooks/api/usePermissions', () => ({
-  useUserPermissions: () => ({
+jest.mock('@/lib/rbac', () => ({
+  ...jest.requireActual('@/lib/rbac'),
+  useRbac: () => ({
     hasPermission: () => true,
+    hasAnyPermission: () => true,
+    hasAllPermissions: () => true,
+    hasRole: () => true,
+    role: 'admin',
   }),
 }));
 

@@ -39,7 +39,7 @@ import {
 import { fetchFlowRunLogs } from '@/hooks/api/usePipelines';
 import { LogCard } from '@/components/pipeline/log-card';
 import { PipelineRunDisplayStatus, LockStatus } from '@/constants/pipeline';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -60,7 +60,7 @@ interface DBTTaskListProps {
 
 export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTaskListProps) {
   const { data: tasks, mutate } = usePrefectTasks();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
   const [runningTask, setRunningTask] = useState<string | null>(null);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -74,8 +74,8 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
   const [flowRunId, setFlowRunId] = useState('');
   const logsRef = useRef<string[]>([]);
 
-  const canRunTask = hasPermission('can_run_orgtask');
-  const canDeleteTask = hasPermission('can_delete_orgtask');
+  const canRunTask = hasPermission(PERMISSIONS.CAN_RUN_ORGTASK);
+  const canDeleteTask = hasPermission(PERMISSIONS.CAN_DELETE_ORGTASK);
 
   // Keep ref in sync with state for closure-safe access
   useEffect(() => {

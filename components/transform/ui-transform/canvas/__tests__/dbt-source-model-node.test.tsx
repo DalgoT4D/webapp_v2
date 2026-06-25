@@ -6,13 +6,13 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DbtSourceModelNode from '../nodes/DbtSourceModelNode';
-import * as usePermissionsHook from '@/hooks/api/usePermissions';
+import * as rbac from '@/lib/rbac';
 import { CanvasActionEnum, OperationFormAction } from '@/constants/transform';
 import type { CanvasNodeRenderData } from '@/types/transform';
 
 // ============ Mocks ============
 
-jest.mock('@/hooks/api/usePermissions');
+jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
 
 const mockDispatchCanvasAction = jest.fn();
 const mockSetSelectedNode = jest.fn();
@@ -61,7 +61,7 @@ describe('DbtSourceModelNode', () => {
     jest.clearAllMocks();
     mockEdges = [];
 
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (perm: string) =>
         ['can_delete_dbt_model', 'can_create_dbt_model'].includes(perm),
     });
@@ -87,7 +87,7 @@ describe('DbtSourceModelNode', () => {
   });
 
   it('hides delete button when user lacks can_delete_dbt_model permission', () => {
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: () => false,
     });
 
@@ -123,7 +123,7 @@ describe('DbtSourceModelNode', () => {
 
   it('does not open panel when user lacks can_create_dbt_model', async () => {
     const user = userEvent.setup();
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: () => false,
     });
 

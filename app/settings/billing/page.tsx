@@ -1,9 +1,9 @@
 import Billing from '@/components/settings/billing';
-import { RoleGuard } from '@/components/role-guard';
+import { ADMIN_ROLES, RoleGuard } from '@/lib/rbac';
 
 export default function SettingsBillingPage() {
   return (
-    <RoleGuard allowedRoles={['admin']}>
+    <RoleGuard roles={ADMIN_ROLES}>
       <Billing />
     </RoleGuard>
   );
