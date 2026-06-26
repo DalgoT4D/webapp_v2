@@ -47,6 +47,8 @@ interface ChartDataConfigurationV3Props {
   onReorderWithScopedRules?: () => void;
   /** Maps dimension column name → count of rules scoped to it — for T9 remove warning */
   scopedRuleCountByLevel?: Record<string, number>;
+  /** New-chart flow only: lets MetricsSelector auto-expand the prefilled metric on mount/async prefill. */
+  isNewChart?: boolean;
 }
 
 const AGGREGATE_FUNCTIONS = [
@@ -204,6 +206,7 @@ export function ChartDataConfigurationV3({
   hasLevelScopedRules,
   onReorderWithScopedRules,
   scopedRuleCountByLevel,
+  isNewChart,
 }: ChartDataConfigurationV3Props) {
   const filterIds = useRef<string[]>([]);
   const nextFilterId = useRef(0);
@@ -611,6 +614,7 @@ export function ChartDataConfigurationV3({
           chartType={formData.chart_type}
           schemaName={formData.schema_name}
           tableName={formData.table_name}
+          isNewChart={isNewChart}
         />
       )}
 
@@ -625,6 +629,7 @@ export function ChartDataConfigurationV3({
           maxMetrics={1}
           schemaName={formData.schema_name}
           tableName={formData.table_name}
+          isNewChart={isNewChart}
         />
       )}
 
@@ -647,6 +652,7 @@ export function ChartDataConfigurationV3({
           maxMetrics={1}
           schemaName={formData.schema_name}
           tableName={formData.table_name}
+          isNewChart={isNewChart}
         />
       )}
 
