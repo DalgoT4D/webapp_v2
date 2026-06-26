@@ -109,8 +109,9 @@ describe('MetricAccordionItem — saved tab (convert to library)', () => {
       }
     );
     await user.click(screen.getByRole('tab', { name: 'Saved' }));
-    await user.click(screen.getByTestId('metric-saved-0'));
-    await user.click(screen.getByRole('option', { name: /Revenue/ }));
+    // Searchable Combobox: focus its search input to open, then pick the option.
+    await user.click(screen.getByTestId('metric-saved-0-input'));
+    await user.click(await screen.findByRole('option', { name: /Revenue/ }));
     expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ saved_metric_id: 7 }));
   });
 });

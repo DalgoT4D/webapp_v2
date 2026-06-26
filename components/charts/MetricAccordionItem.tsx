@@ -219,33 +219,31 @@ export function MetricAccordionItem({
               </TabsList>
 
               <TabsContent value="saved" className="mt-2 space-y-2">
-                <Select
-                  onValueChange={(v) => v !== '__none__' && pickSavedMetric(v)}
-                  value="__none__"
-                >
-                  <SelectTrigger className="h-9" data-testid={`metric-saved-${index}`}>
-                    <SelectValue placeholder="Select a metric from pre-defined list" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__" disabled className="hidden">
-                      Select a metric from pre-defined list
-                    </SelectItem>
-                    {savedMetrics
-                      .filter((sm) => !isSavedMetricAdded?.(sm.id))
-                      .map((sm) => (
-                        <SelectItem key={sm.id} value={sm.id.toString()}>
-                          <div className="flex flex-col">
-                            <span>{sm.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {sm.column_expression
-                                ? sm.column_expression.slice(0, 40)
-                                : `${(sm.aggregation || '').toUpperCase()}(${sm.column || '*'})`}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  id={`metric-saved-${index}`}
+                  items={savedMetrics
+                    .filter((sm) => !isSavedMetricAdded?.(sm.id))
+                    .map((sm) => ({
+                      value: sm.id.toString(),
+                      label: sm.name,
+                      summary: sm.column_expression
+                        ? sm.column_expression.slice(0, 40)
+                        : `${(sm.aggregation || '').toUpperCase()}(${sm.column || '*'})`,
+                    }))}
+                  value=""
+                  onValueChange={(v) => v && pickSavedMetric(v)}
+                  disabled={disabled}
+                  searchPlaceholder="Search metrics..."
+                  placeholder="Select a metric from pre-defined list"
+                  emptyMessage="No metrics match your search"
+                  noItemsMessage="No saved metrics yet"
+                  renderItem={(item, _sel, q) => (
+                    <div className="flex flex-col min-w-0">
+                      <span className="truncate">{highlightText(item.label, q)}</span>
+                      <span className="text-xs text-muted-foreground truncate">{item.summary}</span>
+                    </div>
+                  )}
+                />
               </TabsContent>
 
               <TabsContent value="simple" className="mt-2 space-y-2">
