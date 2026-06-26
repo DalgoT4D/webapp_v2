@@ -135,8 +135,8 @@ export function ChartExportDropdown({
           });
         }
       } else {
-        // PNG gets org logo + powered-by branding; PDF stays plain
-        if (format === 'png' && chartInstance) {
+        // PNG and PDF both get org logo + powered-by branding when a live chart instance is available
+        if ((format === 'png' || format === 'pdf') && chartInstance) {
           await ChartExporter.exportEChartsWithBranding(chartInstance, {
             ...exportOptions,
             orgLogoUrl,
