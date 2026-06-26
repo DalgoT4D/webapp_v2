@@ -18,13 +18,8 @@ import {
   clearAllStreams,
   clearSelectedStreams,
 } from '@/hooks/api/useConnections';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
-import {
-  CONNECTION_PERMISSIONS,
-  FLOW_RUN_POLL_INTERVAL_MS,
-  FlowRunStatus,
-  FormMode,
-} from '@/constants/connections';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { FLOW_RUN_POLL_INTERVAL_MS, FlowRunStatus, FormMode } from '@/constants/connections';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { ConnectionForm } from './connection-form';
 import { ConnectionSyncHistory } from './connection-sync-history';
@@ -36,7 +31,7 @@ import type { Connection, ClearStreamData } from '@/types/connections';
 
 export function ConnectionsList() {
   const { data: connections, isLoading, mutate } = useConnectionsList();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
   const { confirm, DialogComponent } = useConfirmationDialog();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -61,11 +56,11 @@ export function ConnectionsList() {
     };
   }, []);
 
-  const canCreate = hasPermission(CONNECTION_PERMISSIONS.CREATE);
-  const canEdit = hasPermission(CONNECTION_PERMISSIONS.EDIT);
-  const canDelete = hasPermission(CONNECTION_PERMISSIONS.DELETE);
-  const canReset = hasPermission(CONNECTION_PERMISSIONS.RESET);
-  const canSync = hasPermission(CONNECTION_PERMISSIONS.SYNC);
+  const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_CONNECTION);
+  const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_CONNECTION);
+  const canDelete = hasPermission(PERMISSIONS.CAN_DELETE_CONNECTION);
+  const canReset = hasPermission(PERMISSIONS.CAN_RESET_CONNECTION);
+  const canSync = hasPermission(PERMISSIONS.CAN_SYNC_SOURCES);
 
   const filteredConnections = useMemo(() => {
     const sorted = [...connections].sort((a, b) => a.name.localeCompare(b.name));

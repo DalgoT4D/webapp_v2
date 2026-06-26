@@ -35,9 +35,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { DocsLink } from '@/components/ui/docs-link';
 import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
-import { ALERT_PERMISSIONS } from '@/types/alerts';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
 import { KPIDeleteDialog } from './kpi-delete-dialog';
@@ -154,8 +153,8 @@ export function KPIPageComponent() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [alertKpiId, setAlertKpiId] = useState<number | null>(null);
 
-  const { hasPermission } = useUserPermissions();
-  const canCreateAlert = hasPermission(ALERT_PERMISSIONS.create);
+  const { hasPermission } = useRbac();
+  const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
 
   const PAGE_SIZE = 10;
 

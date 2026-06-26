@@ -5,7 +5,7 @@ import { useDashboard } from '@/hooks/api/useDashboards';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { IndividualDashboardView } from '@/components/dashboard/individual-dashboard-view';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Lock } from 'lucide-react';
 
@@ -15,13 +15,13 @@ export default function DashboardViewPage() {
   const dashboardId = params.id as string;
 
   // Get user permissions
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
   // Fetch dashboard to determine type
   const { data: dashboard, isLoading } = useDashboard(parseInt(dashboardId));
 
   // Check if user has view permissions
-  if (!hasPermission('can_view_dashboards')) {
+  if (!hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS)) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">

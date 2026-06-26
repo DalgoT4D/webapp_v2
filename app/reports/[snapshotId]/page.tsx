@@ -15,7 +15,7 @@ import { DashboardNativeView } from '@/components/dashboard/dashboard-native-vie
 import { ReportShareMenu } from '@/components/reports/report-share-menu';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
@@ -36,9 +36,9 @@ export default function SnapshotViewerPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
   const [isEditingSummary, setIsEditingSummary] = useState(false);
-  const { hasPermission } = useUserPermissions();
-  const canEdit = hasPermission('can_edit_dashboards');
-  const canShare = hasPermission('can_share_dashboards');
+  const { hasPermission } = useRbac();
+  const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS);
+  const canShare = hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS);
 
   // Fire REPORT_VIEWED once per mount when the report has successfully loaded
   const reportViewedTracked = useRef(false);

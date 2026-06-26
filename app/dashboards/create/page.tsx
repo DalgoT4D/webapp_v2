@@ -8,7 +8,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Lock } from 'lucide-react';
 import Link from 'next/link';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { apiDelete } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -22,13 +22,13 @@ export default function CreateDashboardPage() {
   const [isNavigating, setIsNavigating] = useState(false);
 
   // Get user permissions
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
   // Ref to access dashboard builder cleanup function
   const dashboardBuilderRef = useRef<{ cleanup: () => Promise<void> } | null>(null);
 
   // Check if user has create permissions
-  if (!hasPermission('can_create_dashboards')) {
+  if (!hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS)) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">

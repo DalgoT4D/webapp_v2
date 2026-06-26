@@ -42,8 +42,7 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
-import { ALERT_PERMISSIONS } from '@/types/alerts';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
 const grainLabel: Record<string, string> = {
   daily: 'day',
@@ -130,8 +129,8 @@ export function KPIDetailDrawer({
     { period: string; period_date: string | null; value: number | null }[]
   >([]);
   const [alertWizardOpen, setAlertWizardOpen] = useState(false);
-  const { hasPermission: hasAlertPermission } = useUserPermissions();
-  const canCreateAlert = hasAlertPermission(ALERT_PERMISSIONS.create);
+  const { hasPermission: hasAlertPermission } = useRbac();
+  const canCreateAlert = hasAlertPermission(PERMISSIONS.CAN_CREATE_ALERTS);
 
   // Reset filters when KPI changes or drawer closes
   useEffect(() => {

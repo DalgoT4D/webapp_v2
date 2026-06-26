@@ -11,7 +11,7 @@ import { PipelineList } from '../pipeline-list';
 import { PipelineForm } from '../pipeline-form';
 import { TaskSequence } from '../task-sequence';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
-import * as usePermissionsHook from '@/hooks/api/usePermissions';
+import * as rbac from '@/lib/rbac';
 import type { Pipeline, TransformTask, PipelineDetailResponse } from '@/types/pipeline';
 import type { Connection } from '@/types/connections';
 import { LockStatus } from '@/constants/pipeline';
@@ -19,7 +19,7 @@ import { LockStatus } from '@/constants/pipeline';
 // ============ Mocks ============
 
 jest.mock('@/hooks/api/usePipelines');
-jest.mock('@/hooks/api/usePermissions');
+jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
 jest.mock('@/hooks/useSyncLock', () => ({
   useSyncLock: () => ({ tempSyncState: false, setTempSyncState: jest.fn() }),
 }));
@@ -140,7 +140,7 @@ describe('PipelineList', () => {
       isError: null,
       mutate: mockMutate,
     });
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: () => true,
     });
   });
@@ -158,7 +158,7 @@ describe('PipelineList', () => {
     unmount();
 
     // No permission - no create button
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (p: string) => p !== 'can_create_pipeline',
     });
     const { unmount: unmount2 } = render(<PipelineList />);
@@ -310,17 +310,16 @@ describe('PipelineList', () => {
     await waitFor(() => expect(mockTriggerRun).toHaveBeenCalledWith('test-dep-id'));
     unmount();
 
-    // Run button disabled without run permission
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    // Run button hidden without run permission
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (p: string) => p !== 'can_run_pipeline',
     });
     const { unmount: unmount2 } = render(<PipelineList />);
-    const disabledRunButton = screen.getByRole('button', { name: /run/i });
-    expect(disabledRunButton).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /run/i })).not.toBeInTheDocument();
     unmount2();
 
     // History button disabled without view permission
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (p: string) => p !== 'can_view_pipeline',
     });
     render(<PipelineList />);

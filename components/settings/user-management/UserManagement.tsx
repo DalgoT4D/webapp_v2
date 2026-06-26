@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { UsersTable } from './UsersTable';
 import { InvitationsTable } from './InvitationsTable';
 import { InviteUserDialog } from './InviteUserDialog';
@@ -17,10 +17,10 @@ const TAB_TRIGGER_CLASS =
 
 export default function UserManagement() {
   const [showInviteDialog, setShowInviteDialog] = useState(false);
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
-  const canCreateInvitation = hasPermission('can_create_invitation');
-  const canViewInvitations = hasPermission('can_view_invitations');
+  const canCreateInvitation = hasPermission(PERMISSIONS.CAN_CREATE_INVITATION);
+  const canViewInvitations = hasPermission(PERMISSIONS.CAN_VIEW_INVITATIONS);
 
   return (
     <div className="h-full flex flex-col min-h-0">

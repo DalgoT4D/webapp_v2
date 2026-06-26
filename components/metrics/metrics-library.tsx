@@ -63,8 +63,7 @@ import { MetricFormDialog } from './metric-form-dialog';
 import { ConsumerLinks } from './consumer-links';
 import { KPIForm } from '@/components/kpis/kpi-form';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
-import { ALERT_PERMISSIONS } from '@/types/alerts';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
@@ -92,8 +91,8 @@ export function MetricsLibrary() {
   const [kpiPreselectedMetricId, setKpiPreselectedMetricId] = useState<number | undefined>();
   const [alertFormOpen, setAlertFormOpen] = useState(false);
   const [alertPreselectedMetricId, setAlertPreselectedMetricId] = useState<number | null>(null);
-  const { hasPermission: hasAlertPermission } = useUserPermissions();
-  const canCreateAlert = hasAlertPermission(ALERT_PERMISSIONS.create);
+  const { hasPermission: hasAlertPermission } = useRbac();
+  const canCreateAlert = hasAlertPermission(PERMISSIONS.CAN_CREATE_ALERTS);
 
   // Strip `?create=true` after consuming it on mount so a refresh doesn't
   // re-open the create form.

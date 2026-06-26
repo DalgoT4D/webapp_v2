@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useTransformStore } from '@/stores/transformStore';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { CanvasNodeTypeEnum } from '@/types/transform';
 import { CanvasActionEnum } from '@/constants/transform';
 
@@ -41,8 +41,8 @@ export default function CanvasHeader({
   const openPublishModal = useTransformStore((s) => s.openPublishModal);
 
   const patRequired = useTransformStore((s) => s.patRequired);
-  const { hasPermission } = useUserPermissions();
-  const canRun = hasPermission('can_run_pipeline');
+  const { hasPermission } = useRbac();
+  const canRun = hasPermission(PERMISSIONS.CAN_RUN_PIPELINE);
 
   // Run: disabled only when locked by other, workflow running, or no permission
   const runDisabled = !canRun || isLocked || isWorkflowRunning;

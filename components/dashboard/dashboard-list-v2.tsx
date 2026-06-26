@@ -101,7 +101,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
 import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
@@ -182,7 +182,7 @@ export function DashboardListV2() {
     orgUsersData?.find((ou: any) => ou.org.slug === selectedOrgSlug) || authCurrentUser;
 
   // Get user permissions
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
   // Landing page functionality
   const {
@@ -785,14 +785,14 @@ export function DashboardListV2() {
   const renderDashboardTableRow = (dashboard: any) => {
     const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
     const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
-    const canManageOrgDefault = hasPermission('can_manage_org_default_dashboard');
+    const canManageOrgDefault = hasPermission(PERMISSIONS.CAN_MANAGE_ORG_DEFAULT_DASHBOARD);
     const isLocked = dashboard.is_locked;
     const isLockedByOther =
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
     const isFavorited = favorites.has(dashboard.id);
 
     const getNavigationUrl = () => {
-      return hasPermission('can_view_dashboards') ? `/dashboards/${dashboard.id}` : '#';
+      return hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? `/dashboards/${dashboard.id}` : '#';
     };
 
     return (
@@ -889,14 +889,14 @@ export function DashboardListV2() {
         {/* Actions Column */}
         <TableCell className="py-4">
           <div className="flex items-center gap-2">
-            {hasPermission('can_edit_dashboards') && (
+            {hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS) && (
               <Link href={`/dashboards/${dashboard.id}/edit`}>
                 <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
                   <Edit className="w-4 h-4 text-gray-600" />
                 </Button>
               </Link>
             )}
-            {hasPermission('can_share_dashboards') && (
+            {hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS) && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -914,12 +914,12 @@ export function DashboardListV2() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 {/* Landing page controls */}
-                {(hasPermission('can_view_dashboards') || canManageOrgDefault) && (
+                {(hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) || canManageOrgDefault) && (
                   <>
                     <div className="px-2 py-1.5 text-xs text-muted-foreground font-medium">
                       Landing Page
                     </div>
-                    {hasPermission('can_view_dashboards') && (
+                    {hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) && (
                       <>
                         {isPersonalLanding ? (
                           <DropdownMenuItem
@@ -955,7 +955,7 @@ export function DashboardListV2() {
                     <DropdownMenuSeparator />
                   </>
                 )}
-                {hasPermission('can_create_dashboards') && (
+                {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
                   <DropdownMenuItem
                     onClick={() =>
                       handleDuplicateDashboard(
@@ -979,7 +979,7 @@ export function DashboardListV2() {
                     )}
                   </DropdownMenuItem>
                 )}
-                {hasPermission('can_delete_dashboards') && (
+                {hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) && (
                   <>
                     <DropdownMenuSeparator />
                     <AlertDialog>
@@ -1039,11 +1039,11 @@ export function DashboardListV2() {
     // Landing page status for this dashboard
     const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
     const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
-    const canManageOrgDefault = hasPermission('can_manage_org_default_dashboard');
+    const canManageOrgDefault = hasPermission(PERMISSIONS.CAN_MANAGE_ORG_DEFAULT_DASHBOARD);
 
     // By default, all dashboards go to view mode first
     const getNavigationUrl = () => {
-      return hasPermission('can_view_dashboards') ? `/dashboards/${dashboard.id}` : '#';
+      return hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? `/dashboards/${dashboard.id}` : '#';
     };
 
     return (
@@ -1082,7 +1082,7 @@ export function DashboardListV2() {
             </TooltipProvider>
 
             {/* Edit Button */}
-            {hasPermission('can_edit_dashboards') && (
+            {hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS) && (
               <Link href={`/dashboards/${dashboard.id}/edit`}>
                 <Button
                   variant="outline"
@@ -1095,7 +1095,7 @@ export function DashboardListV2() {
             )}
 
             {/* Share Button */}
-            {hasPermission('can_share_dashboards') && (
+            {hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS) && (
               <Button
                 variant="outline"
                 size="icon"
@@ -1110,9 +1110,9 @@ export function DashboardListV2() {
             )}
 
             {/* More Actions Menu */}
-            {(hasPermission('can_create_dashboards') ||
-              hasPermission('can_delete_dashboards') ||
-              hasPermission('can_view_dashboards')) && (
+            {(hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) ||
+              hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) ||
+              hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS)) && (
               <DropdownMenu
                 onOpenChange={(open) => {
                   // Prevent the card hover state from being lost when dropdown opens
@@ -1139,7 +1139,7 @@ export function DashboardListV2() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  {hasPermission('can_create_dashboards') && (
+                  {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
                     <DropdownMenuItem
                       onClick={() =>
                         handleDuplicateDashboard(
@@ -1163,7 +1163,7 @@ export function DashboardListV2() {
                       )}
                     </DropdownMenuItem>
                   )}
-                  {hasPermission('can_delete_dashboards') && (
+                  {hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) && (
                     <>
                       <DropdownMenuSeparator />
                       <AlertDialog>
@@ -1309,11 +1309,11 @@ export function DashboardListV2() {
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
 
     const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
-    const canManageOrgDefault = hasPermission('can_manage_org_default_dashboard');
+    const canManageOrgDefault = hasPermission(PERMISSIONS.CAN_MANAGE_ORG_DEFAULT_DASHBOARD);
     const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
     // By default, all dashboards go to view mode first
     const getNavigationUrl = () => {
-      return hasPermission('can_view_dashboards') ? `/dashboards/${dashboard.id}` : '#';
+      return hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? `/dashboards/${dashboard.id}` : '#';
     };
 
     return (
@@ -1328,7 +1328,7 @@ export function DashboardListV2() {
               href={getNavigationUrl()}
               className={cn(
                 'flex items-center gap-4 flex-1',
-                hasPermission('can_view_dashboards') ? 'cursor-pointer' : 'cursor-default'
+                hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? 'cursor-pointer' : 'cursor-default'
               )}
             >
               <div className="w-16 h-16 bg-gray-200/60 rounded-lg flex items-center justify-center flex-shrink-0 border border-gray-200">
@@ -1417,7 +1417,7 @@ export function DashboardListV2() {
 
             {/* Action Buttons - Edit and Share as icon-only buttons */}
             <div className="flex items-center gap-2 ml-4">
-              {hasPermission('can_edit_dashboards') && (
+              {hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS) && (
                 <Link href={`/dashboards/${dashboard.id}/edit`}>
                   <Button
                     variant="outline"
@@ -1428,7 +1428,7 @@ export function DashboardListV2() {
                   </Button>
                 </Link>
               )}
-              {hasPermission('can_share_dashboards') && (
+              {hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS) && (
                 <Button
                   variant="outline"
                   size="icon"
@@ -1440,9 +1440,9 @@ export function DashboardListV2() {
               )}
 
               {/* More actions menu for remaining actions */}
-              {(hasPermission('can_create_dashboards') ||
-                hasPermission('can_delete_dashboards') ||
-                hasPermission('can_view_dashboards') ||
+              {(hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) ||
+                hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) ||
+                hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ||
                 canManageOrgDefault) && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -1456,14 +1456,14 @@ export function DashboardListV2() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
                     {/* Landing page controls */}
-                    {(hasPermission('can_view_dashboards') || canManageOrgDefault) && (
+                    {(hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) || canManageOrgDefault) && (
                       <>
                         <div className="px-2 py-1.5 text-xs text-muted-foreground font-medium">
                           Landing Page
                         </div>
 
                         {/* Personal landing page controls */}
-                        {hasPermission('can_view_dashboards') && (
+                        {hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) && (
                           <>
                             {isPersonalLanding ? (
                               <DropdownMenuItem
@@ -1502,7 +1502,7 @@ export function DashboardListV2() {
                       </>
                     )}
 
-                    {hasPermission('can_create_dashboards') && (
+                    {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
                       <DropdownMenuItem
                         onClick={() =>
                           handleDuplicateDashboard(
@@ -1527,7 +1527,7 @@ export function DashboardListV2() {
                       </DropdownMenuItem>
                     )}
                     {/* COMMENTED OUT: Download functionality - not needed */}
-                    {/* {hasPermission('can_view_dashboards') && (
+                    {/* {hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) && (
                       <DropdownMenuItem
                         onClick={() =>
                           handleDownloadDashboard(
@@ -1541,7 +1541,7 @@ export function DashboardListV2() {
                         Download
                       </DropdownMenuItem>
                     )} */}
-                    {hasPermission('can_delete_dashboards') && (
+                    {hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) && (
                       <>
                         <DropdownMenuSeparator />
                         <AlertDialog>
@@ -1623,7 +1623,7 @@ export function DashboardListV2() {
             </p>
           </div>
 
-          {hasPermission('can_create_dashboards') && (
+          {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
             <Link id="dashboard-create-link" href="/dashboards/create">
               <Button id="dashboard-create-button" variant="primary">
                 <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
@@ -1921,7 +1921,7 @@ export function DashboardListV2() {
               <p id="dashboard-empty-text" className="text-muted-foreground">
                 {getActiveFilterCount() > 0 ? 'No dashboards found' : 'No dashboards yet'}
               </p>
-              {hasPermission('can_create_dashboards') && (
+              {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
                 <Link id="dashboard-empty-create-link" href="/dashboards/create">
                   <Button id="dashboard-empty-create-button" variant="primary">
                     <Plus id="dashboard-empty-create-icon" className="w-4 h-4 mr-2" />
