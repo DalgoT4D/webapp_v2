@@ -74,4 +74,22 @@ describe('TabBar', () => {
     await user.keyboard('{Enter}');
     expect(defaultProps.onTabRename).toHaveBeenCalledWith('tab-1', 'New Name');
   });
+
+  it('renames the only tab on title click (single-tab dashboard)', async () => {
+    const user = userEvent.setup();
+    render(
+      <TabBar
+        {...defaultProps}
+        tabs={[makeTab('tab-1', 'Tab 1')]}
+        activeTabId="tab-1"
+        isEditMode={true}
+      />
+    );
+    await user.click(screen.getByTestId('tab-title-tab-1'));
+    const input = screen.getByTestId('tab-rename-input-tab-1');
+    await user.clear(input);
+    await user.type(input, 'Renamed');
+    await user.keyboard('{Enter}');
+    expect(defaultProps.onTabRename).toHaveBeenCalledWith('tab-1', 'Renamed');
+  });
 });
