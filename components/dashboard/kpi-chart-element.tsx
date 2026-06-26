@@ -58,6 +58,7 @@ export function KPIChartElement({
     updatedAt: config?.updated_at || new Date().toISOString(),
     isLoading,
     periods,
+    customizations: chartData?.customizations ?? undefined,
   };
 
   const commentButton = snapshotId ? (
