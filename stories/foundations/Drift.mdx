@@ -1,0 +1,120 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+import { Swatch, SwatchGrid } from './Swatch';
+import { CHART_TYPE_COLORS } from '../../constants/chart-types';
+
+<Meta title="Foundations/Drift" />
+
+# Design Drift
+
+Places where Dalgo's UI says the same thing in different ways. Each row is the
+**same concept, multiple implementations** — the design team picks the canonical
+one, then engineering collapses the rest. This page is generated from a code audit
+of `components/**` + `app/**` (June 2026).
+
+> Why it matters: today there is no single source for color/typography, so every
+> new screen re-invents values. These are the concrete divergences, not theory.
+
+---
+
+## 1. The four "blues"
+
+The same blue idea, four different hex, from four unrelated places. None reference
+each other. (Brand `--primary` is teal, shown for contrast.)
+
+<SwatchGrid>
+  <Swatch name="brand --primary" cssVar="--primary" />
+  <Swatch name="chart bar" value={CHART_TYPE_COLORS.bar.color} />
+  <Swatch name="avatar blue" value="#4285F4" />
+  <Swatch name="sidebar blue" value="#0066FF" />
+</SwatchGrid>
+
+| Blue | Hex | Source | Notes |
+|---|---|---|---|
+| chart bar | `#3B82F6` | `constants/chart-types.ts` | Tailwind blue-500 |
+| avatar | `#4285F4` | `components/reports/utils.ts` | Google/Material |
+| sidebar | `#0066FF` | `components/main-layout.tsx` | **25 occurrences** (`bg-[#0066FF]`, `text-[#002B5C]`) |
+| brand | `#00897B` | `app/globals.css --primary` | the actual brand (teal) |
+
+---
+
+## 2. Brand teal — hardcoded instead of `var(--primary)`
+
+`--primary` is `#00897B`. The rule says never hardcode it. ~10 places do anyway:
+
+<SwatchGrid>
+  <Swatch name="--primary (token)" cssVar="--primary" />
+  <Swatch name="#00897B (hardcoded)" value="#00897B" />
+  <Swatch name="#00897b (lowercase)" value="#00897b" />
+  <Swatch name="#89C7C1 (lightened)" value="#89C7C1" />
+</SwatchGrid>
+
+Offenders: `pipeline/overview/pipeline-bar-chart.tsx:23`,
+`transform/ui-transform/canvas/CanvasMessages.tsx` (×6),
+`explore/StatisticsPane.tsx:249,472`, `ui/animated-background-simple.tsx`.
+**Fix:** reference `var(--primary)` (or read the CSS var for canvas/ECharts).
+
+---
+
+## 3. Primary text — `text-gray-900` vs `text-foreground`
+
+Headings/labels hardcode gray instead of the theme token. **~117 occurrences.**
+The difference is invisible in light mode but **breaks dark mode** (gray-900 stays
+near-black on a dark background). Flip the Theme toolbar to see it.
+
+<div style={{ display: 'flex', gap: 32, margin: '16px 0' }}>
+  <div>
+    <div style={{ color: '#111827', fontWeight: 600 }}>text-gray-900 (hardcoded)</div>
+    <code style={{ fontSize: 11 }}>#111827 — does not react to theme</code>
+  </div>
+  <div>
+    <div style={{ color: 'var(--foreground)', fontWeight: 600 }}>text-foreground (token)</div>
+    <code style={{ fontSize: 11 }}>var(--foreground) — flips in dark mode</code>
+  </div>
+</div>
+
+Worst files: `app/charts/page.tsx` (×8), `pipeline/orchestrate/pipeline-list.tsx` (×4),
+`ChartTypeSelector.tsx:58`, plus share/report pages. **Fix:** `text-foreground`
+for primary text (secondary `text-gray-500` already maps fine → keep or move to
+`text-muted-foreground`).
+
+---
+
+## 4. Surfaces — hardcoded white / off-white vs `bg-background` / `bg-muted`
+
+<SwatchGrid>
+  <Swatch name="--background (token)" cssVar="--background" />
+  <Swatch name="#ffffff (hardcoded)" value="#ffffff" />
+  <Swatch name="--muted (token)" cssVar="--muted" />
+  <Swatch name="#F5FAFA (hardcoded)" value="#F5FAFA" />
+</SwatchGrid>
+
+`#ffffff` ×19 (`ChartExport*`, `kpis/kpi-card.tsx`, `dashboard/chart-element-view.tsx`),
+`#F5FAFA` in `explore/*` and `transform/.../OperationNode.tsx`. Some are export/canvas
+DOM temp nodes (may be intentional) — flag, don't blindly swap.
+
+---
+
+## 5. Tooltips — teal vs black vs native
+
+Three behaviors for one concept. Live side-by-side in
+[**UI/Tooltip → DriftDefaultVsOverride**](?path=/story/ui-tooltip--drift-default-vs-override).
+
+| Style | Where | How |
+|---|---|---|
+| teal (canonical) | `ui/tooltip.tsx` | `bg-primary` default |
+| **black override** | `charts/new:231`, `charts/page:851`, `notifications:176`, `dashboard-list-v2:1076,1385` | `className="bg-gray-900 text-white border-gray-700"` |
+| native OS | `ChartTypeSelector.tsx:85`, `charts/page:1028` | raw `title=` attribute |
+
+---
+
+## How to fix the root (not just see it)
+
+This page makes drift **visible**. To make it **impossible**:
+
+1. One `tokens.json` (DTCG) → built by Terrazzo/Style Dictionary into both
+   `globals.css` and a shared `palette.ts`.
+2. `chart-types.ts` + `reports/utils.ts` + sidebar import from that palette.
+3. Lint rule banning raw hex in `className`/`style` and bare `text-gray-*` for text.
+4. One tooltip: drop the black overrides or add a real `variant`.
+
+Storybook shows the gap; the pipeline + lint close it.
