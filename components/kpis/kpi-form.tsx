@@ -27,8 +27,11 @@ import { useTableColumns } from '@/hooks/api/useWarehouse';
 import { createKPI, updateKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import type { KPI, KPICreate, KPIUpdate } from '@/types/kpis';
+import type { KPI, KPICreate, KPIUpdate, KPIExtraConfig } from '@/types/kpis';
 import { DIRECTION_OPTIONS, TIME_GRAIN_OPTIONS, METRIC_TYPE_TAG_OPTIONS } from '@/types/kpis';
+import type { NumberFormat } from '@/lib/formatters';
+import { NumberFormatSection } from '@/components/charts/types/shared/NumberFormatSection';
+import { DebouncedInput } from '@/components/charts/debounced-input';
 import { cn } from '@/lib/utils';
 
 const DATE_TYPES = [
@@ -51,6 +54,12 @@ interface KPIFormData {
   time_dimension_column: string;
   metric_type_tag: string;
   program_tags: string[];
+  // Display customizations (flat for react-hook-form ergonomics; nested back
+  // into ``extra_config.customizations`` on submit).
+  numberFormat: NumberFormat | '';
+  decimalPlaces: string;
+  numberPrefix: string;
+  numberSuffix: string;
 }
 
 interface KPIFormProps {
@@ -167,12 +176,16 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
       name: '',
       target_value: '',
       direction: 'increase',
-      green_threshold_pct: '100',
-      amber_threshold_pct: '80',
+      green_threshold_pct: '80',
+      amber_threshold_pct: '50',
       time_grain: 'monthly',
       time_dimension_column: '',
       metric_type_tag: '',
       program_tags: [],
+      numberFormat: '',
+      decimalPlaces: '',
+      numberPrefix: '',
+      numberSuffix: '',
     },
   });
 
@@ -203,6 +216,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
       mutateMetrics();
       if (kpi) {
         setStep(2); // Edit: show full form
+        const c = kpi.extra_config?.customizations;
         reset({
           metric_id: kpi.metric.id,
           name: kpi.name,
@@ -214,6 +228,10 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           time_dimension_column: kpi.time_dimension_column || '',
           metric_type_tag: kpi.metric_type_tag || '',
           program_tags: kpi.program_tags || [],
+          numberFormat: c?.numberFormat ?? '',
+          decimalPlaces: c?.decimalPlaces != null ? c.decimalPlaces.toString() : '',
+          numberPrefix: c?.numberPrefix ?? '',
+          numberSuffix: c?.numberSuffix ?? '',
         });
       } else {
         setStep(1);
@@ -222,12 +240,16 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           name: '',
           target_value: '',
           direction: 'increase',
-          green_threshold_pct: '100',
-          amber_threshold_pct: '80',
+          green_threshold_pct: '80',
+          amber_threshold_pct: '50',
           time_grain: 'monthly',
           time_dimension_column: '',
           metric_type_tag: '',
           program_tags: [],
+          numberFormat: '',
+          decimalPlaces: '',
+          numberPrefix: '',
+          numberSuffix: '',
         });
       }
       setSaveError(null);
@@ -262,6 +284,19 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
 
     const programTags = data.program_tags;
 
+    // Build the extra_config payload from the flat form fields. Skip fields
+    // the user did not set so the stored JSON stays clean (no empty strings).
+    const customizations: NonNullable<KPIExtraConfig['customizations']> = {};
+    if (data.numberFormat) customizations.numberFormat = data.numberFormat;
+    if (data.decimalPlaces !== '') {
+      const n = parseInt(data.decimalPlaces, 10);
+      if (!Number.isNaN(n)) customizations.decimalPlaces = n;
+    }
+    if (data.numberPrefix) customizations.numberPrefix = data.numberPrefix;
+    if (data.numberSuffix) customizations.numberSuffix = data.numberSuffix;
+    const extraConfig: KPIExtraConfig =
+      Object.keys(customizations).length > 0 ? { customizations } : {};
+
     try {
       if (isEdit && kpi) {
         const updateData: KPIUpdate = {
@@ -275,6 +310,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           time_dimension_column: data.time_dimension_column || null,
           metric_type_tag: data.metric_type_tag || undefined,
           program_tags: programTags,
+          extra_config: extraConfig,
         };
         await updateKPI(kpi.id, updateData);
         trackEvent(ANALYTICS_EVENTS.KPI_UPDATED, {
@@ -292,6 +328,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           time_dimension_column: data.time_dimension_column || null,
           metric_type_tag: data.metric_type_tag || undefined,
           program_tags: programTags,
+          extra_config: extraConfig,
         };
         await createKPI(createData);
         trackEvent(ANALYTICS_EVENTS.KPI_CREATED, {
@@ -401,11 +438,11 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                   onValueChange={(v) => {
                     field.onChange(v);
                     if (v === 'increase') {
-                      setValue('green_threshold_pct', '100');
-                      setValue('amber_threshold_pct', '80');
-                    } else {
                       setValue('green_threshold_pct', '80');
-                      setValue('amber_threshold_pct', '100');
+                      setValue('amber_threshold_pct', '50');
+                    } else {
+                      setValue('green_threshold_pct', '50');
+                      setValue('amber_threshold_pct', '80');
                     }
                   }}
                 >
@@ -574,7 +611,8 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                 </div>
               )}
 
-              {/* Program Tags */}
+              {/* Classification — Program Tags + KPI Type */}
+              <p className="text-sm text-muted-foreground font-medium mt-6 mb-1">Classification</p>
               <div className="space-y-1">
                 <Label>Program Tags</Label>
                 <Controller
@@ -621,6 +659,67 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                     </div>
                   )}
                 />
+              </div>
+
+              {/* ── Display formatting (number format + prefix/suffix) ─── */}
+              <p className="text-sm text-muted-foreground font-medium mt-6 mb-1">
+                Display Formatting
+              </p>
+              <div className="space-y-2">
+                <Controller
+                  control={control}
+                  name="numberFormat"
+                  render={({ field: formatField }) => (
+                    <Controller
+                      control={control}
+                      name="decimalPlaces"
+                      render={({ field: decField }) => (
+                        <NumberFormatSection
+                          idPrefix="kpi"
+                          numberFormat={
+                            (formatField.value || undefined) as NumberFormat | undefined
+                          }
+                          decimalPlaces={decField.value === '' ? undefined : Number(decField.value)}
+                          onNumberFormatChange={(v) => formatField.onChange(v)}
+                          onDecimalPlacesChange={(v) => decField.onChange(String(v))}
+                        />
+                      )}
+                    />
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="kpi-numberPrefix">Prefix</Label>
+                    <Controller
+                      control={control}
+                      name="numberPrefix"
+                      render={({ field }) => (
+                        <DebouncedInput
+                          id="kpi-numberPrefix"
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="e.g., ₹, $, +"
+                        />
+                      )}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="kpi-numberSuffix">Suffix</Label>
+                    <Controller
+                      control={control}
+                      name="numberSuffix"
+                      render={({ field }) => (
+                        <DebouncedInput
+                          id="kpi-numberSuffix"
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="e.g., %, people, kg"
+                        />
+                      )}
+                    />
+                  </div>
+                </div>
               </div>
             </>
           )}
