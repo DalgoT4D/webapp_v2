@@ -1743,8 +1743,8 @@ function EditChartPageContent() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="data" className="h-[calc(100%-73px)] overflow-y-auto">
-                <div className="p-4">
+              <TabsContent value="data" className="h-[calc(100%-73px)] overflow-hidden">
+                <div className="p-4 h-full">
                   <Tabs
                     defaultValue={
                       formData.chart_type === ChartTypes.TABLE ? 'raw-data' : 'chart-data'

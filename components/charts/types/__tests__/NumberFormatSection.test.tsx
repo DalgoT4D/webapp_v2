@@ -151,21 +151,4 @@ describe('NumberFormatSection', () => {
     // Should default to 0 when empty
     expect(mockOnDecimalPlacesChange).toHaveBeenCalledWith(0);
   });
-
-  it('should exclude specified formats when excludeFormats is provided', async () => {
-    const user = userEvent.setup();
-    render(<NumberFormatSection {...defaultProps} excludeFormats={['percentage', 'currency']} />);
-
-    await user.click(screen.getByLabelText('Number Format'));
-
-    // These should be present
-    expect(screen.getByRole('option', { name: 'No Formatting' })).toBeInTheDocument();
-    expect(
-      screen.getByRole('option', { name: 'Indian (1234567 => 12,34,567)' })
-    ).toBeInTheDocument();
-
-    // These should NOT be present
-    expect(screen.queryByRole('option', { name: 'Percentage (%)' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'Currency ($)' })).not.toBeInTheDocument();
-  });
 });

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Trash2, ChevronRight, ChevronDown } from 'lucide-react';
-import { NumberFormats, type NumberFormat, type DateFormat } from '@/lib/formatters';
+import { type NumberFormat, type DateFormat } from '@/lib/formatters';
 import { NumberFormatSection, NUMBER_FORMAT_OPTIONS } from '../shared/NumberFormatSection';
 import { DateFormatSection, DATE_FORMAT_OPTIONS } from '../shared/DateFormatSection';
 import { ConditionalFormattingSection } from './ConditionalFormattingSection';
@@ -284,7 +284,6 @@ export function TableChartCustomizations({
                         decimalPlaces={config?.decimalPlaces}
                         onNumberFormatChange={(value) => handleFormatChange(column, value)}
                         onDecimalPlacesChange={(value) => handleDecimalChange(column, value)}
-                        excludeFormats={[NumberFormats.PERCENTAGE, NumberFormats.CURRENCY]}
                         disabled={disabled}
                       />
                     </div>
