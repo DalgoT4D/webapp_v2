@@ -1,4 +1,5 @@
 import type { Metric } from './metrics';
+import type { NumberFormat } from '@/lib/formatters';
 
 export type RAGStatus = 'green' | 'amber' | 'red';
 
@@ -36,6 +37,27 @@ export const METRIC_TYPE_TAG_OPTIONS = [
   { value: 'impact', label: 'Impact' },
 ] as const;
 
+/**
+ * Display customizations for a KPI value. Mirrors the backend
+ * ``NumberChartCustomizations`` schema — the same shape used by the number chart.
+ * All fields optional; consumers must guard before reading.
+ */
+export interface KPICustomizations {
+  numberFormat?: NumberFormat;
+  decimalPlaces?: number;
+  numberPrefix?: string;
+  numberSuffix?: string;
+}
+
+/**
+ * Typed container for ``KPI.extra_config``. Always present on responses (the
+ * backend column has ``default=dict, null=False``). ``customizations`` inside
+ * is optional — must be checked before reading.
+ */
+export interface KPIExtraConfig {
+  customizations?: KPICustomizations;
+}
+
 export interface KPI {
   id: number;
   name: string;
@@ -49,6 +71,7 @@ export interface KPI {
   metric_type_tag: string | null;
   program_tags: string[];
   display_order: number;
+  extra_config: KPIExtraConfig; // always present
   created_by?: string; // creator's email
   created_at: string;
   updated_at: string;
@@ -65,6 +88,7 @@ export interface KPICreate {
   time_dimension_column: string;
   metric_type_tag?: string;
   program_tags?: string[];
+  extra_config: KPIExtraConfig; // required — form always sends it
 }
 
 export interface KPIUpdate {
@@ -79,6 +103,7 @@ export interface KPIUpdate {
   metric_type_tag?: string;
   program_tags?: string[];
   display_order?: number;
+  extra_config: KPIExtraConfig; // required on every update
 }
 
 export interface KPIListResponse {
@@ -98,6 +123,10 @@ export interface KPIDataPayload {
   time_grain: string;
   periods: { period: string; period_date: string | null; value: number | null }[];
   data_last_date: string | null;
+  // Display customizations (surfaced so the dashboard widget / snapshot
+  // viewer can format the current value without a second fetch). Null when
+  // the KPI has no formatting configured.
+  customizations: KPICustomizations | null;
 }
 
 export type NoteType = 'beneficiary_quote' | 'note';

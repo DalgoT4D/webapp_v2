@@ -15,7 +15,8 @@ import { Download, FileImage, FileText, Maximize2, MoreVertical } from 'lucide-r
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { RAG_COLORS } from '@/types/kpis';
 import { toastSuccess, toastError } from '@/lib/toast';
-import { formatMetricValue } from '@/lib/formatters';
+import { formatKPIValue } from '@/lib/formatters';
+import type { KPICustomizations } from '@/types/kpis';
 import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 import type { RAGStatus } from '@/types/kpis';
 import { formatDistanceToNow, format as formatDate, parseISO, isValid } from 'date-fns';
@@ -23,9 +24,11 @@ import { formatDistanceToNow, format as formatDate, parseISO, isValid } from 'da
 function EChartsRenderer({
   config,
   height = 'h-32',
+  customizations,
 }: {
   config: Record<string, any>;
   height?: string;
+  customizations?: KPICustomizations;
 }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -37,7 +40,20 @@ function EChartsRenderer({
       chartInstance.current.dispose();
     }
     chartInstance.current = echarts.init(chartRef.current);
-    chartInstance.current.setOption(config);
+
+    // Inject a tooltip valueFormatter so trendline hover values render with
+    // the KPI's customizations (matches the card's current value + target).
+    const effectiveConfig = customizations
+      ? {
+          ...config,
+          tooltip: {
+            ...(config.tooltip || {}),
+            valueFormatter: (value: number | null) => formatKPIValue(value, customizations),
+          },
+        }
+      : config;
+
+    chartInstance.current.setOption(effectiveConfig);
 
     const handleResize = () => chartInstance.current?.resize();
     window.addEventListener('resize', handleResize);
@@ -52,7 +68,7 @@ function EChartsRenderer({
       chartInstance.current?.dispose();
       chartInstance.current = null;
     };
-  }, [config]);
+  }, [config, customizations]);
 
   if (!config || Object.keys(config).length === 0) {
     return (
@@ -85,6 +101,11 @@ export interface KPICardData {
   updatedAt: string;
   isLoading: boolean;
   periods?: { period: string; period_date?: string | null; value: number | null }[];
+  /**
+   * Display customizations for the current value + target. When undefined,
+   * the card falls back to the legacy compact display via formatKPIValue.
+   */
+  customizations?: KPICustomizations;
 }
 
 interface KPICardProps {
@@ -278,11 +299,11 @@ export function KPICard({
         ) : (
           <>
             <div className="text-4xl font-bold text-gray-900">
-              {formatMetricValue(currentValue)}
+              {formatKPIValue(currentValue, data.customizations)}
             </div>
             {targetValue !== null && targetValue !== undefined && (
               <p className="text-sm text-muted-foreground mt-0.5">
-                Target: {formatMetricValue(targetValue)}
+                Target: {formatKPIValue(targetValue, data.customizations)}
               </p>
             )}
             {popChange !== null && (
@@ -308,7 +329,11 @@ export function KPICard({
         {isLoading ? (
           <Skeleton className="h-32 w-full" />
         ) : (
-          <EChartsRenderer config={echartsConfig || {}} height="h-full" />
+          <EChartsRenderer
+            config={echartsConfig || {}}
+            height="h-full"
+            customizations={data.customizations}
+          />
         )}
       </div>
 

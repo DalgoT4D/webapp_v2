@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import * as echarts from 'echarts';
 import { format as formatDate } from 'date-fns';
-import { formatMetricValue, computePopChanges } from '@/lib/formatters';
+import { formatMetricValue, formatKPIValue, computePopChanges } from '@/lib/formatters';
 import { useAuthStore } from '@/stores/authStore';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ import {
   updateAnnotation,
   deleteAnnotation,
 } from '@/hooks/api/useKPIs';
-import type { KPI, NoteType } from '@/types/kpis';
+import type { KPI, NoteType, KPICustomizations } from '@/types/kpis';
 import type { RAGStatus } from '@/types/kpis';
 import { RAG_COLORS, TIME_GRAIN_OPTIONS } from '@/types/kpis';
 import { formatDistanceToNow } from 'date-fns';
@@ -60,7 +60,15 @@ interface KPIDetailDrawerProps {
   onDelete: () => void;
 }
 
-function TrendChart({ config, height = 'h-64' }: { config: Record<string, any>; height?: string }) {
+function TrendChart({
+  config,
+  height = 'h-64',
+  customizations,
+}: {
+  config: Record<string, any>;
+  height?: string;
+  customizations?: KPICustomizations;
+}) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
@@ -71,7 +79,20 @@ function TrendChart({ config, height = 'h-64' }: { config: Record<string, any>; 
       chartInstance.current.dispose();
     }
     chartInstance.current = echarts.init(chartRef.current);
-    chartInstance.current.setOption(config);
+
+    // Inject tooltip valueFormatter so hover values match the drawer header's
+    // formatted current value + target.
+    const effectiveConfig = customizations
+      ? {
+          ...config,
+          tooltip: {
+            ...(config.tooltip || {}),
+            valueFormatter: (value: number | null) => formatKPIValue(value, customizations),
+          },
+        }
+      : config;
+
+    chartInstance.current.setOption(effectiveConfig);
 
     const handleResize = () => chartInstance.current?.resize();
     window.addEventListener('resize', handleResize);
@@ -81,7 +102,7 @@ function TrendChart({ config, height = 'h-64' }: { config: Record<string, any>; 
       chartInstance.current?.dispose();
       chartInstance.current = null;
     };
-  }, [config]);
+  }, [config, customizations]);
 
   if (!config || Object.keys(config).length === 0) {
     return (
@@ -228,11 +249,11 @@ export function KPIDetailDrawer({
               ) : (
                 <>
                   <p className="text-4xl font-bold text-gray-900">
-                    {formatMetricValue(currentValue)}
+                    {formatKPIValue(currentValue, kpi.extra_config?.customizations)}
                   </p>
                   {kpi.target_value !== null && (
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      Target: {formatMetricValue(kpi.target_value)}
+                      Target: {formatKPIValue(kpi.target_value, kpi.extra_config?.customizations)}
                     </p>
                   )}
                   {popChange !== null && (
@@ -304,7 +325,11 @@ export function KPIDetailDrawer({
           {isLoading ? (
             <Skeleton className="h-56 w-full" />
           ) : (
-            <TrendChart config={echartsConfig || {}} height="h-56" />
+            <TrendChart
+              config={echartsConfig || {}}
+              height="h-56"
+              customizations={kpi.extra_config?.customizations}
+            />
           )}
         </div>
 

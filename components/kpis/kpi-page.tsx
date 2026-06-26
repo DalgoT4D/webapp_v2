@@ -92,6 +92,7 @@ function KPICardWithData({
     updatedAt: kpi.updated_at,
     isLoading,
     periods,
+    customizations: kpi.extra_config?.customizations,
   };
 
   return (
