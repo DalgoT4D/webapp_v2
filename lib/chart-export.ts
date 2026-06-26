@@ -213,13 +213,13 @@ export class ChartExporter {
   }
 
   /**
-   * Export an ECharts instance as PNG with org branding (logo, title, powered-by).
+   * Export an ECharts instance as PNG or PDF with org branding (logo, title, powered-by).
    */
   static async exportEChartsWithBranding(
     chartInstance: echarts.ECharts,
     options: ExportOptions & BrandingOptions
   ): Promise<void> {
-    const { filename = 'chart', orgLogoUrl, chartTitle } = options;
+    const { filename = 'chart', format = 'png', orgLogoUrl, chartTitle } = options;
 
     const chartDataUrl = chartInstance.getDataURL({
       type: 'png',
@@ -232,6 +232,11 @@ export class ChartExporter {
       orgLogoUrl,
       chartTitle,
     });
+
+    if (format === 'pdf') {
+      await this.convertToPDF(brandedDataUrl, filename);
+      return;
+    }
 
     const response = await fetch(brandedDataUrl);
     const blob = await response.blob();
