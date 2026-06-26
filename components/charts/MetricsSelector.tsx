@@ -10,6 +10,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { MetricAccordionItem } from './MetricAccordionItem';
+import { DEFAULT_METRIC_ALIAS } from '@/lib/chartAutoPrefill';
 
 interface MetricsSelectorProps {
   metrics: ChartMetric[];
@@ -63,11 +64,11 @@ export function getAvailableColumns(
   }));
 }
 
-/** Default metric appended by "+ ADD ANOTHER METRIC" — a valid COUNT(*). */
+/** Default metric appended by "+ ADD ANOTHER METRIC" — a valid COUNT(*) with the shared default name. */
 const buildDefaultMetric = (): ChartMetric => ({
   column: null,
   aggregation: 'count',
-  alias: 'COUNT(*)',
+  alias: DEFAULT_METRIC_ALIAS,
 });
 
 export function MetricsSelector({

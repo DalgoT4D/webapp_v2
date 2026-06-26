@@ -57,6 +57,27 @@ describe('MetricAccordionItem — inline metric (full tabbed form)', () => {
     await user.click(screen.getByRole('option', { name: 'Average' }));
     expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ aggregation: 'avg' }));
   });
+
+  it('auto-syncs the display name to the definition when the alias is not customized', async () => {
+    const user = userEvent.setup();
+    // alias === autoLabel(count, *) → treated as auto-generated, so it should follow the new function.
+    const { onUpdate } = renderItem({ column: null, aggregation: 'count', alias: 'COUNT(*)' });
+    await user.click(screen.getByTestId('metric-agg-0'));
+    await user.click(screen.getByRole('option', { name: 'Sum' }));
+    expect(onUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ aggregation: 'sum', alias: 'SUM(*)' })
+    );
+  });
+
+  it('keeps a customized display name when the function changes', async () => {
+    const user = userEvent.setup();
+    const { onUpdate } = renderItem({ column: 'amount', aggregation: 'sum', alias: 'My Revenue' });
+    await user.click(screen.getByTestId('metric-agg-0'));
+    await user.click(screen.getByRole('option', { name: 'Average' }));
+    expect(onUpdate).toHaveBeenCalledWith(
+      expect.not.objectContaining({ alias: expect.anything() })
+    );
+  });
 });
 
 describe('MetricAccordionItem — calculated tab', () => {

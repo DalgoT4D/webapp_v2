@@ -89,6 +89,24 @@ export function MetricAccordionItem({
       ? { column: 'Dimension', function: 'Metric' }
       : { column: 'Column', function: 'Function' };
 
+  // Keep the Display Name auto-synced to the metric definition until the user customizes it.
+  const autoLabel = (agg?: string | null, col?: string | null) =>
+    `${(agg || 'count').toUpperCase()}(${col || '*'})`;
+  // The display name is "auto" (follows the definition) when it's empty or still equals the
+  // generated label for the current function/column (or the raw expression). Once the user types
+  // their own label, it no longer matches and we stop overwriting it.
+  const aliasIsAuto =
+    !metric.alias ||
+    metric.alias === autoLabel(metric.aggregation, metric.column) ||
+    metric.alias === (metric.column_expression || '');
+  // Wrap a Simple-mode update so the alias follows the new function/column (unless customized).
+  const withAutoAlias = (partial: Partial<ChartMetric>): Partial<ChartMetric> => {
+    if (!aliasIsAuto) return partial;
+    const nextAgg = partial.aggregation ?? metric.aggregation ?? 'count';
+    const nextCol = partial.column !== undefined ? partial.column : (metric.column ?? null);
+    return { ...partial, alias: autoLabel(nextAgg, nextCol) };
+  };
+
   const commitExpression = async () => {
     const expr = exprDraft.trim();
     if (!expr || expr === (metric.column_expression || '')) return;
@@ -106,7 +124,12 @@ export function MetricAccordionItem({
         setExprError(result.error || 'Invalid expression');
         return;
       }
-      onUpdate({ column_expression: expr, column: null, aggregation: null });
+      onUpdate({
+        column_expression: expr,
+        column: null,
+        aggregation: null,
+        ...(aliasIsAuto ? { alias: expr.slice(0, 30) } : {}),
+      });
     } catch (err) {
       setExprError(err instanceof Error ? err.message : 'Validation failed');
     } finally {
@@ -252,7 +275,7 @@ export function MetricAccordionItem({
                   <Select
                     value={metric.aggregation || 'count'}
                     onValueChange={(v) =>
-                      onUpdate({ aggregation: v, column_expression: undefined })
+                      onUpdate(withAutoAlias({ aggregation: v, column_expression: undefined }))
                     }
                     disabled={disabled}
                   >
@@ -282,7 +305,7 @@ export function MetricAccordionItem({
                     value={
                       metric.aggregation === 'count' && !metric.column ? '*' : metric.column || ''
                     }
-                    onValueChange={(v) => onUpdate({ column: v === '*' ? null : v })}
+                    onValueChange={(v) => onUpdate(withAutoAlias({ column: v === '*' ? null : v }))}
                     disabled={disabled}
                     searchPlaceholder="Search columns..."
                     placeholder="Select column"
