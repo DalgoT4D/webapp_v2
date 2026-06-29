@@ -92,7 +92,8 @@ export function MetricsLibrary() {
   const [alertFormOpen, setAlertFormOpen] = useState(false);
   const [alertPreselectedMetricId, setAlertPreselectedMetricId] = useState<number | null>(null);
   const { hasPermission } = useRbac();
-  // Analysts are view-only on metrics + KPIs; admins manage them.
+  // Create/edit/delete affordances are hidden for view-only roles (members) and
+  // shown to roles that hold the matching permission (admins + analysts).
   const canCreateMetrics = hasPermission(PERMISSIONS.CAN_CREATE_METRICS);
   const canEditMetrics = hasPermission(PERMISSIONS.CAN_EDIT_METRICS);
   const canDeleteMetrics = hasPermission(PERMISSIONS.CAN_DELETE_METRICS);
@@ -349,56 +350,61 @@ export function MetricsLibrary() {
             ? formatDistanceToNow(new Date(metric.updated_at), { addSuffix: false }) + ' ago'
             : '—'}
         </TableCell>
-        {/* Actions */}
+        {/* Actions — hidden entirely for view-only roles (e.g. members) */}
         <TableCell className="py-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
-                <MoreVertical className="w-4 h-4 text-gray-600" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem
-                onClick={() => handleEdit(metric)}
-                disabled={!canEditMetrics}
-                className="cursor-pointer"
-              >
-                <Pencil className="w-4 h-4 mr-2" />
-                Edit Metric
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setKpiPreselectedMetricId(metric.id);
-                  setKpiFormOpen(true);
-                }}
-                disabled={!canCreateKpis}
-                className="cursor-pointer"
-              >
-                <Target className="w-4 h-4 mr-2" />
-                Create KPI
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setAlertPreselectedMetricId(metric.id);
-                  setAlertFormOpen(true);
-                }}
-                disabled={!canCreateAlert}
-                className="cursor-pointer"
-              >
-                <BellRing className="w-4 h-4 mr-2" />
-                Create alert
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => handleDeleteClick(metric)}
-                disabled={!canDeleteMetrics}
-                className="cursor-pointer text-destructive focus:text-destructive"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {(canEditMetrics || canCreateKpis || canCreateAlert || canDeleteMetrics) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
+                  <MoreVertical className="w-4 h-4 text-gray-600" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                {canEditMetrics && (
+                  <DropdownMenuItem onClick={() => handleEdit(metric)} className="cursor-pointer">
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Edit Metric
+                  </DropdownMenuItem>
+                )}
+                {canCreateKpis && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setKpiPreselectedMetricId(metric.id);
+                      setKpiFormOpen(true);
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <Target className="w-4 h-4 mr-2" />
+                    Create KPI
+                  </DropdownMenuItem>
+                )}
+                {canCreateAlert && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setAlertPreselectedMetricId(metric.id);
+                      setAlertFormOpen(true);
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <BellRing className="w-4 h-4 mr-2" />
+                    Create alert
+                  </DropdownMenuItem>
+                )}
+                {canDeleteMetrics && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handleDeleteClick(metric)}
+                      className="cursor-pointer text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </TableCell>
       </TableRow>
     );
@@ -508,15 +514,12 @@ export function MetricsLibrary() {
               Define reusable metric definitions that power your KPIs &amp; charts
             </p>
           </div>
-          <Button
-            variant="primary"
-            onClick={handleCreate}
-            disabled={!canCreateMetrics}
-            data-testid="create-metric-btn"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            CREATE METRIC
-          </Button>
+          {canCreateMetrics && (
+            <Button variant="primary" onClick={handleCreate} data-testid="create-metric-btn">
+              <Plus className="w-4 h-4 mr-2" />
+              CREATE METRIC
+            </Button>
+          )}
         </div>
 
         {/* Active filter indicator */}
@@ -597,10 +600,12 @@ export function MetricsLibrary() {
                   <p className="text-sm text-muted-foreground">
                     Create your first metric to start building KPIs and tracking what matters most.
                   </p>
-                  <Button variant="primary" onClick={handleCreate} disabled={!canCreateMetrics}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    CREATE METRIC
-                  </Button>
+                  {canCreateMetrics && (
+                    <Button variant="primary" onClick={handleCreate}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      CREATE METRIC
+                    </Button>
+                  )}
                 </>
               )}
             </div>

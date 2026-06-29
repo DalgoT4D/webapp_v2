@@ -115,25 +115,30 @@ function KPICardWithData({
               <Eye className="w-4 h-4 mr-2" />
               View KPI
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onEdit} disabled={!canEditKpis} className="cursor-pointer">
-              <Pencil className="w-4 h-4 mr-2" />
-              Edit KPI
-            </DropdownMenuItem>
+            {canEditKpis && (
+              <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
+                <Pencil className="w-4 h-4 mr-2" />
+                Edit KPI
+              </DropdownMenuItem>
+            )}
             {canCreateAlert && onCreateAlert && (
               <DropdownMenuItem onClick={onCreateAlert} className="cursor-pointer">
                 <BellRing className="w-4 h-4 mr-2" />
                 Create alert
               </DropdownMenuItem>
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={onDelete}
-              disabled={!canDeleteKpis}
-              className="cursor-pointer text-destructive focus:text-destructive"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete
-            </DropdownMenuItem>
+            {canDeleteKpis && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={onDelete}
+                  className="cursor-pointer text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
           </>
         }
       />
@@ -159,7 +164,8 @@ export function KPIPageComponent() {
   const [alertKpiId, setAlertKpiId] = useState<number | null>(null);
 
   const { hasPermission } = useRbac();
-  // Analysts are view-only on KPIs; admins manage them.
+  // Create/edit/delete affordances are hidden for view-only roles (members) and
+  // shown to roles that hold the matching permission (admins + analysts).
   const canCreateKpis = hasPermission(PERMISSIONS.CAN_CREATE_KPIS);
   const canEditKpis = hasPermission(PERMISSIONS.CAN_EDIT_KPIS);
   const canDeleteKpis = hasPermission(PERMISSIONS.CAN_DELETE_KPIS);
@@ -288,15 +294,12 @@ export function KPIPageComponent() {
               Track business objectives with measurable KPIs linked to your metrics
             </p>
           </div>
-          <Button
-            variant="primary"
-            onClick={handleCreate}
-            disabled={!canCreateKpis}
-            data-testid="create-kpi-btn"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            CREATE KPI
-          </Button>
+          {canCreateKpis && (
+            <Button variant="primary" onClick={handleCreate} data-testid="create-kpi-btn">
+              <Plus className="w-4 h-4 mr-2" />
+              CREATE KPI
+            </Button>
+          )}
         </div>
       </div>
 
@@ -439,8 +442,8 @@ export function KPIPageComponent() {
                 <p className="text-muted-foreground">
                   {search ? 'No KPIs match your search' : 'No KPIs yet'}
                 </p>
-                {!search && (
-                  <Button variant="primary" onClick={handleCreate} disabled={!canCreateKpis}>
+                {!search && canCreateKpis && (
+                  <Button variant="primary" onClick={handleCreate}>
                     <Plus className="w-4 h-4 mr-2" />
                     CREATE YOUR FIRST KPI
                   </Button>
