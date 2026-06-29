@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
 import { mutate } from 'swr';
 
 import { Button } from '@/components/ui/button';
@@ -132,16 +131,12 @@ export function RbacNoticeCarousel() {
 
           {/* Right: full-bleed illustration, per-step detail, navigation */}
           <div className="flex flex-col">
-            <div className="relative h-[180px] w-full overflow-hidden bg-primary/10">
-              <Image
-                src={currentStep.image}
-                alt=""
-                width={586}
-                height={153}
-                className="absolute top-10 left-8 w-[125%] max-w-none drop-shadow-xl"
-                style={{ height: 'auto' }}
-              />
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={currentStep.image}
+              alt=""
+              className="block w-full select-none object-cover object-left-top"
+            />
 
             <div className="flex flex-1 flex-col px-6 py-5">
               <p className="text-base font-semibold text-foreground">{currentStep.role}</p>

@@ -23,27 +23,28 @@ export const RBAC_ROLE_SUMMARIES: RbacRoleSummary[] = [
 
 export interface RbacNoticeStep {
   role: string;
+  /** Illustration shown on the right; lives in public/images/rbac-notice/. */
   image: string;
   detail: string;
 }
 
-// Per-step "what this means for you" detail, shown on the right. Order = carousel order.
+// Per-step "what this means for you" detail + illustration. Order = carousel order.
 export const RBAC_NOTICE_STEPS: RbacNoticeStep[] = [
   {
     role: 'Admin',
-    image: '/images/rbac-notice/admin.png',
+    image: '/images/rbac-notice/rbac-admin.jpg',
     detail:
       'Along with formally owning the dashboards, charts and reports you create, you also keep all your pipeline, transform and warehouse work — meaning only you or another admin can delete them.',
   },
   {
     role: 'Analyst',
-    image: '/images/rbac-notice/analyst.png',
+    image: '/images/rbac-notice/rbac-analyst.jpg',
     detail:
       'You keep building dashboards, charts and reports as before. Editing pipelines, transforms and the warehouse is now view-only — ask an admin if you need that access back.',
   },
   {
     role: 'Member',
-    image: '/images/rbac-notice/member.png',
+    image: '/images/rbac-notice/rbac-member.jpg',
     detail:
       'Renamed from Guest, you now have a streamlined, view-only experience for the dashboards and reports shared with your organisation.',
   },
