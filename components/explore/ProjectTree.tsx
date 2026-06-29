@@ -19,7 +19,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useExploreStore } from '@/stores/exploreStore';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import type { WarehouseTable, TreeNode } from '@/types/explore';
 import { EXPLORE_DIMENSIONS } from '@/constants/explore';
 import { cn } from '@/lib/utils';
@@ -72,10 +72,13 @@ export function ProjectTree({
   // Use local state in canvas mode to avoid polluting explore page search
   const searchTerm = mode === ProjectTreeMode.CANVAS ? localSearchTerm : globalSearchTerm;
   const setSearchTerm = mode === ProjectTreeMode.CANVAS ? setLocalSearchTerm : setGlobalSearchTerm;
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
-  const canCreateModel = hasPermission('can_create_dbt_model');
-  const canSyncSources = hasPermission('can_sync_sources');
+  // Viewing a table's data is gated on warehouse-data read access (what the
+  // backend enforces) — NOT on dbt-model creation. Analysts can view, edit
+  // roles can also create models in Canvas mode via the add-to-canvas action.
+  const canViewData = hasPermission(PERMISSIONS.CAN_VIEW_WAREHOUSE_DATA);
+  const canSyncSources = hasPermission(PERMISSIONS.CAN_SYNC_SOURCES);
 
   // Build tree data structure
   const treeData = useMemo<TreeNode[]>(() => {
@@ -154,7 +157,7 @@ export function ProjectTree({
   const handleNodeClick = useCallback(
     (nodes: { data: TreeNode }[]) => {
       const node = nodes[0];
-      if (!node || !canCreateModel) return;
+      if (!node || !canViewData) return;
 
       // Only handle leaf nodes (tables)
       const data = node.data;
@@ -162,7 +165,7 @@ export function ProjectTree({
         onTableSelect(data.schema, data.name);
       }
     },
-    [canCreateModel, onTableSelect]
+    [canViewData, onTableSelect]
   );
 
   const SEARCH_AREA_HEIGHT = 70;
@@ -193,7 +196,7 @@ export function ProjectTree({
             'hover:bg-gray-100',
             isSelected && 'bg-teal-50 border-l-2 border-l-teal-500',
             !isSelected && 'border-l-2 border-l-transparent',
-            !canCreateModel && !isFolder && 'opacity-50 cursor-not-allowed'
+            !canViewData && !isFolder && 'opacity-50 cursor-not-allowed'
           )}
           onClick={() => {
             if (isFolder) {
@@ -264,7 +267,7 @@ export function ProjectTree({
         </div>
       );
     },
-    [canCreateModel, selectedTable, mode, onAddToCanvas, onDeleteFromCanvas]
+    [canViewData, selectedTable, mode, onAddToCanvas, onDeleteFromCanvas]
   );
 
   return (

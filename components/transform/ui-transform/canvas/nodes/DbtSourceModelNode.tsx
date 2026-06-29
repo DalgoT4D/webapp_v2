@@ -6,7 +6,7 @@ import { Handle, Position, type NodeProps, useEdges } from 'reactflow';
 import { Trash2, Database } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTransformStore } from '@/stores/transformStore';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import type { CanvasNodeRenderData } from '@/types/transform';
 import { NODE_COLORS, OperationFormAction, CanvasActionEnum } from '@/constants/transform';
 
@@ -22,11 +22,11 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
     openOperationPanel,
     canInteractWithCanvas,
   } = useTransformStore();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
   const edgesEmanatingOutOfNode = edges.filter((edge) => edge.source === id);
   const isLeafNode = edgesEmanatingOutOfNode.length === 0;
-  const canDelete = isLeafNode && hasPermission('can_delete_dbt_model');
+  const canDelete = isLeafNode && hasPermission(PERMISSIONS.CAN_DELETE_DBT_MODEL);
 
   const schema = data?.dbtmodel?.schema || '';
   const tableName = data?.dbtmodel?.name || data?.name || 'Unknown';
@@ -55,7 +55,7 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
     setSelectedNode({ id, type, data, selected, position: { x: xPos, y: yPos } });
 
     // Only open operation panel if user has create permission
-    if (hasPermission('can_create_dbt_model')) {
+    if (hasPermission(PERMISSIONS.CAN_CREATE_DBT_MODEL)) {
       openOperationPanel();
       dispatchCanvasAction({
         type: CanvasActionEnum.OPEN_OPCONFIG_PANEL,

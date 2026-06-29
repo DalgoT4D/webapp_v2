@@ -212,13 +212,6 @@ export interface AlertTestResponse {
 
 // ── Constants ─────────────────────────────────────────────────────────────
 
-export const ALERT_PERMISSIONS = {
-  view: 'can_view_alerts',
-  create: 'can_create_alerts',
-  edit: 'can_edit_alerts',
-  delete: 'can_delete_alerts',
-} as const;
-
 export const THRESHOLD_OPERATOR_OPTIONS = [
   { value: 'lt' as const, label: 'less than' },
   { value: 'gt' as const, label: 'greater than' },

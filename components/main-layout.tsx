@@ -38,15 +38,18 @@ import { useAuthStore } from '@/stores/authStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { TransformTypeEnum as TransformType, useTransformType } from '@/hooks/api/useTransform';
 import Image from 'next/image';
+import { ADMIN_ROLES, DATA_SECTION_ROLES, Role, useRbac } from '@/lib/rbac';
+import { RbacNoticeCarousel } from '@/components/onboarding/rbac-notice-carousel';
 
 // Define types for navigation items
-interface NavItemType {
+export interface NavItemType {
   title: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   isActive: boolean;
   children?: NavItemType[];
-  hide?: boolean; // Add hide property for feature flag control
+  hide?: boolean;
+  visibleToRoles?: Role[];
 }
 
 // Menu items to hide in production environment
@@ -88,15 +91,13 @@ const filterMenuItemsForProduction = (items: NavItemType[]): NavItemType[] => {
 };
 
 // Define the navigation items with their routes and icons
-const getNavItems = (
+export const getNavItems = (
   currentPath: string,
   hasSupersetSetup: boolean = false,
   isFeatureFlagEnabled: (flag: FeatureFlagKeys) => boolean,
-  transformType?: string
+  transformType?: string,
+  roleSlug: Role | '' = ''
 ): NavItemType[] => {
-  // Build dashboard children based on feature flags AND Superset setup
-  const dashboardChildren: NavItemType[] = [];
-
   const allNavItems: NavItemType[] = [
     {
       title: 'Impact',
@@ -131,9 +132,10 @@ const getNavItems = (
     },
     {
       title: 'Data',
-      href: '/pipeline', // Direct navigation to overview page (default)
+      href: '/pipeline',
       icon: Database,
-      isActive: false, // Never highlight the parent Data menu
+      isActive: false,
+      visibleToRoles: DATA_SECTION_ROLES,
       children: [
         {
           title: 'Overview',
@@ -192,25 +194,28 @@ const getNavItems = (
       title: 'Settings',
       href: '/settings/branding',
       icon: Settings,
-      isActive: false, // Never highlight the parent Settings menu
+      isActive: false,
       children: [
         {
           title: 'Branding',
           href: '/settings/branding',
           icon: Palette,
           isActive: currentPath.startsWith('/settings/branding'),
+          visibleToRoles: ADMIN_ROLES,
         },
         {
           title: 'Billing',
           href: '/settings/billing',
           icon: CreditCard,
           isActive: currentPath.startsWith('/settings/billing'),
+          visibleToRoles: ADMIN_ROLES,
         },
         {
           title: 'User Management',
           href: '/settings/user-management',
           icon: Users,
           isActive: currentPath.startsWith('/settings/user-management'),
+          visibleToRoles: ADMIN_ROLES,
         },
         {
           title: 'About',
@@ -232,8 +237,24 @@ const getNavItems = (
     },
   ];
 
-  // Filter menu items for production environment
-  return filterMenuItemsForProduction(allNavItems);
+  // Apply role visibility: set hide=true for items whose visibleToRoles excludes the current role.
+  // Composes with existing feature-flag hide — both must pass for an item to show.
+  // An empty roleSlug (user not yet loaded) is treated as most-restrictive.
+  const applyRoleFilter = (items: NavItemType[]): NavItemType[] =>
+    items.map((item) => {
+      const hiddenByRole = !!(
+        item.visibleToRoles &&
+        (!roleSlug || !item.visibleToRoles.includes(roleSlug as Role))
+      );
+      const children = item.children ? applyRoleFilter(item.children) : undefined;
+      return {
+        ...item,
+        hide: item.hide || hiddenByRole,
+        ...(children !== undefined ? { children } : {}),
+      };
+    });
+
+  return applyRoleFilter(filterMenuItemsForProduction(allNavItems));
 };
 
 // A parent menu item is "active" when the current path lives inside any of its visible children.
@@ -496,10 +517,17 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const responsive = useResponsiveLayout();
   const { currentOrg } = useAuthStore();
+  const { role } = useRbac();
   const { isFeatureFlagEnabled } = useFeatureFlags();
   const { transformType } = useTransformType();
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
-  const navItems = getNavItems(pathname, hasSupersetSetup, isFeatureFlagEnabled, transformType);
+  const navItems = getNavItems(
+    pathname,
+    hasSupersetSetup,
+    isFeatureFlagEnabled,
+    transformType,
+    role ?? ''
+  );
 
   // Auto-open a parent's submenu when the current path enters its subtree. Never auto-closes.
   useEffect(() => {
@@ -695,6 +723,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+
+      {/* One-time RBAC v2 migration notice — shows once per user, on any page */}
+      <RbacNoticeCarousel />
     </div>
   );
 }

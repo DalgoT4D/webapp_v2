@@ -177,36 +177,36 @@ export const ConnectionRow = memo(function ConnectionRow({
             <History className="w-4 h-4 text-gray-600" />
           </Button>
 
-          {/* Sync / Cancel button */}
-          {canSync &&
-            (conn.lock?.status === LockStatus.QUEUED ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onCancelSync}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-                data-testid={`cancel-sync-${conn.connectionId}`}
-                aria-label="Cancel sync"
-              >
-                <XCircle className="w-4 h-4 text-red-600" />
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleSyncClick}
-                disabled={isSyncing}
-                className={cn('h-8 w-8 p-0 hover:bg-gray-100', isSyncing && 'cursor-not-allowed')}
-                data-testid={`sync-btn-${conn.connectionId}`}
-                aria-label="Sync"
-              >
-                {isSyncing ? (
-                  <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4 text-gray-600" />
-                )}
-              </Button>
-            ))}
+          {/* Sync / Cancel button — always shown, disabled for read-only roles */}
+          {conn.lock?.status === LockStatus.QUEUED ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onCancelSync}
+              disabled={!canSync}
+              className="h-8 w-8 p-0 hover:bg-gray-100"
+              data-testid={`cancel-sync-${conn.connectionId}`}
+              aria-label="Cancel sync"
+            >
+              <XCircle className="w-4 h-4 text-red-600" />
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSyncClick}
+              disabled={!canSync || isSyncing}
+              className={cn('h-8 w-8 p-0 hover:bg-gray-100', isSyncing && 'cursor-not-allowed')}
+              data-testid={`sync-btn-${conn.connectionId}`}
+              aria-label="Sync"
+            >
+              {isSyncing ? (
+                <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4 text-gray-600" />
+              )}
+            </Button>
+          )}
 
           {/* Three-dot menu */}
           <DropdownMenu>
@@ -221,61 +221,52 @@ export const ConnectionRow = memo(function ConnectionRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
-              {canEdit && (
-                <DropdownMenuItem
-                  onClick={onEdit}
-                  className="text-[14px]"
-                  data-testid={`edit-connection-${conn.connectionId}`}
-                >
-                  {isLocked ? (
-                    <>
-                      <Eye className="h-4 w-4 mr-2" />
-                      View
-                    </>
-                  ) : (
-                    <>
-                      <Pencil className="h-4 w-4 mr-2" />
-                      Edit
-                    </>
-                  )}
-                </DropdownMenuItem>
-              )}
-              {canEdit && (
-                <DropdownMenuItem
-                  onClick={onRefreshSchema}
-                  disabled={isLocked}
-                  className="text-[14px]"
-                  data-testid={`refresh-schema-${conn.connectionId}`}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh Schema
-                </DropdownMenuItem>
-              )}
-              {canReset && conn.clearConnDeploymentId && (
-                <DropdownMenuItem
-                  onClick={onClearStreams}
-                  disabled={isLocked}
-                  className="text-[14px]"
-                  data-testid={`clear-streams-${conn.connectionId}`}
-                >
-                  <Eraser className="h-4 w-4 mr-2" />
-                  Clear Streams
-                </DropdownMenuItem>
-              )}
-              {canDelete && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={onDelete}
-                    disabled={isLocked}
-                    className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
-                    data-testid={`delete-connection-${conn.connectionId}`}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </>
-              )}
+              <DropdownMenuItem
+                onClick={onEdit}
+                disabled={!canEdit}
+                className="text-[14px]"
+                data-testid={`edit-connection-${conn.connectionId}`}
+              >
+                {isLocked ? (
+                  <>
+                    <Eye className="h-4 w-4 mr-2" />
+                    View
+                  </>
+                ) : (
+                  <>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={onRefreshSchema}
+                disabled={!canEdit || isLocked}
+                className="text-[14px]"
+                data-testid={`refresh-schema-${conn.connectionId}`}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Schema
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={onClearStreams}
+                disabled={!canReset || isLocked || !conn.clearConnDeploymentId}
+                className="text-[14px]"
+                data-testid={`clear-streams-${conn.connectionId}`}
+              >
+                <Eraser className="h-4 w-4 mr-2" />
+                Clear Streams
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={onDelete}
+                disabled={!canDelete || isLocked}
+                className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
+                data-testid={`delete-connection-${conn.connectionId}`}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

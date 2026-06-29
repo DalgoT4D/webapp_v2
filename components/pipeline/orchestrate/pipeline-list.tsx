@@ -39,7 +39,7 @@ import { DocsLink } from '@/components/ui/docs-link';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { usePipelines, deletePipeline, triggerPipelineRun } from '@/hooks/api/usePipelines';
 import type { Pipeline } from '@/types/pipeline';
 import {
@@ -55,7 +55,7 @@ import { cn } from '@/lib/utils';
 
 export function PipelineList() {
   const router = useRouter();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
   const { pipelines, isLoading, mutate } = usePipelines();
   const { confirm, DialogComponent } = useConfirmationDialog();
 
@@ -63,11 +63,11 @@ export function PipelineList() {
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
 
   // Permissions
-  const canViewPipeline = hasPermission('can_view_pipeline');
-  const canCreatePipeline = hasPermission('can_create_pipeline');
-  const canRunPipeline = hasPermission('can_run_pipeline');
-  const canEditPipeline = hasPermission('can_edit_pipeline');
-  const canDeletePipeline = hasPermission('can_delete_pipeline');
+  const canViewPipeline = hasPermission(PERMISSIONS.CAN_VIEW_PIPELINE);
+  const canCreatePipeline = hasPermission(PERMISSIONS.CAN_CREATE_PIPELINE);
+  const canRunPipeline = hasPermission(PERMISSIONS.CAN_RUN_PIPELINE);
+  const canEditPipeline = hasPermission(PERMISSIONS.CAN_EDIT_PIPELINE);
+  const canDeletePipeline = hasPermission(PERMISSIONS.CAN_DELETE_PIPELINE);
 
   const handleViewHistory = useCallback((pipeline: Pipeline) => {
     setSelectedPipeline(pipeline);
@@ -176,12 +176,15 @@ export function PipelineList() {
               </TooltipProvider>
             </div>
           </div>
-          {canCreatePipeline && (
-            <Button variant="primary" onClick={handleCreate} data-testid="create-pipeline-btn">
-              <Plus className="h-4 w-4 mr-2" />
-              CREATE PIPELINE
-            </Button>
-          )}
+          <Button
+            variant="primary"
+            onClick={handleCreate}
+            disabled={!canCreatePipeline}
+            data-testid="create-pipeline-btn"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            CREATE PIPELINE
+          </Button>
         </div>
       </div>
 
@@ -403,7 +406,7 @@ function PipelineRow({
             variant="ghost"
             size="icon"
             onClick={handleRunClick}
-            disabled={isDisabled || !canRunPipeline}
+            disabled={!canRunPipeline || isDisabled || isRunning}
             data-testid={`run-btn-${deploymentId}`}
             className={cn('h-8 w-8 p-0 hover:bg-gray-100', isRunning && 'cursor-not-allowed')}
             aria-label="Run"
@@ -428,26 +431,24 @@ function PipelineRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
-              {canEditPipeline && (
-                <DropdownMenuItem
-                  onClick={() => onEdit(deploymentId)}
-                  className="text-[14px]"
-                  data-testid={`edit-menu-item-${deploymentId}`}
-                >
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
-                </DropdownMenuItem>
-              )}
-              {canDeletePipeline && (
-                <DropdownMenuItem
-                  onClick={() => onDelete(deploymentId)}
-                  className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
-                  data-testid={`delete-menu-item-${deploymentId}`}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem
+                onClick={() => onEdit(deploymentId)}
+                disabled={!canEditPipeline}
+                className="text-[14px]"
+                data-testid={`edit-menu-item-${deploymentId}`}
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onDelete(deploymentId)}
+                disabled={!canDeletePipeline}
+                className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
+                data-testid={`delete-menu-item-${deploymentId}`}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

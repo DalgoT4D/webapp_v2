@@ -7,7 +7,7 @@ import { useTransformStore, useCanvasAction } from '@/stores/transformStore';
 import { useCanvasSources } from '@/hooks/api/useCanvasSources';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import type { RunWorkflowParams } from '@/hooks/api/useWorkflowExecution';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { CANVAS_GRAPH_KEY } from '@/hooks/api/useCanvasGraph';
 import { CanvasNodeTypeEnum } from '@/types/transform';
 import { apiGet } from '@/lib/api';
@@ -38,7 +38,7 @@ export function useCanvasActions({ isPreview, runWorkflow }: UseCanvasActionsPar
 
   const { refresh: refreshSources, syncSources } = useCanvasSources();
   const { deleteOperationNode } = useCanvasOperations();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
   // Handle sync sources — locks upper section, polls progress into logs pane
   const handleSyncSources = useCallback(async () => {
@@ -114,7 +114,7 @@ export function useCanvasActions({ isPreview, runWorkflow }: UseCanvasActionsPar
   const hasAutoSynced = useRef(false);
   useEffect(() => {
     if (hasAutoSynced.current || isPreview) return;
-    if (!hasPermission('can_sync_sources')) return;
+    if (!hasPermission(PERMISSIONS.CAN_SYNC_SOURCES)) return;
     hasAutoSynced.current = true;
     handleSyncSources();
     // Only run on mount

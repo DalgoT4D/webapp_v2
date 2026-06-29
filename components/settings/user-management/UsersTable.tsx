@@ -31,7 +31,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useUsers, useRoles, useUserActions } from '@/hooks/api/useUserManagement';
 import { useAuthStore } from '@/stores/authStore';
 import {
@@ -53,7 +53,7 @@ export function UsersTable() {
   const { users, isLoading, mutate } = useUsers();
   const { roles } = useRoles();
   const { updateUserRole } = useUserActions();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
   const { getCurrentOrgUser } = useAuthStore();
 
   const [editingUser, setEditingUser] = useState<string | null>(null);
@@ -78,8 +78,8 @@ export function UsersTable() {
   });
 
   const currentUser = getCurrentOrgUser();
-  const canEditUser = hasPermission('can_edit_orguser');
-  const canDeleteUser = hasPermission('can_delete_orguser');
+  const canEditUser = hasPermission(PERMISSIONS.CAN_EDIT_ORGUSER);
+  const canDeleteUser = hasPermission(PERMISSIONS.CAN_DELETE_ORGUSER);
 
   const formatRoleName = (roleSlug: string) => {
     return roleSlug.replace('-', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
