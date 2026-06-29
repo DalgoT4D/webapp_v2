@@ -59,6 +59,8 @@ function KPICardWithData({
   onDelete,
   onCreateAlert,
   canCreateAlert,
+  canEditKpis,
+  canDeleteKpis,
   statusFilter,
 }: {
   kpi: KPI;
@@ -67,6 +69,8 @@ function KPICardWithData({
   onDelete: () => void;
   onCreateAlert?: () => void;
   canCreateAlert?: boolean;
+  canEditKpis?: boolean;
+  canDeleteKpis?: boolean;
   statusFilter?: string;
 }) {
   const { chartData, echartsConfig, isLoading } = useKPIData(kpi.id);
@@ -111,7 +115,7 @@ function KPICardWithData({
               <Eye className="w-4 h-4 mr-2" />
               View KPI
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
+            <DropdownMenuItem onClick={onEdit} disabled={!canEditKpis} className="cursor-pointer">
               <Pencil className="w-4 h-4 mr-2" />
               Edit KPI
             </DropdownMenuItem>
@@ -124,6 +128,7 @@ function KPICardWithData({
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={onDelete}
+              disabled={!canDeleteKpis}
               className="cursor-pointer text-destructive focus:text-destructive"
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -154,6 +159,10 @@ export function KPIPageComponent() {
   const [alertKpiId, setAlertKpiId] = useState<number | null>(null);
 
   const { hasPermission } = useRbac();
+  // Analysts are view-only on KPIs; admins manage them.
+  const canCreateKpis = hasPermission(PERMISSIONS.CAN_CREATE_KPIS);
+  const canEditKpis = hasPermission(PERMISSIONS.CAN_EDIT_KPIS);
+  const canDeleteKpis = hasPermission(PERMISSIONS.CAN_DELETE_KPIS);
   const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
 
   const PAGE_SIZE = 10;
@@ -279,7 +288,12 @@ export function KPIPageComponent() {
               Track business objectives with measurable KPIs linked to your metrics
             </p>
           </div>
-          <Button variant="primary" onClick={handleCreate} data-testid="create-kpi-btn">
+          <Button
+            variant="primary"
+            onClick={handleCreate}
+            disabled={!canCreateKpis}
+            data-testid="create-kpi-btn"
+          >
             <Plus className="w-4 h-4 mr-2" />
             CREATE KPI
           </Button>
@@ -413,6 +427,8 @@ export function KPIPageComponent() {
                     onDelete={() => handleDeleteClick(kpi)}
                     onCreateAlert={() => setAlertKpiId(kpi.id)}
                     canCreateAlert={canCreateAlert}
+                    canEditKpis={canEditKpis}
+                    canDeleteKpis={canDeleteKpis}
                     statusFilter={statusFilter || undefined}
                   />
                 ))}
@@ -424,7 +440,7 @@ export function KPIPageComponent() {
                   {search ? 'No KPIs match your search' : 'No KPIs yet'}
                 </p>
                 {!search && (
-                  <Button variant="primary" onClick={handleCreate}>
+                  <Button variant="primary" onClick={handleCreate} disabled={!canCreateKpis}>
                     <Plus className="w-4 h-4 mr-2" />
                     CREATE YOUR FIRST KPI
                   </Button>

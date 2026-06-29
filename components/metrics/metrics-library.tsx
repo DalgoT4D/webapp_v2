@@ -91,8 +91,13 @@ export function MetricsLibrary() {
   const [kpiPreselectedMetricId, setKpiPreselectedMetricId] = useState<number | undefined>();
   const [alertFormOpen, setAlertFormOpen] = useState(false);
   const [alertPreselectedMetricId, setAlertPreselectedMetricId] = useState<number | null>(null);
-  const { hasPermission: hasAlertPermission } = useRbac();
-  const canCreateAlert = hasAlertPermission(PERMISSIONS.CAN_CREATE_ALERTS);
+  const { hasPermission } = useRbac();
+  // Analysts are view-only on metrics + KPIs; admins manage them.
+  const canCreateMetrics = hasPermission(PERMISSIONS.CAN_CREATE_METRICS);
+  const canEditMetrics = hasPermission(PERMISSIONS.CAN_EDIT_METRICS);
+  const canDeleteMetrics = hasPermission(PERMISSIONS.CAN_DELETE_METRICS);
+  const canCreateKpis = hasPermission(PERMISSIONS.CAN_CREATE_KPIS);
+  const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
 
   // Strip `?create=true` after consuming it on mount so a refresh doesn't
   // re-open the create form.
@@ -353,7 +358,11 @@ export function MetricsLibrary() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => handleEdit(metric)} className="cursor-pointer">
+              <DropdownMenuItem
+                onClick={() => handleEdit(metric)}
+                disabled={!canEditMetrics}
+                className="cursor-pointer"
+              >
                 <Pencil className="w-4 h-4 mr-2" />
                 Edit Metric
               </DropdownMenuItem>
@@ -362,26 +371,27 @@ export function MetricsLibrary() {
                   setKpiPreselectedMetricId(metric.id);
                   setKpiFormOpen(true);
                 }}
+                disabled={!canCreateKpis}
                 className="cursor-pointer"
               >
                 <Target className="w-4 h-4 mr-2" />
                 Create KPI
               </DropdownMenuItem>
-              {canCreateAlert && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setAlertPreselectedMetricId(metric.id);
-                    setAlertFormOpen(true);
-                  }}
-                  className="cursor-pointer"
-                >
-                  <BellRing className="w-4 h-4 mr-2" />
-                  Create alert
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem
+                onClick={() => {
+                  setAlertPreselectedMetricId(metric.id);
+                  setAlertFormOpen(true);
+                }}
+                disabled={!canCreateAlert}
+                className="cursor-pointer"
+              >
+                <BellRing className="w-4 h-4 mr-2" />
+                Create alert
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => handleDeleteClick(metric)}
+                disabled={!canDeleteMetrics}
                 className="cursor-pointer text-destructive focus:text-destructive"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
@@ -498,7 +508,12 @@ export function MetricsLibrary() {
               Define reusable metric definitions that power your KPIs &amp; charts
             </p>
           </div>
-          <Button variant="primary" onClick={handleCreate} data-testid="create-metric-btn">
+          <Button
+            variant="primary"
+            onClick={handleCreate}
+            disabled={!canCreateMetrics}
+            data-testid="create-metric-btn"
+          >
             <Plus className="w-4 h-4 mr-2" />
             CREATE METRIC
           </Button>
@@ -582,7 +597,7 @@ export function MetricsLibrary() {
                   <p className="text-sm text-muted-foreground">
                     Create your first metric to start building KPIs and tracking what matters most.
                   </p>
-                  <Button variant="primary" onClick={handleCreate}>
+                  <Button variant="primary" onClick={handleCreate} disabled={!canCreateMetrics}>
                     <Plus className="w-4 h-4 mr-2" />
                     CREATE METRIC
                   </Button>
