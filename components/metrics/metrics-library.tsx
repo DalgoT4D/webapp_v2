@@ -99,6 +99,9 @@ export function MetricsLibrary() {
   const canDeleteMetrics = hasPermission(PERMISSIONS.CAN_DELETE_METRICS);
   const canCreateKpis = hasPermission(PERMISSIONS.CAN_CREATE_KPIS);
   const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
+  // Whether the row "Actions" column shows at all — hidden for view-only roles so
+  // the table doesn't render an orphaned empty column.
+  const canMetricActions = canEditMetrics || canCreateKpis || canCreateAlert || canDeleteMetrics;
 
   // Strip `?create=true` after consuming it on mount so a refresh doesn't
   // re-open the create form.
@@ -294,8 +297,11 @@ export function MetricsLibrary() {
         <TableCell className="py-4">
           <div className="flex flex-col">
             <span
-              className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline cursor-pointer"
-              onClick={() => handleEdit(metric)}
+              className={cn(
+                'font-medium text-lg text-gray-900',
+                canEditMetrics && 'hover:text-teal-700 hover:underline cursor-pointer'
+              )}
+              onClick={canEditMetrics ? () => handleEdit(metric) : undefined}
             >
               {metric.name}
             </span>
@@ -350,9 +356,9 @@ export function MetricsLibrary() {
             ? formatDistanceToNow(new Date(metric.updated_at), { addSuffix: false }) + ' ago'
             : '—'}
         </TableCell>
-        {/* Actions — hidden entirely for view-only roles (e.g. members) */}
-        <TableCell className="py-4">
-          {(canEditMetrics || canCreateKpis || canCreateAlert || canDeleteMetrics) && (
+        {/* Actions — column hidden entirely for view-only roles (e.g. members) */}
+        {canMetricActions && (
+          <TableCell className="py-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
@@ -404,8 +410,8 @@ export function MetricsLibrary() {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
-        </TableCell>
+          </TableCell>
+        )}
       </TableRow>
     );
   };
@@ -485,7 +491,7 @@ export function MetricsLibrary() {
           </div>
         </Button>
       </TableHead>
-      <TableHead className="w-[5%] font-medium text-base">Actions</TableHead>
+      {canMetricActions && <TableHead className="w-[5%] font-medium text-base">Actions</TableHead>}
     </TableRow>
   );
 
@@ -571,9 +577,11 @@ export function MetricsLibrary() {
                         <TableCell>
                           <Skeleton className="h-3 w-12" />
                         </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-6 w-6" />
-                        </TableCell>
+                        {canMetricActions && (
+                          <TableCell>
+                            <Skeleton className="h-6 w-6" />
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
