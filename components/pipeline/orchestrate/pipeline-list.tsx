@@ -176,12 +176,15 @@ export function PipelineList() {
               </TooltipProvider>
             </div>
           </div>
-          {canCreatePipeline && (
-            <Button variant="primary" onClick={handleCreate} data-testid="create-pipeline-btn">
-              <Plus className="h-4 w-4 mr-2" />
-              CREATE PIPELINE
-            </Button>
-          )}
+          <Button
+            variant="primary"
+            onClick={handleCreate}
+            disabled={!canCreatePipeline}
+            data-testid="create-pipeline-btn"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            CREATE PIPELINE
+          </Button>
         </div>
       </div>
 
@@ -399,23 +402,21 @@ function PipelineRow({
             <History className="w-4 h-4 text-gray-600" />
           </Button>
 
-          {(canRunPipeline || isRunning) && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleRunClick}
-              disabled={isDisabled || isRunning}
-              data-testid={`run-btn-${deploymentId}`}
-              className={cn('h-8 w-8 p-0 hover:bg-gray-100', isRunning && 'cursor-not-allowed')}
-              aria-label="Run"
-            >
-              {isRunning ? (
-                <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4 text-gray-600" />
-              )}
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRunClick}
+            disabled={!canRunPipeline || isDisabled || isRunning}
+            data-testid={`run-btn-${deploymentId}`}
+            className={cn('h-8 w-8 p-0 hover:bg-gray-100', isRunning && 'cursor-not-allowed')}
+            aria-label="Run"
+          >
+            {isRunning ? (
+              <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 text-gray-600" />
+            )}
+          </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -430,26 +431,24 @@ function PipelineRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
-              {canEditPipeline && (
-                <DropdownMenuItem
-                  onClick={() => onEdit(deploymentId)}
-                  className="text-[14px]"
-                  data-testid={`edit-menu-item-${deploymentId}`}
-                >
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
-                </DropdownMenuItem>
-              )}
-              {canDeletePipeline && (
-                <DropdownMenuItem
-                  onClick={() => onDelete(deploymentId)}
-                  className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
-                  data-testid={`delete-menu-item-${deploymentId}`}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem
+                onClick={() => onEdit(deploymentId)}
+                disabled={!canEditPipeline}
+                className="text-[14px]"
+                data-testid={`edit-menu-item-${deploymentId}`}
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onDelete(deploymentId)}
+                disabled={!canDeletePipeline}
+                className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
+                data-testid={`delete-menu-item-${deploymentId}`}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

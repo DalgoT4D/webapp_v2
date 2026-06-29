@@ -157,13 +157,13 @@ describe('PipelineList', () => {
     expect(createButtons.length).toBeGreaterThanOrEqual(1);
     unmount();
 
-    // No permission - no create button
+    // No permission - create button shown but disabled
     (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (p: string) => p !== 'can_create_pipeline',
     });
     const { unmount: unmount2 } = render(<PipelineList />);
     expect(screen.getByText('No pipelines yet')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /create pipeline/i })).not.toBeInTheDocument();
+    expect(screen.getByTestId('create-pipeline-btn')).toBeDisabled();
     unmount2();
 
     // Loading state
@@ -310,12 +310,12 @@ describe('PipelineList', () => {
     await waitFor(() => expect(mockTriggerRun).toHaveBeenCalledWith('test-dep-id'));
     unmount();
 
-    // Run button hidden without run permission
+    // Run button shown but disabled without run permission
     (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (p: string) => p !== 'can_run_pipeline',
     });
     const { unmount: unmount2 } = render(<PipelineList />);
-    expect(screen.queryByRole('button', { name: /run/i })).not.toBeInTheDocument();
+    expect(screen.getByTestId('run-btn-test-dep-id')).toBeDisabled();
     unmount2();
 
     // History button disabled without view permission
