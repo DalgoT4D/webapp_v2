@@ -64,16 +64,15 @@ const TabItem = memo(function TabItem({
   }, [isEditing, onSelect, tab.id]);
 
   // Handle single click on title to start editing
-  // Disabled when there is only one tab
   const handleTitleClick = useCallback(
     (e: React.MouseEvent) => {
-      if (isEditMode && isActive && !isOnlyTab) {
+      if (isEditMode && isActive) {
         e.stopPropagation();
         setEditValue(tab.title);
         setIsEditing(true);
       }
     },
-    [isEditMode, isActive, isOnlyTab, tab.title]
+    [isEditMode, isActive, tab.title]
   );
 
   // Handle rename completion
@@ -162,14 +161,12 @@ const TabItem = memo(function TabItem({
               type="button"
               className={cn(
                 'truncate max-w-32 text-sm bg-transparent border-none p-0',
-                isEditMode && isActive && !isOnlyTab
-                  ? 'cursor-pointer hover:underline'
-                  : 'cursor-default'
+                isEditMode && isActive ? 'cursor-pointer hover:underline' : 'cursor-default'
               )}
               data-testid={`tab-title-${tab.id}`}
               onClick={handleTitleClick}
               aria-label={`Rename ${tab.title} tab`}
-              tabIndex={isEditMode && isActive && !isOnlyTab ? 0 : -1}
+              tabIndex={isEditMode && isActive ? 0 : -1}
             >
               {tab.title}
             </button>
