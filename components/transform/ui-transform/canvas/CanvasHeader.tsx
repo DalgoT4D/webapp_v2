@@ -43,11 +43,13 @@ export default function CanvasHeader({
   const patRequired = useTransformStore((s) => s.patRequired);
   const { hasPermission } = useRbac();
   const canRun = hasPermission(PERMISSIONS.CAN_RUN_PIPELINE);
+  const canEditWorkflow = hasPermission(PERMISSIONS.CAN_EDIT_DBT_WORKSPACE);
 
   // Run: disabled only when locked by other, workflow running, or no permission
   const runDisabled = !canRun || isLocked || isWorkflowRunning;
-  // Publish: disabled when locked by other, workflow running, or PAT not configured
-  const publishDisabled = isLocked || isWorkflowRunning || patRequired;
+  // Publish: disabled without edit permission (read-only roles), when locked by
+  // other, workflow running, or PAT not configured
+  const publishDisabled = !canEditWorkflow || isLocked || isWorkflowRunning || patRequired;
 
   // Can only run to/from node if a source or model is selected (not operation)
   const canRunToFromNode =
