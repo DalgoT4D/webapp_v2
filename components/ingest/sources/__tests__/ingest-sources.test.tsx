@@ -303,7 +303,8 @@ describe('SourceList', () => {
     expect(mockMutate).not.toHaveBeenCalled();
   });
 
-  it('hides actions dropdown when user lacks both edit and delete permissions', () => {
+  it('shows the actions dropdown with disabled items when user lacks edit and delete permissions', async () => {
+    const user = userEvent.setup();
     (useSourcesHook.useSources as jest.Mock).mockReturnValue({
       data: [createMockSource()],
       isLoading: false,
@@ -316,6 +317,14 @@ describe('SourceList', () => {
 
     render(<SourceList />);
 
-    expect(screen.queryByTestId('source-actions-src-1')).not.toBeInTheDocument();
+    // The actions menu is always rendered (no empty column) — actions are
+    // shown but disabled for read-only roles.
+    const trigger = screen.getByTestId('source-actions-src-1');
+    expect(trigger).toBeInTheDocument();
+
+    await user.click(trigger);
+    await waitFor(() => expect(screen.getByTestId('edit-source-src-1')).toBeInTheDocument());
+    expect(screen.getByTestId('edit-source-src-1')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByTestId('delete-source-src-1')).toHaveAttribute('aria-disabled', 'true');
   });
 });
