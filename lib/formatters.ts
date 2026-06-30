@@ -129,7 +129,8 @@ type FormatKPIValueCustomizations = {
 /**
  * Render a KPI value with user-configured number formatting and prefix/suffix.
  * When no customizations are set, shows the raw number as-is (no grouping,
- * no compression).
+ * no compression). When customizations exist but `numberFormat` is absent,
+ * decimal places + prefix/suffix still apply (format defaults to "No Formatting").
  *
  * Returns "No data" for null/NaN -- without wrapping prefix/suffix. Matches
  * the backend format_number_v2 contract so alert emails and the KPI card
@@ -142,12 +143,11 @@ export function formatKPIValue(
   if (value === null || value === undefined || Number.isNaN(value)) {
     return 'No data';
   }
-  if (!customizations || !customizations.numberFormat) {
-    // No formatting configured -- show the raw number as-is
+  if (!customizations) {
     return String(value);
   }
   const formatted = formatNumber(value, {
-    format: customizations.numberFormat,
+    format: customizations.numberFormat ?? NumberFormats.DEFAULT,
     decimalPlaces: customizations.decimalPlaces,
   });
   const prefix = customizations.numberPrefix ?? '';
