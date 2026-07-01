@@ -343,10 +343,17 @@ function ConfigureChartPageContent() {
             ...(formData.chart_type === 'pivot_table' && {
               row_dimensions: formData.extra_config?.row_dimensions || [],
               column_dimensions: formData.extra_config?.column_dimensions || [],
-              column_time_grains: formData.extra_config?.column_time_grains || {},
               show_row_subtotals: formData.extra_config?.show_row_subtotals ?? false,
               show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
               show_grand_total: formData.extra_config?.show_grand_total ?? false,
+              show_row_grand_total:
+                formData.extra_config?.show_row_grand_total ??
+                formData.extra_config?.show_grand_total ??
+                false,
+              show_column_grand_total:
+                formData.extra_config?.show_column_grand_total ??
+                formData.extra_config?.show_grand_total ??
+                false,
             }),
             // For table charts, include dimensions array with drill-down support
             ...(formData.chart_type === 'table' &&
@@ -420,10 +427,17 @@ function ConfigureChartPageContent() {
               ...(formData.chart_type === 'pivot_table' && {
                 row_dimensions: formData.extra_config?.row_dimensions || [],
                 column_dimensions: formData.extra_config?.column_dimensions || [],
-                column_time_grains: formData.extra_config?.column_time_grains || {},
                 show_row_subtotals: formData.extra_config?.show_row_subtotals ?? false,
                 show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
                 show_grand_total: formData.extra_config?.show_grand_total ?? false,
+                show_row_grand_total:
+                  formData.extra_config?.show_row_grand_total ??
+                  formData.extra_config?.show_grand_total ??
+                  false,
+                show_column_grand_total:
+                  formData.extra_config?.show_column_grand_total ??
+                  formData.extra_config?.show_grand_total ??
+                  false,
               }),
             },
           }
@@ -971,10 +985,17 @@ function ConfigureChartPageContent() {
         ...(formData.chart_type === 'pivot_table' && {
           row_dimensions: formData.extra_config?.row_dimensions || [],
           column_dimensions: formData.extra_config?.column_dimensions || [],
-          column_time_grains: formData.extra_config?.column_time_grains || {},
           show_row_subtotals: formData.extra_config?.show_row_subtotals ?? false,
           show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
           show_grand_total: formData.extra_config?.show_grand_total ?? false,
+          show_row_grand_total:
+            formData.extra_config?.show_row_grand_total ??
+            formData.extra_config?.show_grand_total ??
+            false,
+          show_column_grand_total:
+            formData.extra_config?.show_column_grand_total ??
+            formData.extra_config?.show_grand_total ??
+            false,
           subtotal_label: formData.extra_config?.subtotal_label || 'Subtotal',
           grand_total_label: formData.extra_config?.grand_total_label || 'Grand Total',
         }),

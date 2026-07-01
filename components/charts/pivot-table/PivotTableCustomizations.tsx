@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { RefreshCw, ChevronRight, ChevronDown } from 'lucide-react';
-import { NumberFormats, type NumberFormat } from '@/lib/formatters';
+import { NumberFormats, type NumberFormat, type DateFormat } from '@/lib/formatters';
 import { NumberFormatSection } from '../types/shared/NumberFormatSection';
+import { DateFormatSection } from '../types/shared/DateFormatSection';
 import { ConditionalFormattingSection } from '../types/table/ConditionalFormattingSection';
 import { AppearanceSection } from '../types/table/AppearanceSection';
 import type { ConditionalFormattingRule } from '../types/table/types';
@@ -16,12 +17,18 @@ interface ColumnFormatConfig {
   decimalPlaces?: number;
 }
 
+interface DateColumnFormatConfig {
+  dateFormat?: DateFormat;
+}
+
 interface PivotTableCustomizationsProps {
   customizations: Record<string, unknown>;
   updateCustomization: (key: string, value: unknown) => void;
   disabled?: boolean;
   /** Metric column names available for number formatting */
   metricColumns?: string[];
+  /** Datetime dimension columns (row + column) with no time grain — eligible for date formatting */
+  dateColumns?: string[];
 }
 
 export default function PivotTableCustomizations({
@@ -29,6 +36,7 @@ export default function PivotTableCustomizations({
   updateCustomization,
   disabled,
   metricColumns = [],
+  dateColumns = [],
 }: PivotTableCustomizationsProps) {
   const [expandedColumn, setExpandedColumn] = useState<string | null>(null);
 
@@ -40,6 +48,22 @@ export default function PivotTableCustomizations({
   const zebraRows: boolean = (customizations.zebraRows as boolean) || false;
   const freezeFirstColumn: boolean = (customizations.freezeFirstColumn as boolean) || false;
   const theme: string | undefined = customizations.theme as string | undefined;
+  const dateColumnFormatting: Record<string, DateColumnFormatConfig> =
+    (customizations.dateColumnFormatting as Record<string, DateColumnFormatConfig>) || {};
+
+  // --- Date Formatting handler (display-only, for ungrained datetime dimensions) ---
+  const handleDateFormatChange = useCallback(
+    (column: string, dateFormat: DateFormat) => {
+      const next = { ...dateColumnFormatting };
+      if (dateFormat === 'default') {
+        delete next[column];
+      } else {
+        next[column] = { dateFormat };
+      }
+      updateCustomization('dateColumnFormatting', next);
+    },
+    [dateColumnFormatting, updateCustomization]
+  );
 
   // --- Number Formatting handlers ---
   const handleToggleColumn = useCallback(
@@ -182,6 +206,32 @@ export default function PivotTableCustomizations({
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Section 1b: Date Formatting (per datetime dimension without a time grain) */}
+      {dateColumns.length > 0 && (
+        <div className="space-y-4" data-testid="pivot-date-formatting">
+          <div>
+            <h4 className="text-sm font-medium">Date Formatting</h4>
+            <p className="text-xs text-muted-foreground">
+              Display format for date dimensions. Columns with a time grain are formatted by their
+              grain instead.
+            </p>
+          </div>
+          <div className="space-y-4">
+            {dateColumns.map((column) => (
+              <div key={column} className="space-y-2" data-testid={`pivot-date-format-${column}`}>
+                <div className="text-sm font-medium truncate">{column}</div>
+                <DateFormatSection
+                  idPrefix={`pivot-${column}`}
+                  dateFormat={dateColumnFormatting[column]?.dateFormat}
+                  onDateFormatChange={(value) => handleDateFormatChange(column, value)}
+                  disabled={disabled}
+                />
+              </div>
+            ))}
           </div>
         </div>
       )}

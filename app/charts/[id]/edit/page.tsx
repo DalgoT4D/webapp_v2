@@ -336,10 +336,17 @@ function EditChartPageContent() {
           extra_config: {
             row_dimensions: chart.extra_config?.row_dimensions || [],
             column_dimensions: chart.extra_config?.column_dimensions || [],
-            column_time_grains: chart.extra_config?.column_time_grains || {},
             show_row_subtotals: chart.extra_config?.show_row_subtotals ?? false,
             show_column_subtotals: chart.extra_config?.show_column_subtotals ?? false,
             show_grand_total: chart.extra_config?.show_grand_total ?? false,
+            show_row_grand_total:
+              chart.extra_config?.show_row_grand_total ??
+              chart.extra_config?.show_grand_total ??
+              false,
+            show_column_grand_total:
+              chart.extra_config?.show_column_grand_total ??
+              chart.extra_config?.show_grand_total ??
+              false,
             subtotal_label: chart.extra_config?.subtotal_label || 'Subtotal',
             column_subtotal_label: chart.extra_config?.column_subtotal_label || 'Subtotal',
             grand_total_label: chart.extra_config?.grand_total_label || 'Grand Total',
@@ -574,10 +581,17 @@ function EditChartPageContent() {
             ...(formData.chart_type === 'pivot_table' && {
               row_dimensions: formData.extra_config?.row_dimensions || [],
               column_dimensions: formData.extra_config?.column_dimensions || [],
-              column_time_grains: formData.extra_config?.column_time_grains || {},
               show_row_subtotals: formData.extra_config?.show_row_subtotals ?? false,
               show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
               show_grand_total: formData.extra_config?.show_grand_total ?? false,
+              show_row_grand_total:
+                formData.extra_config?.show_row_grand_total ??
+                formData.extra_config?.show_grand_total ??
+                false,
+              show_column_grand_total:
+                formData.extra_config?.show_column_grand_total ??
+                formData.extra_config?.show_grand_total ??
+                false,
             }),
             // Number formatting is frontend-only - exclude from API payload
             ...(formData.chart_type !== ChartTypes.TABLE &&
@@ -604,10 +618,17 @@ function EditChartPageContent() {
               ...(formData.chart_type === 'pivot_table' && {
                 row_dimensions: formData.extra_config?.row_dimensions || [],
                 column_dimensions: formData.extra_config?.column_dimensions || [],
-                column_time_grains: formData.extra_config?.column_time_grains || {},
                 show_row_subtotals: formData.extra_config?.show_row_subtotals ?? false,
                 show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
                 show_grand_total: formData.extra_config?.show_grand_total ?? false,
+                show_row_grand_total:
+                  formData.extra_config?.show_row_grand_total ??
+                  formData.extra_config?.show_grand_total ??
+                  false,
+                show_column_grand_total:
+                  formData.extra_config?.show_column_grand_total ??
+                  formData.extra_config?.show_grand_total ??
+                  false,
               }),
             },
           }
@@ -1342,10 +1363,17 @@ function EditChartPageContent() {
         ...(formData.chart_type === 'pivot_table' && {
           row_dimensions: formData.extra_config?.row_dimensions || [],
           column_dimensions: formData.extra_config?.column_dimensions || [],
-          column_time_grains: formData.extra_config?.column_time_grains || {},
           show_row_subtotals: formData.extra_config?.show_row_subtotals ?? false,
           show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
           show_grand_total: formData.extra_config?.show_grand_total ?? false,
+          show_row_grand_total:
+            formData.extra_config?.show_row_grand_total ??
+            formData.extra_config?.show_grand_total ??
+            false,
+          show_column_grand_total:
+            formData.extra_config?.show_column_grand_total ??
+            formData.extra_config?.show_grand_total ??
+            false,
           subtotal_label: formData.extra_config?.subtotal_label || 'Subtotal',
           column_subtotal_label: formData.extra_config?.column_subtotal_label || 'Subtotal',
           grand_total_label: formData.extra_config?.grand_total_label || 'Grand Total',

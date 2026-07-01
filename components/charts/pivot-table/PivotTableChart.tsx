@@ -1,12 +1,12 @@
 'use client';
 
 import { useMemo, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { PivotTableResponse, PivotSort } from '@/types/pivot-table';
+import { PivotTableResponse } from '@/types/pivot-table';
 import { formatNumber, NumberFormats, type NumberFormat } from '@/lib/formatters';
 import type { ConditionalFormattingRule } from '../types/table/types';
 import { getTableTheme } from '../types/table/constants';
-import { calculateRowSpans } from './utils';
+import { calculateRowSpans, applyPivotDateFormat } from './utils';
+import type { DateFormat } from '@/lib/formatters';
 import { useTableSearch } from '../hooks/useTableSearch';
 import { TableSearchBar } from '../TableSearchBar';
 
@@ -29,17 +29,21 @@ const COL_SUBTOTAL_MARKER = '__COL_SUBTOTAL__';
 interface PivotTableChartProps {
   data: PivotTableResponse;
   rowDimLabels: string[];
+  /** Per row-dimension display date format (null = none/grained). Index aligns with row_labels. */
+  rowDimDateFormats?: (DateFormat | null)[];
+  /** Per column-dimension-level display date format (null = none/grained). Index aligns with column key levels. */
+  columnDimDateFormats?: (DateFormat | null)[];
+  /** Show the rightmost "Total" column (each row across all columns). Defaults on. */
+  showRowGrandTotal?: boolean;
+  /** Show the bottom "Total" row (each column across all rows). Defaults on. */
+  showColumnGrandTotal?: boolean;
   customizations?: Record<string, unknown>;
   subtotalLabel?: string;
   columnSubtotalLabel?: string;
-  grandTotalLabel?: string;
-  onSort?: (sort: PivotSort) => void;
-  pagination?: {
-    page: number;
-    pageSize: number;
-    totalGroups: number;
-    onPageChange: (page: number) => void;
-  };
+  /** Header label for the rightmost grand total column (row grand total) */
+  rowGrandTotalLabel?: string;
+  /** Label for the bottom grand total row (column grand total) */
+  columnGrandTotalLabel?: string;
 }
 
 /**
@@ -76,18 +80,27 @@ function computeHeaderSpans(
 export default function PivotTableChart({
   data,
   rowDimLabels,
+  rowDimDateFormats,
+  columnDimDateFormats,
+  showRowGrandTotal = true,
+  showColumnGrandTotal = true,
   customizations,
   subtotalLabel,
   columnSubtotalLabel,
-  grandTotalLabel,
-  onSort,
-  pagination,
+  rowGrandTotalLabel,
+  columnGrandTotalLabel,
 }: PivotTableChartProps) {
   const dimCount = rowDimLabels.length;
   const columnKeys = data.column_keys ?? [];
   const metricHeaders = data.metric_headers ?? [];
   const hasColumnKeys = columnKeys.length > 0;
   const metricCount = metricHeaders.length;
+
+  // Grand-total gates. With no column dimensions, row_total holds the primary metric
+  // values (not a grand-total column), so those cells must always render.
+  const showRowTotalColumn = hasColumnKeys && showRowGrandTotal;
+  const renderRowTotalCells = !hasColumnKeys || showRowGrandTotal;
+  const showColumnGrandTotalRow = showColumnGrandTotal && !!data.grand_total;
   const numColDims = data.column_dimension_names?.length || 0;
 
   // Extract customization values
@@ -135,8 +148,6 @@ export default function PivotTableChart({
     }
     return cols;
   }, [columnKeys, data.column_subtotals, hasColumnKeys, numColDims]);
-
-  const totalPages = pagination ? Math.ceil(pagination.totalGroups / pagination.pageSize) : 1;
 
   const formatCell = useCallback(
     (value: number | null, metricName: string): string => {
@@ -378,7 +389,7 @@ export default function PivotTableChart({
                     <th
                       key={`ch-${level}-${spanIdx}`}
                       colSpan={span.span * metricCount}
-                      className={`px-3 py-2 text-center font-semibold border-b border-r ${
+                      className={`px-3 py-2 text-right font-semibold border-b border-r ${
                         isSubtotalHeader ? 'italic' : ''
                       }`}
                       style={{
@@ -388,19 +399,26 @@ export default function PivotTableChart({
                           : {}),
                       }}
                     >
-                      {isSubtotalHeader ? columnSubtotalLabel || 'Subtotal' : span.value}
+                      {isSubtotalHeader
+                        ? columnSubtotalLabel || 'Subtotal'
+                        : applyPivotDateFormat(span.value, columnDimDateFormats?.[level])}
                     </th>
                   );
                 })}
-                {/* Total column header — only on first row, spanning all header rows */}
-                {level === 0 && (
+                {/* Total column header — only on first row, spanning all header rows.
+                    Styled like the grand total row for visual consistency. */}
+                {level === 0 && showRowTotalColumn && (
                   <th
                     colSpan={metricCount}
                     rowSpan={numColDims}
-                    className="px-3 py-2 text-center font-semibold border-b"
-                    style={headerCellStyle}
+                    className="px-3 py-2 text-right font-bold border-b border-l"
+                    style={{
+                      backgroundColor: theme.grandTotalRow,
+                      color: theme.headerText,
+                      borderColor: theme.grandTotalBorder,
+                    }}
                   >
-                    Total
+                    {rowGrandTotalLabel || 'Grand Total'}
                   </th>
                 )}
               </tr>
@@ -426,7 +444,7 @@ export default function PivotTableChart({
                     return metricHeaders.map((metric, mIdx) => (
                       <th
                         key={`metric-${colIdx}-${mIdx}`}
-                        className={`px-3 py-2 text-right font-medium border-b border-r cursor-pointer hover:opacity-80 ${
+                        className={`px-3 py-2 text-right font-medium border-b border-r ${
                           isColSubtotal ? 'italic' : ''
                         }`}
                         style={{
@@ -435,39 +453,35 @@ export default function PivotTableChart({
                             ? { backgroundColor: theme.subtotalRow, color: theme.headerText }
                             : {}),
                         }}
-                        onClick={() =>
-                          onSort?.({
-                            column: metric,
-                            pivot_value: col.headerKey
-                              .filter((v) => v !== COL_SUBTOTAL_MARKER)
-                              .join(' | '),
-                            direction: 'desc',
-                          })
-                        }
                       >
                         {metric}
                       </th>
                     ));
                   })}
-                  {/* Total column metrics */}
-                  {metricHeaders.map((metric, mIdx) => (
-                    <th
-                      key={`metric-total-${mIdx}`}
-                      className="px-3 py-2 text-right font-medium border-b border-r last:border-r-0 cursor-pointer hover:opacity-80"
-                      style={headerCellStyle}
-                      onClick={() => onSort?.({ column: metric, direction: 'desc' })}
-                    >
-                      {metric}
-                    </th>
-                  ))}
+                  {/* Total column metrics — matches the grand total row styling */}
+                  {showRowTotalColumn &&
+                    metricHeaders.map((metric, mIdx) => (
+                      <th
+                        key={`metric-total-${mIdx}`}
+                        className={`px-3 py-2 text-right font-bold border-b border-r last:border-r-0 ${
+                          mIdx === 0 ? 'border-l' : ''
+                        }`}
+                        style={{
+                          backgroundColor: theme.grandTotalRow,
+                          color: theme.headerText,
+                          borderColor: theme.grandTotalBorder,
+                        }}
+                      >
+                        {metric}
+                      </th>
+                    ))}
                 </>
               ) : (
                 metricHeaders.map((metric, mIdx) => (
                   <th
                     key={`metric-${mIdx}`}
-                    className="px-3 py-2 text-right font-medium border-b cursor-pointer hover:opacity-80"
+                    className="px-3 py-2 text-right font-medium border-b"
                     style={headerCellStyle}
-                    onClick={() => onSort?.({ column: metric, direction: 'desc' })}
                   >
                     {metric}
                   </th>
@@ -500,7 +514,11 @@ export default function PivotTableChart({
 
                     if (row.is_subtotal) {
                       if (dimIdx === 0) {
-                        const groupLabel = row.row_labels.join(' > ');
+                        const groupLabel = row.row_labels
+                          .map((lbl, i) =>
+                            applyPivotDateFormat(String(lbl ?? ''), rowDimDateFormats?.[i])
+                          )
+                          .join(' > ');
                         const suffix = subtotalLabel || 'Subtotal';
                         return (
                           <td
@@ -538,7 +556,10 @@ export default function PivotTableChart({
                           ...getSearchStyle(rowIdx, cellCol),
                         }}
                       >
-                        {row.row_labels[dimIdx] || ''}
+                        {applyPivotDateFormat(
+                          row.row_labels[dimIdx] || '',
+                          rowDimDateFormats?.[dimIdx]
+                        )}
                       </td>
                     );
                   })}
@@ -581,30 +602,45 @@ export default function PivotTableChart({
                       })
                     : null}
 
-                  {/* Row total cells */}
-                  {row.row_total.map((val, mIdx) => {
-                    const cellCol = colCounter;
-                    colCounter++;
-                    const metricName = metricHeaders[mIdx] || '';
-                    const bgColor = getConditionalColor(val, metricName);
-                    return (
-                      <td
-                        key={`total-${mIdx}`}
-                        data-search-cell={`${rowIdx}-${cellCol}`}
-                        className="px-3 py-2 text-right font-medium border-b tabular-nums"
-                        style={{ ...borderStyle, ...getSearchStyle(rowIdx, cellCol, bgColor) }}
-                      >
-                        {formatCell(val, metricName)}
-                      </td>
-                    );
-                  })}
+                  {/* Row total cells (grand total across columns; also the primary
+                      values when there are no column dimensions). When acting as the
+                      grand total column, style them like the grand total row. */}
+                  {renderRowTotalCells &&
+                    row.row_total.map((val, mIdx) => {
+                      const cellCol = colCounter;
+                      colCounter++;
+                      const metricName = metricHeaders[mIdx] || '';
+                      // Only treat as a grand total column when column dimensions exist;
+                      // without them these cells are the primary data.
+                      const isGrandTotalCol = hasColumnKeys;
+                      const baseBg = isGrandTotalCol
+                        ? theme.grandTotalRow
+                        : getConditionalColor(val, metricName);
+                      return (
+                        <td
+                          key={`total-${mIdx}`}
+                          data-search-cell={`${rowIdx}-${cellCol}`}
+                          className={`px-3 py-2 text-right border-b tabular-nums ${
+                            isGrandTotalCol
+                              ? `font-bold border-r last:border-r-0 ${mIdx === 0 ? 'border-l' : ''}`
+                              : 'font-medium'
+                          }`}
+                          style={{
+                            borderColor: isGrandTotalCol ? theme.grandTotalBorder : theme.border,
+                            ...getSearchStyle(rowIdx, cellCol, baseBg),
+                          }}
+                        >
+                          {formatCell(val, metricName)}
+                        </td>
+                      );
+                    })}
                 </tr>
               );
             })}
           </tbody>
 
           {/* Grand total row — sticky at bottom like header is sticky at top */}
-          {data.grand_total && (
+          {showColumnGrandTotalRow && (
             <tfoot className="sticky bottom-0 z-10">
               <tr
                 className="font-bold"
@@ -613,13 +649,13 @@ export default function PivotTableChart({
               >
                 <td
                   colSpan={dimCount}
-                  className={`px-3 py-2 border-t-2 border-b border-r ${frozenCellClass}`}
+                  className={`px-3 py-2 border-t border-b border-r ${frozenCellClass}`}
                   style={{
-                    borderColor: theme.border,
+                    borderColor: theme.grandTotalBorder,
                     ...(freezeFirstColumn ? { backgroundColor: theme.grandTotalRow } : {}),
                   }}
                 >
-                  {grandTotalLabel || 'Grand Total'}
+                  {columnGrandTotalLabel || 'Grand Total'}
                 </td>
                 {hasColumnKeys
                   ? effectiveColumns.map((col, ecIdx) => {
@@ -634,10 +670,10 @@ export default function PivotTableChart({
                         return (
                           <td
                             key={`gt-val-${ecIdx}-${mIdx}`}
-                            className={`px-3 py-2 text-right border-t-2 border-b border-r tabular-nums ${
+                            className={`px-3 py-2 text-right border-t border-b border-r tabular-nums ${
                               isColSubtotal ? 'italic' : ''
                             }`}
-                            style={borderStyle}
+                            style={{ borderColor: theme.grandTotalBorder }}
                           >
                             {formatCell(val, metricName)}
                           </td>
@@ -645,56 +681,26 @@ export default function PivotTableChart({
                       });
                     })
                   : null}
-                {data.grand_total.row_total.map((val, mIdx) => {
-                  const metricName = metricHeaders[mIdx] || '';
-                  return (
-                    <td
-                      key={`gt-total-${mIdx}`}
-                      className="px-3 py-2 text-right border-t-2 border-b tabular-nums"
-                      style={borderStyle}
-                    >
-                      {formatCell(val, metricName)}
-                    </td>
-                  );
-                })}
+                {renderRowTotalCells &&
+                  data.grand_total!.row_total.map((val, mIdx) => {
+                    const metricName = metricHeaders[mIdx] || '';
+                    return (
+                      <td
+                        key={`gt-total-${mIdx}`}
+                        className={`px-3 py-2 text-right border-t border-b border-r last:border-r-0 tabular-nums ${
+                          hasColumnKeys && mIdx === 0 ? 'border-l' : ''
+                        }`}
+                        style={{ borderColor: theme.grandTotalBorder }}
+                      >
+                        {formatCell(val, metricName)}
+                      </td>
+                    );
+                  })}
               </tr>
             </tfoot>
           )}
         </table>
       </div>
-
-      {/* Pagination */}
-      {pagination && totalPages > 1 && (
-        <div
-          className="flex items-center justify-between pt-3 border-t flex-shrink-0"
-          style={{ borderColor: theme.border }}
-          data-testid="pivot-pagination"
-        >
-          <span className="text-sm text-muted-foreground">
-            Page {pagination.page} of {totalPages} ({pagination.totalGroups} groups)
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagination.page <= 1}
-              onClick={() => pagination.onPageChange(pagination.page - 1)}
-              data-testid="pivot-prev-page-btn"
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagination.page >= totalPages}
-              onClick={() => pagination.onPageChange(pagination.page + 1)}
-              data-testid="pivot-next-page-btn"
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

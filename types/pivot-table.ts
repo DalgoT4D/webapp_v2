@@ -25,13 +25,4 @@ export interface PivotTableResponse {
   rows: PivotRow[];
   grand_total: PivotGrandTotalRow | null;
   column_subtotals?: ColumnSubtotals; // present when show_column_subtotals is enabled
-  total_row_groups: number;
-  page: number;
-  page_size: number;
-}
-
-export interface PivotSort {
-  column: string; // metric alias
-  pivot_value?: string; // column group to sort by (omit = sort by row_total)
-  direction: 'asc' | 'desc';
 }

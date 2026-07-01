@@ -14,8 +14,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
+import { computePivotDateFormats, resolvePivotTotals } from '@/components/charts/pivot-table/utils';
 import type { PivotTableResponse } from '@/types/pivot-table';
-import { PIVOT_DEFAULT_PAGE_SIZE } from '@/constants/pivot-table';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPublicPost } from '@/lib/api';
@@ -178,9 +178,6 @@ export function ChartElementView({
   // Table pagination state
   const [tablePage, setTablePage] = useState(1);
   const [tablePageSize, setTablePageSize] = useState(20);
-  // Pivot group-level pagination (1-based). Only the live private /{id}/data/ path supports it;
-  // public dashboard / report-snapshot endpoints don't, so the footer is gated off there.
-  const [pivotPage, setPivotPage] = useState(1);
 
   // ✅ ADD: Drill-down state management for table charts
   const [tableDrillDownState, setTableDrillDownState] = useState<{
@@ -233,21 +230,10 @@ export function ChartElementView({
   const filterHash = useMemo(() => JSON.stringify(dashboardFilters), [dashboardFilters]);
   const previousFilterHash = useRef<string>(filterHash);
 
-  // Reset pivot pagination when filters change so we never sit on an out-of-range page.
-  useEffect(() => {
-    setPivotPage(1);
-  }, [filterHash]);
-
   // Build query params with filters
   const queryParams = new URLSearchParams();
   if (Object.keys(dashboardFilters).length > 0) {
     queryParams.append('dashboard_filters', JSON.stringify(dashboardFilters));
-  }
-  // Live private pivot tables paginate server-side by top-level row group.
-  const isPivotLivePrivate =
-    !isPublicMode && !frozenChartConfig && chart?.chart_type === ChartTypes.PIVOT_TABLE;
-  if (isPivotLivePrivate) {
-    queryParams.append('page', String(pivotPage));
   }
 
   // Use public API endpoint if in public mode, otherwise use regular API
@@ -1852,22 +1838,36 @@ export function ChartElementView({
             <PivotTableChart
               data={chartData.data as unknown as PivotTableResponse}
               rowDimLabels={effectiveChart?.extra_config?.row_dimensions || []}
+              rowDimDateFormats={
+                computePivotDateFormats(
+                  effectiveChart?.extra_config,
+                  effectiveChart?.extra_config?.customizations || {}
+                ).rowDimDateFormats
+              }
+              columnDimDateFormats={
+                computePivotDateFormats(
+                  effectiveChart?.extra_config,
+                  effectiveChart?.extra_config?.customizations || {}
+                ).columnDimDateFormats
+              }
+              showRowGrandTotal={resolvePivotTotals(effectiveChart?.extra_config).showRowGrandTotal}
+              showColumnGrandTotal={
+                resolvePivotTotals(effectiveChart?.extra_config).showColumnGrandTotal
+              }
               customizations={effectiveChart?.extra_config?.customizations || {}}
               subtotalLabel={effectiveChart?.extra_config?.subtotal_label || 'Subtotal'}
               columnSubtotalLabel={
                 effectiveChart?.extra_config?.column_subtotal_label || 'Subtotal'
               }
-              grandTotalLabel={effectiveChart?.extra_config?.grand_total_label || 'Grand Total'}
-              pagination={
-                isPivotLivePrivate
-                  ? {
-                      page: pivotPage,
-                      pageSize: PIVOT_DEFAULT_PAGE_SIZE,
-                      totalGroups:
-                        (chartData.data as unknown as PivotTableResponse).total_row_groups || 0,
-                      onPageChange: setPivotPage,
-                    }
-                  : undefined
+              rowGrandTotalLabel={
+                effectiveChart?.extra_config?.row_grand_total_label ||
+                effectiveChart?.extra_config?.grand_total_label ||
+                'Grand Total'
+              }
+              columnGrandTotalLabel={
+                effectiveChart?.extra_config?.column_grand_total_label ||
+                effectiveChart?.extra_config?.grand_total_label ||
+                'Grand Total'
               }
             />
           ) : (

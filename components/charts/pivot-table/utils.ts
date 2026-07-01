@@ -1,4 +1,60 @@
 import { PivotTableResponse, PivotRow, ColumnSubtotals } from '@/types/pivot-table';
+import { formatDate, type DateFormat } from '@/lib/formatters';
+
+/**
+ * Apply a display-only date format to a pivot row-label / column-header value.
+ * Returns the value unchanged when no format is set, the format is 'default',
+ * or the value isn't a parseable date (formatDate returns the raw value in that case).
+ */
+export function applyPivotDateFormat(value: string, format: DateFormat | null | undefined): string {
+  if (!format || format === 'default' || !value) return value;
+  return formatDate(value, { format });
+}
+
+interface PivotDateFormatConfig {
+  dateFormat?: DateFormat;
+}
+
+/**
+ * Resolve the two independent grand-total flags from extra_config, falling back
+ * to the legacy `show_grand_total` when a new flag is unset (older saved charts).
+ * - showRowGrandTotal → rightmost "Total" column (each row summed across columns)
+ * - showColumnGrandTotal → bottom "Total" row (each column summed across rows)
+ */
+export function resolvePivotTotals(extraConfig: Record<string, unknown> | undefined): {
+  showRowGrandTotal: boolean;
+  showColumnGrandTotal: boolean;
+} {
+  const legacy = (extraConfig?.show_grand_total as boolean | undefined) ?? false;
+  const rowFlag = extraConfig?.show_row_grand_total as boolean | undefined;
+  const colFlag = extraConfig?.show_column_grand_total as boolean | undefined;
+  return {
+    showRowGrandTotal: rowFlag ?? legacy,
+    showColumnGrandTotal: colFlag ?? legacy,
+  };
+}
+
+/**
+ * Compute per-dimension display date formats for a pivot's row and column axes,
+ * aligned by dimension index. A dimension gets a format when the user chose a
+ * date format for it (display-only; does not change grouping).
+ */
+export function computePivotDateFormats(
+  extraConfig: Record<string, unknown> | undefined,
+  customizations: Record<string, unknown> | undefined
+): { rowDimDateFormats: (DateFormat | null)[]; columnDimDateFormats: (DateFormat | null)[] } {
+  const rowDims = (extraConfig?.row_dimensions as string[]) || [];
+  const colDims = (extraConfig?.column_dimensions as string[]) || [];
+  const dateFmt =
+    (customizations?.dateColumnFormatting as Record<string, PivotDateFormatConfig>) || {};
+
+  const formatFor = (dim: string): DateFormat | null => dateFmt[dim]?.dateFormat ?? null;
+
+  return {
+    rowDimDateFormats: rowDims.map(formatFor),
+    columnDimDateFormats: colDims.map(formatFor),
+  };
+}
 
 /**
  * Calculate rowSpan for hierarchical row dimensions.
@@ -87,13 +143,25 @@ function buildCsvColumnOrder(
 /**
  * Export pivoted data as CSV string.
  * Supports multiple column dimensions via column_keys and column subtotals.
+ * Grand totals mirror the on-screen table: showRowGrandTotal gates the rightmost
+ * "Total" columns, showColumnGrandTotal gates the bottom "Grand Total" row, and the
+ * corner appears only when both are on. Both default on for back-compat.
  */
-export function exportPivotAsCsv(data: PivotTableResponse, rowDimLabels: string[]): string {
+export function exportPivotAsCsv(
+  data: PivotTableResponse,
+  rowDimLabels: string[],
+  showRowGrandTotal = true,
+  showColumnGrandTotal = true
+): string {
   const lines: string[] = [];
   const columnKeys = data.column_keys ?? [];
   const metricHeaders = data.metric_headers ?? [];
   const hasColumns = columnKeys.length > 0;
   const colOrder = buildCsvColumnOrder(columnKeys, data.column_subtotals);
+
+  // With no column dimensions, row_total holds the primary metric values, so those
+  // cells always render; with column dimensions they are the row grand total.
+  const renderRowTotalCells = !hasColumns || showRowGrandTotal;
 
   // Header row: flatten column keys to "val1 | val2" + metric name
   const headerParts = [...rowDimLabels];
@@ -103,9 +171,11 @@ export function exportPivotAsCsv(data: PivotTableResponse, rowDimLabels: string[
     }
   }
   if (hasColumns) {
-    // Total columns
-    for (const metricName of metricHeaders) {
-      headerParts.push(`Total | ${metricName}`);
+    // Total columns (row grand total)
+    if (showRowGrandTotal) {
+      for (const metricName of metricHeaders) {
+        headerParts.push(`Total | ${metricName}`);
+      }
     }
   } else {
     // No column dimensions — just metric names
@@ -134,14 +204,16 @@ export function exportPivotAsCsv(data: PivotTableResponse, rowDimLabels: string[
         parts.push(v !== null && v !== undefined ? String(v) : '');
       }
     }
-    for (const v of row.row_total) {
-      parts.push(v !== null && v !== undefined ? String(v) : '');
+    if (renderRowTotalCells) {
+      for (const v of row.row_total) {
+        parts.push(v !== null && v !== undefined ? String(v) : '');
+      }
     }
     lines.push(parts.map(escapeCsvField).join(','));
   }
 
-  // Grand total
-  if (data.grand_total) {
+  // Grand total row (column grand total)
+  if (showColumnGrandTotal && data.grand_total) {
     const parts: string[] = ['Grand Total'];
     for (let d = 1; d < rowDimLabels.length; d++) parts.push('');
     for (const col of colOrder) {
@@ -153,8 +225,12 @@ export function exportPivotAsCsv(data: PivotTableResponse, rowDimLabels: string[
         parts.push(v !== null && v !== undefined ? String(v) : '');
       }
     }
-    for (const v of data.grand_total.row_total) {
-      parts.push(v !== null && v !== undefined ? String(v) : '');
+    // Trailing cells are the corner (with columns) or the metric totals (without) —
+    // shown only when the row grand total is on.
+    if (renderRowTotalCells) {
+      for (const v of data.grand_total.row_total) {
+        parts.push(v !== null && v !== undefined ? String(v) : '');
+      }
     }
     lines.push(parts.map(escapeCsvField).join(','));
   }

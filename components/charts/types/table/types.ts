@@ -51,6 +51,8 @@ export interface TableTheme {
   border: string;
   subtotalRow: string;
   grandTotalRow: string;
+  /** Darker border used inside grand-total cells so gridlines stay visible against grandTotalRow */
+  grandTotalBorder: string;
   hoverRow: string;
 }
 

@@ -443,7 +443,6 @@ export function ChartDataConfigurationV3({
             ...(formData.extra_config || {}),
             row_dimensions: [],
             column_dimensions: [],
-            column_time_grains: {},
             show_row_subtotals: false,
             show_column_subtotals: false,
             show_grand_total: false,
@@ -559,13 +558,14 @@ export function ChartDataConfigurationV3({
         />
       )}
 
-      {/* Pivot Table Data Configuration */}
+      {/* Pivot Table Data Configuration — dimensions only; totals render after metrics/filters */}
       {formData.chart_type === 'pivot_table' && (
         <PivotDataConfiguration
           formData={formData}
           availableColumns={normalizedColumns}
           onChange={onChange}
           disabled={disabled}
+          section="dimensions"
         />
       )}
 
@@ -834,43 +834,56 @@ export function ChartDataConfigurationV3({
         </div>
       )}
 
-      {/* Pagination Section */}
-      {formData.chart_type !== 'map' && formData.chart_type !== 'number' && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Pagination</Label>
-          <Select
-            value={
-              formData.pagination?.enabled
-                ? (formData.pagination?.page_size || 50).toString()
-                : '__none__'
-            }
-            onValueChange={(value) => {
-              if (value === '__none__') {
-                onChange({ pagination: { enabled: false, page_size: 50 } });
-              } else {
-                onChange({
-                  pagination: {
-                    enabled: true,
-                    page_size: parseInt(value),
-                  },
-                });
-              }
-            }}
-            disabled={disabled}
-          >
-            <SelectTrigger className="h-8 w-full">
-              <SelectValue placeholder="Select pagination" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">No pagination</SelectItem>
-              <SelectItem value="20">20 items</SelectItem>
-              <SelectItem value="50">50 items</SelectItem>
-              <SelectItem value="100">100 items</SelectItem>
-              <SelectItem value="200">200 items</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Pivot Table subtotals & grand totals — placed after metrics/filters */}
+      {formData.chart_type === 'pivot_table' && (
+        <PivotDataConfiguration
+          formData={formData}
+          availableColumns={normalizedColumns}
+          onChange={onChange}
+          disabled={disabled}
+          section="totals"
+        />
       )}
+
+      {/* Pagination Section — not applicable to map, number, or pivot table charts */}
+      {formData.chart_type !== 'map' &&
+        formData.chart_type !== 'number' &&
+        formData.chart_type !== 'pivot_table' && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-900">Pagination</Label>
+            <Select
+              value={
+                formData.pagination?.enabled
+                  ? (formData.pagination?.page_size || 50).toString()
+                  : '__none__'
+              }
+              onValueChange={(value) => {
+                if (value === '__none__') {
+                  onChange({ pagination: { enabled: false, page_size: 50 } });
+                } else {
+                  onChange({
+                    pagination: {
+                      enabled: true,
+                      page_size: parseInt(value),
+                    },
+                  });
+                }
+              }}
+              disabled={disabled}
+            >
+              <SelectTrigger className="h-8 w-full">
+                <SelectValue placeholder="Select pagination" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">No pagination</SelectItem>
+                <SelectItem value="20">20 items</SelectItem>
+                <SelectItem value="50">50 items</SelectItem>
+                <SelectItem value="100">100 items</SelectItem>
+                <SelectItem value="200">200 items</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
       {/* Sort Section */}
       {formData.chart_type !== 'map' && formData.chart_type !== 'number' && (

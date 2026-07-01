@@ -6,6 +6,7 @@ import { Loader2, AlertCircle, BarChart2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TableChart } from './TableChart';
 import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
+import { computePivotDateFormats, resolvePivotTotals } from '@/components/charts/pivot-table/utils';
 import { PivotTableResponse } from '@/types/pivot-table';
 import {
   applyLegendPosition,
@@ -422,16 +423,30 @@ export function ChartPreview({
     const rowDimLabels = config?.extra_config?.row_dimensions || [];
     const subtotalLabel = (config?.extra_config?.subtotal_label as string) || '';
     const columnSubtotalLabel = (config?.extra_config?.column_subtotal_label as string) || '';
-    const grandTotalLabel = (config?.extra_config?.grand_total_label as string) || '';
+    const legacyGrandTotalLabel = (config?.extra_config?.grand_total_label as string) || '';
+    const rowGrandTotalLabel =
+      (config?.extra_config?.row_grand_total_label as string) || legacyGrandTotalLabel;
+    const columnGrandTotalLabel =
+      (config?.extra_config?.column_grand_total_label as string) || legacyGrandTotalLabel;
+    const { rowDimDateFormats, columnDimDateFormats } = computePivotDateFormats(
+      config?.extra_config,
+      customizations
+    );
+    const { showRowGrandTotal, showColumnGrandTotal } = resolvePivotTotals(config?.extra_config);
 
     return (
       <PivotTableChart
         data={pivotData}
         rowDimLabels={rowDimLabels}
+        rowDimDateFormats={rowDimDateFormats}
+        columnDimDateFormats={columnDimDateFormats}
+        showRowGrandTotal={showRowGrandTotal}
+        showColumnGrandTotal={showColumnGrandTotal}
         customizations={customizations}
         subtotalLabel={subtotalLabel}
         columnSubtotalLabel={columnSubtotalLabel}
-        grandTotalLabel={grandTotalLabel}
+        rowGrandTotalLabel={rowGrandTotalLabel}
+        columnGrandTotalLabel={columnGrandTotalLabel}
       />
     );
   }

@@ -6,8 +6,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, AlertCircle, Home, Loader2 } from 'lucide-react';
 import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
+import { computePivotDateFormats, resolvePivotTotals } from '@/components/charts/pivot-table/utils';
 import type { PivotTableResponse } from '@/types/pivot-table';
-import { PIVOT_DEFAULT_PAGE_SIZE } from '@/constants/pivot-table';
 import { useChart } from '@/hooks/api/useCharts';
 import {
   useChartDataPreview,
@@ -130,8 +130,6 @@ export function ChartElementV2({
   // Table pagination state
   const [tablePage, setTablePage] = useState(1);
   const [tablePageSize, setTablePageSize] = useState(20);
-  // Pivot tables paginate by top-level row groups (1-based); sent to the data-by-id endpoint.
-  const [pivotPage, setPivotPage] = useState(1);
 
   // ✅ ADD: Drill-down state management for table charts
   const [tableDrillDownState, setTableDrillDownState] = useState<{
@@ -274,19 +272,10 @@ export function ChartElementV2({
   // Create a unique identifier for when filters change to trigger data refetch
   const filterHash = useMemo(() => JSON.stringify(appliedFilters), [appliedFilters]);
 
-  // Reset pivot pagination when filters change so we never sit on an out-of-range page.
-  useEffect(() => {
-    setPivotPage(1);
-  }, [filterHash]);
-
   // Build query params with filters
   const queryParams = new URLSearchParams();
   if (Object.keys(appliedFilters).length > 0) {
     queryParams.append('dashboard_filters', JSON.stringify(appliedFilters));
-  }
-  // Pivot tables paginate server-side by top-level row group; other types ignore page.
-  if (chart?.chart_type === ChartTypes.PIVOT_TABLE) {
-    queryParams.append('page', String(pivotPage));
   }
 
   const apiUrl = `/api/charts/${chartId}/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
@@ -1325,17 +1314,35 @@ export function ChartElementV2({
                   <PivotTableChart
                     data={chartData.data as unknown as PivotTableResponse}
                     rowDimLabels={chart.extra_config?.row_dimensions || []}
+                    rowDimDateFormats={
+                      computePivotDateFormats(
+                        chart.extra_config,
+                        chart.extra_config?.customizations || {}
+                      ).rowDimDateFormats
+                    }
+                    columnDimDateFormats={
+                      computePivotDateFormats(
+                        chart.extra_config,
+                        chart.extra_config?.customizations || {}
+                      ).columnDimDateFormats
+                    }
+                    showRowGrandTotal={resolvePivotTotals(chart.extra_config).showRowGrandTotal}
+                    showColumnGrandTotal={
+                      resolvePivotTotals(chart.extra_config).showColumnGrandTotal
+                    }
                     customizations={chart.extra_config?.customizations || {}}
                     subtotalLabel={chart.extra_config?.subtotal_label || 'Subtotal'}
                     columnSubtotalLabel={chart.extra_config?.column_subtotal_label || 'Subtotal'}
-                    grandTotalLabel={chart.extra_config?.grand_total_label || 'Grand Total'}
-                    pagination={{
-                      page: pivotPage,
-                      pageSize: PIVOT_DEFAULT_PAGE_SIZE,
-                      totalGroups:
-                        (chartData.data as unknown as PivotTableResponse).total_row_groups || 0,
-                      onPageChange: setPivotPage,
-                    }}
+                    rowGrandTotalLabel={
+                      chart.extra_config?.row_grand_total_label ||
+                      chart.extra_config?.grand_total_label ||
+                      'Grand Total'
+                    }
+                    columnGrandTotalLabel={
+                      chart.extra_config?.column_grand_total_label ||
+                      chart.extra_config?.grand_total_label ||
+                      'Grand Total'
+                    }
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
