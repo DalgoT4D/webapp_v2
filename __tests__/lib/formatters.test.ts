@@ -2,7 +2,7 @@
  * Tests for formatters utility
  */
 
-import { formatNumber, formatDate, type DateFormat } from '@/lib/formatters';
+import { formatNumber, formatDate, formatKPIValue, type DateFormat } from '@/lib/formatters';
 
 describe('formatNumber', () => {
   it.each([
@@ -13,8 +13,7 @@ describe('formatNumber', () => {
     [1000000, 'international', '1,000,000'],
     [1000000, 'indian', '10,00,000'],
     [1000000, 'european', '1.000.000'],
-    [85.5, 'percentage', '85.5%'],
-    [1000, 'currency', '$1,000'],
+    [0.855, 'percentage', '85.5%'],
     [-1234567, 'international', '-1,234,567'],
     [0, 'international', '0'],
     [0, 'indian', '0'],
@@ -27,7 +26,7 @@ describe('formatNumber', () => {
     [1234567, { format: 'international', decimalPlaces: 2 }, '1,234,567.00'],
     [1234567, { format: 'indian', decimalPlaces: 2 }, '12,34,567.00'],
     [1234567, { format: 'european', decimalPlaces: 2 }, '1.234.567,00'],
-    [85.567, { format: 'percentage', decimalPlaces: 1 }, '85.6%'],
+    [0.85567, { format: 'percentage', decimalPlaces: 1 }, '85.6%'],
     [0.005, { format: 'default', decimalPlaces: 2 }, '0.01'],
     [0, { format: 'international', decimalPlaces: 2 }, '0.00'],
   ])('formatNumber(%s, %j) => %s (with decimal places)', (value, options, expected) => {
@@ -68,6 +67,47 @@ describe('formatNumber', () => {
     [150000000, { format: 'adaptive_indian', decimalPlaces: 0 }, '15Cr'],
   ])('formatNumber(%s, %j) => %s (adaptive with decimal places)', (value, options, expected) => {
     expect(formatNumber(value as number, options as any)).toBe(expected);
+  });
+});
+
+describe('formatKPIValue', () => {
+  it('returns "No data" for null/undefined/NaN — no prefix/suffix wrap', () => {
+    expect(formatKPIValue(null, { numberPrefix: '₹', numberSuffix: '%' })).toBe('No data');
+    expect(formatKPIValue(undefined, { numberFormat: 'indian' })).toBe('No data');
+    expect(formatKPIValue(NaN, { numberPrefix: '$' })).toBe('No data');
+  });
+
+  it('shows the raw number as-is when no customizations are set', () => {
+    // No grouping, no compression — pure String(value)
+    expect(formatKPIValue(1_234_567)).toBe('1234567');
+    expect(formatKPIValue(85.5)).toBe('85.5');
+  });
+
+  it('applies decimal places, prefix, and suffix when numberFormat is absent', () => {
+    // Customizations without an explicit format → treat as "No Formatting" (default)
+    expect(formatKPIValue(1500, { numberPrefix: '₹' })).toBe('₹1500');
+    expect(formatKPIValue(1500.5, { decimalPlaces: 2 })).toBe('1500.50');
+    expect(formatKPIValue(1500, { numberSuffix: ' people' })).toBe('1500 people');
+    expect(
+      formatKPIValue(1234.5, { decimalPlaces: 1, numberPrefix: '$', numberSuffix: ' USD' })
+    ).toBe('$1234.5 USD');
+  });
+
+  it.each([
+    [123456, { numberFormat: 'indian', decimalPlaces: 0, numberPrefix: '₹' }, '₹1,23,456'],
+    [0.85, { numberFormat: 'percentage', decimalPlaces: 0 }, '85%'],
+    [
+      1500,
+      { numberFormat: 'default', decimalPlaces: 0, numberPrefix: '', numberSuffix: ' people' },
+      '1500 people',
+    ],
+    [
+      2_500_000,
+      { numberFormat: 'adaptive_international', decimalPlaces: 2, numberPrefix: '$' },
+      '$2.50M',
+    ],
+  ])('formatKPIValue(%s, %j) => %s', (value, customizations, expected) => {
+    expect(formatKPIValue(value as number, customizations as any)).toBe(expected);
   });
 });
 

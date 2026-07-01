@@ -25,16 +25,8 @@ export const NUMBER_FORMAT_OPTIONS = [
   { value: NumberFormats.INDIAN, label: 'Indian (1234567 => 12,34,567)' },
   { value: NumberFormats.INTERNATIONAL, label: 'International (1234567 => 1,234,567)' },
   { value: NumberFormats.EUROPEAN, label: 'European (1234567 => 1.234.567)' },
-  { value: NumberFormats.PERCENTAGE, label: 'Percentage (%)' },
-  { value: NumberFormats.CURRENCY, label: 'Currency ($)' },
+  { value: NumberFormats.PERCENTAGE, label: 'Percentage (0.85 => 85.00%)' },
 ] as const;
-
-/**
- * Format options for table charts (excludes percentage and currency)
- */
-export const TABLE_NUMBER_FORMAT_OPTIONS = NUMBER_FORMAT_OPTIONS.filter(
-  (opt) => opt.value !== NumberFormats.PERCENTAGE && opt.value !== NumberFormats.CURRENCY
-);
 
 interface NumberFormatSectionProps {
   /**
@@ -70,15 +62,11 @@ interface NumberFormatSectionProps {
    * Custom description text (only shown if showDescription is true)
    */
   description?: string;
-  /**
-   * Format values to exclude from the dropdown (e.g., ['percentage', 'currency'] for table charts)
-   */
-  excludeFormats?: string[];
 }
 
 /**
  * Reusable component for number format dropdown and decimal places input.
- * Used by Line, Bar, Pie,Table and Number chart customization panels.
+ * Used by Line, Bar, Pie, Table, Number chart customization panels and the KPI form.
  */
 export function NumberFormatSection({
   idPrefix,
@@ -89,17 +77,11 @@ export function NumberFormatSection({
   disabled = false,
   showDescription = false,
   description = 'Applied to axis labels, data labels, and tooltips',
-  excludeFormats = [],
 }: NumberFormatSectionProps) {
   const handleDecimalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = Math.min(MAX_DECIMAL_PLACES, Math.max(0, parseInt(e.target.value) || 0));
     onDecimalPlacesChange(value);
   };
-
-  // Filter out excluded formats
-  const availableOptions = NUMBER_FORMAT_OPTIONS.filter(
-    (opt) => !excludeFormats.includes(opt.value)
-  );
 
   return (
     <>
@@ -114,7 +96,7 @@ export function NumberFormatSection({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {availableOptions.map((opt) => (
+            {NUMBER_FORMAT_OPTIONS.map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
                 {opt.label}
               </SelectItem>

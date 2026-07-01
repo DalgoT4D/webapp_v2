@@ -13,7 +13,6 @@ export const NumberFormats = {
   INDIAN: 'indian',
   EUROPEAN: 'european',
   PERCENTAGE: 'percentage',
-  CURRENCY: 'currency',
   ADAPTIVE_INTERNATIONAL: 'adaptive_international',
   ADAPTIVE_INDIAN: 'adaptive_indian',
 } as const;
@@ -35,7 +34,7 @@ export interface FormatOptions {
  * @example
  * formatNumber(1000000, { format: 'international', decimalPlaces: 2 }) // "1,000,000.00"
  * formatNumber(1000000, { format: 'indian' })                          // "10,00,000"
- * formatNumber(85.5, { format: 'percentage' })                         // "85.5%"
+ * formatNumber(0.855, { format: 'percentage', decimalPlaces: 1 })      // "85.5%" (value * 100)
  */
 /**
  * Date format types supported by the application
@@ -117,6 +116,46 @@ export function formatMetricValue(v: number | null | undefined): string {
 }
 
 /**
+ * Customizations subset accepted by formatKPIValue. Matches the shape on
+ * KPI.extra_config.customizations. All fields optional.
+ */
+type FormatKPIValueCustomizations = {
+  numberFormat?: NumberFormat;
+  decimalPlaces?: number;
+  numberPrefix?: string;
+  numberSuffix?: string;
+};
+
+/**
+ * Render a KPI value with user-configured number formatting and prefix/suffix.
+ * When no customizations are set, shows the raw number as-is (no grouping,
+ * no compression). When customizations exist but `numberFormat` is absent,
+ * decimal places + prefix/suffix still apply (format defaults to "No Formatting").
+ *
+ * Returns "No data" for null/NaN -- without wrapping prefix/suffix. Matches
+ * the backend format_number_v2 contract so alert emails and the KPI card
+ * stay byte-identical.
+ */
+export function formatKPIValue(
+  value: number | null | undefined,
+  customizations?: FormatKPIValueCustomizations
+): string {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return 'No data';
+  }
+  if (!customizations) {
+    return String(value);
+  }
+  const formatted = formatNumber(value, {
+    format: customizations.numberFormat ?? NumberFormats.DEFAULT,
+    decimalPlaces: customizations.decimalPlaces,
+  });
+  const prefix = customizations.numberPrefix ?? '';
+  const suffix = customizations.numberSuffix ?? '';
+  return `${prefix}${formatted}${suffix}`;
+}
+
+/**
  * Compute period-over-period percentage changes for a list of values.
  * Returns an array of the same length where each element is the % change
  * from the previous value, or null if it can't be computed.
@@ -175,21 +214,13 @@ export function formatNumber(value: number, options: FormatOptions | NumberForma
         maximumFractionDigits: decimalPlaces,
       });
 
-    case NumberFormats.PERCENTAGE:
-      // 85 → 85%
-      const percentValue =
-        decimalPlaces !== undefined ? processedValue.toFixed(decimalPlaces) : value.toString();
-      return percentValue + '%';
-
-    case NumberFormats.CURRENCY:
-      // 1000 → $1,000
-      return (
-        '$' +
-        processedValue.toLocaleString('en-US', {
-          minimumFractionDigits: decimalPlaces,
-          maximumFractionDigits: decimalPlaces,
-        })
-      );
+    case NumberFormats.PERCENTAGE: {
+      // Percentage semantics: value is a ratio (0.85 → "85.00%"). Multiply by
+      // 100 before rendering. Decimal places apply to the scaled number.
+      const scaled = value * 100;
+      const text = decimalPlaces !== undefined ? scaled.toFixed(decimalPlaces) : scaled.toString();
+      return text + '%';
+    }
 
     case NumberFormats.ADAPTIVE_INTERNATIONAL: {
       // International SI-like notation: K, M, B
