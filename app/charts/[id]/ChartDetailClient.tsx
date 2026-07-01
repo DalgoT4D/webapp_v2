@@ -79,6 +79,13 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     appliedFilters: Record<string, string>; // { dimension_column: value }
   } | null>(null);
 
+  // Stable reference for map customizations — avoids a new {} literal every render,
+  // which would otherwise re-trigger MapPreview's chart-init effect in a loop via onChartReady
+  const mapCustomizations = useMemo(
+    () => chart?.extra_config?.customizations || {},
+    [chart?.extra_config?.customizations]
+  );
+
   // Check if user has view permissions
   if (!hasPermission('can_view_charts')) {
     return (
@@ -509,220 +516,238 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     }
   }, [chart, chartData, mapDataOverlay]);
 
+  // Computed once per render so it's a stable primitive in handleRegionClick's deps,
+  // instead of calling the (unstable-reference) hasPermission multiple times inside the callback
+  const canEditCharts = hasPermission('can_edit_charts');
+
   // Handle region click for drill-down
-  const handleRegionClick = (regionName: string, regionData: any) => {
-    if (chart.chart_type !== 'map') return;
+  // Stable reference — MapPreview's chart-init effect depends on onRegionClick;
+  // an unstable reference here would re-trigger that effect (and the map render) every render
+  const handleRegionClick = useCallback(
+    (regionName: string, regionData: any) => {
+      if (chart.chart_type !== 'map') return;
 
-    // Check for dynamic drill-down configuration (new system)
-    const hasDynamicDrillDown =
-      chart?.extra_config?.geographic_hierarchy?.drill_down_levels?.length > 0;
+      // Check for dynamic drill-down configuration (new system)
+      const hasDynamicDrillDown =
+        chart?.extra_config?.geographic_hierarchy?.drill_down_levels?.length > 0;
 
-    // NEW DYNAMIC SYSTEM: Use geographic hierarchy
-    if (hasDynamicDrillDown) {
-      const hierarchy = chart.extra_config.geographic_hierarchy;
-      const nextLevel = hierarchy.drill_down_levels.find(
-        (level: any) => level.level === currentLevel + 1
-      );
-
-      if (nextLevel) {
-        // Find the clicked region in the regions data
-        const selectedRegion = regions?.find(
-          (region: any) => region.name === regionName || region.display_name === regionName
+      // NEW DYNAMIC SYSTEM: Use geographic hierarchy
+      if (hasDynamicDrillDown) {
+        const hierarchy = chart.extra_config.geographic_hierarchy;
+        const nextLevel = hierarchy.drill_down_levels.find(
+          (level: any) => level.level === currentLevel + 1
         );
 
-        if (!selectedRegion) {
-          toast.error(`Region "${regionName}" not found in database`);
+        if (nextLevel) {
+          // Find the clicked region in the regions data
+          const selectedRegion = regions?.find(
+            (region: any) => region.name === regionName || region.display_name === regionName
+          );
+
+          if (!selectedRegion) {
+            toast.error(`Region "${regionName}" not found in database`);
+            return;
+          }
+
+          toast.success(`🗺️ Drilling down to ${nextLevel.label.toLowerCase()} in ${regionName}`);
+
+          // Create drill-down level for dynamic system
+          const newLevel: DrillDownLevel = {
+            level: currentLevel + 1,
+            name: regionName,
+            geographic_column: nextLevel.column,
+            geojson_id: 0, // Will be resolved dynamically
+            region_id: selectedRegion.id,
+            parent_selections: [
+              ...drillDownPath.flatMap((level) => level.parent_selections),
+              {
+                column: activeGeographicColumn || '',
+                value: regionName,
+              },
+            ],
+          };
+
+          setDrillDownPath([...drillDownPath, newLevel]);
+          return;
+        } else {
+          // No more levels available in dynamic system
+          toast.info('No further drill-down levels configured');
           return;
         }
-
-        toast.success(`🗺️ Drilling down to ${nextLevel.label.toLowerCase()} in ${regionName}`);
-
-        // Create drill-down level for dynamic system
-        const newLevel: DrillDownLevel = {
-          level: currentLevel + 1,
-          name: regionName,
-          geographic_column: nextLevel.column,
-          geojson_id: 0, // Will be resolved dynamically
-          region_id: selectedRegion.id,
-          parent_selections: [
-            ...drillDownPath.flatMap((level) => level.parent_selections),
-            {
-              column: activeGeographicColumn || '',
-              value: regionName,
-            },
-          ],
-        };
-
-        setDrillDownPath([...drillDownPath, newLevel]);
-        return;
-      } else {
-        // No more levels available in dynamic system
-        toast.info('No further drill-down levels configured');
-        return;
-      }
-    }
-
-    // Check for legacy simplified drill-down configuration
-    const hasSimplifiedDrillDown =
-      chart?.extra_config?.district_column ||
-      chart?.extra_config?.ward_column ||
-      chart?.extra_config?.subward_column;
-
-    if (hasSimplifiedDrillDown) {
-      let nextGeographicColumn = null;
-      let levelName = '';
-
-      // Determine next level based on current drill-down state
-      if (currentLevel === 0 && chart.extra_config.district_column) {
-        nextGeographicColumn = chart.extra_config.district_column;
-        levelName = 'districts';
-      } else if (currentLevel === 1 && chart.extra_config.ward_column) {
-        nextGeographicColumn = chart.extra_config.ward_column;
-        levelName = 'wards';
-      } else if (currentLevel === 2 && chart.extra_config.subward_column) {
-        nextGeographicColumn = chart.extra_config.subward_column;
-        levelName = 'sub-wards';
       }
 
-      if (nextGeographicColumn) {
-        toast.success(`🗺️ Drilling down to ${levelName} in ${regionName}`);
+      // Check for legacy simplified drill-down configuration
+      const hasSimplifiedDrillDown =
+        chart?.extra_config?.district_column ||
+        chart?.extra_config?.ward_column ||
+        chart?.extra_config?.subward_column;
 
-        // Create drill-down level for simplified system
-        // Find the region ID for the clicked region (e.g., Karnataka)
-        const selectedRegion = regions?.find(
-          (region: any) => region.name === regionName || region.display_name === regionName
+      if (hasSimplifiedDrillDown) {
+        let nextGeographicColumn = null;
+        let levelName = '';
+
+        // Determine next level based on current drill-down state
+        if (currentLevel === 0 && chart.extra_config.district_column) {
+          nextGeographicColumn = chart.extra_config.district_column;
+          levelName = 'districts';
+        } else if (currentLevel === 1 && chart.extra_config.ward_column) {
+          nextGeographicColumn = chart.extra_config.ward_column;
+          levelName = 'wards';
+        } else if (currentLevel === 2 && chart.extra_config.subward_column) {
+          nextGeographicColumn = chart.extra_config.subward_column;
+          levelName = 'sub-wards';
+        }
+
+        if (nextGeographicColumn) {
+          toast.success(`🗺️ Drilling down to ${levelName} in ${regionName}`);
+
+          // Create drill-down level for simplified system
+          // Find the region ID for the clicked region (e.g., Karnataka)
+          const selectedRegion = regions?.find(
+            (region: any) => region.name === regionName || region.display_name === regionName
+          );
+
+          if (!selectedRegion) {
+            toast.error(`Region "${regionName}" not found in database`);
+            return;
+          }
+
+          // For now, we'll create the drill-down level and let the useRegionGeoJSONs
+          // hook handle fetching the correct geojson in the data fetching logic
+          const regionId = selectedRegion.id;
+          console.log(`🔍 Found region "${regionName}" with ID: ${regionId}`);
+
+          const newLevel: DrillDownLevel = {
+            level: currentLevel + 1,
+            name: regionName,
+            geographic_column: nextGeographicColumn,
+            geojson_id: 0, // Will be resolved dynamically
+            region_id: regionId, // Store the region ID for geojson lookup
+            parent_selections: [
+              ...drillDownPath.flatMap((level) => level.parent_selections),
+              {
+                column: activeGeographicColumn || '',
+                value: regionName,
+              },
+            ],
+          };
+
+          setDrillDownPath([...drillDownPath, newLevel]);
+          return;
+        } else {
+          // No more levels available in simplified system
+          toast.info('No further drill-down levels configured');
+          return;
+        }
+      }
+
+      // Fallback to legacy layers system
+      if (!chart?.extra_config?.layers) {
+        toast.info('🗺️ No further drill-down levels configured', {
+          description: canEditCharts
+            ? 'Configure additional layers in edit mode to enable deeper drill-down'
+            : 'This chart needs additional layers configured for deeper drill-down',
+          position: 'top-right',
+        });
+        return;
+      }
+
+      const nextLevel = currentLevel + 1;
+      const nextLayer = chart.extra_config.layers[nextLevel];
+
+      if (!nextLayer) {
+        // No next layer configured
+        toast.info('🗺️ No further drill-down levels configured', {
+          description: canEditCharts
+            ? 'Configure additional layers in edit mode to enable deeper drill-down'
+            : 'This chart needs additional layers configured for deeper drill-down',
+          position: 'top-right',
+        });
+        return;
+      }
+
+      // Check if the clicked region is configured in the next layer
+      let nextGeojsonId = nextLayer.geojson_id;
+      let isRegionConfigured = false;
+
+      if (nextLayer.selected_regions && nextLayer.selected_regions.length > 0) {
+        // Find the region that matches the clicked region name
+        const matchingRegion = nextLayer.selected_regions.find(
+          (region: SelectedRegion) => region.region_name === regionName
         );
 
-        if (!selectedRegion) {
-          toast.error(`Region "${regionName}" not found in database`);
-          return;
+        if (matchingRegion && matchingRegion.geojson_id) {
+          nextGeojsonId = matchingRegion.geojson_id;
+          isRegionConfigured = true;
         }
-
-        // For now, we'll create the drill-down level and let the useRegionGeoJSONs
-        // hook handle fetching the correct geojson in the data fetching logic
-        const regionId = selectedRegion.id;
-        console.log(`🔍 Found region "${regionName}" with ID: ${regionId}`);
-
-        const newLevel: DrillDownLevel = {
-          level: currentLevel + 1,
-          name: regionName,
-          geographic_column: nextGeographicColumn,
-          geojson_id: 0, // Will be resolved dynamically
-          region_id: regionId, // Store the region ID for geojson lookup
-          parent_selections: [
-            ...drillDownPath.flatMap((level) => level.parent_selections),
-            {
-              column: activeGeographicColumn || '',
-              value: regionName,
-            },
-          ],
-        };
-
-        setDrillDownPath([...drillDownPath, newLevel]);
-        return;
-      } else {
-        // No more levels available in simplified system
-        toast.info('No further drill-down levels configured');
-        return;
+      } else if (nextLayer.geojson_id) {
+        // Single-select layer - check if this region is the configured one
+        isRegionConfigured = true; // For single-select, we assume it's configured
       }
-    }
 
-    // Fallback to legacy layers system
-    if (!chart?.extra_config?.layers) {
-      toast.info('🗺️ No further drill-down levels configured', {
-        description: hasPermission('can_edit_charts')
-          ? 'Configure additional layers in edit mode to enable deeper drill-down'
-          : 'This chart needs additional layers configured for deeper drill-down',
-        position: 'top-right',
-      });
-      return;
-    }
+      // If region is not configured, show toast and prevent drill-down
+      if (!isRegionConfigured) {
+        // Check if region is filtered out
+        const chartFilters = chart.extra_config?.filters || [];
+        const isFiltered = chartFilters.some(
+          (filter: any) =>
+            (filter.operator === 'not equals' || filter.operator === '!=') &&
+            filter.value === regionName
+        );
 
-    const nextLevel = currentLevel + 1;
-    const nextLayer = chart.extra_config.layers[nextLevel];
-
-    if (!nextLayer) {
-      // No next layer configured
-      toast.info('🗺️ No further drill-down levels configured', {
-        description: hasPermission('can_edit_charts')
-          ? 'Configure additional layers in edit mode to enable deeper drill-down'
-          : 'This chart needs additional layers configured for deeper drill-down',
-        position: 'top-right',
-      });
-      return;
-    }
-
-    // Check if the clicked region is configured in the next layer
-    let nextGeojsonId = nextLayer.geojson_id;
-    let isRegionConfigured = false;
-
-    if (nextLayer.selected_regions && nextLayer.selected_regions.length > 0) {
-      // Find the region that matches the clicked region name
-      const matchingRegion = nextLayer.selected_regions.find(
-        (region: SelectedRegion) => region.region_name === regionName
-      );
-
-      if (matchingRegion && matchingRegion.geojson_id) {
-        nextGeojsonId = matchingRegion.geojson_id;
-        isRegionConfigured = true;
+        if (isFiltered) {
+          toast.warning(`🚫 ${regionName} excluded by filter`, {
+            description: `This region is filtered out and not available for drill-down`,
+            position: 'top-right',
+            duration: 4000,
+          });
+        } else {
+          toast.info(`🗺️ ${regionName} not configured for drill-down`, {
+            description: canEditCharts
+              ? 'Configure this region in edit mode to enable drill-down'
+              : 'This region is not configured for drill-down',
+            position: 'top-right',
+            duration: 4000,
+            ...(canEditCharts && {
+              action: {
+                label: 'Edit Chart',
+                onClick: () => router.push(`/charts/${chartId}/edit`),
+              },
+            }),
+          });
+        }
+        return; // Prevent drill-down
       }
-    } else if (nextLayer.geojson_id) {
-      // Single-select layer - check if this region is the configured one
-      isRegionConfigured = true; // For single-select, we assume it's configured
-    }
 
-    // If region is not configured, show toast and prevent drill-down
-    if (!isRegionConfigured) {
-      // Check if region is filtered out
-      const chartFilters = chart.extra_config?.filters || [];
-      const isFiltered = chartFilters.some(
-        (filter: any) =>
-          (filter.operator === 'not equals' || filter.operator === '!=') &&
-          filter.value === regionName
-      );
+      // Create new drill-down level
+      const newLevel: DrillDownLevel = {
+        level: nextLevel,
+        name: regionName,
+        geographic_column: nextLayer.geographic_column || '',
+        geojson_id: nextGeojsonId || 0,
+        region_id: nextLayer.region_id,
+        parent_selections: [
+          ...drillDownPath.flatMap((level) => level.parent_selections),
+          {
+            column: activeGeographicColumn || '',
+            value: regionName,
+          },
+        ],
+      };
 
-      if (isFiltered) {
-        toast.warning(`🚫 ${regionName} excluded by filter`, {
-          description: `This region is filtered out and not available for drill-down`,
-          position: 'top-right',
-          duration: 4000,
-        });
-      } else {
-        toast.info(`🗺️ ${regionName} not configured for drill-down`, {
-          description: hasPermission('can_edit_charts')
-            ? 'Configure this region in edit mode to enable drill-down'
-            : 'This region is not configured for drill-down',
-          position: 'top-right',
-          duration: 4000,
-          ...(hasPermission('can_edit_charts') && {
-            action: {
-              label: 'Edit Chart',
-              onClick: () => (window.location.href = `/charts/${chartId}/edit`),
-            },
-          }),
-        });
-      }
-      return; // Prevent drill-down
-    }
-
-    // Create new drill-down level
-    const newLevel: DrillDownLevel = {
-      level: nextLevel,
-      name: regionName,
-      geographic_column: nextLayer.geographic_column || '',
-      geojson_id: nextGeojsonId || 0,
-      region_id: nextLayer.region_id,
-      parent_selections: [
-        ...drillDownPath.flatMap((level) => level.parent_selections),
-        {
-          column: activeGeographicColumn || '',
-          value: regionName,
-        },
-      ],
-    };
-
-    setDrillDownPath([...drillDownPath, newLevel]);
-  };
+      setDrillDownPath([...drillDownPath, newLevel]);
+    },
+    [
+      chart,
+      regions,
+      drillDownPath,
+      activeGeographicColumn,
+      currentLevel,
+      chartId,
+      canEditCharts,
+      router,
+    ]
+  );
 
   // Handle drill up to a specific level
   const handleDrillUp = (targetLevel: number) => {
@@ -846,11 +871,12 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   valueColumn={
                     chart.extra_config?.metrics?.[0]?.alias || chart.extra_config?.aggregate_column
                   }
-                  customizations={chart.extra_config?.customizations || {}}
+                  customizations={mapCustomizations}
                   onRegionClick={handleRegionClick}
                   drillDownPath={drillDownPath}
                   onDrillUp={handleDrillUp}
                   onDrillHome={handleDrillHome}
+                  onChartReady={setChartInstance}
                 />
               ) : chart?.chart_type === 'pivot_table' ? (
                 <div className="w-full h-full">

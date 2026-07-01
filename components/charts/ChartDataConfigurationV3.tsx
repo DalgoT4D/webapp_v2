@@ -29,6 +29,7 @@ import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfigu
 import PivotDataConfiguration from '@/components/charts/pivot-table/PivotDataConfiguration';
 import { TableDimensionsSelector } from '@/components/charts/TableDimensionsSelector';
 import { TimeGrainSelector } from '@/components/charts/TimeGrainSelector';
+import { sanitizeCustomizationsForChartType } from '@/lib/chart-formatting-utils';
 import type {
   ChartBuilderFormData,
   ChartMetric,
@@ -475,7 +476,9 @@ export function ChartDataConfigurationV3({
       ...specificFields,
       // Preserve other settings like filters, customizations, etc.
       filters: formData.filters,
-      customizations: formData.customizations,
+      // Coerce type-specific customizations (e.g. dataLabelPosition) to values valid for the new
+      // chart type so switching bar→pie doesn't carry over an invalid value and fail on save.
+      customizations: sanitizeCustomizationsForChartType(formData.customizations, newChartType),
       sort: formData.sort,
       pagination: formData.pagination,
     });

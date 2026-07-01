@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { PoweredByDalgoImage } from '@/components/ui/powered-by-dalgo-image';
+import { OrgBrand } from '@/components/ui/org-brand';
 import { toast } from 'sonner';
 import {
   AlertCircle,
@@ -59,7 +61,7 @@ import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 import { ChartTypes, type ChartDataPayload, type ChartDimension } from '@/types/charts';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
-import { ChartExporter, generateFilename } from '@/lib/chart-export';
+import { ChartExporter, generateFilename, BrandingOptions } from '@/lib/chart-export';
 import { apiPostBinary } from '@/lib/api';
 import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
 import {
@@ -136,6 +138,7 @@ interface ChartElementViewProps {
   commentStates?: CommentStates; // Comment states array with target_type and chart_id
   onCommentStateChange?: () => void; // Callback when comment state changes
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open
+  orgLogoUrl?: string | null; // Organization logo URL for fullscreen overlay
 }
 
 interface DrillDownLevel {
@@ -164,6 +167,7 @@ export function ChartElementView({
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
+  orgLogoUrl,
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
@@ -1515,8 +1519,13 @@ export function ChartElementView({
     mapChartInstance.current = chart;
   };
 
-  // Original working download function for PNG/Image export
+  // Download PNG with org branding (logo top-left, title top-center, powered-by bottom-right)
   const handleDownloadImage = async () => {
+    const branding: BrandingOptions = {
+      orgLogoUrl,
+      chartTitle: effectiveChart?.title,
+    };
+
     try {
       // Handle table/pivot chart export
       if ((isTableChart || isPivotTableChart) && tableRef.current) {
@@ -1524,28 +1533,21 @@ export function ChartElementView({
           chartMetadata?.title || frozenChartConfig?.title || `table-${chartId}`,
           'png'
         );
-        await ChartExporter.exportTableAsImage(tableRef.current, {
-          filename,
-          format: 'png',
-          backgroundColor: '#ffffff',
-        });
+        await ChartExporter.exportTableWithBranding(tableRef.current, { filename, ...branding });
         toast.success('Table downloaded successfully');
         return;
       }
 
-      // Use the appropriate chart instance based on chart type (maps and regular charts)
       const activeChartInstance = isMapChart ? mapChartInstance.current : chartInstance.current;
-
       if (activeChartInstance) {
-        const url = activeChartInstance.getDataURL({
-          type: 'png',
-          pixelRatio: 2,
-          backgroundColor: '#fff',
+        const filename = generateFilename(
+          effectiveChart?.title || `${isMapChart ? 'map' : 'chart'}-${chartId}`,
+          'png'
+        );
+        await ChartExporter.exportEChartsWithBranding(activeChartInstance, {
+          filename,
+          ...branding,
         });
-        const link = document.createElement('a');
-        link.download = `${isMapChart ? 'map' : 'chart'}-${chartId}.png`;
-        link.href = url;
-        link.click();
         toast.success('Chart downloaded successfully');
       }
     } catch (error) {
@@ -1735,9 +1737,23 @@ export function ChartElementView({
         }),
       }}
     >
+      {/* Fullscreen overlay: org branding + chart title + powered by */}
+      {isFullscreen && (
+        <>
+          <div className="flex-shrink-0 flex items-center justify-between px-2 pb-2 pointer-events-none">
+            {/* Left: org logo + name */}
+            <OrgBrand logoUrl={orgLogoUrl} />
+            {/* Center: chart title */}
+            <span className="absolute left-1/2 -translate-x-1/2 text-sm font-semibold text-gray-800 truncate max-w-[50%]">
+              {effectiveChart?.title}
+            </span>
+          </div>
+        </>
+      )}
+
       {/* Chart toolbar - only visible on hover in view mode (non-report) */}
       {viewMode && !frozenChartConfig && (
-        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="absolute top-2 right-2 z-10 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1769,11 +1785,18 @@ export function ChartElementView({
               <Maximize2 className="h-3.5 w-3.5" />
             </Button>
           </div>
+          {isFullscreen && (
+            <div className="pointer-events-none pr-2">
+              <PoweredByDalgoImage imageClassName="max-h-9" />
+            </div>
+          )}
         </div>
       )}
 
-      {/* Chart title row — comment icon sits inline to prevent overlap in report mode */}
-      <div className="flex items-start gap-2 px-2 pt-2 flex-shrink-0">
+      {/* Chart title row — hidden in fullscreen (title shown in overlay instead) */}
+      <div
+        className={cn('flex items-start gap-2 px-2 pt-2 flex-shrink-0', isFullscreen && 'hidden')}
+      >
         <div className="flex-1 min-w-0">
           <ChartTitleEditor
             chartData={frozenChartConfig || (isPublicMode ? effectiveChart : chartMetadata)}

@@ -16,6 +16,7 @@ import type { ChartDataPayload } from '@/types/charts';
 import { apiPostBinary } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useAuthStore } from '@/stores/authStore';
 
 interface ChartExportDropdownProps {
   chartTitle: string;
@@ -59,6 +60,8 @@ export function ChartExportDropdown({
   drillFilters,
 }: ChartExportDropdownProps) {
   const [isExporting, setIsExporting] = useState(false);
+  const currentOrg = useAuthStore((state) => state.currentOrg);
+  const orgLogoUrl = currentOrg?.logo_url ?? null;
 
   // T12: when drill-down filters are active, append them to the export title
   const effectiveTitle =
@@ -122,14 +125,26 @@ export function ChartExportDropdown({
           if (!tableElement) {
             throw new Error('Table element is not available for export');
           }
-          await ChartExporter.exportTableAsImage(tableElement, exportOptions);
+          await ChartExporter.exportTableWithBranding(tableElement, {
+            ...exportOptions,
+            orgLogoUrl,
+            chartTitle,
+          });
           toast.success(`Table exported as PNG`, {
             description: 'High resolution image',
           });
         }
       } else {
-        // Export chart as PNG/PDF
-        await ChartExporter.exportChart(chartElement, chartInstance, exportOptions);
+        // PNG and PDF both get org logo + powered-by branding when a live chart instance is available
+        if ((format === 'png' || format === 'pdf') && chartInstance) {
+          await ChartExporter.exportEChartsWithBranding(chartInstance, {
+            ...exportOptions,
+            orgLogoUrl,
+            chartTitle,
+          });
+        } else {
+          await ChartExporter.exportChart(chartElement, chartInstance, exportOptions);
+        }
         const formatName = format.toUpperCase();
         toast.success(`Chart exported as ${formatName}`, {
           description: format === 'pdf' ? 'Portable Document Format' : 'High resolution image',

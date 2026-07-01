@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Select,
   SelectContent,
@@ -55,6 +55,9 @@ export function MetricsSelector({
   const [mode, setMode] = useState<'saved' | 'simple' | 'calculated'>('simple');
   const [showForm, setShowForm] = useState(false);
   const [showSaveSection, setShowSaveSection] = useState(false);
+  // True when the open Simple-mode form is mirrored as the LAST element of `metrics` — a live
+  // "draft" metric included in preview/save payloads without an explicit "+ ADD" click.
+  const [hasDraft, setHasDraft] = useState(false);
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
   const [validating, setValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -87,6 +90,57 @@ export function MetricsSelector({
 
   const labels = getLabels();
 
+  // Auto-generated label shown when the user hasn't typed a custom display name.
+  const autoName = (agg: string, col: string) => `${agg.toUpperCase()}(${col || '*'})`;
+
+  const buildSimpleMetric = (agg: string, col: string, name: string): ChartMetric => ({
+    column: agg === 'count' && !col ? null : col || null,
+    aggregation: agg,
+    alias: name || autoName(agg, col),
+  });
+
+  // A Simple metric is payload-valid when it is COUNT (column optional) or any other
+  // aggregation with a column selected.
+  const isSimpleValid = (agg: string, col: string) => agg === 'count' || !!col;
+
+  // Mirror the open Simple-mode form into the parent `metrics` array as a trailing draft so it
+  // flows into preview/save payloads without requiring a "+ ADD ANOTHER METRIC" click. Invalid
+  // drafts (e.g. SUM without a column) are removed so payloads never carry a broken metric.
+  const syncDraft = (agg: string, col: string, name: string) => {
+    if (isSimpleValid(agg, col)) {
+      const draft = buildSimpleMetric(agg, col, name);
+      if (hasDraft) {
+        const next = [...metrics];
+        next[next.length - 1] = draft;
+        onChange(next);
+      } else {
+        onChange([...metrics, draft]);
+        setHasDraft(true);
+      }
+    } else if (hasDraft) {
+      onChange(metrics.slice(0, -1));
+      setHasDraft(false);
+    }
+  };
+
+  // Keep the Display Name field synced to the auto-generated label until the user customizes it,
+  // so the form shows the same name as the chart legend (e.g. "SUM(district_population)").
+  const applyDraft = (agg: string, col: string) => {
+    const prevAuto = autoName(simpleAgg, simpleCol);
+    const name = !displayName || displayName === prevAuto ? autoName(agg, col) : displayName;
+    setDisplayName(name);
+    syncDraft(agg, col, name);
+  };
+
+  // Closing the form via the X discards the in-progress draft (unlike "+ ADD" which commits it).
+  const cancelForm = () => {
+    if (hasDraft) {
+      onChange(metrics.slice(0, -1));
+      setHasDraft(false);
+    }
+    resetForm();
+  };
+
   const addSavedMetric = (savedMetricId: string) => {
     const sm = savedMetrics.find((m) => m.id.toString() === savedMetricId);
     if (!sm) return;
@@ -103,13 +157,20 @@ export function MetricsSelector({
 
   const addInlineMetric = async () => {
     if (mode === 'simple') {
-      const newMetric: ChartMetric = {
-        column: simpleAgg === 'count' && !simpleCol ? null : simpleCol || null,
-        aggregation: simpleAgg,
-        alias: displayName || `${simpleAgg.toUpperCase()}(${simpleCol || '*'})`,
-      };
-      onChange([...metrics, newMetric]);
-      resetForm();
+      if (!isSimpleValid(simpleAgg, simpleCol)) return;
+      // The current draft is already the trailing element when hasDraft; otherwise append it.
+      // Commit it and open a fresh draft so the form stays open and the next metric is also live.
+      const committed = hasDraft
+        ? metrics
+        : [...metrics, buildSimpleMetric(simpleAgg, simpleCol, displayName)];
+      const freshName = autoName('count', '');
+      onChange([...committed, buildSimpleMetric('count', '', freshName)]);
+      setHasDraft(true);
+      setSimpleAgg('count');
+      setSimpleCol('');
+      setDisplayName(freshName);
+      setMetricName('');
+      setShowSaveSection(false);
     } else {
       if (!exprText.trim() || !schemaName || !tableName) return;
 
@@ -169,7 +230,10 @@ export function MetricsSelector({
         column_expression: saved.column_expression || undefined,
         alias: displayName || saved.name,
       };
-      onChange([...metrics, newMetric]);
+      // Replace the live draft (if any) with the saved metric rather than appending after it.
+      const base = hasDraft ? metrics.slice(0, -1) : metrics;
+      onChange([...base, newMetric]);
+      setHasDraft(false);
       mutateSavedMetrics();
       resetForm();
       toastSuccess.generic(`Saved metric "${saved.name}"`);
@@ -225,8 +289,26 @@ export function MetricsSelector({
     }));
   };
 
-  const canAddMore = !maxMetrics || metrics.length < maxMetrics;
-  const canAddInline = mode === 'simple' ? !!simpleAgg : !!exprText.trim();
+  // Count committed metrics only — the live draft occupies the slot it is editing, so it must not
+  // count against the cap. Otherwise a single-metric chart (pie/number) would hide its own edit
+  // form the moment a metric is selected, leaving no way to change the function/column.
+  const committedCount = hasDraft ? metrics.length - 1 : metrics.length;
+  const canAddMore = !maxMetrics || committedCount < maxMetrics;
+  // True when the cap leaves room for an ADDITIONAL committed metric beyond the current draft.
+  const canCommitAnother = !maxMetrics || committedCount + 1 < maxMetrics;
+  const canAddInline = mode === 'simple' ? isSimpleValid(simpleAgg, simpleCol) : !!exprText.trim();
+
+  // While the form is actively showing the draft, hide it from the committed list below.
+  const showingDraftInForm = canAddMore && showForm && mode === 'simple' && hasDraft;
+  const committedMetrics = showingDraftInForm ? metrics.slice(0, -1) : metrics;
+
+  // When the draft is no longer shown in the open form (form closed, mode switched, or the
+  // metric cap hides the form), promote it to a committed metric so bookkeeping stays in sync.
+  useEffect(() => {
+    if (hasDraft && !(canAddMore && showForm && mode === 'simple')) {
+      setHasDraft(false);
+    }
+  }, [hasDraft, canAddMore, showForm, mode]);
 
   const isSavedMetricAdded = (id: number) => metrics.some((m) => m.saved_metric_id === id);
 
@@ -235,9 +317,9 @@ export function MetricsSelector({
       <Label className="text-sm font-medium text-gray-900">Metrics</Label>
 
       {/* Existing metrics */}
-      {metrics.length > 0 && (
+      {committedMetrics.length > 0 && (
         <div className="space-y-2">
-          {metrics.map((metric, index) => {
+          {committedMetrics.map((metric, index) => {
             const summary = metric.column_expression
               ? metric.column_expression.slice(0, 40)
               : `${(metric.aggregation || '').toUpperCase()}(${metric.column || '*'})`;
@@ -310,9 +392,7 @@ export function MetricsSelector({
                   variant="ghost"
                   size="sm"
                   className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
-                  onClick={() => {
-                    resetForm();
-                  }}
+                  onClick={cancelForm}
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -320,7 +400,17 @@ export function MetricsSelector({
               {/* Saved / Simple / Calculated tabs */}
               <Tabs
                 value={mode}
-                onValueChange={(v) => setMode(v as 'saved' | 'simple' | 'calculated')}
+                onValueChange={(v) => {
+                  const newMode = v as 'saved' | 'simple' | 'calculated';
+                  // Drop the Simple draft when leaving Simple; re-sync it when returning.
+                  if (newMode !== 'simple' && hasDraft) {
+                    onChange(metrics.slice(0, -1));
+                    setHasDraft(false);
+                  } else if (newMode === 'simple') {
+                    applyDraft(simpleAgg, simpleCol);
+                  }
+                  setMode(newMode);
+                }}
               >
                 <TabsList className="w-full h-8">
                   <TabsTrigger value="simple" className="flex-1 text-xs">
@@ -370,7 +460,14 @@ export function MetricsSelector({
                   <div className="space-y-2">
                     <div className="space-y-1">
                       <Label className="text-xs text-gray-600">{labels.function} *</Label>
-                      <Select value={simpleAgg} onValueChange={setSimpleAgg} disabled={disabled}>
+                      <Select
+                        value={simpleAgg}
+                        onValueChange={(v) => {
+                          setSimpleAgg(v);
+                          applyDraft(v, simpleCol);
+                        }}
+                        disabled={disabled}
+                      >
                         <SelectTrigger className="h-8">
                           <SelectValue />
                         </SelectTrigger>
@@ -393,7 +490,11 @@ export function MetricsSelector({
                           disabled: col.disabled,
                         }))}
                         value={simpleAgg === 'count' && !simpleCol ? '*' : simpleCol}
-                        onValueChange={(value) => setSimpleCol(value === '*' ? '' : value)}
+                        onValueChange={(value) => {
+                          const col = value === '*' ? '' : value;
+                          setSimpleCol(col);
+                          applyDraft(simpleAgg, col);
+                        }}
                         disabled={disabled}
                         searchPlaceholder="Search columns..."
                         placeholder="Select column"
@@ -445,9 +546,19 @@ export function MetricsSelector({
                 <>
                   <div className="space-y-1">
                     <Label className="text-xs text-gray-600">Display Name In Charts</Label>
-                    <Input
+                    <DebouncedInput
                       value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
+                      onChange={(value: string) => {
+                        setDisplayName(value);
+                        // Only relabel an EXISTING draft. Never create/remove one here: this fires
+                        // debounced and could land after the form was cancelled, resurrecting a
+                        // discarded metric. Draft creation happens on Function/Column selection.
+                        if (hasDraft) {
+                          const next = [...metrics];
+                          next[next.length - 1] = buildSimpleMetric(simpleAgg, simpleCol, value);
+                          onChange(next);
+                        }
+                      }}
                       placeholder="Auto-generated display name"
                       className="h-8 text-sm"
                       disabled={disabled}
@@ -505,18 +616,27 @@ export function MetricsSelector({
 
           {/* Add button — outside the form box */}
           {showForm ? (
-            <Button
-              size="sm"
-              onClick={addInlineMetric}
-              disabled={disabled || !canAddInline || validating}
-              className="w-full border-dashed bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
-            >
-              + ADD ANOTHER METRIC
-            </Button>
+            // Hide the commit button when the cap leaves no room for another metric (e.g. pie/number):
+            // the open draft IS the single metric and is saved directly, no commit step needed.
+            canCommitAnother ? (
+              <Button
+                size="sm"
+                onClick={addInlineMetric}
+                disabled={disabled || !canAddInline || validating}
+                className="w-full border-dashed bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
+              >
+                + ADD ANOTHER METRIC
+              </Button>
+            ) : null
           ) : (
             <Button
               size="sm"
-              onClick={() => setShowForm(true)}
+              onClick={() => {
+                setShowForm(true);
+                // Seed a live draft on open (default COUNT is valid) so the new metric is in the
+                // payload immediately, stays editable, and the Display Name is pre-filled.
+                applyDraft(simpleAgg, simpleCol);
+              }}
               disabled={disabled}
               className="w-full border-dashed bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
             >

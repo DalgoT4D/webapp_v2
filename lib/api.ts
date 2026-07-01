@@ -75,10 +75,18 @@ function handleAuthFailure() {
 async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0): Promise<any> {
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
 
+  const isFormData = options.body instanceof FormData;
+
   const headers: HeadersInit = {
     ...(options.headers || {}),
     ...getHeaders(),
   };
+
+  if (isFormData) {
+    // Delete after merge so Content-Type from either source is removed,
+    // letting the browser set multipart/form-data boundary automatically
+    delete (headers as Record<string, string>)['Content-Type'];
+  }
 
   try {
     const response = await fetch(url, {
@@ -87,9 +95,8 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
       credentials: 'include', // Always include cookies
     });
 
-    // Handle 401 Unauthorized
-    if (response.status === 401) {
-      // If this is the first attempt, try to refresh the token
+    // Handle 498 - access token expired, try to refresh using refresh token
+    if (response.status === 498) {
       if (retryCount === 0) {
         // Prevent multiple simultaneous refresh attempts
         if (!isRefreshing) {
@@ -102,13 +109,18 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
         const success = await refreshPromise;
 
         if (success) {
-          // Retry the original request with the new token cookie
+          // Retry the original request with the new access token cookie
           return apiFetch(path, options, retryCount + 1);
         }
       }
 
-      // Either refresh failed or this is a retry that still got 401
-      // In both cases, logout the user
+      // Refresh failed or retry still got 498 - logout the user
+      handleAuthFailure();
+      throw new Error('Authentication failed. Please log in again.');
+    }
+
+    // Handle 401 - completely unauthorized (blacklisted, invalid, or refresh token expired)
+    if (response.status === 401) {
       handleAuthFailure();
       throw new Error('Authentication failed. Please log in again.');
     }
@@ -202,12 +214,13 @@ export function apiPost(path: string, body: any, options: RequestInit = {}) {
   });
 }
 
-// Helper for PUT requests
+// Helper for PUT requests. Pass a FormData body for file uploads — apiFetch
+// already strips Content-Type so the browser sets the multipart boundary.
 export function apiPut(path: string, body: any, options: RequestInit = {}) {
   return apiFetch(path, {
     ...options,
     method: 'PUT',
-    body: JSON.stringify(body),
+    body: body instanceof FormData ? body : JSON.stringify(body),
   });
 }
 
