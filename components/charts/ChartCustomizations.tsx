@@ -16,6 +16,7 @@ import { PieChartCustomizations } from './types/pie/PieChartCustomizations';
 import { NumberChartCustomizations } from './types/number/NumberChartCustomizations';
 import { MapChartCustomizations } from './types/map/MapChartCustomizations';
 import { TableChartCustomizations } from './types/table/TableChartCustomizations';
+import PivotTableCustomizations from '@/components/charts/pivot-table/PivotTableCustomizations';
 
 interface ColumnInfo {
   column_name?: string;
@@ -385,6 +386,39 @@ export function ChartCustomizations({
             updateCustomization('columnOrder', newOrder);
           }}
           availableDateColumns={dateColumns}
+        />
+      );
+    }
+
+    case ChartTypes.PIVOT_TABLE: {
+      // Derive metric column names from formData.metrics
+      const pivotMetricColumns =
+        formData.metrics
+          ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
+          .filter(Boolean) || [];
+
+      // Datetime dimensions (row + column) that have NO time grain are eligible for
+      // display-only date formatting. Grained columns are formatted by their grain instead.
+      const rowDims = formData.extra_config?.row_dimensions || [];
+      const colDims = formData.extra_config?.column_dimensions || [];
+      const rowGrains = formData.extra_config?.row_time_grains || {};
+      const colGrains = formData.extra_config?.column_time_grains || {};
+      const isDateColumn = (col: string) => {
+        const type = rawColumnTypeMap[col] || '';
+        return type.includes('date') || type.includes('timestamp') || type.includes('time');
+      };
+      const pivotDateColumns = [
+        ...rowDims.filter((c) => isDateColumn(c) && !rowGrains[c]),
+        ...colDims.filter((c) => isDateColumn(c) && !colGrains[c]),
+      ].filter((c, idx, arr) => arr.indexOf(c) === idx);
+
+      return (
+        <PivotTableCustomizations
+          customizations={customizations}
+          updateCustomization={updateCustomization}
+          disabled={disabled}
+          metricColumns={pivotMetricColumns}
+          dateColumns={pivotDateColumns}
         />
       );
     }

@@ -5,6 +5,9 @@ import * as echarts from 'echarts';
 import { Loader2, AlertCircle, BarChart2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TableChart } from './TableChart';
+import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
+import { computePivotDateFormats, resolvePivotTotals } from '@/components/charts/pivot-table/utils';
+import { PivotTableResponse } from '@/types/pivot-table';
 import {
   applyLegendPosition,
   extractLegendPosition,
@@ -349,7 +352,13 @@ export function ChartPreview({
   }
 
   // Only show configure message for truly empty state (no previous chart)
-  if (!config && chartType !== ChartTypes.TABLE && !isLoading && !chartInstance.current) {
+  if (
+    !config &&
+    chartType !== ChartTypes.TABLE &&
+    chartType !== ChartTypes.PIVOT_TABLE &&
+    !isLoading &&
+    !chartInstance.current
+  ) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center text-muted-foreground">
@@ -395,6 +404,49 @@ export function ChartPreview({
         config={tableConfig}
         onSort={onTableSort}
         pagination={tablePagination}
+      />
+    );
+  }
+
+  // Render pivot table chart
+  if (chartType === ChartTypes.PIVOT_TABLE) {
+    const pivotData = tableData as unknown as PivotTableResponse | undefined;
+    if (!pivotData || !pivotData.rows || !pivotData.metric_headers) {
+      return (
+        <div className="flex items-center justify-center h-full text-muted-foreground">
+          Configure your pivot table
+        </div>
+      );
+    }
+
+    const customizations = propCustomizations || config?.extra_config?.customizations || {};
+    const rowDimLabels = config?.extra_config?.row_dimensions || [];
+    const subtotalLabel = (config?.extra_config?.subtotal_label as string) || '';
+    const columnSubtotalLabel = (config?.extra_config?.column_subtotal_label as string) || '';
+    const legacyGrandTotalLabel = (config?.extra_config?.grand_total_label as string) || '';
+    const rowGrandTotalLabel =
+      (config?.extra_config?.row_grand_total_label as string) || legacyGrandTotalLabel;
+    const columnGrandTotalLabel =
+      (config?.extra_config?.column_grand_total_label as string) || legacyGrandTotalLabel;
+    const { rowDimDateFormats, columnDimDateFormats } = computePivotDateFormats(
+      config?.extra_config,
+      customizations
+    );
+    const { showRowGrandTotal, showColumnGrandTotal } = resolvePivotTotals(config?.extra_config);
+
+    return (
+      <PivotTableChart
+        data={pivotData}
+        rowDimLabels={rowDimLabels}
+        rowDimDateFormats={rowDimDateFormats}
+        columnDimDateFormats={columnDimDateFormats}
+        showRowGrandTotal={showRowGrandTotal}
+        showColumnGrandTotal={showColumnGrandTotal}
+        customizations={customizations}
+        subtotalLabel={subtotalLabel}
+        columnSubtotalLabel={columnSubtotalLabel}
+        rowGrandTotalLabel={rowGrandTotalLabel}
+        columnGrandTotalLabel={columnGrandTotalLabel}
       />
     );
   }

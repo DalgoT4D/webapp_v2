@@ -26,6 +26,7 @@ import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfiguration';
+import PivotDataConfiguration from '@/components/charts/pivot-table/PivotDataConfiguration';
 import { TableDimensionsSelector } from '@/components/charts/TableDimensionsSelector';
 import { TimeGrainSelector } from '@/components/charts/TimeGrainSelector';
 import { sanitizeCustomizationsForChartType } from '@/lib/chart-formatting-utils';
@@ -436,6 +437,23 @@ export function ChartDataConfigurationV3({
         };
         break;
 
+      case 'pivot_table': {
+        specificFields = {
+          computation_type: 'aggregated' as const,
+          extra_config: {
+            ...(formData.extra_config || {}),
+            row_dimensions: [],
+            column_dimensions: [],
+            show_row_subtotals: false,
+            show_column_subtotals: false,
+            show_grand_total: false,
+            subtotal_label: 'Subtotal',
+            grand_total_label: 'Grand Total',
+          },
+        };
+        break;
+      }
+
       case 'table':
         // Tables default to aggregated data like other charts
         specificFields = {
@@ -490,7 +508,8 @@ export function ChartDataConfigurationV3({
       {/* X Axis / Dimension */}
       {formData.chart_type !== 'number' &&
         formData.chart_type !== 'map' &&
-        formData.chart_type !== 'table' && (
+        formData.chart_type !== 'table' &&
+        formData.chart_type !== 'pivot_table' && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-900">
               {formData.chart_type === 'pie' ? 'Dimension' : 'X Axis'}
@@ -542,6 +561,17 @@ export function ChartDataConfigurationV3({
         />
       )}
 
+      {/* Pivot Table Data Configuration — dimensions only; totals render after metrics/filters */}
+      {formData.chart_type === 'pivot_table' && (
+        <PivotDataConfiguration
+          formData={formData}
+          availableColumns={normalizedColumns}
+          onChange={onChange}
+          disabled={disabled}
+          section="dimensions"
+        />
+      )}
+
       {/* Time Grain - For Bar and Line Charts with DateTime X-axis */}
       {['bar', 'line'].includes(formData.chart_type || '') &&
         formData.dimension_column &&
@@ -559,10 +589,11 @@ export function ChartDataConfigurationV3({
           />
         )}
 
-      {/* Y Axis - For Raw Data or Single Metric Charts (but NOT tables) */}
+      {/* Y Axis - For Raw Data or Single Metric Charts (but NOT tables or pivot tables) */}
       {formData.chart_type !== 'number' &&
         formData.chart_type !== 'map' &&
         formData.chart_type !== 'table' &&
+        formData.chart_type !== 'pivot_table' &&
         !['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-900">Y Axis</Label>
@@ -601,8 +632,8 @@ export function ChartDataConfigurationV3({
           </div>
         )}
 
-      {/* Multiple Metrics for Bar, Line, and Table Charts */}
-      {['bar', 'line', 'table'].includes(formData.chart_type || '') && (
+      {/* Multiple Metrics for Bar, Line, Table, and Pivot Table Charts */}
+      {['bar', 'line', 'table', 'pivot_table'].includes(formData.chart_type || '') && (
         <MetricsSelector
           metrics={formData.metrics || []}
           onChange={(metrics: ChartMetric[]) => onChange({ metrics })}
@@ -806,43 +837,56 @@ export function ChartDataConfigurationV3({
         </div>
       )}
 
-      {/* Pagination Section */}
-      {formData.chart_type !== 'map' && formData.chart_type !== 'number' && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Pagination</Label>
-          <Select
-            value={
-              formData.pagination?.enabled
-                ? (formData.pagination?.page_size || 50).toString()
-                : '__none__'
-            }
-            onValueChange={(value) => {
-              if (value === '__none__') {
-                onChange({ pagination: { enabled: false, page_size: 50 } });
-              } else {
-                onChange({
-                  pagination: {
-                    enabled: true,
-                    page_size: parseInt(value),
-                  },
-                });
-              }
-            }}
-            disabled={disabled}
-          >
-            <SelectTrigger className="h-8 w-full">
-              <SelectValue placeholder="Select pagination" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">No pagination</SelectItem>
-              <SelectItem value="20">20 items</SelectItem>
-              <SelectItem value="50">50 items</SelectItem>
-              <SelectItem value="100">100 items</SelectItem>
-              <SelectItem value="200">200 items</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Pivot Table subtotals & grand totals — placed after metrics/filters */}
+      {formData.chart_type === 'pivot_table' && (
+        <PivotDataConfiguration
+          formData={formData}
+          availableColumns={normalizedColumns}
+          onChange={onChange}
+          disabled={disabled}
+          section="totals"
+        />
       )}
+
+      {/* Pagination Section — not applicable to map, number, or pivot table charts */}
+      {formData.chart_type !== 'map' &&
+        formData.chart_type !== 'number' &&
+        formData.chart_type !== 'pivot_table' && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-900">Pagination</Label>
+            <Select
+              value={
+                formData.pagination?.enabled
+                  ? (formData.pagination?.page_size || 50).toString()
+                  : '__none__'
+              }
+              onValueChange={(value) => {
+                if (value === '__none__') {
+                  onChange({ pagination: { enabled: false, page_size: 50 } });
+                } else {
+                  onChange({
+                    pagination: {
+                      enabled: true,
+                      page_size: parseInt(value),
+                    },
+                  });
+                }
+              }}
+              disabled={disabled}
+            >
+              <SelectTrigger className="h-8 w-full">
+                <SelectValue placeholder="Select pagination" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">No pagination</SelectItem>
+                <SelectItem value="20">20 items</SelectItem>
+                <SelectItem value="50">50 items</SelectItem>
+                <SelectItem value="100">100 items</SelectItem>
+                <SelectItem value="200">200 items</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
       {/* Sort Section */}
       {formData.chart_type !== 'map' && formData.chart_type !== 'number' && (
