@@ -4,13 +4,19 @@ import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { RefreshCw, ChevronRight, ChevronDown } from 'lucide-react';
-import { NumberFormats, type NumberFormat, type DateFormat } from '@/lib/formatters';
-import { NumberFormatSection } from '../types/shared/NumberFormatSection';
+import { Trash2, ChevronRight, ChevronDown } from 'lucide-react';
+import { type NumberFormat, type DateFormat } from '@/lib/formatters';
+import { NumberFormatSection, NUMBER_FORMAT_OPTIONS } from '../types/shared/NumberFormatSection';
 import { DateFormatSection } from '../types/shared/DateFormatSection';
 import { ConditionalFormattingSection } from '../types/table/ConditionalFormattingSection';
 import { AppearanceSection } from '../types/table/AppearanceSection';
 import type { ConditionalFormattingRule } from '../types/table/types';
+
+// Compact label lookup derived from shared options (strips the " (example)" suffix),
+// mirroring the table chart so both stay in sync with NUMBER_FORMAT_OPTIONS.
+const NUMBER_FORMAT_LABELS: Record<string, string> = Object.fromEntries(
+  NUMBER_FORMAT_OPTIONS.map((opt) => [opt.value, opt.label.split(' (')[0]])
+);
 
 interface ColumnFormatConfig {
   numberFormat?: NumberFormat;
@@ -118,21 +124,14 @@ export default function PivotTableCustomizations({
 
   const getFormatDisplay = (column: string) => {
     const config = columnFormatting[column];
-    const formatLabels: Record<string, string> = {
-      default: 'No Formatting',
-      indian: 'Indian',
-      international: 'International',
-      adaptive_indian: 'Adaptive Indian',
-      adaptive_international: 'Adaptive International',
-      european: 'European',
-    };
     if (!config) return 'No Formatting';
     const hasDecimalPlaces = config.decimalPlaces !== undefined && config.decimalPlaces > 0;
     const isDefaultFormat = !config.numberFormat || config.numberFormat === 'default';
     if (isDefaultFormat && hasDecimalPlaces) {
       return `${config.decimalPlaces} decimal places`;
     }
-    const formatLabel = formatLabels[config.numberFormat || 'default'] || config.numberFormat;
+    const formatLabel =
+      NUMBER_FORMAT_LABELS[config.numberFormat || 'default'] || config.numberFormat;
     const decimals = hasDecimalPlaces ? ` • ${config.decimalPlaces} dec` : '';
     return `${formatLabel}${decimals}`;
   };
@@ -182,11 +181,11 @@ export default function PivotTableCustomizations({
                         variant="ghost"
                         size="icon"
                         data-testid={`pivot-remove-format-${column}`}
-                        className="h-6 w-6 text-black hover:text-destructive flex-shrink-0"
+                        className="h-6 w-6 flex-shrink-0 text-gray-400 hover:text-red-500"
                         onClick={(e) => handleRemoveFormat(column, e)}
                         disabled={disabled}
                       >
-                        <RefreshCw className="h-3 w-3" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     )}
                   </div>
@@ -198,7 +197,6 @@ export default function PivotTableCustomizations({
                         decimalPlaces={config?.decimalPlaces}
                         onNumberFormatChange={(value) => handleFormatChange(column, value)}
                         onDecimalPlacesChange={(value) => handleDecimalChange(column, value)}
-                        excludeFormats={[NumberFormats.PERCENTAGE, NumberFormats.CURRENCY]}
                         disabled={disabled}
                       />
                     </div>

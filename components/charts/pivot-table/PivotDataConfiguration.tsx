@@ -72,7 +72,7 @@ export default function PivotDataConfiguration({
     [formData.extra_config, onChange]
   );
 
-  // Independent grand-total flags, resolved with fallback to legacy show_grand_total
+  // Independent grand-total flags
   const { showRowGrandTotal, showColumnGrandTotal } = resolvePivotTotals(formData.extra_config);
 
   return (
@@ -295,11 +295,7 @@ export default function PivotDataConfiguration({
                 id="row-grand-total-display-name"
                 data-testid="pivot-row-grand-total-display-name"
                 placeholder="Grand Total"
-                value={
-                  formData.extra_config?.row_grand_total_label ??
-                  formData.extra_config?.grand_total_label ??
-                  'Grand Total'
-                }
+                value={formData.extra_config?.row_grand_total_label ?? 'Grand Total'}
                 onChange={(e) =>
                   onChange({
                     extra_config: {
@@ -358,11 +354,7 @@ export default function PivotDataConfiguration({
                 id="column-grand-total-display-name"
                 data-testid="pivot-column-grand-total-display-name"
                 placeholder="Grand Total"
-                value={
-                  formData.extra_config?.column_grand_total_label ??
-                  formData.extra_config?.grand_total_label ??
-                  'Grand Total'
-                }
+                value={formData.extra_config?.column_grand_total_label ?? 'Grand Total'}
                 onChange={(e) =>
                   onChange({
                     extra_config: {

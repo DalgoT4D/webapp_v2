@@ -16,8 +16,7 @@ interface PivotDateFormatConfig {
 }
 
 /**
- * Resolve the two independent grand-total flags from extra_config, falling back
- * to the legacy `show_grand_total` when a new flag is unset (older saved charts).
+ * Resolve the two independent grand-total flags from extra_config.
  * - showRowGrandTotal → rightmost "Total" column (each row summed across columns)
  * - showColumnGrandTotal → bottom "Total" row (each column summed across rows)
  */
@@ -25,12 +24,99 @@ export function resolvePivotTotals(extraConfig: Record<string, unknown> | undefi
   showRowGrandTotal: boolean;
   showColumnGrandTotal: boolean;
 } {
-  const legacy = (extraConfig?.show_grand_total as boolean | undefined) ?? false;
-  const rowFlag = extraConfig?.show_row_grand_total as boolean | undefined;
-  const colFlag = extraConfig?.show_column_grand_total as boolean | undefined;
   return {
-    showRowGrandTotal: rowFlag ?? legacy,
-    showColumnGrandTotal: colFlag ?? legacy,
+    showRowGrandTotal: (extraConfig?.show_row_grand_total as boolean | undefined) ?? false,
+    showColumnGrandTotal: (extraConfig?.show_column_grand_total as boolean | undefined) ?? false,
+  };
+}
+
+// Default labels for pivot subtotal / grand-total headers when the user hasn't set one.
+const DEFAULT_SUBTOTAL_LABEL = 'Subtotal';
+const DEFAULT_GRAND_TOTAL_LABEL = 'Grand Total';
+
+/** Pivot toggle + dimension fields the backend data pipeline reads off the payload root. */
+export interface PivotDataFields {
+  row_dimensions: string[];
+  column_dimensions: string[];
+  show_row_subtotals: boolean;
+  show_column_subtotals: boolean;
+  show_row_grand_total: boolean;
+  show_column_grand_total: boolean;
+}
+
+/** Full pivot config persisted in a saved chart's extra_config (data fields + display labels). */
+export interface PivotExtraConfigFields extends PivotDataFields {
+  subtotal_label: string;
+  column_subtotal_label: string;
+  row_grand_total_label: string;
+  column_grand_total_label: string;
+}
+
+/**
+ * Top-level pivot fields for a chart-data fetch payload. The `/chart-data/`
+ * pipeline (pivot_service + ROLLUP query builder) reads these off the payload
+ * root — not from extra_config — so this is the only place they belong on a
+ * data request. Labels are display-only and omitted here.
+ */
+export function buildPivotDataFields(
+  extraConfig: Record<string, unknown> | undefined
+): PivotDataFields {
+  const ec = extraConfig ?? {};
+  return {
+    row_dimensions: (ec.row_dimensions as string[]) || [],
+    column_dimensions: (ec.column_dimensions as string[]) || [],
+    show_row_subtotals: (ec.show_row_subtotals as boolean) ?? false,
+    show_column_subtotals: (ec.show_column_subtotals as boolean) ?? false,
+    show_row_grand_total: (ec.show_row_grand_total as boolean) ?? false,
+    show_column_grand_total: (ec.show_column_grand_total as boolean) ?? false,
+  };
+}
+
+/**
+ * Normalized pivot config fields, persisted inside a saved chart's `extra_config`
+ * (the source of truth read back at render time and by the backend by-id path).
+ * Single builder used everywhere a pivot chart is saved so the shape can't drift.
+ */
+export function buildPivotExtraConfig(
+  extraConfig: Record<string, unknown> | undefined
+): PivotExtraConfigFields {
+  const ec = extraConfig ?? {};
+  return {
+    ...buildPivotDataFields(extraConfig),
+    subtotal_label: (ec.subtotal_label as string) || DEFAULT_SUBTOTAL_LABEL,
+    column_subtotal_label: (ec.column_subtotal_label as string) || DEFAULT_SUBTOTAL_LABEL,
+    row_grand_total_label: (ec.row_grand_total_label as string) || DEFAULT_GRAND_TOTAL_LABEL,
+    column_grand_total_label: (ec.column_grand_total_label as string) || DEFAULT_GRAND_TOTAL_LABEL,
+  };
+}
+
+/**
+ * Assemble the full prop set for <PivotTableChart> from a chart's extra_config,
+ * computing date formats and grand-total gates once. Every render site (builder
+ * preview, detail, dashboard cells) uses this so the mapping can't drift.
+ * `customizationsOverride` lets the live builder preview pass in-progress
+ * customizations that aren't yet saved into extra_config.
+ */
+export function getPivotRenderProps(
+  extraConfig: Record<string, unknown> | undefined,
+  customizationsOverride?: Record<string, unknown>
+) {
+  const ec = extraConfig ?? {};
+  const customizations =
+    customizationsOverride ?? (ec.customizations as Record<string, unknown>) ?? {};
+  const { rowDimDateFormats, columnDimDateFormats } = computePivotDateFormats(ec, customizations);
+  const { showRowGrandTotal, showColumnGrandTotal } = resolvePivotTotals(ec);
+  return {
+    rowDimLabels: (ec.row_dimensions as string[]) || [],
+    rowDimDateFormats,
+    columnDimDateFormats,
+    showRowGrandTotal,
+    showColumnGrandTotal,
+    customizations,
+    subtotalLabel: (ec.subtotal_label as string) || DEFAULT_SUBTOTAL_LABEL,
+    columnSubtotalLabel: (ec.column_subtotal_label as string) || DEFAULT_SUBTOTAL_LABEL,
+    rowGrandTotalLabel: (ec.row_grand_total_label as string) || DEFAULT_GRAND_TOTAL_LABEL,
+    columnGrandTotalLabel: (ec.column_grand_total_label as string) || DEFAULT_GRAND_TOTAL_LABEL,
   };
 }
 

@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, AlertCircle, Home, Loader2 } from 'lucide-react';
 import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
-import { computePivotDateFormats, resolvePivotTotals } from '@/components/charts/pivot-table/utils';
+import { getPivotRenderProps } from '@/components/charts/pivot-table/utils';
 import type { PivotTableResponse } from '@/types/pivot-table';
 import { useChart } from '@/hooks/api/useCharts';
 import {
@@ -1313,36 +1313,7 @@ export function ChartElementV2({
                 ) : chartData?.data ? (
                   <PivotTableChart
                     data={chartData.data as unknown as PivotTableResponse}
-                    rowDimLabels={chart.extra_config?.row_dimensions || []}
-                    rowDimDateFormats={
-                      computePivotDateFormats(
-                        chart.extra_config,
-                        chart.extra_config?.customizations || {}
-                      ).rowDimDateFormats
-                    }
-                    columnDimDateFormats={
-                      computePivotDateFormats(
-                        chart.extra_config,
-                        chart.extra_config?.customizations || {}
-                      ).columnDimDateFormats
-                    }
-                    showRowGrandTotal={resolvePivotTotals(chart.extra_config).showRowGrandTotal}
-                    showColumnGrandTotal={
-                      resolvePivotTotals(chart.extra_config).showColumnGrandTotal
-                    }
-                    customizations={chart.extra_config?.customizations || {}}
-                    subtotalLabel={chart.extra_config?.subtotal_label || 'Subtotal'}
-                    columnSubtotalLabel={chart.extra_config?.column_subtotal_label || 'Subtotal'}
-                    rowGrandTotalLabel={
-                      chart.extra_config?.row_grand_total_label ||
-                      chart.extra_config?.grand_total_label ||
-                      'Grand Total'
-                    }
-                    columnGrandTotalLabel={
-                      chart.extra_config?.column_grand_total_label ||
-                      chart.extra_config?.grand_total_label ||
-                      'Grand Total'
-                    }
+                    {...getPivotRenderProps(chart.extra_config)}
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full text-muted-foreground">

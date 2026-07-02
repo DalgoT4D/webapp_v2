@@ -14,7 +14,7 @@ import {
 import { ChartPreview } from '@/components/charts/ChartPreview';
 import { TableChart } from '@/components/charts/TableChart';
 import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
-import { computePivotDateFormats, resolvePivotTotals } from '@/components/charts/pivot-table/utils';
+import { buildPivotDataFields, getPivotRenderProps } from '@/components/charts/pivot-table/utils';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import type { PivotTableResponse } from '@/types/pivot-table';
 import { Button } from '@/components/ui/button';
@@ -137,22 +137,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               aggregate_col:
                 chart.extra_config?.aggregate_column || chart.extra_config?.value_column,
             }),
-            // Pivot table fields
-            ...(chart.chart_type === 'pivot_table' && {
-              row_dimensions: chart.extra_config?.row_dimensions || [],
-              column_dimensions: chart.extra_config?.column_dimensions || [],
-              show_row_subtotals: chart.extra_config?.show_row_subtotals ?? false,
-              show_column_subtotals: chart.extra_config?.show_column_subtotals ?? false,
-              show_grand_total: chart.extra_config?.show_grand_total ?? false,
-              show_row_grand_total:
-                chart.extra_config?.show_row_grand_total ??
-                chart.extra_config?.show_grand_total ??
-                false,
-              show_column_grand_total:
-                chart.extra_config?.show_column_grand_total ??
-                chart.extra_config?.show_grand_total ??
-                false,
-            }),
+            // Pivot table top-level fields — the /chart-data/ pipeline reads these off
+            // the payload root (not extra_config).
+            ...(chart.chart_type === 'pivot_table' && buildPivotDataFields(chart.extra_config)),
             // For table charts, include dimensions array with drill-down support
             ...(chart.chart_type === 'table' && {
               dimensions: (() => {
@@ -213,22 +200,6 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               sort: chart.extra_config?.sort,
               time_grain: chart.extra_config?.time_grain,
               table_columns: chart.extra_config?.table_columns,
-              // Pivot table fields
-              ...(chart.chart_type === 'pivot_table' && {
-                row_dimensions: chart.extra_config?.row_dimensions || [],
-                column_dimensions: chart.extra_config?.column_dimensions || [],
-                show_row_subtotals: chart.extra_config?.show_row_subtotals ?? false,
-                show_column_subtotals: chart.extra_config?.show_column_subtotals ?? false,
-                show_grand_total: chart.extra_config?.show_grand_total ?? false,
-                show_row_grand_total:
-                  chart.extra_config?.show_row_grand_total ??
-                  chart.extra_config?.show_grand_total ??
-                  false,
-                show_column_grand_total:
-                  chart.extra_config?.show_column_grand_total ??
-                  chart.extra_config?.show_grand_total ??
-                  false,
-              }),
             },
           }
         : null,
@@ -891,36 +862,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   ) : chartData?.data ? (
                     <PivotTableChart
                       data={chartData.data as unknown as PivotTableResponse}
-                      rowDimLabels={chart.extra_config?.row_dimensions || []}
-                      rowDimDateFormats={
-                        computePivotDateFormats(
-                          chart.extra_config,
-                          chart.extra_config?.customizations || {}
-                        ).rowDimDateFormats
-                      }
-                      columnDimDateFormats={
-                        computePivotDateFormats(
-                          chart.extra_config,
-                          chart.extra_config?.customizations || {}
-                        ).columnDimDateFormats
-                      }
-                      showRowGrandTotal={resolvePivotTotals(chart.extra_config).showRowGrandTotal}
-                      showColumnGrandTotal={
-                        resolvePivotTotals(chart.extra_config).showColumnGrandTotal
-                      }
-                      customizations={chart.extra_config?.customizations || {}}
-                      subtotalLabel={chart.extra_config?.subtotal_label || 'Subtotal'}
-                      columnSubtotalLabel={chart.extra_config?.column_subtotal_label || 'Subtotal'}
-                      rowGrandTotalLabel={
-                        chart.extra_config?.row_grand_total_label ||
-                        chart.extra_config?.grand_total_label ||
-                        'Grand Total'
-                      }
-                      columnGrandTotalLabel={
-                        chart.extra_config?.column_grand_total_label ||
-                        chart.extra_config?.grand_total_label ||
-                        'Grand Total'
-                      }
+                      {...getPivotRenderProps(chart.extra_config)}
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full text-muted-foreground">

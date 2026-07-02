@@ -106,21 +106,14 @@ describe('resolvePivotTotals', () => {
     ).toEqual({ showRowGrandTotal: true, showColumnGrandTotal: false });
   });
 
-  it('falls back to legacy show_grand_total when new flags are absent', () => {
-    expect(resolvePivotTotals({ show_grand_total: true })).toEqual({
+  it('treats the two flags independently', () => {
+    expect(resolvePivotTotals({ show_row_grand_total: true })).toEqual({
       showRowGrandTotal: true,
-      showColumnGrandTotal: true,
+      showColumnGrandTotal: false,
     });
-    expect(resolvePivotTotals({ show_grand_total: false })).toEqual({
+    expect(resolvePivotTotals({ show_column_grand_total: true })).toEqual({
       showRowGrandTotal: false,
-      showColumnGrandTotal: false,
-    });
-  });
-
-  it('lets a new flag override the legacy value independently', () => {
-    expect(resolvePivotTotals({ show_grand_total: true, show_column_grand_total: false })).toEqual({
-      showRowGrandTotal: true,
-      showColumnGrandTotal: false,
+      showColumnGrandTotal: true,
     });
   });
 

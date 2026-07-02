@@ -35,6 +35,7 @@ import {
 } from '@/hooks/api/useChart';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { ChartTypes, type ChartType } from '@/types/charts';
+import { buildPivotDataFields, buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
 import {
   getApiCustomizations,
   mergeTableColumnFormatting,
@@ -333,24 +334,7 @@ function EditChartPageContent() {
         }),
         // Include pivot table fields from extra_config when loading a pivot_table chart
         ...(chart.chart_type === ChartTypes.PIVOT_TABLE && {
-          extra_config: {
-            row_dimensions: chart.extra_config?.row_dimensions || [],
-            column_dimensions: chart.extra_config?.column_dimensions || [],
-            show_row_subtotals: chart.extra_config?.show_row_subtotals ?? false,
-            show_column_subtotals: chart.extra_config?.show_column_subtotals ?? false,
-            show_grand_total: chart.extra_config?.show_grand_total ?? false,
-            show_row_grand_total:
-              chart.extra_config?.show_row_grand_total ??
-              chart.extra_config?.show_grand_total ??
-              false,
-            show_column_grand_total:
-              chart.extra_config?.show_column_grand_total ??
-              chart.extra_config?.show_grand_total ??
-              false,
-            subtotal_label: chart.extra_config?.subtotal_label || 'Subtotal',
-            column_subtotal_label: chart.extra_config?.column_subtotal_label || 'Subtotal',
-            grand_total_label: chart.extra_config?.grand_total_label || 'Grand Total',
-          },
+          extra_config: buildPivotExtraConfig(chart.extra_config),
         }),
       };
       setFormData(initialData);
@@ -577,22 +561,10 @@ function EditChartPageContent() {
               }),
             // Include metrics for multiple metrics support
             ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-            // Pivot table top-level fields (backend reads these directly on the payload)
-            ...(formData.chart_type === 'pivot_table' && {
-              row_dimensions: formData.extra_config?.row_dimensions || [],
-              column_dimensions: formData.extra_config?.column_dimensions || [],
-              show_row_subtotals: formData.extra_config?.show_row_subtotals ?? false,
-              show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
-              show_grand_total: formData.extra_config?.show_grand_total ?? false,
-              show_row_grand_total:
-                formData.extra_config?.show_row_grand_total ??
-                formData.extra_config?.show_grand_total ??
-                false,
-              show_column_grand_total:
-                formData.extra_config?.show_column_grand_total ??
-                formData.extra_config?.show_grand_total ??
-                false,
-            }),
+            // Pivot table top-level fields — the /chart-data/ pipeline reads these off
+            // the payload root (not extra_config).
+            ...(formData.chart_type === 'pivot_table' &&
+              buildPivotDataFields(formData.extra_config)),
             // Number formatting is frontend-only - exclude from API payload
             ...(formData.chart_type !== ChartTypes.TABLE &&
               formData.chart_type !== ChartTypes.PIVOT_TABLE && {
@@ -614,22 +586,6 @@ function EditChartPageContent() {
               sort: formData.sort,
               time_grain: formData.time_grain,
               table_columns: formData.table_columns,
-              // Pivot table fields in extra_config
-              ...(formData.chart_type === 'pivot_table' && {
-                row_dimensions: formData.extra_config?.row_dimensions || [],
-                column_dimensions: formData.extra_config?.column_dimensions || [],
-                show_row_subtotals: formData.extra_config?.show_row_subtotals ?? false,
-                show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
-                show_grand_total: formData.extra_config?.show_grand_total ?? false,
-                show_row_grand_total:
-                  formData.extra_config?.show_row_grand_total ??
-                  formData.extra_config?.show_grand_total ??
-                  false,
-                show_column_grand_total:
-                  formData.extra_config?.show_column_grand_total ??
-                  formData.extra_config?.show_grand_total ??
-                  false,
-              }),
             },
           }
         : null,
@@ -1359,25 +1315,8 @@ function EditChartPageContent() {
               ? formData.dimensions.map((d) => d.column).filter(Boolean)
               : [],
         }),
-        // Pivot table extra_config fields
-        ...(formData.chart_type === 'pivot_table' && {
-          row_dimensions: formData.extra_config?.row_dimensions || [],
-          column_dimensions: formData.extra_config?.column_dimensions || [],
-          show_row_subtotals: formData.extra_config?.show_row_subtotals ?? false,
-          show_column_subtotals: formData.extra_config?.show_column_subtotals ?? false,
-          show_grand_total: formData.extra_config?.show_grand_total ?? false,
-          show_row_grand_total:
-            formData.extra_config?.show_row_grand_total ??
-            formData.extra_config?.show_grand_total ??
-            false,
-          show_column_grand_total:
-            formData.extra_config?.show_column_grand_total ??
-            formData.extra_config?.show_grand_total ??
-            false,
-          subtotal_label: formData.extra_config?.subtotal_label || 'Subtotal',
-          column_subtotal_label: formData.extra_config?.column_subtotal_label || 'Subtotal',
-          grand_total_label: formData.extra_config?.grand_total_label || 'Grand Total',
-        }),
+        // Pivot table extra_config fields (source of truth persisted on the chart)
+        ...(formData.chart_type === 'pivot_table' && buildPivotExtraConfig(formData.extra_config)),
       },
     };
   };

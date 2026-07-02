@@ -446,9 +446,12 @@ export function ChartDataConfigurationV3({
             column_dimensions: [],
             show_row_subtotals: false,
             show_column_subtotals: false,
-            show_grand_total: false,
+            show_row_grand_total: false,
+            show_column_grand_total: false,
             subtotal_label: 'Subtotal',
-            grand_total_label: 'Grand Total',
+            column_subtotal_label: 'Subtotal',
+            row_grand_total_label: 'Grand Total',
+            column_grand_total_label: 'Grand Total',
           },
         };
         break;

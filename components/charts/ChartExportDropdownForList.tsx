@@ -13,6 +13,7 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { ChartExporter, generateFilename, type TableData } from '@/lib/chart-export';
 import { MapExportHandler } from '@/lib/map-export-handler';
+import { buildPivotDataFields } from '@/components/charts/pivot-table/utils';
 
 interface ChartExportDropdownForListProps {
   chartId: number;
@@ -192,43 +193,14 @@ export function ChartExportDropdownForList({
         }),
         ...(chart.extra_config?.metrics &&
           chart.extra_config.metrics.length > 0 && { metrics: chart.extra_config.metrics }),
-        // Pivot table fields
-        ...(chart.chart_type === 'pivot_table' && {
-          row_dimensions: chart.extra_config?.row_dimensions || [],
-          column_dimensions: chart.extra_config?.column_dimensions || [],
-          show_row_subtotals: chart.extra_config?.show_row_subtotals ?? false,
-          show_column_subtotals: chart.extra_config?.show_column_subtotals ?? false,
-          show_grand_total: chart.extra_config?.show_grand_total ?? false,
-          show_row_grand_total:
-            chart.extra_config?.show_row_grand_total ??
-            chart.extra_config?.show_grand_total ??
-            false,
-          show_column_grand_total:
-            chart.extra_config?.show_column_grand_total ??
-            chart.extra_config?.show_grand_total ??
-            false,
-        }),
+        // Pivot table top-level fields — the /chart-data/ pipeline reads these off
+        // the payload root (not extra_config).
+        ...(chart.chart_type === 'pivot_table' && buildPivotDataFields(chart.extra_config)),
         customizations: chart.extra_config?.customizations || {},
         extra_config: {
           filters: chart.extra_config?.filters || [],
           pagination: { enabled: false, page_size: 10000 }, // Get all data for export
           sort: chart.extra_config?.sort || [],
-          // Pivot table fields in extra_config as well
-          ...(chart.chart_type === 'pivot_table' && {
-            row_dimensions: chart.extra_config?.row_dimensions || [],
-            column_dimensions: chart.extra_config?.column_dimensions || [],
-            show_row_subtotals: chart.extra_config?.show_row_subtotals ?? false,
-            show_column_subtotals: chart.extra_config?.show_column_subtotals ?? false,
-            show_grand_total: chart.extra_config?.show_grand_total ?? false,
-            show_row_grand_total:
-              chart.extra_config?.show_row_grand_total ??
-              chart.extra_config?.show_grand_total ??
-              false,
-            show_column_grand_total:
-              chart.extra_config?.show_column_grand_total ??
-              chart.extra_config?.show_grand_total ??
-              false,
-          }),
         },
       };
 

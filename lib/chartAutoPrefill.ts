@@ -137,7 +137,8 @@ export function generateAutoPrefilledConfig(
         column_dimensions: firstDateCol ? [firstDateCol.column_name || firstDateCol.name] : [],
         show_row_subtotals: false,
         show_column_subtotals: false,
-        show_grand_total: false,
+        show_row_grand_total: false,
+        show_column_grand_total: false,
       };
       config.metrics = [
         {
