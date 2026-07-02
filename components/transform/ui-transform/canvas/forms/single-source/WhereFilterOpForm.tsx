@@ -126,10 +126,14 @@ export function WhereFilterOpForm({
         setError('logicalOp', { message: 'Operation is required' });
         hasErrors = true;
       }
-      // Validate operand column when type is 'col' and not a null operator
+      // Validate operand when not a null operator
       const isNullOp = data.logicalOp === 'IS NULL' || data.logicalOp === 'IS NOT NULL';
       if (!isNullOp && data.operandType === 'col' && !data.operandColVal) {
         setError('operandColVal', { message: 'Column is required' });
+        hasErrors = true;
+      }
+      if (!isNullOp && data.operandType === 'val' && !data.operandConstVal.trim()) {
+        setError('operandConstVal', { message: 'Value is required' });
         hasErrors = true;
       }
     } else {
@@ -272,12 +276,19 @@ export function WhereFilterOpForm({
               )}
             </div>
           ) : (
-            <Input
-              {...register('operandConstVal')}
-              placeholder="Enter the value"
-              disabled={isSimpleFieldsDisabled}
-              data-testid="where-operand-val"
-            />
+            <div className="space-y-2">
+              <Input
+                {...register('operandConstVal', {
+                  onChange: () => clearErrors('operandConstVal'),
+                })}
+                placeholder="Enter the value"
+                disabled={isSimpleFieldsDisabled}
+                data-testid="where-operand-val"
+              />
+              {errors.operandConstVal && (
+                <p className="text-sm text-destructive">{errors.operandConstVal.message}</p>
+              )}
+            </div>
           )}
         </>
       )}
