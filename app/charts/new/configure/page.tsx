@@ -285,12 +285,11 @@ function ConfigureChartPageContent() {
     }
 
     {
-      // For bar/line charts with multiple metrics
-      if (
-        ['bar', 'line', 'pie'].includes(formData.chart_type || '') &&
-        formData.metrics &&
-        formData.metrics.length > 0
-      ) {
+      // For bar/line/pie charts - require at least one metric
+      if (['bar', 'line', 'pie'].includes(formData.chart_type || '')) {
+        if (!formData.metrics || formData.metrics.length === 0) {
+          return false;
+        }
         return !!(
           formData.dimension_column &&
           formData.metrics.every(
@@ -302,7 +301,7 @@ function ConfigureChartPageContent() {
         );
       }
 
-      // For single metric charts
+      // For other aggregated chart types, use legacy single metric approach
       return !!(
         formData.dimension_column &&
         formData.aggregate_function &&
@@ -833,12 +832,11 @@ function ConfigureChartPageContent() {
     }
 
     {
-      // For bar/line/table charts with multiple metrics
-      if (
-        ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&
-        formData.metrics &&
-        formData.metrics.length > 0
-      ) {
+      // For bar/line/pie charts - require at least one metric
+      if (['bar', 'line', 'pie'].includes(formData.chart_type || '')) {
+        if (!formData.metrics || formData.metrics.length === 0) {
+          return false;
+        }
         return !!(
           formData.dimension_column &&
           formData.metrics.every(
@@ -850,7 +848,7 @@ function ConfigureChartPageContent() {
         );
       }
 
-      // Legacy single metric approach
+      // For other aggregated chart types, use legacy single metric approach
       const needsAggregateColumn = formData.aggregate_function !== 'count';
       return !!(
         formData.dimension_column &&

@@ -504,6 +504,38 @@ describe('ChartBuilder', () => {
           aggregate_function: 'sum' as const,
         },
       ],
+      [
+        'bar with empty metrics',
+        {
+          title: 'Bar',
+          chart_type: 'bar' as const,
+          schema_name: 'public',
+          table_name: 'sales',
+          dimension_column: 'category',
+          metrics: [],
+        },
+      ],
+      [
+        'line with no metrics',
+        {
+          title: 'Line',
+          chart_type: 'line' as const,
+          schema_name: 'public',
+          table_name: 'sales',
+          dimension_column: 'date',
+        },
+      ],
+      [
+        'pie with empty metrics',
+        {
+          title: 'Pie',
+          chart_type: 'pie' as const,
+          schema_name: 'public',
+          table_name: 'sales',
+          dimension_column: 'category',
+          metrics: [],
+        },
+      ],
     ])('should disable save button for invalid %s', (desc, invalidData) => {
       render(<ChartBuilder {...defaultProps} initialData={invalidData} />);
 

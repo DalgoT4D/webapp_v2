@@ -164,9 +164,14 @@ export function ChartBuilder({
     stateId?: number;
   } | null>(null);
 
+  // Aggregated chart types (bar, line, pie, number) require at least one metric for API requests
+  const hasRequiredMetrics =
+    !['bar', 'line', 'pie', 'number'].includes(formData.chart_type || '') ||
+    (formData.metrics && formData.metrics.length > 0);
+
   // Build payload for chart data - include tables for chart data endpoint
   const chartDataPayload: ChartDataPayload | null =
-    formData.schema_name && formData.table_name
+    formData.schema_name && formData.table_name && hasRequiredMetrics
       ? {
           chart_type: formData.chart_type!,
           computation_type: formData.computation_type || 'aggregated',
@@ -479,12 +484,11 @@ export function ChartBuilder({
       return !!(formData.schema_name && formData.table_name && formData.title);
     }
 
-    // For bar/line/pie charts with multiple metrics
-    if (
-      ['bar', 'line', 'pie'].includes(formData.chart_type || '') &&
-      formData.metrics &&
-      formData.metrics.length > 0
-    ) {
+    // For bar/line/pie charts - require at least one metric
+    if (['bar', 'line', 'pie'].includes(formData.chart_type || '')) {
+      if (!formData.metrics || formData.metrics.length === 0) {
+        return false;
+      }
       return !!(
         formData.dimension_column &&
         formData.metrics.every(
@@ -494,7 +498,7 @@ export function ChartBuilder({
       );
     }
 
-    // For aggregated charts, allow count function without aggregate column
+    // For other aggregated charts, allow count function without aggregate column
     const needsAggregateColumn = formData.aggregate_function !== 'count';
     return !!(
       formData.dimension_column &&

@@ -451,14 +451,15 @@ function EditChartPageContent() {
     }
 
     {
-      // For bar/line/table charts with multiple metrics
+      // For bar/line/pie charts - require at least one metric
       if (
-        (
-          [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.TABLE] as ChartType[]
-        ).includes(formData.chart_type as ChartType) &&
-        formData.metrics &&
-        formData.metrics.length > 0
+        ([ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE] as ChartType[]).includes(
+          formData.chart_type as ChartType
+        )
       ) {
+        if (!formData.metrics || formData.metrics.length === 0) {
+          return false;
+        }
         return !!(
           formData.dimension_column &&
           formData.metrics.every(
@@ -470,7 +471,7 @@ function EditChartPageContent() {
         );
       }
 
-      // Legacy single metric approach
+      // For other aggregated chart types, use legacy single metric approach
       return !!(
         formData.dimension_column &&
         formData.aggregate_function &&
@@ -1140,14 +1141,15 @@ function EditChartPageContent() {
     }
 
     {
-      // For bar/line/table charts with multiple metrics
+      // For bar/line/pie charts - require at least one metric
       if (
-        (
-          [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.TABLE] as ChartType[]
-        ).includes(formData.chart_type as ChartType) &&
-        formData.metrics &&
-        formData.metrics.length > 0
+        ([ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE] as ChartType[]).includes(
+          formData.chart_type as ChartType
+        )
       ) {
+        if (!formData.metrics || formData.metrics.length === 0) {
+          return false;
+        }
         return !!(
           formData.dimension_column &&
           formData.metrics.every(
@@ -1159,7 +1161,7 @@ function EditChartPageContent() {
         );
       }
 
-      // Legacy single metric approach
+      // For other aggregated chart types, use legacy single metric approach
       const needsAggregateColumn = formData.aggregate_function !== 'count';
       return !!(
         formData.dimension_column &&
