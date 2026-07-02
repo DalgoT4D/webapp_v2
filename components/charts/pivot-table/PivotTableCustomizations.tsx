@@ -215,10 +215,7 @@ export default function PivotTableCustomizations({
         <div className="space-y-4" data-testid="pivot-date-formatting">
           <div>
             <h4 className="text-sm font-medium">Date Formatting</h4>
-            <p className="text-xs text-muted-foreground">
-              Display format for date dimensions. Columns with a time grain are formatted by their
-              grain instead.
-            </p>
+            <p className="text-xs text-muted-foreground">Display format for date dimensions.</p>
           </div>
           <div className="space-y-4">
             {dateColumns.map((column) => (

@@ -235,7 +235,9 @@ export default function PivotTableChart({
             colIndex: colCounter,
             displayValue: `${groupLabel} ${suffix}`,
           });
-        } else if (!row.is_subtotal) {
+        } else if (!row.is_subtotal && (rowSpans[rowIdx]?.[d] ?? 1) !== 0) {
+          // Skip cells merged into the row above (rowSpan) — they aren't rendered,
+          // so counting them would over-report matches for a single visible cell.
           cells.push({
             rowIndex: rowIdx,
             colIndex: colCounter,
@@ -285,6 +287,7 @@ export default function PivotTableChart({
     formatCell,
     subtotalLabel,
     effectiveColumns,
+    rowSpans,
   ]);
 
   const search = useTableSearch(searchCells);
@@ -329,6 +332,20 @@ export default function PivotTableChart({
     ? 'sticky left-0 z-30 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
     : '';
 
+  // Pin the rightmost row-grand-total column during horizontal scroll (mirror of the
+  // freeze-first-column behaviour on the right edge). Only a single-metric total column
+  // can pin cleanly — multiple total cells would all stick to right:0 and overlap.
+  const stickyTotal = showRowTotalColumn && metricCount === 1;
+  const stickyTotalCellClass = stickyTotal
+    ? 'sticky right-0 z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+    : '';
+  const stickyTotalHeaderClass = stickyTotal
+    ? 'sticky right-0 z-30 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+    : '';
+  const stickyTotalFooterClass = stickyTotal
+    ? 'sticky right-0 z-20 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+    : '';
+
   // Shared border style object for cells
   const borderStyle: React.CSSProperties = { borderColor: theme.border };
   // Header cell style (background + text + border)
@@ -352,7 +369,7 @@ export default function PivotTableChart({
   return (
     <div className="flex flex-col h-full" data-testid="pivot-table-chart">
       {/* Search bar */}
-      <div className="flex justify-end flex-shrink-0 px-2 py-1">
+      <div className="flex-shrink-0 py-1 mb-2">
         <TableSearchBar
           query={search.query}
           onQueryChange={search.setQuery}
@@ -389,7 +406,7 @@ export default function PivotTableChart({
                     <th
                       key={`ch-${level}-${spanIdx}`}
                       colSpan={span.span * metricCount}
-                      className={`px-3 py-2 text-right font-semibold border-b border-r ${
+                      className={`px-3 py-2 text-center font-semibold border-b border-r ${
                         isSubtotalHeader ? 'italic' : ''
                       }`}
                       style={{
@@ -411,7 +428,7 @@ export default function PivotTableChart({
                   <th
                     colSpan={metricCount}
                     rowSpan={numColDims}
-                    className="px-3 py-2 text-right font-bold border-b border-l"
+                    className={`px-3 py-2 text-center font-bold border-b border-l ${stickyTotalHeaderClass}`}
                     style={{
                       backgroundColor: theme.grandTotalRow,
                       color: theme.headerText,
@@ -444,7 +461,7 @@ export default function PivotTableChart({
                     return metricHeaders.map((metric, mIdx) => (
                       <th
                         key={`metric-${colIdx}-${mIdx}`}
-                        className={`px-3 py-2 text-right font-medium border-b border-r ${
+                        className={`px-3 py-2 text-center font-medium border-b border-r ${
                           isColSubtotal ? 'italic' : ''
                         }`}
                         style={{
@@ -463,9 +480,9 @@ export default function PivotTableChart({
                     metricHeaders.map((metric, mIdx) => (
                       <th
                         key={`metric-total-${mIdx}`}
-                        className={`px-3 py-2 text-right font-bold border-b border-r last:border-r-0 ${
+                        className={`px-3 py-2 text-center font-bold border-b border-r last:border-r-0 ${
                           mIdx === 0 ? 'border-l' : ''
-                        }`}
+                        } ${stickyTotalHeaderClass}`}
                         style={{
                           backgroundColor: theme.grandTotalRow,
                           color: theme.headerText,
@@ -480,7 +497,7 @@ export default function PivotTableChart({
                 metricHeaders.map((metric, mIdx) => (
                   <th
                     key={`metric-${mIdx}`}
-                    className="px-3 py-2 text-right font-medium border-b"
+                    className="px-3 py-2 text-center font-medium border-b"
                     style={headerCellStyle}
                   >
                     {metric}
@@ -584,7 +601,7 @@ export default function PivotTableChart({
                             <td
                               key={`val-${ecIdx}-${mIdx}`}
                               data-search-cell={`${rowIdx}-${cellCol}`}
-                              className={`px-3 py-2 text-right border-b border-r tabular-nums ${
+                              className={`px-3 py-2 text-center border-b border-r tabular-nums ${
                                 isColSubtotal ? 'font-semibold italic' : ''
                               }`}
                               style={{
@@ -620,9 +637,9 @@ export default function PivotTableChart({
                         <td
                           key={`total-${mIdx}`}
                           data-search-cell={`${rowIdx}-${cellCol}`}
-                          className={`px-3 py-2 text-right border-b tabular-nums ${
+                          className={`px-3 py-2 text-center border-b tabular-nums ${
                             isGrandTotalCol
-                              ? `font-bold border-r last:border-r-0 ${mIdx === 0 ? 'border-l' : ''}`
+                              ? `font-bold border-r last:border-r-0 ${mIdx === 0 ? 'border-l' : ''} ${stickyTotalCellClass}`
                               : 'font-medium'
                           }`}
                           style={{
@@ -670,7 +687,7 @@ export default function PivotTableChart({
                         return (
                           <td
                             key={`gt-val-${ecIdx}-${mIdx}`}
-                            className={`px-3 py-2 text-right border-t border-b border-r tabular-nums ${
+                            className={`px-3 py-2 text-center border-t border-b border-r tabular-nums ${
                               isColSubtotal ? 'italic' : ''
                             }`}
                             style={{ borderColor: theme.grandTotalBorder }}
@@ -687,10 +704,13 @@ export default function PivotTableChart({
                     return (
                       <td
                         key={`gt-total-${mIdx}`}
-                        className={`px-3 py-2 text-right border-t border-b border-r last:border-r-0 tabular-nums ${
+                        className={`px-3 py-2 text-center border-t border-b border-r last:border-r-0 tabular-nums ${
                           hasColumnKeys && mIdx === 0 ? 'border-l' : ''
-                        }`}
-                        style={{ borderColor: theme.grandTotalBorder }}
+                        } ${stickyTotalFooterClass}`}
+                        style={{
+                          borderColor: theme.grandTotalBorder,
+                          ...(stickyTotal ? { backgroundColor: theme.grandTotalRow } : {}),
+                        }}
                       >
                         {formatCell(val, metricName)}
                       </td>

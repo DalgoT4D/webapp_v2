@@ -3,6 +3,7 @@ import {
   computePivotDateFormats,
   resolvePivotTotals,
   exportPivotAsCsv,
+  pruneStaleFormatting,
 } from '../utils';
 import type { PivotTableResponse } from '@/types/pivot-table';
 
@@ -61,6 +62,40 @@ describe('computePivotDateFormats', () => {
     );
     expect(rowDimDateFormats).toEqual([]);
     expect(columnDimDateFormats).toEqual([]);
+  });
+});
+
+describe('pruneStaleFormatting', () => {
+  it('drops keys not present in the valid-column list', () => {
+    const existing = {
+      created_at: { dateFormat: 'yyyy_mm_dd' },
+      removed_dim: { dateFormat: 'dd_mm_yyyy' },
+    };
+    const { cleaned, changed } = pruneStaleFormatting(existing, ['created_at']);
+    expect(cleaned).toEqual({ created_at: { dateFormat: 'yyyy_mm_dd' } });
+    expect(changed).toBe(true);
+  });
+
+  it('keeps every key and reports no change when all are valid', () => {
+    const existing = {
+      sum_amount: { numberFormat: 'indian', decimalPlaces: 2 },
+      count: { numberFormat: 'international', decimalPlaces: 0 },
+    };
+    const { cleaned, changed } = pruneStaleFormatting(existing, ['sum_amount', 'count']);
+    expect(cleaned).toEqual(existing);
+    expect(changed).toBe(false);
+  });
+
+  it('drops all keys when the valid-column list is empty', () => {
+    const existing = { a: { dateFormat: 'time_only' } };
+    const { cleaned, changed } = pruneStaleFormatting(existing, []);
+    expect(cleaned).toEqual({});
+    expect(changed).toBe(true);
+  });
+
+  it('handles an undefined/empty existing record without change', () => {
+    expect(pruneStaleFormatting(undefined, ['a'])).toEqual({ cleaned: {}, changed: false });
+    expect(pruneStaleFormatting({}, ['a'])).toEqual({ cleaned: {}, changed: false });
   });
 });
 

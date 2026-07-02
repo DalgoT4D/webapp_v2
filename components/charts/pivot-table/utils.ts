@@ -57,6 +57,30 @@ export function computePivotDateFormats(
 }
 
 /**
+ * Drop formatting entries whose column is no longer part of the chart (e.g. a row
+ * dimension or metric the user removed). Mirrors the table chart's stale-config
+ * scrub so saved pivot configs don't accumulate orphaned formatting. Returns the
+ * cleaned record plus a `changed` flag so callers can skip a no-op state update.
+ */
+export function pruneStaleFormatting<T>(
+  existing: Record<string, T> | undefined,
+  validColumns: string[]
+): { cleaned: Record<string, T>; changed: boolean } {
+  const source = existing ?? {};
+  const validSet = new Set(validColumns);
+  const cleaned: Record<string, T> = {};
+  let changed = false;
+  for (const [column, value] of Object.entries(source)) {
+    if (validSet.has(column)) {
+      cleaned[column] = value;
+    } else {
+      changed = true;
+    }
+  }
+  return { cleaned, changed };
+}
+
+/**
  * Calculate rowSpan for hierarchical row dimensions.
  * Groups consecutive rows that share the same first N labels.
  */

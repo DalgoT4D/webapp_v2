@@ -135,9 +135,6 @@ export function generateAutoPrefilledConfig(
       config.extra_config = {
         row_dimensions: firstTextCol ? [firstTextCol.column_name || firstTextCol.name] : [],
         column_dimensions: firstDateCol ? [firstDateCol.column_name || firstDateCol.name] : [],
-        column_time_grains: firstDateCol
-          ? { [firstDateCol.column_name || firstDateCol.name]: 'month' }
-          : {},
         show_row_subtotals: false,
         show_column_subtotals: false,
         show_grand_total: false,

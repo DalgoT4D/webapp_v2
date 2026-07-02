@@ -17,6 +17,7 @@ import { NumberChartCustomizations } from './types/number/NumberChartCustomizati
 import { MapChartCustomizations } from './types/map/MapChartCustomizations';
 import { TableChartCustomizations } from './types/table/TableChartCustomizations';
 import PivotTableCustomizations from '@/components/charts/pivot-table/PivotTableCustomizations';
+import { pruneStaleFormatting } from '@/components/charts/pivot-table/utils';
 
 interface ColumnInfo {
   column_name?: string;
@@ -222,6 +223,51 @@ export function ChartCustomizations({
     }
   }, [chartType, customizations.dateColumnFormatting, dateColumns, updateCustomization]);
 
+  // --- Pivot table: metric + date columns eligible for formatting (also drives the
+  // stale-config cleanup below, mirroring the table chart) ---
+  const pivotMetricColumns = useMemo(() => {
+    if (chartType !== ChartTypes.PIVOT_TABLE || !formData) return [];
+    return (
+      formData.metrics
+        ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
+        .filter(Boolean) || []
+    );
+  }, [chartType, formData]);
+
+  // Datetime dimensions (row + column) eligible for display-only date formatting.
+  const pivotDateColumns = useMemo(() => {
+    if (chartType !== ChartTypes.PIVOT_TABLE || !formData) return [];
+    const rowDims = formData.extra_config?.row_dimensions || [];
+    const colDims = formData.extra_config?.column_dimensions || [];
+    const isDateColumn = (col: string) => {
+      const type = rawColumnTypeMap[col] || '';
+      return type.includes('date') || type.includes('timestamp') || type.includes('time');
+    };
+    return [...rowDims, ...colDims]
+      .filter(isDateColumn)
+      .filter((c, idx, arr) => arr.indexOf(c) === idx);
+  }, [chartType, formData, rawColumnTypeMap]);
+
+  // Clean up stale pivot number formatting when metrics change
+  useEffect(() => {
+    if (chartType !== ChartTypes.PIVOT_TABLE) return;
+    const { cleaned, changed } = pruneStaleFormatting(
+      customizations.columnFormatting as Record<string, unknown> | undefined,
+      pivotMetricColumns
+    );
+    if (changed) updateCustomization('columnFormatting', cleaned);
+  }, [chartType, customizations.columnFormatting, pivotMetricColumns, updateCustomization]);
+
+  // Clean up stale pivot date formatting when date dimensions change
+  useEffect(() => {
+    if (chartType !== ChartTypes.PIVOT_TABLE) return;
+    const { cleaned, changed } = pruneStaleFormatting(
+      customizations.dateColumnFormatting as Record<string, unknown> | undefined,
+      pivotDateColumns
+    );
+    if (changed) updateCustomization('dateColumnFormatting', cleaned);
+  }, [chartType, customizations.dateColumnFormatting, pivotDateColumns, updateCustomization]);
+
   // Safety check for undefined formData (after hooks)
   if (!formData) {
     return (
@@ -391,27 +437,8 @@ export function ChartCustomizations({
     }
 
     case ChartTypes.PIVOT_TABLE: {
-      // Derive metric column names from formData.metrics
-      const pivotMetricColumns =
-        formData.metrics
-          ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
-          .filter(Boolean) || [];
-
-      // Datetime dimensions (row + column) that have NO time grain are eligible for
-      // display-only date formatting. Grained columns are formatted by their grain instead.
-      const rowDims = formData.extra_config?.row_dimensions || [];
-      const colDims = formData.extra_config?.column_dimensions || [];
-      const rowGrains = formData.extra_config?.row_time_grains || {};
-      const colGrains = formData.extra_config?.column_time_grains || {};
-      const isDateColumn = (col: string) => {
-        const type = rawColumnTypeMap[col] || '';
-        return type.includes('date') || type.includes('timestamp') || type.includes('time');
-      };
-      const pivotDateColumns = [
-        ...rowDims.filter((c) => isDateColumn(c) && !rowGrains[c]),
-        ...colDims.filter((c) => isDateColumn(c) && !colGrains[c]),
-      ].filter((c, idx, arr) => arr.indexOf(c) === idx);
-
+      // pivotMetricColumns / pivotDateColumns are computed at the top level so the
+      // stale-config cleanup effects can share them.
       return (
         <PivotTableCustomizations
           customizations={customizations}
