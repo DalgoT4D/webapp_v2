@@ -2,7 +2,8 @@
 
 import { useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Combobox } from '@/components/ui/combobox';
+import { Combobox, highlightText } from '@/components/ui/combobox';
+import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { X, Plus, GripVertical } from 'lucide-react';
 import {
   DndContext,
@@ -32,7 +33,7 @@ interface SortablePivotDimensionProps {
   dim: string;
   idx: number;
   idPrefix: string;
-  columnItems: Array<{ value: string; label: string }>;
+  columnItems: Array<{ value: string; label: string; data_type: string }>;
   disabled?: boolean;
   canDrag: boolean;
   canRemove: boolean;
@@ -86,7 +87,16 @@ function SortablePivotDimension({
             value={dim}
             onValueChange={(val: string) => onChangeColumn(idx, val)}
             placeholder="Select column..."
+            searchPlaceholder="Search columns..."
             disabled={disabled}
+            renderItem={(item, _isSelected, searchQuery) => (
+              <div className="flex items-center gap-2 min-w-0">
+                <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate" title={`${item.label} (${item.data_type})`}>
+                  {highlightText(item.label, searchQuery)}
+                </span>
+              </div>
+            )}
           />
         </div>
         <Button
@@ -142,6 +152,7 @@ export function PivotDimensionList({
       availableColumns.map((col) => ({
         value: col.column_name,
         label: col.name || col.column_name,
+        data_type: col.data_type,
       })),
     [availableColumns]
   );
