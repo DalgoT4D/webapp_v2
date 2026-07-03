@@ -448,7 +448,7 @@ export function ChartDataConfigurationV3({
             show_column_subtotals: false,
             show_row_grand_total: false,
             show_column_grand_total: false,
-            subtotal_label: 'Subtotal',
+            row_subtotal_label: 'Subtotal',
             column_subtotal_label: 'Subtotal',
             row_grand_total_label: 'Grand Total',
             column_grand_total_label: 'Grand Total',

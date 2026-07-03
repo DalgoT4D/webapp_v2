@@ -161,7 +161,7 @@ export interface ChartCreate {
     show_column_subtotals?: boolean;
     show_row_grand_total?: boolean; // rightmost "Total" column (each row across cols)
     show_column_grand_total?: boolean; // bottom "Total" row (each col across rows)
-    subtotal_label?: string;
+    row_subtotal_label?: string;
     column_subtotal_label?: string;
     row_grand_total_label?: string; // header of the rightmost grand total column
     column_grand_total_label?: string; // label of the bottom grand total row
@@ -220,7 +220,7 @@ export interface ChartUpdate {
     show_column_subtotals?: boolean;
     show_row_grand_total?: boolean;
     show_column_grand_total?: boolean;
-    subtotal_label?: string;
+    row_subtotal_label?: string;
     column_subtotal_label?: string;
     row_grand_total_label?: string;
     column_grand_total_label?: string;
@@ -261,7 +261,7 @@ export interface ChartDataPayload {
   show_column_subtotals?: boolean;
   show_row_grand_total?: boolean;
   show_column_grand_total?: boolean;
-  subtotal_label?: string;
+  row_subtotal_label?: string;
   column_subtotal_label?: string;
 
   // Customizations

@@ -46,7 +46,7 @@ export interface PivotDataFields {
 
 /** Full pivot config persisted in a saved chart's extra_config (data fields + display labels). */
 export interface PivotExtraConfigFields extends PivotDataFields {
-  subtotal_label: string;
+  row_subtotal_label: string;
   column_subtotal_label: string;
   row_grand_total_label: string;
   column_grand_total_label: string;
@@ -83,7 +83,7 @@ export function buildPivotExtraConfig(
   const ec = extraConfig ?? {};
   return {
     ...buildPivotDataFields(extraConfig),
-    subtotal_label: (ec.subtotal_label as string) || DEFAULT_SUBTOTAL_LABEL,
+    row_subtotal_label: (ec.row_subtotal_label as string) || DEFAULT_SUBTOTAL_LABEL,
     column_subtotal_label: (ec.column_subtotal_label as string) || DEFAULT_SUBTOTAL_LABEL,
     row_grand_total_label: (ec.row_grand_total_label as string) || DEFAULT_GRAND_TOTAL_LABEL,
     column_grand_total_label: (ec.column_grand_total_label as string) || DEFAULT_GRAND_TOTAL_LABEL,
@@ -113,7 +113,7 @@ export function getPivotRenderProps(
     showRowGrandTotal,
     showColumnGrandTotal,
     customizations,
-    subtotalLabel: (ec.subtotal_label as string) || DEFAULT_SUBTOTAL_LABEL,
+    rowSubtotalLabel: (ec.row_subtotal_label as string) || DEFAULT_SUBTOTAL_LABEL,
     columnSubtotalLabel: (ec.column_subtotal_label as string) || DEFAULT_SUBTOTAL_LABEL,
     rowGrandTotalLabel: (ec.row_grand_total_label as string) || DEFAULT_GRAND_TOTAL_LABEL,
     columnGrandTotalLabel: (ec.column_grand_total_label as string) || DEFAULT_GRAND_TOTAL_LABEL,

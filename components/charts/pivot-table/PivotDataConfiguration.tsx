@@ -167,7 +167,9 @@ export default function PivotDataConfiguration({
                       show_row_subtotals: checked,
                       // Auto-set default label when enabling
                       ...(checked &&
-                        !formData.extra_config?.subtotal_label && { subtotal_label: 'Subtotal' }),
+                        !formData.extra_config?.row_subtotal_label && {
+                          row_subtotal_label: 'Subtotal',
+                        }),
                     },
                   })
                 }
@@ -176,15 +178,15 @@ export default function PivotDataConfiguration({
             </div>
             {formData.extra_config?.show_row_subtotals && rowDimensions.length >= 2 && (
               <Input
-                id="subtotal-display-name"
-                data-testid="pivot-subtotal-display-name"
+                id="row-subtotal-display-name"
+                data-testid="pivot-row-subtotal-display-name"
                 placeholder="Subtotal"
-                value={formData.extra_config?.subtotal_label ?? 'Subtotal'}
+                value={formData.extra_config?.row_subtotal_label ?? 'Subtotal'}
                 onChange={(e) =>
                   onChange({
                     extra_config: {
                       ...formData.extra_config,
-                      subtotal_label: e.target.value,
+                      row_subtotal_label: e.target.value,
                     },
                   })
                 }

@@ -38,7 +38,7 @@ interface PivotTableChartProps {
   /** Show the bottom "Total" row (each column across all rows). Defaults on. */
   showColumnGrandTotal?: boolean;
   customizations?: Record<string, unknown>;
-  subtotalLabel?: string;
+  rowSubtotalLabel?: string;
   columnSubtotalLabel?: string;
   /** Header label for the rightmost grand total column (row grand total) */
   rowGrandTotalLabel?: string;
@@ -85,7 +85,7 @@ export default function PivotTableChart({
   showRowGrandTotal = true,
   showColumnGrandTotal = true,
   customizations,
-  subtotalLabel,
+  rowSubtotalLabel,
   columnSubtotalLabel,
   rowGrandTotalLabel,
   columnGrandTotalLabel,
@@ -229,7 +229,7 @@ export default function PivotTableChart({
       for (let d = 0; d < dimCount; d++) {
         if (row.is_subtotal && d === 0) {
           const groupLabel = row.row_labels.join(' > ');
-          const suffix = subtotalLabel || 'Subtotal';
+          const suffix = rowSubtotalLabel || 'Subtotal';
           cells.push({
             rowIndex: rowIdx,
             colIndex: colCounter,
@@ -285,7 +285,7 @@ export default function PivotTableChart({
     hasColumnKeys,
     metricHeaders,
     formatCell,
-    subtotalLabel,
+    rowSubtotalLabel,
     effectiveColumns,
     rowSpans,
   ]);
@@ -536,7 +536,7 @@ export default function PivotTableChart({
                             applyPivotDateFormat(String(lbl ?? ''), rowDimDateFormats?.[i])
                           )
                           .join(' > ');
-                        const suffix = subtotalLabel || 'Subtotal';
+                        const suffix = rowSubtotalLabel || 'Subtotal';
                         return (
                           <td
                             key={`dim-${dimIdx}`}
