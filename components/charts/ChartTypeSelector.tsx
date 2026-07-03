@@ -3,6 +3,8 @@
 import { BarChart2, LineChart, Table, PieChart, Hash, MapPin, Grid3X3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface ChartTypeSelectorProps {
   value?: string;
@@ -86,7 +88,13 @@ export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTy
                     }
                   : undefined
               }
-              onClick={() => onChange(type.id)}
+              onClick={() => {
+                // Fire only on an actual switch (skip re-clicking the current type).
+                if (type.id !== selectedType) {
+                  trackEvent(ANALYTICS_EVENTS.CHART_TYPE_SELECTED, { chart_type: type.id });
+                }
+                onChange(type.id);
+              }}
               disabled={disabled}
               title={type.name}
             >
