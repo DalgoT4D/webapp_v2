@@ -151,8 +151,13 @@ export default function PivotTableCustomizations({
               return (
                 <div key={column} className="space-y-0">
                   <div
+                    // role/tabIndex/onKeyDown instead of a <button> wrapper because
+                    // this row contains a nested remove button (can't nest buttons).
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isExpanded}
                     data-testid={`pivot-column-row-${column}`}
-                    className={`flex items-center justify-between p-2 rounded-md border cursor-pointer transition-colors ${
+                    className={`flex items-center justify-between p-2 rounded-md border cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       isExpanded
                         ? 'shadow-sm'
                         : isConfigured
@@ -160,6 +165,12 @@ export default function PivotTableCustomizations({
                           : 'hover:bg-muted/30'
                     }`}
                     onClick={() => handleToggleColumn(column)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleToggleColumn(column);
+                      }
+                    }}
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       {isExpanded ? (

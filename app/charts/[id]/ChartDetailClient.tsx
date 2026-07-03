@@ -803,6 +803,12 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               chartInstance={chartInstance}
               chartType={chart.chart_type}
               chartDataPayload={chartDataPayload}
+              pivotData={
+                chart.chart_type === 'pivot_table'
+                  ? (chartData?.data as unknown as PivotTableResponse | undefined)
+                  : undefined
+              }
+              pivotExtraConfig={chart.extra_config}
               tableData={
                 chart.chart_type === 'table' && tableData
                   ? {

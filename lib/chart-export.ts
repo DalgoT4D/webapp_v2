@@ -3,6 +3,8 @@ import jsPDF from 'jspdf';
 import * as echarts from 'echarts';
 import html2canvas from 'html2canvas-pro';
 import { apiGetBinary } from '@/lib/api';
+import { exportPivotAsCsv, getPivotRenderProps } from '@/components/charts/pivot-table/utils';
+import type { PivotTableResponse } from '@/types/pivot-table';
 
 export interface ExportOptions {
   filename?: string;
@@ -419,6 +421,42 @@ export class ChartExporter {
     } catch (error) {
       throw new Error(
         `Failed to export CSV: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
+   * Export a pivot table as CSV — the on-screen cross-tab (column dimensions
+   * spread across columns, subtotals + grand totals), matching what BI tools
+   * (Tableau "Crosstab", Power BI "Summarized data") export from a pivot view.
+   *
+   * Generated client-side from the already-fetched PivotTableResponse; the
+   * generic table CSV path can't represent pivot column dimensions or ROLLUP
+   * subtotals, so pivot charts route here instead of the backend stream.
+   */
+  static async exportPivotAsCSV(
+    pivotData: PivotTableResponse | undefined,
+    extraConfig: Record<string, unknown> | undefined,
+    options: ExportOptions = {}
+  ): Promise<void> {
+    const { filename = 'pivot-export' } = options;
+    if (!pivotData || !Array.isArray(pivotData.rows) || pivotData.rows.length === 0) {
+      throw new Error('No pivot data available for export');
+    }
+    try {
+      const { rowDimLabels, showRowGrandTotal, showColumnGrandTotal } =
+        getPivotRenderProps(extraConfig);
+      const csvContent = exportPivotAsCsv(
+        pivotData,
+        rowDimLabels,
+        showRowGrandTotal,
+        showColumnGrandTotal
+      );
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      saveAs(blob, `${filename}.csv`);
+    } catch (error) {
+      throw new Error(
+        `Failed to export pivot CSV: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }

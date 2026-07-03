@@ -356,9 +356,11 @@ export function analyzeChartContent(chartData: any, chartType: string): ChartSiz
       case 'pivot_table': {
         const base = CHART_SIZE_CONSTRAINTS.pivot_table;
         const pivotData = chartData?.data;
-        if (pivotData?.column_keys && pivotData?.rows) {
-          const totalCols =
-            pivotData.column_keys.length * (pivotData.metric_headers?.length || 1) + 3;
+        if (Array.isArray(pivotData?.column_keys) && Array.isArray(pivotData?.rows)) {
+          const metricHeaders = Array.isArray(pivotData.metric_headers)
+            ? pivotData.metric_headers
+            : [];
+          const totalCols = pivotData.column_keys.length * (metricHeaders.length || 1) + 3;
           const totalRows = pivotData.rows.length + 2;
           return {
             minWidth: base.minWidth,

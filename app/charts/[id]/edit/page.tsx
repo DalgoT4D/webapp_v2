@@ -461,7 +461,16 @@ function EditChartPageContent() {
     }
 
     if (formData.chart_type === 'pivot_table') {
-      return !!(formData.extra_config?.row_dimensions?.length && formData.metrics?.length);
+      // Presence alone isn't enough — each metric must be a valid definition
+      // (mirrors the create-flow pivot predicate).
+      const hasRowDimensions = (formData.extra_config?.row_dimensions || []).length > 0;
+      const hasValidMetrics =
+        (formData.metrics || []).length > 0 &&
+        formData.metrics!.every(
+          (metric) =>
+            metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+        );
+      return hasRowDimensions && hasValidMetrics;
     }
 
     {
@@ -1165,7 +1174,16 @@ function EditChartPageContent() {
     }
 
     if (formData.chart_type === 'pivot_table') {
-      return !!(formData.extra_config?.row_dimensions?.length && formData.metrics?.length);
+      // Presence alone isn't enough — each metric must be a valid definition
+      // (mirrors the create-flow pivot predicate).
+      const hasRowDimensions = (formData.extra_config?.row_dimensions || []).length > 0;
+      const hasValidMetrics =
+        (formData.metrics || []).length > 0 &&
+        formData.metrics!.every(
+          (metric) =>
+            metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+        );
+      return hasRowDimensions && hasValidMetrics;
     }
 
     {

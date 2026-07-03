@@ -140,7 +140,7 @@ export function StaticChartPreview({
           </div>
         );
 
-      case 'pivot_table':
+      case 'pivot_table': {
         const pivotColors = CHART_TYPE_COLORS.pivot_table || CHART_TYPE_COLORS.table;
         return (
           <div
@@ -194,6 +194,7 @@ export function StaticChartPreview({
             </svg>
           </div>
         );
+      }
 
       case 'map':
         const mapColors = CHART_TYPE_COLORS.map;

@@ -153,8 +153,17 @@ export function PivotDimensionList({
     [onChange]
   );
 
+  // Each slot may keep its own current value plus any column not used elsewhere,
+  // so a column already picked in another slot can't be selected again.
+  const getColumnItemsFor = useCallback(
+    (idx: number) => columnItems.filter((c) => c.value === items[idx] || !items.includes(c.value)),
+    [columnItems, items]
+  );
+
   const changeColumn = useCallback(
     (idx: number, newCol: string) => {
+      // Guard against selecting a column already used in another slot.
+      if (items.some((d, i) => i !== idx && d === newCol)) return;
       const nextDims = [...items];
       nextDims[idx] = newCol;
       emit(nextDims);
@@ -209,7 +218,7 @@ export function PivotDimensionList({
               dim={dim}
               idx={idx}
               idPrefix={idPrefix}
-              columnItems={columnItems}
+              columnItems={getColumnItemsFor(idx)}
               disabled={disabled}
               canDrag={canDrag}
               canRemove={canRemove}

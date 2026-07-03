@@ -48,6 +48,9 @@ export default function PivotDataConfiguration({
         extra_config: {
           ...formData.extra_config,
           row_dimensions: next.dimensions,
+          // Row subtotals need >=2 dimensions; auto-clear so the saved config
+          // can't stay enabled with the toggle disabled and hidden.
+          ...(next.dimensions.length < 2 && { show_row_subtotals: false }),
         },
       });
     },
@@ -66,6 +69,9 @@ export default function PivotDataConfiguration({
         extra_config: {
           ...formData.extra_config,
           column_dimensions: next.dimensions,
+          // Column subtotals need >=2 dimensions; auto-clear so the saved config
+          // can't stay enabled with the toggle disabled and hidden.
+          ...(next.dimensions.length < 2 && { show_column_subtotals: false }),
         },
       });
     },

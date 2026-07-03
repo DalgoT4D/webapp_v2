@@ -891,149 +891,152 @@ export function ChartDataConfigurationV3({
           </div>
         )}
 
-      {/* Sort Section */}
-      {formData.chart_type !== 'map' && formData.chart_type !== 'number' && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Sort Configuration</Label>
+      {/* Sort Section — not shown for pivot tables (v1 has no pivot sort) */}
+      {formData.chart_type !== 'map' &&
+        formData.chart_type !== 'number' &&
+        formData.chart_type !== 'pivot_table' && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-900">Sort Configuration</Label>
 
-          {(() => {
-            // Build sortable options list
-            const sortableOptions: Array<{
-              value: string;
-              label: string;
-              type: 'column' | 'metric';
-              _uniqueId?: string;
-            }> = [];
+            {(() => {
+              // Build sortable options list
+              const sortableOptions: Array<{
+                value: string;
+                label: string;
+                type: 'column' | 'metric';
+                _uniqueId?: string;
+              }> = [];
 
-            // Add dimension column if available
-            if (formData.dimension_column) {
-              sortableOptions.push({
-                value: formData.dimension_column,
-                label: formData.dimension_column,
-                type: 'column',
-              });
-            }
+              // Add dimension column if available
+              if (formData.dimension_column) {
+                sortableOptions.push({
+                  value: formData.dimension_column,
+                  label: formData.dimension_column,
+                  type: 'column',
+                });
+              }
 
-            // Add configured metrics using their aliases
-            if (formData.metrics && formData.metrics.length > 0) {
-              formData.metrics.forEach((metric, metricIndex) => {
-                if (metric.alias) {
-                  sortableOptions.push({
-                    value: metric.alias,
-                    label: metric.alias,
-                    type: 'metric',
-                    // Add unique identifier to prevent key conflicts
-                    _uniqueId: `metric-${metricIndex}-${metric.alias}`,
-                  });
-                }
-              });
-            } else if (formData.aggregate_column && formData.aggregate_function) {
-              // Legacy single metric - create an alias for it
-              const defaultAlias = `${formData.aggregate_function}(${formData.aggregate_column})`;
-              sortableOptions.push({
-                value: defaultAlias,
-                label: defaultAlias,
-                type: 'metric',
-              });
-            }
+              // Add configured metrics using their aliases
+              if (formData.metrics && formData.metrics.length > 0) {
+                formData.metrics.forEach((metric, metricIndex) => {
+                  if (metric.alias) {
+                    sortableOptions.push({
+                      value: metric.alias,
+                      label: metric.alias,
+                      type: 'metric',
+                      // Add unique identifier to prevent key conflicts
+                      _uniqueId: `metric-${metricIndex}-${metric.alias}`,
+                    });
+                  }
+                });
+              } else if (formData.aggregate_column && formData.aggregate_function) {
+                // Legacy single metric - create an alias for it
+                const defaultAlias = `${formData.aggregate_function}(${formData.aggregate_column})`;
+                sortableOptions.push({
+                  value: defaultAlias,
+                  label: defaultAlias,
+                  type: 'metric',
+                });
+              }
 
-            // Get current sort values
-            const currentSort = formData.sort && formData.sort.length > 0 ? formData.sort[0] : null;
-            const currentColumn = currentSort?.column || '__none__';
-            const currentDirection = currentSort?.direction || 'asc';
+              // Get current sort values
+              const currentSort =
+                formData.sort && formData.sort.length > 0 ? formData.sort[0] : null;
+              const currentColumn = currentSort?.column || '__none__';
+              const currentDirection = currentSort?.direction || 'asc';
 
-            // Check if current sort column is still available
-            const isCurrentColumnAvailable =
-              currentColumn === '__none__' ||
-              sortableOptions.some((opt) => opt.value === currentColumn);
+              // Check if current sort column is still available
+              const isCurrentColumnAvailable =
+                currentColumn === '__none__' ||
+                sortableOptions.some((opt) => opt.value === currentColumn);
 
-            if (sortableOptions.length > 0) {
-              return (
-                <div className="grid grid-cols-2 gap-2">
-                  {/* Column/Metric Selection */}
-                  <Combobox
-                    items={[
-                      { value: '__none__', label: 'None', type: '' },
-                      ...sortableOptions.map((option) => ({
-                        value: option.value,
-                        label: option.label,
-                        type: option.type,
-                      })),
-                    ]}
-                    value={isCurrentColumnAvailable ? currentColumn : '__none__'}
-                    onValueChange={(value) => {
-                      if (value === '__none__') {
-                        onChange({ sort: [] });
-                      } else {
-                        onChange({
-                          sort: [
-                            {
-                              column: value,
-                              direction: currentDirection,
-                            },
-                          ],
-                        });
-                      }
-                    }}
-                    disabled={disabled}
-                    searchPlaceholder="Search..."
-                    placeholder="Select column to sort"
-                    compact
-                    renderItem={(item, _isSelected, searchQuery) => (
-                      <div className="flex items-center gap-2">
-                        {item.type && (
-                          <span
-                            className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
-                              item.type === 'column'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-green-100 text-green-800'
-                            }`}
-                          >
-                            {item.type === 'column' ? 'COL' : 'METRIC'}
-                          </span>
-                        )}
-                        <span>{highlightText(item.label, searchQuery)}</span>
-                      </div>
-                    )}
-                  />
+              if (sortableOptions.length > 0) {
+                return (
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Column/Metric Selection */}
+                    <Combobox
+                      items={[
+                        { value: '__none__', label: 'None', type: '' },
+                        ...sortableOptions.map((option) => ({
+                          value: option.value,
+                          label: option.label,
+                          type: option.type,
+                        })),
+                      ]}
+                      value={isCurrentColumnAvailable ? currentColumn : '__none__'}
+                      onValueChange={(value) => {
+                        if (value === '__none__') {
+                          onChange({ sort: [] });
+                        } else {
+                          onChange({
+                            sort: [
+                              {
+                                column: value,
+                                direction: currentDirection,
+                              },
+                            ],
+                          });
+                        }
+                      }}
+                      disabled={disabled}
+                      searchPlaceholder="Search..."
+                      placeholder="Select column to sort"
+                      compact
+                      renderItem={(item, _isSelected, searchQuery) => (
+                        <div className="flex items-center gap-2">
+                          {item.type && (
+                            <span
+                              className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
+                                item.type === 'column'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-green-100 text-green-800'
+                              }`}
+                            >
+                              {item.type === 'column' ? 'COL' : 'METRIC'}
+                            </span>
+                          )}
+                          <span>{highlightText(item.label, searchQuery)}</span>
+                        </div>
+                      )}
+                    />
 
-                  {/* Direction Selection */}
-                  <Select
-                    value={currentSort ? currentDirection : 'asc'}
-                    onValueChange={(value) => {
-                      if (currentSort && currentColumn !== '__none__') {
-                        onChange({
-                          sort: [
-                            {
-                              column: currentColumn,
-                              direction: value as 'asc' | 'desc',
-                            },
-                          ],
-                        });
-                      }
-                    }}
-                    disabled={disabled || !currentSort || currentColumn === '__none__'}
-                  >
-                    <SelectTrigger className="h-8 w-full">
-                      <SelectValue placeholder="Sort direction" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="asc">Ascending</SelectItem>
-                      <SelectItem value="desc">Descending</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              );
-            } else {
-              return (
-                <div className="text-sm text-gray-500">
-                  Configure metrics first to enable sorting
-                </div>
-              );
-            }
-          })()}
-        </div>
-      )}
+                    {/* Direction Selection */}
+                    <Select
+                      value={currentSort ? currentDirection : 'asc'}
+                      onValueChange={(value) => {
+                        if (currentSort && currentColumn !== '__none__') {
+                          onChange({
+                            sort: [
+                              {
+                                column: currentColumn,
+                                direction: value as 'asc' | 'desc',
+                              },
+                            ],
+                          });
+                        }
+                      }}
+                      disabled={disabled || !currentSort || currentColumn === '__none__'}
+                    >
+                      <SelectTrigger className="h-8 w-full">
+                        <SelectValue placeholder="Sort direction" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="asc">Ascending</SelectItem>
+                        <SelectItem value="desc">Descending</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              } else {
+                return (
+                  <div className="text-sm text-gray-500">
+                    Configure metrics first to enable sorting
+                  </div>
+                );
+              }
+            })()}
+          </div>
+        )}
     </div>
   );
 }

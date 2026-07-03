@@ -1559,6 +1559,27 @@ export function ChartElementView({
   // New CSV export function
   const handleDownloadCSV = async () => {
     try {
+      // Pivot tables generate the cross-tab CSV client-side from the already
+      // rendered response — the backend stream only emits flat table shapes.
+      if (isPivotTableChart) {
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+        const sanitizedTitle = (
+          chartMetadata?.title ||
+          frozenChartConfig?.title ||
+          `chart-${chartId}`
+        )
+          .replace(/[^a-z0-9]/gi, '_')
+          .replace(/_+/g, '_')
+          .toLowerCase();
+        await ChartExporter.exportPivotAsCSV(
+          chartData?.data as unknown as PivotTableResponse | undefined,
+          effectiveChart?.extra_config,
+          { filename: `${sanitizedTitle}-${timestamp}` }
+        );
+        toast.success('CSV downloaded successfully');
+        return;
+      }
+
       if (!chartDataPayload) {
         toast.error('Chart data is not available for CSV export');
         console.error('chartDataPayload is null');

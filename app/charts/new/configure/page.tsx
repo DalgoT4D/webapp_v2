@@ -291,7 +291,16 @@ function ConfigureChartPageContent() {
     }
 
     if (formData.chart_type === 'pivot_table') {
-      return !!(formData.extra_config?.row_dimensions?.length && formData.metrics?.length);
+      // Match the save-time pivot predicate (isFormValid) — presence alone isn't
+      // enough; each metric must be a valid definition.
+      const hasRowDimensions = (formData.extra_config?.row_dimensions || []).length > 0;
+      const hasValidMetrics =
+        (formData.metrics || []).length > 0 &&
+        formData.metrics!.every(
+          (metric) =>
+            metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+        );
+      return hasRowDimensions && hasValidMetrics;
     }
 
     {

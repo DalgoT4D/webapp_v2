@@ -48,8 +48,10 @@ export function ChartExportDropdownForList({
         backgroundColor: '#ffffff',
       };
 
-      if (format === 'csv' && (chartType === 'table' || chartType === 'pivot_table')) {
-        // Handle table/pivot CSV export
+      if (format === 'csv' && chartType === 'pivot_table') {
+        // Pivot needs the cross-tab response, not the flat table shape.
+        await handlePivotCSVExport(chartId, exportOptions);
+      } else if (format === 'csv' && chartType === 'table') {
         await handleTableCSVExport(chartId, chartTitle, exportOptions);
       } else if (chartType === 'map') {
         // Handle map export with geojson fetching
@@ -159,6 +161,32 @@ export function ChartExportDropdownForList({
       }
       throw error;
     }
+  };
+
+  const handlePivotCSVExport = async (chartId: number, exportOptions: any) => {
+    const { apiGet, apiPost } = await import('@/lib/api');
+
+    const chart = await apiGet(`/api/charts/${chartId}/`);
+    if (!chart) {
+      throw new Error('Chart not found');
+    }
+
+    // Fetch the cross-tab response the pivot renders from, then build the CSV
+    // client-side (mirrors the chart-detail / dashboard export paths).
+    const response = await apiPost('/api/charts/chart-data/', {
+      chart_type: 'pivot_table',
+      computation_type: chart.computation_type,
+      schema_name: chart.schema_name,
+      table_name: chart.table_name,
+      ...(chart.extra_config?.metrics &&
+        chart.extra_config.metrics.length > 0 && { metrics: chart.extra_config.metrics }),
+      ...buildPivotDataFields(chart.extra_config),
+      extra_config: {
+        filters: chart.extra_config?.filters || [],
+      },
+    });
+
+    await ChartExporter.exportPivotAsCSV(response?.data, chart.extra_config, exportOptions);
   };
 
   const handleTableCSVExport = async (chartId: number, title: string, exportOptions: any) => {
