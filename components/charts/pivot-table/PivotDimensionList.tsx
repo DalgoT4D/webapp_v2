@@ -22,7 +22,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export interface PivotColumnInfo {
+interface PivotColumnInfo {
   column_name: string;
   data_type: string;
   name: string;

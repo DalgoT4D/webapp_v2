@@ -71,7 +71,6 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
   const [tableChartPage, setTableChartPage] = useState(1);
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
-  // Pivot tables paginate by top-level row groups (1-based); backend reads page from extra_config.
 
   // ✅ ADD: Drill-down state management for table charts
   const [tableDrillDownState, setTableDrillDownState] = useState<{

@@ -6,7 +6,7 @@ export interface PivotRow {
   row_total: (number | null)[]; // "Total" column — one value per metric
 }
 
-export interface PivotGrandTotalRow {
+interface PivotGrandTotalRow {
   values: (number | null)[][]; // grand total per column per metric
   column_subtotal_values?: (number | null)[][]; // grand total for column subtotals
   row_total: (number | null)[]; // overall grand total per metric

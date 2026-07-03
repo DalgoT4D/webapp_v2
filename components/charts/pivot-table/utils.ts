@@ -45,7 +45,7 @@ export interface PivotDataFields {
 }
 
 /** Full pivot config persisted in a saved chart's extra_config (data fields + display labels). */
-export interface PivotExtraConfigFields extends PivotDataFields {
+interface PivotExtraConfigFields extends PivotDataFields {
   row_subtotal_label: string;
   column_subtotal_label: string;
   row_grand_total_label: string;
