@@ -1,6 +1,8 @@
 /**
  * MetricAccordionItem — the per-metric expandable editor (unified tabbed form).
- * Inline metrics: Simple/Calculated/Saved tabs. Library metrics: display-name only (locked).
+ * Every row shows Simple/Calculated/Saved tabs. A row linked to a library metric opens on the
+ * Saved tab (metric preselected, swappable); switching to Simple/Calculated detaches it to a
+ * local metric. The chart display name stays editable in every mode.
  */
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -137,21 +139,45 @@ describe('MetricAccordionItem — saved tab (convert to library)', () => {
   });
 });
 
-describe('MetricAccordionItem — library metric (locked)', () => {
+describe('MetricAccordionItem — library metric (editable)', () => {
   const lib = { saved_metric_id: 7, column: 'amount', aggregation: 'sum', alias: 'Revenue' };
+  const savedMetrics = [
+    { id: 7, name: 'Revenue', column: 'amount', aggregation: 'sum' },
+    { id: 8, name: 'Cost', column: 'amount', aggregation: 'avg' },
+  ];
 
-  it('shows the library icon and only the display name — no tabs, no definition editors', () => {
-    renderItem(lib);
+  it('opens on the Saved tab with the library icon and an editable display name', () => {
+    renderItem(lib, { savedMetrics, isSavedMetricAdded: (id) => id === 7 });
     expect(screen.getByTestId('metric-library-icon-0')).toBeInTheDocument();
     expect(screen.getByTestId('metric-alias-0')).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Simple' })).not.toBeInTheDocument();
-    expect(screen.queryByTestId('metric-agg-0')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Saved', selected: true })).toBeInTheDocument();
   });
 
-  it('allows editing the display name (alias) only', async () => {
+  it('swaps to a different saved metric from the dropdown', async () => {
     const user = userEvent.setup();
     const onUpdate = jest.fn();
-    renderItem(lib, { onUpdate });
+    renderItem(lib, { onUpdate, savedMetrics, isSavedMetricAdded: (id) => id === 7 });
+    await user.click(screen.getByTestId('metric-saved-0-input'));
+    await user.click(await screen.findByRole('option', { name: /Cost/ }));
+    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ saved_metric_id: 8 }));
+  });
+
+  it('detaches to a local Simple metric — clears saved_metric_id, keeps column/function', async () => {
+    const user = userEvent.setup();
+    const onUpdate = jest.fn();
+    renderItem(lib, { onUpdate, savedMetrics, isSavedMetricAdded: (id) => id === 7 });
+    await user.click(screen.getByRole('tab', { name: 'Simple' }));
+    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ saved_metric_id: undefined }));
+    // A simple saved def keeps its column/aggregation (no reset to COUNT).
+    expect(onUpdate).toHaveBeenCalledWith(
+      expect.not.objectContaining({ aggregation: expect.anything() })
+    );
+  });
+
+  it('allows editing the display name on the Saved tab', async () => {
+    const user = userEvent.setup();
+    const onUpdate = jest.fn();
+    renderItem(lib, { onUpdate, savedMetrics, isSavedMetricAdded: (id) => id === 7 });
     await user.type(screen.getByTestId('metric-alias-0'), '!');
     await waitFor(() =>
       expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ alias: expect.any(String) }))
