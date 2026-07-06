@@ -34,7 +34,7 @@ export const RBAC_NOTICE_STEPS: RbacNoticeStep[] = [
     role: 'Admin',
     image: '/images/rbac-notice/rbac-admin.jpg',
     detail:
-      'Along with formally owning the dashboards, charts and reports you create, you also keep all your pipeline, transform and warehouse work — meaning only you or another admin can delete them.',
+      'Along with formally owning the dashboards, charts and reports you create. You also keep all your pipeline, transform and warehouse work, meaning only you or another admin can create, edit or delete them.',
   },
   {
     role: 'Analyst',

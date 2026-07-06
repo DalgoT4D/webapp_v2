@@ -88,7 +88,9 @@ describe('RbacNoticeCarousel', () => {
     renderCarousel();
 
     // Step 1: Admin detail, only Next shown
-    expect(screen.getByText(/only you or another admin can delete them/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/only you or another admin can create, edit or delete them/i)
+    ).toBeInTheDocument();
     expect(screen.queryByTestId('rbac-notice-back')).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId('rbac-notice-next'));
