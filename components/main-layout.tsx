@@ -19,6 +19,7 @@ import {
   Home,
   LayoutDashboard,
   ChartBarBig,
+  MessageSquareText,
   ChevronLeft,
   ChevronRight,
   Info,
@@ -36,6 +37,7 @@ import OrchestrateIcon from '@/assets/icons/orchestrate';
 import { Header } from './header';
 import { useAuthStore } from '@/stores/authStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
+import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { TransformTypeEnum as TransformType, useTransformType } from '@/hooks/api/useTransform';
 import Image from 'next/image';
 
@@ -92,7 +94,8 @@ const getNavItems = (
   currentPath: string,
   hasSupersetSetup: boolean = false,
   isFeatureFlagEnabled: (flag: FeatureFlagKeys) => boolean,
-  transformType?: string
+  transformType?: string,
+  canUseChatWithData: boolean = false
 ): NavItemType[] => {
   // Build dashboard children based on feature flags AND Superset setup
   const dashboardChildren: NavItemType[] = [];
@@ -128,6 +131,13 @@ const getNavItems = (
       icon: FileText,
       isActive: currentPath.startsWith('/reports'),
       hide: !isFeatureFlagEnabled(FeatureFlagKeys.REPORTS),
+    },
+    {
+      title: 'Chat with Data',
+      href: '/chat-with-data',
+      icon: MessageSquareText,
+      isActive: currentPath.startsWith('/chat-with-data'),
+      hide: !isFeatureFlagEnabled(FeatureFlagKeys.CHAT_WITH_DATA) || !canUseChatWithData,
     },
     {
       title: 'Data',
@@ -498,8 +508,15 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const { currentOrg } = useAuthStore();
   const { isFeatureFlagEnabled } = useFeatureFlags();
   const { transformType } = useTransformType();
+  const { hasPermission } = useUserPermissions();
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
-  const navItems = getNavItems(pathname, hasSupersetSetup, isFeatureFlagEnabled, transformType);
+  const navItems = getNavItems(
+    pathname,
+    hasSupersetSetup,
+    isFeatureFlagEnabled,
+    transformType,
+    hasPermission('can_use_chat_with_data')
+  );
 
   // Auto-open a parent's submenu when the current path enters its subtree. Never auto-closes.
   useEffect(() => {
