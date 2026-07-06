@@ -31,10 +31,17 @@ export interface SqlAttachment {
 }
 
 /** One history bubble from GET /sessions/{id}/messages */
+export interface CreatedChart {
+  chart_id: number;
+  title: string;
+  url_path: string;
+}
+
 export interface ChatHistoryMessage {
   role: 'user' | 'assistant';
   content: string;
   sql_attachments: SqlAttachment[];
+  charts?: CreatedChart[];
 }
 
 // ── WebSocket protocol (backend: ddpui/core/chat_with_data/runner.py) ──────
@@ -67,6 +74,7 @@ export interface MessageCompleteEvent {
   type: 'message_complete';
   message: string;
   result_table?: ResultTable | null;
+  charts?: CreatedChart[];
   usage?: { input_tokens: number; output_tokens: number };
 }
 
@@ -106,5 +114,6 @@ export interface ChatMessage {
   streaming: boolean;
   tools: ToolActivity[];
   resultTable?: ResultTable | null;
+  charts?: CreatedChart[];
   error?: string | null;
 }

@@ -130,3 +130,32 @@ describe('historyToChatMessages', () => {
     expect(messages[1].streaming).toBe(false);
   });
 });
+
+describe('created charts', () => {
+  it('message_complete attaches created chart links', () => {
+    let messages = [newUserMessage('chart it'), newAssistantPlaceholder()];
+    messages = applyChatEvent(messages, {
+      type: 'message_complete',
+      message: 'Done — the chart is in your Charts page.',
+      charts: [{ chart_id: 42, title: 'Surveys by district', url_path: '/charts/42' }],
+    });
+    const assistant = messages[messages.length - 1];
+    expect(assistant.charts).toEqual([
+      { chart_id: 42, title: 'Surveys by district', url_path: '/charts/42' },
+    ]);
+  });
+
+  it('history replays chart links', () => {
+    const out = historyToChatMessages([
+      {
+        role: 'assistant',
+        content: 'Done.',
+        sql_attachments: [],
+        charts: [{ chart_id: 42, title: 'Surveys by district', url_path: '/charts/42' }],
+      },
+    ]);
+    expect(out[0].charts).toEqual([
+      { chart_id: 42, title: 'Surveys by district', url_path: '/charts/42' },
+    ]);
+  });
+});

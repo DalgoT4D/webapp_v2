@@ -32,6 +32,20 @@ describe('MessageBubble', () => {
     expect(screen.getByTestId('chat-result-table')).toBeInTheDocument();
   });
 
+  it('renders a link chip for a chart the agent created', () => {
+    render(
+      <MessageBubble
+        message={message({
+          content: 'Done — the chart is in your Charts page.',
+          charts: [{ chart_id: 42, title: 'Surveys by district', url_path: '/charts/42' }],
+        })}
+      />
+    );
+    const chip = screen.getByTestId('chat-chart-link-42');
+    expect(chip).toHaveAttribute('href', '/charts/42');
+    expect(chip).toHaveTextContent('Surveys by district');
+  });
+
   it('shows the error state instead of an empty answer', () => {
     render(<MessageBubble message={message({ error: 'Something went wrong.' })} />);
     expect(screen.getByText('Something went wrong.')).toBeInTheDocument();
