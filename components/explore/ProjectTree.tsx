@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { useExploreStore } from '@/stores/exploreStore';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type { WarehouseTable, TreeNode } from '@/types/explore';
 import { EXPLORE_DIMENSIONS } from '@/constants/explore';
 import { cn } from '@/lib/utils';
@@ -79,6 +81,9 @@ export function ProjectTree({
   // roles can also create models in Canvas mode via the add-to-canvas action.
   const canViewData = hasPermission(PERMISSIONS.CAN_VIEW_WAREHOUSE_DATA);
   const canSyncSources = hasPermission(PERMISSIONS.CAN_SYNC_SOURCES);
+  // Canvas node create/delete mirror the backend transform endpoints' slugs
+  const canCreateModel = hasPermission(PERMISSIONS.CAN_CREATE_DBT_MODEL);
+  const canDeleteModel = hasPermission(PERMISSIONS.CAN_DELETE_DBT_MODEL);
 
   // Build tree data structure
   const treeData = useMemo<TreeNode[]>(() => {
@@ -157,11 +162,17 @@ export function ProjectTree({
   const handleNodeClick = useCallback(
     (nodes: { data: TreeNode }[]) => {
       const node = nodes[0];
-      if (!node || !canViewData) return;
+      if (!node) return;
 
       // Only handle leaf nodes (tables)
       const data = node.data;
       if (data.name && data.schema && !data.children) {
+        if (!canViewData) {
+          // The permitted path is tracked by the parent (EXPLORE_TABLE_PREVIEWED);
+          // record the RBAC deny so permission walls are visible in analytics
+          trackEvent(ANALYTICS_EVENTS.EXPLORE_TABLE_SELECTION_DENIED);
+          return;
+        }
         onTableSelect(data.schema, data.name);
       }
     },
@@ -237,7 +248,7 @@ export function ProjectTree({
           {/* Canvas mode actions for leaf nodes */}
           {mode === ProjectTreeMode.CANVAS && isLeaf && (
             <span className="flex items-center gap-1 flex-shrink-0 ml-1">
-              {onDeleteFromCanvas && (
+              {onDeleteFromCanvas && canDeleteModel && (
                 <button
                   className="p-0.5 rounded hover:opacity-70 cursor-pointer"
                   onClick={(e) => {
@@ -250,7 +261,7 @@ export function ProjectTree({
                   <Trash2 className="h-[18px] w-[18px] text-gray-500" />
                 </button>
               )}
-              {onAddToCanvas && (
+              {onAddToCanvas && canCreateModel && (
                 <button
                   className="p-0.5 rounded hover:opacity-70 cursor-pointer"
                   onClick={(e) => {
@@ -267,7 +278,15 @@ export function ProjectTree({
         </div>
       );
     },
-    [canViewData, selectedTable, mode, onAddToCanvas, onDeleteFromCanvas]
+    [
+      canViewData,
+      canCreateModel,
+      canDeleteModel,
+      selectedTable,
+      mode,
+      onAddToCanvas,
+      onDeleteFromCanvas,
+    ]
   );
 
   return (

@@ -406,7 +406,7 @@ function PipelineRow({
             variant="ghost"
             size="icon"
             onClick={handleRunClick}
-            disabled={!canRunPipeline || isDisabled || isRunning}
+            disabled={!canRunPipeline || isRunning}
             data-testid={`run-btn-${deploymentId}`}
             className={cn('h-8 w-8 p-0 hover:bg-gray-100', isRunning && 'cursor-not-allowed')}
             aria-label="Run"

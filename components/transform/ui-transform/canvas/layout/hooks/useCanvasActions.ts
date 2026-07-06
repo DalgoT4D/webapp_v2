@@ -110,16 +110,15 @@ export function useCanvasActions({ isPreview, runWorkflow }: UseCanvasActionsPar
     mutate,
   ]);
 
-  // Auto-sync sources on first canvas open
+  // Auto-sync sources on first canvas open. Re-evaluates when permissions
+  // resolve after mount (auth loads async); the ref keeps it to a single sync.
   const hasAutoSynced = useRef(false);
   useEffect(() => {
     if (hasAutoSynced.current || isPreview) return;
     if (!hasPermission(PERMISSIONS.CAN_SYNC_SOURCES)) return;
     hasAutoSynced.current = true;
     handleSyncSources();
-    // Only run on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hasPermission, handleSyncSources, isPreview]);
 
   // Handle canvas actions (delete-node, open-opconfig-panel, run-workflow, sync-sources, etc.)
   useEffect(() => {

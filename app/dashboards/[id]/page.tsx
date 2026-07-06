@@ -16,12 +16,15 @@ export default function DashboardViewPage() {
 
   // Get user permissions
   const { hasPermission } = useRbac();
+  const canViewDashboard = hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS);
 
-  // Fetch dashboard to determine type
-  const { data: dashboard, isLoading } = useDashboard(parseInt(dashboardId));
+  // Fetch dashboard to determine type — don't start the request without view permission
+  const { data: dashboard, isLoading } = useDashboard(
+    canViewDashboard ? parseInt(dashboardId) : null
+  );
 
   // Check if user has view permissions
-  if (!hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS)) {
+  if (!canViewDashboard) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">

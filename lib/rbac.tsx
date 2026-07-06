@@ -147,6 +147,8 @@ export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 export interface UseRbac {
   role: Role | null;
+  // false while the auth store has no org user yet (login/org data still loading)
+  isLoaded: boolean;
   hasRole: (target: Role | Role[]) => boolean;
   hasPermission: (permission: Permission) => boolean;
   hasAnyPermission: (permissions: Permission[]) => boolean;
@@ -154,24 +156,35 @@ export interface UseRbac {
 }
 
 export function useRbac(): UseRbac {
-  const { getCurrentOrgUser } = useAuthStore();
+  const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
   const user = getCurrentOrgUser();
 
-  const role = (user?.new_role_slug as Role | undefined) ?? null;
-  const grantedSlugs = new Set<string>((user?.permissions ?? []).map((p) => p.slug));
+  // Memoized so the helpers keep a stable identity across re-renders — consumers
+  // put hasPermission in useEffect/useCallback dependency arrays
+  return React.useMemo(() => {
+    const role = (user?.new_role_slug as Role | undefined) ?? null;
+    const grantedSlugs = new Set<string>((user?.permissions ?? []).map((p) => p.slug));
 
-  const hasRole = (target: Role | Role[]): boolean => {
-    if (role == null) return false;
-    return Array.isArray(target) ? target.includes(role) : role === target;
-  };
+    const hasRole = (target: Role | Role[]): boolean => {
+      if (role === null) return false;
+      return Array.isArray(target) ? target.includes(role) : role === target;
+    };
 
-  const hasPermission = (permission: Permission): boolean => grantedSlugs.has(permission);
-  const hasAnyPermission = (permissions: Permission[]): boolean =>
-    permissions.some((p) => grantedSlugs.has(p));
-  const hasAllPermissions = (permissions: Permission[]): boolean =>
-    permissions.every((p) => grantedSlugs.has(p));
+    const hasPermission = (permission: Permission): boolean => grantedSlugs.has(permission);
+    const hasAnyPermission = (permissions: Permission[]): boolean =>
+      permissions.some((p) => grantedSlugs.has(p));
+    const hasAllPermissions = (permissions: Permission[]): boolean =>
+      permissions.every((p) => grantedSlugs.has(p));
 
-  return { role, hasRole, hasPermission, hasAnyPermission, hasAllPermissions };
+    return {
+      role,
+      isLoaded: user !== null && user !== undefined,
+      hasRole,
+      hasPermission,
+      hasAnyPermission,
+      hasAllPermissions,
+    };
+  }, [user]);
 }
 
 // ============================================================================
@@ -187,9 +200,10 @@ interface RoleGuardProps {
 // Page-level role gate. Use for menu items and full-page access.
 // Default fallback is the <NoAccess /> screen; pass `fallback={null}` to hide silently.
 export function RoleGuard({ roles, children, fallback = <NoAccess /> }: RoleGuardProps) {
-  const { role, hasRole } = useRbac();
-  // Wait until the role is known before rendering the fallback to avoid a flash.
-  if (role == null) return null;
+  const { isLoaded, hasRole } = useRbac();
+  // Wait until auth has loaded before rendering the fallback to avoid a flash —
+  // but once loaded, a user without a role gets the fallback, not a blank page.
+  if (!isLoaded) return null;
   if (!hasRole(roles)) return <>{fallback}</>;
   return <>{children}</>;
 }

@@ -26,7 +26,7 @@ describe('InviteUserDialog — RBAC v2 role dropdown', () => {
     jest.clearAllMocks();
   });
 
-  it('shows exactly 3 role options (admin, analyst, member) — no legacy roles', async () => {
+  it('renders exactly the role options provided by useRoles (admin, analyst, member)', async () => {
     render(<InviteUserDialog open={true} onOpenChange={jest.fn()} />);
 
     const trigger = screen.getByTestId('invite-role-select');

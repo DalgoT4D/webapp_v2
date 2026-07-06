@@ -73,6 +73,17 @@ describe('useRbac', () => {
     const { result } = renderHook(() => useRbac());
     expect(result.current.hasPermission(PERMISSIONS.CAN_VIEW_CHARTS)).toBe(false);
   });
+
+  it('returns stable helper identities across re-renders for the same user', () => {
+    setUser(ROLES.ANALYST, [PERMISSIONS.CAN_VIEW_CHARTS]);
+    const { result, rerender } = renderHook(() => useRbac());
+    const first = result.current;
+    rerender();
+    expect(result.current.hasPermission).toBe(first.hasPermission);
+    expect(result.current.hasRole).toBe(first.hasRole);
+    expect(result.current.hasAnyPermission).toBe(first.hasAnyPermission);
+    expect(result.current.hasAllPermissions).toBe(first.hasAllPermissions);
+  });
 });
 
 describe('RoleGuard', () => {
@@ -126,6 +137,17 @@ describe('RoleGuard', () => {
       </RoleGuard>
     );
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders the fallback when the user is loaded but has no role (not a blank page)', () => {
+    mockGetCurrentOrgUser.mockReturnValue({ new_role_slug: null, permissions: [] });
+    render(
+      <RoleGuard roles={ADMIN_ROLES}>
+        <div data-testid="content">billing</div>
+      </RoleGuard>
+    );
+    expect(screen.queryByTestId('content')).not.toBeInTheDocument();
+    expect(screen.getByTestId('no-access')).toBeInTheDocument();
   });
 });
 

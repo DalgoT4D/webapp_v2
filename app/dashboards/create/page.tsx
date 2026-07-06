@@ -21,41 +21,22 @@ export default function CreateDashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
 
-  // Get user permissions
+  // Get user permissions — the access-denied return lives below, after all hooks,
+  // to keep the hook order stable across renders (Rules of Hooks)
   const { hasPermission } = useRbac();
+  const canCreateDashboard = hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS);
 
   // Ref to access dashboard builder cleanup function
   const dashboardBuilderRef = useRef<{ cleanup: () => Promise<void> } | null>(null);
-
-  // Check if user has create permissions
-  if (!hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS)) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-            <Lock className="w-6 h-6 text-red-600" />
-          </div>
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground mb-4">
-            You don't have permission to create dashboards.
-          </p>
-          <Button variant="outline" onClick={() => router.push('/dashboards')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboards
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   // Ensure component is mounted before running client-side code
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Create dashboard immediately after mount
+  // Create dashboard immediately after mount — never for users without permission
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !canCreateDashboard) return;
 
     const initDashboard = async () => {
       if (isCreating || dashboardId) return;
@@ -87,7 +68,7 @@ export default function CreateDashboardPage() {
     };
 
     initDashboard();
-  }, [mounted, isCreating, dashboardId, router]);
+  }, [mounted, canCreateDashboard, isCreating, dashboardId, router]);
 
   // Direct API call to unlock dashboard - bypasses the full cleanup chain
   const emergencyUnlock = async () => {
@@ -208,6 +189,27 @@ export default function CreateDashboardPage() {
       setIsNavigating(false);
     }
   };
+
+  // Check if user has create permissions (after all hooks — Rules of Hooks)
+  if (!canCreateDashboard) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <Lock className="w-6 h-6 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground mb-4">
+            You don't have permission to create dashboards.
+          </p>
+          <Button variant="outline" onClick={() => router.push('/dashboards')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Dashboards
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Show loading state during SSR and while creating
   if (!mounted || isCreating) {

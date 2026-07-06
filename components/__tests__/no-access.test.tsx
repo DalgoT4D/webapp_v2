@@ -1,10 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { NoAccess } from '@/components/no-access';
 
-jest.mock('next/navigation', () => ({
-  useRouter: jest.fn(() => ({ push: jest.fn() })),
-}));
-
 describe('NoAccess', () => {
   it('shows a message directing the user to contact their org admin', () => {
     render(<NoAccess />);

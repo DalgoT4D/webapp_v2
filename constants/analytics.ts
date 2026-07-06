@@ -104,6 +104,8 @@ export const ANALYTICS_EVENTS = {
   // Explore
   EXPLORE_TABLE_PREVIEWED: 'explore:table_previewed',
   EXPLORE_SYNCED: 'explore:synced',
+  // Fired when a table click is blocked by RBAC (no warehouse-data read permission)
+  EXPLORE_TABLE_SELECTION_DENIED: 'explore:table_selection_denied',
   // Warehouse table data preview pane (shared by Explore + Transform canvas)
   DATA_TABLE_DOWNLOADED: 'data:table_downloaded',
   // Alerts

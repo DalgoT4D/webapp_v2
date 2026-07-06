@@ -68,6 +68,8 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
     type,
     data,
     selected,
+    xPos,
+    yPos,
     setSelectedNode,
     dispatchCanvasAction,
     openOperationPanel,
