@@ -95,9 +95,8 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
       credentials: 'include', // Always include cookies
     });
 
-    // Handle 401 Unauthorized
-    if (response.status === 401) {
-      // If this is the first attempt, try to refresh the token
+    // Handle 498 - access token expired, try to refresh using refresh token
+    if (response.status === 498) {
       if (retryCount === 0) {
         // Prevent multiple simultaneous refresh attempts
         if (!isRefreshing) {
@@ -110,13 +109,18 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
         const success = await refreshPromise;
 
         if (success) {
-          // Retry the original request with the new token cookie
+          // Retry the original request with the new access token cookie
           return apiFetch(path, options, retryCount + 1);
         }
       }
 
-      // Either refresh failed or this is a retry that still got 401
-      // In both cases, logout the user
+      // Refresh failed or retry still got 498 - logout the user
+      handleAuthFailure();
+      throw new Error('Authentication failed. Please log in again.');
+    }
+
+    // Handle 401 - completely unauthorized (blacklisted, invalid, or refresh token expired)
+    if (response.status === 401) {
       handleAuthFailure();
       throw new Error('Authentication failed. Please log in again.');
     }

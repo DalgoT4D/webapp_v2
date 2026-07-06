@@ -83,9 +83,14 @@ describe('formatKPIValue', () => {
     expect(formatKPIValue(85.5)).toBe('85.5');
   });
 
-  it('shows raw number when customizations object has no numberFormat', () => {
-    // Edge: prefix/suffix without format → still no formatting applied
-    expect(formatKPIValue(1500, { numberPrefix: '₹' })).toBe('1500');
+  it('applies decimal places, prefix, and suffix when numberFormat is absent', () => {
+    // Customizations without an explicit format → treat as "No Formatting" (default)
+    expect(formatKPIValue(1500, { numberPrefix: '₹' })).toBe('₹1500');
+    expect(formatKPIValue(1500.5, { decimalPlaces: 2 })).toBe('1500.50');
+    expect(formatKPIValue(1500, { numberSuffix: ' people' })).toBe('1500 people');
+    expect(
+      formatKPIValue(1234.5, { decimalPlaces: 1, numberPrefix: '$', numberSuffix: ' USD' })
+    ).toBe('$1234.5 USD');
   });
 
   it.each([
