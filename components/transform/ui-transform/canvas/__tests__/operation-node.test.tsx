@@ -7,13 +7,13 @@ import { render, screen } from '@testing-library/react';
 import { TestWrapper } from '@/test-utils/render';
 import userEvent from '@testing-library/user-event';
 import OperationNode from '../nodes/OperationNode';
-import * as usePermissionsHook from '@/hooks/api/usePermissions';
+import * as rbac from '@/lib/rbac';
 import { CanvasActionEnum, OperationFormAction } from '@/constants/transform';
 import type { CanvasNodeRenderData } from '@/types/transform';
 
 // ============ Mocks ============
 
-jest.mock('@/hooks/api/usePermissions');
+jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
 
 const mockDispatchCanvasAction = jest.fn();
 const mockOpenOperationPanel = jest.fn();
@@ -65,7 +65,7 @@ describe('OperationNode', () => {
     jest.clearAllMocks();
     mockEdges = [];
 
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (perm: string) =>
         ['can_edit_dbt_operation', 'can_delete_dbt_operation'].includes(perm),
     });
@@ -105,7 +105,7 @@ describe('OperationNode', () => {
 
   it('opens panel in VIEW mode when user only has can_view_dbt_operation', async () => {
     const user = userEvent.setup();
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (perm: string) => perm === 'can_view_dbt_operation',
     });
 
@@ -123,7 +123,7 @@ describe('OperationNode', () => {
 
   it('does not open panel when user has neither edit nor view permission', async () => {
     const user = userEvent.setup();
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: () => false,
     });
 

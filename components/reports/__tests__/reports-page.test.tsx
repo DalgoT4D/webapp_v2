@@ -47,17 +47,21 @@ jest.mock('@/components/ui/confirmation-dialog', () => ({
   }),
 }));
 
-// Mock useUserPermissions — default: all permissions granted
+// Mock useRbac — default: all permissions granted
 const mockHasPermission = jest.fn().mockReturnValue(true);
-jest.mock('@/hooks/api/usePermissions', () => ({
-  useUserPermissions: () => ({
-    permissions: [],
-    hasPermission: mockHasPermission,
-    hasAnyPermission: jest.fn().mockReturnValue(true),
-    hasAllPermissions: jest.fn().mockReturnValue(true),
-    isLoading: false,
-  }),
-}));
+jest.mock('@/lib/rbac', () => {
+  const actual = jest.requireActual('@/lib/rbac');
+  return {
+    ...actual,
+    useRbac: () => ({
+      hasPermission: mockHasPermission,
+      hasAnyPermission: jest.fn().mockReturnValue(true),
+      hasAllPermissions: jest.fn().mockReturnValue(true),
+      hasRole: jest.fn().mockReturnValue(true),
+      role: actual.ROLES.ADMIN,
+    }),
+  };
+});
 
 // ============ Helpers ============
 

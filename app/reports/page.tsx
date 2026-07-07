@@ -52,7 +52,7 @@ import type { ReportSnapshot } from '@/types/reports';
 import { CreateSnapshotDialog } from '@/components/reports/create-snapshot-dialog';
 import { formatCreatedOn } from '@/components/reports/utils';
 import { ReportShareMenu } from '@/components/reports/report-share-menu';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
 // Debounce delay in ms before sending filter to API
 const FILTER_DEBOUNCE_MS = 400;
@@ -65,9 +65,9 @@ type SortColumn = 'title' | 'dashboard_title' | 'created_by' | 'created_at';
 export default function ReportsPage() {
   const router = useRouter();
   const { confirm, DialogComponent: DeleteDialog } = useConfirmationDialog();
-  const { hasPermission } = useUserPermissions();
-  const canCreate = hasPermission('can_create_dashboards');
-  const canDelete = hasPermission('can_delete_dashboards');
+  const { hasPermission } = useRbac();
+  const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS);
+  const canDelete = hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS);
 
   // Filter input states (what the user types)
   const [titleFilter, setTitleFilter] = useState('');
@@ -605,7 +605,7 @@ export default function ReportsPage() {
                               className="flex items-center gap-2"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              {hasPermission('can_share_dashboards') && (
+                              {hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS) && (
                                 <ReportShareMenu
                                   snapshotId={snapshot.id}
                                   reportTitle={snapshot.title}

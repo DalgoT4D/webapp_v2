@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { NotificationPreferencesDialog } from '../NotificationPreferencesDialog';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import * as notificationHooks from '@/hooks/api/useNotifications';
-import * as permissionsHook from '@/hooks/api/usePermissions';
+import * as rbac from '@/lib/rbac';
 import {
   mockUserPreferences,
   mockOrgPreferences,
@@ -11,7 +11,7 @@ import {
 } from './notification-mock-data';
 
 jest.mock('@/hooks/api/useNotifications');
-jest.mock('@/hooks/api/usePermissions');
+jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => (
   <TooltipProvider>{children}</TooltipProvider>
@@ -43,7 +43,7 @@ describe('NotificationPreferencesDialog', () => {
       updateOrgPreferences: mocks.mockUpdateOrgPreferences,
     });
 
-    (permissionsHook.useUserPermissions as jest.Mock).mockReturnValue(createMockPermissions(true));
+    (rbac.useRbac as jest.Mock).mockReturnValue(createMockPermissions(true));
   });
 
   it('loads existing preferences when dialog opens', async () => {
@@ -58,7 +58,7 @@ describe('NotificationPreferencesDialog', () => {
   });
 
   it('disables Discord fields without permission', async () => {
-    (permissionsHook.useUserPermissions as jest.Mock).mockReturnValue(createMockPermissions(false));
+    (rbac.useRbac as jest.Mock).mockReturnValue(createMockPermissions(false));
 
     render(<NotificationPreferencesDialog open={true} onOpenChange={jest.fn()} />, {
       wrapper: Wrapper,
@@ -309,7 +309,7 @@ describe('NotificationPreferencesDialog', () => {
 
   it('does not update org preferences when user lacks the required permission', async () => {
     const onOpenChange = jest.fn();
-    (permissionsHook.useUserPermissions as jest.Mock).mockReturnValue(createMockPermissions(false));
+    (rbac.useRbac as jest.Mock).mockReturnValue(createMockPermissions(false));
 
     render(<NotificationPreferencesDialog open={true} onOpenChange={onOpenChange} />, {
       wrapper: Wrapper,
@@ -429,7 +429,7 @@ describe('NotificationPreferencesDialog', () => {
   });
 
   it('handles no permissions gracefully', async () => {
-    (permissionsHook.useUserPermissions as jest.Mock).mockReturnValue(createMockPermissions(false));
+    (rbac.useRbac as jest.Mock).mockReturnValue(createMockPermissions(false));
 
     render(<NotificationPreferencesDialog open={true} onOpenChange={jest.fn()} />, {
       wrapper: Wrapper,
