@@ -26,6 +26,8 @@ export interface RbacNoticeStep {
   /** Illustration shown on the right; lives in public/images/rbac-notice/. */
   image: string;
   detail: string;
+  /** Optional external docs link shown below the detail text. */
+  docLink?: { label: string; href: string };
 }
 
 // Per-step "what this means for you" detail + illustration. Order = carousel order.
@@ -47,5 +49,9 @@ export const RBAC_NOTICE_STEPS: RbacNoticeStep[] = [
     image: '/images/rbac-notice/rbac-member.jpg',
     detail:
       'Renamed from Guest, you now have a streamlined, view-only experience for the dashboards and reports shared with your organisation.',
+    docLink: {
+      label: 'Read the full guide on roles',
+      href: 'https://docs.dalgo.org/settings/user-management/',
+    },
   },
 ];

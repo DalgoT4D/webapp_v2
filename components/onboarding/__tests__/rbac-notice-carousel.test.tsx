@@ -92,6 +92,10 @@ describe('RbacNoticeCarousel', () => {
       screen.getByText(/only you or another admin can create, edit or delete them/i)
     ).toBeInTheDocument();
     expect(screen.queryByTestId('rbac-notice-back')).not.toBeInTheDocument();
+    // Docs link is Member-only
+    expect(
+      screen.queryByRole('link', { name: /read the full guide on roles/i })
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId('rbac-notice-next'));
     // Step 2: Analyst detail, Back appears
@@ -104,6 +108,10 @@ describe('RbacNoticeCarousel', () => {
     // Step 3: Member detail, Continue replaces Next
     expect(screen.getByText(/Renamed from Guest/i)).toBeInTheDocument();
     expect(screen.queryByTestId('rbac-notice-next')).not.toBeInTheDocument();
+    // Member step links to the user-management docs in a new tab
+    const docLink = screen.getByRole('link', { name: /read the full guide on roles/i });
+    expect(docLink).toHaveAttribute('href', 'https://docs.dalgo.org/settings/user-management/');
+    expect(docLink).toHaveAttribute('target', '_blank');
 
     await user.click(screen.getByTestId('rbac-notice-continue'));
 

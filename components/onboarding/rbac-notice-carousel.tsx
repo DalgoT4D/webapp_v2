@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { ArrowUpRight } from 'lucide-react';
 import { mutate } from 'swr';
 
 import { Button } from '@/components/ui/button';
@@ -144,6 +145,18 @@ export function RbacNoticeCarousel() {
                 What this means for you
               </p>
               <p className="mt-2 text-sm leading-relaxed text-foreground">{currentStep.detail}</p>
+              {currentStep.docLink && (
+                <a
+                  href={currentStep.docLink.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="rbac-notice-doc-link"
+                  className="mt-3 inline-flex items-center gap-1 text-sm text-primary underline underline-offset-2 hover:opacity-80"
+                >
+                  {currentStep.docLink.label}
+                  <ArrowUpRight className="h-4 w-4" />
+                </a>
+              )}
 
               <div className="mt-auto flex justify-end gap-2 pt-6">
                 {step > 0 && (
