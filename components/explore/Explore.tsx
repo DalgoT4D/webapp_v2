@@ -2,6 +2,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Resizable } from 'react-resizable';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DocsLink } from '@/components/ui/docs-link';
@@ -30,11 +31,22 @@ export function Explore() {
     reset,
   } = useExploreStore();
 
+  const searchParams = useSearchParams();
   const [isSyncing, setIsSyncing] = useState(false);
   const { data: tables, isLoading: tablesLoading, mutate: mutateTables } = useWarehouseTables();
   const { isFeatureFlagEnabled } = useFeatureFlags();
 
   const showStatisticsTab = isFeatureFlagEnabled(FeatureFlagKeys.DATA_STATISTICS);
+
+  // Preselect table from URL params if provided
+  useEffect(() => {
+    const schemaName = searchParams.get('schema_name');
+    const tableName = searchParams.get('table_name');
+    if (schemaName && tableName) {
+      setSelectedTable({ schema: schemaName, table: tableName });
+      setActiveTab(ExploreTab.PREVIEW);
+    }
+  }, [searchParams, setSelectedTable, setActiveTab]);
 
   // Reset state on unmount
   useEffect(() => {
