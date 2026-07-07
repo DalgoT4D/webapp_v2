@@ -159,3 +159,18 @@ describe('created charts', () => {
     ]);
   });
 });
+
+describe('validation events', () => {
+  it('attaches a warn verdict and caveat to the answered message', () => {
+    let messages = [newUserMessage('how many farmers?'), newAssistantPlaceholder()];
+    messages = applyChatEvent(messages, { type: 'message_complete', message: '1,284 farmers.' });
+    messages = applyChatEvent(messages, {
+      type: 'validation',
+      verdict: 'warn',
+      caveat: 'This counts visit records, not unique farmers.',
+    });
+    const assistant = messages[messages.length - 1];
+    expect(assistant.validation?.verdict).toBe('warn');
+    expect(assistant.validation?.caveat).toContain('unique farmers');
+  });
+});

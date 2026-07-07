@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolProgress } from './ToolProgress';
 import { ResultTable } from './ResultTable';
@@ -34,6 +34,16 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
 
         {message.content && (
           <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+        )}
+
+        {!isUser && message.validation?.verdict === 'warn' && message.validation.caveat && (
+          <p
+            data-testid="chat-validation-caveat"
+            className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+          >
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>Worth checking: {message.validation.caveat}</span>
+          </p>
         )}
 
         {message.error && (

@@ -46,6 +46,29 @@ describe('MessageBubble', () => {
     expect(chip).toHaveTextContent('Surveys by district');
   });
 
+  it('shows an amber caveat strip when validation warns', () => {
+    render(
+      <MessageBubble
+        message={message({
+          content: '1,284 farmers.',
+          validation: { verdict: 'warn', caveat: 'This counts visit records, not unique farmers.' },
+        })}
+      />
+    );
+    const strip = screen.getByTestId('chat-validation-caveat');
+    expect(strip).toHaveTextContent('Worth checking');
+    expect(strip).toHaveTextContent('unique farmers');
+  });
+
+  it('shows nothing extra when validation is ok', () => {
+    render(
+      <MessageBubble
+        message={message({ content: 'All good.', validation: { verdict: 'ok', caveat: null } })}
+      />
+    );
+    expect(screen.queryByTestId('chat-validation-caveat')).not.toBeInTheDocument();
+  });
+
   it('shows the error state instead of an empty answer', () => {
     render(<MessageBubble message={message({ error: 'Something went wrong.' })} />);
     expect(screen.getByText('Something went wrong.')).toBeInTheDocument();

@@ -84,6 +84,12 @@ export function applyChatEvent(messages: ChatMessage[], event: ChatWsEvent): Cha
         streaming: false,
       }));
 
+    case 'validation':
+      return updateLastAssistant(messages, (message) => ({
+        ...message,
+        validation: { verdict: event.verdict, caveat: event.caveat },
+      }));
+
     case 'error':
       return updateLastAssistant(messages, (message) => ({
         ...message,

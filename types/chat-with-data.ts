@@ -83,6 +83,13 @@ export interface ErrorEvent {
   message: string;
 }
 
+export interface ValidationEvent {
+  type: 'validation';
+  verdict: 'ok' | 'warn';
+  assumptions?: string[];
+  caveat?: string | null;
+}
+
 export interface TitleUpdatedEvent {
   type: 'title_updated';
   title: string;
@@ -93,6 +100,7 @@ export type ChatWsEvent =
   | ToolStartEvent
   | ToolEndEvent
   | MessageCompleteEvent
+  | ValidationEvent
   | ErrorEvent
   | TitleUpdatedEvent;
 
@@ -115,5 +123,6 @@ export interface ChatMessage {
   tools: ToolActivity[];
   resultTable?: ResultTable | null;
   charts?: CreatedChart[];
+  validation?: { verdict: 'ok' | 'warn'; caveat?: string | null } | null;
   error?: string | null;
 }
