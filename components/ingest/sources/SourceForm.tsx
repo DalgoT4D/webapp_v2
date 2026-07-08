@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Combobox, highlightText } from '@/components/ui/combobox';
 import type { ComboboxItem } from '@/components/ui/combobox';
-import { ConnectorConfigForm } from '@/components/connectors/ConnectorConfigForm';
+import { ConnectorConfigForm, renderField } from '@/components/connectors/ConnectorConfigForm';
 import { parseAirbyteSpec } from '@/components/connectors/spec-parser';
 import { cleanFormValues, extractSpecDefaults } from '@/components/connectors/utils';
 import type { FieldNode, ParsedSpec } from '@/components/connectors/types';
@@ -62,9 +62,12 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   const [sourceName, setSourceName] = useState('');
 
   // Google OAuth: config fragment returned by Airbyte after "Sign in with Google".
-  // When present, it is merged over the manual form config at submit time.
+  // When present, it is merged over the form config at submit time.
   const [oauthCredentials, setOauthCredentials] = useState<Record<string, unknown> | null>(null);
   const [oauthConnecting, setOauthConnecting] = useState(false);
+  // For Google Sheets: 'google' shows only the Sign-in button; 'manual' reveals the
+  // credential dropdown (client id/secret/refresh token or service account).
+  const [authMode, setAuthMode] = useState<'google' | 'manual'>('google');
 
   const isGoogleSheets = selectedDefId === GOOGLE_SHEETS_SOURCE_DEFINITION_ID;
 
@@ -86,6 +89,21 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     if (!spec) return null;
     return parseAirbyteSpec(spec);
   }, [spec]);
+
+  // The auth block is the oneOf whose discriminator is `auth_type`. For Google Sheets
+  // we render it ourselves (Google vs manual); for other sources it stays in the form.
+  const authField = useMemo<FieldNode | null>(
+    () => parsedSpec?.fields.find((f) => f.type === 'oneOf' && f.constKey === 'auth_type') ?? null,
+    [parsedSpec]
+  );
+
+  // Everything except the auth block — rendered by ConnectorConfigForm for Google Sheets
+  // so the auth fields don't validate unless the user chose manual mode.
+  const nonAuthSpec = useMemo<ParsedSpec | null>(() => {
+    if (!parsedSpec) return null;
+    if (!isGoogleSheets || !authField) return parsedSpec;
+    return { ...parsedSpec, fields: parsedSpec.fields.filter((f) => f !== authField) };
+  }, [parsedSpec, isGoogleSheets, authField]);
 
   // React Hook Form
   const { control, handleSubmit, setValue, getValues, reset } = useForm({
@@ -175,6 +193,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       setSetupLogs([]);
       setSourceName('');
       setOauthCredentials(null);
+      setAuthMode('google');
       reset({});
     }
   }, [open, isEdit, reset]);
@@ -197,8 +216,9 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   const buildConfig = useCallback(() => {
     const formValues = getValues();
     const config = parsedSpec ? cleanFormValues(formValues, parsedSpec.fields) : formValues;
-    return oauthCredentials ? { ...config, ...oauthCredentials } : config;
-  }, [getValues, parsedSpec, oauthCredentials]);
+    const useGoogleOAuth = isGoogleSheets && authMode === 'google' && oauthCredentials;
+    return useGoogleOAuth ? { ...config, ...oauthCredentials } : config;
+  }, [getValues, parsedSpec, oauthCredentials, isGoogleSheets, authMode]);
 
   // "Connect with Google": get a consent URL, run the popup, let Airbyte store
   // the token, and keep the returned config fragment for submit.
@@ -292,6 +312,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       reset({});
       setSetupLogs([]);
       setOauthCredentials(null);
+      setAuthMode('google');
     },
     [reset]
   );
@@ -383,44 +404,77 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
             </div>
           )}
 
-          {/* Google "Sign in with Google" — Google Sheets only */}
-          {isGoogleSheets && !specLoading && (
+          {/* Authentication — Google Sheets gets a Google-vs-manual choice */}
+          {isGoogleSheets && parsedSpec && !specLoading && (
             <div
               className="rounded-md border border-border p-4 space-y-3 bg-muted/50"
               data-testid="gsheets-oauth"
             >
               <div className="text-[15px] font-medium">Authentication</div>
-              {oauthCredentials ? (
-                <div
-                  className="flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400"
-                  data-testid="gsheets-oauth-connected"
-                >
-                  <Check className="h-4 w-4" />
-                  Connected with Google
-                </div>
-              ) : (
+
+              <div className="flex gap-2" data-testid="gsheets-auth-mode">
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={handleConnectGoogle}
-                  disabled={loading || oauthConnecting}
-                  data-testid="gsheets-oauth-connect-btn"
+                  variant={authMode === 'google' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => setAuthMode('google')}
+                  disabled={loading}
+                  data-testid="gsheets-auth-google"
                 >
-                  {oauthConnecting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                  Connect with Google
+                  Sign in with Google
                 </Button>
+                <Button
+                  type="button"
+                  variant={authMode === 'manual' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => setAuthMode('manual')}
+                  disabled={loading}
+                  data-testid="gsheets-auth-manual"
+                >
+                  Set up manually
+                </Button>
+              </div>
+
+              {authMode === 'google' ? (
+                <div className="space-y-2">
+                  {oauthCredentials ? (
+                    <div
+                      className="flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400"
+                      data-testid="gsheets-oauth-connected"
+                    >
+                      <Check className="h-4 w-4" />
+                      Connected with Google
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleConnectGoogle}
+                      disabled={loading || oauthConnecting}
+                      data-testid="gsheets-oauth-connect-btn"
+                    >
+                      {oauthConnecting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                      Connect with Google
+                    </Button>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Sign in with Google to connect your spreadsheet — no credentials needed.
+                  </p>
+                </div>
+              ) : (
+                authField && (
+                  <div className="space-y-4">
+                    {renderField(authField, control, setValue, loading)}
+                  </div>
+                )
               )}
-              <p className="text-xs text-muted-foreground">
-                Sign in with Google to connect your spreadsheet — no credentials needed. Or
-                configure credentials manually below.
-              </p>
             </div>
           )}
 
-          {/* Dynamic Config Form */}
-          {parsedSpec && !specLoading && (
+          {/* Dynamic Config Form — for Google Sheets the auth block is rendered above */}
+          {nonAuthSpec && !specLoading && (
             <ConnectorConfigForm
-              parsedSpec={parsedSpec}
+              parsedSpec={nonAuthSpec}
               control={control}
               setValue={setValue}
               disabled={loading}
@@ -454,7 +508,13 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
               type="submit"
               variant="primary"
               className="uppercase"
-              disabled={loading || !selectedDefId || !sourceName.trim() || !parsedSpec}
+              disabled={
+                loading ||
+                !selectedDefId ||
+                !sourceName.trim() ||
+                !parsedSpec ||
+                (isGoogleSheets && authMode === 'google' && !oauthCredentials)
+              }
               data-testid="source-save-btn"
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
