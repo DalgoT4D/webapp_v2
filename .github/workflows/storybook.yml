@@ -1,0 +1,57 @@
+name: Deploy Storybook
+
+# Builds the static Storybook and publishes it to GitHub Pages.
+# The storybook-static/ folder is generated here on the runner — it is NOT
+# committed to the repo (see .gitignore).
+on:
+  push:
+    branches: [main] # deploy the canonical Storybook from main
+  pull_request:
+    branches: [main] # PRs only build (deploy is gated below) — a "stories still compile" check
+  workflow_dispatch: # manual run (e.g. preview a branch before merge)
+
+# Least-privilege permissions required by the Pages deploy flow.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deploy at a time; cancel superseded runs.
+concurrency:
+  group: storybook-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # React 19 peers need --legacy-peer-deps (same as local install).
+      - run: npm ci --legacy-peer-deps
+
+      - run: npm run build-storybook
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: storybook-static
+
+  deploy:
+    needs: build
+    # Only publish from main (or a manual dispatch). PRs run `build` above as a
+    # check but skip this deploy job, so the live URL only ever mirrors main.
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,39 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Foundations/Introduction" />
+
+# Dalgo Design System
+
+The single source of truth for Dalgo's UI — the real, shipped, coded components and
+tokens. Designers, PMs, and engineers all reference this. Use the **Theme** toggle
+(top toolbar) to check light vs dark.
+
+## How it's organized
+
+**Foundations** — the design language:
+- **Colors** — semantic tokens + the chart & avatar palettes
+- **Typography** — Anek Latin scale, weights, line-height
+- **Spacing** — the 4px-based spacing scale
+- **Elevation** — shadow / depth scale
+- **Iconography** — the lucide icon set Dalgo uses
+- **Motion** — transitions, spinner, overlay animations
+- **Radius** — corner-radius scale
+- **Drift** ⚠️ — where the UI is currently *inconsistent* (audit findings)
+
+**UI** — the reusable primitives in `components/ui/` (Button, Input, Dialog, …).
+Each has an auto-generated props table (Docs tab).
+
+**Charts** — Dalgo-specific feature components (e.g. the chart-type picker).
+
+## What belongs here
+
+Reusable building blocks and tokens — **not** whole pages. A dashboard or report
+screen pulls live data + auth and belongs in the app / E2E tests, not Storybook.
+
+## Current limits (be honest)
+
+- This is **read-only** for design today: reference + drift detection, not editing.
+  "Non-tech edits tokens" needs a `tokens.json` + Terrazzo pipeline (not yet built).
+- Chart **renderers** (ECharts bar/line/pie/…) aren't storied yet — only the picker.
+
+See **Foundations/Drift** for the concrete inconsistencies worth fixing first.

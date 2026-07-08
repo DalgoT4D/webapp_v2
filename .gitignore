@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# storybook build output (baked snapshot — never commit, CI/host rebuilds it)
+storybook-static/
+
 # production
 /build
 
