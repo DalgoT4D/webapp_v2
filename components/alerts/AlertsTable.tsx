@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import {
   Table as TableComponent,
   TableBody,
@@ -171,7 +172,7 @@ export function AlertsTable({
         <TableHeader>
           <TableRow className="bg-gray-50">
             {/* Name (sort) */}
-            <TableHead className="w-[26%]">
+            <TableHead className="w-[20%]">
               <Button
                 variant="ghost"
                 className="h-auto p-0 font-medium text-base hover:bg-transparent"
@@ -186,7 +187,7 @@ export function AlertsTable({
             </TableHead>
 
             {/* Condition (sort) */}
-            <TableHead className="w-[18%]">
+            <TableHead className="w-[14%]">
               <Button
                 variant="ghost"
                 className="h-auto p-0 font-medium text-base hover:bg-transparent"
@@ -245,6 +246,9 @@ export function AlertsTable({
               </Button>
             </TableHead>
 
+            {/* Created by */}
+            <TableHead className="w-[11%] font-medium text-base text-center">Created by</TableHead>
+
             {/* Actions */}
             <TableHead className="w-[10%] font-medium text-base">Actions</TableHead>
           </TableRow>
@@ -254,7 +258,7 @@ export function AlertsTable({
             <>
               {[0, 1, 2].map((i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 7 }).map((_, j) => (
+                  {Array.from({ length: 8 }).map((_, j) => (
                     <TableCell key={j}>
                       <Skeleton className="h-4 w-full" />
                     </TableCell>
@@ -265,7 +269,7 @@ export function AlertsTable({
           )}
           {!isLoading && visible.length === 0 && (
             <TableRow>
-              <TableCell colSpan={7} className="p-0">
+              <TableCell colSpan={8} className="p-0">
                 {emptyState}
               </TableCell>
             </TableRow>
@@ -365,6 +369,18 @@ export function AlertsTable({
                     {a.last_fire_at
                       ? formatDistanceToNow(new Date(a.last_fire_at), { addSuffix: true })
                       : '—'}
+                  </TableCell>
+
+                  {/* Created by */}
+                  <TableCell className="py-4 text-center">
+                    {a.created_by_email ? (
+                      <UserAvatar
+                        email={a.created_by_email}
+                        data-testid={`alert-created-by-${a.id}`}
+                      />
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </TableCell>
 
                   {/* Actions */}
