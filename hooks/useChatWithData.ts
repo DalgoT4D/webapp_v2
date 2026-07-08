@@ -163,6 +163,9 @@ export function useChatWithData(sessionId: number | null, options: UseChatWithDa
       lastSessionRef.current = sessionId;
       setMessages(initialMessages || []);
       setIsStreaming(false);
+      // a new session is a fresh conversation — allow its history to merge
+      // even if a live turn happened in the previous session
+      liveTurnStartedRef.current = false;
     }
   }, [sessionId, initialMessages]);
 

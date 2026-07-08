@@ -3,11 +3,18 @@
  * Event shapes mirror DDP_backend ddpui/core/chat_with_data/runner.py.
  */
 
+import { renderHook, act } from '@testing-library/react';
+
+jest.mock('@/hooks/useBackendWebSocket', () => ({
+  useBackendWebSocket: () => ({ sendOrQueue: jest.fn(), isConnected: true }),
+}));
+
 import {
   applyChatEvent,
   historyToChatMessages,
   newAssistantPlaceholder,
   newUserMessage,
+  useChatWithData,
 } from '../useChatWithData';
 import type { ChatMessage } from '@/types/chat-with-data';
 
@@ -172,5 +179,28 @@ describe('validation events', () => {
     const assistant = messages[messages.length - 1];
     expect(assistant.validation?.verdict).toBe('warn');
     expect(assistant.validation?.caveat).toContain('unique farmers');
+  });
+});
+
+describe('session switching', () => {
+  it('history still merges after a live turn in a previous session', () => {
+    const history = [
+      { id: 'h-0', role: 'user' as const, content: 'old question', streaming: false, tools: [] },
+    ];
+
+    const { result, rerender } = renderHook(
+      ({ sessionId, initial }) =>
+        useChatWithData(sessionId, { enabled: true, initialMessages: initial }),
+      { initialProps: { sessionId: 1, initial: [] as typeof history } }
+    );
+
+    act(() => result.current.sendMessage('hello session one'));
+    expect(result.current.messages.length).toBe(2); // user + placeholder
+
+    // switch to session 2; its history arrives AFTER the switch
+    rerender({ sessionId: 2, initial: [] });
+    rerender({ sessionId: 2, initial: history });
+
+    expect(result.current.messages).toEqual(history);
   });
 });
