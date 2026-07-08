@@ -46,6 +46,20 @@ describe('MessageBubble', () => {
     expect(chip).toHaveTextContent('Surveys by district');
   });
 
+  it('renders a dashboard chip with the dashboard icon', () => {
+    render(
+      <MessageBubble
+        message={message({
+          content: 'Added to your dashboard.',
+          charts: [{ chart_id: 3, title: 'Donor Overview', url_path: '/dashboards/3' }],
+        })}
+      />
+    );
+    const chip = screen.getByTestId('chat-chart-link-3');
+    expect(chip).toHaveAttribute('href', '/dashboards/3');
+    expect(chip.querySelector('svg.lucide-layout-dashboard')).toBeInTheDocument();
+  });
+
   it('shows an amber caveat strip when validation warns', () => {
     render(
       <MessageBubble

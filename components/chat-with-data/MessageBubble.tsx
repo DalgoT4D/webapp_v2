@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BarChart3, AlertTriangle } from 'lucide-react';
+import { BarChart3, LayoutDashboard, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolProgress } from './ToolProgress';
 import { ResultTable } from './ResultTable';
@@ -57,12 +57,16 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
         {!isUser &&
           message.charts?.map((chart) => (
             <Link
-              key={chart.chart_id}
+              key={chart.url_path}
               href={chart.url_path}
               data-testid={`chat-chart-link-${chart.chart_id}`}
               className="mt-2 inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium text-primary hover:bg-accent"
             >
-              <BarChart3 className="h-4 w-4" />
+              {chart.url_path.startsWith('/dashboards') ? (
+                <LayoutDashboard className="h-4 w-4" />
+              ) : (
+                <BarChart3 className="h-4 w-4" />
+              )}
               {chart.title}
             </Link>
           ))}
