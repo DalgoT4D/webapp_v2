@@ -32,21 +32,25 @@ describe('useSources Google OAuth mutations', () => {
   });
 
   describe('completeSourceOAuth', () => {
-    it('POSTs the state + query params and returns the config fragment', async () => {
-      (apiPost as jest.Mock).mockResolvedValue({ credentials: { auth_type: 'Client' } });
+    it('POSTs name + config + state + query params and returns the saved source id', async () => {
+      (apiPost as jest.Mock).mockResolvedValue({ sourceId: 'new-src-id' });
 
       const result = await completeSourceOAuth({
         sourceDefId: 'gsheets-def-id',
+        name: 'my sheet',
+        config: { spreadsheet_id: 'https://sheet' },
         state: 'nonce-123',
         queryParams: { code: 'abc', state: 'google-state' },
       });
 
       expect(apiPost).toHaveBeenCalledWith('/api/airbyte/sources/oauth/complete/', {
         sourceDefId: 'gsheets-def-id',
+        name: 'my sheet',
+        config: { spreadsheet_id: 'https://sheet' },
         state: 'nonce-123',
         queryParams: { code: 'abc', state: 'google-state' },
       });
-      expect(result).toEqual({ credentials: { auth_type: 'Client' } });
+      expect(result).toEqual({ sourceId: 'new-src-id' });
     });
   });
 });

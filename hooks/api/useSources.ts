@@ -7,6 +7,7 @@ import type {
   UpdateSourcePayload,
   SourceOAuthConsent,
   CompleteSourceOAuthPayload,
+  CompleteSourceOAuthResponse,
 } from '@/types/source';
 import type { ConnectionSpecification } from '@/components/connectors/types';
 
@@ -91,9 +92,11 @@ export async function getSourceOAuthConsent(sourceDefId: string): Promise<Source
   return apiPost('/api/airbyte/sources/oauth/consent/', { sourceDefId });
 }
 
-/** Complete the OAuth flow: Airbyte exchanges the code and returns the source config fragment */
+/** Complete the OAuth flow and save the source in one step: the backend exchanges the
+ * code, injects the credentials server-side, and creates/updates the source. Returns the
+ * saved source's id — no credentials are returned to the browser. */
 export async function completeSourceOAuth(
   payload: CompleteSourceOAuthPayload
-): Promise<Record<string, unknown>> {
+): Promise<CompleteSourceOAuthResponse> {
   return apiPost('/api/airbyte/sources/oauth/complete/', payload);
 }
