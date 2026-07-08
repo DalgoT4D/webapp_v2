@@ -71,6 +71,19 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
 
   const isGoogleSheets = selectedDefId === GOOGLE_SHEETS_SOURCE_DEFINITION_ID;
 
+  // An existing Google-Sheets source already authed via OAuth: its stored credentials
+  // use the Client (OAuth) discriminator. Such a source is already connected — editing
+  // it should NOT force a fresh login; re-auth is optional.
+  const alreadyOAuthConnected = useMemo(() => {
+    if (!isEdit || !isGoogleSheets) return false;
+    const creds = source?.connectionConfiguration?.credentials as
+      | { auth_type?: string }
+      | undefined;
+    return creds?.auth_type === 'Client';
+  }, [isEdit, isGoogleSheets, source]);
+  // treat as connected if the stored source is OAuth OR the user re-authed this session
+  const isConnected = alreadyOAuthConnected || !!oauthCredentials;
+
   // Build combobox items from definitions, sorted alphabetically
   const sourceDefItems = useMemo<ComboboxItem[]>(
     () =>
@@ -115,6 +128,12 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     if (open && isEdit && source) {
       setSelectedDefId(source.sourceDefinitionId);
       setSourceName(source.name);
+      // default the auth mode from the stored credentials: service account -> manual,
+      // OAuth (Client) or anything else -> google (Sign in with Google)
+      const creds = source.connectionConfiguration?.credentials as
+        | { auth_type?: string }
+        | undefined;
+      setAuthMode(creds?.auth_type === 'Service' ? 'manual' : 'google');
     }
   }, [open, isEdit, source]);
 
@@ -437,7 +456,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
 
               {authMode === 'google' ? (
                 <div className="space-y-2">
-                  {oauthCredentials ? (
+                  {isConnected && (
                     <div
                       className="flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400"
                       data-testid="gsheets-oauth-connected"
@@ -445,20 +464,21 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
                       <Check className="h-4 w-4" />
                       Connected with Google
                     </div>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleConnectGoogle}
-                      disabled={loading || oauthConnecting}
-                      data-testid="gsheets-oauth-connect-btn"
-                    >
-                      {oauthConnecting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                      Connect with Google
-                    </Button>
                   )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleConnectGoogle}
+                    disabled={loading || oauthConnecting}
+                    data-testid="gsheets-oauth-connect-btn"
+                  >
+                    {oauthConnecting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                    {isConnected ? 'Re-authenticate' : 'Connect with Google'}
+                  </Button>
                   <p className="text-xs text-muted-foreground">
-                    Sign in with Google to connect your spreadsheet — no credentials needed.
+                    {isConnected
+                      ? 'Already connected. Re-authenticate only if the connection stopped working.'
+                      : 'Sign in with Google to connect your spreadsheet — no credentials needed.'}
                   </p>
                 </div>
               ) : (
@@ -513,7 +533,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
                 !selectedDefId ||
                 !sourceName.trim() ||
                 !parsedSpec ||
-                (isGoogleSheets && authMode === 'google' && !oauthCredentials)
+                (isGoogleSheets && authMode === 'google' && !isConnected)
               }
               data-testid="source-save-btn"
             >
