@@ -27,3 +27,16 @@ export interface UpdateSourcePayload {
   config: Record<string, unknown>;
   sourceId: string;
 }
+
+/** Response from starting the Google OAuth flow */
+export interface SourceOAuthConsent {
+  consentUrl: string;
+  state: string;
+}
+
+/** Payload to complete the Google OAuth flow after the user consents */
+export interface CompleteSourceOAuthPayload {
+  sourceDefId: string;
+  state: string;
+  queryParams: Record<string, string>;
+}

@@ -5,6 +5,8 @@ import type {
   SourceDefinition,
   CreateSourcePayload,
   UpdateSourcePayload,
+  SourceOAuthConsent,
+  CompleteSourceOAuthPayload,
 } from '@/types/source';
 import type { ConnectionSpecification } from '@/components/connectors/types';
 
@@ -77,4 +79,21 @@ export async function updateSource(
 
 export async function deleteSource(sourceId: string): Promise<void> {
   return apiDelete(`${'/api/airbyte/sources'}/${sourceId}`);
+}
+
+// ============ Google OAuth (Sign in with Google) ============
+
+/** Google Sheets source-definition id — the connector that supports "Sign in with Google" */
+export const GOOGLE_SHEETS_SOURCE_DEFINITION_ID = '71607ba1-c0ac-4799-8049-7f4b90dd50f7';
+
+/** Start the OAuth flow: get the Google consent URL + a state nonce to echo back */
+export async function getSourceOAuthConsent(sourceDefId: string): Promise<SourceOAuthConsent> {
+  return apiPost('/api/airbyte/sources/oauth/consent/', { sourceDefId });
+}
+
+/** Complete the OAuth flow: Airbyte exchanges the code and returns the source config fragment */
+export async function completeSourceOAuth(
+  payload: CompleteSourceOAuthPayload
+): Promise<Record<string, unknown>> {
+  return apiPost('/api/airbyte/sources/oauth/complete/', payload);
 }

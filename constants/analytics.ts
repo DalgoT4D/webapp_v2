@@ -69,6 +69,8 @@ export const ANALYTICS_EVENTS = {
   SOURCE_CREATED: 'source:source_created',
   SOURCE_UPDATED: 'source:source_updated',
   SOURCE_DELETED: 'source:source_deleted',
+  SOURCE_OAUTH_STARTED: 'source:oauth_started',
+  SOURCE_OAUTH_CONNECTED: 'source:oauth_connected',
   WAREHOUSE_CREATED: 'warehouse:warehouse_created',
   WAREHOUSE_UPDATED: 'warehouse:warehouse_updated',
   WAREHOUSE_DELETED: 'warehouse:warehouse_deleted',

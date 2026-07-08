@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Check } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +25,11 @@ import {
   useSource,
   createSource,
   updateSource,
+  getSourceOAuthConsent,
+  completeSourceOAuth,
+  GOOGLE_SHEETS_SOURCE_DEFINITION_ID,
 } from '@/hooks/api/useSources';
+import { openOAuthPopup } from '@/components/connectors/oauth-popup';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -56,6 +60,13 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   const [loading, setLoading] = useState(false);
   const [setupLogs, setSetupLogs] = useState<string[]>([]);
   const [sourceName, setSourceName] = useState('');
+
+  // Google OAuth: config fragment returned by Airbyte after "Sign in with Google".
+  // When present, it is merged over the manual form config at submit time.
+  const [oauthCredentials, setOauthCredentials] = useState<Record<string, unknown> | null>(null);
+  const [oauthConnecting, setOauthConnecting] = useState(false);
+
+  const isGoogleSheets = selectedDefId === GOOGLE_SHEETS_SOURCE_DEFINITION_ID;
 
   // Build combobox items from definitions, sorted alphabetically
   const sourceDefItems = useMemo<ComboboxItem[]>(
@@ -163,6 +174,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       setSelectedDefId(null);
       setSetupLogs([]);
       setSourceName('');
+      setOauthCredentials(null);
       reset({});
     }
   }, [open, isEdit, reset]);
@@ -180,10 +192,41 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     onLoadingChange: setLoading,
   });
 
-  // Handle WebSocket response — v1 pattern: test succeeded → auto-save
-  const handleSaveSource = useCallback(async () => {
+  // Build the config to send: cleaned form values, with any Google OAuth
+  // credentials merged over the top (OAuth wins over the manual fields).
+  const buildConfig = useCallback(() => {
     const formValues = getValues();
     const config = parsedSpec ? cleanFormValues(formValues, parsedSpec.fields) : formValues;
+    return oauthCredentials ? { ...config, ...oauthCredentials } : config;
+  }, [getValues, parsedSpec, oauthCredentials]);
+
+  // "Connect with Google": get a consent URL, run the popup, let Airbyte store
+  // the token, and keep the returned config fragment for submit.
+  const handleConnectGoogle = useCallback(async () => {
+    if (!selectedDefId) return;
+    setOauthConnecting(true);
+    try {
+      trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_STARTED, { source_type: 'Google Sheets' });
+      const { consentUrl, state } = await getSourceOAuthConsent(selectedDefId);
+      const { code, state: googleState } = await openOAuthPopup(consentUrl);
+      const fragment = await completeSourceOAuth({
+        sourceDefId: selectedDefId,
+        state,
+        queryParams: { code, state: googleState },
+      });
+      setOauthCredentials(fragment);
+      trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
+      toastSuccess.generic('Connected with Google');
+    } catch (error) {
+      toastError.api(error instanceof Error ? error.message : 'Google sign-in failed');
+    } finally {
+      setOauthConnecting(false);
+    }
+  }, [selectedDefId]);
+
+  // Handle WebSocket response — v1 pattern: test succeeded → auto-save
+  const handleSaveSource = useCallback(async () => {
+    const config = buildConfig();
 
     try {
       if (isEdit && sourceId) {
@@ -212,7 +255,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     } finally {
       setLoading(false);
     }
-  }, [getValues, parsedSpec, isEdit, sourceId, sourceName, selectedDefId, onSuccess]);
+  }, [buildConfig, isEdit, sourceId, sourceName, selectedDefId, definitions, onSuccess]);
 
   // Process WebSocket responses
   useEffect(() => {
@@ -248,6 +291,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       setSelectedDefId(defId);
       reset({});
       setSetupLogs([]);
+      setOauthCredentials(null);
     },
     [reset]
   );
@@ -256,8 +300,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   const onSubmit = useCallback(() => {
     if (!sourceName.trim() || !selectedDefId) return;
 
-    const formValues = getValues();
-    const config = parsedSpec ? cleanFormValues(formValues, parsedSpec.fields) : formValues;
+    const config = buildConfig();
 
     setSetupLogs([]);
     setLoading(true);
@@ -267,7 +310,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       config,
       ...(sourceId ? { sourceId } : {}),
     });
-  }, [sourceName, selectedDefId, getValues, parsedSpec, sourceId]);
+  }, [sourceName, selectedDefId, buildConfig, sourceId, sendOrQueue]);
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -337,6 +380,40 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading configuration...
+            </div>
+          )}
+
+          {/* Google "Sign in with Google" — Google Sheets only */}
+          {isGoogleSheets && !specLoading && (
+            <div
+              className="rounded-md border border-border p-4 space-y-3 bg-muted/50"
+              data-testid="gsheets-oauth"
+            >
+              <div className="text-[15px] font-medium">Authentication</div>
+              {oauthCredentials ? (
+                <div
+                  className="flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400"
+                  data-testid="gsheets-oauth-connected"
+                >
+                  <Check className="h-4 w-4" />
+                  Connected with Google
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleConnectGoogle}
+                  disabled={loading || oauthConnecting}
+                  data-testid="gsheets-oauth-connect-btn"
+                >
+                  {oauthConnecting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  Connect with Google
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Sign in with Google to connect your spreadsheet — no credentials needed. Or
+                configure credentials manually below.
+              </p>
             </div>
           )}
 
