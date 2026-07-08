@@ -6,6 +6,8 @@ export const ANALYTICS_EVENTS = {
   USER_LOGGED_IN: 'auth:user_logged_in',
   USER_LOGGED_OUT: 'auth:user_logged_out',
   ORG_SWITCHED: 'auth:org_switched',
+  RBAC_NOTICE_VIEWED: 'onboarding:rbac_notice_viewed',
+  RBAC_NOTICE_DISMISSED: 'onboarding:rbac_notice_dismissed',
   // Breadth — every menu / submenu / tab
   FEATURE_VIEWED: 'feature:viewed',
   // Charts (CHART_SAVED is the edit/update event)
@@ -104,6 +106,8 @@ export const ANALYTICS_EVENTS = {
   // Explore
   EXPLORE_TABLE_PREVIEWED: 'explore:table_previewed',
   EXPLORE_SYNCED: 'explore:synced',
+  // Fired when a table click is blocked by RBAC (no warehouse-data read permission)
+  EXPLORE_TABLE_SELECTION_DENIED: 'explore:table_selection_denied',
   // Warehouse table data preview pane (shared by Explore + Transform canvas)
   DATA_TABLE_DOWNLOADED: 'data:table_downloaded',
   // Alerts

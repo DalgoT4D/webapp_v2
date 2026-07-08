@@ -26,6 +26,7 @@ export interface OrgUser {
   org_default_dashboard_id?: number | null; // Organization default dashboard ID
   subscription_plan?: string | null; // Org base plan, used for analytics segmentation
   work_domain?: string | null; // User's work function at the NGO (M&E/program/data-tech/leadership/field), self-selected at signup; sent to PostHog as the `function` segmentation property
+  has_seen_rbac_notice: boolean; // Whether the user has dismissed the one-time RBAC v2 migration carousel
 }
 
 interface AuthState {

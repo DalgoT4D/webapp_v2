@@ -9,14 +9,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConnectionsList } from '../connections-list';
 import * as useConnectionsHook from '@/hooks/api/useConnections';
-import * as usePermissionsHook from '@/hooks/api/usePermissions';
+import * as rbac from '@/lib/rbac';
 import { LockStatus } from '@/constants/pipeline';
 import { createMockConnection } from './connections-mock-data';
 
 // ============ Mocks ============
 
 jest.mock('@/hooks/api/useConnections');
-jest.mock('@/hooks/api/usePermissions');
+jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
 
 // ConnectionRow mock exposes onDelete and onEdit so ConnectionsList action handlers
 // can be tested without needing the real row UI
@@ -106,7 +106,7 @@ describe('ConnectionsList', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockConnections([]);
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: () => true,
     });
   });
@@ -133,7 +133,7 @@ describe('ConnectionsList', () => {
     unmount();
 
     // Without permission — create button hidden
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (p: string) => p !== 'can_create_connection',
     });
     render(<ConnectionsList />);
@@ -213,7 +213,7 @@ describe('ConnectionsList', () => {
   });
 
   it('hides new connection button without create permission', () => {
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (p: string) => p !== 'can_create_connection',
     });
     mockConnections([createMockConnection()]);
