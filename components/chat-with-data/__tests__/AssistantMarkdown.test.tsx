@@ -35,6 +35,13 @@ describe('AssistantMarkdown', () => {
     expect(callout).toHaveTextContent('worth a look');
   });
 
+  it('renders `backticked` names as inline code instead of literal backticks', () => {
+    render(<AssistantMarkdown content="Source: `prod.surveys`, grouped by `country`." />);
+    const code = screen.getByText('prod.surveys');
+    expect(code.tagName).toBe('CODE');
+    expect(screen.queryByText(/`/)).not.toBeInTheDocument();
+  });
+
   it('renders anything outside the subset as literal text — no links or HTML', () => {
     render(
       <AssistantMarkdown

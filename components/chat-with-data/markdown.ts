@@ -5,7 +5,7 @@
  * never inject links, HTML, or headings we don't style.
  */
 
-export type InlineNode = { type: 'text' | 'bold'; text: string };
+export type InlineNode = { type: 'text' | 'bold' | 'code'; text: string };
 
 export type Block =
   | { type: 'p' | 'h' | 'callout'; children: InlineNode[] }
@@ -17,8 +17,10 @@ const OL_ITEM = /^\d+[.)]\s+(.*)$/;
 const HEADING = /^#{1,6}\s+(.*)$/;
 const CALLOUT = /^>\s+(.*)$/;
 
-// **bold** — non-greedy, no nesting (the prompt only asks for bold runs)
-const INLINE_TOKEN = /\*\*([^*]+)\*\*/g;
+// **bold** and `code` — non-greedy, no nesting. The prompt only asks for bold;
+// models wrap table/column names in backticks anyway, so style them instead of
+// showing literal backticks.
+const INLINE_TOKEN = /\*\*([^*]+)\*\*|`([^`]+)`/g;
 
 export function parseInline(text: string): InlineNode[] {
   const nodes: InlineNode[] = [];
@@ -27,7 +29,11 @@ export function parseInline(text: string): InlineNode[] {
     if (match.index > last) {
       nodes.push({ type: 'text', text: text.slice(last, match.index) });
     }
-    nodes.push({ type: 'bold', text: match[1] });
+    if (match[1] !== undefined) {
+      nodes.push({ type: 'bold', text: match[1] });
+    } else {
+      nodes.push({ type: 'code', text: match[2] });
+    }
     last = match.index + match[0].length;
   }
   if (last < text.length) {

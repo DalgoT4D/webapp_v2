@@ -5,17 +5,26 @@ import { parseBlocks, type InlineNode } from './markdown';
 function Inline({ nodes }: { nodes: InlineNode[] }) {
   return (
     <>
-      {nodes.map((node, i) =>
-        node.type === 'bold' ? (
-          // eslint-disable-next-line react/no-array-index-key
-          <strong key={i} className="font-semibold">
-            {node.text}
-          </strong>
-        ) : (
-          // eslint-disable-next-line react/no-array-index-key
-          <span key={i}>{node.text}</span>
-        )
-      )}
+      {nodes.map((node, i) => {
+        if (node.type === 'bold') {
+          return (
+            // eslint-disable-next-line react/no-array-index-key
+            <strong key={i} className="font-semibold">
+              {node.text}
+            </strong>
+          );
+        }
+        if (node.type === 'code') {
+          return (
+            // eslint-disable-next-line react/no-array-index-key
+            <code key={i} className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+              {node.text}
+            </code>
+          );
+        }
+        // eslint-disable-next-line react/no-array-index-key
+        return <span key={i}>{node.text}</span>;
+      })}
     </>
   );
 }
