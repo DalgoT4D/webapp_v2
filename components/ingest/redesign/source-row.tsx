@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ConnectionRow } from '@/components/connections/connection-row';
-import type { SourceGroupProps } from '@/components/ingest/redesign/source-group';
+import type { SourceGroupProps } from '@/components/ingest/redesign/utils';
 import type { Source } from '@/types/source';
 
 // Column widths for the connection table stacked on the right of a source row
@@ -118,12 +118,8 @@ function SourceMenu({
  * a fixed-width left column (source identity + 3-dots menu + "Add connection"),
  * vertically centered and divided by a vertical rule from the right side, where
  * the source's connections stack as full-width rows. Each connection reuses the
- * shipped ConnectionRow so status + every action match the accordion/classic UI
- * exactly. A source with no connections shows an "add connection" call-to-action
- * on the right.
- *
- * Accepts the exact same props as the accordion's SourceGroup, so SteadyView
- * passes identical props to either renderer.
+ * shipped ConnectionRow so status + every action stay consistent. A source with
+ * no connections shows an "add connection" call-to-action on the right.
  */
 export function SourceRow({
   group,

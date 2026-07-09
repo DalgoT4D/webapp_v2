@@ -27,19 +27,18 @@ import { PendingActions } from '@/components/connections/pending-actions';
 import { SchemaChangeForm } from '@/components/connections/schema-change-form';
 import { SourceForm } from '@/components/ingest/sources/SourceForm';
 import { AddSourceWizard } from '@/components/ingest/sources/wizard/AddSourceWizard';
-import { SourceGroup, ConnColGroup } from '@/components/ingest/redesign/source-group';
 import { SourceRow } from '@/components/ingest/redesign/source-row';
 import { groupConnectionsBySource } from '@/components/ingest/redesign/utils';
 import type { Connection, ClearStreamData } from '@/types/connections';
 import type { Source } from '@/types/source';
 
 /**
- * The steady-state Ingest surface: a control bar (search + New Source + New
- * Connection), the pending-schema-change banner, and the source-grouped
- * connection list. Reuses every classic dialog and the connection row; owns its
- * own dialog state so the classic connections-list stays untouched.
+ * The steady-state Ingest surface: a control bar (search + New Source), the
+ * pending-schema-change banner, and the source-grouped connection list rendered
+ * as side-by-side rows. Owns its own dialog state for the connection and source
+ * forms.
  */
-export function SteadyView({ layout = 'accordion' }: { layout?: 'accordion' | 'rows' } = {}) {
+export function SteadyView() {
   const { data: connections, mutate: mutateConnections } = useConnectionsList();
   const { data: sources, mutate: mutateSources } = useSources();
   const { hasPermission } = useRbac();
@@ -356,78 +355,58 @@ export function SteadyView({ layout = 'accordion' }: { layout?: 'accordion' | 'r
           </p>
         )}
 
-        {/* Column labels — layout-aware. */}
-        {groups.length > 0 &&
-          (layout === 'rows' ? (
-            // Rows layout: a fixed source column beside the stacked connection
-            // table, so the header separates Sources | Connections | Last sync |
-            // Actions, aligned to the SourceRow grid (w-64 left, 45/35/20 right).
-            <div
-              className="flex px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground"
-              data-testid="ingest-column-labels"
-            >
-              <div className="w-64 flex-shrink-0 px-4 pb-1">Sources</div>
-              <div className="flex-1 min-w-0">
-                <table className="table-fixed w-full">
-                  <colgroup>
-                    <col style={{ width: '45%' }} />
-                    <col style={{ width: '35%' }} />
-                    <col style={{ width: '20%' }} />
-                  </colgroup>
-                  <tbody>
-                    <tr>
-                      <td className="px-2 pb-1">Connections</td>
-                      <td className="px-2 pb-1">Last sync</td>
-                      <td className="px-2 pb-1 text-right">Actions</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : (
-            // Accordion layout: col 1 spans source + connection names.
-            <div className="px-2" data-testid="ingest-column-labels">
+        {/* Column labels: a fixed source column beside the stacked connection
+            table, so the header separates Sources | Connections | Last sync |
+            Actions, aligned to the SourceRow grid (w-64 left, 45/35/20 right). */}
+        {groups.length > 0 && (
+          <div
+            className="flex px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+            data-testid="ingest-column-labels"
+          >
+            <div className="w-64 flex-shrink-0 px-4 pb-1">Sources</div>
+            <div className="flex-1 min-w-0">
               <table className="table-fixed w-full">
-                <ConnColGroup />
+                <colgroup>
+                  <col style={{ width: '45%' }} />
+                  <col style={{ width: '35%' }} />
+                  <col style={{ width: '20%' }} />
+                </colgroup>
                 <tbody>
-                  <tr className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    <td className="px-2 pb-1">Sources &amp; connections</td>
+                  <tr>
+                    <td className="px-2 pb-1">Connections</td>
                     <td className="px-2 pb-1">Last sync</td>
-                    <td className="px-2 pb-1" />
+                    <td className="px-2 pb-1 text-right">Actions</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-          ))}
+          </div>
+        )}
 
-        {groups.map((group) => {
-          const groupProps = {
-            group,
-            syncingIds,
-            canSync,
-            canEditConnection,
-            canDeleteConnection,
-            canReset,
-            onSync: handleSync,
-            onCancelSync: handleCancelSync,
-            onEditConnection: handleEditConnection,
-            onDeleteConnection: handleDeleteConnection,
-            onViewHistory: handleViewHistory,
-            onClearStreams: handleClearStreams,
-            onRefreshSchema: handleRefreshSchema,
-            canCreateConnection,
-            canEditSource,
-            canDeleteSource,
-            onAddConnection: handleAddConnectionForSource,
-            onEditSource: handleEditSource,
-            onDeleteSource: handleDeleteSource,
-          };
-          return layout === 'rows' ? (
-            <SourceRow key={group.source.sourceId} {...groupProps} />
-          ) : (
-            <SourceGroup key={group.source.sourceId} {...groupProps} />
-          );
-        })}
+        {groups.map((group) => (
+          <SourceRow
+            key={group.source.sourceId}
+            group={group}
+            syncingIds={syncingIds}
+            canSync={canSync}
+            canEditConnection={canEditConnection}
+            canDeleteConnection={canDeleteConnection}
+            canReset={canReset}
+            onSync={handleSync}
+            onCancelSync={handleCancelSync}
+            onEditConnection={handleEditConnection}
+            onDeleteConnection={handleDeleteConnection}
+            onViewHistory={handleViewHistory}
+            onClearStreams={handleClearStreams}
+            onRefreshSchema={handleRefreshSchema}
+            canCreateConnection={canCreateConnection}
+            canEditSource={canEditSource}
+            canDeleteSource={canDeleteSource}
+            onAddConnection={handleAddConnectionForSource}
+            onEditSource={handleEditSource}
+            onDeleteSource={handleDeleteSource}
+          />
+        ))}
       </div>
 
       {/* Dialogs */}

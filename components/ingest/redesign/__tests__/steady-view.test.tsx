@@ -53,7 +53,7 @@ describe('SteadyView (smoke)', () => {
     mockPermissions.mockReturnValue({ hasPermission: () => true });
   });
 
-  it('renders the control bar and a source group', () => {
+  it('renders the control bar and a source row', () => {
     mockConnections.mockReturnValue({ data: [conn('c1', 's1')], mutate: jest.fn() });
     mockSources.mockReturnValue({ data: [source('s1', 'Kobo')], mutate: jest.fn() });
 
@@ -65,7 +65,7 @@ describe('SteadyView (smoke)', () => {
     // Top-level "New Connection" was removed — connections are added per source.
     expect(screen.queryByTestId('new-connection-btn')).not.toBeInTheDocument();
     expect(screen.getByTestId('add-connection-s1')).toBeInTheDocument();
-    expect(screen.getByTestId('source-group-s1')).toBeInTheDocument();
+    expect(screen.getByTestId('source-row-s1')).toBeInTheDocument();
     expect(screen.getByTestId('connection-row-c1')).toBeInTheDocument();
   });
 
@@ -75,40 +75,21 @@ describe('SteadyView (smoke)', () => {
 
     render(<SteadyView />);
 
-    expect(screen.getByTestId('source-group-s2')).toBeInTheDocument();
+    expect(screen.getByTestId('source-row-s2')).toBeInTheDocument();
     expect(screen.getByTestId('add-connection-s2')).toBeInTheDocument();
   });
 
-  it('renders SourceRow groups when layout="rows"', () => {
+  it('labels columns Sources / Connections / Last sync / Actions', () => {
     mockConnections.mockReturnValue({ data: [conn('c1', 's1')], mutate: jest.fn() });
     mockSources.mockReturnValue({ data: [source('s1', 'Kobo')], mutate: jest.fn() });
 
-    render(<SteadyView layout="rows" />);
-
-    expect(screen.getByTestId('source-row-s1')).toBeInTheDocument();
-    expect(screen.queryByTestId('source-group-s1')).not.toBeInTheDocument();
-  });
-
-  it('labels columns Sources / Connections / Last sync / Actions in the rows layout', () => {
-    mockConnections.mockReturnValue({ data: [conn('c1', 's1')], mutate: jest.fn() });
-    mockSources.mockReturnValue({ data: [source('s1', 'Kobo')], mutate: jest.fn() });
-
-    render(<SteadyView layout="rows" />);
+    render(<SteadyView />);
 
     const labels = screen.getByTestId('ingest-column-labels');
     expect(labels).toHaveTextContent('Sources');
     expect(labels).toHaveTextContent('Connections');
     expect(labels).toHaveTextContent('Last sync');
     expect(labels).toHaveTextContent('Actions');
-  });
-
-  it('uses the merged "Sources & connections" label in the accordion layout', () => {
-    mockConnections.mockReturnValue({ data: [conn('c1', 's1')], mutate: jest.fn() });
-    mockSources.mockReturnValue({ data: [source('s1', 'Kobo')], mutate: jest.fn() });
-
-    render(<SteadyView />);
-
-    expect(screen.getByTestId('ingest-column-labels')).toHaveTextContent('Sources & connections');
   });
 
   it('opens the AddSourceWizard from the New Source button', () => {

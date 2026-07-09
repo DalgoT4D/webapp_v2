@@ -9,6 +9,35 @@ export interface SourceGroupData {
 }
 
 /**
+ * Props for a source renderer (SourceRow). Carries one grouped source plus the
+ * permission flags and action callbacks passed straight through to the reused
+ * ConnectionRow and source menu.
+ */
+export interface SourceGroupProps {
+  group: SourceGroupData;
+  // Connection permissions + action wiring (passed straight to ConnectionRow)
+  syncingIds: string[];
+  canSync: boolean;
+  canEditConnection: boolean;
+  canDeleteConnection: boolean;
+  canReset: boolean;
+  onSync: (conn: Connection, setTempSync: (v: boolean) => void) => void;
+  onCancelSync: (conn: Connection) => void;
+  onEditConnection: (conn: Connection) => void;
+  onDeleteConnection: (conn: Connection) => void;
+  onViewHistory: (conn: Connection) => void;
+  onClearStreams: (conn: Connection) => void;
+  onRefreshSchema: (conn: Connection) => void;
+  // Source permissions + actions
+  canCreateConnection: boolean;
+  canEditSource: boolean;
+  canDeleteSource: boolean;
+  onAddConnection: (source: Source) => void;
+  onEditSource: (source: Source) => void;
+  onDeleteSource: (source: Source) => void;
+}
+
+/**
  * Group connections under their source. Every source is included, even those
  * with zero connections (they render as a plain "add a connection" row).
  */

@@ -17,7 +17,7 @@ const mockSources = useSources as jest.Mock;
 const mockPermissions = rbac.useRbac as jest.Mock;
 
 function renderView() {
-  return render(<IngestView mode="new" onModeChange={jest.fn()} />);
+  return render(<IngestView />);
 }
 
 describe('IngestView progressive reveal', () => {

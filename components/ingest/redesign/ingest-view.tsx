@@ -2,7 +2,6 @@
 
 import { Loader2 } from 'lucide-react';
 import { DocsLink } from '@/components/ui/docs-link';
-import { IngestUiToggle } from '@/components/ingest/redesign/ingest-ui-toggle';
 import { EmptyWarehouseCard } from '@/components/ingest/redesign/empty-warehouse-card';
 import { EmptySourceCard } from '@/components/ingest/redesign/empty-source-card';
 import { WarehouseChip } from '@/components/ingest/redesign/warehouse-chip';
@@ -10,19 +9,13 @@ import { SteadyView } from '@/components/ingest/redesign/steady-view';
 import { selectIngestState } from '@/components/ingest/redesign/state';
 import { useWarehouse } from '@/hooks/api/useWarehouse';
 import { useSources } from '@/hooks/api/useSources';
-import type { IngestUiMode } from '@/hooks/useIngestUiMode';
-
-interface IngestViewProps {
-  mode: IngestUiMode;
-  onModeChange: (mode: IngestUiMode) => void;
-}
 
 /**
- * Redesigned Ingest page: progressive-reveal (warehouse → source → connection)
- * with source-grouped connections. The screen shown is a pure function of what
- * data exists (see selectIngestState).
+ * The Ingest page: progressive-reveal (warehouse → source → connection) with
+ * source-grouped connections in a side-by-side layout. The screen shown is a
+ * pure function of what data exists (see selectIngestState).
  */
-export function IngestView({ mode, onModeChange }: IngestViewProps) {
+export function IngestView() {
   const warehouse = useWarehouse();
   const sources = useSources();
 
@@ -44,10 +37,7 @@ export function IngestView({ mode, onModeChange }: IngestViewProps) {
               Bring your data into Dalgo — set up a warehouse, add sources, then sync connections
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            {warehouse.data && <WarehouseChip warehouse={warehouse.data} />}
-            <IngestUiToggle mode={mode} onChange={onModeChange} />
-          </div>
+          {warehouse.data && <WarehouseChip warehouse={warehouse.data} />}
         </div>
       </div>
 
@@ -63,7 +53,7 @@ export function IngestView({ mode, onModeChange }: IngestViewProps) {
 
         {state === 'NO_SOURCE' && <EmptySourceCard onCreated={() => sources.mutate()} />}
 
-        {state === 'STEADY' && <SteadyView layout={mode === 'rows' ? 'rows' : 'accordion'} />}
+        {state === 'STEADY' && <SteadyView />}
       </div>
     </div>
   );

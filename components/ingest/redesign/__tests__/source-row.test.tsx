@@ -1,7 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SourceRow } from '../source-row';
-import type { SourceGroupProps } from '../source-group';
-import type { SourceGroupData } from '../utils';
+import type { SourceGroupProps, SourceGroupData } from '../utils';
 import type { Connection } from '@/types/connections';
 import type { Source } from '@/types/source';
 
