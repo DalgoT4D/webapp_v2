@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Plug, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
-import { SourceForm } from '@/components/ingest/sources/SourceForm';
+import { AddSourceWizard } from '@/components/ingest/sources/wizard/AddSourceWizard';
 
 interface EmptySourceCardProps {
   onCreated: () => void;
@@ -51,10 +51,10 @@ export function EmptySourceCard({ onCreated }: EmptySourceCardProps) {
       </div>
 
       {formOpen && (
-        <SourceForm
+        <AddSourceWizard
           open={formOpen}
           onClose={() => setFormOpen(false)}
-          onSuccess={() => {
+          onComplete={() => {
             setFormOpen(false);
             onCreated();
           }}
