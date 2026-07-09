@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { FormMode } from '@/constants/connections';
 import { ConnectionFormBody } from '@/components/connections/connection-form-body';
 import type { SourceDefinition } from '@/types/source';
@@ -33,6 +39,9 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
       <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto" preventOutsideClose>
         <DialogHeader className="space-y-4">
           <DialogTitle>Add source</DialogTitle>
+          <DialogDescription>
+            Add a new data source and connect it to your warehouse.
+          </DialogDescription>
           <WizardStepper current={step} />
         </DialogHeader>
 
