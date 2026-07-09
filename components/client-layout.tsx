@@ -1,12 +1,20 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import { AuthGuard } from '@/components/auth-guard';
-import { MainLayout } from '@/components/main-layout';
-import { NavigationTitleHandler } from '@/components/navigation-title-handler';
 import { Toaster } from 'sonner';
 import { usePostHogIdentify } from '@/hooks/usePostHogIdentify';
 import { useFeatureTracking } from '@/hooks/useFeatureTracking';
+
+const AuthGuard = dynamic(() =>
+  import('@/components/auth-guard').then((module) => module.AuthGuard)
+);
+const MainLayout = dynamic(() =>
+  import('@/components/main-layout').then((module) => module.MainLayout)
+);
+const NavigationTitleHandler = dynamic(() =>
+  import('@/components/navigation-title-handler').then((module) => module.NavigationTitleHandler)
+);
 
 // Define public routes that don't require authentication
 const publicRoutes = ['/login', '/forgot-password', '/resetpassword', '/invitations', '/welcome'];
