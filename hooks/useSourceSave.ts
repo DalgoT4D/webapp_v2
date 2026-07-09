@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { createSource, getSourceOAuthConsent, createOAuthSource } from '@/hooks/api/useSources';
 import { openOAuthPopup } from '@/components/connectors/oauth-popup';
@@ -45,6 +45,10 @@ export function useSourceSave({
   const [oauthConnecting, setOauthConnecting] = useState(false);
   const [setupLogs, setSetupLogs] = useState<string[]>([]);
   const [pendingName, setPendingName] = useState<string | null>(null);
+  // guards against a second connectGoogle running concurrently — two flows would open
+  // one shared-named popup but race two polls on the same localStorage key, producing
+  // both a success AND a "cancelled" toast (a ref reads state, not a stale-closure bool)
+  const oauthConnectingRef = useRef(false);
 
   const { sendOrQueue, lastMessage } = useBackendWebSocket(SOURCE_CHECK_WS_PATH, {
     enabled: loading,
@@ -96,10 +100,12 @@ export function useSourceSave({
 
   const connectGoogle = useCallback(
     async (name: string) => {
+      if (oauthConnectingRef.current) return; // a flow is already in progress — ignore re-entry
       if (!sourceDefId || !name.trim()) {
         toastError.api('Enter a source name first');
         return;
       }
+      oauthConnectingRef.current = true;
       setOauthConnecting(true);
       try {
         const config = getConfig();
@@ -116,6 +122,7 @@ export function useSourceSave({
       } catch (error) {
         toastError.api(error instanceof Error ? error.message : 'Google sign-in failed');
       } finally {
+        oauthConnectingRef.current = false;
         setOauthConnecting(false);
       }
     },

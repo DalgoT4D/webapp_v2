@@ -68,6 +68,12 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   const [oauthRef, setOauthRef] = useState<string | null>(null);
   const [authorizing, setAuthorizing] = useState(false);
   const [creatingGoogle, setCreatingGoogle] = useState(false);
+  // Re-entry guards: the button's `disabled` is React state and doesn't apply until the
+  // next render, so a fast double-fire would run these twice before it disables — opening
+  // two popups that race two polls on the same localStorage key (a success AND a
+  // "cancelled" toast). A ref blocks the second call synchronously.
+  const authorizingRef = useRef(false);
+  const creatingGoogleRef = useRef(false);
 
   const parsedSpec = useMemo<ParsedSpec | null>(
     () => (spec ? parseAirbyteSpec(spec) : null),
@@ -118,10 +124,12 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
 
   // Phase 1: open Google consent, stash the redeem ref. No source is created yet.
   const handleAuthorizeGoogle = useCallback(async () => {
+    if (authorizingRef.current) return; // a sign-in is already in progress — ignore re-entry
     if (!name.trim()) {
       toastError.api('Enter a source name first');
       return;
     }
+    authorizingRef.current = true;
     setAuthorizing(true);
     try {
       const { authUrl } = await getSourceOAuthConsent(def.sourceDefinitionId);
@@ -131,13 +139,16 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
     } catch (error) {
       toastError.api(error instanceof Error ? error.message : 'Google sign-in failed');
     } finally {
+      authorizingRef.current = false;
       setAuthorizing(false);
     }
   }, [name, def.sourceDefinitionId]);
 
   // Phase 2: create the source from the redeemed ref and advance.
   const handleCreateGoogle = useCallback(async () => {
+    if (creatingGoogleRef.current) return; // a create is already in progress — ignore re-entry
     if (!oauthRef) return;
+    creatingGoogleRef.current = true;
     setCreatingGoogle(true);
     try {
       const { sourceId } = await createOAuthSource({
@@ -151,6 +162,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
     } catch (error) {
       toastError.api(error instanceof Error ? error.message : 'Failed to create source');
     } finally {
+      creatingGoogleRef.current = false;
       setCreatingGoogle(false);
     }
   }, [oauthRef, def.sourceDefinitionId, name, getConfig, onCreated]);
