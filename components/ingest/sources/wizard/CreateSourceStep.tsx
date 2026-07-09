@@ -171,7 +171,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
 
   return (
     <div className="flex flex-1 min-h-0 flex-col" data-testid="create-source-step">
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
         <div className="grid grid-cols-[1fr_320px] gap-6">
           <div className="space-y-5">
             <div>
@@ -245,7 +245,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
         </div>
       </div>
 
-      <div className="flex flex-shrink-0 justify-between border-t px-6 py-4">
+      <div className="flex flex-shrink-0 justify-end gap-2 border-t px-6 py-4">
         <Button
           type="button"
           variant="outline"
@@ -264,7 +264,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
             onClick={handleCreateGoogle}
           >
             {creatingGoogle && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-            Next
+            {creatingGoogle ? 'Adding data source' : 'Next'}
           </Button>
         ) : (
           <Button
@@ -275,7 +275,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
             onClick={() => save(name)}
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-            Next
+            {loading ? 'Adding data source' : 'Next'}
           </Button>
         )}
       </div>

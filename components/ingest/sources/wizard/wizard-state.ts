@@ -5,13 +5,19 @@ export interface TopSource {
   category: string;
 }
 
-// Popular picker cards, in display order. Any card whose name has no matching
-// live source-definition in the deployment is dropped (see SelectSourceStep).
+// Popular picker candidates, in preference order. Any whose name has no matching
+// live source-definition in the deployment is dropped, then the list is capped to
+// MAX_TOP_CARDS (see SelectSourceStep). The trailing entries are reliable
+// fallbacks so the grid still fills when a preferred connector isn't installed.
+export const MAX_TOP_CARDS = 5;
+
 export const TOP_SOURCES: TopSource[] = [
   { name: 'Google Sheets', category: 'Spreadsheet' },
   { name: 'KoboToolbox', category: 'Survey' },
+  { name: 'mGramSeva', category: 'Field data' },
+  { name: 'SurveyCTO', category: 'Survey' },
   { name: 'CommCare', category: 'Field data' },
-  { name: 'HubSpot', category: 'CRM' },
+  { name: 'Postgres', category: 'Database' },
   { name: 'Airtable', category: 'Spreadsheet' },
 ];
 

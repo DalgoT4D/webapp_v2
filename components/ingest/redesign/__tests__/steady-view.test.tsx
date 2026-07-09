@@ -64,7 +64,9 @@ describe('SteadyView (smoke)', () => {
     expect(screen.getByTestId('new-source-btn')).toBeInTheDocument();
     // Top-level "New Connection" was removed — connections are added per source.
     expect(screen.queryByTestId('new-connection-btn')).not.toBeInTheDocument();
-    expect(screen.getByTestId('add-connection-s1')).toBeInTheDocument();
+    // Populated source: add-connection lives in the 3-dots menu, not inline.
+    expect(screen.queryByTestId('add-connection-s1')).not.toBeInTheDocument();
+    expect(screen.getByTestId('source-menu-s1')).toBeInTheDocument();
     expect(screen.getByTestId('source-row-s1')).toBeInTheDocument();
     expect(screen.getByTestId('connection-row-c1')).toBeInTheDocument();
   });
@@ -86,7 +88,7 @@ describe('SteadyView (smoke)', () => {
     render(<SteadyView />);
 
     const labels = screen.getByTestId('ingest-column-labels');
-    expect(labels).toHaveTextContent('Sources');
+    expect(labels).toHaveTextContent('Source details');
     expect(labels).toHaveTextContent('Connections');
     expect(labels).toHaveTextContent('Last sync');
     expect(labels).toHaveTextContent('Actions');

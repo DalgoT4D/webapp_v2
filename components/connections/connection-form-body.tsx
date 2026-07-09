@@ -12,7 +12,12 @@ import { Switch } from '@/components/ui/switch';
 import { Combobox, highlightText } from '@/components/ui/combobox';
 import type { ComboboxItem } from '@/components/ui/combobox';
 import { useSources } from '@/hooks/api/useSources';
-import { useConnection, createConnection, updateConnection } from '@/hooks/api/useConnections';
+import {
+  useConnection,
+  createConnection,
+  updateConnection,
+  triggerSync,
+} from '@/hooks/api/useConnections';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { SyncMode, DestinationSyncMode, FormMode } from '@/constants/connections';
 import { toastSuccess, toastError } from '@/lib/toast';
@@ -202,7 +207,8 @@ export function ConnectionFormBody({
       }));
 
       if (isCreate) {
-        await createConnection({
+        const sourceType = sources?.find((s) => s.sourceId === selectedSourceId)?.sourceName;
+        const created = await createConnection({
           name,
           sourceId: selectedSourceId!,
           destinationSchema: destinationSchema || undefined,
@@ -211,10 +217,20 @@ export function ConnectionFormBody({
           syncCatalog: discoveredCatalog!,
           catalogId: catalogId || undefined,
         });
-        trackEvent(ANALYTICS_EVENTS.CONNECTION_CREATED, {
-          source_type: sources?.find((s) => s.sourceId === selectedSourceId)?.sourceName,
-        });
+        trackEvent(ANALYTICS_EVENTS.CONNECTION_CREATED, { source_type: sourceType });
         toastSuccess.created('Connection');
+
+        // Kick off the first sync automatically so a freshly created connection
+        // starts pulling data without a separate manual step. A sync failure
+        // must not fail the create flow — the connection already exists and can
+        // be synced from the list — so this is best-effort.
+        try {
+          await triggerSync(created.deploymentId);
+          trackEvent(ANALYTICS_EVENTS.CONNECTION_SYNC_TRIGGERED, { source_type: sourceType });
+          toastSuccess.generic('First sync started');
+        } catch (syncError) {
+          toastError.api(syncError, 'Connection created, but the first sync could not be started');
+        }
       } else if (connectionId) {
         await updateConnection(connectionId, {
           name,

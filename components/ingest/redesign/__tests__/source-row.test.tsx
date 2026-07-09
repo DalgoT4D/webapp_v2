@@ -66,38 +66,31 @@ describe('SourceRow', () => {
     expect(screen.getByTestId('connection-row-c2')).toBeInTheDocument();
   });
 
-  it('shows the left-column "Add connection" button when the user may create connections', () => {
+  it('does not show an inline Add-connection button for a populated source (menu-only)', () => {
     const group = {
       source: source('s1', 'Kobo'),
       connections: [conn('c1', 's1')],
     };
     render(<SourceRow {...baseProps(group)} />);
-    expect(screen.getByTestId('add-connection-s1')).toBeInTheDocument();
-  });
-
-  it('hides the left-column "Add connection" button without create permission', () => {
-    const group = {
-      source: source('s1', 'Kobo'),
-      connections: [conn('c1', 's1')],
-    };
-    render(<SourceRow {...baseProps(group)} canCreateConnection={false} />);
+    // A populated source adds connections from the 3-dots menu, not inline.
     expect(screen.queryByTestId('add-connection-s1')).not.toBeInTheDocument();
+    expect(screen.getByTestId('source-menu-s1')).toBeInTheDocument();
   });
 
-  it('renders an add-connection CTA for a source with zero connections', () => {
+  it('renders a compact add-connection CTA for a source with zero connections', () => {
     const group: SourceGroupData = { source: source('s1', 'Kobo'), connections: [] };
     const props = baseProps(group);
     render(<SourceRow {...props} />);
     expect(screen.queryByTestId('connection-row-c1')).not.toBeInTheDocument();
-    expect(screen.getByTestId('add-connection-cta-s1')).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('add-connection-cta-s1'));
+    expect(screen.getByTestId('add-connection-s1')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('add-connection-s1'));
     expect(props.onAddConnection).toHaveBeenCalledTimes(1);
   });
 
-  it('shows a "No connections yet" fallback for zero connections without create permission', () => {
+  it('shows a "No connections yet" empty state without the CTA button when create is not permitted', () => {
     const group: SourceGroupData = { source: source('s1', 'Kobo'), connections: [] };
     render(<SourceRow {...baseProps(group)} canCreateConnection={false} />);
-    expect(screen.queryByTestId('add-connection-cta-s1')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('add-connection-s1')).not.toBeInTheDocument();
     expect(screen.getByText('No connections yet')).toBeInTheDocument();
   });
 });

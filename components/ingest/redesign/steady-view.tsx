@@ -348,65 +348,70 @@ export function SteadyView() {
       </div>
 
       {/* Source groups */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 mt-2 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 mt-2">
         {hasQuery && groups.length === 0 && (
           <p className="text-base text-gray-400 py-8 text-center">
             No sources or connections matching &quot;{searchTerm}&quot;
           </p>
         )}
 
-        {/* Column labels: a fixed source column beside the stacked connection
-            table, so the header separates Sources | Connections | Last sync |
-            Actions, aligned to the SourceRow grid (w-64 left, 45/35/20 right). */}
+        {/* One continuous table: a sticky grey header row followed by flush,
+            hairline-divided source rows — no per-row cards or gaps. The header
+            stays a sibling of the rows body (not inside its overflow-hidden
+            wrapper) so `sticky` still resolves against the scroll container. */}
         {groups.length > 0 && (
-          <div
-            className="flex px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground"
-            data-testid="ingest-column-labels"
-          >
-            <div className="w-64 flex-shrink-0 px-4 pb-1">Sources</div>
-            <div className="flex-1 min-w-0">
-              <table className="table-fixed w-full">
-                <colgroup>
-                  <col style={{ width: '45%' }} />
-                  <col style={{ width: '35%' }} />
-                  <col style={{ width: '20%' }} />
-                </colgroup>
-                <tbody>
-                  <tr>
-                    <td className="px-2 pb-1">Connections</td>
-                    <td className="px-2 pb-1">Last sync</td>
-                    <td className="px-2 pb-1 text-right">Actions</td>
-                  </tr>
-                </tbody>
-              </table>
+          <div className="rounded-lg border bg-white">
+            <div
+              className="sticky top-0 z-10 flex rounded-t-lg border-b bg-gray-100 py-3 text-sm font-semibold text-gray-700"
+              data-testid="ingest-column-labels"
+            >
+              <div className="w-[30%] flex-shrink-0 px-4">Source details</div>
+              <div className="flex-1 min-w-0">
+                <table className="table-fixed w-full">
+                  <colgroup>
+                    <col style={{ width: '45%' }} />
+                    <col style={{ width: '35%' }} />
+                    <col style={{ width: '20%' }} />
+                  </colgroup>
+                  <tbody>
+                    <tr>
+                      <td className="px-2">Connections</td>
+                      <td className="px-2">Last sync</td>
+                      <td className="px-2 text-right">Actions</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="divide-y overflow-hidden rounded-b-lg">
+              {groups.map((group) => (
+                <SourceRow
+                  key={group.source.sourceId}
+                  group={group}
+                  syncingIds={syncingIds}
+                  canSync={canSync}
+                  canEditConnection={canEditConnection}
+                  canDeleteConnection={canDeleteConnection}
+                  canReset={canReset}
+                  onSync={handleSync}
+                  onCancelSync={handleCancelSync}
+                  onEditConnection={handleEditConnection}
+                  onDeleteConnection={handleDeleteConnection}
+                  onViewHistory={handleViewHistory}
+                  onClearStreams={handleClearStreams}
+                  onRefreshSchema={handleRefreshSchema}
+                  canCreateConnection={canCreateConnection}
+                  canEditSource={canEditSource}
+                  canDeleteSource={canDeleteSource}
+                  onAddConnection={handleAddConnectionForSource}
+                  onEditSource={handleEditSource}
+                  onDeleteSource={handleDeleteSource}
+                />
+              ))}
             </div>
           </div>
         )}
-
-        {groups.map((group) => (
-          <SourceRow
-            key={group.source.sourceId}
-            group={group}
-            syncingIds={syncingIds}
-            canSync={canSync}
-            canEditConnection={canEditConnection}
-            canDeleteConnection={canDeleteConnection}
-            canReset={canReset}
-            onSync={handleSync}
-            onCancelSync={handleCancelSync}
-            onEditConnection={handleEditConnection}
-            onDeleteConnection={handleDeleteConnection}
-            onViewHistory={handleViewHistory}
-            onClearStreams={handleClearStreams}
-            onRefreshSchema={handleRefreshSchema}
-            canCreateConnection={canCreateConnection}
-            canEditSource={canEditSource}
-            canDeleteSource={canDeleteSource}
-            onAddConnection={handleAddConnectionForSource}
-            onEditSource={handleEditSource}
-            onDeleteSource={handleDeleteSource}
-          />
-        ))}
       </div>
 
       {/* Dialogs */}

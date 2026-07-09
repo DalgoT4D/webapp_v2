@@ -6,6 +6,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 import { FormMode } from '@/constants/connections';
 import { ConnectionFormBody } from '@/components/connections/connection-form-body';
 import type { SourceDefinition } from '@/types/source';
@@ -69,7 +70,12 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleDismiss()}>
       <DialogContent
-        className="sm:max-w-4xl max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden"
+        className={cn(
+          'max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden',
+          // The picker is a compact, near-square card grid; the configure and
+          // connection steps need more room for the form + helper / streams table.
+          step === 'select' ? 'sm:max-w-2xl' : 'sm:max-w-4xl'
+        )}
         preventOutsideClose
       >
         <DialogHeader className="flex-shrink-0 space-y-1 border-b px-6 pt-6 pb-4 text-left">
@@ -100,23 +106,24 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
             />
           )}
 
+          {/* ConnectionFormBody is a fragment that owns its own scrollable body
+              + pinned footer, so it renders directly as a flex-col child here —
+              no wrapper, which would break its internal flex-1/min-h-0 layout. */}
           {step === 'connection' && createdSourceId && (
-            <div className="flex-1 overflow-y-auto px-6 py-5">
-              <ConnectionFormBody
-                mode={FormMode.CREATE}
-                presetSourceId={createdSourceId}
-                onCancel={() => {
-                  // Source is already created — closing here just keeps it with
-                  // 0 connections and lets the list refresh to show it.
-                  onComplete();
-                  onClose();
-                }}
-                onSuccess={() => {
-                  onComplete();
-                  onClose();
-                }}
-              />
-            </div>
+            <ConnectionFormBody
+              mode={FormMode.CREATE}
+              presetSourceId={createdSourceId}
+              onCancel={() => {
+                // Source is already created — closing here just keeps it with
+                // 0 connections and lets the list refresh to show it.
+                onComplete();
+                onClose();
+              }}
+              onSuccess={() => {
+                onComplete();
+                onClose();
+              }}
+            />
           )}
         </div>
       </DialogContent>

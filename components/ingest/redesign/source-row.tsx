@@ -60,18 +60,23 @@ function SourceIdentity({ source }: { source: Source }) {
 
 function SourceMenu({
   source,
+  canCreateConnection,
   canEditSource,
   canDeleteSource,
+  onAddConnection,
   onEditSource,
   onDeleteSource,
 }: {
   source: Source;
+  canCreateConnection: boolean;
   canEditSource: boolean;
   canDeleteSource: boolean;
+  onAddConnection: (source: Source) => void;
   onEditSource: (source: Source) => void;
   onDeleteSource: (source: Source) => void;
 }) {
-  if (!canEditSource && !canDeleteSource) return null;
+  if (!canCreateConnection && !canEditSource && !canDeleteSource) return null;
+  const showSourceActions = canEditSource || canDeleteSource;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -84,7 +89,18 @@ function SourceMenu({
           <MoreVertical className="w-4 h-4 text-gray-600" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40">
+      <DropdownMenuContent align="end" className="w-44">
+        {canCreateConnection && (
+          <DropdownMenuItem
+            onClick={() => onAddConnection(source)}
+            className="text-[14px]"
+            data-testid={`add-connection-menu-${source.sourceId}`}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add connection
+          </DropdownMenuItem>
+        )}
+        {canCreateConnection && showSourceActions && <DropdownMenuSeparator />}
         {canEditSource && (
           <DropdownMenuItem
             onClick={() => onEditSource(source)}
@@ -97,7 +113,7 @@ function SourceMenu({
         )}
         {canDeleteSource && (
           <>
-            <DropdownMenuSeparator />
+            {canEditSource && <DropdownMenuSeparator />}
             <DropdownMenuItem
               onClick={() => onDeleteSource(source)}
               className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
@@ -115,11 +131,13 @@ function SourceMenu({
 
 /**
  * One source rendered as a horizontal band for the "Side-by-side" layout:
- * a fixed-width left column (source identity + 3-dots menu + "Add connection"),
- * vertically centered and divided by a vertical rule from the right side, where
- * the source's connections stack as full-width rows. Each connection reuses the
- * shipped ConnectionRow so status + every action stay consistent. A source with
- * no connections shows an "add connection" call-to-action on the right.
+ * a fixed-width left column (source identity + 3-dots menu, which owns the
+ * source-level actions incl. "Add connection"), divided by a vertical rule from
+ * the right side, where the source's connections stack as full-width rows. Each
+ * connection reuses the shipped ConnectionRow so status + every action stay
+ * consistent. A source with no connections shows a compact "Add connection"
+ * call-to-action sized to match a one-connection row. Adding a connection to a
+ * populated source is done from the 3-dots menu.
  */
 export function SourceRow({
   group,
@@ -146,50 +164,43 @@ export function SourceRow({
 
   return (
     <div
-      className="rounded-lg border bg-white shadow-sm flex items-stretch overflow-hidden"
+      className="flex items-stretch bg-white transition-colors hover:bg-gray-50 min-h-[92px]"
       data-testid={`source-row-${source.sourceId}`}
     >
-      {/* Left column — source identity, vertically centered, vertical divider */}
-      <div className="w-64 flex-shrink-0 flex flex-col justify-center gap-3 p-4 border-r">
+      {/* Left column — source identity + actions menu, vertical divider (~30%) */}
+      <div className="w-[30%] flex-shrink-0 flex flex-col justify-center p-4 border-r">
         <div className="flex items-start justify-between gap-2">
           <SourceIdentity source={source} />
           <SourceMenu
             source={source}
+            canCreateConnection={canCreateConnection}
             canEditSource={canEditSource}
             canDeleteSource={canDeleteSource}
+            onAddConnection={onAddConnection}
             onEditSource={onEditSource}
             onDeleteSource={onDeleteSource}
           />
         </div>
-        {canCreateConnection && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onAddConnection(source)}
-            className="self-start border-primary text-primary hover:bg-primary/5"
-            data-testid={`add-connection-${source.sourceId}`}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Add connection
-          </Button>
-        )}
       </div>
 
       {/* Right — connections stacked as full-width rows */}
       <div className="flex-1 min-w-0">
         {connections.length === 0 ? (
-          <div className="flex h-full min-h-[80px] items-center px-4 py-6">
+          // Empty state — a single centered Add-connection button, sized to
+          // match a one-connection row.
+          <div className="flex h-full items-center justify-center px-4 py-4">
             {canCreateConnection ? (
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={() => onAddConnection(source)}
-                className="text-sm text-primary hover:underline"
-                data-testid={`add-connection-cta-${source.sourceId}`}
+                data-testid={`add-connection-${source.sourceId}`}
               >
-                + Add a connection to start syncing
-              </button>
+                <Plus className="h-4 w-4 mr-1" />
+                Add connection
+              </Button>
             ) : (
-              <span className="text-sm text-gray-400">No connections yet</span>
+              <span className="text-sm font-medium text-gray-500">No connections yet</span>
             )}
           </div>
         ) : (

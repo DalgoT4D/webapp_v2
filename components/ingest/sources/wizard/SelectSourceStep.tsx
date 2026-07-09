@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useSourceDefinitions } from '@/hooks/api/useSources';
 import type { SourceDefinition } from '@/types/source';
-import { TOP_SOURCES } from './wizard-state';
+import { TOP_SOURCES, MAX_TOP_CARDS } from './wizard-state';
 
 interface Props {
   onSelect: (def: SourceDefinition) => void;
@@ -22,10 +22,19 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
   // Match the popular-source names to live definitions; drop any the deployment lacks.
   const topCards = useMemo(
     () =>
-      TOP_SOURCES.map((t) => ({
-        top: t,
-        def: definitions.find((d) => d.name.toLowerCase() === t.name.toLowerCase()),
-      })).filter((c) => c.def),
+      TOP_SOURCES.map((t) => {
+        const q = t.name.toLowerCase();
+        // Prefer an exact name match; only fall back to a substring match so
+        // connector names that carry a suffix in the deployment (e.g. "CommCare
+        // T4D") still resolve — without an exact-first pass, "Postgres" would
+        // greedily grab "AlloyDB for PostgreSQL".
+        const def =
+          definitions.find((d) => d.name.toLowerCase() === q) ??
+          definitions.find((d) => d.name.toLowerCase().includes(q));
+        return { top: t, def };
+      })
+        .filter((c) => c.def)
+        .slice(0, MAX_TOP_CARDS),
     [definitions]
   );
 
@@ -43,7 +52,9 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
 
   return (
     <div className="flex flex-1 min-h-0 flex-col" data-testid="select-source-step">
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+      {/* Fixed-height body so the modal doesn't grow/shrink with the number of
+          search results — the popular grid and the results list scroll inside. */}
+      <div className="h-[420px] overflow-y-auto px-6 py-5 space-y-5">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -68,7 +79,14 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
                   data-testid={`source-search-result-${def.name}`}
                   onClick={() => setSelected(def)}
                 >
-                  <img src={def.icon || '/icons/connection.svg'} alt="" className="h-5 w-5" />
+                  <img
+                    src={def.icon || '/icons/connection.svg'}
+                    alt=""
+                    className="h-5 w-5"
+                    onError={(e) => {
+                      e.currentTarget.src = '/icons/connection.svg';
+                    }}
+                  />
                   <span className="text-sm">{def.name}</span>
                 </button>
               </li>
@@ -87,14 +105,23 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
                   data-testid={`source-card-${top.name}`}
                   onClick={() => setSelected(def!)}
                   className={cn(
-                    'flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:border-primary hover:bg-muted/40',
+                    'flex items-center gap-3 rounded-xl border p-4 text-left transition-colors hover:border-primary hover:bg-muted/40',
                     isSelected(def!) && 'border-primary ring-1 ring-primary bg-primary/5'
                   )}
                 >
-                  <img src={def!.icon || '/icons/connection.svg'} alt="" className="h-8 w-8" />
-                  <div>
-                    <div className="text-sm font-medium">{top.name}</div>
-                    <div className="text-xs text-muted-foreground">{top.category}</div>
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border bg-white">
+                    <img
+                      src={def!.icon || '/icons/connection.svg'}
+                      alt=""
+                      className="h-6 w-6"
+                      onError={(e) => {
+                        e.currentTarget.src = '/icons/connection.svg';
+                      }}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold">{top.name}</div>
+                    <div className="truncate text-xs text-muted-foreground">{top.category}</div>
                   </div>
                 </button>
               ))}
