@@ -33,3 +33,37 @@ it('advances select → configure → connection and passes the created source i
   expect(screen.getByTestId('wizard-step-connection')).toHaveAttribute('data-active', 'true');
   expect(screen.getByTestId('conn-body')).toHaveTextContent('source:src-9');
 });
+
+it('refreshes the list (onComplete) when dismissed after the source is created', () => {
+  const onClose = jest.fn();
+  const onComplete = jest.fn();
+  render(<AddSourceWizard open onClose={onClose} onComplete={onComplete} />);
+
+  // Advance to the connection step so a source has been created.
+  fireEvent.click(screen.getByTestId('pick'));
+  fireEvent.click(screen.getByTestId('create'));
+  expect(screen.getByTestId('wizard-step-connection')).toHaveAttribute('data-active', 'true');
+
+  // Dismiss via the dialog's X (Radix onOpenChange→false), not the footer.
+  fireEvent.click(screen.getByRole('button', { name: /close/i }));
+
+  // Source exists server-side now → parent must refresh, so onComplete fires
+  // (which closes + refreshes). A bare onClose here would leave the list stale.
+  expect(onComplete).toHaveBeenCalledTimes(1);
+  expect(onClose).not.toHaveBeenCalled();
+});
+
+it('just closes (onClose) when dismissed before any source is created', () => {
+  const onClose = jest.fn();
+  const onComplete = jest.fn();
+  render(<AddSourceWizard open onClose={onClose} onComplete={onComplete} />);
+
+  // Still on the select step — no source created yet.
+  expect(screen.getByTestId('wizard-step-select')).toHaveAttribute('data-active', 'true');
+
+  fireEvent.click(screen.getByRole('button', { name: /close/i }));
+
+  // Nothing was created, so there is nothing to refresh — just close.
+  expect(onClose).toHaveBeenCalledTimes(1);
+  expect(onComplete).not.toHaveBeenCalled();
+});
