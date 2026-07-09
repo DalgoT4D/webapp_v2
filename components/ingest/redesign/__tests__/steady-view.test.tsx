@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { SteadyView } from '../steady-view';
 import { useConnectionsList } from '@/hooks/api/useConnections';
 import { useSources } from '@/hooks/api/useSources';
@@ -13,6 +13,11 @@ jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: j
 // smoke test stays focused on SteadyView's own structure.
 jest.mock('@/components/connections/pending-actions', () => ({
   PendingActions: (): null => null,
+}));
+// The full wizard has its own tests; here we only assert SteadyView wires it up.
+jest.mock('@/components/ingest/sources/wizard/AddSourceWizard', () => ({
+  AddSourceWizard: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="wizard-open" /> : null,
 }));
 
 const mockConnections = useConnectionsList as jest.Mock;
@@ -104,5 +109,16 @@ describe('SteadyView (smoke)', () => {
     render(<SteadyView />);
 
     expect(screen.getByTestId('ingest-column-labels')).toHaveTextContent('Sources & connections');
+  });
+
+  it('opens the AddSourceWizard from the New Source button', () => {
+    mockConnections.mockReturnValue({ data: [conn('c1', 's1')], mutate: jest.fn() });
+    mockSources.mockReturnValue({ data: [source('s1', 'Kobo')], mutate: jest.fn() });
+
+    render(<SteadyView />);
+
+    expect(screen.queryByTestId('wizard-open')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('new-source-btn'));
+    expect(screen.getByTestId('wizard-open')).toBeInTheDocument();
   });
 });

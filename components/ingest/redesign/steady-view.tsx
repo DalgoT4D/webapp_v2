@@ -26,6 +26,7 @@ import { StreamSelectionDialog } from '@/components/connections/stream-selection
 import { PendingActions } from '@/components/connections/pending-actions';
 import { SchemaChangeForm } from '@/components/connections/schema-change-form';
 import { SourceForm } from '@/components/ingest/sources/SourceForm';
+import { AddSourceWizard } from '@/components/ingest/sources/wizard/AddSourceWizard';
 import { SourceGroup, ConnColGroup } from '@/components/ingest/redesign/source-group';
 import { SourceRow } from '@/components/ingest/redesign/source-row';
 import { groupConnectionsBySource } from '@/components/ingest/redesign/utils';
@@ -60,8 +61,12 @@ export function SteadyView({ layout = 'accordion' }: { layout?: 'accordion' | 'r
   const [schemaRefreshConnectionId, setSchemaRefreshConnectionId] = useState<string | null>(null);
 
   // Source dialog state
+  // sourceFormOpen/sourceEditId drive SourceForm, which now only handles
+  // editing an existing source. Creating a new source goes through the
+  // guided AddSourceWizard instead (addSourceWizardOpen).
   const [sourceFormOpen, setSourceFormOpen] = useState(false);
   const [sourceEditId, setSourceEditId] = useState<string | undefined>(undefined);
+  const [addSourceWizardOpen, setAddSourceWizardOpen] = useState(false);
 
   const pollTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -266,8 +271,7 @@ export function SteadyView({ layout = 'accordion' }: { layout?: 'accordion' | 'r
   }, []);
 
   const handleCreateSource = useCallback(() => {
-    setSourceEditId(undefined);
-    setSourceFormOpen(true);
+    setAddSourceWizardOpen(true);
   }, []);
 
   const handleEditSource = useCallback((source: Source) => {
@@ -301,6 +305,11 @@ export function SteadyView({ layout = 'accordion' }: { layout?: 'accordion' | 'r
   const handleSourceFormSuccess = useCallback(() => {
     setSourceFormOpen(false);
     setSourceEditId(undefined);
+    mutateSources();
+  }, [mutateSources]);
+
+  const handleAddSourceWizardComplete = useCallback(() => {
+    setAddSourceWizardOpen(false);
     mutateSources();
   }, [mutateSources]);
 
@@ -481,6 +490,14 @@ export function SteadyView({ layout = 'accordion' }: { layout?: 'accordion' | 'r
             setSourceEditId(undefined);
           }}
           onSuccess={handleSourceFormSuccess}
+        />
+      )}
+
+      {addSourceWizardOpen && (
+        <AddSourceWizard
+          open={addSourceWizardOpen}
+          onClose={() => setAddSourceWizardOpen(false)}
+          onComplete={handleAddSourceWizardComplete}
         />
       )}
     </div>
