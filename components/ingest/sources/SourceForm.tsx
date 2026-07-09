@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Loader2, Check } from 'lucide-react';
 import {
@@ -23,7 +23,6 @@ import {
   useSourceDefinitions,
   useSourceSpec,
   useSource,
-  createSource,
   updateSource,
   getSourceOAuthConsent,
   completeSourceOAuth,
@@ -31,6 +30,7 @@ import {
 } from '@/hooks/api/useSources';
 import { openOAuthPopup } from '@/components/connectors/oauth-popup';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
+import { useSourceSave } from '@/hooks/useSourceSave';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { toastSuccess, toastError } from '@/lib/toast';
@@ -57,16 +57,23 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   const [selectedDefId, setSelectedDefId] = useState<string | null>(null);
   const { data: spec, isLoading: specLoading } = useSourceSpec(selectedDefId);
 
-  const [loading, setLoading] = useState(false);
-  const [setupLogs, setSetupLogs] = useState<string[]>([]);
+  // Edit mode (update an existing source) keeps its own WS-check + save state — the
+  // shared useSourceSave hook below only covers the create path (source-add wizard's
+  // step 2 reuses it for creation only, never editing).
+  const [editLoading, setEditLoading] = useState(false);
+  const [editSetupLogs, setEditSetupLogs] = useState<string[]>([]);
   const [sourceName, setSourceName] = useState('');
 
   // Google OAuth: the credentials never reach the browser. The "Authenticate" action
   // runs consent → complete, and the backend creates/updates the source server-side.
-  const [oauthConnecting, setOauthConnecting] = useState(false);
+  const [editOauthConnecting, setEditOauthConnecting] = useState(false);
   // For Google Sheets: 'google' shows only the Sign-in button; 'manual' reveals the
   // credential dropdown (client id/secret/refresh token or service account).
   const [authMode, setAuthMode] = useState<'google' | 'manual'>('google');
+  // useSourceSave owns its own setupLogs but has no external reset — this flag lets us
+  // hide a stale failure banner the instant the create dialog reopens or the source
+  // type changes, without waiting for the next save/connect attempt to clear it.
+  const [createLogsDismissed, setCreateLogsDismissed] = useState(false);
 
   const isGoogleSheets = selectedDefId === GOOGLE_SHEETS_SOURCE_DEFINITION_ID;
 
@@ -208,7 +215,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   useEffect(() => {
     if (open && !isEdit) {
       setSelectedDefId(null);
-      setSetupLogs([]);
+      setCreateLogsDismissed(true);
       setSourceName('');
       setAuthMode('google');
       reset({});
@@ -222,18 +229,42 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     }
   }, [parsedSpec, isEdit, reset]);
 
-  // WebSocket for connection check — connects when loading (submit triggered)
-  const { sendOrQueue, lastMessage } = useBackendWebSocket(SOURCE_CHECK_WS_PATH, {
-    enabled: loading,
-    onLoadingChange: setLoading,
-  });
-
   // Build the config to send: cleaned form values. For the Google OAuth path the
   // credentials are NOT included here — the backend injects them server-side.
   const buildConfig = useCallback(() => {
     const formValues = getValues();
     return parsedSpec ? cleanFormValues(formValues, parsedSpec.fields) : formValues;
   }, [getValues, parsedSpec]);
+
+  // Tracks which create-path flow (WS test-then-save vs OAuth connect) is in flight so
+  // the shared onSaved callback below fires the right analytics events.
+  const pendingCreateKindRef = useRef<'ws' | 'oauth' | null>(null);
+
+  // Shared source-create logic (WS check_connection → createSource, and the Google
+  // OAuth connect flow) — same hook the source-add wizard's step 2 reuses. Edit mode
+  // never calls into this; it keeps its own updateSource path below.
+  const sourceSave = useSourceSave({
+    sourceDefId: selectedDefId,
+    getConfig: buildConfig,
+    onSaved: () => {
+      if (pendingCreateKindRef.current === 'oauth') {
+        trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
+        trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, { source_type: 'Google Sheets' });
+      } else {
+        trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, {
+          source_type: definitions?.find((d) => d.sourceDefinitionId === selectedDefId)?.name,
+        });
+      }
+      onSuccess();
+    },
+  });
+
+  // WebSocket for connection check in edit mode — connects when editLoading (submit
+  // triggered). The create path's WS check lives inside useSourceSave.
+  const { sendOrQueue: editSendOrQueue, lastMessage: editLastMessage } = useBackendWebSocket(
+    SOURCE_CHECK_WS_PATH,
+    { enabled: editLoading, onLoadingChange: setEditLoading }
+  );
 
   // "Authenticate": get a consent URL, run the popup, then complete — which on the
   // backend exchanges the code, injects the credentials, and creates/updates the source
@@ -244,7 +275,16 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       toastError.api('Enter a source name first');
       return;
     }
-    setOauthConnecting(true);
+
+    if (!isEdit) {
+      pendingCreateKindRef.current = 'oauth';
+      setCreateLogsDismissed(false);
+      trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_STARTED, { source_type: 'Google Sheets' });
+      await sourceSave.connectGoogle(sourceName);
+      return;
+    }
+
+    setEditOauthConnecting(true);
     try {
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_STARTED, { source_type: 'Google Sheets' });
       const config = buildConfig();
@@ -256,65 +296,51 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
         config,
         state,
         queryParams: { code, state: googleState },
-        ...(isEdit && sourceId ? { sourceId } : {}),
+        ...(sourceId ? { sourceId } : {}),
       });
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
-      trackEvent(isEdit ? ANALYTICS_EVENTS.SOURCE_UPDATED : ANALYTICS_EVENTS.SOURCE_CREATED, {
-        source_type: 'Google Sheets',
-      });
-      toastSuccess.generic(isEdit ? 'Source updated' : 'Source created');
+      trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED, { source_type: 'Google Sheets' });
+      toastSuccess.generic('Source updated');
       onSuccess();
     } catch (error) {
       toastError.api(error instanceof Error ? error.message : 'Google sign-in failed');
     } finally {
-      setOauthConnecting(false);
+      setEditOauthConnecting(false);
     }
-  }, [selectedDefId, sourceName, buildConfig, isEdit, sourceId, onSuccess]);
+  }, [selectedDefId, sourceName, isEdit, sourceSave, buildConfig, sourceId, onSuccess]);
 
-  // Handle WebSocket response — v1 pattern: test succeeded → auto-save
+  // Handle WebSocket response for edit mode — v1 pattern: test succeeded → auto-save
   const handleSaveSource = useCallback(async () => {
     const config = buildConfig();
 
     try {
-      if (isEdit && sourceId) {
-        await updateSource(sourceId, {
-          name: sourceName,
-          sourceDefId: selectedDefId!,
-          config,
-          sourceId,
-        });
-        trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED);
-        toastSuccess.updated('Source');
-      } else {
-        await createSource({
-          name: sourceName,
-          sourceDefId: selectedDefId!,
-          config,
-        });
-        trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, {
-          source_type: definitions?.find((d) => d.sourceDefinitionId === selectedDefId)?.name,
-        });
-        toastSuccess.created('Source');
-      }
+      await updateSource(sourceId!, {
+        name: sourceName,
+        sourceDefId: selectedDefId!,
+        config,
+        sourceId: sourceId!,
+      });
+      trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED);
+      toastSuccess.updated('Source');
       onSuccess();
     } catch (error) {
       toastError.save(error, 'source');
     } finally {
-      setLoading(false);
+      setEditLoading(false);
     }
-  }, [buildConfig, isEdit, sourceId, sourceName, selectedDefId, definitions, onSuccess]);
+  }, [buildConfig, sourceId, sourceName, selectedDefId, onSuccess]);
 
-  // Process WebSocket responses
+  // Process WebSocket responses in edit mode
   useEffect(() => {
-    if (!lastMessage) return;
+    if (!editLastMessage) return;
 
     try {
-      const response = JSON.parse(lastMessage.data);
+      const response = JSON.parse(editLastMessage.data);
 
       // WebSocket call itself failed
       if (response.status !== 'success') {
         toastError.api(response.message || 'Connection test failed');
-        setLoading(false);
+        setEditLoading(false);
         return;
       }
 
@@ -323,41 +349,55 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
         handleSaveSource();
       } else {
         // Connection test failed — show logs
-        setSetupLogs(response.data?.logs || []);
+        setEditSetupLogs(response.data?.logs || []);
         toastError.api('Connection test failed');
-        setLoading(false);
+        setEditLoading(false);
       }
     } catch {
       toastError.api('Invalid response from server');
-      setLoading(false);
+      setEditLoading(false);
     }
-  }, [lastMessage, handleSaveSource]);
+  }, [editLastMessage, handleSaveSource]);
 
   const handleSourceDefChange = useCallback(
     (defId: string) => {
       setSelectedDefId(defId);
       reset({});
-      setSetupLogs([]);
+      setEditSetupLogs([]);
+      setCreateLogsDismissed(true);
       setAuthMode('google');
     },
     [reset]
   );
 
-  // Single submit: store payload in ref, set loading → WS connects → sends on open
+  // Single submit: edit mode tests over WS then updates; create mode delegates to the
+  // shared useSourceSave hook (WS test → createSource).
   const onSubmit = useCallback(() => {
     if (!sourceName.trim() || !selectedDefId) return;
 
-    const config = buildConfig();
+    if (isEdit) {
+      const config = buildConfig();
+      setEditSetupLogs([]);
+      setEditLoading(true);
+      editSendOrQueue({
+        name: sourceName,
+        sourceDefId: selectedDefId,
+        config,
+        ...(sourceId ? { sourceId } : {}),
+      });
+      return;
+    }
 
-    setSetupLogs([]);
-    setLoading(true);
-    sendOrQueue({
-      name: sourceName,
-      sourceDefId: selectedDefId,
-      config,
-      ...(sourceId ? { sourceId } : {}),
-    });
-  }, [sourceName, selectedDefId, buildConfig, sourceId, sendOrQueue]);
+    pendingCreateKindRef.current = 'ws';
+    setCreateLogsDismissed(false);
+    sourceSave.save(sourceName);
+  }, [sourceName, selectedDefId, isEdit, buildConfig, sourceId, editSendOrQueue, sourceSave]);
+
+  // Unified display values — edit mode uses its own local state; create mode reads
+  // from the shared hook (setupLogs additionally gated by createLogsDismissed, see above).
+  const loading = isEdit ? editLoading : sourceSave.loading;
+  const oauthConnecting = isEdit ? editOauthConnecting : sourceSave.oauthConnecting;
+  const setupLogs = isEdit ? editSetupLogs : createLogsDismissed ? [] : sourceSave.setupLogs;
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
