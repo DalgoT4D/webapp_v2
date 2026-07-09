@@ -10,12 +10,12 @@ import { createSource } from '@/hooks/api/useSources';
 
 jest.mock('@/hooks/api/useSources', () => ({
   createSource: jest.fn().mockResolvedValue({ sourceId: 'src-1' }),
-  getSourceOAuthConsent: jest.fn().mockResolvedValue({ consentUrl: 'https://c', state: 'st' }),
-  completeSourceOAuth: jest.fn().mockResolvedValue({ sourceId: 'src-oauth' }),
+  getSourceOAuthConsent: jest.fn().mockResolvedValue({ authUrl: 'https://accounts.google.com/x' }),
+  createOAuthSource: jest.fn().mockResolvedValue({ sourceId: 'src-oauth' }),
   GOOGLE_SHEETS_SOURCE_DEFINITION_ID: 'gs',
 }));
 jest.mock('@/components/connectors/oauth-popup', () => ({
-  openOAuthPopup: jest.fn().mockResolvedValue({ code: 'c', state: 'gst' }),
+  openOAuthPopup: jest.fn().mockResolvedValue({ ref: 'ref-abc' }),
 }));
 
 // Controllable stand-in for the backend WebSocket: the hook reads `lastMessage` and
@@ -38,7 +38,7 @@ beforeEach(() => {
   (createSource as jest.Mock).mockResolvedValue({ sourceId: 'src-1' });
 });
 
-it('connectGoogle runs consent → popup → complete and reports the new source id', async () => {
+it('connectGoogle runs consent → popup(ref) → createOAuthSource and reports the new source id', async () => {
   const onSaved = jest.fn();
   const { result } = renderHook(() =>
     useSourceSave({ sourceDefId: 'gs', getConfig: () => ({ x: 1 }), onSaved })

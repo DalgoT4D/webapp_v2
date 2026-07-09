@@ -28,25 +28,25 @@ export interface UpdateSourcePayload {
   sourceId: string;
 }
 
-/** Response from starting the Google OAuth flow */
+/** Response from starting the Google OAuth flow (Variant A): the Google consent URL
+ * Dalgo built. The state nonce stays server-side and never reaches the browser. */
 export interface SourceOAuthConsent {
-  consentUrl: string;
-  state: string;
+  authUrl: string;
 }
 
-/** Payload to complete the Google OAuth flow and save the source in one step.
- * The backend exchanges the code, injects the credentials server-side, and creates
- * (or updates, when sourceId is set) the source — no credentials reach the browser. */
-export interface CompleteSourceOAuthPayload {
+/** Payload to create (or update) the source from a redeemed OAuth `ref`. The backend
+ * has already exchanged the code and stashed the refresh token server-side under `ref`;
+ * here it redeems the ref, injects the credentials, and creates (or updates, when
+ * sourceId is set) the source — no credentials or tokens reach the browser. */
+export interface CreateOAuthSourcePayload {
   sourceDefId: string;
   name: string;
   config: Record<string, unknown>;
-  state: string;
-  queryParams: Record<string, string>;
+  ref: string;
   sourceId?: string;
 }
 
-/** Response from completing the OAuth flow: the saved source's id */
-export interface CompleteSourceOAuthResponse {
+/** Response from creating the OAuth source: the saved source's id */
+export interface CreateOAuthSourceResponse {
   sourceId: string;
 }

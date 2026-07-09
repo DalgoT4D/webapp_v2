@@ -1,7 +1,8 @@
 /**
  * Tests for openOAuthPopup — the popup + postMessage handshake used by the
- * "Connect with Google" flow. Focus: it resolves on a valid same-origin message
- * and ignores messages from a different origin (the security guard).
+ * "Connect with Google" flow (Variant A). Focus: it resolves with the opaque `ref`
+ * on a valid same-origin message and ignores messages from a different origin or with
+ * the wrong marker (the security guard).
  */
 
 import { openOAuthPopup } from '../oauth-popup';
@@ -25,17 +26,17 @@ describe('openOAuthPopup', () => {
     );
   });
 
-  it('resolves with code + state from a valid same-origin message', async () => {
+  it('resolves with the ref from a valid same-origin message', async () => {
     const promise = openOAuthPopup('https://accounts.google.com/x');
 
     window.dispatchEvent(
       new MessageEvent('message', {
         origin: window.location.origin,
-        data: { source: 'airbyte-oauth', code: 'the-code', state: 'google-state' },
+        data: { source: 'airbyte-oauth', ref: 'ref-abc' },
       })
     );
 
-    await expect(promise).resolves.toEqual({ code: 'the-code', state: 'google-state' });
+    await expect(promise).resolves.toEqual({ ref: 'ref-abc' });
     expect(fakePopup.close).toHaveBeenCalled();
   });
 
@@ -46,7 +47,7 @@ describe('openOAuthPopup', () => {
     window.dispatchEvent(
       new MessageEvent('message', {
         origin: 'https://evil.example.com',
-        data: { source: 'airbyte-oauth', code: 'attacker-code', state: 'x' },
+        data: { source: 'airbyte-oauth', ref: 'attacker-ref' },
       })
     );
 
@@ -66,10 +67,10 @@ describe('openOAuthPopup', () => {
     window.dispatchEvent(
       new MessageEvent('message', {
         origin: window.location.origin,
-        data: { source: 'airbyte-oauth', code: 'real-code', state: 's' },
+        data: { source: 'airbyte-oauth', ref: 'real-ref' },
       })
     );
-    await expect(promise).resolves.toEqual({ code: 'real-code', state: 's' });
+    await expect(promise).resolves.toEqual({ ref: 'real-ref' });
   });
 
   it('ignores a same-origin message with the wrong marker (defense-in-depth)', async () => {
@@ -79,7 +80,7 @@ describe('openOAuthPopup', () => {
     window.dispatchEvent(
       new MessageEvent('message', {
         origin: window.location.origin,
-        data: { source: 'evil', code: 'attacker-code', state: 'x' },
+        data: { source: 'evil', ref: 'attacker-ref' },
       })
     );
 
@@ -99,10 +100,10 @@ describe('openOAuthPopup', () => {
     window.dispatchEvent(
       new MessageEvent('message', {
         origin: window.location.origin,
-        data: { source: 'airbyte-oauth', code: 'real-code', state: 's' },
+        data: { source: 'airbyte-oauth', ref: 'real-ref' },
       })
     );
-    await expect(promise).resolves.toEqual({ code: 'real-code', state: 's' });
+    await expect(promise).resolves.toEqual({ ref: 'real-ref' });
   });
 
   it('rejects when the user closes the popup manually', async () => {

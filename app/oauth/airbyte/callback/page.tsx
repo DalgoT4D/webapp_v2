@@ -4,23 +4,21 @@ import { Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 /**
- * OAuth landing page. Google redirects the popup here after the user consents.
- * We relay the code/state back to the opener window (the source form) and close.
- * The opener validates the state and completes the flow with the backend.
+ * OAuth landing page. Variant A: Google redirects the popup to the Dalgo BACKEND
+ * callback, which exchanges the code server-side and then 302s the popup here
+ * carrying only a single-use `ref` (or an `error`). We relay that back to the opener
+ * window (the source form / wizard) and close. The opener redeems the `ref` when it
+ * creates the source; the auth code and refresh token never reach the browser.
  */
 function AirbyteOAuthCallbackContent() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    const code = searchParams.get('code') ?? undefined;
-    const state = searchParams.get('state') ?? undefined;
+    const ref = searchParams.get('ref') ?? undefined;
     const error = searchParams.get('error') ?? undefined;
 
     if (window.opener) {
-      window.opener.postMessage(
-        { source: 'airbyte-oauth', code, state, error },
-        window.location.origin
-      );
+      window.opener.postMessage({ source: 'airbyte-oauth', ref, error }, window.location.origin);
     }
     window.close();
   }, [searchParams]);

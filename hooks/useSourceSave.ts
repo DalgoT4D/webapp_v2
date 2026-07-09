@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
-import { createSource, getSourceOAuthConsent, completeSourceOAuth } from '@/hooks/api/useSources';
+import { createSource, getSourceOAuthConsent, createOAuthSource } from '@/hooks/api/useSources';
 import { openOAuthPopup } from '@/components/connectors/oauth-popup';
 import { toastError, toastSuccess } from '@/lib/toast';
 
@@ -24,7 +24,7 @@ interface UseSourceSaveArgs {
 interface UseSourceSave {
   /** Runs the WS check_connection → createSource flow */
   save: (name: string) => void;
-  /** Runs the Google OAuth consent → popup → complete flow */
+  /** Runs the Google OAuth consent → popup(ref) → createOAuthSource flow */
   connectGoogle: (name: string) => Promise<void>;
   loading: boolean;
   oauthConnecting: boolean;
@@ -103,14 +103,13 @@ export function useSourceSave({
       setOauthConnecting(true);
       try {
         const config = getConfig();
-        const { consentUrl, state } = await getSourceOAuthConsent(sourceDefId);
-        const { code, state: googleState } = await openOAuthPopup(consentUrl);
-        const { sourceId } = await completeSourceOAuth({
+        const { authUrl } = await getSourceOAuthConsent(sourceDefId);
+        const { ref } = await openOAuthPopup(authUrl);
+        const { sourceId } = await createOAuthSource({
           sourceDefId,
           name,
           config,
-          state,
-          queryParams: { code, state: googleState },
+          ref,
         });
         toastSuccess.generic('Source created');
         onSaved(sourceId);

@@ -25,7 +25,7 @@ import {
   useSource,
   updateSource,
   getSourceOAuthConsent,
-  completeSourceOAuth,
+  createOAuthSource,
   GOOGLE_SHEETS_SOURCE_DEFINITION_ID,
 } from '@/hooks/api/useSources';
 import { openOAuthPopup } from '@/components/connectors/oauth-popup';
@@ -288,14 +288,13 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     try {
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_STARTED, { source_type: 'Google Sheets' });
       const config = buildConfig();
-      const { consentUrl, state } = await getSourceOAuthConsent(selectedDefId);
-      const { code, state: googleState } = await openOAuthPopup(consentUrl);
-      await completeSourceOAuth({
+      const { authUrl } = await getSourceOAuthConsent(selectedDefId);
+      const { ref } = await openOAuthPopup(authUrl);
+      await createOAuthSource({
         sourceDefId: selectedDefId,
         name: sourceName,
         config,
-        state,
-        queryParams: { code, state: googleState },
+        ref,
         ...(sourceId ? { sourceId } : {}),
       });
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
