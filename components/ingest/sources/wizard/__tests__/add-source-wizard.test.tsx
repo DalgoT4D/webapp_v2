@@ -26,11 +26,10 @@ jest.mock('@/components/connections/connection-form-body', () => ({
 
 it('advances select → configure → connection and passes the created source id', () => {
   render(<AddSourceWizard open onClose={jest.fn()} onComplete={jest.fn()} />);
-  expect(screen.getByTestId('wizard-step-select')).toHaveAttribute('data-active', 'true');
+  expect(screen.getByTestId('pick')).toBeInTheDocument();
   fireEvent.click(screen.getByTestId('pick'));
-  expect(screen.getByTestId('wizard-step-configure')).toHaveAttribute('data-active', 'true');
+  expect(screen.getByTestId('create')).toBeInTheDocument();
   fireEvent.click(screen.getByTestId('create'));
-  expect(screen.getByTestId('wizard-step-connection')).toHaveAttribute('data-active', 'true');
   expect(screen.getByTestId('conn-body')).toHaveTextContent('source:src-9');
 });
 
@@ -42,7 +41,7 @@ it('refreshes the list (onComplete) when dismissed after the source is created',
   // Advance to the connection step so a source has been created.
   fireEvent.click(screen.getByTestId('pick'));
   fireEvent.click(screen.getByTestId('create'));
-  expect(screen.getByTestId('wizard-step-connection')).toHaveAttribute('data-active', 'true');
+  expect(screen.getByTestId('conn-body')).toBeInTheDocument();
 
   // Dismiss via the dialog's X (Radix onOpenChange→false), not the footer.
   fireEvent.click(screen.getByRole('button', { name: /close/i }));
@@ -59,7 +58,7 @@ it('just closes (onClose) when dismissed before any source is created', () => {
   render(<AddSourceWizard open onClose={onClose} onComplete={onComplete} />);
 
   // Still on the select step — no source created yet.
-  expect(screen.getByTestId('wizard-step-select')).toHaveAttribute('data-active', 'true');
+  expect(screen.getByTestId('pick')).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('button', { name: /close/i }));
 

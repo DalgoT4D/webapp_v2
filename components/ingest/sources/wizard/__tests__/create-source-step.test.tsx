@@ -26,7 +26,7 @@ beforeEach(() => {
   mockSourceSpec = { properties: {} };
 });
 
-it('shows only the Google sign-in button (no Next) for Google Sheets', () => {
+it('shows the in-form Google authorize button plus a Next that is disabled until authorized', () => {
   render(
     <CreateSourceStep
       def={{ sourceDefinitionId: 'gs', name: 'Google Sheets' }}
@@ -34,8 +34,10 @@ it('shows only the Google sign-in button (no Next) for Google Sheets', () => {
       onBack={jest.fn()}
     />
   );
+  // Authentication happens in the form; Next (footer) creates the source from
+  // the OAuth ref, so it stays disabled until the user has authorized.
   expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument();
-  expect(screen.queryByTestId('wizard-next-btn')).not.toBeInTheDocument();
+  expect(screen.getByTestId('wizard-next-btn')).toBeDisabled();
 });
 
 it('shows a Next button for non-Google sources', () => {
@@ -111,7 +113,8 @@ it('hides the raw Google credential fields but keeps the non-auth fields', () =>
   expect(screen.queryByText(/client_secret/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/refresh_token/i)).not.toBeInTheDocument();
 
-  // The Google sign-in button replaces auth; no Next button.
+  // The in-form Google sign-in button replaces the raw credential fields; the
+  // footer Next creates the source once authorized.
   expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument();
-  expect(screen.queryByTestId('wizard-next-btn')).not.toBeInTheDocument();
+  expect(screen.getByTestId('wizard-next-btn')).toBeInTheDocument();
 });

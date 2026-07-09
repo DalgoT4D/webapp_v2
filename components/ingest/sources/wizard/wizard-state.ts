@@ -1,22 +1,18 @@
 export type WizardStep = 'select' | 'configure' | 'connection';
 
-export const WIZARD_STEPS: { id: WizardStep; label: string }[] = [
-  { id: 'select', label: 'Select source' },
-  { id: 'configure', label: 'Create source' },
-  { id: 'connection', label: 'Connection' },
-];
-
 export interface TopSource {
   name: string; // must match the Airbyte source-definition name
   category: string;
 }
 
-// Top picker cards, in display order. mGramSeva deferred until its connector id is confirmed.
+// Popular picker cards, in display order. Any card whose name has no matching
+// live source-definition in the deployment is dropped (see SelectSourceStep).
 export const TOP_SOURCES: TopSource[] = [
   { name: 'Google Sheets', category: 'Spreadsheet' },
   { name: 'KoboToolbox', category: 'Survey' },
   { name: 'CommCare', category: 'Field data' },
-  { name: 'SurveyCTO', category: 'Survey' },
+  { name: 'HubSpot', category: 'CRM' },
+  { name: 'Airtable', category: 'Spreadsheet' },
 ];
 
 export interface SourceHelp {

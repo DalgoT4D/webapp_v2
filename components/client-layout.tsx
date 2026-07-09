@@ -24,7 +24,11 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     pathname.startsWith('/public/dashboard/') ||
     pathname.startsWith('/share/dashboard/') ||
     pathname.startsWith('/share/report/') ||
-    pathname.startsWith('/invitations/');
+    pathname.startsWith('/invitations/') ||
+    // OAuth popup callback: it only relays the opaque ref to its opener and closes.
+    // It must render bare (no AuthGuard/MainLayout) — otherwise the guard bounces the
+    // popup to /login before it can post the ref back.
+    pathname.startsWith('/oauth/');
 
   // Always bypass auth for public dashboard/report routes
   if (

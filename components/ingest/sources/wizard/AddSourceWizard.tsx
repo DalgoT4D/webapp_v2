@@ -9,7 +9,6 @@ import {
 import { FormMode } from '@/constants/connections';
 import { ConnectionFormBody } from '@/components/connections/connection-form-body';
 import type { SourceDefinition } from '@/types/source';
-import { WizardStepper } from './WizardStepper';
 import { SelectSourceStep } from './SelectSourceStep';
 import { CreateSourceStep } from './CreateSourceStep';
 import type { WizardStep } from './wizard-state';
@@ -48,53 +47,78 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
     }
   };
 
+  // Step-aware modal header. The configure step names the chosen source; the
+  // helper panel on the right of that step walks the user through each field.
+  const header = {
+    select: {
+      title: 'Choose your source',
+      description:
+        'Select the tool you want to bring data from. We’ve securely connected a sample warehouse to your trial so you can see things working instantly.',
+    },
+    configure: {
+      title: `Configure ${def?.name ?? 'source'}`,
+      description:
+        'Fill in the details on the left. The panel on the right walks you through exactly where to find each one.',
+    },
+    connection: {
+      title: 'Set up a connection',
+      description: 'Choose what to sync from this source into your warehouse.',
+    },
+  }[step];
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleDismiss()}>
-      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto" preventOutsideClose>
-        <DialogHeader className="space-y-4">
-          <DialogTitle>Add source</DialogTitle>
-          <DialogDescription>
-            Add a new data source and connect it to your warehouse.
-          </DialogDescription>
-          <WizardStepper current={step} />
+      <DialogContent
+        className="sm:max-w-4xl max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden"
+        preventOutsideClose
+      >
+        <DialogHeader className="flex-shrink-0 space-y-1 border-b px-6 pt-6 pb-4 text-left">
+          <DialogTitle className="text-2xl font-bold">{header.title}</DialogTitle>
+          <DialogDescription>{header.description}</DialogDescription>
         </DialogHeader>
 
-        {step === 'select' && (
-          <SelectSourceStep
-            onSelect={(d) => {
-              setDef(d);
-              setStep('configure');
-            }}
-          />
-        )}
+        <div className="flex flex-1 min-h-0 flex-col">
+          {step === 'select' && (
+            <SelectSourceStep
+              onClose={onClose}
+              onSelect={(d) => {
+                setDef(d);
+                setStep('configure');
+              }}
+            />
+          )}
 
-        {step === 'configure' && def && (
-          <CreateSourceStep
-            def={def}
-            onBack={() => setStep('select')}
-            onCreated={(sourceId) => {
-              setCreatedSourceId(sourceId);
-              setStep('connection');
-            }}
-          />
-        )}
+          {step === 'configure' && def && (
+            <CreateSourceStep
+              key={def.sourceDefinitionId}
+              def={def}
+              onBack={() => setStep('select')}
+              onCreated={(sourceId) => {
+                setCreatedSourceId(sourceId);
+                setStep('connection');
+              }}
+            />
+          )}
 
-        {step === 'connection' && createdSourceId && (
-          <ConnectionFormBody
-            mode={FormMode.CREATE}
-            presetSourceId={createdSourceId}
-            onCancel={() => {
-              // Source is already created — closing here just keeps it with
-              // 0 connections and lets the list refresh to show it.
-              onComplete();
-              onClose();
-            }}
-            onSuccess={() => {
-              onComplete();
-              onClose();
-            }}
-          />
-        )}
+          {step === 'connection' && createdSourceId && (
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              <ConnectionFormBody
+                mode={FormMode.CREATE}
+                presetSourceId={createdSourceId}
+                onCancel={() => {
+                  // Source is already created — closing here just keeps it with
+                  // 0 connections and lets the list refresh to show it.
+                  onComplete();
+                  onClose();
+                }}
+                onSuccess={() => {
+                  onComplete();
+                  onClose();
+                }}
+              />
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
