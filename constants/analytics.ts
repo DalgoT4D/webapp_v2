@@ -46,6 +46,8 @@ export const ANALYTICS_EVENTS = {
   DATA_QUALITY_REPORT_GENERATED: 'data_quality:report_generated',
   // Settings
   USER_INVITED: 'settings:user_invited',
+  DASHBOARD_CHAT_PII_SHARING_UPDATED: 'settings:dashboard_chat_pii_sharing_updated',
+  DASHBOARD_CHAT_PII_COLUMN_REVIEWED: 'settings:dashboard_chat_pii_column_reviewed',
   // Notifications
   NOTIFICATION_PREFERENCES_UPDATED: 'notification:preferences_updated',
 } as const;
