@@ -71,4 +71,59 @@ describe('openOAuthPopup', () => {
     );
     await expect(promise).resolves.toEqual({ code: 'real-code', state: 's' });
   });
+
+  it('ignores a same-origin message with the wrong marker (defense-in-depth)', async () => {
+    const promise = openOAuthPopup('https://accounts.google.com/x');
+
+    // right origin, but not our callback marker — must be ignored
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        origin: window.location.origin,
+        data: { source: 'evil', code: 'attacker-code', state: 'x' },
+      })
+    );
+
+    let settled = false;
+    promise.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      }
+    );
+    await new Promise((r) => setTimeout(r, 20));
+    expect(settled).toBe(false);
+
+    // a real same-origin airbyte-oauth message still resolves it
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        origin: window.location.origin,
+        data: { source: 'airbyte-oauth', code: 'real-code', state: 's' },
+      })
+    );
+    await expect(promise).resolves.toEqual({ code: 'real-code', state: 's' });
+  });
+
+  it('rejects when the user closes the popup manually', async () => {
+    const promise = openOAuthPopup('https://accounts.google.com/x');
+
+    // simulate the user closing the popup so the close-poll interval detects it
+    fakePopup.closed = true;
+
+    await expect(promise).rejects.toThrow(/google sign-in was cancelled/i);
+  });
+
+  it('rejects when the callback relays an error param', async () => {
+    const promise = openOAuthPopup('https://accounts.google.com/x');
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        origin: window.location.origin,
+        data: { source: 'airbyte-oauth', error: 'access_denied' },
+      })
+    );
+
+    await expect(promise).rejects.toThrow(/access_denied/i);
+  });
 });
