@@ -40,6 +40,20 @@ describe('openOAuthPopup', () => {
     expect(fakePopup.close).toHaveBeenCalled();
   });
 
+  it('resolves via BroadcastChannel when window.opener is severed (COOP)', async () => {
+    // The popup navigates cross-origin through Google (COOP severs window.opener), so the
+    // callback hands the ref back over a same-origin BroadcastChannel instead of postMessage.
+    if (typeof BroadcastChannel === 'undefined') return; // environment without BC support
+    const promise = openOAuthPopup('https://accounts.google.com/x');
+
+    const channel = new BroadcastChannel('airbyte-oauth');
+    channel.postMessage({ source: 'airbyte-oauth', ref: 'bc-ref' });
+    channel.close();
+
+    await expect(promise).resolves.toEqual({ ref: 'bc-ref' });
+    expect(fakePopup.close).toHaveBeenCalled();
+  });
+
   it('ignores messages from a different origin', async () => {
     const promise = openOAuthPopup('https://accounts.google.com/x');
 
