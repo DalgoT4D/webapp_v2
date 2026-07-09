@@ -92,4 +92,20 @@ describe('MessageBubble', () => {
     render(<MessageBubble message={message({ streaming: true })} />);
     expect(screen.getByTestId('chat-thinking')).toBeInTheDocument();
   });
+
+  it('renders assistant markdown (bold, bullets) as rich text', () => {
+    render(
+      <MessageBubble
+        message={message({ content: 'You ran **1,284 surveys** in June.\n\n- Pune — **700**' })}
+      />
+    );
+    expect(screen.getByText('1,284 surveys').tagName).toBe('STRONG');
+    expect(screen.getByRole('listitem')).toHaveTextContent('Pune — 700');
+  });
+
+  it('leaves user messages as literal text — no markdown rendering', () => {
+    render(<MessageBubble message={message({ role: 'user', content: 'what is **this**?' })} />);
+    expect(screen.getByText('what is **this**?')).toBeInTheDocument();
+    expect(document.querySelector('strong')).toBeNull();
+  });
 });

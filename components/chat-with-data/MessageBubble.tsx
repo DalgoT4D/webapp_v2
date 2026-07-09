@@ -5,11 +5,13 @@ import { BarChart3, LayoutDashboard, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolProgress } from './ToolProgress';
 import { ResultTable } from './ResultTable';
+import { AssistantMarkdown } from './AssistantMarkdown';
 import type { ChatMessage } from '@/types/chat-with-data';
 
 /**
- * One conversation bubble. Assistant text renders as plain text
- * (whitespace preserved) — the agent is prompted not to emit markdown.
+ * One conversation bubble. Assistant answers render through the markdown
+ * SUBSET the agent is prompted to emit (AssistantMarkdown); user messages
+ * stay literal text.
  */
 export function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === 'user';
@@ -32,9 +34,12 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
           </p>
         )}
 
-        {message.content && (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
-        )}
+        {message.content &&
+          (isUser ? (
+            <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+          ) : (
+            <AssistantMarkdown content={message.content} />
+          ))}
 
         {!isUser && message.validation?.verdict === 'warn' && message.validation.caveat && (
           <p
