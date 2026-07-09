@@ -32,7 +32,7 @@ jest.mock('../stream-config-table', () => ({
 }));
 
 jest.mock('../hooks/useStreamConfig', () => ({
-  useStreamConfig: () => ({
+  useStreamConfig: (): Record<string, unknown> => ({
     streams: [],
     setStreams: jest.fn(),
     streamSearch: '',
@@ -141,6 +141,35 @@ describe('ConnectionForm', () => {
 
     await waitFor(() => expect(screen.getByText('View Connection')).toBeInTheDocument());
     expect(screen.queryByTestId('save-connection-btn')).not.toBeInTheDocument();
+  });
+
+  it('preselects and locks the source when lockedSourceId is given in create mode', async () => {
+    render(
+      <TestWrapper>
+        <ConnectionForm
+          mode={FormMode.CREATE}
+          lockedSourceId="src-1"
+          onClose={mockOnClose}
+          onSuccess={mockOnSuccess}
+        />
+      </TestWrapper>
+    );
+
+    const sourceInput = await screen.findByTestId('source-select-input');
+    // Preselected to the locked source's label, and not changeable.
+    await waitFor(() => expect(sourceInput).toHaveValue('Prod DB'));
+    expect(sourceInput).toBeDisabled();
+  });
+
+  it('leaves the source picker enabled in create mode without lockedSourceId', async () => {
+    render(
+      <TestWrapper>
+        <ConnectionForm mode={FormMode.CREATE} onClose={mockOnClose} onSuccess={mockOnSuccess} />
+      </TestWrapper>
+    );
+
+    const sourceInput = await screen.findByTestId('source-select-input');
+    expect(sourceInput).not.toBeDisabled();
   });
 
   it('calls onClose when cancel button is clicked', async () => {

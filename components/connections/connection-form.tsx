@@ -35,9 +35,19 @@ interface ConnectionFormProps {
   connectionId?: string;
   onClose: () => void;
   onSuccess: () => void;
+  // When creating a connection from within a specific source (e.g. the Ingest
+  // source row's "Add connection"), the source is fixed: it is preselected and
+  // the source picker is locked so it cannot be changed.
+  lockedSourceId?: string;
 }
 
-export function ConnectionForm({ mode, connectionId, onClose, onSuccess }: ConnectionFormProps) {
+export function ConnectionForm({
+  mode,
+  connectionId,
+  onClose,
+  onSuccess,
+  lockedSourceId,
+}: ConnectionFormProps) {
   const isCreate = mode === FormMode.CREATE;
   const isView = mode === FormMode.VIEW;
   const disabled = isView;
@@ -58,7 +68,7 @@ export function ConnectionForm({ mode, connectionId, onClose, onSuccess }: Conne
   const [name, setName] = useState('');
   const [destinationSchema, setDestinationSchema] = useState('staging');
   const [catalogId, setCatalogId] = useState<string>('');
-  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(lockedSourceId ?? null);
   const [normalize, setNormalize] = useState(false);
   const [discoveredCatalog, setDiscoveredCatalog] = useState<SyncCatalog | null>(null);
   const [isDiscovering, setIsDiscovering] = useState(false);
@@ -291,7 +301,7 @@ export function ConnectionForm({ mode, connectionId, onClose, onSuccess }: Conne
                   placeholder="Select a source"
                   searchPlaceholder="Search sources..."
                   emptyMessage="No sources found."
-                  disabled={isSaving}
+                  disabled={isSaving || !!lockedSourceId}
                   renderItem={(item, _isSelected, searchQuery) => (
                     <div className="flex items-center gap-2">
                       <img
