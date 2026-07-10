@@ -58,7 +58,8 @@ function BlockedState({ reason }: { reason: ChatStatusReason }) {
 
 export default function ChatWithDataPage() {
   const { status, isLoading: statusLoading, isError: statusError } = useChatWithDataStatus();
-  const { sessions, mutate: refreshSessions } = useChatSessions();
+  // 'org' hides dashboard-drawer sessions from this page's sidebar
+  const { sessions, mutate: refreshSessions } = useChatSessions('org');
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   // question typed before any session existed; sent once the new session's socket is up
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);

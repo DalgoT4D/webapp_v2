@@ -14,9 +14,19 @@ export interface ChatStatus {
   reason: ChatStatusReason;
 }
 
+export type ChatScopeType = 'org' | 'dashboard';
+
+/** Create-session payload: scope the chat to one dashboard's tables */
+export interface ChatSessionScope {
+  scope_type: ChatScopeType;
+  scope_id?: number | null;
+}
+
 export interface ChatSession {
   id: number;
   title: string;
+  scope_type: ChatScopeType;
+  scope_id?: number | null;
   created_at: string;
   updated_at: string;
 }

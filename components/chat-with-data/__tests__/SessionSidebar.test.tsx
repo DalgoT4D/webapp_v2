@@ -3,8 +3,8 @@ import { SessionSidebar } from '../SessionSidebar';
 import type { ChatSession } from '@/types/chat-with-data';
 
 const sessions: ChatSession[] = [
-  { id: 2, title: 'Water surveys', created_at: 'c2', updated_at: 'u2' },
-  { id: 1, title: 'Pune attendance', created_at: 'c1', updated_at: 'u1' },
+  { id: 2, title: 'Water surveys', scope_type: 'org', created_at: 'c2', updated_at: 'u2' },
+  { id: 1, title: 'Pune attendance', scope_type: 'org', created_at: 'c1', updated_at: 'u1' },
 ];
 
 describe('SessionSidebar', () => {

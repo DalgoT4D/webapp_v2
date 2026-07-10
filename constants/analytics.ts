@@ -117,6 +117,7 @@ export const ANALYTICS_EVENTS = {
   CHAT_SESSION_DELETED: 'chat_with_data:session_deleted',
   CHAT_MESSAGE_SENT: 'chat_with_data:message_sent',
   CHAT_SQL_VIEWED: 'chat_with_data:sql_viewed',
+  CHAT_DASHBOARD_DRAWER_OPENED: 'chat_with_data:dashboard_drawer_opened',
   // Data quality (Elementary-based)
   DATA_QUALITY_SETUP_COMPLETED: 'data_quality:setup_completed',
   DATA_QUALITY_REPORT_GENERATED: 'data_quality:report_generated',

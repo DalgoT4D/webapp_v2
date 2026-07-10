@@ -51,7 +51,11 @@ import {
   Tablet,
   Phone,
   FileText,
+  MessageSquare,
 } from 'lucide-react';
+import { ChatDrawer } from '@/components/chat-with-data/ChatDrawer';
+import { dashboardHasChatableComponents } from '@/components/chat-with-data/scope-utils';
+import { useChatWithDataStatus } from '@/hooks/api/useChatSessions';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
@@ -358,6 +362,18 @@ export function DashboardNativeView({
     if (isPublicMode || !dashboard || !currentUser) return false;
     return hasPermission('can_edit_dashboards');
   }, [isPublicMode, dashboard, currentUser, hasPermission]);
+
+  // Dashboard-scoped chat: only for interactive (non-public/embed/report) views,
+  // when the org has chat enabled and the user may use it
+  const [chatOpen, setChatOpen] = useState(false);
+  const { status: chatStatus } = useChatWithDataStatus();
+  const canChat =
+    !isPublicMode &&
+    !isEmbedMode &&
+    !isReportMode &&
+    Boolean(chatStatus?.enabled) &&
+    hasPermission('can_use_chat_with_data');
+  const hasChatableData = dashboardHasChatableComponents(dashboard?.tabs);
 
   // Check if dashboard is locked
   const isLocked = dashboard?.is_locked || false;
@@ -1121,6 +1137,23 @@ export function DashboardNativeView({
                 )}
 
                 {/* Action buttons */}
+                {canChat && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setChatOpen(true)}
+                    disabled={!hasChatableData}
+                    title={
+                      hasChatableData
+                        ? 'Ask questions about this dashboard'
+                        : 'Add a chart to this dashboard to chat about it'
+                    }
+                    data-testid="dashboard-chat-button"
+                  >
+                    <MessageSquare className="w-4 h-4 mr-1" />
+                    Ask about this dashboard
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={handleToggleFullscreen}>
                   <Maximize2 className="w-4 h-4" />
                 </Button>
@@ -1465,6 +1498,15 @@ export function DashboardNativeView({
         `
           : ''}
       `}</style>
+      {/* Dashboard-scoped chat drawer */}
+      {dashboard && canChat && (
+        <ChatDrawer
+          dashboardId={dashboard.id}
+          dashboardTitle={dashboard.title}
+          open={chatOpen}
+          onOpenChange={setChatOpen}
+        />
+      )}
       {/* Share Modal */}
       {dashboard && !isPublicMode && (
         <ShareModal
