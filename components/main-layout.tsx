@@ -24,6 +24,7 @@ import {
   Info,
   CreditCard,
   Users,
+  UsersRound,
   Target,
   Palette,
 } from 'lucide-react';
@@ -216,6 +217,14 @@ export const getNavItems = (
           icon: Users,
           isActive: currentPath.startsWith('/settings/user-management'),
           visibleToRoles: ADMIN_ROLES,
+        },
+        {
+          title: 'Groups',
+          href: '/settings/groups',
+          icon: UsersRound,
+          isActive: currentPath.startsWith('/settings/groups'),
+          // can_view_user_groups is held by super-admin/admin/analyst — mirrors DATA_SECTION_ROLES.
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         {
           title: 'About',

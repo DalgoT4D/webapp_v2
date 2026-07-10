@@ -141,6 +141,12 @@ export const ANALYTICS_EVENTS = {
   SHARING_GRANT_ADDED: 'sharing:grant_added',
   SHARING_GRANT_REMOVED: 'sharing:grant_removed',
   SHARING_GENERAL_ACCESS_UPDATED: 'sharing:general_access_updated',
+  // Settings → Groups (resource-sharing audiences, Milestone 3)
+  GROUP_CREATED: 'settings:group_created',
+  GROUP_RENAMED: 'settings:group_renamed',
+  GROUP_DELETED: 'settings:group_deleted',
+  GROUP_MEMBER_ADDED: 'settings:group_member_added',
+  GROUP_MEMBER_REMOVED: 'settings:group_member_removed',
 } as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
@@ -211,6 +217,7 @@ export const FEATURES = {
   SETTINGS_ABOUT: 'settings_about',
   SETTINGS_SUPERSET_USAGE: 'settings_superset_usage',
   SETTINGS_BRANDING: 'settings_branding',
+  SETTINGS_GROUPS: 'settings_groups',
 } as const;
 
 export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
@@ -236,6 +243,7 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/notifications', feature: FEATURES.NOTIFICATIONS },
   { prefix: '/settings/billing', feature: FEATURES.SETTINGS_BILLING },
   { prefix: '/settings/user-management', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
+  { prefix: '/settings/groups', feature: FEATURES.SETTINGS_GROUPS },
   { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
   { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
 ];

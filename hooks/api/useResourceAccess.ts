@@ -42,6 +42,8 @@ export interface AccessGrant {
   name: string | null;
   permission: AccessLevel;
   status: GrantStatus;
+  // Only populated for principal_type === 'group' rows.
+  member_count?: number | null;
 }
 
 export interface AccessViewer {

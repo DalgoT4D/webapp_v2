@@ -13,6 +13,7 @@ import {
   Loader2,
   Send,
   Users,
+  UsersRound,
   UserPlus,
   Trash2,
 } from 'lucide-react';
@@ -44,6 +45,7 @@ import {
   type AccessLevel,
 } from '@/hooks/api/useResourceAccess';
 import { useUsers } from '@/hooks/api/useUserManagement';
+import { useUserGroups } from '@/hooks/api/useUserGroups';
 import { PERMISSIONS, useRbac, type Permission } from '@/lib/rbac';
 import { useAuthStore } from '@/stores/authStore';
 import { trackEvent } from '@/lib/analytics';
@@ -520,8 +522,16 @@ function PeopleWithAccessSection({
   onChanged,
 }: PeopleWithAccessSectionProps) {
   const { users: orgUsers } = useUsers();
+  // Groups source for the add-principal picker (Part C). Group ids are
+  // available from GET /api/groups/, so this stays enabled even while the
+  // person-add path below is disabled by the T6 orguser_id gap. Only fetched
+  // when this viewer can actually share — no /api/groups/ call for a
+  // view-only viewer, who only ever sees the read-only grant rows.
+  const { data: groups } = useUserGroups(canShare);
   const [selectedEmail, setSelectedEmail] = useState('');
   const [pendingPermission, setPendingPermission] = useState<AccessLevel>('view');
+  const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [groupPendingPermission, setGroupPendingPermission] = useState<AccessLevel>('view');
 
   const grantedEmails = useMemo(
     () =>
@@ -538,6 +548,20 @@ function PeopleWithAccessSection({
         .filter((u) => !grantedEmails.has(u.email))
         .map((u) => ({ value: u.email, label: u.email })),
     [orgUsers, grantedEmails]
+  );
+
+  const grantedGroupIds = useMemo(
+    () =>
+      new Set(access.grants.filter((g) => g.principal_type === 'group').map((g) => g.principal_id)),
+    [access.grants]
+  );
+
+  const candidateGroupItems: ComboboxItem[] = useMemo(
+    () =>
+      (groups || [])
+        .filter((g) => !grantedGroupIds.has(g.id))
+        .map((g) => ({ value: String(g.id), label: g.name })),
+    [groups, grantedGroupIds]
   );
 
   const handlePermissionChange = useCallback(
@@ -576,6 +600,26 @@ function PeopleWithAccessSection({
     [entityType, entityId, onChanged]
   );
 
+  const handleAddGroup = useCallback(async () => {
+    if (!selectedGroupId) return;
+    try {
+      await addGrant(entityType, entityId, {
+        principal_type: 'group',
+        principal_id: Number(selectedGroupId),
+        permission: groupPendingPermission,
+      });
+      onChanged();
+      setSelectedGroupId('');
+      toastSuccess.generic('Group added');
+      trackEvent(ANALYTICS_EVENTS.SHARING_GRANT_ADDED, {
+        entity_type: entityType,
+        principal_type: 'group',
+      });
+    } catch (error) {
+      toastError.api(error, 'add this group');
+    }
+  }, [entityType, entityId, selectedGroupId, groupPendingPermission, onChanged]);
+
   return (
     <Card data-testid="share-people-section">
       <CardContent className="p-4 space-y-4">
@@ -601,11 +645,21 @@ function PeopleWithAccessSection({
               data-testid={`share-grant-row-${grant.id}`}
               className="flex items-center justify-between gap-2 text-sm"
             >
-              <span className="truncate">
-                {grant.name || grant.email}
-                {grant.status === 'pending' && (
-                  <span className="ml-2 text-xs text-muted-foreground">(invite pending)</span>
+              <span className="truncate inline-flex items-center gap-1.5">
+                {grant.principal_type === 'group' && (
+                  <UsersRound className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                 )}
+                <span>
+                  {grant.name || grant.email}
+                  {grant.principal_type === 'group' && typeof grant.member_count === 'number' && (
+                    <span className="ml-1.5 text-xs text-muted-foreground">
+                      · {grant.member_count} member{grant.member_count === 1 ? '' : 's'}
+                    </span>
+                  )}
+                  {grant.status === 'pending' && (
+                    <span className="ml-2 text-xs text-muted-foreground">(invite pending)</span>
+                  )}
+                </span>
               </span>
               <div className="flex items-center gap-1 flex-shrink-0">
                 {canShare && grant.principal_id !== null ? (
@@ -692,6 +746,46 @@ function PeopleWithAccessSection({
               Adding people isn’t available yet — this needs a small backend update. Removing or
               changing existing access works today.
             </p>
+
+            <div className="flex items-center gap-2 pt-2">
+              <UsersRound className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-xs font-medium">Add a group</Label>
+            </div>
+            <div className="flex gap-2">
+              <Combobox
+                id="share-add-group-combobox"
+                items={candidateGroupItems}
+                value={selectedGroupId}
+                onValueChange={setSelectedGroupId}
+                placeholder="Select a group"
+                searchPlaceholder="Search groups"
+                className="flex-1"
+              />
+              <Select
+                value={groupPendingPermission}
+                onValueChange={(value) => setGroupPendingPermission(value as AccessLevel)}
+              >
+                <SelectTrigger
+                  id="share-add-group-permission"
+                  data-testid="share-add-group-permission"
+                  size="sm"
+                  className="w-24"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="view">{LEVEL_LABELS.view}</SelectItem>
+                  <SelectItem value="edit">{LEVEL_LABELS.edit}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                data-testid="share-add-group-btn"
+                onClick={handleAddGroup}
+                disabled={!selectedGroupId}
+              >
+                Add
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

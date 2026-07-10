@@ -143,6 +143,10 @@ export const PERMISSIONS = {
 
   // Reports
   CAN_SHARE_REPORTS: 'can_share_reports',
+
+  // User groups (resource-sharing audiences — Settings → Groups)
+  CAN_VIEW_USER_GROUPS: 'can_view_user_groups',
+  CAN_MANAGE_USER_GROUPS: 'can_manage_user_groups',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
