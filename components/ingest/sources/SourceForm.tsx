@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Loader2, Check } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Combobox, highlightText } from '@/components/ui/combobox';
 import type { ComboboxItem } from '@/components/ui/combobox';
-import { ConnectorConfigForm, renderField } from '@/components/connectors/ConnectorConfigForm';
+import { ConnectorConfigForm } from '@/components/connectors/ConnectorConfigForm';
+import {
+  GoogleSheetsAuth,
+  type GsheetsAuthMode,
+} from '@/components/ingest/sources/GoogleSheetsAuth';
 import { parseAirbyteSpec } from '@/components/connectors/spec-parser';
 import { cleanFormValues, extractSpecDefaults } from '@/components/connectors/utils';
 import type { FieldNode, ParsedSpec } from '@/components/connectors/types';
@@ -67,9 +71,10 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   // Google OAuth: the credentials never reach the browser. The "Authenticate" action
   // runs consent → complete, and the backend creates/updates the source server-side.
   const [editOauthConnecting, setEditOauthConnecting] = useState(false);
-  // For Google Sheets: 'google' shows only the Sign-in button; 'manual' reveals the
-  // credential dropdown (client id/secret/refresh token or service account).
-  const [authMode, setAuthMode] = useState<'google' | 'manual'>('google');
+  // For Google Sheets: 'google' shows only the Sign-in button; 'service' reveals the
+  // service-account JSON field. The raw OAuth client id/secret/refresh-token inputs are
+  // never shown — the OAuth branch is the sign-in button.
+  const [authMode, setAuthMode] = useState<GsheetsAuthMode>('google');
   // useSourceSave owns its own setupLogs but has no external reset — this flag lets us
   // hide a stale failure banner the instant the create dialog reopens or the source
   // type changes, without waiting for the next save/connect attempt to clear it.
@@ -134,12 +139,12 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     if (open && isEdit && source) {
       setSelectedDefId(source.sourceDefinitionId);
       setSourceName(source.name);
-      // default the auth mode from the stored credentials: service account -> manual,
+      // default the auth mode from the stored credentials: service account -> service,
       // OAuth (Client) or anything else -> google (Sign in with Google)
       const creds = source.connectionConfiguration?.credentials as
         | { auth_type?: string }
         | undefined;
-      setAuthMode(creds?.auth_type === 'Service' ? 'manual' : 'google');
+      setAuthMode(creds?.auth_type === 'Service' ? 'service' : 'google');
     }
   }, [open, isEdit, source]);
 
@@ -249,10 +254,14 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     onSaved: () => {
       if (pendingCreateKindRef.current === 'oauth') {
         trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
-        trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, { source_type: 'Google Sheets' });
+        trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, {
+          source_type: 'Google Sheets',
+          auth_mode: 'oauth',
+        });
       } else {
         trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, {
           source_type: definitions?.find((d) => d.sourceDefinitionId === selectedDefId)?.name,
+          ...(isGoogleSheets ? { auth_mode: 'service_account' } : {}),
         });
       }
       onSuccess();
@@ -298,7 +307,10 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
         ...(sourceId ? { sourceId } : {}),
       });
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
-      trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED, { source_type: 'Google Sheets' });
+      trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED, {
+        source_type: 'Google Sheets',
+        auth_mode: 'oauth',
+      });
       toastSuccess.generic('Source updated');
       onSuccess();
     } catch (error) {
@@ -319,7 +331,9 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
         config,
         sourceId: sourceId!,
       });
-      trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED);
+      trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED, {
+        ...(isGoogleSheets ? { auth_mode: 'service_account' } : {}),
+      });
       toastSuccess.updated('Source');
       onSuccess();
     } catch (error) {
@@ -469,71 +483,33 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
             </div>
           )}
 
-          {/* Authentication — Google Sheets gets a Google-vs-manual choice */}
-          {isGoogleSheets && parsedSpec && !specLoading && (
+          {/* Authentication — Google Sheets gets an OAuth-vs-service-account dropdown */}
+          {isGoogleSheets && parsedSpec && authField && !specLoading && (
             <div
-              className="rounded-md border border-border p-4 space-y-3 bg-muted/50"
+              className="rounded-md border border-border p-4 bg-muted/50"
               data-testid="gsheets-oauth"
             >
-              <div className="text-[15px] font-medium">Authentication</div>
-
-              <div className="flex gap-2" data-testid="gsheets-auth-mode">
-                <Button
-                  type="button"
-                  variant={authMode === 'google' ? 'primary' : 'outline'}
-                  size="sm"
-                  onClick={() => setAuthMode('google')}
-                  disabled={loading}
-                  data-testid="gsheets-auth-google"
-                >
-                  Sign in with Google
-                </Button>
-                <Button
-                  type="button"
-                  variant={authMode === 'manual' ? 'primary' : 'outline'}
-                  size="sm"
-                  onClick={() => setAuthMode('manual')}
-                  disabled={loading}
-                  data-testid="gsheets-auth-manual"
-                >
-                  Set up manually
-                </Button>
-              </div>
-
-              {authMode === 'google' ? (
-                <div className="space-y-2">
-                  {isConnected && (
-                    <div
-                      className="flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400"
-                      data-testid="gsheets-oauth-connected"
-                    >
-                      <Check className="h-4 w-4" />
-                      Connected with Google
-                    </div>
-                  )}
-                  <Button
-                    type="button"
-                    variant="primary"
-                    onClick={handleConnectGoogle}
-                    disabled={loading || oauthConnecting || !sourceName.trim() || !selectedDefId}
-                    data-testid="gsheets-oauth-connect-btn"
-                  >
-                    {oauthConnecting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                    {isEdit ? 'Re-authenticate & Save' : 'Authenticate with Google & Create Source'}
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    {isConnected
-                      ? 'Already connected. Re-authenticate only if the connection stopped working — it will re-save the source.'
-                      : 'Enter a name and spreadsheet link above, then authenticate — the source is created on success. No credentials needed.'}
-                  </p>
-                </div>
-              ) : (
-                authField && (
-                  <div className="space-y-4">
-                    {renderField(authField, control, setValue, loading)}
-                  </div>
-                )
-              )}
+              <GoogleSheetsAuth
+                authField={authField}
+                control={control}
+                setValue={setValue}
+                disabled={loading}
+                mode={authMode}
+                onModeChange={setAuthMode}
+                oauthButtonLabel={
+                  isEdit ? 'Re-authenticate & Save' : 'Authenticate with Google & Create Source'
+                }
+                onOAuthClick={handleConnectGoogle}
+                oauthBusy={oauthConnecting}
+                oauthConnected={isConnected}
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                {authMode === 'service'
+                  ? 'Paste the service-account JSON key. Dalgo uses it to read your sheet.'
+                  : isConnected
+                    ? 'Already connected. Re-authenticate only if the connection stopped working — it will re-save the source.'
+                    : 'Enter a name and spreadsheet link above, then authenticate — the source is created on success. No credentials needed.'}
+              </p>
             </div>
           )}
 

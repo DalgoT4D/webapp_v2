@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { Check, Loader2 } from 'lucide-react';
+import { useForm, useWatch } from 'react-hook-form';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ConnectorConfigForm } from '@/components/connectors/ConnectorConfigForm';
@@ -17,39 +17,21 @@ import {
 } from '@/hooks/api/useSources';
 import { openOAuthPopup } from '@/components/connectors/oauth-popup';
 import { useSourceSave } from '@/hooks/useSourceSave';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { toastError, toastSuccess } from '@/lib/toast';
 import type { SourceDefinition } from '@/types/source';
 import { SourceHelperPanel } from './SourceHelperPanel';
+import {
+  GoogleSheetsAuth,
+  GSHEETS_SERVICE_AUTH_TYPE,
+  type GsheetsAuthMode,
+} from '@/components/ingest/sources/GoogleSheetsAuth';
 
 interface Props {
   def: SourceDefinition;
   onCreated: (sourceId: string) => void;
   onBack: () => void;
-}
-
-// Google's multi-colour "G" mark, inlined so the button matches the real
-// "Sign in with Google" branding without shipping an external asset.
-function GoogleIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
-      <path
-        fill="#EA4335"
-        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-      />
-      <path
-        fill="#4285F4"
-        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-      />
-      <path
-        fill="#34A853"
-        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-      />
-    </svg>
-  );
 }
 
 export function CreateSourceStep({ def, onCreated, onBack }: Props) {
@@ -59,6 +41,11 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   const { control, setValue, getValues, reset } = useForm({
     defaultValues: {} as Record<string, unknown>,
   });
+
+  // Google Sheets auth mode: 'google' (Sign in with Google, default) or 'service'
+  // (service-account JSON). Existing users authenticate with a service account, so the
+  // dropdown must keep that path reachable.
+  const [authMode, setAuthMode] = useState<GsheetsAuthMode>('google');
 
   // Two-phase Google flow: "Sign in with Google" authorizes and stashes the
   // redeem ref; the footer's Next then creates the source from that ref. Kept
@@ -81,8 +68,9 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   );
 
   // The auth block is the oneOf whose discriminator is `auth_type`. For Google Sheets
-  // the "Sign in with Google" button replaces it entirely — the raw credential fields
-  // (client id/secret/refresh token, service account, etc.) must never render here.
+  // the GoogleSheetsAuth control replaces it — the raw OAuth credential fields (client
+  // id/secret/refresh token) must never render, and the service-account branch is shown
+  // only when the user picks it from the dropdown.
   const authField = useMemo<FieldNode | null>(
     () => parsedSpec?.fields.find((f) => f.type === 'oneOf' && f.constKey === 'auth_type') ?? null,
     [parsedSpec]
@@ -112,6 +100,9 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
 
   const getConfig = useCallback(() => {
     const formValues = getValues();
+    // For Google Sheets, clean against nonAuthSpec (the auth block is handled by
+    // GoogleSheetsAuth). Field inclusion is value-driven, so the service-account values
+    // the dropdown wrote still flow through in service mode.
     const fieldsForClean = isGoogleSheets ? nonAuthSpec?.fields : parsedSpec?.fields;
     return fieldsForClean ? cleanFormValues(formValues, fieldsForClean) : formValues;
   }, [getValues, parsedSpec, nonAuthSpec, isGoogleSheets]);
@@ -119,8 +110,32 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   const { save, loading, setupLogs } = useSourceSave({
     sourceDefId: def.sourceDefinitionId,
     getConfig,
-    onSaved: onCreated,
+    onSaved: (sourceId) => {
+      trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, {
+        source_type: def.name,
+        ...(isGoogleSheets ? { auth_mode: 'service_account' } : {}),
+      });
+      onCreated(sourceId);
+    },
   });
+
+  // Required service-account fields present? Gates the footer Next in service mode so we
+  // don't fire a WS test that is guaranteed to fail on empty credentials.
+  const watchedCreds = useWatch({
+    control,
+    name: authField?.path.join('.') ?? '__no_auth__',
+  }) as Record<string, unknown> | undefined;
+  const serviceReady = useMemo(() => {
+    if (!authField) return false;
+    const required = (authField.oneOfSubFields ?? []).filter(
+      (f) => f.parentValue === GSHEETS_SERVICE_AUTH_TYPE && f.required
+    );
+    if (required.length === 0) return true;
+    return required.every((f) => {
+      const val = watchedCreds?.[f.path[f.path.length - 1]];
+      return typeof val === 'string' ? val.trim() !== '' : val !== null && val !== undefined;
+    });
+  }, [authField, watchedCreds]);
 
   // Phase 1: open Google consent, stash the redeem ref. No source is created yet.
   const handleAuthorizeGoogle = useCallback(async () => {
@@ -132,6 +147,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
     authorizingRef.current = true;
     setAuthorizing(true);
     try {
+      trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_STARTED, { source_type: 'Google Sheets' });
       const { authUrl } = await getSourceOAuthConsent(def.sourceDefinitionId);
       const { ref } = await openOAuthPopup(authUrl);
       setOauthRef(ref);
@@ -157,6 +173,11 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
         config: getConfig(),
         ref: oauthRef,
       });
+      trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
+      trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, {
+        source_type: 'Google Sheets',
+        auth_mode: 'oauth',
+      });
       toastSuccess.created('Source');
       onCreated(sourceId);
     } catch (error) {
@@ -167,7 +188,16 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
     }
   }, [oauthRef, def.sourceDefinitionId, name, getConfig, onCreated]);
 
+  // Switching to service-account discards a stale OAuth ref so the two paths never cross.
+  const handleAuthModeChange = useCallback((next: GsheetsAuthMode) => {
+    setAuthMode(next);
+    if (next === 'service') setOauthRef(null);
+  }, []);
+
   const busy = loading || authorizing || creatingGoogle;
+  // The footer Next drives the OAuth create path only in google mode; service mode falls
+  // back to the standard WS-test → createSource flow (same as non-Google sources).
+  const useGoogleOAuthFlow = isGoogleSheets && authMode === 'google';
 
   return (
     <div className="flex flex-1 min-h-0 flex-col" data-testid="create-source-step">
@@ -204,31 +234,23 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
               />
             )}
 
-            {isGoogleSheets && (
-              <div>
-                <label className="text-sm font-medium">
-                  Authentication <span className="text-destructive">*</span>
-                </label>
-                <button
-                  type="button"
-                  data-testid="gsheets-oauth-connect-btn"
-                  onClick={handleAuthorizeGoogle}
-                  disabled={authorizing || creatingGoogle || !name.trim()}
-                  className="mt-1.5 flex w-full items-center gap-3 rounded-md border px-4 py-3 text-left text-sm transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {oauthRef ? (
-                    <Check className="h-5 w-5 flex-shrink-0 text-primary" />
-                  ) : (
-                    <GoogleIcon className="h-5 w-5 flex-shrink-0" />
-                  )}
-                  <span className="font-medium">
-                    {oauthRef
-                      ? 'Connected — Google authorized'
-                      : 'Sign in with Google to authorize Dalgo'}
-                  </span>
-                  {authorizing && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
-                </button>
-              </div>
+            {isGoogleSheets && authField && !specLoading && (
+              <GoogleSheetsAuth
+                authField={authField}
+                control={control}
+                setValue={setValue}
+                disabled={busy}
+                mode={authMode}
+                onModeChange={handleAuthModeChange}
+                oauthButtonLabel={
+                  oauthRef
+                    ? 'Connected — Google authorized'
+                    : 'Sign in with Google to authorize Dalgo'
+                }
+                onOAuthClick={handleAuthorizeGoogle}
+                oauthBusy={authorizing}
+                oauthConnected={!!oauthRef}
+              />
             )}
 
             {setupLogs.length > 0 && (
@@ -255,7 +277,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
         >
           Back
         </Button>
-        {isGoogleSheets ? (
+        {useGoogleOAuthFlow ? (
           <Button
             type="button"
             variant="primary"
@@ -271,7 +293,12 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
             type="button"
             variant="primary"
             data-testid="wizard-next-btn"
-            disabled={loading || !name.trim() || !parsedSpec}
+            disabled={
+              loading ||
+              !name.trim() ||
+              !parsedSpec ||
+              (isGoogleSheets && authMode === 'service' && !serviceReady)
+            }
             onClick={() => save(name)}
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
