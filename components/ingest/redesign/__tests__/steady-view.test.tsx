@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { SteadyView } from '../steady-view';
 import { useConnectionsList } from '@/hooks/api/useConnections';
 import { useSources } from '@/hooks/api/useSources';
@@ -14,12 +14,6 @@ jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: j
 jest.mock('@/components/connections/pending-actions', () => ({
   PendingActions: (): null => null,
 }));
-// The full wizard has its own tests; here we only assert SteadyView wires it up.
-jest.mock('@/components/ingest/sources/wizard/AddSourceWizard', () => ({
-  AddSourceWizard: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="wizard-open" /> : null,
-}));
-
 const mockConnections = useConnectionsList as jest.Mock;
 const mockSources = useSources as jest.Mock;
 const mockPermissions = rbac.useRbac as jest.Mock;
@@ -61,7 +55,8 @@ describe('SteadyView (smoke)', () => {
 
     expect(screen.getByTestId('ingest-steady-view')).toBeInTheDocument();
     expect(screen.getByTestId('ingest-search-input')).toBeInTheDocument();
-    expect(screen.getByTestId('new-source-btn')).toBeInTheDocument();
+    // "New Source" now lives in the page header (IngestView), not SteadyView.
+    expect(screen.queryByTestId('new-source-btn')).not.toBeInTheDocument();
     // Top-level "New Connection" was removed — connections are added per source.
     expect(screen.queryByTestId('new-connection-btn')).not.toBeInTheDocument();
     // Populated source: add-connection lives in the 3-dots menu, not inline.
@@ -92,16 +87,5 @@ describe('SteadyView (smoke)', () => {
     expect(labels).toHaveTextContent('Connections');
     expect(labels).toHaveTextContent('Last sync');
     expect(labels).toHaveTextContent('Actions');
-  });
-
-  it('opens the AddSourceWizard from the New Source button', () => {
-    mockConnections.mockReturnValue({ data: [conn('c1', 's1')], mutate: jest.fn() });
-    mockSources.mockReturnValue({ data: [source('s1', 'Kobo')], mutate: jest.fn() });
-
-    render(<SteadyView />);
-
-    expect(screen.queryByTestId('wizard-open')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('new-source-btn'));
-    expect(screen.getByTestId('wizard-open')).toBeInTheDocument();
   });
 });

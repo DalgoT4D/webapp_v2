@@ -4,7 +4,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { ReadyState } from 'react-use-websocket';
-import { Loader2 } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -270,6 +270,17 @@ export function ConnectionFormBody({
   return (
     <>
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-5 space-y-6">
+        {/* Success banner — shown right after the wizard creates the source. */}
+        {isCreate && presetSource && (
+          <div
+            className="flex items-center gap-2 rounded-lg border border-green-600/30 bg-green-600/5 px-4 py-3 text-sm font-medium text-green-600 dark:border-green-400/30 dark:text-green-400"
+            data-testid="source-created-banner"
+          >
+            <Check className="h-4 w-4 flex-shrink-0" />
+            {presetSource.name} created successfully
+          </div>
+        )}
+
         {/* Connection name */}
         <div>
           <label htmlFor="conn-name" className="text-[15px] font-medium">

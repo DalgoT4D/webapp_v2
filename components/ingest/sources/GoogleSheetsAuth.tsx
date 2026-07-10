@@ -59,6 +59,12 @@ interface GoogleSheetsAuthProps {
   oauthBusy?: boolean;
   /** Show the "Connected with Google" indicator (edit: already OAuth-connected, or ref acquired). */
   oauthConnected?: boolean;
+  /**
+   * When connected, render a static (non-clickable) confirmation instead of the button.
+   * Used by the create wizard — once authorized there is nothing to re-click. Edit leaves
+   * this off so the "Re-authenticate" action stays available.
+   */
+  lockWhenConnected?: boolean;
 }
 
 /**
@@ -81,6 +87,7 @@ export function GoogleSheetsAuth({
   onOAuthClick,
   oauthBusy,
   oauthConnected,
+  lockWhenConnected,
 }: GoogleSheetsAuthProps) {
   const discriminatorPath = authField.constKey
     ? [...authField.path, authField.constKey].join('.')
@@ -141,30 +148,39 @@ export function GoogleSheetsAuth({
 
       {mode === 'google' ? (
         <div className="space-y-2">
-          {oauthConnected && (
+          {oauthConnected && lockWhenConnected ? (
             <div
-              className="flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400"
               data-testid="gsheets-oauth-connected"
+              className="flex w-full items-center gap-3 rounded-md border border-green-600/40 bg-green-600/5 px-4 py-3 text-sm dark:border-green-400/40"
             >
-              <Check className="h-4 w-4" />
-              Connected with Google
+              <Check className="h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
+              <span className="font-medium text-green-600 dark:text-green-400">
+                {oauthButtonLabel}
+              </span>
             </div>
+          ) : (
+            <button
+              type="button"
+              data-testid="gsheets-oauth-connect-btn"
+              onClick={onOAuthClick}
+              disabled={disabled || oauthBusy}
+              className="flex w-full cursor-pointer items-center gap-3 rounded-md border px-4 py-3 text-left text-sm transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {oauthConnected ? (
+                <Check className="h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
+              ) : (
+                <GoogleIcon className="h-5 w-5 flex-shrink-0" />
+              )}
+              <span
+                className={
+                  oauthConnected ? 'font-medium text-green-600 dark:text-green-400' : 'font-medium'
+                }
+              >
+                {oauthButtonLabel}
+              </span>
+              {oauthBusy && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
+            </button>
           )}
-          <button
-            type="button"
-            data-testid="gsheets-oauth-connect-btn"
-            onClick={onOAuthClick}
-            disabled={disabled || oauthBusy}
-            className="flex w-full items-center gap-3 rounded-md border px-4 py-3 text-left text-sm transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {oauthConnected ? (
-              <Check className="h-5 w-5 flex-shrink-0 text-primary" />
-            ) : (
-              <GoogleIcon className="h-5 w-5 flex-shrink-0" />
-            )}
-            <span className="font-medium">{oauthButtonLabel}</span>
-            {oauthBusy && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
-          </button>
         </div>
       ) : (
         <div

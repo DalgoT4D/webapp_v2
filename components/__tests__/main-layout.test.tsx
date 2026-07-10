@@ -76,6 +76,32 @@ describe('getNavItems', () => {
     expect(userMgmt?.hide).toBe(true);
   });
 
+  it('shows the Settings → Warehouse item for data roles but hides it for member', () => {
+    for (const role of [ROLES.ANALYST, ROLES.ADMIN, ROLES.SUPER_ADMIN]) {
+      const settings = getNavItems('/', false, () => false, undefined, role).find(
+        (i) => i.title === 'Settings'
+      );
+      const warehouse = settings?.children?.find((c) => c.title === 'Warehouse');
+      expect(warehouse?.href).toBe('/settings/warehouse');
+      expect(warehouse?.hide).toBeFalsy();
+    }
+    const memberSettings = getNavItems('/', false, () => false, undefined, ROLES.MEMBER).find(
+      (i) => i.title === 'Settings'
+    );
+    expect(memberSettings?.children?.find((c) => c.title === 'Warehouse')?.hide).toBe(true);
+  });
+
+  it('marks the Warehouse item active on /settings/warehouse', () => {
+    const settings = getNavItems(
+      '/settings/warehouse',
+      false,
+      () => false,
+      undefined,
+      ROLES.ADMIN
+    ).find((i) => i.title === 'Settings');
+    expect(settings?.children?.find((c) => c.title === 'Warehouse')?.isActive).toBe(true);
+  });
+
   it('shows all items for the admin role', () => {
     const items = getNavItems('/', false, () => false, undefined, ROLES.ADMIN);
     expect(items.find((i) => i.title === 'Impact')?.hide).toBeFalsy();

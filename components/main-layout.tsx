@@ -197,6 +197,13 @@ export const getNavItems = (
       isActive: false,
       children: [
         {
+          title: 'Warehouse',
+          href: '/settings/warehouse',
+          icon: Database,
+          isActive: currentPath.startsWith('/settings/warehouse'),
+          visibleToRoles: DATA_SECTION_ROLES,
+        },
+        {
           title: 'Branding',
           href: '/settings/branding',
           icon: Palette,
@@ -376,6 +383,7 @@ function ExpandedNavItem({
                     child.title === 'About' ||
                       child.title === 'Billing' ||
                       child.title === 'Branding' ||
+                      child.title === 'Warehouse' ||
                       child.title === 'User Management'
                       ? 'h-5 w-5'
                       : 'h-6 w-6'
@@ -476,6 +484,7 @@ function MobileNavItem({
                     child.title === 'About' ||
                       child.title === 'Billing' ||
                       child.title === 'Branding' ||
+                      child.title === 'Warehouse' ||
                       child.title === 'User Management'
                       ? 'h-5 w-5'
                       : 'h-6 w-6'

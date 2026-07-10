@@ -1,25 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Database, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
-import { WarehouseForm } from '@/components/ingest/warehouse/warehouse-form';
-import { IpWhitelistBanner } from '@/components/ingest/redesign/ip-whitelist-banner';
-
-interface EmptyWarehouseCardProps {
-  onCreated: () => void;
-}
 
 /**
  * Step 1 of the progressive reveal: the org has no warehouse. Shows a single
- * explanatory card with one action — set up the warehouse — plus the IP
- * whitelist banner needed for setup.
+ * explanatory card whose one action routes to Settings → Warehouse, where the
+ * warehouse is set up (and later managed).
  */
-export function EmptyWarehouseCard({ onCreated }: EmptyWarehouseCardProps) {
+export function EmptyWarehouseCard() {
+  const router = useRouter();
   const { hasPermission } = useRbac();
   const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_WAREHOUSE);
-  const [formOpen, setFormOpen] = useState(false);
 
   return (
     <div
@@ -38,7 +32,7 @@ export function EmptyWarehouseCard({ onCreated }: EmptyWarehouseCardProps) {
         <Button
           variant="primary"
           className="uppercase mt-6"
-          onClick={() => setFormOpen(true)}
+          onClick={() => router.push('/settings/warehouse')}
           disabled={!canCreate}
           data-testid="setup-warehouse-btn"
         >
@@ -50,22 +44,7 @@ export function EmptyWarehouseCard({ onCreated }: EmptyWarehouseCardProps) {
             You don&apos;t have permission to set up a warehouse. Ask an admin.
           </p>
         )}
-
-        <div className="mt-10 w-full">
-          <IpWhitelistBanner />
-        </div>
       </div>
-
-      {formOpen && (
-        <WarehouseForm
-          open={formOpen}
-          onOpenChange={setFormOpen}
-          onSuccess={() => {
-            setFormOpen(false);
-            onCreated();
-          }}
-        />
-      )}
     </div>
   );
 }

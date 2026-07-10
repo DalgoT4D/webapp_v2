@@ -202,7 +202,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   return (
     <div className="flex flex-1 min-h-0 flex-col" data-testid="create-source-step">
       <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
-        <div className="grid grid-cols-[1fr_320px] gap-6">
+        <div className="grid grid-cols-[55fr_45fr] gap-6">
           <div className="space-y-5">
             <div>
               <label className="text-sm font-medium">
@@ -243,13 +243,12 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
                 mode={authMode}
                 onModeChange={handleAuthModeChange}
                 oauthButtonLabel={
-                  oauthRef
-                    ? 'Connected — Google authorized'
-                    : 'Sign in with Google to authorize Dalgo'
+                  oauthRef ? 'Authenticated with Google' : 'Sign in with Google to authorize Dalgo'
                 }
                 onOAuthClick={handleAuthorizeGoogle}
                 oauthBusy={authorizing}
                 oauthConnected={!!oauthRef}
+                lockWhenConnected
               />
             )}
 

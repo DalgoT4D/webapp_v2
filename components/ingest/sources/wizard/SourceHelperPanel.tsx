@@ -3,15 +3,18 @@ import { getSourceHelp } from './wizard-state';
 export function SourceHelperPanel({ sourceName }: { sourceName: string }) {
   const help = getSourceHelp(sourceName);
   return (
-    <aside className="rounded-lg border bg-muted/40 p-4" data-testid="source-helper-panel">
-      <h3 className="text-sm font-semibold">{help.title}</h3>
-      <ol className="mt-3 space-y-3">
+    <aside className="rounded-xl border bg-muted/30 p-6" data-testid="source-helper-panel">
+      <h3 className="text-base font-semibold">{help.title}</h3>
+      <ol className="mt-4 divide-y">
         {help.steps.map((step, i) => (
-          <li key={i} className="flex gap-2 text-sm text-muted-foreground">
-            <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border text-xs">
+          <li key={i} className="flex gap-3 py-4 first:pt-0 last:pb-0">
+            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border bg-background text-xs font-medium text-muted-foreground">
               {i + 1}
             </span>
-            <span>{step}</span>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">{step.title}</p>
+              <p className="text-sm text-muted-foreground">{step.body}</p>
+            </div>
           </li>
         ))}
       </ol>

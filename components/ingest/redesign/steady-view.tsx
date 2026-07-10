@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { Plus, Search } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import {
@@ -26,7 +25,6 @@ import { StreamSelectionDialog } from '@/components/connections/stream-selection
 import { PendingActions } from '@/components/connections/pending-actions';
 import { SchemaChangeForm } from '@/components/connections/schema-change-form';
 import { SourceForm } from '@/components/ingest/sources/SourceForm';
-import { AddSourceWizard } from '@/components/ingest/sources/wizard/AddSourceWizard';
 import { SourceRow } from '@/components/ingest/redesign/source-row';
 import { groupConnectionsBySource } from '@/components/ingest/redesign/utils';
 import type { Connection, ClearStreamData } from '@/types/connections';
@@ -60,12 +58,11 @@ export function SteadyView() {
   const [schemaRefreshConnectionId, setSchemaRefreshConnectionId] = useState<string | null>(null);
 
   // Source dialog state
-  // sourceFormOpen/sourceEditId drive SourceForm, which now only handles
-  // editing an existing source. Creating a new source goes through the
-  // guided AddSourceWizard instead (addSourceWizardOpen).
+  // sourceFormOpen/sourceEditId drive SourceForm, which now only handles editing
+  // an existing source. Creating a new source goes through the guided
+  // AddSourceWizard, which the page header (IngestView) owns.
   const [sourceFormOpen, setSourceFormOpen] = useState(false);
   const [sourceEditId, setSourceEditId] = useState<string | undefined>(undefined);
-  const [addSourceWizardOpen, setAddSourceWizardOpen] = useState(false);
 
   const pollTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -81,7 +78,6 @@ export function SteadyView() {
   const canDeleteConnection = hasPermission(PERMISSIONS.CAN_DELETE_CONNECTION);
   const canReset = hasPermission(PERMISSIONS.CAN_RESET_CONNECTION);
   const canSync = hasPermission(PERMISSIONS.CAN_SYNC_SOURCES);
-  const canCreateSource = hasPermission(PERMISSIONS.CAN_CREATE_SOURCE);
   const canEditSource = hasPermission(PERMISSIONS.CAN_EDIT_SOURCE);
   const canDeleteSource = hasPermission(PERMISSIONS.CAN_DELETE_SOURCE);
 
@@ -269,10 +265,6 @@ export function SteadyView() {
     setFormMode(FormMode.CREATE);
   }, []);
 
-  const handleCreateSource = useCallback(() => {
-    setAddSourceWizardOpen(true);
-  }, []);
-
   const handleEditSource = useCallback((source: Source) => {
     setSourceEditId(source.sourceId);
     setSourceFormOpen(true);
@@ -307,18 +299,13 @@ export function SteadyView() {
     mutateSources();
   }, [mutateSources]);
 
-  const handleAddSourceWizardComplete = useCallback(() => {
-    setAddSourceWizardOpen(false);
-    mutateSources();
-  }, [mutateSources]);
-
   const hasQuery = searchTerm.trim().length > 0;
 
   return (
     <div className="h-full flex flex-col" data-testid="ingest-steady-view">
       {/* Control bar */}
       <div className="flex-shrink-0 px-6 pt-6">
-        <div className="flex items-center justify-between gap-4 mb-4">
+        <div className="mb-4">
           <div className="relative w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -328,19 +315,6 @@ export function SteadyView() {
               className="pl-9"
               data-testid="ingest-search-input"
             />
-          </div>
-          <div className="flex items-center gap-2">
-            {canCreateSource && (
-              <Button
-                variant="primary"
-                className="uppercase"
-                onClick={handleCreateSource}
-                data-testid="new-source-btn"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                New Source
-              </Button>
-            )}
           </div>
         </div>
 
@@ -474,14 +448,6 @@ export function SteadyView() {
             setSourceEditId(undefined);
           }}
           onSuccess={handleSourceFormSuccess}
-        />
-      )}
-
-      {addSourceWizardOpen && (
-        <AddSourceWizard
-          open={addSourceWizardOpen}
-          onClose={() => setAddSourceWizardOpen(false)}
-          onComplete={handleAddSourceWizardComplete}
         />
       )}
     </div>

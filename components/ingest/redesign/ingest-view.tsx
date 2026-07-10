@@ -1,14 +1,18 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { Loader2, Plus } from 'lucide-react';
 import { DocsLink } from '@/components/ui/docs-link';
+import { Button } from '@/components/ui/button';
 import { EmptyWarehouseCard } from '@/components/ingest/redesign/empty-warehouse-card';
 import { EmptySourceCard } from '@/components/ingest/redesign/empty-source-card';
 import { WarehouseChip } from '@/components/ingest/redesign/warehouse-chip';
 import { SteadyView } from '@/components/ingest/redesign/steady-view';
 import { selectIngestState } from '@/components/ingest/redesign/state';
+import { AddSourceWizard } from '@/components/ingest/sources/wizard/AddSourceWizard';
 import { useWarehouse } from '@/hooks/api/useWarehouse';
 import { useSources } from '@/hooks/api/useSources';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
 /**
  * The Ingest page: progressive-reveal (warehouse → source → connection) with
@@ -18,6 +22,13 @@ import { useSources } from '@/hooks/api/useSources';
 export function IngestView() {
   const warehouse = useWarehouse();
   const sources = useSources();
+  const { hasPermission } = useRbac();
+  const canCreateSource = hasPermission(PERMISSIONS.CAN_CREATE_SOURCE);
+
+  // The "New Source" action lives in the page header (like the Charts page), so it
+  // owns the wizard rather than SteadyView. SteadyView reads the same useSources
+  // SWR cache, so it refreshes automatically when a source is created here.
+  const [addSourceWizardOpen, setAddSourceWizardOpen] = useState(false);
 
   const state = selectIngestState(
     { data: warehouse.data, isLoading: warehouse.isLoading },
@@ -28,16 +39,29 @@ export function IngestView() {
     <div className="h-full flex flex-col" data-testid="ingest-view">
       {/* Header */}
       <div className="flex-shrink-0 border-b bg-background">
-        <div className="flex items-start justify-between p-6">
+        <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <DocsLink path="/data/ingest">
-              <h1 className="text-3xl font-bold">Ingest</h1>
-            </DocsLink>
+            <div className="flex items-center gap-3">
+              <DocsLink path="/data/ingest">
+                <h1 className="text-3xl font-bold">Ingest</h1>
+              </DocsLink>
+              {warehouse.data && <WarehouseChip warehouse={warehouse.data} />}
+            </div>
             <p className="text-muted-foreground mt-1">
               Bring your data into Dalgo — set up a warehouse, add sources, then sync connections
             </p>
           </div>
-          {warehouse.data && <WarehouseChip warehouse={warehouse.data} />}
+          {warehouse.data && canCreateSource && (
+            <Button
+              variant="primary"
+              className="uppercase"
+              onClick={() => setAddSourceWizardOpen(true)}
+              data-testid="new-source-btn"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Source
+            </Button>
+          )}
         </div>
       </div>
 
@@ -49,12 +73,23 @@ export function IngestView() {
           </div>
         )}
 
-        {state === 'NO_WAREHOUSE' && <EmptyWarehouseCard onCreated={() => warehouse.mutate()} />}
+        {state === 'NO_WAREHOUSE' && <EmptyWarehouseCard />}
 
         {state === 'NO_SOURCE' && <EmptySourceCard onCreated={() => sources.mutate()} />}
 
         {state === 'STEADY' && <SteadyView />}
       </div>
+
+      {addSourceWizardOpen && (
+        <AddSourceWizard
+          open={addSourceWizardOpen}
+          onClose={() => setAddSourceWizardOpen(false)}
+          onComplete={() => {
+            setAddSourceWizardOpen(false);
+            sources.mutate();
+          }}
+        />
+      )}
     </div>
   );
 }

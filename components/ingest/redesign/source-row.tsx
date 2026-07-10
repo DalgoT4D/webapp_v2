@@ -183,22 +183,27 @@ export function SourceRow({
         </div>
       </div>
 
-      {/* Right — connections stacked as full-width rows */}
-      <div className="flex-1 min-w-0">
+      {/* Right — connections stacked as full-width rows, vertically centered so a
+          single connection lines up with the source block instead of sitting at the top */}
+      <div className="flex-1 min-w-0 flex flex-col justify-center">
         {connections.length === 0 ? (
-          // Empty state — a single centered Add-connection button, sized to
-          // match a one-connection row.
-          <div className="flex h-full items-center justify-center px-4 py-4">
+          // Empty state — the source is connected but has no connections yet.
+          // An inline sentence with a clickable "add a connection" that opens the
+          // connection modal (a button reads as a hard action; this reads as guidance).
+          <div className="flex h-full items-center px-6 py-4">
             {canCreateConnection ? (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => onAddConnection(source)}
-                data-testid={`add-connection-${source.sourceId}`}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add connection
-              </Button>
+              <p className="text-base text-muted-foreground">
+                Your source is connected — now choose which tables, sheets or forms to import.{' '}
+                <button
+                  type="button"
+                  onClick={() => onAddConnection(source)}
+                  data-testid={`add-connection-${source.sourceId}`}
+                  className="cursor-pointer font-medium text-primary underline underline-offset-2 hover:opacity-80"
+                >
+                  Add a connection
+                </button>{' '}
+                to get started.
+              </p>
             ) : (
               <span className="text-sm font-medium text-gray-500">No connections yet</span>
             )}

@@ -1,9 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Database, ChevronDown } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { WarehouseDisplay } from '@/components/ingest/warehouse/warehouse-display';
+import Link from 'next/link';
+import { Database, ChevronRight } from 'lucide-react';
 import type { Warehouse } from '@/types/warehouse';
 
 interface WarehouseChipProps {
@@ -11,40 +9,22 @@ interface WarehouseChipProps {
 }
 
 /**
- * Compact top-right chip showing the org's single warehouse. Clicking it opens
- * the full warehouse panel (config table, edit, delete, IP banner) — the same
- * surface the classic "Your Warehouse" tab showed — inside a dialog.
+ * Compact top-right chip showing the org's single warehouse. It links out to the
+ * warehouse's home in Settings (Settings → Warehouse), where it can be viewed,
+ * edited, or deleted — the warehouse is org infrastructure, not an ingest concern.
  */
 export function WarehouseChip({ warehouse }: WarehouseChipProps) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-sm transition-colors hover:bg-muted cursor-pointer"
-        data-testid="warehouse-chip"
-      >
-        <Database className="h-4 w-4 text-primary flex-shrink-0" />
-        <span className="font-medium text-foreground max-w-[12rem] truncate">{warehouse.name}</span>
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">
-          {warehouse.wtype}
-        </span>
-        <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-      </button>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          className="max-w-2xl max-h-[85vh] overflow-y-auto p-0"
-          data-testid="warehouse-panel-dialog"
-        >
-          <DialogHeader className="sr-only">
-            <DialogTitle>Warehouse settings</DialogTitle>
-          </DialogHeader>
-          <WarehouseDisplay />
-        </DialogContent>
-      </Dialog>
-    </>
+    <Link
+      href="/settings/warehouse"
+      className="inline-flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-sm transition-colors hover:bg-muted"
+      data-testid="warehouse-chip"
+    >
+      <Database className="h-4 w-4 text-primary flex-shrink-0" />
+      <span className="text-muted-foreground">Warehouse:</span>
+      <span className="font-medium text-foreground max-w-[12rem] truncate">{warehouse.name}</span>
+      <span className="uppercase text-muted-foreground">({warehouse.wtype})</span>
+      <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+    </Link>
   );
 }

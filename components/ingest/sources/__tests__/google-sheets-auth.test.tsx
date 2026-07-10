@@ -109,12 +109,13 @@ it('switches to Service Account: shows only the service field, hides the button'
   expect(screen.queryByLabelText(/Client Secret/i)).not.toBeInTheDocument();
 });
 
-it('shows the connected indicator and fires onOAuthClick', async () => {
+it('fires onOAuthClick when the sign-in button is clicked', async () => {
   const user = userEvent.setup();
   const onOAuthClick = jest.fn();
   render(<Harness onOAuthClick={onOAuthClick} oauthConnected />);
 
-  expect(screen.getByTestId('gsheets-oauth-connected')).toBeInTheDocument();
+  // A single connected affordance — the button itself — not a separate indicator line.
+  expect(screen.queryByTestId('gsheets-oauth-connected')).not.toBeInTheDocument();
   await user.click(screen.getByTestId('gsheets-oauth-connect-btn'));
   expect(onOAuthClick).toHaveBeenCalledTimes(1);
 });

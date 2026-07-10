@@ -21,18 +21,32 @@ export const TOP_SOURCES: TopSource[] = [
   { name: 'Airtable', category: 'Spreadsheet' },
 ];
 
+export interface SourceHelpStep {
+  title: string;
+  body: string;
+}
+
 export interface SourceHelp {
   title: string;
-  steps: string[];
+  steps: SourceHelpStep[];
 }
 
 const HELP: Record<string, SourceHelp> = {
   'Google Sheets': {
     title: 'How to connect Google Sheets',
     steps: [
-      "Copy your sheet's link — in Google Sheets click Share, then Copy link, and paste it into Spreadsheet link.",
-      "Sign in with Google — you'll be asked to grant Dalgo read-only access to your sheets.",
-      'Test the connection — confirm Dalgo can read your sheet; you pick which tabs to sync in the next step.',
+      {
+        title: "Copy your sheet's link",
+        body: 'In Google Sheets, click Share, Copy link. Paste it into Spreadsheet link on the left.',
+      },
+      {
+        title: 'Sign in with Google',
+        body: "Click Sign in with Google. You'll be asked to grant Dalgo read-only access to your sheets.",
+      },
+      {
+        title: 'Test the connection',
+        body: "Hit Test to confirm Dalgo can read your sheet. You'll pick which tabs to sync in the next step.",
+      },
     ],
   },
 };
@@ -42,9 +56,15 @@ export function getSourceHelp(name: string): SourceHelp {
     HELP[name] ?? {
       title: `How to connect ${name}`,
       steps: [
-        'Fill in the details on the left.',
-        'Enter a name so you can recognise this source later.',
-        'Click Next — Dalgo will test the connection before saving.',
+        { title: 'Fill in the details', body: 'Complete the fields on the left.' },
+        {
+          title: 'Name your source',
+          body: 'Enter a name so you can recognise this source later.',
+        },
+        {
+          title: 'Test & save',
+          body: 'Click Next — Dalgo will test the connection before saving.',
+        },
       ],
     }
   );
