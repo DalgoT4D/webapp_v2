@@ -151,6 +151,15 @@ describe('RoleGuard', () => {
   });
 });
 
+describe('PERMISSIONS — sharing slugs', () => {
+  it('exposes the can_share_* slugs for reports, alerts, metrics, and kpis', () => {
+    expect(PERMISSIONS.CAN_SHARE_REPORTS).toBe('can_share_reports');
+    expect(PERMISSIONS.CAN_SHARE_ALERTS).toBe('can_share_alerts');
+    expect(PERMISSIONS.CAN_SHARE_METRICS).toBe('can_share_metrics');
+    expect(PERMISSIONS.CAN_SHARE_KPIS).toBe('can_share_kpis');
+  });
+});
+
 describe('PermissionGuard', () => {
   it('renders children when the permission is granted', () => {
     setUser(ROLES.ANALYST, [PERMISSIONS.CAN_CREATE_CHARTS]);

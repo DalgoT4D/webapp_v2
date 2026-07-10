@@ -134,6 +134,13 @@ export const ANALYTICS_EVENTS = {
   // Notifications
   NOTIFICATION_PREFERENCES_UPDATED: 'notification:preferences_updated',
   NOTIFICATIONS_ALL_READ: 'notification:all_marked_read',
+  // Resource sharing — ShareModal's rtype-driven People/General-access sections
+  // (entity_type is passed as a property; dashboards, reports, alerts, etc.
+  // all funnel through the same modal so the event names stay fixed).
+  SHARING_MODAL_OPENED: 'sharing:modal_opened',
+  SHARING_GRANT_ADDED: 'sharing:grant_added',
+  SHARING_GRANT_REMOVED: 'sharing:grant_removed',
+  SHARING_GENERAL_ACCESS_UPDATED: 'sharing:general_access_updated',
 } as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];

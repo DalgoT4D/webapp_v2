@@ -35,8 +35,12 @@ export function useCharts() {
   return useSWR('/api/charts/', chartsFetcher);
 }
 
-export function useChart(id: number | null) {
-  return useSWR(id ? `/api/charts/${id}/` : null, chartFetcher);
+// dashboardId scopes the fetch to a dashboard-tile view — the backend requires
+// it for Members (charts are only visible in dashboard context for that role).
+// Omit it for the chart builder / standalone Charts page (Analyst+ only, unchanged).
+export function useChart(id: number | null, dashboardId?: number | null) {
+  const url = id ? `/api/charts/${id}/${dashboardId ? `?dashboard_id=${dashboardId}` : ''}` : null;
+  return useSWR(url, chartFetcher);
 }
 
 export function useCreateChart() {

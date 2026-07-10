@@ -115,6 +115,11 @@ echarts.use([
 
 interface ChartElementViewProps {
   chartId: number;
+  // The containing dashboard's id — required for Members to view a chart
+  // (backend gates standalone chart GETs to Analyst+/owner; dashboard-tile
+  // context is the exception). Only meaningful in private, non-report mode;
+  // omit for the chart builder / standalone Charts page.
+  dashboardId?: number;
   dashboardFilters?: Record<string, any>;
   dashboardFilterConfigs?: Array<{
     id: string;
@@ -152,6 +157,7 @@ interface DrillDownLevel {
 
 export function ChartElementView({
   chartId,
+  dashboardId,
   dashboardFilters = {},
   dashboardFilterConfigs = [],
   viewMode = true,
@@ -217,7 +223,7 @@ export function ChartElementView({
     data: chart,
     isLoading: chartLoading,
     error: chartError,
-  } = useChart(isPublicMode || frozenChartConfig ? null : chartId);
+  } = useChart(isPublicMode || frozenChartConfig ? null : chartId, dashboardId);
 
   // Resolve dashboard filters to complete column information for maps and tables
   const resolvedDashboardFilters = useMemo(() => {
@@ -235,6 +241,11 @@ export function ChartElementView({
   const queryParams = new URLSearchParams();
   if (Object.keys(dashboardFilters).length > 0) {
     queryParams.append('dashboard_filters', JSON.stringify(dashboardFilters));
+  }
+  // dashboard_id is only meaningful (and only sent) for the private, non-public
+  // GET /api/charts/{id}/data/ call below — never leak it onto the public URL.
+  if (!isPublicMode && dashboardId) {
+    queryParams.append('dashboard_id', String(dashboardId));
   }
 
   // Use public API endpoint if in public mode, otherwise use regular API
@@ -285,7 +296,9 @@ export function ChartElementView({
 
   // Private mode metadata (skip in report/frozen mode)
   const { data: chartMetadata, error: metadataError } = useSWR(
-    !isPublicMode && !frozenChartConfig ? `/api/charts/${chartId}` : null,
+    !isPublicMode && !frozenChartConfig
+      ? `/api/charts/${chartId}${dashboardId ? `?dashboard_id=${dashboardId}` : ''}`
+      : null,
     apiGet,
     {
       revalidateOnFocus: false,

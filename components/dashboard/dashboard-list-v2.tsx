@@ -134,11 +134,15 @@ export function DashboardListV2() {
   const [favorites, setFavorites] = useState<Set<number>>(new Set());
 
   // Column filter states
+  // NOTE: a "Show only shared" filter (keyed off dashboard.is_public) used to live here.
+  // It was dead — GET /api/dashboards/ (DashboardResponse schema) never returns is_public,
+  // general_audience, is_owner, or is_creator, so the predicate always evaluated false and
+  // silently hid every dashboard when checked. Removed rather than shipped broken; needs
+  // those fields added to the list DTO before a real "Shared with you" filter can return.
   const [nameFilters, setNameFilters] = useState({
     text: '',
     showFavorites: false,
     showLocked: false,
-    showShared: false,
   });
   const [ownerFilters, setOwnerFilters] = useState<string[]>([]);
   const [dateFilters, setDateFilters] = useState({
@@ -268,10 +272,6 @@ export function DashboardListV2() {
         return false;
       }
 
-      if (nameFilters.showShared && !dashboard.is_public) {
-        return false;
-      }
-
       // Owner filters
       if (ownerFilters.length > 0) {
         const owner = dashboard.created_by || dashboard.changed_by_name || 'Unknown';
@@ -372,13 +372,7 @@ export function DashboardListV2() {
   // Get active filter count
   const getActiveFilterCount = () => {
     let count = 0;
-    if (
-      nameFilters.text ||
-      nameFilters.showFavorites ||
-      nameFilters.showLocked ||
-      nameFilters.showShared
-    )
-      count++;
+    if (nameFilters.text || nameFilters.showFavorites || nameFilters.showLocked) count++;
     if (ownerFilters.length > 0) count++;
     if (dateFilters.range !== 'all') count++;
     return count;
@@ -386,7 +380,7 @@ export function DashboardListV2() {
 
   // Clear all filters
   const clearAllFilters = () => {
-    setNameFilters({ text: '', showFavorites: false, showLocked: false, showShared: false });
+    setNameFilters({ text: '', showFavorites: false, showLocked: false });
     setOwnerFilters([]);
     setDateFilters({ range: 'all', customStart: null, customEnd: null });
   };
@@ -530,12 +524,7 @@ export function DashboardListV2() {
   const hasActiveFilter = (column: 'name' | 'owner' | 'date') => {
     switch (column) {
       case 'name':
-        return (
-          nameFilters.text ||
-          nameFilters.showFavorites ||
-          nameFilters.showLocked ||
-          nameFilters.showShared
-        );
+        return nameFilters.text || nameFilters.showFavorites || nameFilters.showLocked;
       case 'owner':
         return ownerFilters.length > 0;
       case 'date':
@@ -575,7 +564,6 @@ export function DashboardListV2() {
                 text: '',
                 showFavorites: false,
                 showLocked: false,
-                showShared: false,
               })
             }
             className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
@@ -617,19 +605,6 @@ export function DashboardListV2() {
             />
             <Label htmlFor="locked" className="text-sm cursor-pointer">
               Show only locked
-            </Label>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="shared"
-              checked={nameFilters.showShared}
-              onCheckedChange={(checked) =>
-                setNameFilters((prev) => ({ ...prev, showShared: checked as boolean }))
-              }
-            />
-            <Label htmlFor="shared" className="text-sm cursor-pointer">
-              Show only shared
             </Label>
           </div>
         </div>
@@ -2023,6 +1998,7 @@ export function DashboardListV2() {
         <ShareModal
           entityId={selectedDashboard.id}
           entityLabel="Dashboard"
+          entityType="dashboard"
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}

@@ -611,6 +611,7 @@ export function DashboardNativeView({
           <div key={componentId} className="h-full">
             <ChartElementView
               chartId={component.config?.chartId}
+              dashboardId={dashboardId}
               dashboardFilters={selectedFilters}
               dashboardFilterConfigs={dashboardFilters}
               viewMode={true}
@@ -1470,6 +1471,7 @@ export function DashboardNativeView({
         <ShareModal
           entityId={dashboard.id}
           entityLabel="Dashboard"
+          entityType="dashboard"
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
