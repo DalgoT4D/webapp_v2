@@ -23,7 +23,7 @@ jest.mock('@/hooks/api/useReports');
 
 jest.mock('@/lib/toast', () => ({
   toastSuccess: { saved: jest.fn(), exported: jest.fn(), generic: jest.fn() },
-  toastError: { save: jest.fn(), export: jest.fn(), generic: jest.fn() },
+  toastError: { save: jest.fn(), export: jest.fn(), generic: jest.fn(), api: jest.fn() },
   toastInfo: { generic: jest.fn() },
 }));
 
@@ -572,6 +572,40 @@ describe('SnapshotViewerPage', () => {
       renderPage();
 
       expect(screen.queryByText(/Created by:/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Generate summary (AI draft)', () => {
+    it('drafts a summary into the editor without saving', async () => {
+      const user = userEvent.setup();
+      (useReportsHook.generateSnapshotSummary as jest.Mock).mockResolvedValue(
+        '**A strong quarter.**'
+      );
+      // initial summary is non-empty — the user must confirm the overwrite
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+      renderPage();
+
+      await user.click(screen.getByTestId('report-generate-summary-btn'));
+
+      await waitFor(() => expect(useReportsHook.generateSnapshotSummary).toHaveBeenCalledWith(1));
+      const textarea = screen.getByTestId('report-summary-textarea') as HTMLTextAreaElement;
+      await waitFor(() => expect(textarea.value).toBe('**A strong quarter.**'));
+      // draft only: nothing saved until the user clicks Save
+      expect(useReportsHook.updateSnapshot).not.toHaveBeenCalled();
+      confirmSpy.mockRestore();
+    });
+
+    it('leaves the existing summary alone when the user declines the overwrite', async () => {
+      const user = userEvent.setup();
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+      renderPage();
+
+      await user.click(screen.getByTestId('report-generate-summary-btn'));
+
+      expect(useReportsHook.generateSnapshotSummary).not.toHaveBeenCalled();
+      const textarea = screen.getByTestId('report-summary-textarea') as HTMLTextAreaElement;
+      expect(textarea.value).toBe('This is the initial summary.');
+      confirmSpy.mockRestore();
     });
   });
 });

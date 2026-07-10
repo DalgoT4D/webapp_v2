@@ -6,9 +6,18 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Calendar, Download, LayoutGrid, Loader2, Pencil, User } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calendar,
+  Download,
+  LayoutGrid,
+  Loader2,
+  Pencil,
+  Sparkles,
+  User,
+} from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
-import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
+import { useSnapshotView, updateSnapshot, generateSnapshotSummary } from '@/hooks/api/useReports';
 import { useCommentStates } from '@/hooks/api/useComments';
 import { usePdfDownload } from '@/hooks/usePdfDownload';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
@@ -36,6 +45,7 @@ export default function SnapshotViewerPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
   const [isEditingSummary, setIsEditingSummary] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const { hasPermission } = useUserPermissions();
   const canEdit = hasPermission('can_edit_dashboards');
   const canShare = hasPermission('can_share_dashboards');
@@ -67,6 +77,31 @@ export default function SnapshotViewerPage() {
       setSummaryDraft(viewData?.report_metadata.summary ?? '');
     }
   }, [viewData?.report_metadata.summary, summaryTouched]);
+
+  const handleGenerateSummary = useCallback(async () => {
+    if (
+      summaryDraft.trim() &&
+      !window.confirm(
+        'Replace the current summary with an AI draft? Nothing is saved until you click Save.'
+      )
+    ) {
+      return;
+    }
+    setIsGenerating(true);
+    try {
+      const draft = await generateSnapshotSummary(parsedId);
+      // touched=true stops the revalidation effect from clobbering the draft;
+      // editing mode surfaces the Save/Cancel buttons for review
+      setSummaryDraft(draft);
+      setSummaryTouched(true);
+      setIsEditingSummary(true);
+      trackEvent(ANALYTICS_EVENTS.REPORT_SUMMARY_GENERATED);
+    } catch (error) {
+      toastError.api(error, 'Could not generate a summary. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [parsedId, summaryDraft]);
 
   const handleSave = useCallback(async () => {
     const currentSummary = (viewData?.report_metadata.summary ?? '').trim();
@@ -219,6 +254,22 @@ export default function SnapshotViewerPage() {
               <div className="border rounded-lg p-5 bg-background relative">
                 {canEdit && (
                   <div className="absolute top-3 right-3 flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8"
+                      data-testid="report-generate-summary-btn"
+                      aria-label="Generate summary with AI"
+                      onClick={handleGenerateSummary}
+                      disabled={isGenerating}
+                    >
+                      {isGenerating ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 mr-1" />
+                      )}
+                      Generate summary
+                    </Button>
                     <CommentPopover
                       snapshotId={parsedId}
                       targetType="summary"

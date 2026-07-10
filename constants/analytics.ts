@@ -42,6 +42,7 @@ export const ANALYTICS_EVENTS = {
   REPORT_VIEWED: 'report:report_viewed',
   REPORT_SHARED: 'report:report_shared',
   REPORT_EXPORTED: 'report:report_exported',
+  REPORT_SUMMARY_GENERATED: 'report:summary_generated',
   REPORT_COMMENT_CREATED: 'report:comment_created',
   REPORT_COMMENT_UPDATED: 'report:comment_updated',
   REPORT_COMMENT_DELETED: 'report:comment_deleted',
