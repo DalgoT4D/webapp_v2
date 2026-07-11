@@ -4,7 +4,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { ReadyState } from 'react-use-websocket';
-import { Check, Loader2 } from 'lucide-react';
+import { Check, ChevronDown, Loader2 } from 'lucide-react';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -21,10 +21,14 @@ import {
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { SyncMode, DestinationSyncMode, FormMode } from '@/constants/connections';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 import type { SyncCatalog, SchemaDiscoveryResponse } from '@/types/connections';
 import { parseCatalogStream } from './utils';
 import { useStreamConfig } from './hooks/useStreamConfig';
 import { StreamConfigTable } from './stream-config-table';
+import { getCustomSource } from '@/components/ingest/sources/custom/registry';
+import { ConnectionHelpPanel } from './connection-help-panel';
+import type { ConnectionConceptId } from './constants';
 
 const SCHEMA_DISCOVERY_WS_PATH = 'airbyte/connection/schema_catalog';
 
@@ -84,6 +88,20 @@ export function ConnectionFormBody({
   );
   const readOnlySource = isCreate ? presetSource : connection?.source;
 
+  // Non-null when the source has a friendly custom connection view (Task 1
+  // registry): drives stream relabeling, hides unsupported sync options, and
+  // tucks advanced fields behind a collapsible section.
+  const connectionView = React.useMemo(
+    () =>
+      (readOnlySource?.sourceName
+        ? getCustomSource(readOnlySource.sourceName)?.connectionView
+        : null) ?? null,
+    [readOnlySource]
+  );
+  const [activeConcept, setActiveConcept] = useState<ConnectionConceptId | null>(null);
+  const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
+  const [advancedStreamsOpen, setAdvancedStreamsOpen] = useState(false);
+
   const [name, setName] = useState('');
   const [destinationSchema, setDestinationSchema] = useState('staging');
   const [catalogId, setCatalogId] = useState<string>('');
@@ -125,10 +143,23 @@ export function ConnectionFormBody({
       if (connection.destinationSchema) {
         setDestinationSchema(connection.destinationSchema);
       }
-      // Parse existing streams from sync catalog
-      setStreams(connection.syncCatalog.streams.map((s) => parseCatalogStream(s)));
+      // Parse existing streams from sync catalog. Guard against stale data: an
+      // existing custom-source connection may have been saved before its
+      // allowedDestModes were narrowed (e.g. an old gsheet stream stored as
+      // append_dedup) — coerce to the first allowed mode so the dest-mode
+      // <Select> doesn't render blank.
+      const parsed = connection.syncCatalog.streams.map((s) => parseCatalogStream(s));
+      setStreams(
+        connectionView
+          ? parsed.map((s) =>
+              connectionView.allowedDestModes.includes(s.destinationSyncMode as DestinationSyncMode)
+                ? s
+                : { ...s, destinationSyncMode: connectionView.allowedDestModes[0] }
+            )
+          : parsed
+      );
     }
-  }, [connection, isCreate]);
+  }, [connection, isCreate, connectionView]);
 
   // Handle schema discovery WebSocket response
   const handleDiscoveryMessage = useCallback(
@@ -137,9 +168,10 @@ export function ConnectionFormBody({
         const response = data as SchemaDiscoveryResponse;
         if (response.status === 'success' && response.data?.result?.catalog) {
           const catalog = response.data.result.catalog;
-          // Discovery defaults: nothing selected, full refresh + overwrite
+          // Discovery defaults: custom sources auto-select every stream;
+          // generic sources start unselected. Always full refresh + overwrite.
           const discoveryDefaults = {
-            selected: false,
+            selected: !!connectionView,
             syncMode: SyncMode.FULL_REFRESH,
             destinationSyncMode: DestinationSyncMode.OVERWRITE,
           };
@@ -155,7 +187,7 @@ export function ConnectionFormBody({
         setIsDiscovering(false);
       }
     },
-    [setStreams]
+    [setStreams, connectionView]
   );
 
   // WebSocket for schema discovery — stays open in create mode
@@ -267,147 +299,233 @@ export function ConnectionFormBody({
     onSuccess,
   ]);
 
+  // Destination Schema field — shared between the always-visible (generic
+  // source) and Advanced-options-collapsed (custom source) layouts.
+  const destinationSchemaField = (
+    <div>
+      <label htmlFor="dest-schema" className="text-[15px] font-medium">
+        Destination Schema
+      </label>
+      <Input
+        id="dest-schema"
+        data-testid="destination-schema-input"
+        value={destinationSchema}
+        onChange={(e) => setDestinationSchema(e.target.value)}
+        onMouseEnter={() => setActiveConcept('schema')}
+        onFocus={() => setActiveConcept('schema')}
+        placeholder="e.g., public"
+        disabled={disabled || isSaving}
+        className="mt-1.5"
+      />
+    </div>
+  );
+
+  // Normalize toggle — same sharing rationale as destinationSchemaField.
+  const normalizeToggleField = (
+    <div
+      className="flex items-center justify-between"
+      onMouseEnter={() => setActiveConcept('normalize')}
+    >
+      <label className="text-[15px] font-medium">Normalize data after sync</label>
+      <Switch
+        checked={normalize}
+        onCheckedChange={setNormalize}
+        onFocus={() => setActiveConcept('normalize')}
+        disabled={disabled || isSaving}
+        data-testid="normalize-toggle"
+      />
+    </div>
+  );
+
   return (
     <>
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-5 space-y-6">
-        {/* Success banner — shown right after the wizard creates the source. */}
-        {isCreate && presetSource && (
-          <div
-            className="flex items-center gap-2 rounded-lg border border-green-600/30 bg-green-600/5 px-4 py-3 text-sm font-medium text-green-600 dark:border-green-400/30 dark:text-green-400"
-            data-testid="source-created-banner"
-          >
-            <Check className="h-4 w-4 flex-shrink-0" />
-            {presetSource.name} created successfully
-          </div>
-        )}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-5">
+        <div className="grid grid-cols-[55fr_45fr] gap-6">
+          <div className="space-y-6">
+            {/* Persistent source chip — custom sources only, replaces the
+                create-only green banner below with a friendly, always-shown
+                identity chip. */}
+            {connectionView && readOnlySource && (
+              <div
+                className="flex items-center gap-2 rounded-lg border bg-muted/40 px-4 py-3"
+                data-testid="connection-source-chip"
+              >
+                <img
+                  src={readOnlySource.icon || '/icons/connection.svg'}
+                  alt=""
+                  className="h-5 w-5"
+                  onError={(e) => {
+                    e.currentTarget.src = '/icons/connection.svg';
+                  }}
+                />
+                <span className="text-sm font-medium">
+                  {readOnlySource.name || readOnlySource.sourceName}
+                </span>
+                {isCreate && <span className="text-xs text-green-600">created successfully</span>}
+              </div>
+            )}
 
-        {/* Connection name */}
-        <div>
-          <label htmlFor="conn-name" className="text-[15px] font-medium">
-            Connection Name <span className="text-destructive">*</span>
-          </label>
-          <Input
-            id="conn-name"
-            data-testid="connection-name-input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="My Connection"
-            disabled={disabled || isSaving}
-            className="mt-1.5"
-          />
-        </div>
+            {/* Success banner — shown right after the wizard creates the source. Generic sources only; custom sources use the chip above. */}
+            {isCreate && presetSource && !connectionView && (
+              <div
+                className="flex items-center gap-2 rounded-lg border border-green-600/30 bg-green-600/5 px-4 py-3 text-sm font-medium text-green-600 dark:border-green-400/30 dark:text-green-400"
+                data-testid="source-created-banner"
+              >
+                <Check className="h-4 w-4 flex-shrink-0" />
+                {presetSource.name} created successfully
+              </div>
+            )}
 
-        {/* Destination schema */}
-        <div>
-          <label htmlFor="dest-schema" className="text-[15px] font-medium">
-            Destination Schema
-          </label>
-          <Input
-            id="dest-schema"
-            data-testid="destination-schema-input"
-            value={destinationSchema}
-            onChange={(e) => setDestinationSchema(e.target.value)}
-            placeholder="e.g., public"
-            disabled={disabled || isSaving}
-            className="mt-1.5"
-          />
-        </div>
+            {/* Connection name */}
+            <div>
+              <label htmlFor="conn-name" className="text-[15px] font-medium">
+                Connection Name <span className="text-destructive">*</span>
+              </label>
+              <Input
+                id="conn-name"
+                data-testid="connection-name-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="My Connection"
+                disabled={disabled || isSaving}
+                className="mt-1.5"
+              />
+            </div>
 
-        {/* Source selection (create, no preset) or read-only display (preset / edit / view) */}
-        {isCreate && !presetSourceId ? (
-          <div>
-            <label htmlFor="source-select-input" className="text-[15px] font-medium">
-              Source <span className="text-destructive">*</span>
-            </label>
-            <div className="mt-1.5">
-              <Combobox
-                id="source-select"
-                items={sourceItems}
-                value={selectedSourceId ?? ''}
-                onValueChange={handleSourceChange}
-                placeholder="Select a source"
-                searchPlaceholder="Search sources..."
-                emptyMessage="No sources found."
-                disabled={isSaving || !!lockedSourceId}
-                renderItem={(item, _isSelected, searchQuery) => (
-                  <div className="flex items-center gap-2">
-                    <img
-                      src={(item.icon as string) || '/icons/connection.svg'}
-                      alt=""
-                      className="h-4 w-4 flex-shrink-0"
-                      loading="lazy"
-                      onError={(e) => {
-                        e.currentTarget.src = '/icons/connection.svg';
-                      }}
-                    />
-                    <span className="text-sm">{highlightText(item.label, searchQuery)}</span>
+            {/* Source selection (create, no preset) or read-only display (preset / edit / view) */}
+            {isCreate && !presetSourceId ? (
+              <div>
+                <label htmlFor="source-select-input" className="text-[15px] font-medium">
+                  Source <span className="text-destructive">*</span>
+                </label>
+                <div className="mt-1.5">
+                  <Combobox
+                    id="source-select"
+                    items={sourceItems}
+                    value={selectedSourceId ?? ''}
+                    onValueChange={handleSourceChange}
+                    placeholder="Select a source"
+                    searchPlaceholder="Search sources..."
+                    emptyMessage="No sources found."
+                    disabled={isSaving || !!lockedSourceId}
+                    renderItem={(item, _isSelected, searchQuery) => (
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={(item.icon as string) || '/icons/connection.svg'}
+                          alt=""
+                          className="h-4 w-4 flex-shrink-0"
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.src = '/icons/connection.svg';
+                          }}
+                        />
+                        <span className="text-sm">{highlightText(item.label, searchQuery)}</span>
+                      </div>
+                    )}
+                  />
+                </div>
+              </div>
+            ) : readOnlySource ? (
+              <div>
+                <label className="text-[15px] font-medium">Source</label>
+                <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-md border bg-muted/50 text-sm">
+                  <img
+                    src={readOnlySource.icon || '/icons/connection.svg'}
+                    alt=""
+                    className="h-4 w-4"
+                    onError={(e) => {
+                      e.currentTarget.src = '/icons/connection.svg';
+                    }}
+                  />
+                  <span data-testid="connection-source-name">
+                    {readOnlySource.name || readOnlySource.sourceName || '—'}
+                  </span>
+                  <span className="text-muted-foreground">({readOnlySource.sourceName})</span>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Destination Schema + Normalize — inline for generic sources,
+                tucked under Advanced options for custom sources (they rarely
+                need to touch these). */}
+            {connectionView ? (
+              <div>
+                <button
+                  type="button"
+                  data-testid="advanced-options-toggle"
+                  onClick={() => {
+                    const next = !advancedOptionsOpen;
+                    setAdvancedOptionsOpen(next);
+                    if (next) {
+                      trackEvent(ANALYTICS_EVENTS.CONNECTION_ADVANCED_OPTIONS_EXPANDED, {
+                        source_type: readOnlySource?.sourceName,
+                      });
+                    }
+                  }}
+                  className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground"
+                >
+                  Advanced options
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 transition-transform',
+                      advancedOptionsOpen && 'rotate-180'
+                    )}
+                  />
+                </button>
+                {advancedOptionsOpen && (
+                  <div className="mt-3 space-y-6">
+                    {destinationSchemaField}
+                    {normalizeToggleField}
                   </div>
                 )}
-              />
-            </div>
-          </div>
-        ) : readOnlySource ? (
-          <div>
-            <label className="text-[15px] font-medium">Source</label>
-            <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-md border bg-muted/50 text-sm">
-              <img
-                src={readOnlySource.icon || '/icons/connection.svg'}
-                alt=""
-                className="h-4 w-4"
-                onError={(e) => {
-                  e.currentTarget.src = '/icons/connection.svg';
-                }}
-              />
-              <span data-testid="connection-source-name">
-                {readOnlySource.name || readOnlySource.sourceName || '—'}
-              </span>
-              <span className="text-muted-foreground">({readOnlySource.sourceName})</span>
-            </div>
-          </div>
-        ) : null}
+              </div>
+            ) : (
+              <>
+                {destinationSchemaField}
+                {normalizeToggleField}
+              </>
+            )}
 
-        {/* Normalize toggle */}
-        <div className="flex items-center justify-between">
-          <label className="text-[15px] font-medium">Normalize data after sync</label>
-          <Switch
-            checked={normalize}
-            onCheckedChange={setNormalize}
-            disabled={disabled || isSaving}
-            data-testid="normalize-toggle"
-          />
+            {/* Schema discovery loading */}
+            {isDiscovering && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Discovering schema...
+              </div>
+            )}
+
+            {/* Stream configuration table */}
+            {streams.length > 0 && !isDiscovering && (
+              <StreamConfigTable
+                streams={streams}
+                filteredStreams={filteredStreams}
+                allSelected={allSelected}
+                incrementalAllStreams={incrementalAllStreams}
+                expandedStreams={expandedStreams}
+                streamSearch={streamSearch}
+                disabled={disabled}
+                isSaving={isSaving}
+                onStreamSearchChange={setStreamSearch}
+                onToggleAllStreams={toggleAllStreams}
+                onIncrementalAllToggle={handleIncrementalAllToggle}
+                onToggleStream={toggleStream}
+                onUpdateStreamSyncMode={updateStreamSyncMode}
+                onUpdateStreamDestMode={updateStreamDestMode}
+                onUpdateStreamCursorField={updateStreamCursorField}
+                onUpdateStreamPrimaryKey={updateStreamPrimaryKey}
+                onToggleStreamExpand={toggleStreamExpand}
+                onToggleColumn={toggleColumn}
+                streamNoun={connectionView?.streamNoun}
+                showIncremental={connectionView ? connectionView.supportsIncremental : true}
+                allowedDestModes={connectionView?.allowedDestModes}
+                onConceptFocus={setActiveConcept}
+                advancedOpen={advancedStreamsOpen}
+                onToggleAdvanced={() => setAdvancedStreamsOpen((o) => !o)}
+              />
+            )}
+          </div>
+          <ConnectionHelpPanel activeConcept={activeConcept} />
         </div>
-
-        {/* Schema discovery loading */}
-        {isDiscovering && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Discovering schema...
-          </div>
-        )}
-
-        {/* Stream configuration table */}
-        {streams.length > 0 && !isDiscovering && (
-          <StreamConfigTable
-            streams={streams}
-            filteredStreams={filteredStreams}
-            allSelected={allSelected}
-            incrementalAllStreams={incrementalAllStreams}
-            expandedStreams={expandedStreams}
-            streamSearch={streamSearch}
-            disabled={disabled}
-            isSaving={isSaving}
-            onStreamSearchChange={setStreamSearch}
-            onToggleAllStreams={toggleAllStreams}
-            onIncrementalAllToggle={handleIncrementalAllToggle}
-            onToggleStream={toggleStream}
-            onUpdateStreamSyncMode={updateStreamSyncMode}
-            onUpdateStreamDestMode={updateStreamDestMode}
-            onUpdateStreamCursorField={updateStreamCursorField}
-            onUpdateStreamPrimaryKey={updateStreamPrimaryKey}
-            onToggleStreamExpand={toggleStreamExpand}
-            onToggleColumn={toggleColumn}
-          />
-        )}
       </div>
 
       {!isView &&

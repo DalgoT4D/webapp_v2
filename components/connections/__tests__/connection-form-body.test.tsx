@@ -14,7 +14,13 @@ import { FormMode } from '@/constants/connections';
 // ============ Mocks ============
 
 jest.mock('@/hooks/api/useSources', () => ({
-  useSources: () => ({ data: [{ sourceId: 'src-1', name: 'Attendance Sheet', icon: '' }] }),
+  useSources: () => ({
+    data: [
+      { sourceId: 'src-1', name: 'Attendance Sheet', sourceName: 'Postgres', icon: '' },
+      { sourceId: 'gs-1', name: 'My Sheet', sourceName: 'Google Sheets', icon: '' },
+      { sourceId: 'kb-1', name: 'My Kobo', sourceName: 'KoboToolbox', icon: '' },
+    ],
+  }),
 }));
 
 jest.mock('@/hooks/useBackendWebSocket', () => ({
@@ -26,7 +32,7 @@ jest.mock('@/hooks/useBackendWebSocket', () => ({
 }));
 
 jest.mock('../stream-config-table', () => ({
-  StreamConfigTable: () => <div data-testid="stream-config-table" />,
+  StreamConfigTable: (_props: Record<string, unknown>) => <div data-testid="stream-config-table" />,
 }));
 
 jest.mock('../hooks/useStreamConfig', () => ({
@@ -115,5 +121,58 @@ describe('ConnectionFormBody', () => {
 
     expect(screen.getByTestId('wizard-footer')).toBeInTheDocument();
     expect(screen.queryByTestId('save-connection-btn')).not.toBeInTheDocument();
+  });
+});
+
+describe('ConnectionFormBody split help + custom view', () => {
+  it('renders the help panel in every mode', () => {
+    render(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="src-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+    expect(screen.getByTestId('connection-help-panel')).toBeInTheDocument();
+  });
+
+  it('shows schema + normalize inline for a generic source', () => {
+    render(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="src-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+    expect(screen.getByTestId('destination-schema-input')).toBeInTheDocument();
+    expect(screen.queryByTestId('advanced-options-toggle')).not.toBeInTheDocument();
+  });
+
+  it('tucks schema + normalize under Advanced options for a custom source', () => {
+    render(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="gs-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+    expect(screen.getByTestId('advanced-options-toggle')).toBeInTheDocument();
+    // collapsed by default
+    expect(screen.queryByTestId('destination-schema-input')).not.toBeInTheDocument();
+  });
+
+  it('shows the source chip for a custom source', () => {
+    render(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="gs-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+    expect(screen.getByTestId('connection-source-chip')).toHaveTextContent('My Sheet');
   });
 });
