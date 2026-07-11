@@ -23,6 +23,13 @@ jest.mock('@/hooks/api/useSources', () => ({
   }),
 }));
 
+jest.mock('@/hooks/api/useConnections', () => ({
+  useConnection: () => ({ data: null }),
+  createConnection: jest.fn(),
+  updateConnection: jest.fn(),
+  triggerSync: jest.fn(),
+}));
+
 jest.mock('@/hooks/useBackendWebSocket', () => ({
   useBackendWebSocket: () => ({
     sendJsonMessage: jest.fn(),
@@ -33,6 +40,12 @@ jest.mock('@/hooks/useBackendWebSocket', () => ({
 
 jest.mock('../stream-config-table', () => ({
   StreamConfigTable: (_props: Record<string, unknown>) => <div data-testid="stream-config-table" />,
+}));
+
+jest.mock('../connection-help-panel', () => ({
+  ConnectionHelpPanel: (_props: Record<string, unknown>) => (
+    <div data-testid="connection-help-panel" />
+  ),
 }));
 
 jest.mock('../hooks/useStreamConfig', () => ({
@@ -61,6 +74,25 @@ jest.mock('../hooks/useStreamConfig', () => ({
 jest.mock('@/lib/toast', () => ({
   toastSuccess: { created: jest.fn(), updated: jest.fn(), deleted: jest.fn(), generic: jest.fn() },
   toastError: { save: jest.fn(), api: jest.fn(), delete: jest.fn() },
+}));
+
+jest.mock('@/lib/analytics', () => ({
+  trackEvent: jest.fn(),
+}));
+
+jest.mock('@/components/ingest/sources/custom/registry', () => ({
+  getCustomSource: (sourceName: string) => {
+    if (sourceName === 'Google Sheets') {
+      return {
+        connectionView: {
+          streamNoun: 'sheet',
+          supportsIncremental: false,
+          allowedDestModes: ['overwrite'],
+        },
+      };
+    }
+    return null;
+  },
 }));
 
 // ============ ConnectionFormBody Tests ============
@@ -174,5 +206,20 @@ describe('ConnectionFormBody split help + custom view', () => {
       />
     );
     expect(screen.getByTestId('connection-source-chip')).toHaveTextContent('My Sheet');
+  });
+
+  it('hides the read-only Source box for a custom source (chip only)', () => {
+    render(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="gs-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+    // Custom source should show the chip
+    expect(screen.getByTestId('connection-source-chip')).toBeInTheDocument();
+    // Custom source should NOT show the read-only source box
+    expect(screen.queryByTestId('connection-source-name')).not.toBeInTheDocument();
   });
 });

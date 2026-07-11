@@ -173,7 +173,9 @@ export function ConnectionFormBody({
           const discoveryDefaults = {
             selected: !!connectionView,
             syncMode: SyncMode.FULL_REFRESH,
-            destinationSyncMode: DestinationSyncMode.OVERWRITE,
+            destinationSyncMode: connectionView
+              ? connectionView.allowedDestModes[0]
+              : DestinationSyncMode.OVERWRITE,
           };
           setStreams(catalog.streams.map((s) => parseCatalogStream(s, discoveryDefaults)));
           setDiscoveredCatalog(catalog);
@@ -340,7 +342,7 @@ export function ConnectionFormBody({
   return (
     <>
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-5">
-        <div className="grid grid-cols-[55fr_45fr] gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-[55fr_45fr] gap-6">
           <div className="space-y-6">
             {/* Persistent source chip — custom sources only, replaces the
                 create-only green banner below with a friendly, always-shown
@@ -425,7 +427,7 @@ export function ConnectionFormBody({
                   />
                 </div>
               </div>
-            ) : readOnlySource ? (
+            ) : readOnlySource && !connectionView ? (
               <div>
                 <label className="text-[15px] font-medium">Source</label>
                 <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-md border bg-muted/50 text-sm">
@@ -453,6 +455,7 @@ export function ConnectionFormBody({
                 <button
                   type="button"
                   data-testid="advanced-options-toggle"
+                  aria-expanded={advancedOptionsOpen}
                   onClick={() => {
                     const next = !advancedOptionsOpen;
                     setAdvancedOptionsOpen(next);
