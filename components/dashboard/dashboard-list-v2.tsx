@@ -108,7 +108,11 @@ import { useLandingPage } from '@/hooks/api/useLandingPage';
 import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
 import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
-import { AUDIENCE_BADGE_LABELS, isSharedWithViewer } from './dashboard-list-utils';
+import {
+  AUDIENCE_BADGE_LABELS,
+  audienceBadgeTitle,
+  isSharedWithViewer,
+} from './dashboard-list-utils';
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => any>(
@@ -379,7 +383,13 @@ export function DashboardListV2() {
   // Get active filter count
   const getActiveFilterCount = () => {
     let count = 0;
-    if (nameFilters.text || nameFilters.showFavorites || nameFilters.showLocked) count++;
+    if (
+      nameFilters.text ||
+      nameFilters.showFavorites ||
+      nameFilters.showLocked ||
+      nameFilters.showShared
+    )
+      count++;
     if (ownerFilters.length > 0) count++;
     if (dateFilters.range !== 'all') count++;
     return count;
@@ -851,6 +861,7 @@ export function DashboardListV2() {
                         variant="outline"
                         className="text-sm bg-blue-50 text-blue-700 border-blue-200"
                         data-testid={`dashboard-badge-audience-${dashboard.id}`}
+                        title={audienceBadgeTitle(audienceBadgeLabel, dashboard.general_level)}
                       >
                         <Shield className="w-3 h-3 mr-1" />
                         {audienceBadgeLabel}

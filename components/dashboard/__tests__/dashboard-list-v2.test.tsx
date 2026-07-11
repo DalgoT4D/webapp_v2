@@ -108,10 +108,45 @@ describe('DashboardListV2 — sharing badges', () => {
       baseDashboard({
         id: 2,
         general_audience: audience as Dashboard['general_audience'],
+        general_level: 'view',
         is_owner: true,
       }),
     ]);
-    expect(screen.getByTestId('dashboard-badge-audience-2')).toHaveTextContent(label);
+    const badge = screen.getByTestId('dashboard-badge-audience-2');
+    expect(badge).toHaveTextContent(label);
+    // general_level surfaces in the tooltip, "{audience} · {level}" — the same
+    // format as ShareModal's read-only General-access summary.
+    expect(badge).toHaveAttribute('title', `${label} · Viewer`);
+  });
+
+  it('shows the Editor level in the audience badge tooltip for general_level=edit', () => {
+    setup([
+      baseDashboard({
+        id: 9,
+        general_audience: 'all_users',
+        general_level: 'edit',
+        is_owner: true,
+      }),
+    ]);
+    expect(screen.getByTestId('dashboard-badge-audience-9')).toHaveAttribute(
+      'title',
+      'Everyone in org · Editor'
+    );
+  });
+
+  it('falls back to the bare audience label in the tooltip when general_level is null', () => {
+    setup([
+      baseDashboard({
+        id: 10,
+        general_audience: 'admins',
+        general_level: null,
+        is_owner: true,
+      }),
+    ]);
+    expect(screen.getByTestId('dashboard-badge-audience-10')).toHaveAttribute(
+      'title',
+      'Admins only'
+    );
   });
 
   it('shows no audience/private badge when general_audience is null', () => {
@@ -150,5 +185,24 @@ describe('DashboardListV2 — sharing badges', () => {
 
     expect(screen.queryByText('Mine')).not.toBeInTheDocument();
     expect(screen.getByText('Shared With Me')).toBeInTheDocument();
+  });
+
+  it('counts the shared filter as active: shows the filter banner and the filtered-empty state', async () => {
+    const user = userEvent.setup();
+    // Only owned dashboards — the shared filter empties the list entirely.
+    setup([baseDashboard({ id: 11, title: 'Mine Alone', is_owner: true })]);
+
+    // No banner while no filter is active.
+    expect(screen.queryByText('1 filter active')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('dashboard-name-filter-trigger'));
+    await user.click(screen.getByTestId('dashboard-shared-filter-checkbox'));
+
+    // getActiveFilterCount now includes showShared → banner + Clear all render.
+    expect(screen.getByText('1 filter active')).toBeInTheDocument();
+    expect(screen.getByText('Clear all')).toBeInTheDocument();
+    // Emptied-by-filter state, not the no-dashboards-yet state.
+    expect(screen.getByText('No dashboards found')).toBeInTheDocument();
+    expect(screen.queryByText('No dashboards yet')).not.toBeInTheDocument();
   });
 });
