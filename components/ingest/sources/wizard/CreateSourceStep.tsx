@@ -1,20 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ConnectorConfigForm } from '@/components/connectors/ConnectorConfigForm';
 import { parseAirbyteSpec } from '@/components/connectors/spec-parser';
 import { cleanFormValues, extractSpecDefaults } from '@/components/connectors/utils';
-import type { FieldNode, ParsedSpec } from '@/components/connectors/types';
-import {
-  useSourceSpec,
-  GOOGLE_SHEETS_SOURCE_DEFINITION_ID,
-  getSourceOAuthConsent,
-  createOAuthSource,
-} from '@/hooks/api/useSources';
+import type { ParsedSpec } from '@/components/connectors/types';
+import { useSourceSpec, getSourceOAuthConsent, createOAuthSource } from '@/hooks/api/useSources';
 import { openOAuthPopup } from '@/components/connectors/oauth-popup';
 import { useSourceSave } from '@/hooks/useSourceSave';
 import { trackEvent } from '@/lib/analytics';
@@ -22,11 +17,9 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { toastError, toastSuccess } from '@/lib/toast';
 import type { SourceDefinition } from '@/types/source';
 import { SourceHelperPanel } from './SourceHelperPanel';
-import {
-  GoogleSheetsAuth,
-  GSHEETS_SERVICE_AUTH_TYPE,
-  type GsheetsAuthMode,
-} from '@/components/ingest/sources/GoogleSheetsAuth';
+import { getCustomSource } from '@/components/ingest/sources/custom/registry';
+import { SOURCE_NAME_GOOGLE_SHEETS } from '@/components/ingest/sources/custom/constants';
+import type { CustomSourceOAuth } from '@/components/ingest/sources/custom/types';
 
 interface Props {
   def: SourceDefinition;
@@ -35,17 +28,15 @@ interface Props {
 }
 
 export function CreateSourceStep({ def, onCreated, onBack }: Props) {
-  const isGoogleSheets = def.sourceDefinitionId === GOOGLE_SHEETS_SOURCE_DEFINITION_ID;
+  // Google Sheets and KoboToolbox get a hand-tailored form + docs panel; every other
+  // source falls back to the generic spec-driven form with no panel.
+  const custom = getCustomSource(def.name);
+  const isGoogleSheets = def.name === SOURCE_NAME_GOOGLE_SHEETS;
   const { data: spec, isLoading: specLoading } = useSourceSpec(def.sourceDefinitionId);
   const [name, setName] = useState('');
   const { control, setValue, getValues, reset } = useForm({
     defaultValues: {} as Record<string, unknown>,
   });
-
-  // Google Sheets auth mode: 'google' (Sign in with Google, default) or 'service'
-  // (service-account JSON). Existing users authenticate with a service account, so the
-  // dropdown must keep that path reachable.
-  const [authMode, setAuthMode] = useState<GsheetsAuthMode>('google');
 
   // Two-phase Google flow: "Sign in with Google" authorizes and stashes the
   // redeem ref; the footer's Next then creates the source from that ref. Kept
@@ -67,23 +58,6 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
     [spec]
   );
 
-  // The auth block is the oneOf whose discriminator is `auth_type`. For Google Sheets
-  // the GoogleSheetsAuth control replaces it — the raw OAuth credential fields (client
-  // id/secret/refresh token) must never render, and the service-account branch is shown
-  // only when the user picks it from the dropdown.
-  const authField = useMemo<FieldNode | null>(
-    () => parsedSpec?.fields.find((f) => f.type === 'oneOf' && f.constKey === 'auth_type') ?? null,
-    [parsedSpec]
-  );
-
-  // Everything except the auth block, for Google Sheets only — matches SourceForm's
-  // nonAuthSpec pattern. Non-Google sources render the full parsed spec unchanged.
-  const nonAuthSpec = useMemo<ParsedSpec | null>(() => {
-    if (!parsedSpec) return null;
-    if (!isGoogleSheets || !authField) return parsedSpec;
-    return { ...parsedSpec, fields: parsedSpec.fields.filter((f) => f !== authField) };
-  }, [parsedSpec, isGoogleSheets, authField]);
-
   // Populate the form with the spec's defaults once per source definition. Guarded by
   // a ref (keyed on def.sourceDefinitionId) rather than depending on `parsedSpec`
   // directly — SWR-backed hooks return a referentially stable object in production,
@@ -100,12 +74,11 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
 
   const getConfig = useCallback(() => {
     const formValues = getValues();
-    // For Google Sheets, clean against nonAuthSpec (the auth block is handled by
-    // GoogleSheetsAuth). Field inclusion is value-driven, so the service-account values
-    // the dropdown wrote still flow through in service mode.
-    const fieldsForClean = isGoogleSheets ? nonAuthSpec?.fields : parsedSpec?.fields;
-    return fieldsForClean ? cleanFormValues(formValues, fieldsForClean) : formValues;
-  }, [getValues, parsedSpec, nonAuthSpec, isGoogleSheets]);
+    // Clean against the full spec. cleanFormValues is value-driven, so it keeps whatever
+    // the form wrote (service-account creds, or the OAuth discriminator) while coercing
+    // number fields — the custom form is the single owner of which auth fields exist.
+    return parsedSpec?.fields ? cleanFormValues(formValues, parsedSpec.fields) : formValues;
+  }, [getValues, parsedSpec]);
 
   const { save, loading, setupLogs } = useSourceSave({
     sourceDefId: def.sourceDefinitionId,
@@ -118,24 +91,6 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
       onCreated(sourceId);
     },
   });
-
-  // Required service-account fields present? Gates the footer Next in service mode so we
-  // don't fire a WS test that is guaranteed to fail on empty credentials.
-  const watchedCreds = useWatch({
-    control,
-    name: authField?.path.join('.') ?? '__no_auth__',
-  }) as Record<string, unknown> | undefined;
-  const serviceReady = useMemo(() => {
-    if (!authField) return false;
-    const required = (authField.oneOfSubFields ?? []).filter(
-      (f) => f.parentValue === GSHEETS_SERVICE_AUTH_TYPE && f.required
-    );
-    if (required.length === 0) return true;
-    return required.every((f) => {
-      const val = watchedCreds?.[f.path[f.path.length - 1]];
-      return typeof val === 'string' ? val.trim() !== '' : val !== null && val !== undefined;
-    });
-  }, [authField, watchedCreds]);
 
   // Phase 1: open Google consent, stash the redeem ref. No source is created yet.
   const handleAuthorizeGoogle = useCallback(async () => {
@@ -188,21 +143,16 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
     }
   }, [oauthRef, def.sourceDefinitionId, name, getConfig, onCreated]);
 
-  // Switching to service-account discards a stale OAuth ref so the two paths never cross.
-  const handleAuthModeChange = useCallback((next: GsheetsAuthMode) => {
-    setAuthMode(next);
-    if (next === 'service') setOauthRef(null);
-  }, []);
-
   const busy = loading || authorizing || creatingGoogle;
-  // The footer Next drives the OAuth create path only in google mode; service mode falls
-  // back to the standard WS-test → createSource flow (same as non-Google sources).
-  const useGoogleOAuthFlow = isGoogleSheets && authMode === 'google';
+  // Once a Google ref is acquired, the footer Next redeems it into a source. Without a
+  // ref (service-account path, or any other source) it falls back to the standard
+  // WS-test → createSource flow.
+  const useGoogleOAuthFlow = isGoogleSheets && !!oauthRef;
 
   return (
     <div className="flex flex-1 min-h-0 flex-col" data-testid="create-source-step">
       <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
-        <div className="grid grid-cols-[55fr_45fr] gap-6">
+        <div className={custom ? 'grid grid-cols-[55fr_45fr] gap-6' : ''}>
           <div className="space-y-5">
             <div>
               <label className="text-sm font-medium">
@@ -225,30 +175,35 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
               </div>
             )}
 
-            {nonAuthSpec && !specLoading && (
-              <ConnectorConfigForm
-                parsedSpec={nonAuthSpec}
+            {custom && parsedSpec && !specLoading && (
+              <custom.Form
+                parsedSpec={parsedSpec}
                 control={control}
                 setValue={setValue}
                 disabled={busy}
+                mode="create"
+                oauth={
+                  isGoogleSheets
+                    ? ({
+                        connected: !!oauthRef,
+                        busy: authorizing,
+                        buttonLabel: oauthRef
+                          ? 'Authenticated with Google'
+                          : 'Sign in with Google to authorize Dalgo',
+                        lockWhenConnected: true,
+                        onClick: handleAuthorizeGoogle,
+                      } satisfies CustomSourceOAuth)
+                    : undefined
+                }
               />
             )}
 
-            {isGoogleSheets && authField && !specLoading && (
-              <GoogleSheetsAuth
-                authField={authField}
+            {!custom && parsedSpec && !specLoading && (
+              <ConnectorConfigForm
+                parsedSpec={parsedSpec}
                 control={control}
                 setValue={setValue}
                 disabled={busy}
-                mode={authMode}
-                onModeChange={handleAuthModeChange}
-                oauthButtonLabel={
-                  oauthRef ? 'Authenticated with Google' : 'Sign in with Google to authorize Dalgo'
-                }
-                onOAuthClick={handleAuthorizeGoogle}
-                oauthBusy={authorizing}
-                oauthConnected={!!oauthRef}
-                lockWhenConnected
               />
             )}
 
@@ -262,7 +217,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
             )}
           </div>
 
-          <SourceHelperPanel sourceName={def.name} />
+          {custom && <SourceHelperPanel sourceName={def.name} />}
         </div>
       </div>
 
@@ -292,12 +247,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
             type="button"
             variant="primary"
             data-testid="wizard-next-btn"
-            disabled={
-              loading ||
-              !name.trim() ||
-              !parsedSpec ||
-              (isGoogleSheets && authMode === 'service' && !serviceReady)
-            }
+            disabled={loading || !name.trim() || !parsedSpec}
             onClick={() => save(name)}
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}

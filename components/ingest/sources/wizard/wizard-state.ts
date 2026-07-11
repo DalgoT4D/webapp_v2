@@ -5,20 +5,14 @@ export interface TopSource {
   category: string;
 }
 
-// Popular picker candidates, in preference order. Any whose name has no matching
-// live source-definition in the deployment is dropped, then the list is capped to
-// MAX_TOP_CARDS (see SelectSourceStep). The trailing entries are reliable
-// fallbacks so the grid still fills when a preferred connector isn't installed.
-export const MAX_TOP_CARDS = 5;
+// Popular picker candidates. Only the two custom-UI sources are surfaced as cards;
+// every other connector stays reachable through the search box. Any whose name has
+// no matching live source-definition in the deployment is dropped (see SelectSourceStep).
+export const MAX_TOP_CARDS = 2;
 
 export const TOP_SOURCES: TopSource[] = [
   { name: 'Google Sheets', category: 'Spreadsheet' },
   { name: 'KoboToolbox', category: 'Survey' },
-  { name: 'mGramSeva', category: 'Field data' },
-  { name: 'SurveyCTO', category: 'Survey' },
-  { name: 'CommCare', category: 'Field data' },
-  { name: 'Postgres', category: 'Database' },
-  { name: 'Airtable', category: 'Spreadsheet' },
 ];
 
 export interface SourceHelpStep {
@@ -46,6 +40,23 @@ const HELP: Record<string, SourceHelp> = {
       {
         title: 'Test the connection',
         body: "Hit Test to confirm Dalgo can read your sheet. You'll pick which tabs to sync in the next step.",
+      },
+    ],
+  },
+  KoboToolbox: {
+    title: 'How to connect KoboToolbox',
+    steps: [
+      {
+        title: 'Enter your KoboToolbox login',
+        body: 'Provide the username and password you use to sign in to your KoboToolbox server.',
+      },
+      {
+        title: 'Pick your server and start date',
+        body: 'Choose the base URL for your KoboToolbox region, then set the start date — data before it is not synced.',
+      },
+      {
+        title: 'Test & save',
+        body: 'Click Next — Dalgo will test the connection before saving. Extra options live under Advanced.',
       },
     ],
   },

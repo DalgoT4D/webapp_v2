@@ -18,7 +18,10 @@ it('selects a card, then fires onSelect with the definition on Next', () => {
   render(<SelectSourceStep onSelect={onSelect} onClose={jest.fn()} />);
   const card = screen.getByTestId('source-card-Google Sheets');
   expect(card).toBeInTheDocument();
-  expect(screen.getByTestId('source-card-CommCare')).toBeInTheDocument();
+  // Only the two custom-UI sources appear as cards; everything else is search-only.
+  expect(screen.getByTestId('source-card-KoboToolbox')).toBeInTheDocument();
+  expect(screen.queryByTestId('source-card-CommCare')).not.toBeInTheDocument();
+  expect(screen.queryByTestId('source-card-Postgres')).not.toBeInTheDocument();
 
   // Next is disabled until a source is picked; clicking a card only selects it.
   expect(screen.getByTestId('wizard-select-next-btn')).toBeDisabled();

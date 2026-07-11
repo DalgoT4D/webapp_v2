@@ -16,13 +16,14 @@ import { Input } from '@/components/ui/input';
 import { Combobox, highlightText } from '@/components/ui/combobox';
 import type { ComboboxItem } from '@/components/ui/combobox';
 import { ConnectorConfigForm } from '@/components/connectors/ConnectorConfigForm';
-import {
-  GoogleSheetsAuth,
-  type GsheetsAuthMode,
-} from '@/components/ingest/sources/GoogleSheetsAuth';
+import { getCustomSource } from '@/components/ingest/sources/custom/registry';
+import { SOURCE_NAME_GOOGLE_SHEETS } from '@/components/ingest/sources/custom/constants';
+import type { CustomSourceOAuth } from '@/components/ingest/sources/custom/types';
+import { SourceHelperPanel } from '@/components/ingest/sources/wizard/SourceHelperPanel';
 import { parseAirbyteSpec } from '@/components/connectors/spec-parser';
 import { cleanFormValues, extractSpecDefaults } from '@/components/connectors/utils';
 import type { FieldNode, ParsedSpec } from '@/components/connectors/types';
+import { cn } from '@/lib/utils';
 import {
   useSourceDefinitions,
   useSourceSpec,
@@ -71,16 +72,18 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   // Google OAuth: the credentials never reach the browser. The "Authenticate" action
   // runs consent → complete, and the backend creates/updates the source server-side.
   const [editOauthConnecting, setEditOauthConnecting] = useState(false);
-  // For Google Sheets: 'google' shows only the Sign-in button; 'service' reveals the
-  // service-account JSON field. The raw OAuth client id/secret/refresh-token inputs are
-  // never shown — the OAuth branch is the sign-in button.
-  const [authMode, setAuthMode] = useState<GsheetsAuthMode>('google');
   // useSourceSave owns its own setupLogs but has no external reset — this flag lets us
   // hide a stale failure banner the instant the create dialog reopens or the source
   // type changes, without waiting for the next save/connect attempt to clear it.
   const [createLogsDismissed, setCreateLogsDismissed] = useState(false);
 
   const isGoogleSheets = selectedDefId === GOOGLE_SHEETS_SOURCE_DEFINITION_ID;
+
+  // Google Sheets and KoboToolbox get a hand-tailored form + docs panel; other sources
+  // keep the generic spec-driven form. Resolved by the definition's name.
+  const selectedName = definitions.find((d) => d.sourceDefinitionId === selectedDefId)?.name ?? '';
+  const custom = getCustomSource(selectedName);
+  const isGoogleSheetsCustom = selectedName === SOURCE_NAME_GOOGLE_SHEETS;
 
   // An existing Google-Sheets source already authed via OAuth: its stored credentials
   // use the Client (OAuth) discriminator. Such a source is already connected — editing
@@ -114,21 +117,6 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     return parseAirbyteSpec(spec);
   }, [spec]);
 
-  // The auth block is the oneOf whose discriminator is `auth_type`. For Google Sheets
-  // we render it ourselves (Google vs manual); for other sources it stays in the form.
-  const authField = useMemo<FieldNode | null>(
-    () => parsedSpec?.fields.find((f) => f.type === 'oneOf' && f.constKey === 'auth_type') ?? null,
-    [parsedSpec]
-  );
-
-  // Everything except the auth block — rendered by ConnectorConfigForm for Google Sheets
-  // so the auth fields don't validate unless the user chose manual mode.
-  const nonAuthSpec = useMemo<ParsedSpec | null>(() => {
-    if (!parsedSpec) return null;
-    if (!isGoogleSheets || !authField) return parsedSpec;
-    return { ...parsedSpec, fields: parsedSpec.fields.filter((f) => f !== authField) };
-  }, [parsedSpec, isGoogleSheets, authField]);
-
   // React Hook Form
   const { control, handleSubmit, setValue, getValues, reset } = useForm({
     defaultValues: {} as Record<string, unknown>,
@@ -139,12 +127,6 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     if (open && isEdit && source) {
       setSelectedDefId(source.sourceDefinitionId);
       setSourceName(source.name);
-      // default the auth mode from the stored credentials: service account -> service,
-      // OAuth (Client) or anything else -> google (Sign in with Google)
-      const creds = source.connectionConfiguration?.credentials as
-        | { auth_type?: string }
-        | undefined;
-      setAuthMode(creds?.auth_type === 'Service' ? 'service' : 'google');
     }
   }, [open, isEdit, source]);
 
@@ -222,7 +204,6 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       setSelectedDefId(null);
       setCreateLogsDismissed(true);
       setSourceName('');
-      setAuthMode('google');
       reset({});
     }
   }, [open, isEdit, reset]);
@@ -378,7 +359,6 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       reset({});
       setEditSetupLogs([]);
       setCreateLogsDismissed(true);
-      setAuthMode('google');
     },
     [reset]
   );
@@ -415,7 +395,10 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent
-        className="sm:max-w-3xl max-h-[85vh] overflow-y-auto overscroll-none"
+        className={cn(
+          'max-h-[85vh] overflow-y-auto overscroll-none',
+          custom ? 'sm:max-w-[1100px]' : 'sm:max-w-3xl'
+        )}
         preventOutsideClose
       >
         <DialogHeader>
@@ -483,44 +466,44 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
             </div>
           )}
 
-          {/* Authentication — Google Sheets gets an OAuth-vs-service-account dropdown */}
-          {isGoogleSheets && parsedSpec && authField && !specLoading && (
-            <div
-              className="rounded-md border border-border p-4 bg-muted/50"
-              data-testid="gsheets-oauth"
-            >
-              <GoogleSheetsAuth
-                authField={authField}
+          {/* Config — custom sources (Google Sheets, KoboToolbox) render a tailored form
+              plus a docs panel; every other source keeps the generic spec-driven form. */}
+          {!specLoading && parsedSpec && custom ? (
+            <div className="grid grid-cols-[55fr_45fr] gap-6">
+              <div className="space-y-5">
+                <custom.Form
+                  parsedSpec={parsedSpec}
+                  control={control}
+                  setValue={setValue}
+                  disabled={loading}
+                  mode={isEdit ? 'edit' : 'create'}
+                  oauth={
+                    isGoogleSheetsCustom
+                      ? ({
+                          connected: isConnected,
+                          busy: oauthConnecting,
+                          buttonLabel: isEdit
+                            ? 'Re-authenticate & Save'
+                            : 'Sign in with Google to authorize Dalgo',
+                          lockWhenConnected: false,
+                          onClick: handleConnectGoogle,
+                        } satisfies CustomSourceOAuth)
+                      : undefined
+                  }
+                />
+              </div>
+              <SourceHelperPanel sourceName={selectedName} />
+            </div>
+          ) : (
+            !specLoading &&
+            parsedSpec && (
+              <ConnectorConfigForm
+                parsedSpec={parsedSpec}
                 control={control}
                 setValue={setValue}
                 disabled={loading}
-                mode={authMode}
-                onModeChange={setAuthMode}
-                oauthButtonLabel={
-                  isEdit ? 'Re-authenticate & Save' : 'Authenticate with Google & Create Source'
-                }
-                onOAuthClick={handleConnectGoogle}
-                oauthBusy={oauthConnecting}
-                oauthConnected={isConnected}
               />
-              <p className="mt-2 text-xs text-muted-foreground">
-                {authMode === 'service'
-                  ? 'Paste the service-account JSON key. Dalgo uses it to read your sheet.'
-                  : isConnected
-                    ? 'Already connected. Re-authenticate only if the connection stopped working — it will re-save the source.'
-                    : 'Enter a name and spreadsheet link above, then authenticate — the source is created on success. No credentials needed.'}
-              </p>
-            </div>
-          )}
-
-          {/* Dynamic Config Form — for Google Sheets the auth block is rendered above */}
-          {nonAuthSpec && !specLoading && (
-            <ConnectorConfigForm
-              parsedSpec={nonAuthSpec}
-              control={control}
-              setValue={setValue}
-              disabled={loading}
-            />
+            )
           )}
 
           {/* Error logs from failed connection test */}
@@ -546,26 +529,18 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
             >
               Cancel
             </Button>
-            {/* On the Google OAuth create path the "Authenticate" button creates the
-                source, so the test-and-save button is not shown. */}
-            {!(isGoogleSheets && authMode === 'google' && !isEdit) && (
-              <Button
-                type="submit"
-                variant="primary"
-                className="uppercase"
-                disabled={
-                  loading ||
-                  !selectedDefId ||
-                  !sourceName.trim() ||
-                  !parsedSpec ||
-                  (isGoogleSheets && authMode === 'google' && !isConnected)
-                }
-                data-testid="source-save-btn"
-              >
-                {loading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-                Save Changes And Test
-              </Button>
-            )}
+            {/* Test-and-save handles the service-account (and every non-Google) path. The
+                Google OAuth button inside the form is the alternative create/re-auth action. */}
+            <Button
+              type="submit"
+              variant="primary"
+              className="uppercase"
+              disabled={loading || !selectedDefId || !sourceName.trim() || !parsedSpec}
+              data-testid="source-save-btn"
+            >
+              {loading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Save Changes And Test
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
