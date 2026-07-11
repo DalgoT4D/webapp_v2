@@ -8,7 +8,6 @@ import { Toaster } from 'sonner';
 import { usePostHogIdentify } from '@/hooks/usePostHogIdentify';
 import { useFeatureTracking } from '@/hooks/useFeatureTracking';
 
-// Define public routes that don't require authentication
 const publicRoutes = ['/login', '/forgot-password', '/resetpassword', '/invitations', '/welcome'];
 
 interface ClientLayoutProps {
@@ -26,7 +25,6 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     pathname.startsWith('/share/report/') ||
     pathname.startsWith('/invitations/');
 
-  // Always bypass auth for public dashboard/report routes
   if (
     pathname.startsWith('/share/dashboard/') ||
     pathname.startsWith('/share/report/') ||
@@ -41,7 +39,6 @@ export function ClientLayout({ children }: ClientLayoutProps) {
   }
 
   if (isPublicRoute) {
-    // Public routes (login, etc.) - no auth guard or main layout
     return (
       <div id="client-layout-public-route">
         {children}
@@ -50,7 +47,6 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     );
   }
 
-  // Protected routes - require authentication and include main layout
   return (
     <div id="client-layout-protected-route">
       <NavigationTitleHandler />

@@ -1,23 +1,8 @@
 import type { Metadata } from 'next';
-import { Anek_Latin } from 'next/font/google';
 import './globals.css';
 import { SWRProvider } from '@/lib/swr';
 import { ClientLayout } from '@/components/client-layout';
 import { PostHogProvider } from '@/app/posthog-provider';
-
-const anekLatin = Anek_Latin({
-  variable: '--font-anek-latin',
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-});
-
-const anekMono = Anek_Latin({
-  variable: '--font-anek-mono',
-  subsets: ['latin'],
-  display: 'swap',
-  weight: ['400', '500', '600', '700'],
-});
 
 export const metadata: Metadata = {
   description: 'Empowering organizations with intelligent data insights',
@@ -38,10 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${anekLatin.variable} ${anekMono.variable} antialiased font-sans`}
-        suppressHydrationWarning={true}
-      >
+      <body className="antialiased font-sans" suppressHydrationWarning={true}>
         <PostHogProvider>
           <SWRProvider>
             <ClientLayout>{children}</ClientLayout>
