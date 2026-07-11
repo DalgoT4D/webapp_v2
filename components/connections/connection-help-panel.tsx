@@ -20,7 +20,7 @@ export function ConnectionHelpPanel({ activeConcept }: ConnectionHelpPanelProps)
 
   return (
     <aside
-      className="rounded-xl border bg-muted/30 p-6 overflow-y-auto"
+      className="rounded-xl border bg-muted/30 p-6 overflow-y-auto sticky top-0 self-start max-h-[70vh]"
       data-testid="connection-help-panel"
     >
       <h3 className="text-base font-semibold">What these options mean</h3>
