@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, SlidersHorizontal } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -14,8 +14,16 @@ import {
 } from '@/components/ui/select';
 import { Combobox } from '@/components/ui/combobox';
 import type { ComboboxItem } from '@/components/ui/combobox';
+import { cn } from '@/lib/utils';
 import { SyncMode, DestinationSyncMode } from '@/constants/connections';
 import type { SourceStream } from '@/types/connections';
+import type { ConnectionConceptId } from './constants';
+
+// Base (always-visible) columns: stream name + sync toggle.
+const BASE_COLUMN_COUNT = 2;
+// Columns revealed only when advanced settings are open: destination mode,
+// cursor field, primary key, and the per-row column-expand chevron.
+const ADVANCED_ONLY_COLUMN_COUNT = 4;
 
 interface StreamConfigTableProps {
   streams: SourceStream[];
@@ -36,6 +44,17 @@ interface StreamConfigTableProps {
   onUpdateStreamPrimaryKey: (streamName: string, primaryKey: string[]) => void;
   onToggleStreamExpand: (streamName: string) => void;
   onToggleColumn: (streamName: string, columnName: string) => void;
+  // Label used for the stream noun in headings/columns (e.g. "Form", "Sheet").
+  streamNoun?: string;
+  // Hide the Incremental column entirely (some sources never support it).
+  showIncremental?: boolean;
+  // Restrict which destination sync modes are selectable for this source.
+  allowedDestModes?: DestinationSyncMode[];
+  // Fired on focus/hover of an advanced control, for the shared help panel.
+  onConceptFocus?: (id: ConnectionConceptId | null) => void;
+  // Shared advanced-settings expand bar state, owned by the parent form.
+  advancedOpen: boolean;
+  onToggleAdvanced: () => void;
 }
 
 export function StreamConfigTable({
@@ -57,14 +76,45 @@ export function StreamConfigTable({
   onUpdateStreamPrimaryKey,
   onToggleStreamExpand,
   onToggleColumn,
+  streamNoun = 'Stream',
+  showIncremental = true,
+  allowedDestModes = [
+    DestinationSyncMode.OVERWRITE,
+    DestinationSyncMode.APPEND,
+    DestinationSyncMode.APPEND_DEDUP,
+  ],
+  onConceptFocus,
+  advancedOpen,
+  onToggleAdvanced,
 }: StreamConfigTableProps) {
+  const showIncrementalColumn = advancedOpen && showIncremental;
+  // Incremental / Destination / Cursor / Primary Key columns (and the
+  // per-row column-expand chevron) render only when advanced is open.
+  const colCount =
+    BASE_COLUMN_COUNT +
+    (showIncrementalColumn ? 1 : 0) +
+    (advancedOpen ? ADVANCED_ONLY_COLUMN_COUNT : 0);
   return (
     <div>
-      {/* Header with stream count */}
-      <div className="mb-3">
+      {/* Header with stream count + shared advanced toggle */}
+      <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold">
-          Streams ({streams.filter((s) => s.selected).length}/{streams.length} selected)
+          {streamNoun === 'Stream' ? 'Streams' : streamNoun} (
+          {streams.filter((s) => s.selected).length}/{streams.length} selected)
         </h3>
+        <button
+          type="button"
+          onClick={onToggleAdvanced}
+          className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+          data-testid="advanced-streams-toggle"
+          aria-expanded={advancedOpen}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Advanced per-stream settings
+          <ChevronDown
+            className={cn('h-3.5 w-3.5 transition-transform', advancedOpen && 'rotate-180')}
+          />
+        </button>
       </div>
 
       <div className="rounded-md border">
@@ -72,33 +122,43 @@ export function StreamConfigTable({
           <colgroup>
             <col className="w-[18%]" />
             <col className="w-[60px]" />
-            <col className="w-[90px]" />
-            <col className="w-[18%]" />
-            <col className="w-[22%]" />
-            <col className="w-[22%]" />
-            <col className="w-[40px]" />
+            {showIncrementalColumn && <col className="w-[90px]" />}
+            {advancedOpen && (
+              <>
+                <col className="w-[18%]" />
+                <col className="w-[22%]" />
+                <col className="w-[22%]" />
+                <col className="w-[40px]" />
+              </>
+            )}
           </colgroup>
           <thead>
             <tr className="border-b bg-muted/50">
               <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                Stream
+                {streamNoun}
               </th>
               <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">
                 Sync?
               </th>
-              <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">
-                Incremental?
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                Destination
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                Cursor Field
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                Primary Key
-              </th>
-              <th className="px-3 py-2"></th>
+              {showIncrementalColumn && (
+                <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">
+                  Incremental?
+                </th>
+              )}
+              {advancedOpen && (
+                <>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                    Destination
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                    Cursor Field
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                    Primary Key
+                  </th>
+                  <th className="px-3 py-2"></th>
+                </>
+              )}
             </tr>
             {/* Global toggle row */}
             <tr className="border-b bg-muted/30">
@@ -120,19 +180,25 @@ export function StreamConfigTable({
                   className="scale-90"
                 />
               </td>
-              <td className="px-3 py-1.5 text-center">
-                <Switch
-                  checked={incrementalAllStreams}
-                  onCheckedChange={onIncrementalAllToggle}
-                  disabled={disabled || isSaving || !allSelected}
-                  data-testid="toggle-incremental-all"
-                  className="scale-90"
-                />
-              </td>
-              <td className="px-3 py-1.5" />
-              <td className="px-3 py-1.5" />
-              <td className="px-3 py-1.5" />
-              <td className="px-3 py-1.5" />
+              {showIncrementalColumn && (
+                <td className="px-3 py-1.5 text-center">
+                  <Switch
+                    checked={incrementalAllStreams}
+                    onCheckedChange={onIncrementalAllToggle}
+                    disabled={disabled || isSaving || !allSelected}
+                    data-testid="toggle-incremental-all"
+                    className="scale-90"
+                  />
+                </td>
+              )}
+              {advancedOpen && (
+                <>
+                  <td className="px-3 py-1.5" />
+                  <td className="px-3 py-1.5" />
+                  <td className="px-3 py-1.5" />
+                  <td className="px-3 py-1.5" />
+                </>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -218,174 +284,205 @@ export function StreamConfigTable({
                         disabled={disabled || isSaving}
                         data-testid={`stream-toggle-${stream.name}`}
                         className="scale-90"
+                        onMouseEnter={() => onConceptFocus?.('stream')}
+                        onFocus={() => onConceptFocus?.('stream')}
                       />
                     </td>
                     {/* Incremental toggle */}
-                    <td className="px-3 py-3 text-center">
-                      <Switch
-                        checked={isIncrementalChecked}
-                        onCheckedChange={(checked) => {
-                          onUpdateStreamSyncMode(
-                            stream.name,
-                            checked ? SyncMode.INCREMENTAL : SyncMode.FULL_REFRESH
-                          );
-                        }}
-                        disabled={
-                          disabled || isSaving || !isSelected || !stream.supportsIncremental
-                        }
-                        data-testid={`stream-incremental-${stream.name}`}
-                        className="scale-90"
-                      />
-                    </td>
-                    {/* Destination mode */}
-                    <td className="px-3 py-3">
-                      <Select
-                        value={stream.destinationSyncMode}
-                        onValueChange={(v) => onUpdateStreamDestMode(stream.name, v)}
-                        disabled={disabled || isSaving || !isSelected}
-                      >
-                        <SelectTrigger className="h-7 text-xs w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem
-                            value={DestinationSyncMode.OVERWRITE}
-                            disabled={isIncremental}
+                    {showIncrementalColumn && (
+                      <td className="px-3 py-3 text-center">
+                        <Switch
+                          checked={isIncrementalChecked}
+                          onCheckedChange={(checked) => {
+                            onUpdateStreamSyncMode(
+                              stream.name,
+                              checked ? SyncMode.INCREMENTAL : SyncMode.FULL_REFRESH
+                            );
+                          }}
+                          disabled={
+                            disabled || isSaving || !isSelected || !stream.supportsIncremental
+                          }
+                          data-testid={`stream-incremental-${stream.name}`}
+                          className="scale-90"
+                          onMouseEnter={() => onConceptFocus?.('sync-mode')}
+                          onFocus={() => onConceptFocus?.('sync-mode')}
+                        />
+                      </td>
+                    )}
+                    {advancedOpen && (
+                      <>
+                        {/* Destination mode */}
+                        <td className="px-3 py-3">
+                          <Select
+                            value={stream.destinationSyncMode}
+                            onValueChange={(v) => onUpdateStreamDestMode(stream.name, v)}
+                            disabled={disabled || isSaving || !isSelected}
                           >
-                            Overwrite
-                          </SelectItem>
-                          <SelectItem value={DestinationSyncMode.APPEND}>Append</SelectItem>
-                          <SelectItem value={DestinationSyncMode.APPEND_DEDUP}>
-                            Append / Dedup
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    {/* Cursor Field — always show, disabled when not incremental */}
-                    <td className="px-3 py-3 overflow-visible">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div>
-                              <Combobox
-                                mode="single"
-                                items={cursorItems}
-                                value={stream.cursorField || ''}
-                                onValueChange={(v) => onUpdateStreamCursorField(stream.name, v)}
-                                disabled={cursorDisabled}
-                                placeholder="Select..."
-                                searchPlaceholder="Search..."
-                                compact
-                                id={`cursor-${stream.name}`}
-                                className="w-full"
+                            <SelectTrigger
+                              className="h-7 text-xs w-full"
+                              onMouseEnter={() => onConceptFocus?.('dest-mode')}
+                              onFocus={() => onConceptFocus?.('dest-mode')}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allowedDestModes.includes(DestinationSyncMode.OVERWRITE) && (
+                                <SelectItem
+                                  value={DestinationSyncMode.OVERWRITE}
+                                  disabled={isIncremental}
+                                >
+                                  Overwrite
+                                </SelectItem>
+                              )}
+                              {allowedDestModes.includes(DestinationSyncMode.APPEND) && (
+                                <SelectItem value={DestinationSyncMode.APPEND}>Append</SelectItem>
+                              )}
+                              {allowedDestModes.includes(DestinationSyncMode.APPEND_DEDUP) && (
+                                <SelectItem value={DestinationSyncMode.APPEND_DEDUP}>
+                                  Append / Dedup
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        {/* Cursor Field — always show, disabled when not incremental */}
+                        <td className="px-3 py-3 overflow-visible">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div
+                                  onMouseEnter={() => onConceptFocus?.('cursor')}
+                                  onFocus={() => onConceptFocus?.('cursor')}
+                                >
+                                  <Combobox
+                                    mode="single"
+                                    items={cursorItems}
+                                    value={stream.cursorField || ''}
+                                    onValueChange={(v) => onUpdateStreamCursorField(stream.name, v)}
+                                    disabled={cursorDisabled}
+                                    placeholder="Select..."
+                                    searchPlaceholder="Search..."
+                                    compact
+                                    id={`cursor-${stream.name}`}
+                                    className="w-full"
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              {cursorDisabled && cursorDisabledReason && (
+                                <TooltipContent side="top">
+                                  <p className="text-xs">{cursorDisabledReason}</p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        </td>
+                        {/* Primary Key — always show, disabled when not incremental+append_dedup */}
+                        <td className="px-3 py-3 overflow-visible">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div
+                                  onMouseEnter={() => onConceptFocus?.('primary-key')}
+                                  onFocus={() => onConceptFocus?.('primary-key')}
+                                >
+                                  <Combobox
+                                    mode="multi"
+                                    items={pkItems}
+                                    values={stream.primaryKey || []}
+                                    onValuesChange={(vals) =>
+                                      onUpdateStreamPrimaryKey(stream.name, vals)
+                                    }
+                                    disabled={pkDisabled}
+                                    searchPlaceholder="Select keys..."
+                                    compact
+                                    id={`pk-${stream.name}`}
+                                    triggerClassName="min-h-[28px]"
+                                    className="w-full"
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              {pkDisabled && pkDisabledReason && (
+                                <TooltipContent side="top">
+                                  <p className="text-xs">{pkDisabledReason}</p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        </td>
+                        {/* Column expand */}
+                        <td className="px-1 py-3 text-center">
+                          {stream.columns.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => isSelected && onToggleStreamExpand(stream.name)}
+                              disabled={!isSelected}
+                              className="p-1 hover:bg-gray-100 rounded cursor-pointer disabled:opacity-30 disabled:cursor-default"
+                              data-testid={`expand-columns-${stream.name}`}
+                              aria-label="Toggle columns"
+                            >
+                              <ChevronDown
+                                className={`h-4 w-4 text-gray-500 transition-transform ${
+                                  expandedStreams.has(stream.name) ? 'rotate-180' : ''
+                                }`}
                               />
-                            </div>
-                          </TooltipTrigger>
-                          {cursorDisabled && cursorDisabledReason && (
-                            <TooltipContent side="top">
-                              <p className="text-xs">{cursorDisabledReason}</p>
-                            </TooltipContent>
+                            </button>
                           )}
-                        </Tooltip>
-                      </TooltipProvider>
-                    </td>
-                    {/* Primary Key — always show, disabled when not incremental+append_dedup */}
-                    <td className="px-3 py-3 overflow-visible">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div>
-                              <Combobox
-                                mode="multi"
-                                items={pkItems}
-                                values={stream.primaryKey || []}
-                                onValuesChange={(vals) =>
-                                  onUpdateStreamPrimaryKey(stream.name, vals)
-                                }
-                                disabled={pkDisabled}
-                                searchPlaceholder="Select keys..."
-                                compact
-                                id={`pk-${stream.name}`}
-                                triggerClassName="min-h-[28px]"
-                                className="w-full"
-                              />
-                            </div>
-                          </TooltipTrigger>
-                          {pkDisabled && pkDisabledReason && (
-                            <TooltipContent side="top">
-                              <p className="text-xs">{pkDisabledReason}</p>
-                            </TooltipContent>
-                          )}
-                        </Tooltip>
-                      </TooltipProvider>
-                    </td>
-                    {/* Column expand */}
-                    <td className="px-1 py-3 text-center">
-                      {stream.columns.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => isSelected && onToggleStreamExpand(stream.name)}
-                          disabled={!isSelected}
-                          className="p-1 hover:bg-gray-100 rounded cursor-pointer disabled:opacity-30 disabled:cursor-default"
-                          data-testid={`expand-columns-${stream.name}`}
-                          aria-label="Toggle columns"
-                        >
-                          <ChevronDown
-                            className={`h-4 w-4 text-gray-500 transition-transform ${
-                              expandedStreams.has(stream.name) ? 'rotate-180' : ''
-                            }`}
-                          />
-                        </button>
-                      )}
-                    </td>
+                        </td>
+                      </>
+                    )}
                   </tr>
                   {/* Expanded column selection — vertical list */}
-                  {expandedStreams.has(stream.name) && isSelected && stream.columns.length > 0 && (
-                    <tr key={`cols-${stream.name}`} className="bg-muted/30">
-                      <td colSpan={7} className="px-4 py-2">
-                        <table className="w-full">
-                          <tbody>
-                            {stream.columns.map((col) => {
-                              const isCursorField = stream.cursorField === col.name;
-                              const isPrimaryKey = stream.primaryKey?.includes(col.name);
-                              const isProtected = isCursorField || isPrimaryKey;
+                  {advancedOpen &&
+                    expandedStreams.has(stream.name) &&
+                    isSelected &&
+                    stream.columns.length > 0 && (
+                      <tr key={`cols-${stream.name}`} className="bg-muted/30">
+                        <td colSpan={colCount} className="px-4 py-2">
+                          <table className="w-full">
+                            <tbody>
+                              {stream.columns.map((col) => {
+                                const isCursorField = stream.cursorField === col.name;
+                                const isPrimaryKey = stream.primaryKey?.includes(col.name);
+                                const isProtected = isCursorField || isPrimaryKey;
 
-                              return (
-                                <tr
-                                  key={col.name}
-                                  className="border-b last:border-b-0 border-muted"
-                                >
-                                  <td className="py-1.5 px-2 w-10">
-                                    <Switch
-                                      checked={col.selected}
-                                      onCheckedChange={() => onToggleColumn(stream.name, col.name)}
-                                      disabled={disabled || isSaving || isProtected}
-                                      className="scale-75"
-                                      data-testid={`col-toggle-${stream.name}-${col.name}`}
-                                    />
-                                  </td>
-                                  <td className="py-1.5 px-2">
-                                    <span
-                                      className={`text-xs ${
-                                        isProtected ? 'text-muted-foreground' : 'text-foreground'
-                                      }`}
-                                    >
-                                      {col.name}
-                                    </span>
-                                  </td>
-                                  <td className="py-1.5 px-2 text-right">
-                                    <span className="text-xs text-muted-foreground">
-                                      {col.data_type}
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </td>
-                    </tr>
-                  )}
+                                return (
+                                  <tr
+                                    key={col.name}
+                                    className="border-b last:border-b-0 border-muted"
+                                  >
+                                    <td className="py-1.5 px-2 w-10">
+                                      <Switch
+                                        checked={col.selected}
+                                        onCheckedChange={() =>
+                                          onToggleColumn(stream.name, col.name)
+                                        }
+                                        disabled={disabled || isSaving || isProtected}
+                                        className="scale-75"
+                                        data-testid={`col-toggle-${stream.name}-${col.name}`}
+                                      />
+                                    </td>
+                                    <td className="py-1.5 px-2">
+                                      <span
+                                        className={`text-xs ${
+                                          isProtected ? 'text-muted-foreground' : 'text-foreground'
+                                        }`}
+                                      >
+                                        {col.name}
+                                      </span>
+                                    </td>
+                                    <td className="py-1.5 px-2 text-right">
+                                      <span className="text-xs text-muted-foreground">
+                                        {col.data_type}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    )}
                 </React.Fragment>
               );
             })}
