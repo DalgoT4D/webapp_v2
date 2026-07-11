@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { StreamConfigTable } from '../stream-config-table';
 import { SyncMode, DestinationSyncMode } from '@/constants/connections';
 import type { SourceStream } from '@/types/connections';
@@ -85,5 +86,34 @@ describe('StreamConfigTable progressive disclosure', () => {
     );
     // The Append/Dedup item must not be in the rendered select content.
     expect(screen.queryByText('Append / Dedup')).not.toBeInTheDocument();
+  });
+
+  it('moves the help panel to a concept when its column header is clicked', async () => {
+    const user = userEvent.setup();
+    const onConceptFocus = jest.fn();
+    render(
+      <StreamConfigTable
+        {...baseProps}
+        advancedOpen
+        onConceptFocus={onConceptFocus}
+        onToggleAdvanced={jest.fn()}
+      />
+    );
+    await user.click(screen.getByTestId('concept-header-cursor'));
+    expect(onConceptFocus).toHaveBeenCalledWith('cursor');
+  });
+
+  it('renders the friendly help text and "Select your" heading for custom sources', () => {
+    render(
+      <StreamConfigTable
+        {...baseProps}
+        streamNoun="Sheets"
+        helpText="All sheets are synced by default."
+        advancedOpen={false}
+        onToggleAdvanced={jest.fn()}
+      />
+    );
+    expect(screen.getByText('All sheets are synced by default.')).toBeInTheDocument();
+    expect(screen.getByText(/Select your sheets/)).toBeInTheDocument();
   });
 });

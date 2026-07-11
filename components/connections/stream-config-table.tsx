@@ -50,11 +50,13 @@ interface StreamConfigTableProps {
   showIncremental?: boolean;
   // Restrict which destination sync modes are selectable for this source.
   allowedDestModes?: DestinationSyncMode[];
-  // Fired on focus/hover of an advanced control, for the shared help panel.
+  // Fired when a column header is clicked, to move the help panel to that concept.
   onConceptFocus?: (id: ConnectionConceptId | null) => void;
   // Shared advanced-settings expand bar state, owned by the parent form.
   advancedOpen: boolean;
   onToggleAdvanced: () => void;
+  // Friendly blurb shown under the heading (custom sources only).
+  helpText?: string;
 }
 
 export function StreamConfigTable({
@@ -86,8 +88,27 @@ export function StreamConfigTable({
   onConceptFocus,
   advancedOpen,
   onToggleAdvanced,
+  helpText,
 }: StreamConfigTableProps) {
   const showIncrementalColumn = advancedOpen && showIncremental;
+  const isCustom = streamNoun !== 'Stream';
+  const selectedCount = streams.filter((s) => s.selected).length;
+
+  // A column header that, when clicked, moves the help panel to its concept.
+  // Falls back to plain text when no help panel is wired up.
+  const conceptLabel = (label: string, concept: ConnectionConceptId) =>
+    onConceptFocus ? (
+      <button
+        type="button"
+        onClick={() => onConceptFocus(concept)}
+        className="cursor-pointer decoration-dotted underline-offset-2 hover:text-foreground hover:underline"
+        data-testid={`concept-header-${concept}`}
+      >
+        {label}
+      </button>
+    ) : (
+      <>{label}</>
+    );
   // Incremental / Destination / Cursor / Primary Key columns (and the
   // per-row column-expand chevron) render only when advanced is open.
   const colCount =
@@ -97,10 +118,11 @@ export function StreamConfigTable({
   return (
     <div>
       {/* Header with stream count + shared advanced toggle */}
-      <div className="mb-3 flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">
-          {streamNoun === 'Stream' ? 'Streams' : streamNoun} (
-          {streams.filter((s) => s.selected).length}/{streams.length} selected)
+          {isCustom
+            ? `Select your ${streamNoun.toLowerCase()} (${selectedCount}/${streams.length} selected)`
+            : `Streams (${selectedCount}/${streams.length} selected)`}
         </h3>
         <button
           type="button"
@@ -116,8 +138,12 @@ export function StreamConfigTable({
           />
         </button>
       </div>
+      {helpText && <p className="mt-1 mb-3 text-xs text-muted-foreground">{helpText}</p>}
+      {!helpText && <div className="mb-3" />}
 
-      <div className="rounded-md border">
+      {/* Bounded scroll area: short when few streams (modal shrinks to fit),
+          capped + internally scrollable with a sticky header when many. */}
+      <div className="max-h-[42vh] overflow-y-auto rounded-md border">
         <table className="w-full text-sm table-fixed" data-testid="streams-table">
           <colgroup>
             <col className="w-[18%]" />
@@ -132,36 +158,36 @@ export function StreamConfigTable({
               </>
             )}
           </colgroup>
-          <thead>
-            <tr className="border-b bg-muted/50">
+          <thead className="sticky top-0 z-10">
+            <tr className="border-b bg-muted">
               <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                {streamNoun}
+                {conceptLabel(streamNoun, 'stream')}
               </th>
               <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">
                 Sync?
               </th>
               {showIncrementalColumn && (
                 <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">
-                  Incremental?
+                  {conceptLabel('Incremental?', 'sync-mode')}
                 </th>
               )}
               {advancedOpen && (
                 <>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                    Destination
+                    {conceptLabel('Destination', 'dest-mode')}
                   </th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                    Cursor Field
+                    {conceptLabel('Cursor Field', 'cursor')}
                   </th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                    Primary Key
+                    {conceptLabel('Primary Key', 'primary-key')}
                   </th>
                   <th className="px-3 py-2"></th>
                 </>
               )}
             </tr>
             {/* Global toggle row */}
-            <tr className="border-b bg-muted/30">
+            <tr className="border-b bg-muted">
               <td className="px-3 py-1.5">
                 <Input
                   placeholder="Filter..."
@@ -284,8 +310,6 @@ export function StreamConfigTable({
                         disabled={disabled || isSaving}
                         data-testid={`stream-toggle-${stream.name}`}
                         className="scale-90"
-                        onMouseEnter={() => onConceptFocus?.('stream')}
-                        onFocus={() => onConceptFocus?.('stream')}
                       />
                     </td>
                     {/* Incremental toggle */}
@@ -304,8 +328,6 @@ export function StreamConfigTable({
                           }
                           data-testid={`stream-incremental-${stream.name}`}
                           className="scale-90"
-                          onMouseEnter={() => onConceptFocus?.('sync-mode')}
-                          onFocus={() => onConceptFocus?.('sync-mode')}
                         />
                       </td>
                     )}
@@ -318,11 +340,7 @@ export function StreamConfigTable({
                             onValueChange={(v) => onUpdateStreamDestMode(stream.name, v)}
                             disabled={disabled || isSaving || !isSelected}
                           >
-                            <SelectTrigger
-                              className="h-7 text-xs w-full"
-                              onMouseEnter={() => onConceptFocus?.('dest-mode')}
-                              onFocus={() => onConceptFocus?.('dest-mode')}
-                            >
+                            <SelectTrigger className="h-7 text-xs w-full">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -350,10 +368,7 @@ export function StreamConfigTable({
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div
-                                  onMouseEnter={() => onConceptFocus?.('cursor')}
-                                  onFocus={() => onConceptFocus?.('cursor')}
-                                >
+                                <div>
                                   <Combobox
                                     mode="single"
                                     items={cursorItems}
@@ -381,10 +396,7 @@ export function StreamConfigTable({
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div
-                                  onMouseEnter={() => onConceptFocus?.('primary-key')}
-                                  onFocus={() => onConceptFocus?.('primary-key')}
-                                >
+                                <div>
                                   <Combobox
                                     mode="multi"
                                     items={pkItems}

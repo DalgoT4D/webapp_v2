@@ -10,6 +10,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConnectionFormBody } from '../connection-form-body';
 import { FormMode } from '@/constants/connections';
+import type { Connection } from '@/types/connections';
 
 // ============ Mocks ============
 
@@ -23,12 +24,19 @@ jest.mock('@/hooks/api/useSources', () => ({
   }),
 }));
 
+// Mutable so edit-mode tests can supply a connection. Prefixed `mock` so Jest's
+// factory hoisting allows the reference.
+let mockConnectionData: Connection | null = null;
 jest.mock('@/hooks/api/useConnections', () => ({
-  useConnection: () => ({ data: null }),
+  useConnection: () => ({ data: mockConnectionData }),
   createConnection: jest.fn(),
   updateConnection: jest.fn(),
   triggerSync: jest.fn(),
 }));
+
+afterEach(() => {
+  mockConnectionData = null;
+});
 
 jest.mock('@/hooks/useBackendWebSocket', () => ({
   useBackendWebSocket: () => ({
@@ -169,7 +177,7 @@ describe('ConnectionFormBody split help + custom view', () => {
     expect(screen.getByTestId('connection-help-panel')).toBeInTheDocument();
   });
 
-  it('shows schema + normalize inline for a generic source', () => {
+  it('tucks schema + normalize under Advanced options for a generic source too', () => {
     render(
       <ConnectionFormBody
         mode={FormMode.CREATE}
@@ -178,8 +186,9 @@ describe('ConnectionFormBody split help + custom view', () => {
         onCancel={jest.fn()}
       />
     );
-    expect(screen.getByTestId('destination-schema-input')).toBeInTheDocument();
-    expect(screen.queryByTestId('advanced-options-toggle')).not.toBeInTheDocument();
+    // Every connection now uses the bottom Advanced-options section, collapsed.
+    expect(screen.getByTestId('advanced-options-toggle')).toBeInTheDocument();
+    expect(screen.queryByTestId('destination-schema-input')).not.toBeInTheDocument();
   });
 
   it('tucks schema + normalize under Advanced options for a custom source', () => {
@@ -220,6 +229,34 @@ describe('ConnectionFormBody split help + custom view', () => {
     // Custom source should show the chip
     expect(screen.getByTestId('connection-source-chip')).toBeInTheDocument();
     // Custom source should NOT show the read-only source box
+    expect(screen.queryByTestId('connection-source-name')).not.toBeInTheDocument();
+  });
+
+  it('renders the custom view in edit mode even when the connection source name is empty', () => {
+    // The single-connection GET returns a sparse source ({ id, name } only — no
+    // sourceName/sourceId), so detection must fall back to the sources list by
+    // the source's display name. 'My Sheet' is the gs-1 (Google Sheets) source.
+    mockConnectionData = {
+      name: 'akansha connection',
+      connectionId: 'c1',
+      source: { id: 'gs-1', name: 'My Sheet' },
+      normalize: false,
+      catalogId: 'cat-1',
+      syncCatalog: { streams: [] },
+    } as unknown as Connection;
+
+    render(
+      <ConnectionFormBody
+        mode={FormMode.EDIT}
+        connectionId="c1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+
+    // Custom view active → chip shown, no generic read-only source box.
+    expect(screen.getByTestId('connection-source-chip')).toBeInTheDocument();
+    expect(screen.getByTestId('advanced-options-toggle')).toBeInTheDocument();
     expect(screen.queryByTestId('connection-source-name')).not.toBeInTheDocument();
   });
 });

@@ -408,141 +408,153 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" data-testid="source-form">
-          {/* Source Name */}
-          <div>
-            <label htmlFor="source-name" className="text-[15px] font-medium">
-              Source Name <span className="text-destructive">*</span>
-            </label>
-            <Input
-              id="source-name"
-              data-testid="source-name-input"
-              value={sourceName}
-              onChange={(e) => setSourceName(e.target.value)}
-              placeholder="Enter source name"
-              disabled={loading}
-              className="mt-1.5"
-            />
+        {/* Edit mode: hold a single loader until the source AND its config spec
+            are ready, so we never flash an empty form then a populated one. */}
+        {isEdit && (!source || !selectedDefId || specLoading) ? (
+          <div
+            data-testid="source-form-loading"
+            className="flex flex-col items-center justify-center gap-3 py-24 text-sm text-muted-foreground"
+          >
+            <Loader2 className="h-7 w-7 animate-spin text-primary" />
+            Loading source…
           </div>
-
-          {/* Source Type Selector */}
-          <div>
-            <label htmlFor="source-type" className="text-[15px] font-medium">
-              Source Type <span className="text-destructive">*</span>
-            </label>
-            <div className="mt-1.5">
-              <Combobox
-                id="source-type"
-                items={sourceDefItems}
-                value={selectedDefId ?? ''}
-                onValueChange={handleSourceDefChange}
-                placeholder="Select source type"
-                searchPlaceholder="Search sources..."
-                emptyMessage="No sources found."
-                disabled={isEdit || loading}
-                renderItem={(item, _isSelected, searchQuery) => (
-                  <div className="flex items-center gap-2">
-                    <img
-                      src={(item.icon as string) || '/icons/connection.svg'}
-                      alt=""
-                      className="h-4 w-4 flex-shrink-0"
-                      loading="lazy"
-                      onError={(e) => {
-                        e.currentTarget.src = '/icons/connection.svg';
-                      }}
-                    />
-                    <span className="text-sm">{highlightText(item.label, searchQuery)}</span>
-                  </div>
-                )}
+        ) : (
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" data-testid="source-form">
+            {/* Source Name */}
+            <div>
+              <label htmlFor="source-name" className="text-[15px] font-medium">
+                Source Name <span className="text-destructive">*</span>
+              </label>
+              <Input
+                id="source-name"
+                data-testid="source-name-input"
+                value={sourceName}
+                onChange={(e) => setSourceName(e.target.value)}
+                placeholder="Enter source name"
+                disabled={loading}
+                className="mt-1.5"
               />
             </div>
-          </div>
 
-          {/* Spec Loading */}
-          {specLoading && selectedDefId && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading configuration...
+            {/* Source Type Selector */}
+            <div>
+              <label htmlFor="source-type" className="text-[15px] font-medium">
+                Source Type <span className="text-destructive">*</span>
+              </label>
+              <div className="mt-1.5">
+                <Combobox
+                  id="source-type"
+                  items={sourceDefItems}
+                  value={selectedDefId ?? ''}
+                  onValueChange={handleSourceDefChange}
+                  placeholder="Select source type"
+                  searchPlaceholder="Search sources..."
+                  emptyMessage="No sources found."
+                  disabled={isEdit || loading}
+                  renderItem={(item, _isSelected, searchQuery) => (
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={(item.icon as string) || '/icons/connection.svg'}
+                        alt=""
+                        className="h-4 w-4 flex-shrink-0"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.src = '/icons/connection.svg';
+                        }}
+                      />
+                      <span className="text-sm">{highlightText(item.label, searchQuery)}</span>
+                    </div>
+                  )}
+                />
+              </div>
             </div>
-          )}
 
-          {/* Config — custom sources (Google Sheets, KoboToolbox) render a tailored form
+            {/* Spec Loading */}
+            {specLoading && selectedDefId && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading configuration...
+              </div>
+            )}
+
+            {/* Config — custom sources (Google Sheets, KoboToolbox) render a tailored form
               plus a docs panel; every other source keeps the generic spec-driven form. */}
-          {!specLoading && parsedSpec && custom ? (
-            <div className="grid grid-cols-[55fr_45fr] gap-6">
-              <div className="space-y-5">
-                <custom.Form
+            {!specLoading && parsedSpec && custom ? (
+              <div className="grid grid-cols-[55fr_45fr] gap-6">
+                <div className="space-y-5">
+                  <custom.Form
+                    parsedSpec={parsedSpec}
+                    control={control}
+                    setValue={setValue}
+                    disabled={loading}
+                    mode={isEdit ? 'edit' : 'create'}
+                    oauth={
+                      isGoogleSheetsCustom
+                        ? ({
+                            connected: isConnected,
+                            busy: oauthConnecting,
+                            buttonLabel: isEdit
+                              ? 'Re-authenticate & Save'
+                              : 'Sign in with Google to authorize Dalgo',
+                            lockWhenConnected: false,
+                            onClick: handleConnectGoogle,
+                          } satisfies CustomSourceOAuth)
+                        : undefined
+                    }
+                  />
+                </div>
+                <SourceHelperPanel sourceName={selectedName} />
+              </div>
+            ) : (
+              !specLoading &&
+              parsedSpec && (
+                <ConnectorConfigForm
                   parsedSpec={parsedSpec}
                   control={control}
                   setValue={setValue}
                   disabled={loading}
-                  mode={isEdit ? 'edit' : 'create'}
-                  oauth={
-                    isGoogleSheetsCustom
-                      ? ({
-                          connected: isConnected,
-                          busy: oauthConnecting,
-                          buttonLabel: isEdit
-                            ? 'Re-authenticate & Save'
-                            : 'Sign in with Google to authorize Dalgo',
-                          lockWhenConnected: false,
-                          onClick: handleConnectGoogle,
-                        } satisfies CustomSourceOAuth)
-                      : undefined
-                  }
                 />
+              )
+            )}
+
+            {/* Error logs from failed connection test */}
+            {setupLogs.length > 0 && (
+              <div
+                className="rounded-md bg-red-50 dark:bg-red-950 p-3 text-sm text-red-700 dark:text-red-300"
+                data-testid="connection-logs"
+              >
+                <pre className="whitespace-pre-wrap font-mono text-xs max-h-48 overflow-y-auto">
+                  {setupLogs.join('\n')}
+                </pre>
               </div>
-              <SourceHelperPanel sourceName={selectedName} />
-            </div>
-          ) : (
-            !specLoading &&
-            parsedSpec && (
-              <ConnectorConfigForm
-                parsedSpec={parsedSpec}
-                control={control}
-                setValue={setValue}
+            )}
+
+            {/* Footer — single "Save changes and test" button like v1 */}
+            <DialogFooter className="gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
                 disabled={loading}
-              />
-            )
-          )}
-
-          {/* Error logs from failed connection test */}
-          {setupLogs.length > 0 && (
-            <div
-              className="rounded-md bg-red-50 dark:bg-red-950 p-3 text-sm text-red-700 dark:text-red-300"
-              data-testid="connection-logs"
-            >
-              <pre className="whitespace-pre-wrap font-mono text-xs max-h-48 overflow-y-auto">
-                {setupLogs.join('\n')}
-              </pre>
-            </div>
-          )}
-
-          {/* Footer — single "Save changes and test" button like v1 */}
-          <DialogFooter className="gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={loading}
-              data-testid="source-cancel-btn"
-            >
-              Cancel
-            </Button>
-            {/* Test-and-save handles the service-account (and every non-Google) path. The
+                data-testid="source-cancel-btn"
+              >
+                Cancel
+              </Button>
+              {/* Test-and-save handles the service-account (and every non-Google) path. The
                 Google OAuth button inside the form is the alternative create/re-auth action. */}
-            <Button
-              type="submit"
-              variant="primary"
-              className="uppercase"
-              disabled={loading || !selectedDefId || !sourceName.trim() || !parsedSpec}
-              data-testid="source-save-btn"
-            >
-              {loading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-              Save Changes And Test
-            </Button>
-          </DialogFooter>
-        </form>
+              <Button
+                type="submit"
+                variant="primary"
+                className="uppercase"
+                disabled={loading || !selectedDefId || !sourceName.trim() || !parsedSpec}
+                data-testid="source-save-btn"
+              >
+                {loading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                Save Changes And Test
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -30,7 +30,8 @@ export interface CustomSourceFormProps {
 // Per-source config for the friendly connection view. Drives stream relabeling
 // and which sync options are offered (e.g. Google Sheets is full-refresh only).
 export interface ConnectionViewConfig {
-  streamNoun: string; // column label for a stream, e.g. "Tabs", "Forms"
+  streamNoun: string; // column label for a stream, e.g. "Sheets", "Forms"
   supportsIncremental: boolean; // false hides the incremental column entirely
   allowedDestModes: DestinationSyncMode[]; // which write modes the dropdown offers
+  streamHelp: string; // friendly blurb shown above the stream picker for this source
 }

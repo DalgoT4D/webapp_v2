@@ -72,9 +72,14 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
       <DialogContent
         className={cn(
           'max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden',
-          // The picker is a compact, near-square card grid; the configure and
-          // connection steps need more room for the form + helper / streams table.
-          step === 'select' ? 'sm:max-w-2xl' : 'sm:max-w-[1240px] min-h-[640px]'
+          // The picker is a compact, near-square card grid; the configure step
+          // needs room for the form + helper; the connection step is widest to
+          // fit the streams table alongside the help panel.
+          step === 'select'
+            ? 'sm:max-w-2xl'
+            : step === 'connection'
+              ? '!max-w-[1600px] !w-[96vw] max-h-[85vh]'
+              : 'sm:max-w-[1240px] min-h-[640px]'
         )}
         preventOutsideClose
       >

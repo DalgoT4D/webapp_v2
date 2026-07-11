@@ -88,15 +88,32 @@ export function ConnectionFormBody({
   );
   const readOnlySource = isCreate ? presetSource : connection?.source;
 
+  // The Airbyte source-definition name (e.g. "Google Sheets"). In edit/view the
+  // connection's own source can come back with an empty sourceName, so fall back
+  // to the sources list (keyed by sourceId), which always carries it — this is
+  // what makes the friendly custom view render identically in edit and create.
+  // Edit/view: the single-connection GET returns a sparse source ({ id, name }
+  // only — no sourceName/sourceId/icon), so match it against the full sources
+  // list by id first, then by the source's display name. Supplies both the
+  // definition name (for custom-view detection) and the real icon.
+  const sourceListMatch = React.useMemo(() => {
+    if (!readOnlySource) return null;
+    return (
+      (readOnlySource.sourceId && sources.find((s) => s.sourceId === readOnlySource.sourceId)) ||
+      (readOnlySource.name && sources.find((s) => s.name === readOnlySource.name)) ||
+      null
+    );
+  }, [readOnlySource, sources]);
+
+  const sourceDefName = readOnlySource?.sourceName || sourceListMatch?.sourceName || null;
+  const sourceIcon = readOnlySource?.icon || sourceListMatch?.icon || '/icons/connection.svg';
+
   // Non-null when the source has a friendly custom connection view (Task 1
   // registry): drives stream relabeling, hides unsupported sync options, and
   // tucks advanced fields behind a collapsible section.
   const connectionView = React.useMemo(
-    () =>
-      (readOnlySource?.sourceName
-        ? getCustomSource(readOnlySource.sourceName)?.connectionView
-        : null) ?? null,
-    [readOnlySource]
+    () => (sourceDefName ? getCustomSource(sourceDefName)?.connectionView : null) ?? null,
+    [sourceDefName]
   );
   const [activeConcept, setActiveConcept] = useState<ConnectionConceptId | null>(null);
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
@@ -305,15 +322,20 @@ export function ConnectionFormBody({
   // source) and Advanced-options-collapsed (custom source) layouts.
   const destinationSchemaField = (
     <div>
-      <label htmlFor="dest-schema" className="text-[15px] font-medium">
-        Destination Schema
-      </label>
+      <button
+        type="button"
+        onClick={() => setActiveConcept('schema')}
+        className="cursor-pointer text-[15px] font-medium decoration-dotted underline-offset-2 hover:underline"
+      >
+        <label htmlFor="dest-schema" className="cursor-pointer">
+          Destination Schema
+        </label>
+      </button>
       <Input
         id="dest-schema"
         data-testid="destination-schema-input"
         value={destinationSchema}
         onChange={(e) => setDestinationSchema(e.target.value)}
-        onMouseEnter={() => setActiveConcept('schema')}
         onFocus={() => setActiveConcept('schema')}
         placeholder="e.g., public"
         disabled={disabled || isSaving}
@@ -324,11 +346,14 @@ export function ConnectionFormBody({
 
   // Normalize toggle — same sharing rationale as destinationSchemaField.
   const normalizeToggleField = (
-    <div
-      className="flex items-center justify-between"
-      onMouseEnter={() => setActiveConcept('normalize')}
-    >
-      <label className="text-[15px] font-medium">Normalize data after sync</label>
+    <div className="flex items-center justify-between">
+      <button
+        type="button"
+        onClick={() => setActiveConcept('normalize')}
+        className="cursor-pointer text-[15px] font-medium decoration-dotted underline-offset-2 hover:underline"
+      >
+        Normalize data after sync
+      </button>
       <Switch
         checked={normalize}
         onCheckedChange={setNormalize}
@@ -339,11 +364,45 @@ export function ConnectionFormBody({
     </div>
   );
 
+  // Advanced-options section (Destination Schema + Normalize behind a chevron),
+  // shared by every connection. Rendered below the stream picker so the primary
+  // flow reads source → name → streams, with rarely-touched settings last.
+  const advancedOptionsSection = (
+    <div>
+      <button
+        type="button"
+        data-testid="advanced-options-toggle"
+        aria-expanded={advancedOptionsOpen}
+        onClick={() => {
+          const next = !advancedOptionsOpen;
+          setAdvancedOptionsOpen(next);
+          if (next) {
+            trackEvent(ANALYTICS_EVENTS.CONNECTION_ADVANCED_OPTIONS_EXPANDED, {
+              source_type: sourceDefName,
+            });
+          }
+        }}
+        className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground"
+      >
+        Advanced options
+        <ChevronDown
+          className={cn('h-4 w-4 transition-transform', advancedOptionsOpen && 'rotate-180')}
+        />
+      </button>
+      {advancedOptionsOpen && (
+        <div className="mt-3 space-y-6">
+          {destinationSchemaField}
+          {normalizeToggleField}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <>
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-5">
-        <div className="grid grid-cols-1 md:grid-cols-[55fr_45fr] gap-6">
-          <div className="space-y-6">
+      <div className="flex-1 min-h-0 overflow-hidden px-6 py-5">
+        <div className="grid min-h-0 grid-cols-1 md:grid-cols-[62fr_38fr] gap-6">
+          <div className="flex min-h-0 flex-col gap-6 overflow-hidden">
             {/* Persistent source chip — custom sources only, replaces the
                 create-only green banner below with a friendly, always-shown
                 identity chip. */}
@@ -353,7 +412,7 @@ export function ConnectionFormBody({
                 data-testid="connection-source-chip"
               >
                 <img
-                  src={readOnlySource.icon || '/icons/connection.svg'}
+                  src={sourceIcon}
                   alt=""
                   className="h-5 w-5"
                   onError={(e) => {
@@ -361,9 +420,9 @@ export function ConnectionFormBody({
                   }}
                 />
                 <span className="text-sm font-medium">
-                  {readOnlySource.name || readOnlySource.sourceName}
+                  Source {readOnlySource.name || readOnlySource.sourceName}
+                  {isCreate && <span className="text-green-600"> created successfully</span>}
                 </span>
-                {isCreate && <span className="text-xs text-green-600">created successfully</span>}
               </div>
             )}
 
@@ -432,7 +491,7 @@ export function ConnectionFormBody({
                 <label className="text-[15px] font-medium">Source</label>
                 <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-md border bg-muted/50 text-sm">
                   <img
-                    src={readOnlySource.icon || '/icons/connection.svg'}
+                    src={sourceIcon}
                     alt=""
                     className="h-4 w-4"
                     onError={(e) => {
@@ -442,52 +501,16 @@ export function ConnectionFormBody({
                   <span data-testid="connection-source-name">
                     {readOnlySource.name || readOnlySource.sourceName || '—'}
                   </span>
-                  <span className="text-muted-foreground">({readOnlySource.sourceName})</span>
+                  {sourceDefName && (
+                    <span className="text-muted-foreground">({sourceDefName})</span>
+                  )}
                 </div>
               </div>
             ) : null}
 
-            {/* Destination Schema + Normalize — inline for generic sources,
-                tucked under Advanced options for custom sources (they rarely
-                need to touch these). */}
-            {connectionView ? (
-              <div>
-                <button
-                  type="button"
-                  data-testid="advanced-options-toggle"
-                  aria-expanded={advancedOptionsOpen}
-                  onClick={() => {
-                    const next = !advancedOptionsOpen;
-                    setAdvancedOptionsOpen(next);
-                    if (next) {
-                      trackEvent(ANALYTICS_EVENTS.CONNECTION_ADVANCED_OPTIONS_EXPANDED, {
-                        source_type: readOnlySource?.sourceName,
-                      });
-                    }
-                  }}
-                  className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground"
-                >
-                  Advanced options
-                  <ChevronDown
-                    className={cn(
-                      'h-4 w-4 transition-transform',
-                      advancedOptionsOpen && 'rotate-180'
-                    )}
-                  />
-                </button>
-                {advancedOptionsOpen && (
-                  <div className="mt-3 space-y-6">
-                    {destinationSchemaField}
-                    {normalizeToggleField}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                {destinationSchemaField}
-                {normalizeToggleField}
-              </>
-            )}
+            {/* Destination Schema + Normalize live in the Advanced-options
+                section at the bottom for every connection (source → name →
+                streams → advanced). */}
 
             {/* Schema discovery loading */}
             {isDiscovering && (
@@ -524,10 +547,21 @@ export function ConnectionFormBody({
                 onConceptFocus={setActiveConcept}
                 advancedOpen={advancedStreamsOpen}
                 onToggleAdvanced={() => setAdvancedStreamsOpen((o) => !o)}
+                helpText={connectionView?.streamHelp}
               />
             )}
+
+            {/* Advanced options (schema + normalize) last, for every connection. */}
+            {advancedOptionsSection}
           </div>
-          <ConnectionHelpPanel activeConcept={activeConcept} />
+          {/* The help panel fills the left column's height and scrolls on its
+              own, so its (tall) content never drives the modal taller than the
+              form side. */}
+          <div className="relative hidden min-h-0 md:block">
+            <div className="absolute inset-0">
+              <ConnectionHelpPanel activeConcept={activeConcept} />
+            </div>
+          </div>
         </div>
       </div>
 

@@ -38,7 +38,7 @@ export function ConnectionForm({
   return (
     <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent
-        className="sm:max-w-[1240px] max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden"
+        className="!max-w-[1600px] !w-[96vw] max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden"
         preventOutsideClose
       >
         <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
