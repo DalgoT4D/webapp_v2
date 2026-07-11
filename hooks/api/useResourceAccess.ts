@@ -38,7 +38,9 @@ export interface AccessGrant {
   id: number;
   principal_type: PrincipalType;
   principal_id: number | null;
-  email: string;
+  // Null for group grants — the backend has no single email to report for a
+  // group principal. Always a string for principal_type === 'user'.
+  email: string | null;
   name: string | null;
   permission: AccessLevel;
   status: GrantStatus;

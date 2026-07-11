@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { GroupDetailDrawer } from '../GroupDetailDrawer';
-import { useUserGroup, removeGroupMember } from '@/hooks/api/useUserGroups';
+import { useUserGroup, removeGroupMember, addGroupMember } from '@/hooks/api/useUserGroups';
 import { useUsers } from '@/hooks/api/useUserManagement';
 import { useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
@@ -12,6 +12,7 @@ jest.mock('@/hooks/api/useUserGroups', () => ({
   ...jest.requireActual('@/hooks/api/useUserGroups'),
   useUserGroup: jest.fn(),
   removeGroupMember: jest.fn(),
+  addGroupMember: jest.fn(),
 }));
 jest.mock('@/hooks/api/useUserManagement');
 jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
@@ -29,6 +30,7 @@ const mockUseUserGroup = useUserGroup as jest.Mock;
 const mockUseUsers = useUsers as jest.Mock;
 const mockUseRbac = useRbac as jest.Mock;
 const mockRemoveGroupMember = removeGroupMember as jest.Mock;
+const mockAddGroupMember = addGroupMember as jest.Mock;
 
 function setup({
   canManage = true,
@@ -37,7 +39,7 @@ function setup({
   mutate = jest.fn(),
 } = {}) {
   mockUseUserGroup.mockReturnValue({ data: group, isLoading: false, isError: undefined, mutate });
-  mockUseUsers.mockReturnValue({ users: [{ email: 'new.person@ngo.org' }] });
+  mockUseUsers.mockReturnValue({ users: [{ orguser_id: 42, email: 'new.person@ngo.org' }] });
   mockUseRbac.mockReturnValue({
     hasPermission: () => canManage,
     hasRole: () => isAdmin,
@@ -66,7 +68,7 @@ describe('GroupDetailDrawer', () => {
     expect(screen.getByTestId('group-member-row-11')).toHaveTextContent('Meera Das');
   });
 
-  it('shows the add-member picker with Add disabled and an explanatory hint for a manager', () => {
+  it('shows the add-member picker with Add disabled until a member is selected', () => {
     setup({ canManage: true, isAdmin: false });
     render(
       <GroupDetailDrawer
@@ -77,7 +79,41 @@ describe('GroupDetailDrawer', () => {
       />
     );
     expect(screen.getByTestId('group-add-member-btn')).toBeDisabled();
-    expect(screen.getByTestId('group-add-member-hint')).toBeInTheDocument();
+    expect(screen.queryByTestId('group-add-member-hint')).not.toBeInTheDocument();
+  });
+
+  it('adds a member via addGroupMember with the selected orguser_id', async () => {
+    const user = userEvent.setup();
+    const { mutate } = setup({ canManage: true, isAdmin: false });
+    mockAddGroupMember.mockResolvedValue({
+      id: 12,
+      orguser_id: 42,
+      email: 'new.person@ngo.org',
+      name: null,
+      pending_email: null,
+      status: 'active',
+    });
+    const onGroupsListChanged = jest.fn();
+
+    render(
+      <GroupDetailDrawer
+        groupId={1}
+        open
+        onOpenChange={jest.fn()}
+        onGroupsListChanged={onGroupsListChanged}
+      />
+    );
+
+    await user.click(screen.getByTestId('group-add-member-combobox-input'));
+    await user.click(screen.getByTestId('group-add-member-combobox-item-42'));
+    await user.click(screen.getByTestId('group-add-member-btn'));
+
+    await waitFor(() => {
+      expect(mockAddGroupMember).toHaveBeenCalledWith(1, { orguser_id: 42 });
+      expect(mutate).toHaveBeenCalled();
+      expect(onGroupsListChanged).toHaveBeenCalled();
+      expect(trackEvent).toHaveBeenCalledWith('settings:group_member_added');
+    });
   });
 
   it('removes a member and revalidates on click for a manager', async () => {

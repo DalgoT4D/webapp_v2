@@ -523,12 +523,9 @@ function PeopleWithAccessSection({
 }: PeopleWithAccessSectionProps) {
   const { users: orgUsers } = useUsers();
   // Groups source for the add-principal picker (Part C). Group ids are
-  // available from GET /api/groups/, so this stays enabled even while the
-  // person-add path below is disabled by the T6 orguser_id gap. Only fetched
-  // when this viewer can actually share — no /api/groups/ call for a
-  // view-only viewer, who only ever sees the read-only grant rows.
+  // available from GET /api/groups/.
   const { data: groups } = useUserGroups(canShare);
-  const [selectedEmail, setSelectedEmail] = useState('');
+  const [selectedPersonId, setSelectedPersonId] = useState('');
   const [pendingPermission, setPendingPermission] = useState<AccessLevel>('view');
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [groupPendingPermission, setGroupPendingPermission] = useState<AccessLevel>('view');
@@ -542,11 +539,15 @@ function PeopleWithAccessSection({
     [access.owner, access.grants]
   );
 
+  // Candidate value is the OrgUser PK (orguser_id) — what POST .../grants/
+  // wants as principal_id (Task 6b Part B). Org members without a resolved
+  // orguser_id (shouldn't happen post-6b, but the field is optional on the
+  // wire) are excluded rather than offered as an unusable candidate.
   const candidateItems: ComboboxItem[] = useMemo(
     () =>
       (orgUsers || [])
-        .filter((u) => !grantedEmails.has(u.email))
-        .map((u) => ({ value: u.email, label: u.email })),
+        .filter((u) => !grantedEmails.has(u.email) && typeof u.orguser_id === 'number')
+        .map((u) => ({ value: String(u.orguser_id), label: u.email })),
     [orgUsers, grantedEmails]
   );
 
@@ -599,6 +600,26 @@ function PeopleWithAccessSection({
     },
     [entityType, entityId, onChanged]
   );
+
+  const handleAddPerson = useCallback(async () => {
+    if (!selectedPersonId) return;
+    try {
+      await addGrant(entityType, entityId, {
+        principal_type: 'user',
+        principal_id: Number(selectedPersonId),
+        permission: pendingPermission,
+      });
+      onChanged();
+      setSelectedPersonId('');
+      toastSuccess.generic('Person added');
+      trackEvent(ANALYTICS_EVENTS.SHARING_GRANT_ADDED, {
+        entity_type: entityType,
+        principal_type: 'user',
+      });
+    } catch (error) {
+      toastError.api(error, 'add this person');
+    }
+  }, [entityType, entityId, selectedPersonId, pendingPermission, onChanged]);
 
   const handleAddGroup = useCallback(async () => {
     if (!selectedGroupId) return;
@@ -715,8 +736,8 @@ function PeopleWithAccessSection({
               <Combobox
                 id="share-add-person-combobox"
                 items={candidateItems}
-                value={selectedEmail}
-                onValueChange={setSelectedEmail}
+                value={selectedPersonId}
+                onValueChange={setSelectedPersonId}
                 placeholder="Select an org member"
                 searchPlaceholder="Search by email"
                 className="flex-1"
@@ -738,14 +759,14 @@ function PeopleWithAccessSection({
                   <SelectItem value="edit">{LEVEL_LABELS.edit}</SelectItem>
                 </SelectContent>
               </Select>
-              <Button data-testid="share-add-person-btn" disabled title="Coming soon">
+              <Button
+                data-testid="share-add-person-btn"
+                onClick={handleAddPerson}
+                disabled={!selectedPersonId}
+              >
                 Add
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground" data-testid="share-add-person-hint">
-              Adding people isn’t available yet — this needs a small backend update. Removing or
-              changing existing access works today.
-            </p>
 
             <div className="flex items-center gap-2 pt-2">
               <UsersRound className="h-4 w-4 text-muted-foreground" />

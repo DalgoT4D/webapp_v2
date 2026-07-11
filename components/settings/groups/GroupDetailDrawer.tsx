@@ -5,7 +5,7 @@ import { Trash2, UserPlus } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
-import { useUserGroup, removeGroupMember } from '@/hooks/api/useUserGroups';
+import { useUserGroup, removeGroupMember, addGroupMember } from '@/hooks/api/useUserGroups';
 import { useUsers } from '@/hooks/api/useUserManagement';
 import { ADMIN_ROLES, PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useAuthStore } from '@/stores/authStore';
@@ -31,7 +31,7 @@ export function GroupDetailDrawer({
   const { users: orgUsers } = useUsers();
   const { hasPermission, hasRole } = useRbac();
   const currentOrgUser = useAuthStore((state) => state.getCurrentOrgUser());
-  const [selectedMemberEmail, setSelectedMemberEmail] = useState('');
+  const [selectedMemberId, setSelectedMemberId] = useState('');
 
   const canManage = Boolean(
     group &&
@@ -45,11 +45,15 @@ export function GroupDetailDrawer({
     [group]
   );
 
+  // Candidate value is the OrgUser PK (orguser_id) — what POST
+  // /api/groups/{id}/members/ wants (Task 6b Part B). Org members without a
+  // resolved orguser_id are excluded rather than offered as an unusable
+  // candidate.
   const candidateItems: ComboboxItem[] = useMemo(
     () =>
       (orgUsers || [])
-        .filter((u) => !memberEmails.has(u.email))
-        .map((u) => ({ value: u.email, label: u.email })),
+        .filter((u) => !memberEmails.has(u.email) && typeof u.orguser_id === 'number')
+        .map((u) => ({ value: String(u.orguser_id), label: u.email })),
     [orgUsers, memberEmails]
   );
 
@@ -63,6 +67,20 @@ export function GroupDetailDrawer({
       onGroupsListChanged();
     } catch (error) {
       toastError.api(error, 'remove this member');
+    }
+  };
+
+  const handleAddMember = async () => {
+    if (!group || !selectedMemberId) return;
+    try {
+      await addGroupMember(group.id, { orguser_id: Number(selectedMemberId) });
+      trackEvent(ANALYTICS_EVENTS.GROUP_MEMBER_ADDED);
+      toastSuccess.generic('Member added');
+      setSelectedMemberId('');
+      mutate();
+      onGroupsListChanged();
+    } catch (error) {
+      toastError.api(error, 'add this member');
     }
   };
 
@@ -121,20 +139,20 @@ export function GroupDetailDrawer({
                 <Combobox
                   id="group-add-member-combobox"
                   items={candidateItems}
-                  value={selectedMemberEmail}
-                  onValueChange={setSelectedMemberEmail}
+                  value={selectedMemberId}
+                  onValueChange={setSelectedMemberId}
                   placeholder="Select an org member"
                   searchPlaceholder="Search by email"
                   className="flex-1"
                 />
-                <Button data-testid="group-add-member-btn" disabled title="Coming soon">
+                <Button
+                  data-testid="group-add-member-btn"
+                  onClick={handleAddMember}
+                  disabled={!selectedMemberId}
+                >
                   Add
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground" data-testid="group-add-member-hint">
-                Adding members isn’t available yet — this needs a small backend update. Removing
-                existing members works today.
-              </p>
             </div>
           )}
         </div>

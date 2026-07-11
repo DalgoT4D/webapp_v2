@@ -70,7 +70,10 @@ function renderModal(overrides: Partial<ResourceAccessOverview> = {}, canShareOv
     isError: undefined,
     mutate: jest.fn(),
   });
-  mockUseUsers.mockReturnValue({ users: [{ email: 'new.person@ngo.org' }], isLoading: false });
+  mockUseUsers.mockReturnValue({
+    users: [{ orguser_id: 42, email: 'new.person@ngo.org' }],
+    isLoading: false,
+  });
   mockUseRbac.mockReturnValue({
     hasPermission: () => canShareOverride,
     role: 'admin',
@@ -167,10 +170,40 @@ describe('ShareModal — People with access', () => {
     });
   });
 
-  it('shows the add-person picker with Add disabled and an explanatory hint', () => {
+  it('shows the add-person picker with Add disabled until a person is selected', () => {
     renderModal();
     expect(screen.getByTestId('share-add-person-btn')).toBeDisabled();
-    expect(screen.getByTestId('share-add-person-hint')).toBeInTheDocument();
+    expect(screen.queryByTestId('share-add-person-hint')).not.toBeInTheDocument();
+  });
+
+  it('adds a person grant via addGrant with the orguser_id as principal_id', async () => {
+    const user = userEvent.setup();
+    mockAddGrant.mockResolvedValue({
+      id: 7,
+      principal_type: 'user',
+      principal_id: 42,
+      email: 'new.person@ngo.org',
+      name: null,
+      permission: 'view',
+      status: 'active',
+    });
+    renderModal();
+
+    await user.click(screen.getByTestId('share-add-person-combobox-input'));
+    await user.click(screen.getByTestId('share-add-person-combobox-item-42'));
+    await user.click(screen.getByTestId('share-add-person-btn'));
+
+    await waitFor(() => {
+      expect(mockAddGrant).toHaveBeenCalledWith('dashboard', 1, {
+        principal_type: 'user',
+        principal_id: 42,
+        permission: 'view',
+      });
+      expect(trackEvent).toHaveBeenCalledWith(
+        'sharing:grant_added',
+        expect.objectContaining({ entity_type: 'dashboard', principal_type: 'user' })
+      );
+    });
   });
 
   it('hides add/remove/permission controls in read-only mode (viewer cannot share)', () => {

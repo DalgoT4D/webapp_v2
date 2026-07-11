@@ -84,6 +84,8 @@ import {
   Filter,
   X,
   Calendar as CalendarIcon,
+  Shield,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -106,6 +108,7 @@ import { useLandingPage } from '@/hooks/api/useLandingPage';
 import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
 import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
+import { AUDIENCE_BADGE_LABELS, isSharedWithViewer } from './dashboard-list-utils';
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => any>(
@@ -134,15 +137,15 @@ export function DashboardListV2() {
   const [favorites, setFavorites] = useState<Set<number>>(new Set());
 
   // Column filter states
-  // NOTE: a "Show only shared" filter (keyed off dashboard.is_public) used to live here.
-  // It was dead — GET /api/dashboards/ (DashboardResponse schema) never returns is_public,
-  // general_audience, is_owner, or is_creator, so the predicate always evaluated false and
-  // silently hid every dashboard when checked. Removed rather than shipped broken; needs
-  // those fields added to the list DTO before a real "Shared with you" filter can return.
+  // "Show only shared" filters on is_owner/is_creator (Task 6b DashboardResponse fields) —
+  // see isSharedWithViewer in dashboard-list-utils.ts. A prior version of this filter keyed
+  // off dashboard.is_public, which the list DTO never returned; it was removed as dead rather
+  // than shipped broken until the real fields landed.
   const [nameFilters, setNameFilters] = useState({
     text: '',
     showFavorites: false,
     showLocked: false,
+    showShared: false,
   });
   const [ownerFilters, setOwnerFilters] = useState<string[]>([]);
   const [dateFilters, setDateFilters] = useState({
@@ -272,6 +275,10 @@ export function DashboardListV2() {
         return false;
       }
 
+      if (nameFilters.showShared && !isSharedWithViewer(dashboard)) {
+        return false;
+      }
+
       // Owner filters
       if (ownerFilters.length > 0) {
         const owner = dashboard.created_by || dashboard.changed_by_name || 'Unknown';
@@ -380,7 +387,7 @@ export function DashboardListV2() {
 
   // Clear all filters
   const clearAllFilters = () => {
-    setNameFilters({ text: '', showFavorites: false, showLocked: false });
+    setNameFilters({ text: '', showFavorites: false, showLocked: false, showShared: false });
     setOwnerFilters([]);
     setDateFilters({ range: 'all', customStart: null, customEnd: null });
   };
@@ -524,7 +531,12 @@ export function DashboardListV2() {
   const hasActiveFilter = (column: 'name' | 'owner' | 'date') => {
     switch (column) {
       case 'name':
-        return nameFilters.text || nameFilters.showFavorites || nameFilters.showLocked;
+        return (
+          nameFilters.text ||
+          nameFilters.showFavorites ||
+          nameFilters.showLocked ||
+          nameFilters.showShared
+        );
       case 'owner':
         return ownerFilters.length > 0;
       case 'date':
@@ -564,6 +576,7 @@ export function DashboardListV2() {
                 text: '',
                 showFavorites: false,
                 showLocked: false,
+                showShared: false,
               })
             }
             className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
@@ -605,6 +618,20 @@ export function DashboardListV2() {
             />
             <Label htmlFor="locked" className="text-sm cursor-pointer">
               Show only locked
+            </Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="shared"
+              data-testid="dashboard-shared-filter-checkbox"
+              checked={nameFilters.showShared}
+              onCheckedChange={(checked) =>
+                setNameFilters((prev) => ({ ...prev, showShared: checked as boolean }))
+              }
+            />
+            <Label htmlFor="shared" className="text-sm cursor-pointer">
+              Show only shared with me
             </Label>
           </div>
         </div>
@@ -765,6 +792,11 @@ export function DashboardListV2() {
     const isLockedByOther =
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
     const isFavorited = favorites.has(dashboard.id);
+    const audienceBadgeLabel = dashboard.general_audience
+      ? AUDIENCE_BADGE_LABELS[dashboard.general_audience]
+      : undefined;
+    const isPrivate = dashboard.general_audience === 'private';
+    const isSharedWithMe = isSharedWithViewer(dashboard);
 
     const getNavigationUrl = () => {
       return hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? `/dashboards/${dashboard.id}` : '#';
@@ -797,8 +829,44 @@ export function DashboardListV2() {
               >
                 {dashboard.title || dashboard.dashboard_title}
               </Link>
-              {(isPersonalLanding || isOrgDefault || isLocked) && (
+              {(isPersonalLanding ||
+                isOrgDefault ||
+                isLocked ||
+                isPrivate ||
+                audienceBadgeLabel ||
+                isSharedWithMe) && (
                 <div className="flex items-center gap-2 mt-1">
+                  {isPrivate ? (
+                    <Badge
+                      variant="outline"
+                      className="text-sm bg-gray-100 text-gray-700 border-gray-300"
+                      data-testid={`dashboard-badge-private-${dashboard.id}`}
+                    >
+                      <Lock className="w-3 h-3 mr-1" />
+                      Private
+                    </Badge>
+                  ) : (
+                    audienceBadgeLabel && (
+                      <Badge
+                        variant="outline"
+                        className="text-sm bg-blue-50 text-blue-700 border-blue-200"
+                        data-testid={`dashboard-badge-audience-${dashboard.id}`}
+                      >
+                        <Shield className="w-3 h-3 mr-1" />
+                        {audienceBadgeLabel}
+                      </Badge>
+                    )
+                  )}
+                  {isSharedWithMe && (
+                    <Badge
+                      variant="outline"
+                      className="text-sm bg-purple-50 text-purple-700 border-purple-200"
+                      data-testid={`dashboard-badge-shared-${dashboard.id}`}
+                    >
+                      <Users className="w-3 h-3 mr-1" />
+                      Shared with you
+                    </Badge>
+                  )}
                   {isPersonalLanding && (
                     <Badge
                       variant="default"
@@ -1759,6 +1827,7 @@ export function DashboardListV2() {
                             >
                               <PopoverTrigger asChild>
                                 <Button
+                                  data-testid="dashboard-name-filter-trigger"
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6 p-0 hover:bg-gray-100"
