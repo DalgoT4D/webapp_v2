@@ -1,6 +1,8 @@
 import { getCustomSource } from '../registry';
 import { GoogleSheetsForm } from '../GoogleSheetsForm';
 import { KoboToolboxForm } from '../KoboToolboxForm';
+import { SOURCE_NAME_GOOGLE_SHEETS, SOURCE_NAME_KOBOTOOLBOX } from '../constants';
+import { DestinationSyncMode } from '@/constants/connections';
 
 describe('getCustomSource', () => {
   it('resolves Google Sheets by name', () => {
@@ -10,6 +12,34 @@ describe('getCustomSource', () => {
     expect(getCustomSource('KoboToolbox')?.Form).toBe(KoboToolboxForm);
   });
   it('returns null for any other source', () => {
+    expect(getCustomSource('Postgres')).toBeNull();
+  });
+});
+
+describe('getCustomSource connectionView', () => {
+  it('gives Google Sheets a full-refresh-only, Tabs config', () => {
+    const cv = getCustomSource(SOURCE_NAME_GOOGLE_SHEETS)?.connectionView;
+    expect(cv).toEqual({
+      streamNoun: 'Tabs',
+      supportsIncremental: false,
+      allowedDestModes: [DestinationSyncMode.OVERWRITE, DestinationSyncMode.APPEND],
+    });
+  });
+
+  it('gives KoboToolbox a Forms config with incremental + all dest modes', () => {
+    const cv = getCustomSource(SOURCE_NAME_KOBOTOOLBOX)?.connectionView;
+    expect(cv).toEqual({
+      streamNoun: 'Forms',
+      supportsIncremental: true,
+      allowedDestModes: [
+        DestinationSyncMode.OVERWRITE,
+        DestinationSyncMode.APPEND,
+        DestinationSyncMode.APPEND_DEDUP,
+      ],
+    });
+  });
+
+  it('returns null for an unknown source', () => {
     expect(getCustomSource('Postgres')).toBeNull();
   });
 });
