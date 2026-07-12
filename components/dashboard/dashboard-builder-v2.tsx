@@ -1350,7 +1350,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           },
         });
 
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_CHART_ADDED, { chart_type: chartType });
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_CHART_ADDED, {
+          chart_type: chartType,
+          dashboard_id: dashboardId,
+        });
 
         // Animate component entrance
         dashboardAnimation.animateComponent(newComponent.id, 500);
@@ -1397,7 +1400,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         },
       });
 
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_KPI_ADDED);
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_KPI_ADDED, { dashboard_id: dashboardId });
       dashboardAnimation.animateComponent(newComponent.id, 500);
       scrollToComponentIfNeeded(newComponent.id);
     };
@@ -1457,7 +1460,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         },
       });
 
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_ELEMENT_ADDED);
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_ELEMENT_ADDED, { dashboard_id: dashboardId });
 
       // Animate component entrance
       dashboardAnimation.animateComponent(newComponent.id, 500);

@@ -48,7 +48,7 @@ export default function CreateDashboardPage() {
           grid_columns: 12,
         });
 
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_CREATED);
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_CREATED, { dashboard_id: dashboard.id });
         setDashboardId(dashboard.id);
         setDashboardData({
           title: dashboard.title,
