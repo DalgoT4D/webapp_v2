@@ -3,6 +3,8 @@
 import { usePathname } from 'next/navigation';
 import { AuthGuard } from '@/components/auth-guard';
 import { MainLayout } from '@/components/main-layout';
+import { AdminGuard } from '@/components/admin/AdminGuard';
+import { AdminLayout } from '@/components/admin/AdminLayout';
 import { NavigationTitleHandler } from '@/components/navigation-title-handler';
 import { Toaster } from 'sonner';
 import { usePostHogIdentify } from '@/hooks/usePostHogIdentify';
@@ -46,6 +48,23 @@ export function ClientLayout({ children }: ClientLayoutProps) {
       <div id="client-layout-public-route">
         {children}
         <Toaster richColors position="top-center" />
+      </div>
+    );
+  }
+
+  // Admin portal - authenticated + platform-admin gated, its own sidebar shell.
+  // AdminGuard sits inside AuthGuard so children only evaluate once the user is
+  // authenticated; AdminGuard then keeps non-admins from ever seeing the shell.
+  if (pathname.startsWith('/admin')) {
+    return (
+      <div id="client-layout-admin-route">
+        <NavigationTitleHandler />
+        <AuthGuard>
+          <AdminGuard>
+            <AdminLayout>{children}</AdminLayout>
+          </AdminGuard>
+          <Toaster richColors position="top-center" />
+        </AuthGuard>
       </div>
     );
   }
