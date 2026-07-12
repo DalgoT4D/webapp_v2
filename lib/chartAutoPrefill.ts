@@ -1,12 +1,5 @@
 import type { ChartBuilderFormData } from '@/types/charts';
 
-/**
- * Display name seeded onto an auto-prefilled default metric — the auto-label for COUNT(*).
- * Because it equals the generated label, editing the metric's function/column auto-updates the
- * display name until the user types their own. See MetricAccordionItem's `aliasIsAuto`.
- */
-export const DEFAULT_METRIC_ALIAS = 'COUNT(*)';
-
 interface TableColumn {
   name: string;
   data_type: string;
@@ -58,7 +51,7 @@ export function generateAutoPrefilledConfig(
         {
           column: null,
           aggregation: 'count',
-          alias: DEFAULT_METRIC_ALIAS,
+          alias: 'Total Count',
         },
       ];
       break;
@@ -71,7 +64,7 @@ export function generateAutoPrefilledConfig(
         {
           column: null,
           aggregation: 'count',
-          alias: DEFAULT_METRIC_ALIAS,
+          alias: 'Total Count',
         },
       ];
       break;
@@ -83,7 +76,7 @@ export function generateAutoPrefilledConfig(
         {
           column: null,
           aggregation: 'count',
-          alias: DEFAULT_METRIC_ALIAS,
+          alias: 'Total Count',
         },
       ];
       break;
@@ -97,7 +90,7 @@ export function generateAutoPrefilledConfig(
         {
           column: null,
           aggregation: 'count',
-          alias: DEFAULT_METRIC_ALIAS,
+          alias: 'Total Count',
         },
       ];
       break;
@@ -120,7 +113,7 @@ export function generateAutoPrefilledConfig(
         {
           column: null,
           aggregation: 'count',
-          alias: DEFAULT_METRIC_ALIAS,
+          alias: 'Total Count',
         },
       ];
       config.table_columns = columns

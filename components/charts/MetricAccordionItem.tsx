@@ -15,13 +15,17 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Combobox, highlightText } from '@/components/ui/combobox';
-import { DebouncedInput } from '@/components/charts/debounced-input';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { X, Loader2, Library, Save, ChevronDown } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { ChartMetric } from '@/types/charts';
-import { getAvailableColumns, AGGREGATE_FUNCTIONS } from './MetricsSelector';
+import { getAvailableColumns, AGGREGATE_FUNCTIONS, DEFAULT_METRIC_ALIAS } from './MetricsSelector';
 import { validateMetric } from '@/hooks/api/useMetrics';
+import { useDebounce } from '@/hooks/useDebounce';
+
+// Wait this long after the user stops typing before auto-validating + committing a calculated
+// expression, so we don't fire a request (and re-render the chart) on every keystroke.
+const EXPRESSION_COMMIT_DEBOUNCE_MS = 500;
 
 interface SavedMetric {
   id: number;
@@ -52,6 +56,15 @@ function summaryOf(metric: ChartMetric) {
   return metric.column_expression
     ? metric.column_expression.slice(0, 40)
     : `${(metric.aggregation || '').toUpperCase()}(${metric.column || '*'})`;
+}
+
+// Auto-generated Display Name for a Simple metric. Count-all-rows gets the friendly default
+// ("Total Count", matching the auto-prefill); everything else is AGG(column). Module-level so the
+// customization check can use it during state init.
+function autoLabel(agg?: string | null, col?: string | null) {
+  const a = (agg || 'count').toLowerCase();
+  if (a === 'count' && (!col || col === '*')) return DEFAULT_METRIC_ALIAS;
+  return `${a.toUpperCase()}(${col || '*'})`;
 }
 
 export function MetricAccordionItem({
@@ -85,8 +98,23 @@ export function MetricAccordionItem({
     if (metric.saved_metric_id) setMode('saved');
   }, [metric.saved_metric_id]);
   const [exprDraft, setExprDraft] = React.useState(metric.column_expression || '');
+  // Debounced copy of the expression — auto-validate/commit only fires once typing pauses.
+  const debouncedExpr = useDebounce(exprDraft, EXPRESSION_COMMIT_DEBOUNCE_MS);
+  const validateReqIdRef = React.useRef(0);
   const [validating, setValidating] = React.useState(false);
   const [exprError, setExprError] = React.useState<string | null>(null);
+  // The user "owns" the Display Name once they type one; until then it auto-follows the definition.
+  // Calculated metrics always start un-customized so the name mirrors the expression (empty by
+  // default, then the expression). Simple metrics preserve a genuinely custom label on load.
+  const [aliasCustomized, setAliasCustomized] = React.useState(() => {
+    if (metric.column_expression) return false; // calculated → mirror the expression
+    return !!metric.alias && metric.alias !== autoLabel(metric.aggregation, metric.column);
+  });
+  // Local Display Name input. We debounce user edits to the parent (like DebouncedInput did), but
+  // crucially DON'T echo external/programmatic alias changes back as edits — that echo is what used
+  // to mark the name "customized" and block auto-follow.
+  const [aliasInput, setAliasInput] = React.useState(metric.alias || '');
+  const debouncedAliasInput = useDebounce(aliasInput, EXPRESSION_COMMIT_DEBOUNCE_MS);
   const [metricName, setMetricName] = React.useState('');
   const [showSaveSection, setShowSaveSection] = React.useState(false);
 
@@ -96,19 +124,10 @@ export function MetricAccordionItem({
       ? { column: 'Dimension', function: 'Metric' }
       : { column: 'Column', function: 'Function' };
 
-  // Keep the Display Name auto-synced to the metric definition until the user customizes it.
-  const autoLabel = (agg?: string | null, col?: string | null) =>
-    `${(agg || 'count').toUpperCase()}(${col || '*'})`;
-  // The display name is "auto" (follows the definition) when it's empty or still equals the
-  // generated label for the current function/column (or the raw expression). Once the user types
-  // their own label, it no longer matches and we stop overwriting it.
-  const aliasIsAuto =
-    !metric.alias ||
-    metric.alias === autoLabel(metric.aggregation, metric.column) ||
-    metric.alias === (metric.column_expression || '');
-  // Wrap a Simple-mode update so the alias follows the new function/column (unless customized).
+  // Wrap a Simple-mode update so the alias follows the new function/column (unless the user has
+  // typed their own Display Name).
   const withAutoAlias = (partial: Partial<ChartMetric>): Partial<ChartMetric> => {
-    if (!aliasIsAuto) return partial;
+    if (aliasCustomized) return partial;
     const nextAgg = partial.aggregation ?? metric.aggregation ?? 'count';
     const nextCol = partial.column !== undefined ? partial.column : (metric.column ?? null);
     return { ...partial, alias: autoLabel(nextAgg, nextCol) };
@@ -118,6 +137,8 @@ export function MetricAccordionItem({
     const expr = exprDraft.trim();
     if (!expr || expr === (metric.column_expression || '')) return;
     if (!schemaName || !tableName) return;
+    // Guards against a slow earlier response landing after a newer edit (debounce + blur can race).
+    const reqId = ++validateReqIdRef.current;
     setValidating(true);
     setExprError(null);
     try {
@@ -127,6 +148,7 @@ export function MetricAccordionItem({
         table_name: tableName,
         column_expression: expr,
       });
+      if (reqId !== validateReqIdRef.current) return; // superseded by a newer edit
       if (!result.valid) {
         setExprError(result.error || 'Invalid expression');
         return;
@@ -135,17 +157,48 @@ export function MetricAccordionItem({
         column_expression: expr,
         column: null,
         aggregation: null,
-        ...(aliasIsAuto ? { alias: expr.slice(0, 30) } : {}),
+        // Keep the Display Name mirroring the expression unless the user typed their own label.
+        ...(aliasCustomized ? {} : { alias: expr }),
       });
     } catch (err) {
+      if (reqId !== validateReqIdRef.current) return;
       setExprError(err instanceof Error ? err.message : 'Validation failed');
     } finally {
-      setValidating(false);
+      if (reqId === validateReqIdRef.current) setValidating(false);
     }
   };
 
+  // Auto-validate + commit the (debounced) calculated expression so the chart re-executes while
+  // typing, without needing to click away. commitExpression no-ops when the value is unchanged or
+  // empty, so this is safe to fire on every debounced change.
+  React.useEffect(() => {
+    if (mode !== 'calculated') return;
+    commitExpression();
+    // commitExpression reads the latest exprDraft/schema/table via closure; debouncedExpr is the
+    // trigger. Intentionally not depending on commitExpression (re-created each render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedExpr, mode]);
+
+  // Mirror external alias changes (e.g. the auto-follow commit) into the local input WITHOUT
+  // propagating them back — this is the anti-echo half.
+  React.useEffect(() => {
+    setAliasInput(metric.alias || '');
+  }, [metric.alias]);
+
+  // Propagate the debounced local edit to the parent, but only when it actually differs from the
+  // stored alias — so a value that arrived via the sync effect above never round-trips as an edit.
+  React.useEffect(() => {
+    if (debouncedAliasInput !== (metric.alias || '')) onUpdate({ alias: debouncedAliasInput });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedAliasInput]);
+
   const handleTabChange = (v: string) => {
     const newMode = v as 'simple' | 'calculated' | 'saved';
+    // Leaving/entering a tab clears any stale validation error, and invalidates an in-flight
+    // validation so its response can't commit after the switch.
+    setExprError(null);
+    setValidating(false);
+    validateReqIdRef.current++;
     if (newMode === 'simple') {
       // Detach from the library (if linked) and drop any expression.
       const partial: Partial<ChartMetric> = { column_expression: undefined };
@@ -156,7 +209,9 @@ export function MetricAccordionItem({
         partial.aggregation = 'count';
         partial.column = null;
       }
-      onUpdate(partial);
+      // withAutoAlias keeps the Display Name in sync with the new definition (e.g. COUNT(*))
+      // instead of leaving the old expression's label behind.
+      onUpdate(withAutoAlias(partial));
     }
     if (newMode === 'calculated') {
       setExprDraft(metric.column_expression || '');
@@ -182,11 +237,16 @@ export function MetricAccordionItem({
       <Label htmlFor={`metric-alias-${index}`} className="text-xs text-gray-600">
         Display Name In Charts
       </Label>
-      <DebouncedInput
+      <Input
         id={`metric-alias-${index}`}
         data-testid={`metric-alias-${index}`}
-        value={metric.alias || ''}
-        onChange={(value: string) => onUpdate({ alias: value })}
+        value={aliasInput}
+        onChange={(e) => {
+          // Fires only on real keystrokes (plain input), never on programmatic sync. A non-empty
+          // manual label means the user owns the name; clearing it re-enables auto-follow.
+          setAliasInput(e.target.value);
+          setAliasCustomized(e.target.value.trim().length > 0);
+        }}
         placeholder="Pick a label"
         className="h-8 text-sm"
         disabled={disabled}

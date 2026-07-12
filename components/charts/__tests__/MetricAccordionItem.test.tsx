@@ -62,8 +62,9 @@ describe('MetricAccordionItem — inline metric (full tabbed form)', () => {
 
   it('auto-syncs the display name to the definition when the alias is not customized', async () => {
     const user = userEvent.setup();
-    // alias === autoLabel(count, *) → treated as auto-generated, so it should follow the new function.
-    const { onUpdate } = renderItem({ column: null, aggregation: 'count', alias: 'COUNT(*)' });
+    // alias === autoLabel(count, *) → the friendly "Total Count" default, treated as auto-generated,
+    // so it should follow the new function.
+    const { onUpdate } = renderItem({ column: null, aggregation: 'count', alias: 'Total Count' });
     await user.click(screen.getByTestId('metric-agg-0'));
     await user.click(screen.getByRole('option', { name: 'Sum' }));
     expect(onUpdate).toHaveBeenCalledWith(
@@ -98,6 +99,28 @@ describe('MetricAccordionItem — calculated tab', () => {
     await waitFor(() =>
       expect(onUpdate).toHaveBeenCalledWith(
         expect.objectContaining({ column_expression: 'SUM(amount)/2' })
+      )
+    );
+  });
+
+  it('auto-follows the display name to the expression on a valid change', async () => {
+    // Regression: editing a calculated expression must re-align the Display Name to the new
+    // expression (unless the user customized it). Previously a DebouncedInput echo of the old
+    // alias marked the name "customized" and left the label stuck on the prior value.
+    (validateMetric as jest.Mock).mockResolvedValue({ valid: true });
+    const user = userEvent.setup();
+    const onUpdate = jest.fn();
+    renderItem(
+      { column_expression: 'SUM(amount)', alias: 'SUM(amount)' },
+      { onUpdate, schemaName: 's', tableName: 't' }
+    );
+    const box = screen.getByTestId('metric-expr-0');
+    await user.clear(box);
+    await user.type(box, 'AVG(amount)');
+    await user.tab();
+    await waitFor(() =>
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ column_expression: 'AVG(amount)', alias: 'AVG(amount)' })
       )
     );
   });
