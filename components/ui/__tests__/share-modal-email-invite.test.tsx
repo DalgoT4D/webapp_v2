@@ -182,6 +182,43 @@ describe('ShareModal — email invite parsing', () => {
 
     expect(screen.getAllByTestId('share-add-email-chip-a@x.org')).toHaveLength(1);
   });
+
+  it('strips the mail-client "Name <email>" wrapper into a single valid chip', async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await user.click(screen.getByTestId('share-add-mode-email'));
+
+    pasteIntoEmailInput('Asha Kumar <a@x.org>');
+
+    const chip = screen.getByTestId('share-add-email-chip-a@x.org');
+    expect(chip).toHaveAttribute('data-status', 'valid');
+    // The display-name part must not become a chip of its own.
+    expect(screen.getAllByTestId(/^share-add-email-chip-/)).toHaveLength(1);
+  });
+
+  it('parses a bare angle-bracketed token to the inner email', async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await user.click(screen.getByTestId('share-add-mode-email'));
+
+    pasteIntoEmailInput('<a@x.org>');
+
+    const chip = screen.getByTestId('share-add-email-chip-a@x.org');
+    expect(chip).toHaveAttribute('data-status', 'valid');
+    expect(screen.getAllByTestId(/^share-add-email-chip-/)).toHaveLength(1);
+  });
+
+  it('marks a token with an unmatched angle bracket as invalid', async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await user.click(screen.getByTestId('share-add-mode-email'));
+
+    pasteIntoEmailInput('<a@x.org');
+
+    const chip = screen.getByTestId('share-add-email-chip-<a@x.org');
+    expect(chip).toHaveAttribute('data-status', 'invalid');
+    expect(screen.getByTestId('share-add-email-btn')).toBeDisabled();
+  });
 });
 
 describe('ShareModal — email invite send', () => {
@@ -326,25 +363,23 @@ describe('ShareModal — email invite send', () => {
   });
 });
 
-describe('ShareModal — pending grant removal (email invite chips)', () => {
+describe('ShareModal — pending grant rows (email invites)', () => {
   beforeEach(() => jest.clearAllMocks());
+
+  const pendingGrant: AccessGrant = {
+    id: 9,
+    principal_type: 'user',
+    principal_id: null,
+    email: 'future@x.org',
+    name: null,
+    permission: 'view',
+    status: 'pending',
+  };
 
   it('removes a pending grant row the same way as an active one, via DELETE', async () => {
     const user = userEvent.setup();
     mockRemoveGrant.mockResolvedValue(undefined);
-    const { mutate } = renderModal({
-      grants: [
-        {
-          id: 9,
-          principal_type: 'user',
-          principal_id: null,
-          email: 'future@x.org',
-          name: null,
-          permission: 'view',
-          status: 'pending',
-        },
-      ],
-    });
+    const { mutate } = renderModal({ grants: [pendingGrant] });
 
     const row = screen.getByTestId('share-grant-row-9');
     expect(row).toHaveTextContent('future@x.org');
@@ -354,6 +389,25 @@ describe('ShareModal — pending grant removal (email invite chips)', () => {
 
     await waitFor(() => {
       expect(mockRemoveGrant).toHaveBeenCalledWith('dashboard', 1, 9);
+      expect(mutate).toHaveBeenCalled();
+    });
+  });
+
+  it('changes a pending grant permission by re-POSTing via the email path', async () => {
+    const user = userEvent.setup();
+    mockAddGrant.mockResolvedValue({ ...pendingGrant, permission: 'edit' });
+    const { mutate } = renderModal({ grants: [pendingGrant] });
+
+    // The dropdown must render for pending rows, same as active ones.
+    await user.click(screen.getByTestId('share-grant-permission-9'));
+    await user.click(screen.getByRole('option', { name: 'Editor' }));
+
+    await waitFor(() => {
+      expect(mockAddGrant).toHaveBeenCalledWith('dashboard', 1, {
+        principal_type: 'user',
+        email: 'future@x.org',
+        permission: 'edit',
+      });
       expect(mutate).toHaveBeenCalled();
     });
   });

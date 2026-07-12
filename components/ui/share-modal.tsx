@@ -52,7 +52,11 @@ import { useAuthStore } from '@/stores/authStore';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Angle brackets excluded so stray leftovers of a mis-parsed mail-client
+// "Name <email>" wrapper (e.g. an unmatched "<a@x.org") fail validation
+// instead of being POSTed to the backend, which has no email-format check
+// on the share-invite path.
+const EMAIL_REGEX = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 const MAX_RECIPIENTS = 20;
 
 // Mirrors ddpui/core/sharing/shareable_types.py's share_permission_slug per rtype.
@@ -82,12 +86,28 @@ const LEVEL_LABELS: Record<AccessLevel, string> = {
 
 // ---- Email invite parsing (Add-a-person "Invite by email" mode) ----
 
-/** Splits pasted/typed text into email candidates on comma/whitespace/semicolon. */
+// Mail-client "Display Name <email>" wrapper (also bare "<email>").
+// Anchored + no nested brackets so an unmatched bracket falls through to
+// plain tokenization and then fails EMAIL_REGEX as an invalid chip.
+const ANGLE_BRACKET_EMAIL_REGEX = /^[^<>]*<([^<>]+)>$/;
+
+/** Splits pasted/typed text into email candidates. Entries are separated
+ * by commas/semicolons/newlines; a "Name <email>" entry (the common
+ * mail-client copy format) yields just the address; anything else is
+ * further split on whitespace. */
 function splitEmailTokens(text: string): string[] {
-  return text
-    .split(/[\s,;]+/)
-    .map((token) => token.trim())
-    .filter(Boolean);
+  const tokens: string[] = [];
+  for (const entry of text.split(/[,;\r\n]+/)) {
+    const trimmed = entry.trim();
+    if (!trimmed) continue;
+    const angleMatch = trimmed.match(ANGLE_BRACKET_EMAIL_REGEX);
+    if (angleMatch) {
+      tokens.push(angleMatch[1].trim());
+    } else {
+      tokens.push(...trimmed.split(/\s+/).filter(Boolean));
+    }
+  }
+  return tokens;
 }
 
 // A paste-30-emails batch sends one POST per email (each can trigger a
@@ -650,11 +670,20 @@ function PeopleWithAccessSection({
 
   const handlePermissionChange = useCallback(
     async (grant: AccessGrant, permission: AccessLevel) => {
-      if (grant.principal_id === null) return; // pending invite — not resolvable yet
+      // Pending rows have no principal_id yet — re-POST via the email path
+      // instead; the backend's update_or_create keyed on pending_email
+      // updates the pending row's permission in place.
+      const principalRef =
+        grant.principal_id !== null
+          ? { principal_id: grant.principal_id }
+          : grant.email
+            ? { email: grant.email }
+            : null;
+      if (principalRef === null) return; // defensive — shouldn't occur on the wire
       try {
         await addGrant(entityType, entityId, {
           principal_type: grant.principal_type,
-          principal_id: grant.principal_id,
+          ...principalRef,
           permission,
         });
         onChanged();
@@ -766,7 +795,7 @@ function PeopleWithAccessSection({
                 </span>
               </span>
               <div className="flex items-center gap-1 flex-shrink-0">
-                {canShare && grant.principal_id !== null ? (
+                {canShare && (grant.principal_id !== null || grant.email) ? (
                   <Select
                     value={grant.permission}
                     onValueChange={(value) => handlePermissionChange(grant, value as AccessLevel)}

@@ -115,7 +115,12 @@ describe('ShareModal — People with access', () => {
     expect(screen.getByTestId('share-grant-remove-3')).toBeInTheDocument();
   });
 
-  it('renders pending grants without an editable permission dropdown', () => {
+  it('renders pending grants with a working permission dropdown and remove button', () => {
+    // Task 10 fix round 1 (deliberate spec change): pending rows get the
+    // same permission dropdown as active ones — changing it re-POSTs via
+    // the email path (the backend's update_or_create keyed on
+    // pending_email updates the row in place). POST behavior is covered in
+    // share-modal-email-invite.test.tsx.
     renderModal({
       grants: [
         {
@@ -132,7 +137,7 @@ describe('ShareModal — People with access', () => {
     const row = screen.getByTestId('share-grant-row-4');
     expect(row).toHaveTextContent('new.person@ngo.org');
     expect(row).toHaveTextContent('invite pending');
-    expect(screen.queryByTestId('share-grant-permission-4')).not.toBeInTheDocument();
+    expect(screen.getByTestId('share-grant-permission-4')).toBeInTheDocument();
     // Still removable — DELETE only needs the grant id, not a resolved principal.
     expect(screen.getByTestId('share-grant-remove-4')).toBeInTheDocument();
   });
