@@ -1,22 +1,22 @@
 import type { Metadata } from 'next';
-import localFont from 'next/font/local';
+import { Anek_Latin } from 'next/font/google';
 import './globals.css';
 import { SWRProvider } from '@/lib/swr';
 import { ClientLayout } from '@/components/client-layout';
 import { PostHogProvider } from '@/app/posthog-provider';
 
-const anekLatin = localFont({
-  src: '../public/fonts/AnekLatin.woff2',
+const anekLatin = Anek_Latin({
   variable: '--font-anek-latin',
-  weight: '400 700',
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
   display: 'swap',
 });
 
-const anekMono = localFont({
-  src: '../public/fonts/AnekLatin.woff2',
+const anekMono = Anek_Latin({
   variable: '--font-anek-mono',
-  weight: '400 700',
+  subsets: ['latin'],
   display: 'swap',
+  weight: ['400', '500', '600', '700'],
 });
 
 export const metadata: Metadata = {
