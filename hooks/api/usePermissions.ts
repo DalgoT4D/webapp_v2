@@ -10,12 +10,14 @@ export function useUserPermissions(): {
   hasPermission: (permissionSlug: string) => boolean;
   hasAnyPermission: (permissionSlugs: string[]) => boolean;
   hasAllPermissions: (permissionSlugs: string[]) => boolean;
+  isPlatformAdmin: boolean;
   isLoading: boolean;
 } {
   const { getCurrentOrgUser } = useAuthStore();
   const currentOrgUser = getCurrentOrgUser();
 
   const permissions: Permission[] = currentOrgUser?.permissions || [];
+  const isPlatformAdmin: boolean = currentOrgUser?.is_platform_admin ?? false;
 
   const hasPermission = (permissionSlug: string): boolean => {
     return permissions.some((permission) => permission.slug === permissionSlug);
@@ -34,6 +36,7 @@ export function useUserPermissions(): {
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
+    isPlatformAdmin,
     isLoading: false, // Since we're using existing auth store data
   };
 }

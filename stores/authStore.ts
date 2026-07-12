@@ -22,6 +22,7 @@ export interface OrgUser {
   landing_dashboard_id?: number | null; // Personal landing page dashboard ID
   org_default_dashboard_id?: number | null; // Organization default dashboard ID
   subscription_plan?: string | null; // Org base plan, used for analytics segmentation
+  is_platform_admin?: boolean; // Global flag: Dalgo ops user who can access the admin portal
 }
 
 interface AuthState {
