@@ -104,10 +104,13 @@ export function MetricAccordionItem({
   const [validating, setValidating] = React.useState(false);
   const [exprError, setExprError] = React.useState<string | null>(null);
   // The user "owns" the Display Name once they type one; until then it auto-follows the definition.
-  // Calculated metrics always start un-customized so the name mirrors the expression (empty by
-  // default, then the expression). Simple metrics preserve a genuinely custom label on load.
+  // A label is treated as auto (and will keep mirroring the definition) when it's empty or still
+  // equals the generated label — for calculated metrics that's the raw expression, for simple ones
+  // the Function(Column) label. A label that differs is a genuine custom name and is preserved.
   const [aliasCustomized, setAliasCustomized] = React.useState(() => {
-    if (metric.column_expression) return false; // calculated → mirror the expression
+    if (metric.column_expression) {
+      return !!metric.alias && metric.alias !== metric.column_expression;
+    }
     return !!metric.alias && metric.alias !== autoLabel(metric.aggregation, metric.column);
   });
   // Local Display Name input. We debounce user edits to the parent (like DebouncedInput did), but

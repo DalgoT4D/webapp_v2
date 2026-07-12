@@ -242,6 +242,58 @@ describe('ChartDataConfigurationV3', () => {
       await user.click(screen.getByTestId('change-to-pie'));
       expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ chart_type: 'pie' }));
     });
+
+    it('preserves the selected metric when switching to a map chart (not reset to default count)', async () => {
+      const user = userEvent.setup();
+      // Auto-prefill would seed a default count metric; the user's metric must win.
+      (chartAutoPrefill.generateAutoPrefilledConfig as jest.Mock).mockReturnValue({
+        geographic_column: 'state_name',
+        aggregate_function: 'count',
+        metrics: [{ column: null, aggregation: 'count', alias: 'Total Count' }],
+      });
+      const formData = {
+        ...baseFormData,
+        metrics: [
+          {
+            saved_metric_id: 7,
+            column: null,
+            aggregation: null,
+            column_expression: 'avg(pop)',
+            alias: 'Avg Pop',
+          },
+        ],
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      await user.click(screen.getByTestId('change-to-map'));
+
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          chart_type: 'map',
+          metrics: [expect.objectContaining({ alias: 'Avg Pop', column_expression: 'avg(pop)' })],
+        })
+      );
+    });
+
+    it('keeps the auto-prefilled default metric when switching to map with no existing metric', async () => {
+      const user = userEvent.setup();
+      (chartAutoPrefill.generateAutoPrefilledConfig as jest.Mock).mockReturnValue({
+        geographic_column: 'state_name',
+        metrics: [{ column: null, aggregation: 'count', alias: 'Total Count' }],
+      });
+      const formData = { ...baseFormData, metrics: [] };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      await user.click(screen.getByTestId('change-to-map'));
+
+      // With no metric to preserve, the auto-prefilled default must stand (not an empty section).
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          chart_type: 'map',
+          metrics: [expect.objectContaining({ alias: 'Total Count' })],
+        })
+      );
+    });
   });
 
   describe('Filters', () => {

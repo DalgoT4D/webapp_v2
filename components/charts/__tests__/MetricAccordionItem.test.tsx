@@ -125,6 +125,32 @@ describe('MetricAccordionItem — calculated tab', () => {
     );
   });
 
+  it('preserves a custom Display Name on a calculated metric when the expression is edited', async () => {
+    // Regression: aliasCustomized init must recognise a calc alias that differs from the expression
+    // as a genuine custom name, so editing the expression does not overwrite it.
+    (validateMetric as jest.Mock).mockResolvedValue({ valid: true });
+    const user = userEvent.setup();
+    const onUpdate = jest.fn();
+    renderItem(
+      { column_expression: 'SUM(a)/SUM(b)', alias: 'Ratio' },
+      { onUpdate, schemaName: 's', tableName: 't' }
+    );
+    const box = screen.getByTestId('metric-expr-0');
+    await user.clear(box);
+    await user.type(box, 'SUM(a)/SUM(c)');
+    await user.tab();
+    await waitFor(() =>
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ column_expression: 'SUM(a)/SUM(c)' })
+      )
+    );
+    // The custom alias must never be replaced by the raw expression.
+    const aliasUpdates = onUpdate.mock.calls
+      .map((c) => c[0])
+      .filter((partial) => 'alias' in partial);
+    expect(aliasUpdates.every((partial) => partial.alias === 'Ratio')).toBe(true);
+  });
+
   it('does NOT update and shows an error when the expression is invalid', async () => {
     (validateMetric as jest.Mock).mockResolvedValue({ valid: false, error: 'bad expr' });
     const user = userEvent.setup();
