@@ -107,6 +107,26 @@ describe('Mutation functions', () => {
     });
   });
 
+  describe('addGrant — email invite path', () => {
+    it('posts a grant with email instead of principal_id', async () => {
+      const pendingGrant = mockOverview.grants[1];
+      mockApiPost.mockResolvedValue({ success: true, data: pendingGrant });
+
+      const result = await addGrant('dashboard', 1, {
+        principal_type: 'user',
+        email: 'new.person@ngo.org',
+        permission: 'view',
+      });
+
+      expect(result).toEqual(pendingGrant);
+      expect(mockApiPost).toHaveBeenCalledWith('/api/access/dashboard/1/grants/', {
+        principal_type: 'user',
+        email: 'new.person@ngo.org',
+        permission: 'view',
+      });
+    });
+  });
+
   describe('removeGrant', () => {
     it('deletes a grant', async () => {
       mockApiDelete.mockResolvedValue({ success: true, message: 'Access revoked' });

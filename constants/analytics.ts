@@ -141,6 +141,7 @@ export const ANALYTICS_EVENTS = {
   SHARING_GRANT_ADDED: 'sharing:grant_added',
   SHARING_GRANT_REMOVED: 'sharing:grant_removed',
   SHARING_GENERAL_ACCESS_UPDATED: 'sharing:general_access_updated',
+  SHARING_EMAIL_INVITE_SENT: 'sharing:email_invite_sent',
   // Settings → Groups (resource-sharing audiences, Milestone 3)
   GROUP_CREATED: 'settings:group_created',
   GROUP_RENAMED: 'settings:group_renamed',

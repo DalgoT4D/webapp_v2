@@ -95,7 +95,13 @@ export function useResourceAccess(rtype: ShareableResourceType | null, resourceI
 
 export interface AddGrantPayload {
   principal_type: PrincipalType;
-  principal_id: number;
+  // Exactly one of principal_id / email is set. `email` is the invite path
+  // (share-with-a-non-member-email, Task 9's backend contract): a known
+  // in-org email resolves to an instant active grant; an unknown one sends
+  // a Member invitation and creates a pending grant. `principal_type`
+  // must be 'user' when `email` is set — the backend 400s email on groups.
+  principal_id?: number;
+  email?: string;
   permission: AccessLevel;
 }
 
