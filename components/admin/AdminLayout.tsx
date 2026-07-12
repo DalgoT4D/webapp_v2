@@ -14,15 +14,11 @@ interface AdminNavItem {
   disabled?: boolean;
 }
 
-// Home is live in M2. Two kinds of disabled items below, deliberately distinct:
-//   - Organizations is TEMPORARY: it gets a real page in M3 (see TODO below).
-//   - Notifications + Feature Flags are deferred features (plan.md "Later") with no
-//     scheduled milestone yet.
+// Home + Organizations are live (M2, M3). Notifications + Feature Flags are deferred
+// features (plan.md "Later") shown as permanent placeholders to keep the shell shape.
 const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { title: 'Home', href: '/admin', icon: Home },
-  // TODO(M3): enable once the org list page (app/admin/organizations) exists — this is
-  // only disabled because that route isn't built yet, NOT a permanently-deferred feature.
-  { title: 'Organizations', href: '/admin/organizations', icon: Building2, disabled: true },
+  { title: 'Organizations', href: '/admin/organizations', icon: Building2 },
   { title: 'Notifications', href: '/admin/notifications', icon: Bell, disabled: true },
   { title: 'Feature Flags', href: '/admin/feature-flags', icon: Flag, disabled: true },
 ];
