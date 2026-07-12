@@ -63,14 +63,6 @@ export enum TaskStatus {
 // Schema change severity
 export const SCHEMA_CHANGE_BREAKING = 'breaking' as const;
 
-export const CONNECTION_PERMISSIONS = {
-  CREATE: 'can_create_connection',
-  EDIT: 'can_edit_connection',
-  DELETE: 'can_delete_connection',
-  RESET: 'can_reset_connection',
-  SYNC: 'can_sync_sources',
-} as const;
-
 // Sync history pagination size
 export const SYNC_HISTORY_PAGE_SIZE = 20;
 

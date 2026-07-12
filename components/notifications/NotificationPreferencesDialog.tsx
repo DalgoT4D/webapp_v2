@@ -19,8 +19,7 @@ import {
   useOrgPreferences,
   usePreferenceActions,
 } from '@/hooks/api/useNotifications';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
-import { PERMISSIONS } from '@/constants/notifications';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
@@ -53,9 +52,9 @@ export function NotificationPreferencesDialog({
   } = useOrgPreferences();
   const isLoadingPrefs = userPrefsLoading || orgPrefsLoading;
   const { updateUserPreferences, updateOrgPreferences } = usePreferenceActions();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
-  const hasDiscordPermission = hasPermission(PERMISSIONS.EDIT_ORG_NOTIFICATION_SETTINGS);
+  const hasDiscordPermission = hasPermission(PERMISSIONS.CAN_EDIT_ORG_NOTIFICATION_SETTINGS);
 
   // Load existing preferences when dialog opens
   useEffect(() => {

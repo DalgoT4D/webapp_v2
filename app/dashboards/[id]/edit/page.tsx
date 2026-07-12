@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DashboardBuilderV2 } from '@/components/dashboard/dashboard-builder-v2';
 import { useDashboard } from '@/hooks/api/useDashboards';
 import { useAuthStore } from '@/stores/authStore';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Lock, User, Clock, AlertTriangle, Eye, Loader2 } from 'lucide-react';
@@ -24,9 +24,16 @@ export default function EditDashboardPage() {
   const currentUser = getCurrentOrgUser();
 
   // Get user permissions
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
+  const canEditDashboard = hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS);
 
-  const { data: dashboard, isLoading, isError, mutate } = useDashboard(dashboardId);
+  // Don't start the dashboard request without edit permission
+  const {
+    data: dashboard,
+    isLoading,
+    isError,
+    mutate,
+  } = useDashboard(canEditDashboard ? dashboardId : null);
 
   // Check if dashboard is locked by another user
   // Only block access if dashboard is locked AND locked by someone else
@@ -82,6 +89,10 @@ export default function EditDashboardPage() {
 
   // Clean up on route change or component unmount
   useEffect(() => {
+    // No lock was taken for users without edit permission — never fire the
+    // unlock/cleanup calls for them
+    if (!canEditDashboard) return undefined;
+
     // Function to handle cleanup synchronously for critical scenarios
     const handleSyncCleanup = () => {
       // First try emergency unlock (direct API call)
@@ -145,7 +156,7 @@ export default function EditDashboardPage() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       document.removeEventListener('click', handleLinkClick, true);
     };
-  }, [dashboardId]);
+  }, [dashboardId, canEditDashboard]);
 
   // Handle navigation to preview mode
   const handlePreviewMode = async () => {
@@ -182,19 +193,9 @@ export default function EditDashboardPage() {
     },
   };
 
-  if (isLoading) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Check if user has edit permissions
-  if (!hasPermission('can_edit_dashboards')) {
+  // Check if user has edit permissions — before the loading check, since the
+  // dashboard request never starts (and never resolves) without permission
+  if (!canEditDashboard) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
@@ -209,6 +210,17 @@ export default function EditDashboardPage() {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboards
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
     );

@@ -9,6 +9,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { LOCK_POLL_INTERVAL_MS } from '@/constants/data-quality';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import {
   fetchElementaryReport,
   refreshElementaryReport,
@@ -22,6 +23,10 @@ export function ElementaryReport() {
   const [isGenerating, setIsGenerating] = useState(false);
   const lockIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
+
+  const { hasPermission } = useRbac();
+  // Regenerating the report rebuilds Elementary in the dbt workspace — gate on edit access.
+  const canRegenerate = hasPermission(PERMISSIONS.CAN_EDIT_DBT_WORKSPACE);
 
   const clearLockPolling = useCallback(() => {
     if (lockIntervalRef.current) {
@@ -121,7 +126,7 @@ export function ElementaryReport() {
         </div>
         <Button
           onClick={handleRegenerate}
-          disabled={isGenerating}
+          disabled={isGenerating || !canRegenerate}
           data-testid="regenerate-report-btn"
         >
           {isGenerating ? (

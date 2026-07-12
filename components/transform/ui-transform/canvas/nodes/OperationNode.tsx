@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { Trash2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTransformStore, useSelectedNode } from '@/stores/transformStore';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import type { CanvasNodeRenderData } from '@/types/transform';
 import {
   NODE_COLORS,
@@ -29,7 +29,7 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
     clearPreviewAction,
     canInteractWithCanvas,
   } = useTransformStore();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
   const operationType = data?.operation_config?.type || 'unknown';
   const operationLabel = operationLabelMap[operationType] || operationType;
@@ -38,7 +38,7 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
   // Leaf node check — can delete only leaf nodes
   const edgesEmanatingOutOfNode = edges.filter((edge) => edge.source === id);
   const isLeafNode = edgesEmanatingOutOfNode.length === 0;
-  const canDelete = isLeafNode && hasPermission('can_delete_dbt_operation');
+  const canDelete = isLeafNode && hasPermission(PERMISSIONS.CAN_DELETE_DBT_OPERATION);
 
   // Handle node click — open panel in edit or view mode based on permissions
   const handleNodeClick = useCallback(() => {
@@ -46,7 +46,7 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
     const nodeProps = { id, type, data, selected, position: { x: xPos, y: yPos } };
     setSelectedNode(nodeProps);
 
-    if (hasPermission('can_edit_dbt_operation')) {
+    if (hasPermission(PERMISSIONS.CAN_EDIT_DBT_OPERATION)) {
       // Open panel directly in the same synchronous handler as setSelectedNode
       // so React batches both Zustand updates into a single render where
       // operationPanelOpen=true AND selectedNode are both available.
@@ -55,7 +55,7 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
         type: CanvasActionEnum.OPEN_OPCONFIG_PANEL,
         data: { mode: OperationFormAction.EDIT },
       });
-    } else if (hasPermission('can_view_dbt_operation')) {
+    } else if (hasPermission(PERMISSIONS.CAN_VIEW_DBT_OPERATION)) {
       openOperationPanel();
       dispatchCanvasAction({
         type: CanvasActionEnum.OPEN_OPCONFIG_PANEL,
@@ -68,6 +68,8 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
     type,
     data,
     selected,
+    xPos,
+    yPos,
     setSelectedNode,
     dispatchCanvasAction,
     openOperationPanel,

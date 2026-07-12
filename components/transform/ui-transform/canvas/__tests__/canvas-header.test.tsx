@@ -6,12 +6,12 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CanvasHeader from '../CanvasHeader';
-import * as usePermissionsHook from '@/hooks/api/usePermissions';
+import * as rbac from '@/lib/rbac';
 import { CanvasNodeTypeEnum } from '@/types/transform';
 
 // ============ Mocks ============
 
-jest.mock('@/hooks/api/usePermissions');
+jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
@@ -41,7 +41,7 @@ describe('CanvasHeader', () => {
     mockStoreState.selectedNode = null;
     mockStoreState.patRequired = false;
 
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (perm: string) => perm === 'can_run_pipeline',
     });
   });
@@ -55,7 +55,7 @@ describe('CanvasHeader', () => {
   });
 
   it('disables Run button when user lacks can_run_pipeline permission', () => {
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: () => false,
     });
 

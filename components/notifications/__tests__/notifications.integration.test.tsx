@@ -7,7 +7,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import NotificationsPage from '@/app/notifications/page';
 import * as notificationHooks from '@/hooks/api/useNotifications';
-import * as permissionsHook from '@/hooks/api/usePermissions';
+import * as rbac from '@/lib/rbac';
 import {
   mockNotifications,
   mockUserPreferences,
@@ -17,7 +17,7 @@ import {
 } from './notification-mock-data';
 
 jest.mock('@/hooks/api/useNotifications');
-jest.mock('@/hooks/api/usePermissions');
+jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
 
 describe('Notifications Page Integration', () => {
   let mocks: ReturnType<typeof createMockNotificationHooks>;
@@ -65,7 +65,7 @@ describe('Notifications Page Integration', () => {
       updateOrgPreferences: mocks.mockUpdateOrgPreferences,
     });
 
-    (permissionsHook.useUserPermissions as jest.Mock).mockReturnValue(createMockPermissions(true));
+    (rbac.useRbac as jest.Mock).mockReturnValue(createMockPermissions(true));
   });
 
   it('loads notifications on page mount', () => {
