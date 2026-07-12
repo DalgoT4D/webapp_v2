@@ -89,8 +89,10 @@ export function Header({
     // Set switching state to show loading
     setOrgSwitching(true);
 
-    // Update the selected org in store and localStorage
-    trackEvent(ANALYTICS_EVENTS.ORG_SWITCHED, { org_slug: orgSlug });
+    // Update the selected org in store and localStorage.
+    // sendInstantly: the full reload below unloads the page immediately, which
+    // would drop a normally-batched event — flush this one now.
+    trackEvent(ANALYTICS_EVENTS.ORG_SWITCHED, { org_slug: orgSlug }, { sendInstantly: true });
     setSelectedOrg(orgSlug);
 
     // Full reload ensures all API calls use the new org header cleanly

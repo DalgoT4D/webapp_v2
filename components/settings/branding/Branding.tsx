@@ -203,10 +203,10 @@ export default function Branding() {
       }
 
       await mutate('/api/currentuserv2');
+      // Only the categorical source ('upload' | 'link') is sent — never the
+      // filename or URL (both are customer-derived strings / PII).
       trackEvent(ANALYTICS_EVENTS.BRANDING_LOGO_SAVED, {
         logo_source: activeTab,
-        filename: res?.data?.logo_filename ?? null,
-        logo_url: savedUrl,
       });
       toastSuccess.saved('Organization logo');
       doCancel();
