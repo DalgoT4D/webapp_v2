@@ -99,12 +99,15 @@ import {
   updateDashboardSharing,
 } from '@/hooks/api/useDashboards';
 import { ShareModal } from '@/components/ui/share-modal';
+import { BulkShareDialog } from '@/components/sharing/bulk-share-dialog';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
+import { useMultiSelect, MAX_BULK_SELECTION } from '@/hooks/useMultiSelect';
+import type { BulkAccessResponse } from '@/hooks/api/useResourceAccess';
 import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
 import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
@@ -171,6 +174,16 @@ export function DashboardListV2() {
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [selectedDashboard, setSelectedDashboard] = useState<any>(null);
+  // Bulk-selection bar (task-17f, Milestone 10) — persists across pagination,
+  // capped at 100 (BULK_MAX_ITEMS) via useMultiSelect.
+  const {
+    selectedIds: selectedDashboardIds,
+    toggle: toggleDashboardSelection,
+    selectPage: selectDashboardPage,
+    remove: removeAppliedDashboardIds,
+    clear: clearDashboardSelection,
+  } = useMultiSelect<number>();
+  const [bulkShareOpen, setBulkShareOpen] = useState(false);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -421,6 +434,14 @@ export function DashboardListV2() {
   const paginatedRegularDashboards =
     apiTotalPages > 1 ? regularDashboards : regularDashboards.slice(startIndex, endIndex);
 
+  // All rows currently rendered in the table (pinned + this page of regular)
+  // — what "Select all" selects, matching the current-page-only semantics
+  // of the pagination controls below.
+  const visibleDashboardIds = useMemo(
+    () => [...pinnedDashboards, ...paginatedRegularDashboards].map((d) => d.id),
+    [pinnedDashboards, paginatedRegularDashboards]
+  );
+
   // Calculate pagination values (use API values if available, otherwise client-side for regular dashboards only)
   const total = apiTotal || regularDashboards.length;
   const totalPages =
@@ -493,6 +514,31 @@ export function DashboardListV2() {
   const handleDashboardUpdate = useCallback(() => {
     mutate(); // Refresh the dashboard list
   }, [mutate]);
+
+  // Bulk-share apply (task-17f) — deselect only the ids the server actually
+  // applied; skipped/pending-confirmation ids stay selected so the user can
+  // see which ones need attention. Always revalidate — applied changes are
+  // real even mid a set_general narrow-confirm round-trip.
+  const handleBulkApplied = useCallback(
+    (response: BulkAccessResponse) => {
+      const appliedIds = response.applied
+        .filter((item) => item.rtype === 'dashboard')
+        .map((item) => Number(item.id));
+      removeAppliedDashboardIds(appliedIds);
+      mutate();
+    },
+    [removeAppliedDashboardIds, mutate]
+  );
+
+  const handleBulkShareClose = useCallback(() => setBulkShareOpen(false), []);
+
+  const bulkShareItems = useMemo(
+    () =>
+      Array.from(selectedDashboardIds, (id) => ({ rtype: 'dashboard' as const, id: String(id) })),
+    [selectedDashboardIds]
+  );
+
+  const canShareDashboards = hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS);
 
   // Landing page handlers
   const handleSetPersonalLanding = useCallback(
@@ -814,6 +860,21 @@ export function DashboardListV2() {
 
     return (
       <TableRow key={dashboard.id} className="hover:bg-gray-50">
+        {/* Bulk-select checkbox (task-17f) — gated with the row's Share button */}
+        {canShareDashboards && (
+          <TableCell className="py-4">
+            <Checkbox
+              data-testid={`dashboard-select-${dashboard.id}`}
+              aria-label={`Select ${dashboard.title || dashboard.dashboard_title}`}
+              checked={selectedDashboardIds.has(dashboard.id)}
+              disabled={
+                !selectedDashboardIds.has(dashboard.id) &&
+                selectedDashboardIds.size >= MAX_BULK_SELECTION
+              }
+              onCheckedChange={() => toggleDashboardSelection(dashboard.id)}
+            />
+          </TableCell>
+        )}
         {/* Name Column with Star */}
         <TableCell className="py-4">
           <div className="flex items-center gap-3">
@@ -1687,6 +1748,49 @@ export function DashboardListV2() {
           )}
         </div>
 
+        {/* Bulk-selection bar (task-17f) — appears once ≥1 row is selected */}
+        {canShareDashboards && selectedDashboardIds.size > 0 && (
+          <div
+            data-testid="dashboard-bulk-share-bar"
+            className="mx-6 mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-blue-900">
+                {selectedDashboardIds.size} of {visibleDashboardIds.length} selected
+                {selectedDashboardIds.size >= MAX_BULK_SELECTION && ' (maximum 100 reached)'}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  data-testid="dashboard-bulk-select-all-btn"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => selectDashboardPage(visibleDashboardIds)}
+                  disabled={visibleDashboardIds.every((id) => selectedDashboardIds.has(id))}
+                >
+                  Select All
+                </Button>
+                <Button
+                  data-testid="dashboard-bulk-clear-btn"
+                  variant="outline"
+                  size="sm"
+                  onClick={clearDashboardSelection}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+            <Button
+              data-testid="dashboard-bulk-share-btn"
+              variant="primary"
+              size="sm"
+              onClick={() => setBulkShareOpen(true)}
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Share
+            </Button>
+          </div>
+        )}
+
         {/* Filter Summary - Only shows when filters are active to save space */}
         {getActiveFilterCount() > 0 && (
           <div id="dashboard-filters-section" className="flex items-center gap-2 px-6 pb-0">
@@ -1818,6 +1922,23 @@ export function DashboardListV2() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gray-50">
+                        {canShareDashboards && (
+                          <TableHead className="w-[3%]">
+                            <Checkbox
+                              data-testid="dashboard-bulk-select-all-header"
+                              aria-label="Select all dashboards on this page"
+                              checked={
+                                visibleDashboardIds.length > 0 &&
+                                visibleDashboardIds.every((id) => selectedDashboardIds.has(id))
+                              }
+                              onCheckedChange={(checked) =>
+                                checked
+                                  ? selectDashboardPage(visibleDashboardIds)
+                                  : clearDashboardSelection()
+                              }
+                            />
+                          </TableHead>
+                        )}
                         <TableHead className="w-[40%]">
                           <div className="flex items-center gap-2">
                             <Button
@@ -2088,6 +2209,19 @@ export function DashboardListV2() {
           }}
           getShareStatus={getDashboardSharingStatus}
           updateSharing={updateDashboardSharing}
+        />
+      )}
+
+      {/* Bulk Share Dialog (task-17f) */}
+      {bulkShareOpen && (
+        <BulkShareDialog
+          entityType="dashboard"
+          entityLabel="dashboards"
+          items={bulkShareItems}
+          isOpen={bulkShareOpen}
+          onClose={handleBulkShareClose}
+          onApplied={handleBulkApplied}
+          allowPublicLink
         />
       )}
     </div>
