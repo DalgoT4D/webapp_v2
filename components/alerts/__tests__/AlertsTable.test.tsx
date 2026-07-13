@@ -249,6 +249,26 @@ describe('AlertsTable — bulk selection checkboxes (task-17f)', () => {
     render(<AlertsTable {...baseProps} alerts={alerts} canShare={false} />);
     expect(screen.queryByTestId('alert-select-1')).not.toBeInTheDocument();
   });
+
+  it('disables an unselected checkbox once the selection is at the 100-item cap', () => {
+    const hundredIds = new Set(Array.from({ length: 100 }, (_, i) => i + 1));
+    const alerts = [makeAlert({ id: 1 }), makeAlert({ id: 200 })];
+    render(
+      <AlertsTable
+        {...baseProps}
+        alerts={alerts}
+        canShare
+        onShare={jest.fn()}
+        selectedIds={hundredIds}
+        onToggleSelect={jest.fn()}
+      />
+    );
+
+    // id 1 is selected (in the 100) — stays enabled so it can be deselected.
+    expect(screen.getByTestId('alert-select-1')).not.toBeDisabled();
+    // id 200 is not selected, and the selection is already at cap.
+    expect(screen.getByTestId('alert-select-200')).toBeDisabled();
+  });
 });
 
 describe('AlertsTable empty states', () => {

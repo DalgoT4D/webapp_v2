@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
+import { MAX_BULK_SELECTION } from '@/hooks/useMultiSelect';
 import {
   Table as TableComponent,
   TableBody,
@@ -337,6 +338,10 @@ export function AlertsTable({
                         data-testid={`alert-select-${a.id}`}
                         aria-label={`Select ${a.name}`}
                         checked={selectedIds?.has(a.id) ?? false}
+                        disabled={
+                          !(selectedIds?.has(a.id) ?? false) &&
+                          (selectedIds?.size ?? 0) >= MAX_BULK_SELECTION
+                        }
                         onCheckedChange={() => onToggleSelect?.(a.id)}
                       />
                     </TableCell>

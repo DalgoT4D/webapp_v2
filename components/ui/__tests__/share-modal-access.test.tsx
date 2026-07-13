@@ -353,3 +353,60 @@ describe('ShareModal — capability-gated sections', () => {
     );
   });
 });
+
+describe('ShareModal — entityType="alert" (task-17f per-item Share, cross-task gap closure)', () => {
+  // Alerts are public_link=False in the rtype registry (task-17-report.md's
+  // skip table) — the access overview's capabilities.public_link reflects
+  // that, and the SAME capability-gate mechanism pinned above (no
+  // alert-specific conditional in ShareModal) hides the section. This test
+  // exercises it through the real entityType="alert" path end-to-end,
+  // closing the brief's explicit "no public-link section" assertion.
+  beforeEach(() => jest.clearAllMocks());
+
+  it('opens with alert rtype, hides the public-link section, and still shows People/General', async () => {
+    mockUseResourceAccess.mockReturnValue({
+      data: {
+        ...baseOverview,
+        resource_type: 'alert',
+        capabilities: { general: true, grants: true, public_link: false, requests: true },
+      },
+      isLoading: false,
+      isError: undefined,
+      mutate: jest.fn(),
+    });
+    mockUseUsers.mockReturnValue({
+      users: [{ orguser_id: 42, email: 'new.person@ngo.org' }],
+      isLoading: false,
+    });
+    mockUseRbac.mockReturnValue({
+      hasPermission: () => true,
+      role: 'admin',
+      isLoaded: true,
+      hasRole: () => true,
+      hasAnyPermission: () => true,
+      hasAllPermissions: () => true,
+    });
+
+    render(
+      <ShareModal
+        entityId={1}
+        entityLabel="Alert"
+        entityType="alert"
+        isOpen
+        onClose={jest.fn()}
+        getShareStatus={mockGetShareStatus}
+        updateSharing={mockUpdateSharing}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('share-toggle')).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId('share-people-section')).toBeInTheDocument();
+    expect(screen.getByTestId('share-general-section')).toBeInTheDocument();
+    expect(trackEvent).toHaveBeenCalledWith(
+      'sharing:modal_opened',
+      expect.objectContaining({ entity_type: 'alert' })
+    );
+  });
+});

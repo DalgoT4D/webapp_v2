@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -40,7 +40,6 @@ import type { ShareStatus } from '@/types/reports';
 import { AlertType } from '@/types/alerts';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { getApiErrorStatus } from '@/lib/utils';
-import { Share2 } from 'lucide-react';
 
 // Alerts have no public-link concept (public_link=False in the rtype
 // registry — ShareModal already hides that section via the capabilities
