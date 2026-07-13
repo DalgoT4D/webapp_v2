@@ -55,6 +55,7 @@ import {
 } from '@/hooks/api/useAccessRequests';
 import { useUsers } from '@/hooks/api/useUserManagement';
 import { useUserGroups } from '@/hooks/api/useUserGroups';
+import { useOrgPreferences } from '@/hooks/api/useNotifications';
 import { ADMIN_ROLES, PERMISSIONS, useRbac, type Permission } from '@/lib/rbac';
 import { useAuthStore } from '@/stores/authStore';
 import { trackEvent } from '@/lib/analytics';
@@ -241,6 +242,12 @@ export function ShareModal({
   const { hasPermission } = useRbac();
   const orgName = useAuthStore((state) => state.currentOrg?.name) || '';
 
+  // Org-wide public-sharing kill switch (task-11 backend, task-11f frontend).
+  // No-row / not-yet-loaded must NOT hide the toggle — mirrors the backend's
+  // own no-row-means-True default (public_sharing_gate.py).
+  const { orgPreferences } = useOrgPreferences();
+  const allowPublicSharing = orgPreferences?.allow_public_sharing !== false;
+
   const canShare = Boolean(
     entityType &&
       access &&
@@ -278,8 +285,11 @@ export function ShareModal({
   }, [isOpen, entityType]);
 
   // Public-link section stays visible for the legacy (no entityType) callers;
-  // for rtype-driven callers it's gated strictly off capabilities.public_link.
-  const showPublicLink = !entityType || access?.capabilities?.public_link !== false;
+  // for rtype-driven callers it's gated off capabilities.public_link AND the
+  // org-wide allow_public_sharing switch (task-11f) — same hard-hide
+  // treatment as the existing capability gate, for consistency.
+  const showPublicLink =
+    !entityType || (access?.capabilities?.public_link !== false && allowPublicSharing);
   const showOrgAccessCard = !entityType; // superseded by the real General-access section
   const showPeopleSection = Boolean(entityType && access?.capabilities?.grants);
   const showGeneralSection = Boolean(entityType && access?.capabilities?.general);
