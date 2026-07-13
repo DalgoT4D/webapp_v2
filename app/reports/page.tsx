@@ -59,6 +59,10 @@ import type { ReportSnapshot } from '@/types/reports';
 import { CreateSnapshotDialog } from '@/components/reports/create-snapshot-dialog';
 import { formatCreatedOn } from '@/components/reports/utils';
 import { ShareModal } from '@/components/ui/share-modal';
+import { BulkShareDialog } from '@/components/sharing/bulk-share-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useMultiSelect, MAX_BULK_SELECTION } from '@/hooks/useMultiSelect';
+import type { BulkAccessResponse } from '@/hooks/api/useResourceAccess';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
 // Debounce delay in ms before sending filter to API
@@ -75,6 +79,7 @@ export default function ReportsPage() {
   const { hasPermission } = useRbac();
   const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS);
   const canDelete = hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS);
+  const canShareReports = hasPermission(PERMISSIONS.CAN_SHARE_REPORTS);
 
   // Filter input states (what the user types)
   const [titleFilter, setTitleFilter] = useState('');
@@ -109,6 +114,24 @@ export default function ReportsPage() {
     setSelectedSnapshot(null);
   }, []);
 
+  // Bulk-selection bar (task-17f, Milestone 10) — persists across pagination,
+  // capped at 100 (BULK_MAX_ITEMS) via useMultiSelect.
+  const {
+    selectedIds: selectedReportIds,
+    toggle: toggleReportSelection,
+    selectPage: selectReportPage,
+    remove: removeAppliedReportIds,
+    clear: clearReportSelection,
+  } = useMultiSelect<number>();
+  const [bulkShareOpen, setBulkShareOpen] = useState(false);
+
+  const handleBulkShareClose = useCallback(() => setBulkShareOpen(false), []);
+
+  const bulkShareItems = useMemo(
+    () => Array.from(selectedReportIds, (id) => ({ rtype: 'report' as const, id: String(id) })),
+    [selectedReportIds]
+  );
+
   // Debounce filter inputs
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
@@ -135,6 +158,19 @@ export default function ReportsPage() {
       : undefined;
 
   const { snapshots, isLoading, mutate } = useSnapshots(filterParams);
+
+  // Deselect only the ids the server actually applied; skipped/pending-
+  // confirmation ids stay selected so the user can see which need attention.
+  const handleBulkApplied = useCallback(
+    (response: BulkAccessResponse) => {
+      const appliedIds = response.applied
+        .filter((item) => item.rtype === 'report')
+        .map((item) => Number(item.id));
+      removeAppliedReportIds(appliedIds);
+      mutate();
+    },
+    [removeAppliedReportIds, mutate]
+  );
 
   // Filter popover open states
   const [openFilters, setOpenFilters] = useState({
@@ -251,6 +287,7 @@ export default function ReportsPage() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const startIndex = (currentPage - 1) * pageSize;
   const paginatedSnapshots = sortedSnapshots.slice(startIndex, startIndex + pageSize);
+  const visibleReportIds = useMemo(() => paginatedSnapshots.map((s) => s.id), [paginatedSnapshots]);
 
   const handleDelete = useCallback(
     async (snapshot: ReportSnapshot) => {
@@ -296,6 +333,49 @@ export default function ReportsPage() {
             />
           )}
         </div>
+
+        {/* Bulk-selection bar (task-17f) — appears once >=1 row is selected */}
+        {canShareReports && selectedReportIds.size > 0 && (
+          <div
+            data-testid="report-bulk-share-bar"
+            className="mx-6 mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-blue-900">
+                {selectedReportIds.size} of {visibleReportIds.length} selected
+                {selectedReportIds.size >= MAX_BULK_SELECTION && ' (maximum 100 reached)'}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  data-testid="report-bulk-select-all-btn"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => selectReportPage(visibleReportIds)}
+                  disabled={visibleReportIds.every((id) => selectedReportIds.has(id))}
+                >
+                  Select All
+                </Button>
+                <Button
+                  data-testid="report-bulk-clear-btn"
+                  variant="outline"
+                  size="sm"
+                  onClick={clearReportSelection}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+            <Button
+              data-testid="report-bulk-share-btn"
+              variant="primary"
+              size="sm"
+              onClick={() => setBulkShareOpen(true)}
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Share
+            </Button>
+          </div>
+        )}
 
         {/* Filter Summary */}
         {getActiveFilterCount() > 0 && (
@@ -402,6 +482,21 @@ export default function ReportsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gray-50">
+                      {canShareReports && (
+                        <TableHead className="w-[3%]">
+                          <Checkbox
+                            data-testid="report-bulk-select-all-header"
+                            aria-label="Select all reports on this page"
+                            checked={
+                              visibleReportIds.length > 0 &&
+                              visibleReportIds.every((id) => selectedReportIds.has(id))
+                            }
+                            onCheckedChange={(checked) =>
+                              checked ? selectReportPage(visibleReportIds) : clearReportSelection()
+                            }
+                          />
+                        </TableHead>
+                      )}
                       {/* Title column with sort + filter */}
                       <TableHead className="w-[25%]">
                         <div className="flex items-center gap-2">
@@ -599,6 +694,20 @@ export default function ReportsPage() {
                           className="hover:bg-gray-50 cursor-pointer"
                           onClick={() => router.push(`/reports/${snapshot.id}`)}
                         >
+                          {canShareReports && (
+                            <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                data-testid={`report-select-${snapshot.id}`}
+                                aria-label={`Select ${snapshot.title}`}
+                                checked={selectedReportIds.has(snapshot.id)}
+                                disabled={
+                                  !selectedReportIds.has(snapshot.id) &&
+                                  selectedReportIds.size >= MAX_BULK_SELECTION
+                                }
+                                onCheckedChange={() => toggleReportSelection(snapshot.id)}
+                              />
+                            </TableCell>
+                          )}
                           <TableCell className="py-4">
                             <span className="font-medium text-lg text-gray-900">
                               {snapshot.title}
@@ -762,6 +871,19 @@ export default function ReportsPage() {
           getShareStatus={getReportSharingStatus}
           updateSharing={updateReportSharing}
           onShareViaEmail={(data) => shareReportViaEmail(selectedSnapshot.id, data)}
+        />
+      )}
+
+      {/* Bulk Share Dialog (task-17f) */}
+      {bulkShareOpen && (
+        <BulkShareDialog
+          entityType="report"
+          entityLabel="reports"
+          items={bulkShareItems}
+          isOpen={bulkShareOpen}
+          onClose={handleBulkShareClose}
+          onApplied={handleBulkApplied}
+          allowPublicLink
         />
       )}
     </div>
