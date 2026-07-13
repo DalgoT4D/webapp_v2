@@ -180,6 +180,7 @@ export function DashboardListV2() {
     selectedIds: selectedDashboardIds,
     toggle: toggleDashboardSelection,
     selectPage: selectDashboardPage,
+    deselectPage: deselectDashboardPage,
     remove: removeAppliedDashboardIds,
     clear: clearDashboardSelection,
   } = useMultiSelect<number>();
@@ -441,6 +442,16 @@ export function DashboardListV2() {
     () => [...pinnedDashboards, ...paginatedRegularDashboards].map((d) => d.id),
     [pinnedDashboards, paginatedRegularDashboards]
   );
+
+  // Selection persists across pagination, so the bar's count must be the
+  // TRUE cross-page total (selectedDashboardIds.size) — never a page-local
+  // "N of {visible}" denominator, which contradicts the (unchecked) visible
+  // checkboxes as soon as the user pages away (finding 1).
+  const selectedOnPageCount = useMemo(
+    () => visibleDashboardIds.filter((id) => selectedDashboardIds.has(id)).length,
+    [visibleDashboardIds, selectedDashboardIds]
+  );
+  const selectedOffPageCount = selectedDashboardIds.size - selectedOnPageCount;
 
   // Calculate pagination values (use API values if available, otherwise client-side for regular dashboards only)
   const total = apiTotal || regularDashboards.length;
@@ -1756,7 +1767,8 @@ export function DashboardListV2() {
           >
             <div className="flex items-center gap-4">
               <span className="text-sm font-medium text-blue-900">
-                {selectedDashboardIds.size} of {visibleDashboardIds.length} selected
+                {selectedDashboardIds.size} selected
+                {selectedOffPageCount > 0 && ` · ${selectedOffPageCount} on other pages`}
                 {selectedDashboardIds.size >= MAX_BULK_SELECTION && ' (maximum 100 reached)'}
               </span>
               <div className="flex gap-2">
@@ -1934,7 +1946,7 @@ export function DashboardListV2() {
                               onCheckedChange={(checked) =>
                                 checked
                                   ? selectDashboardPage(visibleDashboardIds)
-                                  : clearDashboardSelection()
+                                  : deselectDashboardPage(visibleDashboardIds)
                               }
                             />
                           </TableHead>

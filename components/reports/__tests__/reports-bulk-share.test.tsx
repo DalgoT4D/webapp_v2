@@ -12,9 +12,21 @@ import { TestWrapper } from '@/test-utils/render';
 import ReportsPage from '@/app/reports/page';
 import * as useReportsHook from '@/hooks/api/useReports';
 import { mockSnapshots } from './report-mock-data';
+import { useMultiSelect } from '@/hooks/useMultiSelect';
 import type { BulkAccessResponse } from '@/hooks/api/useResourceAccess';
 
 jest.mock('@/hooks/api/useReports');
+
+// Real hook by default; overridden directly in the cross-page/header-uncheck
+// tests below to pin selection state that isn't reachable through clicks
+// alone (e.g. an id selected on a page that isn't currently rendered) —
+// mirrors the pattern in dashboard-bulk-share.test.tsx.
+jest.mock('@/hooks/useMultiSelect', () => {
+  const actual = jest.requireActual('@/hooks/useMultiSelect');
+  return { ...actual, useMultiSelect: jest.fn(actual.useMultiSelect) };
+});
+const mockUseMultiSelect = useMultiSelect as jest.Mock;
+const actualUseMultiSelect = jest.requireActual('@/hooks/useMultiSelect').useMultiSelect;
 
 jest.mock('@/lib/toast', () => ({
   toastSuccess: { deleted: jest.fn(), generic: jest.fn() },
@@ -95,6 +107,7 @@ describe('ReportsPage — bulk selection bar', () => {
     mockHasPermission.mockReturnValue(true);
     lastBulkShareDialogProps = null;
     pendingResponseBox.current = null;
+    mockUseMultiSelect.mockImplementation(actualUseMultiSelect);
   });
 
   it('shows a checkbox per row when the viewer can share reports', () => {
@@ -112,7 +125,7 @@ describe('ReportsPage — bulk selection bar', () => {
     expect(screen.queryByTestId('report-bulk-share-bar')).not.toBeInTheDocument();
   });
 
-  it('selecting a row shows the bar with a count; clear hides it', async () => {
+  it('selecting a row shows the bar with a count (no page-local denominator); clear hides it', async () => {
     const user = userEvent.setup();
     mockUseSnapshots();
     renderPage();
@@ -120,10 +133,60 @@ describe('ReportsPage — bulk selection bar', () => {
     expect(screen.queryByTestId('report-bulk-share-bar')).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId(`report-select-${mockSnapshots[0].id}`));
-    expect(screen.getByTestId('report-bulk-share-bar')).toHaveTextContent('1 of 2 selected');
+    const bar = screen.getByTestId('report-bulk-share-bar');
+    expect(bar).toHaveTextContent('1 selected');
+    // Regression guard for the old page-local "N of M selected" phrasing
+    // that lied once selection persisted across pagination (finding 1).
+    expect(bar).not.toHaveTextContent('of 2 selected');
+    expect(bar).not.toHaveTextContent('other pages');
 
     await user.click(screen.getByTestId('report-bulk-clear-btn'));
     expect(screen.queryByTestId('report-bulk-share-bar')).not.toBeInTheDocument();
+  });
+
+  it('shows the true cross-page selection count and flags off-page selections instead of contradicting the visible checkboxes (finding 1)', () => {
+    // id 999 stands in for a row selected on a different page — it isn't
+    // among the two rendered rows.
+    mockUseMultiSelect.mockReturnValue({
+      selectedIds: new Set([mockSnapshots[0].id, 999]),
+      toggle: jest.fn(),
+      selectPage: jest.fn(),
+      deselectPage: jest.fn(),
+      remove: jest.fn(),
+      clear: jest.fn(),
+      isAtCap: false,
+      maxSelection: 100,
+    });
+    mockUseSnapshots();
+    renderPage();
+
+    const bar = screen.getByTestId('report-bulk-share-bar');
+    expect(bar).toHaveTextContent('2 selected');
+    expect(bar).toHaveTextContent('1 on other pages');
+    expect(bar).not.toHaveTextContent('of 2 selected');
+  });
+
+  it('the header checkbox uncheck deselects only the current page, leaving off-page selections intact (finding 3)', async () => {
+    const user = userEvent.setup();
+    const deselectPage = jest.fn();
+    const clear = jest.fn();
+    mockUseMultiSelect.mockReturnValue({
+      selectedIds: new Set([mockSnapshots[0].id, mockSnapshots[1].id, 999]),
+      toggle: jest.fn(),
+      selectPage: jest.fn(),
+      deselectPage,
+      remove: jest.fn(),
+      clear,
+      isAtCap: false,
+      maxSelection: 100,
+    });
+    mockUseSnapshots();
+    renderPage();
+
+    await user.click(screen.getByTestId('report-bulk-select-all-header'));
+
+    expect(deselectPage).toHaveBeenCalledWith([mockSnapshots[0].id, mockSnapshots[1].id]);
+    expect(clear).not.toHaveBeenCalled();
   });
 
   it('opens BulkShareDialog with report items and allowPublicLink, and revalidates on apply', async () => {
@@ -155,6 +218,6 @@ describe('ReportsPage — bulk selection bar', () => {
     await user.click(screen.getByTestId('stub-bulk-apply'));
 
     expect(mutate).toHaveBeenCalled();
-    expect(screen.getByTestId('report-bulk-share-bar')).toHaveTextContent('1 of 2 selected');
+    expect(screen.getByTestId('report-bulk-share-bar')).toHaveTextContent('1 selected');
   });
 });

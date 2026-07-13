@@ -15,8 +15,20 @@ import AlertsPage from '../page';
 import { useAlerts } from '@/hooks/api/useAlerts';
 import { useResourceAccess } from '@/hooks/api/useResourceAccess';
 import { useRbac } from '@/lib/rbac';
+import { useMultiSelect } from '@/hooks/useMultiSelect';
 import type { AlertListItem } from '@/types/alerts';
 import type { BulkAccessResponse } from '@/hooks/api/useResourceAccess';
+
+// Real hook by default; overridden directly in the cross-page bar-text test
+// below to pin selection state that isn't reachable through clicks alone
+// (an id selected on a page that isn't currently rendered) — mirrors the
+// pattern in dashboard-bulk-share.test.tsx / reports-bulk-share.test.tsx.
+jest.mock('@/hooks/useMultiSelect', () => {
+  const actual = jest.requireActual('@/hooks/useMultiSelect');
+  return { ...actual, useMultiSelect: jest.fn(actual.useMultiSelect) };
+});
+const mockUseMultiSelect = useMultiSelect as jest.Mock;
+const actualUseMultiSelect = jest.requireActual('@/hooks/useMultiSelect').useMultiSelect;
 
 jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
@@ -143,19 +155,48 @@ describe('AlertsPage — per-item Share action', () => {
 });
 
 describe('AlertsPage — bulk selection bar', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseMultiSelect.mockImplementation(actualUseMultiSelect);
+  });
 
-  it('selecting a row shows the bar with a count; clear hides it', async () => {
+  it('selecting a row shows the bar with a count (no page-local denominator); clear hides it', async () => {
     const user = userEvent.setup();
     setup([makeAlert({ id: 1 }), makeAlert({ id: 2 })]);
 
     expect(screen.queryByTestId('alert-bulk-share-bar')).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId('alert-select-1'));
-    expect(screen.getByTestId('alert-bulk-share-bar')).toHaveTextContent('1 of 2 selected');
+    const bar = screen.getByTestId('alert-bulk-share-bar');
+    expect(bar).toHaveTextContent('1 selected');
+    // Regression guard for the old page-local "N of M selected" phrasing
+    // that lied once selection persisted across pagination (finding 1).
+    expect(bar).not.toHaveTextContent('of 2 selected');
+    expect(bar).not.toHaveTextContent('other pages');
 
     await user.click(screen.getByTestId('alert-bulk-clear-btn'));
     expect(screen.queryByTestId('alert-bulk-share-bar')).not.toBeInTheDocument();
+  });
+
+  it('shows the true cross-page selection count and flags off-page selections instead of contradicting the visible checkboxes (finding 1)', () => {
+    // id 999 stands in for an alert selected on a different page — it isn't
+    // among the two rendered rows.
+    mockUseMultiSelect.mockReturnValue({
+      selectedIds: new Set([1, 999]),
+      toggle: jest.fn(),
+      selectPage: jest.fn(),
+      deselectPage: jest.fn(),
+      remove: jest.fn(),
+      clear: jest.fn(),
+      isAtCap: false,
+      maxSelection: 100,
+    });
+    setup([makeAlert({ id: 1 }), makeAlert({ id: 2 })]);
+
+    const bar = screen.getByTestId('alert-bulk-share-bar');
+    expect(bar).toHaveTextContent('2 selected');
+    expect(bar).toHaveTextContent('1 on other pages');
+    expect(bar).not.toHaveTextContent('of 2 selected');
   });
 
   it('opens BulkShareDialog with alert items, allowPublicLink=false, and revalidates on apply', async () => {
@@ -186,6 +227,6 @@ describe('AlertsPage — bulk selection bar', () => {
     await user.click(screen.getByTestId('stub-bulk-apply'));
 
     expect(mutate).toHaveBeenCalled();
-    expect(screen.getByTestId('alert-bulk-share-bar')).toHaveTextContent('1 of 2 selected');
+    expect(screen.getByTestId('alert-bulk-share-bar')).toHaveTextContent('1 selected');
   });
 });

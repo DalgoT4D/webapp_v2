@@ -120,6 +120,7 @@ export default function ReportsPage() {
     selectedIds: selectedReportIds,
     toggle: toggleReportSelection,
     selectPage: selectReportPage,
+    deselectPage: deselectReportPage,
     remove: removeAppliedReportIds,
     clear: clearReportSelection,
   } = useMultiSelect<number>();
@@ -289,6 +290,16 @@ export default function ReportsPage() {
   const paginatedSnapshots = sortedSnapshots.slice(startIndex, startIndex + pageSize);
   const visibleReportIds = useMemo(() => paginatedSnapshots.map((s) => s.id), [paginatedSnapshots]);
 
+  // Selection persists across pagination, so the bar's count must be the
+  // TRUE cross-page total (selectedReportIds.size) — never a page-local
+  // "N of {visible}" denominator, which contradicts the (unchecked) visible
+  // checkboxes as soon as the user pages away (finding 1).
+  const selectedOnPageCount = useMemo(
+    () => visibleReportIds.filter((id) => selectedReportIds.has(id)).length,
+    [visibleReportIds, selectedReportIds]
+  );
+  const selectedOffPageCount = selectedReportIds.size - selectedOnPageCount;
+
   const handleDelete = useCallback(
     async (snapshot: ReportSnapshot) => {
       const confirmed = await confirm({
@@ -342,7 +353,8 @@ export default function ReportsPage() {
           >
             <div className="flex items-center gap-4">
               <span className="text-sm font-medium text-blue-900">
-                {selectedReportIds.size} of {visibleReportIds.length} selected
+                {selectedReportIds.size} selected
+                {selectedOffPageCount > 0 && ` · ${selectedOffPageCount} on other pages`}
                 {selectedReportIds.size >= MAX_BULK_SELECTION && ' (maximum 100 reached)'}
               </span>
               <div className="flex gap-2">
@@ -492,7 +504,9 @@ export default function ReportsPage() {
                               visibleReportIds.every((id) => selectedReportIds.has(id))
                             }
                             onCheckedChange={(checked) =>
-                              checked ? selectReportPage(visibleReportIds) : clearReportSelection()
+                              checked
+                                ? selectReportPage(visibleReportIds)
+                                : deselectReportPage(visibleReportIds)
                             }
                           />
                         </TableHead>

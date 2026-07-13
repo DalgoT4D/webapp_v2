@@ -11,7 +11,7 @@
  * already differ), so every section here is a one-shot action + result,
  * not a live-editing view of one resource's grants.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Share2, Users, UsersRound, Shield, Globe, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -117,6 +117,27 @@ export function BulkShareDialog({
   const { users: orgUsers } = useUsers();
   const { data: groups } = useUserGroups();
 
+  // Snapshot `items` at the moment the dialog opens and act on that snapshot
+  // for the whole open lifecycle — NOT the live `items` prop. The parent
+  // derives `items` from its current selection, and `onApplied` deselects
+  // applied ids right away (see the three list pages), so the live prop
+  // shrinks (even to []) the instant the first action resolves. Without a
+  // snapshot, a second action here would silently narrow to whatever's left
+  // selected — or, once nothing is, send an empty `items` array and 400.
+  // Parent deselection is fine for AFTER this dialog closes; it must not
+  // change what an already-open dialog is acting on.
+  const [snapshotItems, setSnapshotItems] = useState<BulkItemRef[]>(items);
+  const wasOpenRef = useRef(isOpen);
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
+      setSnapshotItems(items);
+    }
+    wasOpenRef.current = isOpen;
+    // Deliberately excludes `items` — re-snapshotting on every prop change
+    // would defeat the point; only a closed->open transition re-snapshots.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   const [selectedPersonId, setSelectedPersonId] = useState('');
   const [personPermission, setPersonPermission] = useState<AccessLevel>('view');
   const [selectedGroupId, setSelectedGroupId] = useState('');
@@ -151,25 +172,25 @@ export function BulkShareDialog({
       onApplied(response);
       if (response.requires_confirmation.length === 0) {
         setConfirmState(null);
-        showSummaryToast(response, items.length);
+        showSummaryToast(response, snapshotItems.length);
         trackEvent(ANALYTICS_EVENTS.SHARING_BULK_APPLIED, {
           entity_type: entityType,
           action,
-          selected_count: items.length,
+          selected_count: snapshotItems.length,
           applied_count: response.applied_count,
           skipped_count: response.skipped_count,
         });
       }
     },
-    [entityType, items.length, onApplied]
+    [entityType, snapshotItems.length, onApplied]
   );
 
   const handleAddPerson = useCallback(async () => {
-    if (!selectedPersonId) return;
+    if (!selectedPersonId || snapshotItems.length === 0) return;
     setIsApplying(true);
     try {
       const response = await bulkApplyAccess({
-        items,
+        items: snapshotItems,
         action: 'add_grant',
         add_grant: {
           principal_type: 'user',
@@ -184,14 +205,14 @@ export function BulkShareDialog({
     } finally {
       setIsApplying(false);
     }
-  }, [items, selectedPersonId, personPermission, handleResponse]);
+  }, [snapshotItems, selectedPersonId, personPermission, handleResponse]);
 
   const handleAddGroup = useCallback(async () => {
-    if (!selectedGroupId) return;
+    if (!selectedGroupId || snapshotItems.length === 0) return;
     setIsApplying(true);
     try {
       const response = await bulkApplyAccess({
-        items,
+        items: snapshotItems,
         action: 'add_grant',
         add_grant: {
           principal_type: 'group',
@@ -206,14 +227,15 @@ export function BulkShareDialog({
     } finally {
       setIsApplying(false);
     }
-  }, [items, selectedGroupId, groupPermission, handleResponse]);
+  }, [snapshotItems, selectedGroupId, groupPermission, handleResponse]);
 
   const applyGeneralAccess = useCallback(
     async (removeGrantIds?: number[]) => {
+      if (snapshotItems.length === 0) return;
       setIsApplying(true);
       try {
         const response = await bulkApplyAccess({
-          items,
+          items: snapshotItems,
           action: 'set_general',
           set_general: {
             audience,
@@ -231,7 +253,7 @@ export function BulkShareDialog({
         setIsApplying(false);
       }
     },
-    [items, audience, level, handleResponse]
+    [snapshotItems, audience, level, handleResponse]
   );
 
   const handleApplyGeneral = useCallback(() => applyGeneralAccess(undefined), [applyGeneralAccess]);
@@ -249,10 +271,11 @@ export function BulkShareDialog({
 
   const handleTogglePublic = useCallback(
     async (isPublic: boolean) => {
+      if (snapshotItems.length === 0) return;
       setIsApplying(true);
       try {
         const response = await bulkApplyAccess({
-          items,
+          items: snapshotItems,
           action: 'toggle_public',
           toggle_public: { is_public: isPublic },
         });
@@ -263,7 +286,7 @@ export function BulkShareDialog({
         setIsApplying(false);
       }
     },
-    [items, handleResponse]
+    [snapshotItems, handleResponse]
   );
 
   const skipReasonGroups = result ? groupSkipReasons(result.skipped) : [];
@@ -274,7 +297,7 @@ export function BulkShareDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5" />
-            Share {items.length} {entityLabel}
+            Share {snapshotItems.length} {entityLabel}
           </DialogTitle>
         </DialogHeader>
 
@@ -315,7 +338,7 @@ export function BulkShareDialog({
                 <Button
                   data-testid="bulk-share-add-person-btn"
                   onClick={handleAddPerson}
-                  disabled={!selectedPersonId || isApplying}
+                  disabled={!selectedPersonId || isApplying || snapshotItems.length === 0}
                 >
                   Share
                 </Button>
@@ -354,7 +377,7 @@ export function BulkShareDialog({
                 <Button
                   data-testid="bulk-share-add-group-btn"
                   onClick={handleAddGroup}
-                  disabled={!selectedGroupId || isApplying}
+                  disabled={!selectedGroupId || isApplying || snapshotItems.length === 0}
                 >
                   Share
                 </Button>
@@ -417,7 +440,7 @@ export function BulkShareDialog({
                 data-testid="bulk-share-general-apply-btn"
                 variant="outline"
                 onClick={handleApplyGeneral}
-                disabled={isApplying}
+                disabled={isApplying || snapshotItems.length === 0}
               >
                 {isApplying && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Apply
@@ -474,7 +497,7 @@ export function BulkShareDialog({
                   <Button
                     data-testid="bulk-share-public-on-btn"
                     variant="outline"
-                    disabled={isApplying}
+                    disabled={isApplying || snapshotItems.length === 0}
                     onClick={() => handleTogglePublic(true)}
                   >
                     Turn on
@@ -482,7 +505,7 @@ export function BulkShareDialog({
                   <Button
                     data-testid="bulk-share-public-off-btn"
                     variant="outline"
-                    disabled={isApplying}
+                    disabled={isApplying || snapshotItems.length === 0}
                     onClick={() => handleTogglePublic(false)}
                   >
                     Turn off
@@ -495,7 +518,7 @@ export function BulkShareDialog({
           {/* Result — counts + plain-language skip reasons */}
           {result && (
             <div data-testid="bulk-share-result" className="text-sm space-y-2">
-              <p>{summaryText(result, items.length)}</p>
+              <p>{summaryText(result, snapshotItems.length)}</p>
               {result.skipped.length > 0 && (
                 <ul
                   data-testid="bulk-share-skip-reasons"

@@ -96,6 +96,16 @@ export default function AlertsPage() {
     pageSize,
   });
 
+  // Selection persists across pagination, so the bar's count must be the
+  // TRUE cross-page total (selectedAlertIds.size) — never a page-local
+  // "N of {alerts.length}" denominator, which contradicts the (unchecked)
+  // visible checkboxes as soon as the user pages away (finding 1).
+  const selectedOnPageCount = useMemo(
+    () => alerts.filter((a) => selectedAlertIds.has(a.id)).length,
+    [alerts, selectedAlertIds]
+  );
+  const selectedOffPageCount = selectedAlertIds.size - selectedOnPageCount;
+
   const bulkShareItems = useMemo(
     () => Array.from(selectedAlertIds, (id) => ({ rtype: 'alert' as const, id: String(id) })),
     [selectedAlertIds]
@@ -194,7 +204,8 @@ export default function AlertsPage() {
           >
             <div className="flex items-center gap-4">
               <span className="text-sm font-medium text-blue-900">
-                {selectedAlertIds.size} of {alerts.length} selected
+                {selectedAlertIds.size} selected
+                {selectedOffPageCount > 0 && ` · ${selectedOffPageCount} on other pages`}
                 {selectedAlertIds.size >= MAX_BULK_SELECTION && ' (maximum 100 reached)'}
               </span>
               <div className="flex gap-2">

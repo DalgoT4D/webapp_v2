@@ -148,14 +148,19 @@ describe('DashboardListV2 — bulk selection bar', () => {
     expect(screen.queryByTestId('dashboard-bulk-share-bar')).not.toBeInTheDocument();
   });
 
-  it('selecting a row shows the bulk bar with a count; clear hides it', async () => {
+  it('selecting a row shows the bulk bar with a count (no page-local denominator); clear hides it', async () => {
     const user = userEvent.setup();
     setup([baseDashboard({ id: 1 }), baseDashboard({ id: 2 })]);
 
     expect(screen.queryByTestId('dashboard-bulk-share-bar')).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId('dashboard-select-1'));
-    expect(screen.getByTestId('dashboard-bulk-share-bar')).toHaveTextContent('1 of 2 selected');
+    const bar = screen.getByTestId('dashboard-bulk-share-bar');
+    expect(bar).toHaveTextContent('1 selected');
+    // Regression guard for the old, page-local "N of M selected" phrasing
+    // that lied once selection persisted across pagination (finding 1).
+    expect(bar).not.toHaveTextContent('of 2 selected');
+    expect(bar).not.toHaveTextContent('other pages');
 
     await user.click(screen.getByTestId('dashboard-bulk-clear-btn'));
     expect(screen.queryByTestId('dashboard-bulk-share-bar')).not.toBeInTheDocument();
@@ -166,7 +171,54 @@ describe('DashboardListV2 — bulk selection bar', () => {
     setup([baseDashboard({ id: 1 }), baseDashboard({ id: 2 }), baseDashboard({ id: 3 })]);
 
     await user.click(screen.getByTestId('dashboard-bulk-select-all-header'));
-    expect(screen.getByTestId('dashboard-bulk-share-bar')).toHaveTextContent('3 of 3 selected');
+    expect(screen.getByTestId('dashboard-bulk-share-bar')).toHaveTextContent('3 selected');
+  });
+
+  it('shows the true cross-page selection count and flags off-page selections instead of contradicting the visible checkboxes (finding 1)', () => {
+    // id 999 is not among the rendered rows — it stands in for a row
+    // selected on a different page. The bar's count must be the TRUE
+    // cross-page total, with an explicit "on other pages" hint, never a
+    // page-local "N of 2" that contradicts the (all-unchecked) checkboxes.
+    mockUseMultiSelect.mockReturnValue({
+      selectedIds: new Set([1, 999]),
+      toggle: jest.fn(),
+      selectPage: jest.fn(),
+      deselectPage: jest.fn(),
+      remove: jest.fn(),
+      clear: jest.fn(),
+      isAtCap: false,
+      maxSelection: 100,
+    });
+    setup([baseDashboard({ id: 1 }), baseDashboard({ id: 2 })]);
+
+    const bar = screen.getByTestId('dashboard-bulk-share-bar');
+    expect(bar).toHaveTextContent('2 selected');
+    expect(bar).toHaveTextContent('1 on other pages');
+    expect(bar).not.toHaveTextContent('of 2 selected');
+  });
+
+  it('the header checkbox uncheck deselects only the current page, leaving off-page selections intact (finding 3)', async () => {
+    const user = userEvent.setup();
+    const deselectPage = jest.fn();
+    const clear = jest.fn();
+    mockUseMultiSelect.mockReturnValue({
+      selectedIds: new Set([1, 2, 999]), // 999 = selected on another page
+      toggle: jest.fn(),
+      selectPage: jest.fn(),
+      deselectPage,
+      remove: jest.fn(),
+      clear,
+      isAtCap: false,
+      maxSelection: 100,
+    });
+    setup([baseDashboard({ id: 1 }), baseDashboard({ id: 2 })]);
+
+    // Both visible rows are already selected, so the header checkbox is
+    // checked; clicking it unchecks -> should deselect ONLY the visible ids.
+    await user.click(screen.getByTestId('dashboard-bulk-select-all-header'));
+
+    expect(deselectPage).toHaveBeenCalledWith([1, 2]);
+    expect(clear).not.toHaveBeenCalled();
   });
 
   it('caps the selection at 100: the bar shows the hint, and an unselected row is disabled', () => {
@@ -203,7 +255,7 @@ describe('DashboardListV2 — bulk selection bar', () => {
 
     await user.click(screen.getByTestId('dashboard-select-1'));
     await user.click(screen.getByTestId('dashboard-bulk-select-all-btn'));
-    expect(screen.getByTestId('dashboard-bulk-share-bar')).toHaveTextContent('3 of 3 selected');
+    expect(screen.getByTestId('dashboard-bulk-share-bar')).toHaveTextContent('3 selected');
   });
 
   it('opens BulkShareDialog with dashboard items (string ids) and allowPublicLink, and revalidates on apply', async () => {
@@ -237,6 +289,6 @@ describe('DashboardListV2 — bulk selection bar', () => {
     expect(mutate).toHaveBeenCalled();
     // Applied id (1) is deselected; skipped id (2) stays selected so the
     // user can see which one needs attention.
-    expect(screen.getByTestId('dashboard-bulk-share-bar')).toHaveTextContent('1 of 2 selected');
+    expect(screen.getByTestId('dashboard-bulk-share-bar')).toHaveTextContent('1 selected');
   });
 });

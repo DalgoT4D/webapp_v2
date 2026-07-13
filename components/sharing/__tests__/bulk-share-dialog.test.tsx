@@ -216,6 +216,153 @@ describe('BulkShareDialog — general access + narrow confirmation', () => {
   });
 });
 
+describe('BulkShareDialog — items snapshot (finding 2)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("targets the items captured at open time for a second action, even after the items prop shrinks (parent deselected the first action's applied ids)", async () => {
+    const user = userEvent.setup();
+    mockBulkApplyAccess.mockResolvedValueOnce({
+      applied: [items[0]],
+      skipped: [],
+      requires_confirmation: [],
+      applied_count: 1,
+      skipped_count: 0,
+    });
+    const onApplied = jest.fn();
+    const onClose = jest.fn();
+    const { rerender } = render(
+      <BulkShareDialog
+        entityType="dashboard"
+        entityLabel="dashboards"
+        items={items}
+        isOpen
+        onClose={onClose}
+        onApplied={onApplied}
+        allowPublicLink
+      />
+    );
+
+    await user.click(screen.getByTestId('bulk-share-person-combobox-input'));
+    await user.click(await screen.findByTestId('bulk-share-person-combobox-item-9'));
+    await user.click(screen.getByTestId('bulk-share-add-person-btn'));
+    await waitFor(() => expect(onApplied).toHaveBeenCalledTimes(1));
+
+    // Simulate the parent: onApplied deselected item[0], shrinking the
+    // `items` prop it hands back down on the next render.
+    rerender(
+      <BulkShareDialog
+        entityType="dashboard"
+        entityLabel="dashboards"
+        items={[items[1]]}
+        isOpen
+        onClose={onClose}
+        onApplied={onApplied}
+        allowPublicLink
+      />
+    );
+
+    mockBulkApplyAccess.mockResolvedValueOnce({
+      applied: items,
+      skipped: [],
+      requires_confirmation: [],
+      applied_count: 2,
+      skipped_count: 0,
+    });
+    await user.click(screen.getByTestId('bulk-share-general-apply-btn'));
+
+    await waitFor(() => {
+      expect(mockBulkApplyAccess).toHaveBeenLastCalledWith({
+        items, // the ORIGINAL two-item snapshot, not the shrunk one-item prop
+        action: 'set_general',
+        set_general: { audience: 'private', level: 'view' },
+      });
+    });
+  });
+
+  it('still targets the full snapshot for a second action after everything applied and the items prop became empty, and the title stays accurate', async () => {
+    const user = userEvent.setup();
+    mockBulkApplyAccess.mockResolvedValueOnce({
+      applied: items,
+      skipped: [],
+      requires_confirmation: [],
+      applied_count: 2,
+      skipped_count: 0,
+    });
+    const onApplied = jest.fn();
+    const onClose = jest.fn();
+    const { rerender } = render(
+      <BulkShareDialog
+        entityType="dashboard"
+        entityLabel="dashboards"
+        items={items}
+        isOpen
+        onClose={onClose}
+        onApplied={onApplied}
+        allowPublicLink
+      />
+    );
+
+    expect(screen.getByText('Share 2 dashboards')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('bulk-share-public-on-btn'));
+    await waitFor(() => expect(onApplied).toHaveBeenCalledTimes(1));
+
+    // Parent deselected both applied ids — items prop is now empty.
+    rerender(
+      <BulkShareDialog
+        entityType="dashboard"
+        entityLabel="dashboards"
+        items={[]}
+        isOpen
+        onClose={onClose}
+        onApplied={onApplied}
+        allowPublicLink
+      />
+    );
+
+    // The dialog keeps showing the snapshot's count, not the live (now empty) prop.
+    expect(screen.getByText('Share 2 dashboards')).toBeInTheDocument();
+
+    mockBulkApplyAccess.mockResolvedValueOnce({
+      applied: items,
+      skipped: [],
+      requires_confirmation: [],
+      applied_count: 2,
+      skipped_count: 0,
+    });
+    await user.click(screen.getByTestId('bulk-share-public-off-btn'));
+
+    await waitFor(() => {
+      // A second POST never fires with an empty `items` array (the backend
+      // 400s on that) — it must still be the two-item snapshot.
+      expect(mockBulkApplyAccess).toHaveBeenLastCalledWith({
+        items,
+        action: 'toggle_public',
+        toggle_public: { is_public: false },
+      });
+    });
+  });
+
+  it('disables every action button once the snapshot the dialog opened with is empty', () => {
+    setup({ items: [] });
+    expect(screen.getByTestId('bulk-share-add-person-btn')).toBeDisabled();
+    expect(screen.getByTestId('bulk-share-add-group-btn')).toBeDisabled();
+    expect(screen.getByTestId('bulk-share-general-apply-btn')).toBeDisabled();
+    expect(screen.getByTestId('bulk-share-public-on-btn')).toBeDisabled();
+    expect(screen.getByTestId('bulk-share-public-off-btn')).toBeDisabled();
+  });
+
+  it('keeps the add-person button disabled with an empty snapshot even after a person is selected', async () => {
+    const user = userEvent.setup();
+    setup({ items: [] });
+
+    await user.click(screen.getByTestId('bulk-share-person-combobox-input'));
+    await user.click(await screen.findByTestId('bulk-share-person-combobox-item-9'));
+
+    expect(screen.getByTestId('bulk-share-add-person-btn')).toBeDisabled();
+  });
+});
+
 describe('BulkShareDialog — public link', () => {
   beforeEach(() => jest.clearAllMocks());
 
