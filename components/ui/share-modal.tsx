@@ -41,6 +41,7 @@ import {
   addGrant,
   removeGrant,
   setGeneralAccess,
+  transferOwnership,
   type ShareableResourceType,
   type AccessGrant,
   type AccessAudience,
@@ -54,7 +55,7 @@ import {
 } from '@/hooks/api/useAccessRequests';
 import { useUsers } from '@/hooks/api/useUserManagement';
 import { useUserGroups } from '@/hooks/api/useUserGroups';
-import { PERMISSIONS, useRbac, type Permission } from '@/lib/rbac';
+import { ADMIN_ROLES, PERMISSIONS, useRbac, type Permission } from '@/lib/rbac';
 import { useAuthStore } from '@/stores/authStore';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -410,6 +411,15 @@ export function ShareModal({
             />
           )}
 
+          {entityType && access && (
+            <OwnerSection
+              entityType={entityType}
+              entityId={entityId}
+              access={access}
+              onChanged={mutateAccess}
+            />
+          )}
+
           {showPeopleSection && entityType && access && (
             <PeopleWithAccessSection
               entityType={entityType}
@@ -638,6 +648,181 @@ export function ShareModal({
 }
 
 // ============================================================================
+// Owner + transfer ownership (Milestone 5, task-12f)
+// ============================================================================
+//
+// Deliberately its OWN section (not folded into PeopleWithAccessSection):
+// the owner row/transfer action must render even for grantless rtypes
+// (metric/kpi, capabilities.grants === false) — the backend's transfer
+// endpoint works there too (pinned by a backend test), so the frontend
+// can't hide it behind the grants capability flag.
+
+interface OwnerSectionProps {
+  entityType: ShareableResourceType;
+  entityId: number;
+  access: NonNullable<ReturnType<typeof useResourceAccess>['data']>;
+  onChanged: () => void;
+}
+
+type TransferStep = 'idle' | 'picking' | 'confirming';
+
+function OwnerSection({ entityType, entityId, access, onChanged }: OwnerSectionProps) {
+  const { users: orgUsers } = useUsers();
+  const { hasRole } = useRbac();
+  const [step, setStep] = useState<TransferStep>('idle');
+  const [selectedNewOwnerId, setSelectedNewOwnerId] = useState('');
+  const [isTransferring, setIsTransferring] = useState(false);
+
+  // Mirrors the backend's require_owner_access / can_delete_resource gate:
+  // the literal owner, or an org admin — general-access/grant-derived
+  // "edit" is NOT enough (see task-12 backend report).
+  const canTransfer = access.viewer.is_owner || hasRole(ADMIN_ROLES);
+
+  const candidateItems: ComboboxItem[] = useMemo(
+    () =>
+      (orgUsers || [])
+        .filter(
+          (u) => u.orguser_id !== access.owner?.orguser_id && typeof u.orguser_id === 'number'
+        )
+        .map((u) => ({ value: String(u.orguser_id), label: u.email })),
+    [orgUsers, access.owner]
+  );
+
+  const selectedNewOwnerLabel = useMemo(
+    () => candidateItems.find((item) => item.value === selectedNewOwnerId)?.label ?? '',
+    [candidateItems, selectedNewOwnerId]
+  );
+
+  const handleStartTransfer = useCallback(() => {
+    setSelectedNewOwnerId('');
+    setStep('picking');
+  }, []);
+
+  const handleCancelTransfer = useCallback(() => {
+    setSelectedNewOwnerId('');
+    setStep('idle');
+  }, []);
+
+  const handleNext = useCallback(() => {
+    if (!selectedNewOwnerId) return;
+    setStep('confirming');
+  }, [selectedNewOwnerId]);
+
+  const handleConfirmTransfer = useCallback(async () => {
+    if (!selectedNewOwnerId) return;
+    setIsTransferring(true);
+    try {
+      await transferOwnership(entityType, entityId, Number(selectedNewOwnerId));
+      onChanged();
+      setStep('idle');
+      setSelectedNewOwnerId('');
+      toastSuccess.generic('Ownership transferred');
+      // rtype only — no emails/ids (rules/analytics.md: no PII).
+      trackEvent(ANALYTICS_EVENTS.SHARING_OWNERSHIP_TRANSFERRED, { entity_type: entityType });
+    } catch (error) {
+      toastError.api(error, 'transfer ownership');
+    } finally {
+      setIsTransferring(false);
+    }
+  }, [entityType, entityId, selectedNewOwnerId, onChanged]);
+
+  if (!access.owner) return null;
+
+  const ownerLabel = access.owner.name || access.owner.email;
+
+  // Plain-language confirm copy: the backend unconditionally keeps the
+  // CURRENT owner on an Edit grant, not the actor — an admin transferring
+  // someone ELSE's resource keeps nothing themselves, so only say "you"
+  // when the actor IS the current owner.
+  const confirmCopy = access.viewer.is_owner
+    ? `${selectedNewOwnerLabel} becomes the owner. You keep Edit access.`
+    : `${selectedNewOwnerLabel} becomes the owner. ${ownerLabel} keeps Edit access.`;
+
+  return (
+    <Card data-testid="share-owner-section">
+      <CardContent className="p-4 space-y-3">
+        <div data-testid="share-owner-row" className="flex items-center justify-between text-sm">
+          <span>{ownerLabel}</span>
+          <Badge variant="secondary">Owner</Badge>
+        </div>
+
+        {canTransfer && step === 'idle' && (
+          <Button
+            data-testid="share-transfer-owner-btn"
+            variant="outline"
+            size="sm"
+            onClick={handleStartTransfer}
+          >
+            Transfer ownership
+          </Button>
+        )}
+
+        {canTransfer && step === 'picking' && (
+          <div className="space-y-2 pt-2 border-t">
+            <Label className="text-xs font-medium">New owner</Label>
+            <div className="flex gap-2">
+              <Combobox
+                id="share-transfer-owner-combobox"
+                items={candidateItems}
+                value={selectedNewOwnerId}
+                onValueChange={setSelectedNewOwnerId}
+                placeholder="Select an org member"
+                searchPlaceholder="Search by email"
+                className="flex-1"
+              />
+              <Button
+                data-testid="share-transfer-owner-next-btn"
+                onClick={handleNext}
+                disabled={!selectedNewOwnerId}
+              >
+                Next
+              </Button>
+              <Button
+                data-testid="share-transfer-owner-cancel-btn"
+                variant="outline"
+                onClick={handleCancelTransfer}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {canTransfer && step === 'confirming' && (
+          <div
+            data-testid="share-transfer-owner-confirm"
+            className="space-y-3 p-3 bg-orange-50 border border-orange-200 rounded-md"
+          >
+            <p className="text-xs text-orange-800">{confirmCopy}</p>
+            <div className="flex gap-2">
+              <Button
+                data-testid="share-transfer-owner-confirm-btn"
+                size="sm"
+                variant="primary"
+                onClick={handleConfirmTransfer}
+                disabled={isTransferring}
+              >
+                {isTransferring && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Transfer ownership
+              </Button>
+              <Button
+                data-testid="share-transfer-owner-back-btn"
+                size="sm"
+                variant="outline"
+                onClick={() => setStep('picking')}
+                disabled={isTransferring}
+              >
+                Back
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================================================
 // People with access
 // ============================================================================
 
@@ -799,16 +984,6 @@ function PeopleWithAccessSection({
         </div>
 
         <div className="space-y-2">
-          {access.owner && (
-            <div
-              data-testid="share-owner-row"
-              className="flex items-center justify-between text-sm"
-            >
-              <span>{access.owner.name || access.owner.email}</span>
-              <Badge variant="secondary">Owner</Badge>
-            </div>
-          )}
-
           {access.grants.map((grant) => (
             <div
               key={grant.id}
@@ -870,7 +1045,7 @@ function PeopleWithAccessSection({
             </div>
           ))}
 
-          {!access.owner && access.grants.length === 0 && (
+          {access.grants.length === 0 && (
             <p className="text-xs text-muted-foreground">No one else has access yet.</p>
           )}
         </div>
