@@ -142,6 +142,11 @@ export const ANALYTICS_EVENTS = {
   SHARING_GRANT_REMOVED: 'sharing:grant_removed',
   SHARING_GENERAL_ACCESS_UPDATED: 'sharing:general_access_updated',
   SHARING_EMAIL_INVITE_SENT: 'sharing:email_invite_sent',
+  // Resource sharing — bulk share bar (Milestone 10, task-17f). Fired once
+  // per bulk apply, on the terminal response (after a set_general narrow
+  // re-send, using that call's own counts — not the intermediate
+  // requires_confirmation response).
+  SHARING_BULK_APPLIED: 'sharing:bulk_applied',
   // Resource sharing — request-access flow (Milestone 9)
   SHARING_ACCESS_REQUESTED: 'sharing:access_requested',
   SHARING_ACCESS_REQUEST_APPROVED: 'sharing:access_request_approved',
