@@ -42,16 +42,23 @@ import {
   ChevronUp,
   ChevronDown as ChevronDownSort,
   X,
+  Share2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { useSnapshots, deleteSnapshot } from '@/hooks/api/useReports';
+import {
+  useSnapshots,
+  deleteSnapshot,
+  getReportSharingStatus,
+  updateReportSharing,
+  shareReportViaEmail,
+} from '@/hooks/api/useReports';
 import type { ReportSnapshot } from '@/types/reports';
 import { CreateSnapshotDialog } from '@/components/reports/create-snapshot-dialog';
 import { formatCreatedOn } from '@/components/reports/utils';
-import { ReportShareMenu } from '@/components/reports/report-share-menu';
+import { ShareModal } from '@/components/ui/share-modal';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
 // Debounce delay in ms before sending filter to API
@@ -86,6 +93,21 @@ export default function ReportsPage() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+
+  // Share modal state — one shared ShareModal instance for the whole table,
+  // matching dashboard-list-v2.tsx's pattern (not one instance per row).
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [selectedSnapshot, setSelectedSnapshot] = useState<ReportSnapshot | null>(null);
+
+  const handleShareSnapshot = useCallback((snapshot: ReportSnapshot) => {
+    setSelectedSnapshot(snapshot);
+    setShareModalOpen(true);
+  }, []);
+
+  const handleShareModalClose = useCallback(() => {
+    setShareModalOpen(false);
+    setSelectedSnapshot(null);
+  }, []);
 
   // Debounce filter inputs
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
@@ -605,11 +627,16 @@ export default function ReportsPage() {
                               className="flex items-center gap-2"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              {hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS) && (
-                                <ReportShareMenu
-                                  snapshotId={snapshot.id}
-                                  reportTitle={snapshot.title}
-                                />
+                              {hasPermission(PERMISSIONS.CAN_SHARE_REPORTS) && (
+                                <Button
+                                  data-testid={`report-share-btn-${snapshot.id}`}
+                                  variant="outline"
+                                  size="sm"
+                                  aria-label="Share report"
+                                  onClick={() => handleShareSnapshot(snapshot)}
+                                >
+                                  <Share2 className="w-4 h-4" />
+                                </Button>
                               )}
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -724,6 +751,19 @@ export default function ReportsPage() {
       </div>
 
       <DeleteDialog />
+
+      {selectedSnapshot && (
+        <ShareModal
+          entityId={selectedSnapshot.id}
+          entityLabel="Report"
+          entityType="report"
+          isOpen={shareModalOpen}
+          onClose={handleShareModalClose}
+          getShareStatus={getReportSharingStatus}
+          updateSharing={updateReportSharing}
+          onShareViaEmail={(data) => shareReportViaEmail(selectedSnapshot.id, data)}
+        />
+      )}
     </div>
   );
 }

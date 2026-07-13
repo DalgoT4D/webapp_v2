@@ -98,60 +98,28 @@ jest.mock('@/stores/authStore', () => ({
     }),
 }));
 
-// Mock ReportShareMenu — renders a testable version with both share options
-jest.mock('@/components/reports/report-share-menu', () => ({
-  ReportShareMenu: ({ snapshotId }: { snapshotId: number; reportTitle?: string }) => {
-    const [menuOpen, setMenuOpen] = React.useState(false);
-    const [linkOpen, setLinkOpen] = React.useState(false);
-    const [emailOpen, setEmailOpen] = React.useState(false);
-    return (
-      <div data-testid="report-share-menu">
-        <button
-          data-testid="report-share-btn"
-          aria-label="Share report"
-          onClick={() => setMenuOpen(!menuOpen)}
-        >
-          Share
+// Mock the shared ShareModal — a testable stand-in so this suite can assert
+// the button opens it with the report rtype, without pulling in every hook
+// ShareModal itself depends on (useResourceAccess, useUsers, useOrgPreferences, …).
+jest.mock('@/components/ui/share-modal', () => ({
+  ShareModal: ({
+    isOpen,
+    onClose,
+    entityType,
+    entityId,
+  }: {
+    isOpen: boolean;
+    onClose: () => void;
+    entityType?: string;
+    entityId: number;
+  }) =>
+    isOpen ? (
+      <div data-testid="stub-share-modal" data-entity-type={entityType} data-entity-id={entityId}>
+        <button data-testid="stub-share-modal-close" onClick={onClose}>
+          Close
         </button>
-        {menuOpen && (
-          <div data-testid="share-menu-dropdown">
-            <button
-              data-testid="share-via-link-item"
-              onClick={() => {
-                setLinkOpen(true);
-                setMenuOpen(false);
-              }}
-            >
-              Share via link
-            </button>
-            <button
-              data-testid="share-via-email-item"
-              onClick={() => {
-                setEmailOpen(true);
-                setMenuOpen(false);
-              }}
-            >
-              Embed in email
-            </button>
-          </div>
-        )}
-        {linkOpen && (
-          <div data-testid="share-via-link-dialog">
-            <button data-testid="close-link-dialog" onClick={() => setLinkOpen(false)}>
-              Close
-            </button>
-          </div>
-        )}
-        {emailOpen && (
-          <div data-testid="share-via-email-dialog">
-            <button data-testid="close-email-dialog" onClick={() => setEmailOpen(false)}>
-              Close
-            </button>
-          </div>
-        )}
       </div>
-    );
-  },
+    ) : null,
 }));
 
 // ============ Helpers ============
@@ -404,89 +372,44 @@ describe('SnapshotViewerPage', () => {
     });
   });
 
-  describe('Share Menu', () => {
-    it('renders share button when user has permission and is creator', () => {
+  describe('Share Modal', () => {
+    it('renders the share button when the user has permission', () => {
       renderPage();
 
       expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
     });
 
-    it('shows share via link and embed in email options when share button is clicked', async () => {
+    it('opens the shared ShareModal with the report rtype when the share button is clicked', async () => {
       const user = userEvent.setup();
       renderPage();
 
-      // Dropdown should not be visible initially
-      expect(screen.queryByTestId('share-menu-dropdown')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('stub-share-modal')).not.toBeInTheDocument();
 
       await user.click(screen.getByTestId('report-share-btn'));
 
-      expect(screen.getByTestId('share-via-link-item')).toBeInTheDocument();
-      expect(screen.getByTestId('share-via-email-item')).toBeInTheDocument();
+      const modal = screen.getByTestId('stub-share-modal');
+      expect(modal).toHaveAttribute('data-entity-type', 'report');
+      expect(modal).toHaveAttribute('data-entity-id', '1');
     });
 
-    it('opens share via link dialog when link option is clicked', async () => {
+    it('closes the ShareModal', async () => {
       const user = userEvent.setup();
       renderPage();
 
       await user.click(screen.getByTestId('report-share-btn'));
-      await user.click(screen.getByTestId('share-via-link-item'));
+      expect(screen.getByTestId('stub-share-modal')).toBeInTheDocument();
 
-      expect(screen.getByTestId('share-via-link-dialog')).toBeInTheDocument();
-      expect(screen.queryByTestId('share-via-email-dialog')).not.toBeInTheDocument();
-    });
-
-    it('opens embed in email dialog when email option is clicked', async () => {
-      const user = userEvent.setup();
-      renderPage();
-
-      await user.click(screen.getByTestId('report-share-btn'));
-      await user.click(screen.getByTestId('share-via-email-item'));
-
-      expect(screen.getByTestId('share-via-email-dialog')).toBeInTheDocument();
-      expect(screen.queryByTestId('share-via-link-dialog')).not.toBeInTheDocument();
-    });
-
-    it('closes share via link dialog', async () => {
-      const user = userEvent.setup();
-      renderPage();
-
-      await user.click(screen.getByTestId('report-share-btn'));
-      await user.click(screen.getByTestId('share-via-link-item'));
-      expect(screen.getByTestId('share-via-link-dialog')).toBeInTheDocument();
-
-      await user.click(screen.getByTestId('close-link-dialog'));
+      await user.click(screen.getByTestId('stub-share-modal-close'));
 
       await waitFor(() => {
-        expect(screen.queryByTestId('share-via-link-dialog')).not.toBeInTheDocument();
-      });
-    });
-
-    it('closes embed in email dialog', async () => {
-      const user = userEvent.setup();
-      renderPage();
-
-      await user.click(screen.getByTestId('report-share-btn'));
-      await user.click(screen.getByTestId('share-via-email-item'));
-      expect(screen.getByTestId('share-via-email-dialog')).toBeInTheDocument();
-
-      await user.click(screen.getByTestId('close-email-dialog'));
-
-      await waitFor(() => {
-        expect(screen.queryByTestId('share-via-email-dialog')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('stub-share-modal')).not.toBeInTheDocument();
       });
     });
   });
 
   describe('Permissions', () => {
-    it('hides share button when user lacks can_share_dashboards', () => {
-      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_share_dashboards');
-      renderPage();
-
-      expect(screen.queryByTestId('report-share-btn')).not.toBeInTheDocument();
-    });
-
-    it('hides share button when user is not the report creator', () => {
-      mockGetCurrentUserEmail.mockReturnValue('other@test.com');
+    it('hides share button when user lacks can_share_reports', () => {
+      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_share_reports');
       renderPage();
 
       expect(screen.queryByTestId('report-share-btn')).not.toBeInTheDocument();
@@ -520,18 +443,16 @@ describe('SnapshotViewerPage', () => {
       expect(screen.getByTestId('report-download-btn')).toBeInTheDocument();
     });
 
-    it('shows share button when user has permission and is the creator', () => {
+    it('shows share button when user has permission', () => {
       mockHasPermission.mockReturnValue(true);
-      mockGetCurrentUserEmail.mockReturnValue('user@test.com');
       renderPage();
 
       expect(screen.getByTestId('report-share-btn')).toBeInTheDocument();
     });
 
-    it('shows all action buttons when user has full permissions and is creator', async () => {
+    it('shows all action buttons when user has full permissions', async () => {
       const user = userEvent.setup();
       mockHasPermission.mockReturnValue(true);
-      mockGetCurrentUserEmail.mockReturnValue('user@test.com');
       renderPage();
 
       expect(screen.getByTestId('report-download-btn')).toBeInTheDocument();

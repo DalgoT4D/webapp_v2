@@ -39,8 +39,9 @@ jest.mock('@/components/dashboard/dashboard-native-view', () => ({
     <div data-testid="stub-dashboard-native-view">{topRightContent}</div>
   ),
 }));
-jest.mock('@/components/reports/report-share-menu', () => ({
-  ReportShareMenu: () => <div data-testid="stub-share-menu" />,
+jest.mock('@/components/ui/share-modal', () => ({
+  ShareModal: ({ isOpen, entityType }: { isOpen: boolean; entityType?: string }) =>
+    isOpen ? <div data-testid="stub-share-modal" data-entity-type={entityType} /> : null,
 }));
 jest.mock('@/components/reports/comment-popover', () => ({
   CommentPopover: ({ targetType, chartId }: any) => (

@@ -6,14 +6,29 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Calendar, Download, LayoutGrid, Loader2, Pencil, User } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calendar,
+  Download,
+  LayoutGrid,
+  Loader2,
+  Pencil,
+  Share2,
+  User,
+} from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
-import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
+import {
+  useSnapshotView,
+  updateSnapshot,
+  getReportSharingStatus,
+  updateReportSharing,
+  shareReportViaEmail,
+} from '@/hooks/api/useReports';
 import { useCommentStates } from '@/hooks/api/useComments';
 import { useResourceAccess } from '@/hooks/api/useResourceAccess';
 import { usePdfDownload } from '@/hooks/usePdfDownload';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
-import { ReportShareMenu } from '@/components/reports/report-share-menu';
+import { ShareModal } from '@/components/ui/share-modal';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { RequestAccessScreen } from '@/components/sharing/request-access-screen';
 import { formatDateShort } from '@/components/reports/utils';
@@ -39,9 +54,12 @@ export default function SnapshotViewerPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
   const [isEditingSummary, setIsEditingSummary] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const { hasPermission } = useRbac();
   const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS);
-  const canShare = hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS);
+  // Was CAN_SHARE_DASHBOARDS (copy-paste leftover from before reports had
+  // their own slug) — fixed while migrating onto the shared ShareModal.
+  const canShare = hasPermission(PERMISSIONS.CAN_SHARE_REPORTS);
 
   // Resolver-level permission on this specific report — distinct from the
   // role-level `canEdit` above. Comment moderation (hiding/editing/deleting
@@ -209,7 +227,15 @@ export default function SnapshotViewerPage() {
               )}
             </Button>
             {canShare && (
-              <ReportShareMenu snapshotId={parsedId} reportTitle={report_metadata.title} />
+              <Button
+                data-testid="report-share-btn"
+                variant="outline"
+                size="sm"
+                aria-label="Share report"
+                onClick={() => setShareModalOpen(true)}
+              >
+                <Share2 className="w-4 h-4" />
+              </Button>
             )}
           </div>
         </div>
@@ -320,6 +346,17 @@ export default function SnapshotViewerPage() {
           }
         />
       </div>
+
+      <ShareModal
+        entityId={parsedId}
+        entityLabel="Report"
+        entityType="report"
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        getShareStatus={getReportSharingStatus}
+        updateSharing={updateReportSharing}
+        onShareViaEmail={(data) => shareReportViaEmail(parsedId, data)}
+      />
     </div>
   );
 }

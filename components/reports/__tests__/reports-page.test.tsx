@@ -275,6 +275,39 @@ describe('ReportsPage', () => {
     });
   });
 
+  describe('Share', () => {
+    beforeEach(() => {
+      // @/hooks/api/useReports is auto-mocked (jest.mock with no factory) —
+      // every export defaults to a jest.fn() returning undefined. ShareModal
+      // awaits getShareStatus() and assigns the result straight into state,
+      // so it needs a real-shaped resolved value here (the reports list page
+      // wires the real getReportSharingStatus/updateReportSharing in prod).
+      (useReportsHook.getReportSharingStatus as jest.Mock).mockResolvedValue({
+        is_public: false,
+        public_access_count: 0,
+      });
+    });
+
+    it('opens the shared ShareModal with the report rtype when the share button is clicked', async () => {
+      const user = userEvent.setup();
+      renderPage();
+
+      expect(screen.queryByTestId('share-modal')).not.toBeInTheDocument();
+
+      await user.click(screen.getByTestId('report-share-btn-1'));
+
+      expect(screen.getByTestId('share-modal')).toBeInTheDocument();
+      expect(screen.getByText('Share Report')).toBeInTheDocument();
+    });
+
+    it('hides the share button when the viewer lacks can_share_reports', () => {
+      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_share_reports');
+      renderPage();
+
+      expect(screen.queryByTestId('report-share-btn-1')).not.toBeInTheDocument();
+    });
+  });
+
   describe('Permissions', () => {
     it('hides create button when user lacks can_create_dashboards', () => {
       mockHasPermission.mockImplementation((slug: string) => slug !== 'can_create_dashboards');
