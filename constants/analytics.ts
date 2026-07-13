@@ -146,6 +146,10 @@ export const ANALYTICS_EVENTS = {
   SHARING_ACCESS_REQUESTED: 'sharing:access_requested',
   SHARING_ACCESS_REQUEST_APPROVED: 'sharing:access_request_approved',
   SHARING_ACCESS_REQUEST_DECLINED: 'sharing:access_request_declined',
+  // Resource sharing — ownership transfer (Milestone 5, task-12f)
+  SHARING_OWNERSHIP_TRANSFERRED: 'sharing:ownership_transferred',
+  // Settings → Access Management (org-wide sharing defaults, task-11f)
+  SHARING_SETTINGS_UPDATED: 'settings:sharing_settings_updated',
   // Settings → Groups (resource-sharing audiences, Milestone 3)
   GROUP_CREATED: 'settings:group_created',
   GROUP_RENAMED: 'settings:group_renamed',
@@ -223,6 +227,7 @@ export const FEATURES = {
   SETTINGS_SUPERSET_USAGE: 'settings_superset_usage',
   SETTINGS_BRANDING: 'settings_branding',
   SETTINGS_GROUPS: 'settings_groups',
+  SETTINGS_ACCESS_MANAGEMENT: 'settings_access_management',
 } as const;
 
 export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
@@ -249,6 +254,7 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/settings/billing', feature: FEATURES.SETTINGS_BILLING },
   { prefix: '/settings/user-management', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
   { prefix: '/settings/groups', feature: FEATURES.SETTINGS_GROUPS },
+  { prefix: '/settings/access-management', feature: FEATURES.SETTINGS_ACCESS_MANAGEMENT },
   { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
   { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
 ];

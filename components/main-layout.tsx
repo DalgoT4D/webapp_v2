@@ -27,6 +27,7 @@ import {
   UsersRound,
   Target,
   Palette,
+  ShieldCheck,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -225,6 +226,15 @@ export const getNavItems = (
           isActive: currentPath.startsWith('/settings/groups'),
           // can_view_user_groups is held by super-admin/admin/analyst — mirrors DATA_SECTION_ROLES.
           visibleToRoles: DATA_SECTION_ROLES,
+        },
+        {
+          title: 'Access Management',
+          href: '/settings/access-management',
+          icon: ShieldCheck,
+          isActive: currentPath.startsWith('/settings/access-management'),
+          // Mirrors the backend's direct is_admin_or_super_admin check on
+          // PUT /api/orgpreferences/sharing/ (task-11) — admin+ only.
+          visibleToRoles: ADMIN_ROLES,
         },
         {
           title: 'About',
