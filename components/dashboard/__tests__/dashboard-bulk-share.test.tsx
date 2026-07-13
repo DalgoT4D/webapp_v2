@@ -14,8 +14,21 @@ import { DashboardListV2 } from '../dashboard-list-v2';
 import { useDashboards } from '@/hooks/api/useDashboards';
 import { useRbac } from '@/lib/rbac';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
+import { useMultiSelect } from '@/hooks/useMultiSelect';
 import type { Dashboard } from '@/hooks/api/useDashboards';
 import type { BulkAccessResponse } from '@/hooks/api/useResourceAccess';
+
+// Real hook by default (selection genuinely works via clicks in every other
+// test); only the cap test below overrides the return value directly, since
+// driving 100 real clicks (or the pagination Select, which is flaky with
+// Radix in jsdom) just to pin a boolean comparison isn't worth the cost —
+// the cap ENFORCEMENT itself is unit-tested in hooks/__tests__/useMultiSelect.test.ts.
+jest.mock('@/hooks/useMultiSelect', () => {
+  const actual = jest.requireActual('@/hooks/useMultiSelect');
+  return { ...actual, useMultiSelect: jest.fn(actual.useMultiSelect) };
+});
+const mockUseMultiSelect = useMultiSelect as jest.Mock;
+const actualUseMultiSelect = jest.requireActual('@/hooks/useMultiSelect').useMultiSelect;
 
 jest.mock('@/hooks/api/useDashboards', () => ({
   ...jest.requireActual('@/hooks/api/useDashboards'),
@@ -118,7 +131,10 @@ function setup(dashboards: Dashboard[], { canShare = true }: { canShare?: boolea
 }
 
 describe('DashboardListV2 — bulk selection bar', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseMultiSelect.mockImplementation(actualUseMultiSelect);
+  });
 
   it('shows a checkbox per row when the viewer can share dashboards', () => {
     setup([baseDashboard({ id: 1 }), baseDashboard({ id: 2 })]);
@@ -151,6 +167,34 @@ describe('DashboardListV2 — bulk selection bar', () => {
 
     await user.click(screen.getByTestId('dashboard-bulk-select-all-header'));
     expect(screen.getByTestId('dashboard-bulk-share-bar')).toHaveTextContent('3 of 3 selected');
+  });
+
+  it('caps the selection at 100: the bar shows the hint, and an unselected row is disabled', () => {
+    // Pins the WIRING (list reads MAX_BULK_SELECTION off the real selection
+    // state correctly) — the cap ENFORCEMENT itself (toggle/selectPage
+    // becoming no-ops past 100) is unit-tested in useMultiSelect's own suite.
+    // 100 ids including dashboard #1 but not #2 — hits the real MAX_BULK_SELECTION
+    // (100) that the component itself compares selectedIds.size against.
+    const hundredIds = new Set(Array.from({ length: 100 }, (_, i) => i + 1));
+    mockUseMultiSelect.mockReturnValue({
+      selectedIds: hundredIds,
+      toggle: jest.fn(),
+      selectPage: jest.fn(),
+      deselectPage: jest.fn(),
+      remove: jest.fn(),
+      clear: jest.fn(),
+      isAtCap: true,
+      maxSelection: 100,
+    });
+    setup([baseDashboard({ id: 1 }), baseDashboard({ id: 200 })]);
+
+    expect(screen.getByTestId('dashboard-bulk-share-bar')).toHaveTextContent(
+      '(maximum 100 reached)'
+    );
+    // id 200 is not in selectedIds, and the selection is at cap.
+    expect(screen.getByTestId('dashboard-select-200')).toBeDisabled();
+    // id 1 IS selected — stays enabled/checked so the user can deselect it.
+    expect(screen.getByTestId('dashboard-select-1')).not.toBeDisabled();
   });
 
   it('the bar\'s "Select All" button fills in the rest of the current page', async () => {
