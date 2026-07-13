@@ -14,6 +14,7 @@ import {
   addGrant,
   removeGrant,
   setGeneralAccess,
+  transferOwnership,
   type ResourceAccessOverview,
 } from '@/hooks/api/useResourceAccess';
 
@@ -200,6 +201,24 @@ describe('Mutation functions', () => {
         audience: 'private',
         level: 'view',
         remove_grant_ids: [],
+      });
+    });
+  });
+
+  describe('transferOwnership', () => {
+    it('posts the new owner orguser id and returns the new owner', async () => {
+      const newOwner = { orguser_id: 42, email: 'priya@ngo.org', name: 'Priya Sharma' };
+      mockApiPost.mockResolvedValue({
+        success: true,
+        data: newOwner,
+        message: 'Ownership transferred',
+      });
+
+      const result = await transferOwnership('dashboard', 1, 42);
+
+      expect(result).toEqual(newOwner);
+      expect(mockApiPost).toHaveBeenCalledWith('/api/access/dashboard/1/owner/', {
+        new_owner_orguser_id: 42,
       });
     });
   });

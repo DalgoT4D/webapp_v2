@@ -149,3 +149,20 @@ export async function setGeneralAccess(
   );
   return response.data;
 }
+
+// Transfer ownership — POST /api/access/{rtype}/{id}/owner/ (task-12 backend
+// contract). Allowed for the current owner or an org admin (see
+// require_owner_access / can_delete_resource); the backend also keeps the
+// OLD owner on an Edit grant automatically — nothing to do client-side but
+// revalidate the overview after this resolves.
+export async function transferOwnership(
+  rtype: ShareableResourceType,
+  resourceId: number,
+  newOwnerOrguserId: number
+): Promise<AccessOwner> {
+  const response: ApiResponse<AccessOwner> = await apiPost(
+    `/api/access/${rtype}/${resourceId}/owner/`,
+    { new_owner_orguser_id: newOwnerOrguserId }
+  );
+  return response.data;
+}

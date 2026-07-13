@@ -6,6 +6,7 @@ import {
   UnreadCountResponse,
   UserPreferencesResponse,
   OrgPreferencesResponse,
+  OrgPreferences,
   NotificationFilters,
 } from '@/types/notifications';
 import { buildQueryString } from '@/lib/notifications';
@@ -71,7 +72,11 @@ export async function updateUserPreference(data: Record<string, unknown>) {
 }
 
 /**
- * Hook to fetch organization notification preferences
+ * Hook to fetch organization preferences — Discord notification settings AND
+ * the sharing settings (allow_public_sharing, default_general_audience/level;
+ * task-11f) come back in the same GET /api/orgpreferences/ response, so this
+ * one hook backs both the notification dialog and the Access Management
+ * settings page.
  */
 export function useOrgPreferences() {
   const { data, error, isLoading, mutate } = useSWR<OrgPreferencesResponse>(
@@ -85,6 +90,24 @@ export function useOrgPreferences() {
     error,
     mutate,
   };
+}
+
+/**
+ * Standalone mutation: partial-update the org's sharing preferences
+ * (PUT /api/orgpreferences/sharing/ — task-11 backend contract). All fields
+ * optional; only send what changed. Callers should `mutate()` the
+ * useOrgPreferences() cache key afterwards to refresh.
+ */
+export async function updateSharingPreferences(
+  data: Partial<
+    Pick<
+      OrgPreferences,
+      'allow_public_sharing' | 'default_general_audience' | 'default_general_level'
+    >
+  >
+): Promise<OrgPreferences> {
+  const response: OrgPreferencesResponse = await apiPut('/api/orgpreferences/sharing/', data);
+  return response.res;
 }
 
 /**
