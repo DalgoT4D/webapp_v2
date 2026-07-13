@@ -242,6 +242,10 @@ interface DashboardNativeViewProps {
   commentStates?: CommentStates; // Comment states array with target_type and chart_id
   onCommentStateChange?: () => void; // Callback to revalidate comment states
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open (from email deep-link)
+  // Resolver-edit on the report this snapshot belongs to — lets the viewer
+  // moderate (edit/delete) OTHER people's comments, not just their own.
+  // Only meaningful alongside snapshotId (report mode).
+  canModerateComments?: boolean;
 }
 
 export function DashboardNativeView({
@@ -263,6 +267,7 @@ export function DashboardNativeView({
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
+  canModerateComments,
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>(() => {
@@ -628,6 +633,7 @@ export function DashboardNativeView({
               commentStates={isReportMode ? commentStates : undefined}
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+              canModerateComments={isReportMode ? canModerateComments : undefined}
               orgLogoUrl={orgLogoUrl}
             />
           </div>
@@ -678,6 +684,7 @@ export function DashboardNativeView({
               commentStates={isReportMode ? commentStates : undefined}
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+              canModerateComments={isReportMode ? canModerateComments : undefined}
             />
           </div>
         );

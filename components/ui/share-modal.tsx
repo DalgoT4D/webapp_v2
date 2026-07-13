@@ -17,6 +17,7 @@ import {
   UsersRound,
   UserPlus,
   Trash2,
+  Inbox,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,12 @@ import {
   type AccessAudience,
   type AccessLevel,
 } from '@/hooks/api/useResourceAccess';
+import {
+  useAccessRequests,
+  approveAccessRequest,
+  declineAccessRequest,
+  type AccessRequestItem,
+} from '@/hooks/api/useAccessRequests';
 import { useUsers } from '@/hooks/api/useUserManagement';
 import { useUserGroups } from '@/hooks/api/useUserGroups';
 import { PERMISSIONS, useRbac, type Permission } from '@/lib/rbac';
@@ -240,6 +247,28 @@ export function ShareModal({
       hasPermission(SHARE_PERMISSION_BY_RTYPE[entityType])
   );
 
+  // ---- /api/access/requests/ — pending requests decidable on THIS resource ----
+  // `incoming` is already filtered server-side to requests the caller can
+  // decide (owner/admin) — no extra client-side permission check needed,
+  // just narrow it down to this specific resource. Lazy-fetched only while
+  // the modal is open, same pattern as useUserGroups(canShare) below.
+  const { incoming: incomingRequests, mutate: mutateAccessRequests } = useAccessRequests(
+    isOpen && Boolean(entityType)
+  );
+  const pendingRequestsForEntity = useMemo(
+    () =>
+      entityType
+        ? incomingRequests.filter(
+            (r) => r.resource_type === entityType && r.resource_id === String(entityId)
+          )
+        : [],
+    [incomingRequests, entityType, entityId]
+  );
+  const handleRequestDecided = useCallback(() => {
+    mutateAccessRequests();
+    mutateAccess(); // a decision may have inserted a new grant — refresh People-with-access
+  }, [mutateAccessRequests, mutateAccess]);
+
   // Breadth analytics — fires once per open, only for the new sharing surface.
   useEffect(() => {
     if (isOpen && entityType) {
@@ -373,6 +402,14 @@ export function ShareModal({
         </DialogHeader>
 
         <div className="space-y-6">
+          {entityType && pendingRequestsForEntity.length > 0 && (
+            <PendingRequestsSection
+              entityType={entityType}
+              requests={pendingRequestsForEntity}
+              onDecided={handleRequestDecided}
+            />
+          )}
+
           {showPeopleSection && entityType && access && (
             <PeopleWithAccessSection
               entityType={entityType}
@@ -1337,5 +1374,154 @@ function GeneralAccessSection({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ============================================================================
+// Pending requests (Milestone 9 — request-access, in-modal decisions)
+// ============================================================================
+
+interface PendingRequestsSectionProps {
+  entityType: ShareableResourceType;
+  requests: AccessRequestItem[];
+  onDecided: () => void;
+}
+
+function PendingRequestsSection({ entityType, requests, onDecided }: PendingRequestsSectionProps) {
+  return (
+    <Card data-testid="share-requests-section">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <Inbox className="h-5 w-5 text-primary" />
+          <Label className="text-sm font-medium">Pending requests</Label>
+        </div>
+        <div className="space-y-3">
+          {requests.map((request) => (
+            <PendingRequestRow
+              key={request.id}
+              entityType={entityType}
+              request={request}
+              onDecided={onDecided}
+            />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface PendingRequestRowProps {
+  entityType: ShareableResourceType;
+  request: AccessRequestItem;
+  onDecided: () => void;
+}
+
+function PendingRequestRow({ entityType, request, onDecided }: PendingRequestRowProps) {
+  // Approve may only ever downgrade (Edit ask -> View grant), never escalate
+  // — the backend 400s an attempt to grant above what was requested. Cap the
+  // options offered so that 400 is unreachable from this UI: a View request
+  // only ever offers View.
+  const permissionOptions: AccessLevel[] =
+    request.requested_permission === 'edit' ? ['edit', 'view'] : ['view'];
+  const [selectedPermission, setSelectedPermission] = useState<AccessLevel>(
+    request.requested_permission
+  );
+  const [isDeciding, setIsDeciding] = useState(false);
+
+  const handleApprove = useCallback(async () => {
+    setIsDeciding(true);
+    try {
+      const isDowngrade = selectedPermission !== request.requested_permission;
+      await approveAccessRequest(request.id, isDowngrade ? selectedPermission : undefined);
+      onDecided();
+      toastSuccess.generic('Access granted');
+      trackEvent(ANALYTICS_EVENTS.SHARING_ACCESS_REQUEST_APPROVED, {
+        entity_type: entityType,
+        downgraded: isDowngrade,
+      });
+    } catch (error) {
+      toastError.api(error, 'approve this request');
+    } finally {
+      setIsDeciding(false);
+    }
+  }, [entityType, request.id, request.requested_permission, selectedPermission, onDecided]);
+
+  const handleDecline = useCallback(async () => {
+    setIsDeciding(true);
+    try {
+      await declineAccessRequest(request.id);
+      onDecided();
+      toastSuccess.generic('Request declined');
+      trackEvent(ANALYTICS_EVENTS.SHARING_ACCESS_REQUEST_DECLINED, { entity_type: entityType });
+    } catch (error) {
+      toastError.api(error, 'decline this request');
+    } finally {
+      setIsDeciding(false);
+    }
+  }, [entityType, request.id, onDecided]);
+
+  return (
+    <div
+      data-testid={`share-request-row-${request.id}`}
+      className="space-y-2 text-sm border-b pb-3 last:border-b-0 last:pb-0"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate">{request.requester.name || request.requester.email}</span>
+        <span className="text-xs text-muted-foreground flex-shrink-0">
+          Requested {LEVEL_LABELS[request.requested_permission]}
+        </span>
+      </div>
+      {request.note && (
+        <p className="text-xs text-muted-foreground italic truncate" title={request.note}>
+          &ldquo;{request.note}&rdquo;
+        </p>
+      )}
+      <div className="flex items-center gap-2">
+        {permissionOptions.length > 1 ? (
+          <Select
+            value={selectedPermission}
+            onValueChange={(value) => setSelectedPermission(value as AccessLevel)}
+          >
+            <SelectTrigger
+              data-testid={`share-request-permission-${request.id}`}
+              aria-label={`Permission to grant ${request.requester.name || request.requester.email}`}
+              size="sm"
+              className="w-24"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {permissionOptions.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {LEVEL_LABELS[option]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <span className="text-xs text-muted-foreground w-24">
+            {LEVEL_LABELS[selectedPermission]}
+          </span>
+        )}
+        <Button
+          data-testid={`share-request-approve-${request.id}`}
+          size="sm"
+          variant="primary"
+          onClick={handleApprove}
+          disabled={isDeciding}
+        >
+          Approve
+        </Button>
+        <Button
+          data-testid={`share-request-decline-${request.id}`}
+          size="sm"
+          variant="outline"
+          onClick={handleDecline}
+          disabled={isDeciding}
+        >
+          Decline
+        </Button>
+      </div>
+    </div>
   );
 }

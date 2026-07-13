@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -24,14 +25,17 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { deleteAlert, toggleAlert, useAlerts } from '@/hooks/api/useAlerts';
+import { useResourceAccess } from '@/hooks/api/useResourceAccess';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { CreateAlertTypeModal } from '@/components/alerts/CreateAlertTypeModal';
 import { AlertsTable, AllAlertsEmptyState } from '@/components/alerts/AlertsTable';
 import { AlertLogModal } from '@/components/alerts/AlertLogModal';
+import { RequestAccessScreen } from '@/components/sharing/request-access-screen';
 import { DocsLink } from '@/components/ui/docs-link';
 import type { AlertListItem } from '@/types/alerts';
 import { AlertType } from '@/types/alerts';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { getApiErrorStatus } from '@/lib/utils';
 
 export default function AlertsPage() {
   const { hasPermission } = useRbac();
@@ -58,6 +62,21 @@ export default function AlertsPage() {
     page: currentPage,
     pageSize,
   });
+
+  // Deep-link from an access-request/notification email: /alerts?alertId={id}
+  // (Task 13's build_alert_url). The alerts list is already resolver-scoped
+  // (accessible_filter), so an alert the viewer can see just needs
+  // highlighting on whichever page it lands on; one the viewer CANNOT see
+  // never appears in that list at all, but a fetch keyed to it individually
+  // still 403s — the same generic access-overview endpoint every detail page
+  // uses — so that's the seam this checks to offer the request-access flow.
+  const searchParams = useSearchParams();
+  const alertIdParam = searchParams.get('alertId');
+  const deepLinkedAlertId = alertIdParam ? Number(alertIdParam) : null;
+  const { isError: deepLinkAccessError } = useResourceAccess(
+    deepLinkedAlertId ? 'alert' : null,
+    deepLinkedAlertId
+  );
 
   const handleToggle = async (a: AlertListItem) => {
     try {
@@ -87,6 +106,12 @@ export default function AlertsPage() {
       setIsDeleting(false);
     }
   };
+
+  if (deepLinkedAlertId && getApiErrorStatus(deepLinkAccessError) === 403) {
+    return (
+      <RequestAccessScreen rtype="alert" resourceId={deepLinkedAlertId} resourceLabel="alert" />
+    );
+  }
 
   return (
     <div id="alerts-list-container" className="h-full flex flex-col">
@@ -130,6 +155,7 @@ export default function AlertsPage() {
               trackEvent(ANALYTICS_EVENTS.ALERT_LOGS_VIEWED);
               setLogModalAlert(a);
             }}
+            highlightAlertId={alertIdParam}
           />
         </div>
       </div>

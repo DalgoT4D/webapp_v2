@@ -97,6 +97,15 @@ interface AlertsTableProps {
   onDelete: (a: AlertListItem) => void;
   onToggle: (a: AlertListItem) => void;
   onOpenLog: (a: AlertListItem) => void;
+  /**
+   * The `?alertId=` deep-link target (from an access-request/notification
+   * email) — highlights the matching row, mirroring metrics-library.tsx's
+   * `highlight` param. Only takes effect if the alert is on the currently
+   * loaded page; the list is already resolver-scoped, so an alert the
+   * viewer can't see never has a row here in the first place (unlike the
+   * 403 case, which the page handles before this table even renders).
+   */
+  highlightAlertId?: string | null;
 }
 
 function sourceHref(a: AlertListItem): string | null {
@@ -142,6 +151,7 @@ export function AlertsTable({
   onDelete,
   onToggle,
   onOpenLog,
+  highlightAlertId,
 }: AlertsTableProps) {
   const [sortBy, setSortBy] = useState<AlertSortKey>('last_fire_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -278,7 +288,8 @@ export function AlertsTable({
                   key={a.id}
                   className={cn(
                     'hover:bg-gray-50',
-                    !a.is_active && 'text-gray-400 hover:bg-gray-50/60'
+                    !a.is_active && 'text-gray-400 hover:bg-gray-50/60',
+                    highlightAlertId === String(a.id) && 'bg-primary/5 ring-1 ring-primary/20'
                   )}
                   data-testid={`alert-row-${a.id}`}
                 >

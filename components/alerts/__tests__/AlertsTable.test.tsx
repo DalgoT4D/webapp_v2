@@ -167,6 +167,21 @@ describe('AlertsTable', () => {
     // Standalone shows plain text, no link
     expect(screen.getByText(/Dataset: analytics.events/).closest('a')).toBeNull();
   });
+
+  it('highlights the row matching highlightAlertId (the ?alertId= deep-link target)', () => {
+    const alerts = [makeAlert({ id: 1, name: 'Alpha' }), makeAlert({ id: 2, name: 'Beta' })];
+    render(<AlertsTable {...baseProps} alerts={alerts} highlightAlertId="2" />);
+
+    expect(screen.getByTestId('alert-row-1')).not.toHaveClass('ring-1');
+    expect(screen.getByTestId('alert-row-2')).toHaveClass('ring-1');
+  });
+
+  it('highlights no row when highlightAlertId is absent', () => {
+    const alerts = [makeAlert({ id: 1, name: 'Alpha' })];
+    render(<AlertsTable {...baseProps} alerts={alerts} />);
+
+    expect(screen.getByTestId('alert-row-1')).not.toHaveClass('ring-1');
+  });
 });
 
 describe('AlertsTable permission gating', () => {

@@ -10,14 +10,17 @@ import { ArrowLeft, Calendar, Download, LayoutGrid, Loader2, Pencil, User } from
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
 import { useCommentStates } from '@/hooks/api/useComments';
+import { useResourceAccess } from '@/hooks/api/useResourceAccess';
 import { usePdfDownload } from '@/hooks/usePdfDownload';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { ReportShareMenu } from '@/components/reports/report-share-menu';
 import { CommentPopover } from '@/components/reports/comment-popover';
+import { RequestAccessScreen } from '@/components/sharing/request-access-screen';
 import { formatDateShort } from '@/components/reports/utils';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { getApiErrorStatus } from '@/lib/utils';
 
 export default function SnapshotViewerPage() {
   const params = useParams();
@@ -39,6 +42,14 @@ export default function SnapshotViewerPage() {
   const { hasPermission } = useRbac();
   const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS);
   const canShare = hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS);
+
+  // Resolver-level permission on this specific report — distinct from the
+  // role-level `canEdit` above. Comment moderation (hiding/editing/deleting
+  // someone else's comment) is gated on this, matching the backend's
+  // `CommentService._can_moderate` (Task 14): author, or resolver-edit via
+  // owner/admin/an edit-grant, not the static can_edit_dashboards slug.
+  const { data: reportAccess } = useResourceAccess(isValidId ? 'report' : null, parsedId);
+  const canModerateComments = reportAccess?.viewer.effective_permission === 'edit';
 
   // Fire REPORT_VIEWED once per mount when the report has successfully loaded
   const reportViewedTracked = useRef(false);
@@ -109,6 +120,10 @@ export default function SnapshotViewerPage() {
         <Skeleton className="h-[600px] w-full" />
       </div>
     );
+  }
+
+  if (isError && getApiErrorStatus(isError) === 403) {
+    return <RequestAccessScreen rtype="report" resourceId={parsedId} resourceLabel="report" />;
   }
 
   if (isError || !viewData) {
@@ -211,24 +226,28 @@ export default function SnapshotViewerPage() {
           snapshotId={parsedId}
           commentStates={commentStates}
           onCommentStateChange={handleCommentStateChange}
+          canModerateComments={canModerateComments}
           autoOpenCommentChartId={
             commentTarget === 'chart' && commentChartId ? commentChartId : undefined
           }
           topRightContent={
             <div className="flex-shrink-0 px-6 pt-4 pb-2">
               <div className="border rounded-lg p-5 bg-background relative">
-                {canEdit && (
-                  <div className="absolute top-3 right-3 flex items-center gap-1">
-                    <CommentPopover
-                      snapshotId={parsedId}
-                      targetType="summary"
-                      state={
-                        commentStates?.find((s) => s.target_type === 'summary')?.state ?? 'none'
-                      }
-                      triggerClassName="h-8 w-8"
-                      onStateChange={handleCommentStateChange}
-                      autoOpen={commentTarget === 'summary'}
-                    />
+                <div className="absolute top-3 right-3 flex items-center gap-1">
+                  {/* Any viewer can comment — this used to be locked behind
+                      canEdit (CAN_EDIT_DASHBOARDS), which silently blocked
+                      Members from ever opening the summary comment thread.
+                      Task 14 relaxed comment creation to resolver-View. */}
+                  <CommentPopover
+                    snapshotId={parsedId}
+                    targetType="summary"
+                    state={commentStates?.find((s) => s.target_type === 'summary')?.state ?? 'none'}
+                    triggerClassName="h-8 w-8"
+                    onStateChange={handleCommentStateChange}
+                    autoOpen={commentTarget === 'summary'}
+                    canModerate={canModerateComments}
+                  />
+                  {canEdit && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -247,8 +266,8 @@ export default function SnapshotViewerPage() {
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
-                  </div>
-                )}
+                  )}
+                </div>
                 <div className="flex items-baseline gap-2 mb-2">
                   <h2 className="text-lg font-semibold">Executive Summary</h2>
                   {report_metadata.last_modified_by && (

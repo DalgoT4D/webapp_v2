@@ -187,7 +187,15 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
         }
       }
 
-      throw new Error(errorMessage);
+      // Attach the HTTP status to the thrown Error (without changing its
+      // shape/behavior otherwise) so callers can branch on specific codes —
+      // e.g. a 403 on a resource detail fetch renders a request-access
+      // screen instead of a generic error state. Read via
+      // `getApiErrorStatus()` in lib/utils.ts rather than casting `any`
+      // at each call site.
+      const apiError = new Error(errorMessage) as Error & { status?: number };
+      apiError.status = response.status;
+      throw apiError;
     }
 
     return data;

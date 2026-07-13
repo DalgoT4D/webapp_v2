@@ -4,10 +4,12 @@ import { useParams, useRouter } from 'next/navigation';
 import { useDashboard } from '@/hooks/api/useDashboards';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { IndividualDashboardView } from '@/components/dashboard/individual-dashboard-view';
+import { RequestAccessScreen } from '@/components/sharing/request-access-screen';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Lock } from 'lucide-react';
+import { getApiErrorStatus } from '@/lib/utils';
 
 export default function DashboardViewPage() {
   const params = useParams();
@@ -19,9 +21,11 @@ export default function DashboardViewPage() {
   const canViewDashboard = hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS);
 
   // Fetch dashboard to determine type — don't start the request without view permission
-  const { data: dashboard, isLoading } = useDashboard(
-    canViewDashboard ? parseInt(dashboardId) : null
-  );
+  const {
+    data: dashboard,
+    isLoading,
+    isError,
+  } = useDashboard(canViewDashboard ? parseInt(dashboardId) : null);
 
   // Check if user has view permissions
   if (!canViewDashboard) {
@@ -58,6 +62,19 @@ export default function DashboardViewPage() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Resolver denied view access (viewer is same-org but not admitted by
+  // owner/general-access/grants) — offer the request-access flow instead of
+  // falling through to the generic error state the child views would show.
+  if (isError && getApiErrorStatus(isError) === 403) {
+    return (
+      <RequestAccessScreen
+        rtype="dashboard"
+        resourceId={parseInt(dashboardId)}
+        resourceLabel="dashboard"
+      />
     );
   }
 

@@ -499,12 +499,18 @@ describe('SnapshotViewerPage', () => {
       expect(screen.queryByTestId('report-save-btn')).not.toBeInTheDocument();
     });
 
-    it('hides edit and comment buttons when user lacks can_edit_dashboards', () => {
+    it('hides the summary-edit pencil, but NOT the comment trigger, when user lacks can_edit_dashboards', () => {
+      // Task 16 (resource-sharing): the summary comment trigger used to be
+      // locked behind the same canEdit gate as the edit pencil, which
+      // silently blocked Members from ever commenting on a report — a bug
+      // Task 14 (backend) already fixed by relaxing comment creation to
+      // resolver-View. This pins the corrected behavior: editing the
+      // summary text stays a role-gated affordance, commenting doesn't.
       mockHasPermission.mockImplementation((slug: string) => slug !== 'can_edit_dashboards');
       renderPage();
 
       expect(screen.queryByTestId('summary-edit-btn')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('mock-comment-popover')).not.toBeInTheDocument();
+      expect(screen.getByTestId('mock-comment-popover')).toBeInTheDocument();
     });
 
     it('shows download button regardless of permissions', () => {

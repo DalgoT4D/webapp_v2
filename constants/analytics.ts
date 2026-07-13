@@ -142,6 +142,10 @@ export const ANALYTICS_EVENTS = {
   SHARING_GRANT_REMOVED: 'sharing:grant_removed',
   SHARING_GENERAL_ACCESS_UPDATED: 'sharing:general_access_updated',
   SHARING_EMAIL_INVITE_SENT: 'sharing:email_invite_sent',
+  // Resource sharing — request-access flow (Milestone 9)
+  SHARING_ACCESS_REQUESTED: 'sharing:access_requested',
+  SHARING_ACCESS_REQUEST_APPROVED: 'sharing:access_request_approved',
+  SHARING_ACCESS_REQUEST_DECLINED: 'sharing:access_request_declined',
   // Settings → Groups (resource-sharing audiences, Milestone 3)
   GROUP_CREATED: 'settings:group_created',
   GROUP_RENAMED: 'settings:group_renamed',
