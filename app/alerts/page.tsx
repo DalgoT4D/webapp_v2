@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -25,23 +25,41 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { deleteAlert, toggleAlert, useAlerts } from '@/hooks/api/useAlerts';
-import { useResourceAccess } from '@/hooks/api/useResourceAccess';
+import { useResourceAccess, type BulkAccessResponse } from '@/hooks/api/useResourceAccess';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { CreateAlertTypeModal } from '@/components/alerts/CreateAlertTypeModal';
 import { AlertsTable, AllAlertsEmptyState } from '@/components/alerts/AlertsTable';
 import { AlertLogModal } from '@/components/alerts/AlertLogModal';
 import { RequestAccessScreen } from '@/components/sharing/request-access-screen';
+import { ShareModal } from '@/components/ui/share-modal';
+import { BulkShareDialog } from '@/components/sharing/bulk-share-dialog';
+import { useMultiSelect, MAX_BULK_SELECTION } from '@/hooks/useMultiSelect';
 import { DocsLink } from '@/components/ui/docs-link';
 import type { AlertListItem } from '@/types/alerts';
+import type { ShareStatus } from '@/types/reports';
 import { AlertType } from '@/types/alerts';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { getApiErrorStatus } from '@/lib/utils';
+import { Share2 } from 'lucide-react';
+
+// Alerts have no public-link concept (public_link=False in the rtype
+// registry — ShareModal already hides that section via the capabilities
+// flag). getShareStatus/updateSharing are still required props on
+// ShareModal (called unconditionally on open); these stubs never hit a
+// real endpoint since the section they'd back is never rendered for alerts.
+async function getAlertShareStatus(): Promise<ShareStatus> {
+  return { is_public: false, public_access_count: 0 };
+}
+async function updateAlertSharing(): Promise<ShareStatus> {
+  return { is_public: false, public_access_count: 0 };
+}
 
 export default function AlertsPage() {
   const { hasPermission } = useRbac();
   const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
   const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_ALERTS);
   const canDelete = hasPermission(PERMISSIONS.CAN_DELETE_ALERTS);
+  const canShareAlerts = hasPermission(PERMISSIONS.CAN_SHARE_ALERTS);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -51,6 +69,22 @@ export default function AlertsPage() {
   const [deletingAlert, setDeletingAlert] = useState<AlertListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [logModalAlert, setLogModalAlert] = useState<AlertListItem | null>(null);
+
+  // Per-item Share (task-17f, cross-task gap closure) — one shared ShareModal
+  // instance for the whole table, matching dashboard-list-v2.tsx's pattern.
+  const [sharingAlert, setSharingAlert] = useState<AlertListItem | null>(null);
+
+  // Bulk-selection bar (task-17f, Milestone 10) — persists across pagination,
+  // capped at 100 (BULK_MAX_ITEMS) via useMultiSelect.
+  const {
+    selectedIds: selectedAlertIds,
+    toggle: toggleAlertSelection,
+    selectPage: selectAlertPage,
+    deselectPage: deselectAlertPage,
+    remove: removeAppliedAlertIds,
+    clear: clearAlertSelection,
+  } = useMultiSelect<number>();
+  const [bulkShareOpen, setBulkShareOpen] = useState(false);
 
   const {
     data: alerts,
@@ -62,6 +96,22 @@ export default function AlertsPage() {
     page: currentPage,
     pageSize,
   });
+
+  const bulkShareItems = useMemo(
+    () => Array.from(selectedAlertIds, (id) => ({ rtype: 'alert' as const, id: String(id) })),
+    [selectedAlertIds]
+  );
+
+  const handleBulkApplied = useCallback(
+    (response: BulkAccessResponse) => {
+      const appliedIds = response.applied
+        .filter((item) => item.rtype === 'alert')
+        .map((item) => Number(item.id));
+      removeAppliedAlertIds(appliedIds);
+      mutate();
+    },
+    [removeAppliedAlertIds, mutate]
+  );
 
   // Deep-link from an access-request/notification email: /alerts?alertId={id}
   // (Task 13's build_alert_url). The alerts list is already resolver-scoped
@@ -136,6 +186,49 @@ export default function AlertsPage() {
             </CreateAlertTypeModal>
           )}
         </div>
+
+        {/* Bulk-selection bar (task-17f) — appears once >=1 row is selected */}
+        {canShareAlerts && selectedAlertIds.size > 0 && (
+          <div
+            data-testid="alert-bulk-share-bar"
+            className="mx-6 mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-blue-900">
+                {selectedAlertIds.size} of {alerts.length} selected
+                {selectedAlertIds.size >= MAX_BULK_SELECTION && ' (maximum 100 reached)'}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  data-testid="alert-bulk-select-all-btn"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => selectAlertPage(alerts.map((a) => a.id))}
+                  disabled={alerts.every((a) => selectedAlertIds.has(a.id))}
+                >
+                  Select All
+                </Button>
+                <Button
+                  data-testid="alert-bulk-clear-btn"
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAlertSelection}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+            <Button
+              data-testid="alert-bulk-share-btn"
+              variant="primary"
+              size="sm"
+              onClick={() => setBulkShareOpen(true)}
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Share
+            </Button>
+          </div>
+        )}
       </div>
 
       <div id="alerts-content-wrapper" className="flex-1 overflow-hidden px-6">
@@ -156,6 +249,12 @@ export default function AlertsPage() {
               setLogModalAlert(a);
             }}
             highlightAlertId={alertIdParam}
+            canShare={canShareAlerts}
+            onShare={(a) => setSharingAlert(a)}
+            selectedIds={selectedAlertIds}
+            onToggleSelect={toggleAlertSelection}
+            onSelectAllVisible={selectAlertPage}
+            onDeselectAllVisible={deselectAlertPage}
           />
         </div>
       </div>
@@ -261,6 +360,35 @@ export default function AlertsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Per-item Share (task-17f, cross-task gap closure) — the modal's
+          capability flags already omit the public-link section for alerts;
+          no alert-specific conditionals live in ShareModal itself. */}
+      {sharingAlert && (
+        <ShareModal
+          entityId={sharingAlert.id}
+          entityLabel="Alert"
+          entityType="alert"
+          isOpen={sharingAlert !== null}
+          onClose={() => setSharingAlert(null)}
+          getShareStatus={getAlertShareStatus}
+          updateSharing={updateAlertSharing}
+        />
+      )}
+
+      {/* Bulk Share Dialog (task-17f) — no public-link action (alert is
+          public_link=False; the backend would skip every item). */}
+      {bulkShareOpen && (
+        <BulkShareDialog
+          entityType="alert"
+          entityLabel="alerts"
+          items={bulkShareItems}
+          isOpen={bulkShareOpen}
+          onClose={() => setBulkShareOpen(false)}
+          onApplied={handleBulkApplied}
+          allowPublicLink={false}
+        />
+      )}
     </div>
   );
 }

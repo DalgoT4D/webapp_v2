@@ -203,6 +203,54 @@ describe('AlertsTable permission gating', () => {
   });
 });
 
+describe('AlertsTable — per-item Share action (task-17f, cross-task gap closure)', () => {
+  it('shows a Share button per row when canShare is true, and calls onShare with the alert', async () => {
+    const user = userEvent.setup();
+    const onShare = jest.fn();
+    const alerts = [makeAlert({ id: 1 })];
+    render(<AlertsTable {...baseProps} alerts={alerts} canShare onShare={onShare} />);
+
+    await user.click(screen.getByTestId('alert-share-btn-1'));
+    expect(onShare).toHaveBeenCalledWith(alerts[0]);
+  });
+
+  it('hides the Share button when canShare is false', () => {
+    const alerts = [makeAlert({ id: 1 })];
+    render(<AlertsTable {...baseProps} alerts={alerts} canShare={false} onShare={jest.fn()} />);
+    expect(screen.queryByTestId('alert-share-btn-1')).not.toBeInTheDocument();
+  });
+});
+
+describe('AlertsTable — bulk selection checkboxes (task-17f)', () => {
+  it('shows a checkbox per row when canShare is true, wired to selectedIds/onToggleSelect', async () => {
+    const user = userEvent.setup();
+    const onToggleSelect = jest.fn();
+    const alerts = [makeAlert({ id: 1 }), makeAlert({ id: 2 })];
+    render(
+      <AlertsTable
+        {...baseProps}
+        alerts={alerts}
+        canShare
+        onShare={jest.fn()}
+        selectedIds={new Set([2])}
+        onToggleSelect={onToggleSelect}
+      />
+    );
+
+    expect(screen.getByTestId('alert-select-1')).not.toBeChecked();
+    expect(screen.getByTestId('alert-select-2')).toBeChecked();
+
+    await user.click(screen.getByTestId('alert-select-1'));
+    expect(onToggleSelect).toHaveBeenCalledWith(1);
+  });
+
+  it('hides checkboxes when canShare is false', () => {
+    const alerts = [makeAlert({ id: 1 })];
+    render(<AlertsTable {...baseProps} alerts={alerts} canShare={false} />);
+    expect(screen.queryByTestId('alert-select-1')).not.toBeInTheDocument();
+  });
+});
+
 describe('AlertsTable empty states', () => {
   it('AllAlertsEmptyState shows Create Alert modal when allowed', async () => {
     const user = userEvent.setup();
