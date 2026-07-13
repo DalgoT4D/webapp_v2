@@ -15,6 +15,7 @@ import {
   removeGrant,
   setGeneralAccess,
   transferOwnership,
+  bulkApplyAccess,
   type ResourceAccessOverview,
 } from '@/hooks/api/useResourceAccess';
 
@@ -220,6 +221,119 @@ describe('Mutation functions', () => {
       expect(mockApiPost).toHaveBeenCalledWith('/api/access/dashboard/1/owner/', {
         new_owner_orguser_id: 42,
       });
+    });
+  });
+
+  describe('bulkApplyAccess', () => {
+    it('posts the bulk request and returns the unwrapped response', async () => {
+      mockApiPost.mockResolvedValue({
+        success: true,
+        data: {
+          applied: [{ rtype: 'dashboard', id: '1' }],
+          skipped: [{ rtype: 'dashboard', id: '2', reason: 'edit_access_denied' }],
+          requires_confirmation: [],
+          applied_count: 1,
+          skipped_count: 1,
+        },
+      });
+
+      const result = await bulkApplyAccess({
+        items: [
+          { rtype: 'dashboard', id: '1' },
+          { rtype: 'dashboard', id: '2' },
+        ],
+        action: 'add_grant',
+        add_grant: { principal_type: 'user', principal_id: 9, permission: 'view' },
+      });
+
+      expect(mockApiPost).toHaveBeenCalledWith('/api/access/bulk/', {
+        items: [
+          { rtype: 'dashboard', id: '1' },
+          { rtype: 'dashboard', id: '2' },
+        ],
+        action: 'add_grant',
+        add_grant: { principal_type: 'user', principal_id: 9, permission: 'view' },
+      });
+      expect(result.applied).toEqual([{ rtype: 'dashboard', id: '1' }]);
+      expect(result.skipped).toEqual([
+        { rtype: 'dashboard', id: '2', reason: 'edit_access_denied' },
+      ]);
+      expect(result.applied_count).toBe(1);
+      expect(result.skipped_count).toBe(1);
+    });
+
+    it('surfaces requires_confirmation items with persisting_grants (set_general narrowing)', async () => {
+      mockApiPost.mockResolvedValue({
+        success: true,
+        data: {
+          applied: [],
+          skipped: [],
+          requires_confirmation: [
+            { rtype: 'dashboard', id: '1', persisting_grants: [mockOverview.grants[0]] },
+          ],
+          applied_count: 0,
+          skipped_count: 0,
+        },
+      });
+
+      const result = await bulkApplyAccess({
+        items: [{ rtype: 'dashboard', id: '1' }],
+        action: 'set_general',
+        set_general: { audience: 'private', level: 'view' },
+      });
+
+      expect(result.requires_confirmation).toEqual([
+        { rtype: 'dashboard', id: '1', persisting_grants: [mockOverview.grants[0]] },
+      ]);
+    });
+
+    it('re-sends with a flat remove_grant_ids list to commit after confirmation', async () => {
+      mockApiPost.mockResolvedValue({
+        success: true,
+        data: {
+          applied: [{ rtype: 'dashboard', id: '1' }],
+          skipped: [],
+          requires_confirmation: [],
+          applied_count: 1,
+          skipped_count: 0,
+        },
+      });
+
+      await bulkApplyAccess({
+        items: [{ rtype: 'dashboard', id: '1' }],
+        action: 'set_general',
+        set_general: { audience: 'private', level: 'view', remove_grant_ids: [3] },
+      });
+
+      expect(mockApiPost).toHaveBeenCalledWith('/api/access/bulk/', {
+        items: [{ rtype: 'dashboard', id: '1' }],
+        action: 'set_general',
+        set_general: { audience: 'private', level: 'view', remove_grant_ids: [3] },
+      });
+    });
+
+    it('posts a toggle_public bulk request', async () => {
+      mockApiPost.mockResolvedValue({
+        success: true,
+        data: {
+          applied: [{ rtype: 'dashboard', id: '1' }],
+          skipped: [{ rtype: 'alert', id: '2', reason: 'public_link_not_supported' }],
+          requires_confirmation: [],
+          applied_count: 1,
+          skipped_count: 1,
+        },
+      });
+
+      const result = await bulkApplyAccess({
+        items: [
+          { rtype: 'dashboard', id: '1' },
+          { rtype: 'alert', id: '2' },
+        ],
+        action: 'toggle_public',
+        toggle_public: { is_public: true },
+      });
+
+      expect(result.skipped[0].reason).toBe('public_link_not_supported');
     });
   });
 });

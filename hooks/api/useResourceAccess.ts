@@ -166,3 +166,69 @@ export async function transferOwnership(
   );
   return response.data;
 }
+
+// ---- Bulk sharing — POST /api/access/bulk/ (task-17 backend contract) ----
+//
+// Applies ONE action across a mixed-rtype selection, apply-where-possible
+// (never all-or-nothing) — see task-17-report.md for the verbatim shapes.
+// `id` is always the stringified pk, matching the soft-link resource_id
+// convention used everywhere else in this file's overview/grant types.
+
+export interface BulkItemRef {
+  rtype: ShareableResourceType;
+  id: string;
+}
+
+export type BulkAction = 'add_grant' | 'set_general' | 'toggle_public';
+
+export interface BulkAddGrantPayload {
+  principal_type: PrincipalType;
+  principal_id?: number;
+  email?: string;
+  permission: AccessLevel;
+}
+
+export interface BulkSetGeneralPayload {
+  audience: AccessAudience;
+  level: AccessLevel;
+  // Present (possibly []) only when re-committing after a requires_confirmation
+  // response — a flat, global list of grant ids (unique PKs, no per-resource nesting needed).
+  remove_grant_ids?: number[];
+}
+
+export interface BulkTogglePublicPayload {
+  is_public: boolean;
+}
+
+export interface BulkAccessRequest {
+  items: BulkItemRef[];
+  action: BulkAction;
+  // Exactly one of these, matching `action`.
+  add_grant?: BulkAddGrantPayload;
+  set_general?: BulkSetGeneralPayload;
+  toggle_public?: BulkTogglePublicPayload;
+}
+
+// Stable machine reason codes from ddpui/core/sharing/sharing_actions.py —
+// see SKIP_REASON_COPY in components/sharing/bulk-share-dialog.tsx for the
+// plain-language mapping shown to NGO users.
+export interface BulkSkippedItem extends BulkItemRef {
+  reason: string;
+}
+
+export interface BulkConfirmationItem extends BulkItemRef {
+  persisting_grants: AccessGrant[];
+}
+
+export interface BulkAccessResponse {
+  applied: BulkItemRef[];
+  skipped: BulkSkippedItem[];
+  requires_confirmation: BulkConfirmationItem[];
+  applied_count: number;
+  skipped_count: number;
+}
+
+export async function bulkApplyAccess(request: BulkAccessRequest): Promise<BulkAccessResponse> {
+  const response: ApiResponse<BulkAccessResponse> = await apiPost('/api/access/bulk/', request);
+  return response.data;
+}
