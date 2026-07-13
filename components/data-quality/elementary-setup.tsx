@@ -9,6 +9,7 @@ import { ElementaryStatus } from '@/types/data-quality';
 import { TASK_POLL_INTERVAL_MS, KEY_TO_FILENAME } from '@/constants/data-quality';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import {
   gitPull,
   checkDbtFiles,
@@ -81,6 +82,11 @@ export function ElementarySetup({ onSetupComplete }: ElementarySetupProps) {
   const [loading, setLoading] = useState(false);
   const [elementaryStatus, setElementaryStatus] = useState<ElementaryStatus | null>(null);
   const abortRef = useRef(false);
+
+  const { hasPermission } = useRbac();
+  // Setting up Elementary mutates the dbt workspace — gate on edit access so
+  // read-only roles (e.g. analyst) can't trigger it.
+  const canSetup = hasPermission(PERMISSIONS.CAN_EDIT_DBT_WORKSPACE);
 
   const pollForTaskRun = useCallback(async (taskId: string, hashKey: string) => {
     const response = await pollTaskProgress(taskId, hashKey);
@@ -167,7 +173,7 @@ export function ElementarySetup({ onSetupComplete }: ElementarySetupProps) {
             You currently don&apos;t have Elementary setup. Please click the button below to setup
             Elementary.
           </p>
-          <Button onClick={handleSetup} data-testid="setup-elementary-btn">
+          <Button onClick={handleSetup} disabled={!canSetup} data-testid="setup-elementary-btn">
             Setup Elementary
           </Button>
         </>

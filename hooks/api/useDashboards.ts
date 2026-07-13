@@ -123,7 +123,8 @@ export function useDashboards(params?: UseDashboardsParams) {
   };
 }
 
-export function useDashboard(id: number) {
+// Pass null to skip fetching (e.g. while the user's permission check hasn't passed)
+export function useDashboard(id: number | null) {
   const { data, error, mutate } = useSWR<Dashboard>(id ? `/api/dashboards/${id}/` : null, apiGet);
 
   return {

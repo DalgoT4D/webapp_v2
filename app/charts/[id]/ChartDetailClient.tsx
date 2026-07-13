@@ -21,7 +21,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type { ChartDataPayload } from '@/types/charts';
@@ -55,8 +55,15 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isFromDashboard = searchParams.get('from') === 'dashboard';
-  const { hasPermission } = useUserPermissions();
-  const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
+  const { hasPermission } = useRbac();
+  const canViewCharts = hasPermission(PERMISSIONS.CAN_VIEW_CHARTS);
+  // Don't start the chart request without view permission; the access-denied
+  // return lives below, after all hooks (Rules of Hooks)
+  const {
+    data: chart,
+    error: chartError,
+    isLoading: chartLoading,
+  } = useChart(canViewCharts ? chartId : null);
   // Fire CHART_VIEWED once per mount when the chart loads (WAVO consume signal).
   const chartViewedTracked = useRef(false);
   useEffect(() => {
@@ -81,25 +88,6 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     () => chart?.extra_config?.customizations || {},
     [chart?.extra_config?.customizations]
   );
-
-  // Check if user has view permissions
-  if (!hasPermission('can_view_charts')) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-            <Lock className="w-6 h-6 text-red-600" />
-          </div>
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground mb-4">You don't have permission to view charts.</p>
-          <Button variant="outline" onClick={() => router.push('/charts')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Charts
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   // Fetch regions data for dynamic geojson lookup (for Indian maps)
   const { data: regions } = useRegions('IND', 'state');
@@ -450,12 +438,12 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
       setTimeout(
         () => {
           toast('💡 Configure drill-down layers to see filtered regions', {
-            description: hasPermission('can_edit_charts')
+            description: hasPermission(PERMISSIONS.CAN_EDIT_CHARTS)
               ? "Click 'Edit Chart' to set up geographic layers"
               : 'Chart needs geographic layers to show filtered regions',
             duration: 7000,
             position: 'top-right',
-            ...(hasPermission('can_edit_charts') && {
+            ...(hasPermission(PERMISSIONS.CAN_EDIT_CHARTS) && {
               action: {
                 label: 'Edit Chart',
                 onClick: () => (window.location.href = `/charts/${chartId}/edit`),
@@ -727,6 +715,25 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     setDrillDownPath([]);
   };
 
+  // Check if user has view permissions (after all hooks — Rules of Hooks)
+  if (!canViewCharts) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <Lock className="w-6 h-6 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground mb-4">You don't have permission to view charts.</p>
+          <Button variant="outline" onClick={() => router.push('/charts')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Charts
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (chartLoading) {
     return (
       <div className="container mx-auto p-6">
@@ -779,7 +786,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
             )}
           </div>
           <div className="flex gap-2">
-            {hasPermission('can_edit_charts') && (
+            {hasPermission(PERMISSIONS.CAN_EDIT_CHARTS) && (
               <Link
                 data-testid="chart-detail-edit-link"
                 href={`/charts/${chartId}/edit${isFromDashboard ? '?from=dashboard' : ''}`}

@@ -30,14 +30,14 @@ import { AlertsTable, AllAlertsEmptyState } from '@/components/alerts/AlertsTabl
 import { AlertLogModal } from '@/components/alerts/AlertLogModal';
 import { DocsLink } from '@/components/ui/docs-link';
 import type { AlertListItem } from '@/types/alerts';
-import { AlertType, ALERT_PERMISSIONS } from '@/types/alerts';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { AlertType } from '@/types/alerts';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
 export default function AlertsPage() {
-  const { hasPermission } = useUserPermissions();
-  const canCreate = hasPermission(ALERT_PERMISSIONS.create);
-  const canEdit = hasPermission(ALERT_PERMISSIONS.edit);
-  const canDelete = hasPermission(ALERT_PERMISSIONS.delete);
+  const { hasPermission } = useRbac();
+  const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
+  const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_ALERTS);
+  const canDelete = hasPermission(PERMISSIONS.CAN_DELETE_ALERTS);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);

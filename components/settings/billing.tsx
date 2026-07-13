@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, Info, Calendar } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/components/ui/use-toast';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
 interface OrgPlan {
   org: {
@@ -62,12 +62,10 @@ export default function Billing() {
   const [orgPlan, setOrgPlan] = useState<OrgPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
-  const { getCurrentOrgUser } = useAuthStore();
   const { toast } = useToast();
+  const { hasPermission } = useRbac();
 
-  const currentOrgUser = getCurrentOrgUser();
-  const permissions = currentOrgUser?.permissions || [];
-  const canUpgrade = permissions.some((p) => p.slug === 'can_initiate_org_plan_upgrade');
+  const canUpgrade = hasPermission(PERMISSIONS.CAN_INITIATE_ORG_PLAN_UPGRADE);
 
   useEffect(() => {
     fetchOrgPlan();

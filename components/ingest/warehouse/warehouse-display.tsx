@@ -4,8 +4,8 @@ import { useState, useMemo, useCallback } from 'react';
 import { Pencil, Trash2, Plus, Loader2, Shield, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useWarehouse, deleteWarehouse } from '@/hooks/api/useWarehouse';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
-import { WAREHOUSE_PERMISSIONS, DALGO_IP_ADDRESSES } from '@/constants/warehouse';
+import { PERMISSIONS, ROLES, useRbac } from '@/lib/rbac';
+import { DALGO_IP_ADDRESSES } from '@/constants/warehouse';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -68,18 +68,18 @@ function IpWhitelistBanner() {
 
 export function WarehouseDisplay() {
   const { data: warehouse, isLoading, mutate } = useWarehouse();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission, hasRole } = useRbac();
 
   const [formOpen, setFormOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const canCreate = hasPermission(WAREHOUSE_PERMISSIONS.CREATE);
-  const canEdit = hasPermission(WAREHOUSE_PERMISSIONS.EDIT);
-  const canDelete = hasPermission(WAREHOUSE_PERMISSIONS.DELETE);
+  const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_WAREHOUSE);
+  const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_WAREHOUSE);
+  const canDelete = hasPermission(PERMISSIONS.CAN_DELETE_WAREHOUSES);
 
-  const isSuperAdmin = hasPermission('can_create_org');
+  const isSuperAdmin = hasRole(ROLES.SUPER_ADMIN);
 
   const tableData = useMemo(() => {
     if (!warehouse) return [];

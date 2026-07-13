@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { DBTRepositoryCard } from '../DBTRepositoryCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import CanvasPreview from './canvas/CanvasPreview';
 
 interface UITransformTabProps {
@@ -13,6 +14,11 @@ interface UITransformTabProps {
 }
 
 export function UITransformTab({ onGitConnected, gitConnected }: UITransformTabProps) {
+  const { hasPermission } = useRbac();
+  // Read-only roles (e.g. analyst) get a "View workflow" entry point; the canvas
+  // itself is already node-gated and Publish is disabled for them.
+  const canEditWorkflow = hasPermission(PERMISSIONS.CAN_EDIT_DBT_WORKSPACE);
+
   return (
     <div className="space-y-6" data-testid="ui-transform-tab">
       {/* DBT Repository Connection Section */}
@@ -24,7 +30,7 @@ export function UITransformTab({ onGitConnected, gitConnected }: UITransformTabP
           <CardTitle>Workflow</CardTitle>
           <Link href="/transform/canvas">
             <Button variant="primary" data-testid="edit-workflow-btn">
-              EDIT WORKFLOW
+              {canEditWorkflow ? 'EDIT WORKFLOW' : 'VIEW WORKFLOW'}
             </Button>
           </Link>
         </CardHeader>

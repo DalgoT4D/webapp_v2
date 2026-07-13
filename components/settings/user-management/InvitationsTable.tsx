@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useInvitations, useInvitationActions } from '@/hooks/api/useUserManagement';
 import {
   MoreVertical,
@@ -50,7 +50,7 @@ import { DeleteInvitationDialog } from './DeleteInvitationDialog';
 export function InvitationsTable() {
   const { invitations, isLoading, mutate } = useInvitations();
   const { resendInvitation } = useInvitationActions();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
   const [deleteInvitation, setDeleteInvitation] = useState<number | null>(null);
   const [resendingId, setResendingId] = useState<number | null>(null);
@@ -75,8 +75,8 @@ export function InvitationsTable() {
     date: false,
   });
 
-  const canDeleteInvitation = hasPermission('can_delete_invitation');
-  const canResendInvitation = hasPermission('can_resend_email_verification');
+  const canDeleteInvitation = hasPermission(PERMISSIONS.CAN_DELETE_INVITATION);
+  const canResendInvitation = hasPermission(PERMISSIONS.CAN_RESEND_EMAIL_VERIFICATION);
 
   // Handle sorting
   const handleSort = (column: 'email' | 'role' | 'sent_on') => {
