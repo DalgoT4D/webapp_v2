@@ -97,7 +97,7 @@ describe('AccessManagement settings page', () => {
 
     render(<AccessManagement />);
     await user.click(screen.getByTestId('access-mgmt-default-audience'));
-    await user.click(screen.getByRole('option', { name: /Private/ }));
+    await user.click(screen.getByRole('option', { name: /Restricted/ }));
 
     await waitFor(() => {
       expect(mockUpdateSharingPreferences).toHaveBeenCalledWith({
@@ -116,7 +116,7 @@ describe('AccessManagement settings page', () => {
 
     render(<AccessManagement />);
     await user.click(screen.getByTestId('access-mgmt-default-level'));
-    await user.click(screen.getByRole('option', { name: 'Edit' }));
+    await user.click(screen.getByRole('option', { name: 'Editor' }));
 
     await waitFor(() => {
       expect(mockUpdateSharingPreferences).toHaveBeenCalledWith({ default_general_level: 'edit' });

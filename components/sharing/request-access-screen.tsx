@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { toastError } from '@/lib/toast';
+import { getApiErrorStatus } from '@/lib/utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
@@ -86,7 +87,9 @@ export function RequestAccessScreen({
       // access (e.g. a grant landed between page load and this click, or a
       // stale tab). Reloading re-runs the resource fetch, which now
       // succeeds — simplest honest recovery, no bespoke re-fetch plumbing.
-      if (/already have access/i.test(message)) {
+      // Gated on status === 400 too (not just the message) so a future
+      // wording change on an unrelated error can't accidentally trigger it.
+      if (getApiErrorStatus(error) === 400 && /already have access/i.test(message)) {
         reloadPage();
         return;
       }

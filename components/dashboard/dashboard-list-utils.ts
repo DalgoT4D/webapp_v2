@@ -1,21 +1,22 @@
 import type { Dashboard } from '@/hooks/api/useDashboards';
+import { audienceLabels, LEVEL_LABELS } from '@/lib/access-labels';
 
 // Labels for the non-private general-access audiences, shown as a badge on the
 // dashboards list (Task 6b: general_audience/general_level/is_owner/is_creator
 // were added to DashboardResponse). "private" gets its own dedicated badge
-// instead — see renderDashboardTableRow.
+// instead — see renderDashboardTableRow. admins/analysts_plus reuse the same
+// wording as ShareModal/BulkShareDialog/AccessManagement; "all_users" keeps a
+// deliberately shorter abbreviation to fit the badge.
+const SHARED_AUDIENCE_LABELS = audienceLabels();
 export const AUDIENCE_BADGE_LABELS: Record<string, string> = {
-  admins: 'Admins only',
-  analysts_plus: 'Analysts and up',
+  admins: SHARED_AUDIENCE_LABELS.admins,
+  analysts_plus: SHARED_AUDIENCE_LABELS.analysts_plus,
   all_users: 'Everyone in org',
 };
 
 // Same level labels the ShareModal uses (its read-only General-access summary
 // renders "{audience} · {level}"); surfaced here in the audience badge tooltip.
-export const GENERAL_LEVEL_LABELS: Record<string, string> = {
-  view: 'Viewer',
-  edit: 'Editor',
-};
+export const GENERAL_LEVEL_LABELS: Record<string, string> = LEVEL_LABELS;
 
 /**
  * Tooltip for the audience badge: "Everyone in org · Viewer". Falls back to

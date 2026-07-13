@@ -114,7 +114,7 @@ describe('RequestAccessScreen', () => {
   it('reloads the page when the backend says the caller already has access', async () => {
     const user = userEvent.setup();
     mockCreateAccessRequest.mockRejectedValue(
-      new Error('you already have access to this resource')
+      Object.assign(new Error('you already have access to this resource'), { status: 400 })
     );
     const reloadSpy = jest.fn();
     renderScreen(reloadSpy);
@@ -124,6 +124,23 @@ describe('RequestAccessScreen', () => {
     await waitFor(() => {
       expect(reloadSpy).toHaveBeenCalled();
     });
+  });
+
+  it('does not reload for an "already have access"-worded error that is not a 400 (e.g. a 500 whose message coincidentally matches)', async () => {
+    const user = userEvent.setup();
+    const { toastError } = jest.requireMock('@/lib/toast');
+    mockCreateAccessRequest.mockRejectedValue(
+      Object.assign(new Error('you already have access to this resource'), { status: 500 })
+    );
+    const reloadSpy = jest.fn();
+    renderScreen(reloadSpy);
+
+    await user.click(screen.getByTestId('request-access-submit-btn'));
+
+    await waitFor(() => {
+      expect(toastError.api).toHaveBeenCalled();
+    });
+    expect(reloadSpy).not.toHaveBeenCalled();
   });
 
   it('shows a generic error toast and keeps the form for a non-"already have access" failure', async () => {

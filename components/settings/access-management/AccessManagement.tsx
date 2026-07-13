@@ -17,22 +17,13 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useOrgPreferences, updateSharingPreferences } from '@/hooks/api/useNotifications';
 import type { AccessAudience, AccessLevel } from '@/hooks/api/useResourceAccess';
+import { AUDIENCE_ORDER, audienceLabels, LEVEL_LABELS } from '@/lib/access-labels';
 
-// Mirrors the audience enum in ddpui/models/general_access.py — kept as its
-// own label set here (rather than importing ShareModal's audienceLabels)
-// because this page describes the ORG DEFAULT, not "who has access to this
-// resource", and has no per-resource org name to interpolate.
-const AUDIENCE_ORDER: AccessAudience[] = ['private', 'admins', 'analysts_plus', 'all_users'];
-const AUDIENCE_LABELS: Record<AccessAudience, string> = {
-  private: 'Private (only people explicitly granted access)',
-  admins: 'Admins only',
-  analysts_plus: 'Analysts and above',
-  all_users: 'Everyone in the organization',
-};
-const LEVEL_LABELS: Record<AccessLevel, string> = {
-  view: 'View',
-  edit: 'Edit',
-};
+// Same vocabulary ShareModal/BulkShareDialog use everywhere else — this page
+// describes the ORG DEFAULT rather than "who has access to this resource",
+// and has no per-resource org name to interpolate, so it uses the shared
+// "your organization" fallback for "all_users".
+const AUDIENCE_LABELS = audienceLabels();
 
 export default function AccessManagement() {
   const { orgPreferences, isLoading, mutate } = useOrgPreferences();

@@ -38,20 +38,11 @@ import { useUserGroups } from '@/hooks/api/useUserGroups';
 import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { AUDIENCE_ORDER, audienceLabels, LEVEL_LABELS } from '@/lib/access-labels';
 
-const AUDIENCE_ORDER: AccessAudience[] = ['private', 'admins', 'analysts_plus', 'all_users'];
-
-const AUDIENCE_LABELS: Record<AccessAudience, string> = {
-  private: 'Restricted (only people with access)',
-  admins: 'Admins only',
-  analysts_plus: 'Analysts and up',
-  all_users: 'Everyone in your organization',
-};
-
-const LEVEL_LABELS: Record<AccessLevel, string> = {
-  view: 'Viewer',
-  edit: 'Editor',
-};
+// No per-resource org name available in a bulk action across possibly-mixed
+// resources, so this uses the shared labels' "your organization" fallback.
+const AUDIENCE_LABELS = audienceLabels();
 
 // Plain-language mapping for the stable machine reason codes from
 // ddpui/core/sharing/sharing_actions.py (see task-17-report.md's table).

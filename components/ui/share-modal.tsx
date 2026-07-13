@@ -60,6 +60,7 @@ import { ADMIN_ROLES, PERMISSIONS, useRbac, type Permission } from '@/lib/rbac';
 import { useAuthStore } from '@/stores/authStore';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { AUDIENCE_ORDER, audienceLabels, LEVEL_LABELS } from '@/lib/access-labels';
 
 // Angle brackets excluded so stray leftovers of a mis-parsed mail-client
 // "Name <email>" wrapper (e.g. an unmatched "<a@x.org") fail validation
@@ -75,22 +76,6 @@ const SHARE_PERMISSION_BY_RTYPE: Record<ShareableResourceType, Permission> = {
   alert: PERMISSIONS.CAN_SHARE_ALERTS,
   metric: PERMISSIONS.CAN_SHARE_METRICS,
   kpi: PERMISSIONS.CAN_SHARE_KPIS,
-};
-
-const AUDIENCE_ORDER: AccessAudience[] = ['private', 'admins', 'analysts_plus', 'all_users'];
-
-function audienceLabels(orgName: string): Record<AccessAudience, string> {
-  return {
-    private: 'Restricted (only people with access)',
-    admins: 'Admins only',
-    analysts_plus: 'Analysts and up',
-    all_users: `Everyone in ${orgName || 'your organization'}`,
-  };
-}
-
-const LEVEL_LABELS: Record<AccessLevel, string> = {
-  view: 'Viewer',
-  edit: 'Editor',
 };
 
 // ---- Email invite parsing (Add-a-person "Invite by email" mode) ----
