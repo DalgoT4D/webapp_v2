@@ -5,6 +5,9 @@ import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, AlertCircle, Home, Loader2 } from 'lucide-react';
+import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
+import { getPivotRenderProps } from '@/components/charts/pivot-table/utils';
+import type { PivotTableResponse } from '@/types/pivot-table';
 import { useChart } from '@/hooks/api/useCharts';
 import {
   useChartDataPreview,
@@ -1300,6 +1303,23 @@ export function ChartElementV2({
                     </div>
                   </div>
                 </div>
+              </div>
+            ) : chart?.chart_type === ChartTypes.PIVOT_TABLE ? (
+              <div className="w-full h-full">
+                {dataLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : chartData?.data ? (
+                  <PivotTableChart
+                    data={chartData.data as unknown as PivotTableResponse}
+                    {...getPivotRenderProps(chart.extra_config)}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    No data available
+                  </div>
+                )}
               </div>
             ) : chart?.chart_type === ChartTypes.TABLE ? (
               <div className="flex flex-col h-full">
