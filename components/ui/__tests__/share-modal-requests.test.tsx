@@ -211,4 +211,16 @@ describe('ShareModal — Pending requests', () => {
     expect(screen.getByTestId('share-request-row-12')).toBeInTheDocument();
     expect(screen.getByTestId('share-request-row-13')).toBeInTheDocument();
   });
+
+  it('shows a "{N} users are requesting access" header for 2+ pending requests (design frame 1353:14586)', () => {
+    renderModal([viewRequest, editRequest]);
+    expect(screen.getByTestId('share-requests-count-header')).toHaveTextContent(
+      '2 users are requesting access'
+    );
+  });
+
+  it('shows no count header for a single pending request', () => {
+    renderModal([viewRequest]);
+    expect(screen.queryByTestId('share-requests-count-header')).not.toBeInTheDocument();
+  });
 });

@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { toastError } from '@/lib/toast';
 import { getApiErrorStatus } from '@/lib/utils';
+import { useAuthStore } from '@/stores/authStore';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
@@ -27,6 +28,12 @@ interface RequestAccessScreenProps {
   resourceId: number;
   /** Lowercase noun for copy — e.g. "dashboard", "report", "alert". */
   resourceLabel: string;
+  /**
+   * The resource's display name for the supporting line (design frame
+   * 1184:6222). Usually unavailable — the resource fetch just 403'd — so
+   * the copy falls back to "this {resourceLabel}".
+   */
+  resourceName?: string | null;
   /**
    * Testing seam for the "already have access" recovery path. Production
    * callers never pass this — it defaults to a real full-page reload.
@@ -49,9 +56,11 @@ export function RequestAccessScreen({
   rtype,
   resourceId,
   resourceLabel,
+  resourceName,
   reloadPage = () => window.location.reload(),
 }: RequestAccessScreenProps) {
   const { outgoing, isLoading, mutate } = useAccessRequests(true);
+  const currentUser = useAuthStore((state) => state.getCurrentOrgUser());
   const [permission, setPermission] = useState<AccessLevel>('view');
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -129,11 +138,12 @@ export function RequestAccessScreen({
           </div>
         ) : (
           <>
-            <h2 className="text-xl font-semibold">
-              You don&apos;t have access to this {resourceLabel}
-            </h2>
+            {/* Design frame 1184:6222 copy (Phase A / A3) */}
+            <h2 className="text-xl font-semibold">Request access to this {resourceLabel}</h2>
             <p className="text-sm text-muted-foreground">
-              Ask the owner for access — they&apos;ll be notified and can approve or decline.
+              {resourceName
+                ? `You can view the "${resourceName}" once your request is approved`
+                : `You can view this ${resourceLabel} once your request is approved`}
             </p>
 
             <div className="text-left space-y-4 pt-2">
@@ -195,6 +205,12 @@ export function RequestAccessScreen({
               </Button>
             </div>
           </>
+        )}
+
+        {currentUser?.email && (
+          <p className="text-xs text-muted-foreground" data-testid="request-access-logged-in-as">
+            You&apos;re logged in as {currentUser.email}
+          </p>
         )}
       </div>
     </div>

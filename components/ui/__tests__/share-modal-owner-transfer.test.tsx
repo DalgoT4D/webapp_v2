@@ -152,9 +152,10 @@ describe('ShareModal — transfer ownership flow', () => {
     await user.click(screen.getByTestId('share-transfer-owner-combobox-item-42'));
     await user.click(screen.getByTestId('share-transfer-owner-next-btn'));
 
-    // Confirm copy: actor IS the owner -> "You keep Edit access"
+    // Confirm copy (Phase A / A4, design frame 1184:6198 kept truthful — no
+    // "reclaim anytime"): actor IS the owner -> "You keep Edit access"
     expect(screen.getByTestId('share-transfer-owner-confirm')).toHaveTextContent(
-      'You keep Edit access'
+      'Ownership of this dashboard transfers to priya@ngo.org. They can then delete it or transfer it again. You keep Edit access.'
     );
 
     await user.click(screen.getByTestId('share-transfer-owner-confirm-btn'));
@@ -182,7 +183,7 @@ describe('ShareModal — transfer ownership flow', () => {
     await user.click(screen.getByTestId('share-transfer-owner-next-btn'));
 
     expect(screen.getByTestId('share-transfer-owner-confirm')).toHaveTextContent(
-      'Asha Kumar keeps Edit access'
+      'Ownership of this dashboard transfers to priya@ngo.org. They can then delete it or transfer it again. Asha Kumar keeps Edit access.'
     );
   });
 

@@ -18,6 +18,10 @@ jest.mock('@/hooks/api/useAccessRequests', () => ({
 }));
 jest.mock('@/lib/analytics', () => ({ trackEvent: jest.fn() }));
 jest.mock('@/lib/toast', () => ({ toastError: { api: jest.fn() } }));
+jest.mock('@/stores/authStore', () => ({
+  useAuthStore: (selector: (s: unknown) => unknown) =>
+    selector({ getCurrentOrgUser: () => ({ email: 'sarah@ngo.org' }) }),
+}));
 
 const mockUseAccessRequests = useAccessRequestsHook.useAccessRequests as jest.Mock;
 const mockCreateAccessRequest = useAccessRequestsHook.createAccessRequest as jest.Mock;
@@ -57,9 +61,36 @@ describe('RequestAccessScreen', () => {
   it('shows the request form when there is no pending request', () => {
     renderScreen();
 
-    expect(screen.getByText("You don't have access to this dashboard")).toBeInTheDocument();
+    // Design frame 1184:6222 copy (Phase A / A3)
+    expect(screen.getByText('Request access to this dashboard')).toBeInTheDocument();
+    expect(
+      screen.getByText('You can view this dashboard once your request is approved')
+    ).toBeInTheDocument();
     expect(screen.getByTestId('request-access-submit-btn')).toBeInTheDocument();
     expect(screen.queryByTestId('request-access-pending-state')).not.toBeInTheDocument();
+  });
+
+  it('names the resource in the supporting line when resourceName is provided', () => {
+    render(
+      <TestWrapper>
+        <RequestAccessScreen
+          rtype="dashboard"
+          resourceId={7}
+          resourceLabel="dashboard"
+          resourceName="Field Visits"
+        />
+      </TestWrapper>
+    );
+
+    expect(
+      screen.getByText('You can view the "Field Visits" once your request is approved')
+    ).toBeInTheDocument();
+  });
+
+  it("shows who you're logged in as", () => {
+    renderScreen();
+
+    expect(screen.getByText("You're logged in as sarah@ngo.org")).toBeInTheDocument();
   });
 
   it('shows a loading state while the outgoing-requests check is in flight', () => {

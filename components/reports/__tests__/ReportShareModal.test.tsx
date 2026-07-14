@@ -82,13 +82,14 @@ describe('ShareModal', () => {
       ).toBeInTheDocument();
     });
 
-    it('displays public access section', () => {
+    it('displays public sharing section', () => {
       mockGetShareStatus.mockResolvedValue(createMockShareStatus());
 
       renderShareModal();
 
-      expect(screen.getByText('Public Access')).toBeInTheDocument();
-      expect(screen.getByText(/Anyone with the link can view/)).toBeInTheDocument();
+      // Design copy (Phase A / A3): "Public sharing / Anyone with the link can view"
+      expect(screen.getByText('Public sharing')).toBeInTheDocument();
+      expect(screen.getByText('Anyone with the link can view')).toBeInTheDocument();
     });
   });
 

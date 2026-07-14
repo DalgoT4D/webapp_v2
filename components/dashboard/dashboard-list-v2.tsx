@@ -1765,31 +1765,38 @@ export function DashboardListV2() {
             data-testid="dashboard-bulk-share-bar"
             className="mx-6 mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between"
           >
-            <div className="flex items-center gap-4">
-              <span className="text-sm font-medium text-blue-900">
+            {/* Design frame 1992:2488: "{N} selected · Select All", actions right */}
+            <div className="flex items-center gap-1 text-sm font-medium text-blue-900">
+              <span>
                 {selectedDashboardIds.size} selected
                 {selectedOffPageCount > 0 && ` · ${selectedOffPageCount} on other pages`}
                 {selectedDashboardIds.size >= MAX_BULK_SELECTION && ' (maximum 100 reached)'}
               </span>
-              <div className="flex gap-2">
-                <Button
-                  data-testid="dashboard-bulk-select-all-btn"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => selectDashboardPage(visibleDashboardIds)}
-                  disabled={visibleDashboardIds.every((id) => selectedDashboardIds.has(id))}
-                >
-                  Select All
-                </Button>
-                <Button
-                  data-testid="dashboard-bulk-clear-btn"
-                  variant="outline"
-                  size="sm"
-                  onClick={clearDashboardSelection}
-                >
-                  Clear
-                </Button>
-              </div>
+              <span aria-hidden="true" className="px-1 text-blue-300">
+                ·
+              </span>
+              <Button
+                data-testid="dashboard-bulk-select-all-btn"
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() => selectDashboardPage(visibleDashboardIds)}
+                disabled={visibleDashboardIds.every((id) => selectedDashboardIds.has(id))}
+              >
+                Select All
+              </Button>
+              <span aria-hidden="true" className="px-1 text-blue-300">
+                ·
+              </span>
+              <Button
+                data-testid="dashboard-bulk-clear-btn"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-muted-foreground"
+                onClick={clearDashboardSelection}
+              >
+                Clear
+              </Button>
             </div>
             <Button
               data-testid="dashboard-bulk-share-btn"

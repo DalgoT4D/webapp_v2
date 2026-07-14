@@ -473,9 +473,10 @@ export function ShareModal({
                     <div className="flex items-center gap-3">
                       <Share2 className="h-5 w-5 text-green-600" />
                       <div className="flex-1">
-                        <Label className="text-sm font-medium">Public Access</Label>
+                        {/* Design frames 1426:2063/2115: "Public sharing / Anyone with the link can view" */}
+                        <Label className="text-sm font-medium">Public sharing</Label>
                         <p className="text-xs text-muted-foreground">
-                          Anyone with the link can view this {entityLabelLower}
+                          Anyone with the link can view
                         </p>
                       </div>
                     </div>
@@ -725,13 +726,16 @@ function OwnerSection({ entityType, entityId, access, onChanged }: OwnerSectionP
 
   const ownerLabel = access.owner.name || access.owner.email;
 
-  // Plain-language confirm copy: the backend unconditionally keeps the
-  // CURRENT owner on an Edit grant, not the actor — an admin transferring
-  // someone ELSE's resource keeps nothing themselves, so only say "you"
-  // when the actor IS the current owner.
+  // Plain-language confirm copy (Phase A / A4, aligned toward design frame
+  // 1184:6198 but kept truthful — the design's "you can reclaim ownership
+  // anytime" is false: the old owner only keeps Edit). The backend
+  // unconditionally keeps the CURRENT owner on an Edit grant, not the actor
+  // — an admin transferring someone ELSE's resource keeps nothing
+  // themselves, so only say "you" when the actor IS the current owner.
+  const transferSentence = `Ownership of this ${entityType} transfers to ${selectedNewOwnerLabel}. They can then delete it or transfer it again.`;
   const confirmCopy = access.viewer.is_owner
-    ? `${selectedNewOwnerLabel} becomes the owner. You keep Edit access.`
-    : `${selectedNewOwnerLabel} becomes the owner. ${ownerLabel} keeps Edit access.`;
+    ? `${transferSentence} You keep Edit access.`
+    : `${transferSentence} ${ownerLabel} keeps Edit access.`;
 
   return (
     <Card data-testid="share-owner-section">
@@ -1565,6 +1569,12 @@ function PendingRequestsSection({ entityType, requests, onDecided }: PendingRequ
           <Inbox className="h-5 w-5 text-primary" />
           <Label className="text-sm font-medium">Pending requests</Label>
         </div>
+        {/* Design frame 1353:14586: collapse-count line once several people are asking */}
+        {requests.length >= 2 && (
+          <p data-testid="share-requests-count-header" className="text-sm text-muted-foreground">
+            {requests.length} users are requesting access
+          </p>
+        )}
         <div className="space-y-3">
           {requests.map((request) => (
             <PendingRequestRow
