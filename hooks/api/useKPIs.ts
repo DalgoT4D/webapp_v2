@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
+import { apiGet, apiPost, apiPut, apiDelete, apiPublicGet } from '@/lib/api';
 import type {
   KPI,
   KPICreate,
@@ -63,6 +63,9 @@ export function useKPIData(
     dateFrom?: string;
     dateTo?: string;
     dashboardFilters?: Record<string, any>;
+    publicToken?: string;
+    isPublicMode?: boolean;
+    isReportMode?: boolean;
   }
 ) {
   let url: string | null = null;
@@ -74,6 +77,20 @@ export function useKPIData(
       }
       const qs = params.toString();
       url = `/api/reports/${snapshotId}/kpis/${id}/data/${qs ? `?${qs}` : ''}`;
+    } else if (options?.isPublicMode && options?.isReportMode && options?.publicToken) {
+      const params = new URLSearchParams();
+      if (options?.dashboardFilters && Object.keys(options.dashboardFilters).length > 0) {
+        params.append('dashboard_filters', JSON.stringify(options.dashboardFilters));
+      }
+      const qs = params.toString();
+      url = `/api/v1/public/reports/${options.publicToken}/kpis/${id}/data/${qs ? `?${qs}` : ''}`;
+    } else if (options?.isPublicMode && options?.publicToken) {
+      const params = new URLSearchParams();
+      if (options?.dashboardFilters && Object.keys(options.dashboardFilters).length > 0) {
+        params.append('dashboard_filters', JSON.stringify(options.dashboardFilters));
+      }
+      const qs = params.toString();
+      url = `/api/v1/public/dashboards/${options.publicToken}/kpis/${id}/data/${qs ? `?${qs}` : ''}`;
     } else {
       const params = new URLSearchParams();
       if (options?.timeGrain) params.append('time_grain', options.timeGrain);
@@ -87,7 +104,8 @@ export function useKPIData(
     }
   }
 
-  const { data, error } = useSWR<ChartDataResponse>(url, apiGet);
+  const fetcher = options?.isPublicMode ? apiPublicGet : apiGet;
+  const { data, error } = useSWR<ChartDataResponse>(url, fetcher);
 
   return {
     chartData: data?.data,
