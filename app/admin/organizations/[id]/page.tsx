@@ -17,7 +17,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAdminOrg, useAdminOrgActions } from '@/hooks/api/useAdminPortal';
+import { OrgUsersTable } from '@/components/admin/OrgUsersTable';
 
 const BASE_PLANS = ['Free Trial', 'Dalgo', 'Internal'];
 
@@ -137,69 +139,86 @@ export default function AdminOrganizationDetailPage() {
         </div>
       </div>
 
-      <Card className="max-w-xl">
-        <CardHeader>
-          <CardTitle>Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {editing ? (
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="edit-name">Name</Label>
-                <Input id="edit-name" value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-slug">Slug</Label>
-                <Input id="edit-slug" value={org.slug ?? ''} disabled />
-                <p className="text-xs text-muted-foreground">
-                  Slug is locked after creation (it’s used in URLs and Airbyte).
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-viz-url">Visualization URL</Label>
-                <Input
-                  id="edit-viz-url"
-                  type="url"
-                  value={vizUrl}
-                  onChange={(e) => setVizUrl(e.target.value)}
-                  placeholder="https://superset.example.org"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-base-plan">Plan</Label>
-                <Select value={basePlan} onValueChange={setBasePlan}>
-                  <SelectTrigger id="edit-base-plan">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BASE_PLANS.map((plan) => (
-                      <SelectItem key={plan} value={plan}>
-                        {plan}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-3">
-                <Button onClick={onSave} disabled={saving}>
-                  {saving ? 'Saving…' : 'Save changes'}
-                </Button>
-                <Button variant="outline" onClick={() => setEditing(false)} disabled={saving}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <Fact label="Name">{org.name}</Fact>
-              <Fact label="Slug">{org.slug ?? '—'}</Fact>
-              <Fact label="Plan">{org.base_plan ?? '—'}</Fact>
-              <Fact label="Users">{org.user_count}</Fact>
-              <Fact label="Status">{org.is_active ? 'Active' : 'Inactive'}</Fact>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="overview">
+        <TabsList>
+          <TabsTrigger value="overview" data-testid="org-tab-overview">
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="users" data-testid="org-tab-users">
+            Users
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="mt-6">
+          <Card className="max-w-xl">
+            <CardHeader>
+              <CardTitle>Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {editing ? (
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-name">Name</Label>
+                    <Input id="edit-name" value={name} onChange={(e) => setName(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-slug">Slug</Label>
+                    <Input id="edit-slug" value={org.slug ?? ''} disabled />
+                    <p className="text-xs text-muted-foreground">
+                      Slug is locked after creation (it’s used in URLs and Airbyte).
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-viz-url">Visualization URL</Label>
+                    <Input
+                      id="edit-viz-url"
+                      type="url"
+                      value={vizUrl}
+                      onChange={(e) => setVizUrl(e.target.value)}
+                      placeholder="https://superset.example.org"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-base-plan">Plan</Label>
+                    <Select value={basePlan} onValueChange={setBasePlan}>
+                      <SelectTrigger id="edit-base-plan">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BASE_PLANS.map((plan) => (
+                          <SelectItem key={plan} value={plan}>
+                            {plan}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button onClick={onSave} disabled={saving}>
+                      {saving ? 'Saving…' : 'Save changes'}
+                    </Button>
+                    <Button variant="outline" onClick={() => setEditing(false)} disabled={saving}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <Fact label="Name">{org.name}</Fact>
+                  <Fact label="Slug">{org.slug ?? '—'}</Fact>
+                  <Fact label="Plan">{org.base_plan ?? '—'}</Fact>
+                  <Fact label="Users">{org.user_count}</Fact>
+                  <Fact label="Status">{org.is_active ? 'Active' : 'Inactive'}</Fact>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="users" className="mt-6">
+          <OrgUsersTable orgId={org.id} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import { apiGet, apiPost, apiPut } from '@/lib/api';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import { toast } from 'sonner';
 
 export interface AdminStats {
@@ -121,4 +121,145 @@ export function useAdminOrgActions() {
   };
 
   return { createOrg, updateOrg, deactivateOrg, reactivateOrg };
+}
+
+// ===========================================================================
+// Users tab (M4) — cross-org user management inside a target org.
+// Every path carries the org id in the URL (not the x-dalgo-org header); the
+// backend platform-admin guard authorizes it. See plan.md §4.5.
+// ===========================================================================
+
+export interface AdminOrgUser {
+  orguser_id: number;
+  email: string;
+  new_role_slug: string | null;
+  /** per-org active flag (OrgUser.is_active) — NOT the global User.is_active */
+  is_active: boolean;
+}
+
+export interface AdminInvitation {
+  id: number;
+  invited_email: string;
+  invited_role_slug: string | null;
+  invited_on: string;
+}
+
+export interface AdminOrgUsers {
+  users: AdminOrgUser[];
+  invitations: AdminInvitation[];
+}
+
+/**
+ * What removing a user would destroy (drives the RemoveUserDialog warning).
+ * dashboards/charts are CASCADE-deleted; reports are orphaned (SET_NULL, kept).
+ */
+export interface RemovalImpact {
+  dashboards_deleted: number;
+  charts_deleted: number;
+  reports_orphaned: number;
+}
+
+export interface AdminInviteUserForm {
+  invited_email: string;
+  invited_role_uuid: string;
+}
+
+/** List an org's members (with per-org status) plus its pending invitations. */
+export function useAdminOrgUsers(orgId: number | null) {
+  const { data, error, isLoading, mutate } = useSWR<AdminOrgUsers>(
+    orgId != null ? `/api/v1/admin/orgs/${orgId}/users` : null,
+    apiGet
+  );
+
+  return {
+    users: data?.users,
+    invitations: data?.invitations,
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
+/**
+ * Fetch the removal impact for a user on demand (not via SWR — it is fetched
+ * when the RemoveUserDialog opens, and must be shown BEFORE removal is allowed).
+ */
+export async function getRemovalImpact(orgId: number, orgUserId: number): Promise<RemovalImpact> {
+  return (await apiGet(
+    `/api/v1/admin/orgs/${orgId}/users/${orgUserId}/removal-impact`
+  )) as RemovalImpact;
+}
+
+/** Invite / change-role / (de)activate / remove / cancel-invite for an org's users. */
+export function useAdminOrgUserActions() {
+  const inviteUser = async (orgId: number, data: AdminInviteUserForm): Promise<void> => {
+    try {
+      await apiPost(`/api/v1/admin/orgs/${orgId}/users/invite`, data);
+      toast.success('Invitation sent');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send invitation');
+      throw error;
+    }
+  };
+
+  const changeRole = async (orgId: number, orgUserId: number, roleUuid: string): Promise<void> => {
+    try {
+      await apiPut(`/api/v1/admin/orgs/${orgId}/users/${orgUserId}/role`, {
+        role_uuid: roleUuid,
+      });
+      toast.success('Role updated');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update role');
+      throw error;
+    }
+  };
+
+  const deactivateUser = async (orgId: number, orgUserId: number): Promise<void> => {
+    try {
+      await apiPost(`/api/v1/admin/orgs/${orgId}/users/${orgUserId}/deactivate`, {});
+      toast.success('User deactivated in this organization');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to deactivate user');
+      throw error;
+    }
+  };
+
+  const reactivateUser = async (orgId: number, orgUserId: number): Promise<void> => {
+    try {
+      await apiPost(`/api/v1/admin/orgs/${orgId}/users/${orgUserId}/reactivate`, {});
+      toast.success('User reactivated in this organization');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to reactivate user');
+      throw error;
+    }
+  };
+
+  const removeUser = async (orgId: number, orgUserId: number): Promise<void> => {
+    try {
+      await apiDelete(`/api/v1/admin/orgs/${orgId}/users/${orgUserId}`);
+      toast.success('User removed from organization');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to remove user');
+      throw error;
+    }
+  };
+
+  const cancelInvitation = async (orgId: number, invitationId: number): Promise<void> => {
+    try {
+      await apiDelete(`/api/v1/admin/orgs/${orgId}/invitations/${invitationId}`);
+      toast.success('Invitation cancelled');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to cancel invitation');
+      throw error;
+    }
+  };
+
+  return {
+    inviteUser,
+    changeRole,
+    deactivateUser,
+    reactivateUser,
+    removeUser,
+    cancelInvitation,
+  };
 }
