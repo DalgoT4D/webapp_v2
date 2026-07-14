@@ -43,12 +43,7 @@ import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import {
-  TASK_DBTRUN,
-  TASK_DBTTEST,
-  TASK_DOCSGENERATE,
-  FLOW_RUN_LOGS_OFFSET_LIMIT,
-} from '@/constants/dbt-tasks';
+import { TASK_DBTRUN, TASK_DBTTEST, FLOW_RUN_LOGS_OFFSET_LIMIT } from '@/constants/dbt-tasks';
 import type { TransformTask } from '@/types/transform';
 import { timeAgo } from '../utils';
 
@@ -256,7 +251,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
     return runningTask === task.uuid || (task.lock?.status && task.lock.status !== 'complete');
   };
 
-  const filteredTasks = tasks?.filter((task) => task.slug !== TASK_DOCSGENERATE) ?? [];
+  const filteredTasks = tasks ?? [];
 
   return (
     <>
@@ -265,7 +260,8 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
           <div>
             <CardTitle>DBT Actions</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Execute and manage your DBT transformation tasks
+              Execute and manage your DBT transformation tasks. Git pull, dbt clean, and dbt deps
+              run automatically before each task.
             </p>
           </div>
           <Button
