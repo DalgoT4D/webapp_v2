@@ -675,6 +675,8 @@ export function DashboardNativeView({
               dashboardFilters={selectedFilters}
               snapshotId={isReportMode ? snapshotId : undefined}
               publicToken={publicToken}
+              isPublicMode={isPublicMode}
+              isReportMode={isReportMode}
               commentStates={isReportMode ? commentStates : undefined}
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
