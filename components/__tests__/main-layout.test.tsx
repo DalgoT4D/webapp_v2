@@ -67,12 +67,10 @@ describe('getNavItems', () => {
     expect(items.find((i) => i.title === 'Data')?.hide).toBeFalsy();
   });
 
-  it('hides Billing and User Management for analyst role', () => {
+  it('hides User Management for analyst role', () => {
     const items = getNavItems('/', false, () => false, undefined, ROLES.ANALYST);
     const settings = items.find((i) => i.title === 'Settings');
-    const billing = settings?.children?.find((c) => c.title === 'Billing');
     const userMgmt = settings?.children?.find((c) => c.title === 'User Management');
-    expect(billing?.hide).toBe(true);
     expect(userMgmt?.hide).toBe(true);
   });
 
@@ -107,14 +105,13 @@ describe('getNavItems', () => {
     expect(items.find((i) => i.title === 'Impact')?.hide).toBeFalsy();
     expect(items.find((i) => i.title === 'Data')?.hide).toBeFalsy();
     const settings = items.find((i) => i.title === 'Settings');
-    expect(settings?.children?.find((c) => c.title === 'Billing')?.hide).toBeFalsy();
+    expect(settings?.children?.find((c) => c.title === 'User Management')?.hide).toBeFalsy();
   });
 
-  it('shows Data, Billing, and User Management for super-admin', () => {
+  it('shows Data and User Management for super-admin', () => {
     const items = getNavItems('/', false, () => false, undefined, ROLES.SUPER_ADMIN);
     expect(items.find((i) => i.title === 'Data')?.hide).toBeFalsy();
     const settings = items.find((i) => i.title === 'Settings');
-    expect(settings?.children?.find((c) => c.title === 'Billing')?.hide).toBeFalsy();
     expect(settings?.children?.find((c) => c.title === 'User Management')?.hide).toBeFalsy();
   });
 });

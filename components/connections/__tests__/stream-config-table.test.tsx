@@ -75,6 +75,21 @@ describe('StreamConfigTable progressive disclosure', () => {
     expect(screen.queryByTestId('stream-incremental-form_one')).not.toBeInTheDocument();
   });
 
+  it('hides Cursor Field and Primary Key when showIncremental is false, keeping Destination', () => {
+    render(
+      <StreamConfigTable
+        {...baseProps}
+        advancedOpen
+        showIncremental={false}
+        streamNoun="Sheets"
+        onToggleAdvanced={jest.fn()}
+      />
+    );
+    expect(screen.queryByText('Cursor Field')).not.toBeInTheDocument();
+    expect(screen.queryByText('Primary Key')).not.toBeInTheDocument();
+    expect(screen.getByText('Destination')).toBeInTheDocument();
+  });
+
   it('omits dest modes not in allowedDestModes', () => {
     render(
       <StreamConfigTable

@@ -164,7 +164,7 @@ export function SourceRow({
 
   return (
     <div
-      className="flex items-stretch bg-white transition-colors hover:bg-gray-50 min-h-[92px]"
+      className="flex items-stretch overflow-hidden rounded-lg bg-white border border-gray-200 transition-colors hover:bg-gray-100 hover:border-primary/40 min-h-[92px]"
       data-testid={`source-row-${source.sourceId}`}
     >
       {/* Left column — source identity + actions menu, vertical divider (~30%) */}

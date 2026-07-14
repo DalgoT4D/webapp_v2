@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -7,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 import { FormMode } from '@/constants/connections';
 import { ConnectionFormBody } from './connection-form-body';
 
@@ -34,11 +36,17 @@ export function ConnectionForm({
 }: ConnectionFormProps) {
   const isCreate = mode === FormMode.CREATE;
   const isView = mode === FormMode.VIEW;
+  // Stay compact until streams are discovered (same as the wizard), then widen
+  // to fit the streams table alongside the help panel.
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent
-        className="!max-w-[1600px] !w-[96vw] max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden"
+        className={cn(
+          'max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden transition-[max-width,width] duration-300 ease-out',
+          expanded ? '!max-w-[1600px] !w-[96vw]' : '!max-w-[720px] !w-[92vw]'
+        )}
         preventOutsideClose
       >
         <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
@@ -60,6 +68,7 @@ export function ConnectionForm({
           lockedSourceId={lockedSourceId}
           onSuccess={onSuccess}
           onCancel={onClose}
+          onExpandedChange={setExpanded}
         />
       </DialogContent>
     </Dialog>

@@ -24,6 +24,15 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
   const [step, setStep] = useState<WizardStep>('select');
   const [def, setDef] = useState<SourceDefinition | null>(null);
   const [createdSourceId, setCreatedSourceId] = useState<string | null>(null);
+  // Connection step starts compact (just name + "Fetching…") and widens only
+  // once the streams table appears — driven by ConnectionFormBody.
+  const [connectionExpanded, setConnectionExpanded] = useState(false);
+  // Custom sources (Sheets/Kobo) put their success + "select your sheets/forms"
+  // copy in the header; null for generic sources (keep the neutral header).
+  const [connectionHeaderInfo, setConnectionHeaderInfo] = useState<{
+    sourceName: string;
+    streamNoun: string;
+  } | null>(null);
 
   // Reset whenever the dialog is (re)opened, so a prior run doesn't leak in.
   useEffect(() => {
@@ -31,6 +40,8 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
       setStep('select');
       setDef(null);
       setCreatedSourceId(null);
+      setConnectionExpanded(false);
+      setConnectionHeaderInfo(null);
     }
   }, [open]);
 
@@ -61,10 +72,15 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
       description:
         'Fill in the details on the left. The panel on the right walks you through exactly where to find each one.',
     },
-    connection: {
-      title: 'Set up a connection',
-      description: 'Choose what to sync from this source into your warehouse.',
-    },
+    connection: connectionHeaderInfo
+      ? {
+          title: `${connectionHeaderInfo.sourceName} created successfully`,
+          description: `Now choose which ${connectionHeaderInfo.streamNoun.toLowerCase()} you want to sync into your warehouse.`,
+        }
+      : {
+          title: 'Set up a connection',
+          description: 'Choose what to sync from this source into your warehouse.',
+        },
   }[step];
 
   return (
@@ -75,10 +91,13 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
           // The picker is a compact, near-square card grid; the configure step
           // needs room for the form + helper; the connection step is widest to
           // fit the streams table alongside the help panel.
+          'transition-[max-width,width] duration-300 ease-out',
           step === 'select'
             ? 'sm:max-w-2xl'
             : step === 'connection'
-              ? '!max-w-[1600px] !w-[96vw] max-h-[85vh]'
+              ? connectionExpanded
+                ? '!max-w-[1600px] !w-[96vw] max-h-[85vh]'
+                : '!max-w-[720px] !w-[92vw] max-h-[85vh]'
               : 'sm:max-w-[1240px] min-h-[640px]'
         )}
         preventOutsideClose
@@ -118,6 +137,8 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
             <ConnectionFormBody
               mode={FormMode.CREATE}
               presetSourceId={createdSourceId}
+              onExpandedChange={setConnectionExpanded}
+              onHeaderInfoChange={setConnectionHeaderInfo}
               onCancel={() => {
                 // Source is already created — closing here just keeps it with
                 // 0 connections and lets the list refresh to show it.

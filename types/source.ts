@@ -4,6 +4,7 @@ export interface Source {
   sourceDefinitionId: string;
   sourceName: string; // type label, e.g., "Postgres"
   icon?: string;
+  createdAt?: number; // unix seconds, from Airbyte; used to sort newest-first
   connectionConfiguration: Record<string, unknown>;
 }
 

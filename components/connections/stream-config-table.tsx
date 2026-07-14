@@ -21,9 +21,12 @@ import type { ConnectionConceptId } from './constants';
 
 // Base (always-visible) columns: stream name + sync toggle.
 const BASE_COLUMN_COUNT = 2;
-// Columns revealed only when advanced settings are open: destination mode,
-// cursor field, primary key, and the per-row column-expand chevron.
-const ADVANCED_ONLY_COLUMN_COUNT = 4;
+// Advanced columns shown for every source when advanced is open: destination
+// mode + the per-row column-expand chevron.
+const ADVANCED_CORE_COLUMN_COUNT = 2;
+// Cursor field + primary key. These are incremental-only concepts, so they show
+// only when the source supports incremental sync (e.g. hidden for Google Sheets).
+const CURSOR_PK_COLUMN_COUNT = 2;
 
 interface StreamConfigTableProps {
   streams: SourceStream[];
@@ -91,7 +94,12 @@ export function StreamConfigTable({
   helpText,
 }: StreamConfigTableProps) {
   const showIncrementalColumn = advancedOpen && showIncremental;
+  // Cursor field + primary key are incremental-only; hide them for sources that
+  // don't support incremental (e.g. Google Sheets keeps only Sync + Destination).
+  const showCursorPkColumns = advancedOpen && showIncremental;
   const isCustom = streamNoun !== 'Stream';
+  // Singular, lowercased noun for inline copy: "Stream"→"stream", "Sheets"→"sheet".
+  const nounSingular = streamNoun.replace(/s$/i, '').toLowerCase();
   const selectedCount = streams.filter((s) => s.selected).length;
 
   // A column header that, when clicked, moves the help panel to its concept.
@@ -110,11 +118,13 @@ export function StreamConfigTable({
       <>{label}</>
     );
   // Incremental / Destination / Cursor / Primary Key columns (and the
-  // per-row column-expand chevron) render only when advanced is open.
+  // per-row column-expand chevron) render only when advanced is open. Cursor +
+  // primary key drop out when the source has no incremental support.
   const colCount =
     BASE_COLUMN_COUNT +
     (showIncrementalColumn ? 1 : 0) +
-    (advancedOpen ? ADVANCED_ONLY_COLUMN_COUNT : 0);
+    (advancedOpen ? ADVANCED_CORE_COLUMN_COUNT : 0) +
+    (showCursorPkColumns ? CURSOR_PK_COLUMN_COUNT : 0);
   return (
     <div>
       {/* Header with stream count + shared advanced toggle */}
@@ -132,7 +142,7 @@ export function StreamConfigTable({
           aria-expanded={advancedOpen}
         >
           <SlidersHorizontal className="h-3.5 w-3.5" />
-          Advanced per-stream settings
+          {isCustom ? `Advanced per-${nounSingular} settings` : 'Advanced per-stream settings'}
           <ChevronDown
             className={cn('h-3.5 w-3.5 transition-transform', advancedOpen && 'rotate-180')}
           />
@@ -141,22 +151,24 @@ export function StreamConfigTable({
       {helpText && <p className="mt-1 mb-3 text-xs text-muted-foreground">{helpText}</p>}
       {!helpText && <div className="mb-3" />}
 
-      {/* Bounded scroll area: short when few streams (modal shrinks to fit),
-          capped + internally scrollable with a sticky header when many. */}
+      {/* Fixed-height scroll box: rows scroll internally under the sticky header.
+          Kept simple (a plain max-height, no flex fill) so it never collides with
+          the Advanced-options section below — that just makes the left column
+          scroll. */}
       <div className="max-h-[42vh] overflow-y-auto rounded-md border">
         <table className="w-full text-sm table-fixed" data-testid="streams-table">
           <colgroup>
             <col className="w-[18%]" />
             <col className="w-[60px]" />
             {showIncrementalColumn && <col className="w-[90px]" />}
-            {advancedOpen && (
+            {advancedOpen && <col className="w-[18%]" />}
+            {showCursorPkColumns && (
               <>
-                <col className="w-[18%]" />
                 <col className="w-[22%]" />
                 <col className="w-[22%]" />
-                <col className="w-[40px]" />
               </>
             )}
+            {advancedOpen && <col className="w-[40px]" />}
           </colgroup>
           <thead className="sticky top-0 z-10">
             <tr className="border-b bg-muted">
@@ -172,19 +184,21 @@ export function StreamConfigTable({
                 </th>
               )}
               {advancedOpen && (
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                  {conceptLabel('Destination', 'dest-mode')}
+                </th>
+              )}
+              {showCursorPkColumns && (
                 <>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                    {conceptLabel('Destination', 'dest-mode')}
-                  </th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
                     {conceptLabel('Cursor Field', 'cursor')}
                   </th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
                     {conceptLabel('Primary Key', 'primary-key')}
                   </th>
-                  <th className="px-3 py-2"></th>
                 </>
               )}
+              {advancedOpen && <th className="px-3 py-2"></th>}
             </tr>
             {/* Global toggle row */}
             <tr className="border-b bg-muted">
@@ -217,14 +231,14 @@ export function StreamConfigTable({
                   />
                 </td>
               )}
-              {advancedOpen && (
+              {advancedOpen && <td className="px-3 py-1.5" />}
+              {showCursorPkColumns && (
                 <>
-                  <td className="px-3 py-1.5" />
-                  <td className="px-3 py-1.5" />
                   <td className="px-3 py-1.5" />
                   <td className="px-3 py-1.5" />
                 </>
               )}
+              {advancedOpen && <td className="px-3 py-1.5" />}
             </tr>
           </thead>
           <tbody>
@@ -262,7 +276,7 @@ export function StreamConfigTable({
                 !isIncremental ||
                 !!stream.cursorFieldConfig?.sourceDefinedCursor;
               const cursorDisabledReason = !isSelected
-                ? 'Enable sync for this stream first'
+                ? `Enable sync for this ${nounSingular} first`
                 : !stream.supportsIncremental
                   ? 'This source does not support incremental sync'
                   : !isIncremental
@@ -281,7 +295,7 @@ export function StreamConfigTable({
                 stream.destinationSyncMode !== DestinationSyncMode.APPEND_DEDUP ||
                 !!stream.primaryKeyConfig?.sourceDefinedPrimaryKey;
               const pkDisabledReason = !isSelected
-                ? 'Enable sync for this stream first'
+                ? `Enable sync for this ${nounSingular} first`
                 : !stream.supportsIncremental
                   ? 'This source does not support incremental sync'
                   : !isIncremental
@@ -331,39 +345,42 @@ export function StreamConfigTable({
                         />
                       </td>
                     )}
+                    {/* Destination mode */}
                     {advancedOpen && (
+                      <td className="px-3 py-3">
+                        <Select
+                          value={stream.destinationSyncMode}
+                          onValueChange={(v) => onUpdateStreamDestMode(stream.name, v)}
+                          disabled={disabled || isSaving || !isSelected}
+                        >
+                          <SelectTrigger className="h-7 text-xs w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allowedDestModes.includes(DestinationSyncMode.OVERWRITE) && (
+                              <SelectItem
+                                value={DestinationSyncMode.OVERWRITE}
+                                disabled={isIncremental}
+                              >
+                                Overwrite
+                              </SelectItem>
+                            )}
+                            {allowedDestModes.includes(DestinationSyncMode.APPEND) && (
+                              <SelectItem value={DestinationSyncMode.APPEND}>Append</SelectItem>
+                            )}
+                            {allowedDestModes.includes(DestinationSyncMode.APPEND_DEDUP) && (
+                              <SelectItem value={DestinationSyncMode.APPEND_DEDUP}>
+                                Append / Dedup
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                    )}
+                    {/* Cursor Field + Primary Key — incremental-only, hidden for
+                        sources without incremental support (e.g. Google Sheets) */}
+                    {showCursorPkColumns && (
                       <>
-                        {/* Destination mode */}
-                        <td className="px-3 py-3">
-                          <Select
-                            value={stream.destinationSyncMode}
-                            onValueChange={(v) => onUpdateStreamDestMode(stream.name, v)}
-                            disabled={disabled || isSaving || !isSelected}
-                          >
-                            <SelectTrigger className="h-7 text-xs w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {allowedDestModes.includes(DestinationSyncMode.OVERWRITE) && (
-                                <SelectItem
-                                  value={DestinationSyncMode.OVERWRITE}
-                                  disabled={isIncremental}
-                                >
-                                  Overwrite
-                                </SelectItem>
-                              )}
-                              {allowedDestModes.includes(DestinationSyncMode.APPEND) && (
-                                <SelectItem value={DestinationSyncMode.APPEND}>Append</SelectItem>
-                              )}
-                              {allowedDestModes.includes(DestinationSyncMode.APPEND_DEDUP) && (
-                                <SelectItem value={DestinationSyncMode.APPEND_DEDUP}>
-                                  Append / Dedup
-                                </SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                        {/* Cursor Field — always show, disabled when not incremental */}
                         <td className="px-3 py-3 overflow-visible">
                           <TooltipProvider>
                             <Tooltip>
@@ -421,26 +438,28 @@ export function StreamConfigTable({
                             </Tooltip>
                           </TooltipProvider>
                         </td>
-                        {/* Column expand */}
-                        <td className="px-1 py-3 text-center">
-                          {stream.columns.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => isSelected && onToggleStreamExpand(stream.name)}
-                              disabled={!isSelected}
-                              className="p-1 hover:bg-gray-100 rounded cursor-pointer disabled:opacity-30 disabled:cursor-default"
-                              data-testid={`expand-columns-${stream.name}`}
-                              aria-label="Toggle columns"
-                            >
-                              <ChevronDown
-                                className={`h-4 w-4 text-gray-500 transition-transform ${
-                                  expandedStreams.has(stream.name) ? 'rotate-180' : ''
-                                }`}
-                              />
-                            </button>
-                          )}
-                        </td>
                       </>
+                    )}
+                    {/* Column expand */}
+                    {advancedOpen && (
+                      <td className="px-1 py-3 text-center">
+                        {stream.columns.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => isSelected && onToggleStreamExpand(stream.name)}
+                            disabled={!isSelected}
+                            className="p-1 hover:bg-gray-100 rounded cursor-pointer disabled:opacity-30 disabled:cursor-default"
+                            data-testid={`expand-columns-${stream.name}`}
+                            aria-label="Toggle columns"
+                          >
+                            <ChevronDown
+                              className={`h-4 w-4 text-gray-500 transition-transform ${
+                                expandedStreams.has(stream.name) ? 'rotate-180' : ''
+                              }`}
+                            />
+                          </button>
+                        )}
+                      </td>
                     )}
                   </tr>
                   {/* Expanded column selection — vertical list */}

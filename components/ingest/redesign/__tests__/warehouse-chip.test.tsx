@@ -12,9 +12,9 @@ it('renders a link to Settings → Warehouse with the name and type', () => {
   expect(chip.tagName).toBe('A');
   expect(chip).toHaveAttribute('href', '/settings/warehouse');
 
-  expect(screen.getByText('Warehouse:')).toBeInTheDocument();
+  expect(chip).toHaveTextContent('Warehouse');
   expect(screen.getByText('hobbit_pantry_1')).toBeInTheDocument();
-  expect(screen.getByText('(postgres)')).toBeInTheDocument(); // uppercased via CSS
+  expect(screen.getByText('postgres')).toBeInTheDocument(); // uppercased via CSS
 });
 
 it('does not open a warehouse dialog anymore', () => {

@@ -21,8 +21,6 @@ import {
   ChartBarBig,
   ChevronLeft,
   ChevronRight,
-  Info,
-  CreditCard,
   Users,
   Target,
   Palette,
@@ -197,24 +195,10 @@ export const getNavItems = (
       isActive: false,
       children: [
         {
-          title: 'Warehouse',
-          href: '/settings/warehouse',
-          icon: Database,
-          isActive: currentPath.startsWith('/settings/warehouse'),
-          visibleToRoles: DATA_SECTION_ROLES,
-        },
-        {
           title: 'Branding',
           href: '/settings/branding',
           icon: Palette,
           isActive: currentPath.startsWith('/settings/branding'),
-          visibleToRoles: ADMIN_ROLES,
-        },
-        {
-          title: 'Billing',
-          href: '/settings/billing',
-          icon: CreditCard,
-          isActive: currentPath.startsWith('/settings/billing'),
           visibleToRoles: ADMIN_ROLES,
         },
         {
@@ -225,10 +209,11 @@ export const getNavItems = (
           visibleToRoles: ADMIN_ROLES,
         },
         {
-          title: 'About',
-          href: '/settings/about',
-          icon: Info,
-          isActive: currentPath.startsWith('/settings/about'),
+          title: 'Warehouse',
+          href: '/settings/warehouse',
+          icon: Database,
+          isActive: currentPath.startsWith('/settings/warehouse'),
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         ...(isFeatureFlagEnabled(FeatureFlagKeys.USAGE_DASHBOARD) && hasSupersetSetup
           ? [

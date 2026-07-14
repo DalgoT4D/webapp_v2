@@ -12,6 +12,7 @@ import { selectIngestState } from '@/components/ingest/redesign/state';
 import { AddSourceWizard } from '@/components/ingest/sources/wizard/AddSourceWizard';
 import { useWarehouse } from '@/hooks/api/useWarehouse';
 import { useSources } from '@/hooks/api/useSources';
+import { useConnectionsList } from '@/hooks/api/useConnections';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
 /**
@@ -22,6 +23,9 @@ import { PERMISSIONS, useRbac } from '@/lib/rbac';
 export function IngestView() {
   const warehouse = useWarehouse();
   const sources = useSources();
+  // SteadyView reads the same connections SWR cache, so revalidating it here (on
+  // wizard completion) makes the new connection appear instead of the empty state.
+  const { mutate: mutateConnections } = useConnectionsList();
   const { hasPermission } = useRbac();
   const canCreateSource = hasPermission(PERMISSIONS.CAN_CREATE_SOURCE);
 
@@ -87,6 +91,7 @@ export function IngestView() {
           onComplete={() => {
             setAddSourceWizardOpen(false);
             sources.mutate();
+            mutateConnections();
           }}
         />
       )}

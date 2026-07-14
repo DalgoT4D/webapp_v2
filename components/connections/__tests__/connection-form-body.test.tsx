@@ -34,14 +34,22 @@ jest.mock('@/hooks/api/useConnections', () => ({
   triggerSync: jest.fn(),
 }));
 
+// Mutable so a test can simulate discovered streams (the help panel + streams
+// table only appear once discovery returns rows). Prefixed `mock` for hoisting.
+let mockStreams: unknown[] = [];
+
 afterEach(() => {
   mockConnectionData = null;
+  mockStreams = [];
 });
 
 jest.mock('@/hooks/useBackendWebSocket', () => ({
+  // readyState CLOSED so the auto-discovery effect doesn't latch isDiscovering
+  // (the mock never delivers a "done" message). Tests drive streams directly via
+  // mockStreams instead of the socket.
   useBackendWebSocket: () => ({
     sendJsonMessage: jest.fn(),
-    readyState: 1, // ReadyState.OPEN
+    readyState: 3, // ReadyState.CLOSED
     lastMessage: null as MessageEvent | null,
   }),
 }));
@@ -58,7 +66,7 @@ jest.mock('../connection-help-panel', () => ({
 
 jest.mock('../hooks/useStreamConfig', () => ({
   useStreamConfig: (): Record<string, unknown> => ({
-    streams: [],
+    streams: mockStreams,
     setStreams: jest.fn(),
     streamSearch: '',
     setStreamSearch: jest.fn(),
@@ -73,7 +81,7 @@ jest.mock('../hooks/useStreamConfig', () => ({
     toggleColumn: jest.fn(),
     toggleStreamExpand: jest.fn(),
     handleIncrementalAllToggle: jest.fn(),
-    filteredStreams: [],
+    filteredStreams: mockStreams,
     allSelected: false,
     hasSelectedStreams: false,
   }),
@@ -165,8 +173,21 @@ describe('ConnectionFormBody', () => {
 });
 
 describe('ConnectionFormBody split help + custom view', () => {
-  it('renders the help panel in every mode', () => {
-    render(
+  it('hides the help panel until streams are discovered, then shows it', () => {
+    const { rerender } = render(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="src-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+    // No streams yet → no empty docs column.
+    expect(screen.queryByTestId('connection-help-panel')).not.toBeInTheDocument();
+
+    // Discovery returns rows → panel appears.
+    mockStreams = [{ name: 'sheet1', selected: true }];
+    rerender(
       <ConnectionFormBody
         mode={FormMode.CREATE}
         presetSourceId="src-1"
@@ -205,19 +226,27 @@ describe('ConnectionFormBody split help + custom view', () => {
     expect(screen.queryByTestId('destination-schema-input')).not.toBeInTheDocument();
   });
 
-  it('shows the source chip for a custom source', () => {
+  it('reports header info (not a body chip) for a custom source in create', () => {
+    const onHeaderInfoChange = jest.fn();
     render(
       <ConnectionFormBody
         mode={FormMode.CREATE}
         presetSourceId="gs-1"
         onSuccess={jest.fn()}
         onCancel={jest.fn()}
+        onHeaderInfoChange={onHeaderInfoChange}
       />
     );
-    expect(screen.getByTestId('connection-source-chip')).toHaveTextContent('My Sheet');
+    // In the wizard flow the success/identity copy moves to the modal header,
+    // so the body no longer renders the chip.
+    expect(screen.queryByTestId('connection-source-chip')).not.toBeInTheDocument();
+    expect(onHeaderInfoChange).toHaveBeenCalledWith({
+      sourceName: 'My Sheet',
+      streamNoun: 'sheet',
+    });
   });
 
-  it('hides the read-only Source box for a custom source (chip only)', () => {
+  it('hides both the source chip and read-only Source box for a custom source in create', () => {
     render(
       <ConnectionFormBody
         mode={FormMode.CREATE}
@@ -226,9 +255,9 @@ describe('ConnectionFormBody split help + custom view', () => {
         onCancel={jest.fn()}
       />
     );
-    // Custom source should show the chip
-    expect(screen.getByTestId('connection-source-chip')).toBeInTheDocument();
-    // Custom source should NOT show the read-only source box
+    // Create flow: identity lives in the header, so neither the chip nor the
+    // generic read-only source box appears in the body.
+    expect(screen.queryByTestId('connection-source-chip')).not.toBeInTheDocument();
     expect(screen.queryByTestId('connection-source-name')).not.toBeInTheDocument();
   });
 

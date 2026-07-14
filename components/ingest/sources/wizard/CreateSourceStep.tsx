@@ -1,23 +1,19 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ConnectorConfigForm } from '@/components/connectors/ConnectorConfigForm';
-import { parseAirbyteSpec } from '@/components/connectors/spec-parser';
-import { cleanFormValues, extractSpecDefaults } from '@/components/connectors/utils';
-import type { ParsedSpec } from '@/components/connectors/types';
-import { useSourceSpec, getSourceOAuthConsent, createOAuthSource } from '@/hooks/api/useSources';
+import { extractSpecDefaults } from '@/components/connectors/utils';
+import { getSourceOAuthConsent, createOAuthSource } from '@/hooks/api/useSources';
 import { openOAuthPopup } from '@/components/connectors/oauth-popup';
 import { useSourceSave } from '@/hooks/useSourceSave';
+import { useSourceConfigForm } from '@/hooks/useSourceConfigForm';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { toastError, toastSuccess } from '@/lib/toast';
 import type { SourceDefinition } from '@/types/source';
-import { SourceHelperPanel } from './SourceHelperPanel';
-import { getCustomSource } from '@/components/ingest/sources/custom/registry';
+import { SourceConfigFields } from '@/components/ingest/sources/SourceConfigFields';
 import { SOURCE_NAME_GOOGLE_SHEETS } from '@/components/ingest/sources/custom/constants';
 import type { CustomSourceOAuth } from '@/components/ingest/sources/custom/types';
 
@@ -30,13 +26,17 @@ interface Props {
 export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   // Google Sheets and KoboToolbox get a hand-tailored form + docs panel; every other
   // source falls back to the generic spec-driven form with no panel.
-  const custom = getCustomSource(def.name);
   const isGoogleSheets = def.name === SOURCE_NAME_GOOGLE_SHEETS;
-  const { data: spec, isLoading: specLoading } = useSourceSpec(def.sourceDefinitionId);
-  const [name, setName] = useState('');
-  const { control, setValue, getValues, reset } = useForm({
-    defaultValues: {} as Record<string, unknown>,
-  });
+
+  // Shared spec + react-hook-form plumbing (also used by the edit-source dialog).
+  const { parsedSpec, specLoading, control, setValue, reset, buildConfig, custom } =
+    useSourceConfigForm({ sourceDefId: def.sourceDefinitionId, sourceName: def.name });
+
+  // Default the source name to "<Source> source" so the user can proceed without
+  // typing. The step is keyed by sourceDefinitionId in the wizard, so this
+  // initializer re-runs (fresh default) whenever a different source is picked,
+  // and stays editable.
+  const [name, setName] = useState(`${def.name} source`);
 
   // Two-phase Google flow: "Sign in with Google" authorizes and stashes the
   // redeem ref; the footer's Next then creates the source from that ref. Kept
@@ -53,11 +53,6 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   const authorizingRef = useRef(false);
   const creatingGoogleRef = useRef(false);
 
-  const parsedSpec = useMemo<ParsedSpec | null>(
-    () => (spec ? parseAirbyteSpec(spec) : null),
-    [spec]
-  );
-
   // Populate the form with the spec's defaults once per source definition. Guarded by
   // a ref (keyed on def.sourceDefinitionId) rather than depending on `parsedSpec`
   // directly — SWR-backed hooks return a referentially stable object in production,
@@ -72,17 +67,9 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
     }
   }, [parsedSpec, def.sourceDefinitionId, reset]);
 
-  const getConfig = useCallback(() => {
-    const formValues = getValues();
-    // Clean against the full spec. cleanFormValues is value-driven, so it keeps whatever
-    // the form wrote (service-account creds, or the OAuth discriminator) while coercing
-    // number fields — the custom form is the single owner of which auth fields exist.
-    return parsedSpec?.fields ? cleanFormValues(formValues, parsedSpec.fields) : formValues;
-  }, [getValues, parsedSpec]);
-
   const { save, loading, setupLogs } = useSourceSave({
     sourceDefId: def.sourceDefinitionId,
-    getConfig,
+    getConfig: buildConfig,
     onSaved: (sourceId) => {
       trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, {
         source_type: def.name,
@@ -125,7 +112,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
       const { sourceId } = await createOAuthSource({
         sourceDefId: def.sourceDefinitionId,
         name,
-        config: getConfig(),
+        config: buildConfig(),
         ref: oauthRef,
       });
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
@@ -141,7 +128,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
       creatingGoogleRef.current = false;
       setCreatingGoogle(false);
     }
-  }, [oauthRef, def.sourceDefinitionId, name, getConfig, onCreated]);
+  }, [oauthRef, def.sourceDefinitionId, name, buildConfig, onCreated]);
 
   const busy = loading || authorizing || creatingGoogle;
   // Once a Google ref is acquired, the footer Next redeems it into a source. Without a
@@ -152,72 +139,46 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   return (
     <div className="flex flex-1 min-h-0 flex-col" data-testid="create-source-step">
       <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
-        <div className={custom ? 'grid grid-cols-[55fr_45fr] gap-6' : ''}>
-          <div className="space-y-5">
-            <div>
-              <label className="text-sm font-medium">
-                Source name <span className="text-destructive">*</span>
-              </label>
-              <Input
-                data-testid="wizard-source-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={`${def.name} source`}
-                className="mt-1.5"
-                disabled={busy}
-              />
-            </div>
-
-            {specLoading && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading configuration…
-              </div>
-            )}
-
-            {custom && parsedSpec && !specLoading && (
-              <custom.Form
-                parsedSpec={parsedSpec}
-                control={control}
-                setValue={setValue}
-                disabled={busy}
-                mode="create"
-                oauth={
-                  isGoogleSheets
-                    ? ({
-                        connected: !!oauthRef,
-                        busy: authorizing,
-                        buttonLabel: oauthRef
-                          ? 'Authenticated with Google'
-                          : 'Sign in with Google to authorize Dalgo',
-                        lockWhenConnected: true,
-                        onClick: handleAuthorizeGoogle,
-                      } satisfies CustomSourceOAuth)
-                    : undefined
-                }
-              />
-            )}
-
-            {!custom && parsedSpec && !specLoading && (
-              <ConnectorConfigForm
-                parsedSpec={parsedSpec}
-                control={control}
-                setValue={setValue}
-                disabled={busy}
-              />
-            )}
-
-            {setupLogs.length > 0 && (
-              <pre
-                data-testid="wizard-setup-logs"
-                className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-md bg-red-50 p-3 font-mono text-xs text-red-700 dark:bg-red-950 dark:text-red-300"
-              >
-                {setupLogs.join('\n')}
-              </pre>
-            )}
+        <div className="space-y-5">
+          <div>
+            <label className="text-sm font-medium">
+              Source name <span className="text-destructive">*</span>
+            </label>
+            <Input
+              data-testid="wizard-source-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={`${def.name} source`}
+              className="mt-1.5"
+              disabled={busy}
+            />
           </div>
 
-          {custom && <SourceHelperPanel sourceName={def.name} />}
+          <SourceConfigFields
+            parsedSpec={parsedSpec}
+            specLoading={specLoading}
+            custom={custom}
+            sourceName={def.name}
+            control={control}
+            setValue={setValue}
+            disabled={busy}
+            mode="create"
+            oauth={
+              isGoogleSheets
+                ? ({
+                    connected: !!oauthRef,
+                    busy: authorizing,
+                    buttonLabel: oauthRef
+                      ? 'Authenticated with Google'
+                      : 'Sign in with Google to authorize Dalgo',
+                    lockWhenConnected: true,
+                    onClick: handleAuthorizeGoogle,
+                  } satisfies CustomSourceOAuth)
+                : undefined
+            }
+            setupLogs={setupLogs}
+            logsTestId="wizard-setup-logs"
+          />
         </div>
       </div>
 

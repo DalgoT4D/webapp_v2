@@ -86,7 +86,11 @@ export function SteadyView() {
   const groups = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
 
-    const sortedSources = [...sources].sort((a, b) => a.name.localeCompare(b.name));
+    // Newest source first (Airbyte's createdAt is unix seconds). Fall back to
+    // name when timestamps are equal or missing, so order stays stable.
+    const sortedSources = [...sources].sort(
+      (a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0) || a.name.localeCompare(b.name)
+    );
     const visibleConnections = q
       ? connections.filter(
           (c) =>
@@ -334,7 +338,7 @@ export function SteadyView() {
             stays a sibling of the rows body (not inside its overflow-hidden
             wrapper) so `sticky` still resolves against the scroll container. */}
         {groups.length > 0 && (
-          <div className="rounded-lg border bg-white">
+          <div className="rounded-lg border bg-gray-50">
             <div
               className="sticky top-0 z-10 flex rounded-t-lg border-b bg-gray-100 py-3 text-sm font-semibold text-gray-700"
               data-testid="ingest-column-labels"
@@ -358,7 +362,7 @@ export function SteadyView() {
               </div>
             </div>
 
-            <div className="divide-y overflow-hidden rounded-b-lg">
+            <div className="flex flex-col gap-2 rounded-b-lg p-2">
               {groups.map((group) => (
                 <SourceRow
                   key={group.source.sourceId}

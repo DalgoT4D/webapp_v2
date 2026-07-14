@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
 import { Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -13,20 +12,14 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Combobox, highlightText } from '@/components/ui/combobox';
-import type { ComboboxItem } from '@/components/ui/combobox';
-import { ConnectorConfigForm } from '@/components/connectors/ConnectorConfigForm';
-import { getCustomSource } from '@/components/ingest/sources/custom/registry';
-import { SOURCE_NAME_GOOGLE_SHEETS } from '@/components/ingest/sources/custom/constants';
+import { Combobox, highlightText, type ComboboxItem } from '@/components/ui/combobox';
+import { extractSpecDefaults } from '@/components/connectors/utils';
+import type { FieldNode } from '@/components/connectors/types';
 import type { CustomSourceOAuth } from '@/components/ingest/sources/custom/types';
-import { SourceHelperPanel } from '@/components/ingest/sources/wizard/SourceHelperPanel';
-import { parseAirbyteSpec } from '@/components/connectors/spec-parser';
-import { cleanFormValues, extractSpecDefaults } from '@/components/connectors/utils';
-import type { FieldNode, ParsedSpec } from '@/components/connectors/types';
+import { SourceConfigFields } from '@/components/ingest/sources/SourceConfigFields';
 import { cn } from '@/lib/utils';
 import {
   useSourceDefinitions,
-  useSourceSpec,
   useSource,
   updateSource,
   getSourceOAuthConsent,
@@ -36,6 +29,7 @@ import {
 import { openOAuthPopup } from '@/components/connectors/oauth-popup';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { useSourceSave } from '@/hooks/useSourceSave';
+import { useSourceConfigForm } from '@/hooks/useSourceConfigForm';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { toastSuccess, toastError } from '@/lib/toast';
@@ -60,7 +54,23 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   const { data: source } = useSource(open && sourceId ? sourceId : null);
 
   const [selectedDefId, setSelectedDefId] = useState<string | null>(null);
-  const { data: spec, isLoading: specLoading } = useSourceSpec(selectedDefId);
+
+  // Google Sheets and KoboToolbox get a hand-tailored form + docs panel; other sources
+  // keep the generic spec-driven form. Resolved by the definition's name.
+  const selectedName = definitions.find((d) => d.sourceDefinitionId === selectedDefId)?.name ?? '';
+
+  // Shared spec + react-hook-form plumbing (also used by the add-source wizard).
+  const {
+    specLoading,
+    parsedSpec,
+    control,
+    setValue,
+    reset,
+    handleSubmit,
+    buildConfig,
+    custom,
+    isGoogleSheetsCustom,
+  } = useSourceConfigForm({ sourceDefId: selectedDefId, sourceName: selectedName });
 
   // Edit mode (update an existing source) keeps its own WS-check + save state — the
   // shared useSourceSave hook below only covers the create path (source-add wizard's
@@ -78,12 +88,6 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   const [createLogsDismissed, setCreateLogsDismissed] = useState(false);
 
   const isGoogleSheets = selectedDefId === GOOGLE_SHEETS_SOURCE_DEFINITION_ID;
-
-  // Google Sheets and KoboToolbox get a hand-tailored form + docs panel; other sources
-  // keep the generic spec-driven form. Resolved by the definition's name.
-  const selectedName = definitions.find((d) => d.sourceDefinitionId === selectedDefId)?.name ?? '';
-  const custom = getCustomSource(selectedName);
-  const isGoogleSheetsCustom = selectedName === SOURCE_NAME_GOOGLE_SHEETS;
 
   // An existing Google-Sheets source already authed via OAuth: its stored credentials
   // use the Client (OAuth) discriminator. Such a source is already connected — editing
@@ -110,17 +114,6 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
         })),
     [definitions]
   );
-
-  // Parse spec into field tree
-  const parsedSpec = useMemo<ParsedSpec | null>(() => {
-    if (!spec) return null;
-    return parseAirbyteSpec(spec);
-  }, [spec]);
-
-  // React Hook Form
-  const { control, handleSubmit, setValue, getValues, reset } = useForm({
-    defaultValues: {} as Record<string, unknown>,
-  });
 
   // Load source data in edit mode
   useEffect(() => {
@@ -214,13 +207,6 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       reset(extractSpecDefaults(parsedSpec));
     }
   }, [parsedSpec, isEdit, reset]);
-
-  // Build the config to send: cleaned form values. For the Google OAuth path the
-  // credentials are NOT included here — the backend injects them server-side.
-  const buildConfig = useCallback(() => {
-    const formValues = getValues();
-    return parsedSpec ? cleanFormValues(formValues, parsedSpec.fields) : formValues;
-  }, [getValues, parsedSpec]);
 
   // Tracks which create-path flow (WS test-then-save vs OAuth connect) is in flight so
   // the shared onSaved callback below fires the right analytics events.
@@ -469,65 +455,33 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
               </div>
             </div>
 
-            {/* Spec Loading */}
-            {specLoading && selectedDefId && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading configuration...
-              </div>
-            )}
-
-            {/* Config — custom sources (Google Sheets, KoboToolbox) render a tailored form
-              plus a docs panel; every other source keeps the generic spec-driven form. */}
-            {!specLoading && parsedSpec && custom ? (
-              <div className="grid grid-cols-[55fr_45fr] gap-6">
-                <div className="space-y-5">
-                  <custom.Form
-                    parsedSpec={parsedSpec}
-                    control={control}
-                    setValue={setValue}
-                    disabled={loading}
-                    mode={isEdit ? 'edit' : 'create'}
-                    oauth={
-                      isGoogleSheetsCustom
-                        ? ({
-                            connected: isConnected,
-                            busy: oauthConnecting,
-                            buttonLabel: isEdit
-                              ? 'Re-authenticate & Save'
-                              : 'Sign in with Google to authorize Dalgo',
-                            lockWhenConnected: false,
-                            onClick: handleConnectGoogle,
-                          } satisfies CustomSourceOAuth)
-                        : undefined
-                    }
-                  />
-                </div>
-                <SourceHelperPanel sourceName={selectedName} />
-              </div>
-            ) : (
-              !specLoading &&
-              parsedSpec && (
-                <ConnectorConfigForm
-                  parsedSpec={parsedSpec}
-                  control={control}
-                  setValue={setValue}
-                  disabled={loading}
-                />
-              )
-            )}
-
-            {/* Error logs from failed connection test */}
-            {setupLogs.length > 0 && (
-              <div
-                className="rounded-md bg-red-50 dark:bg-red-950 p-3 text-sm text-red-700 dark:text-red-300"
-                data-testid="connection-logs"
-              >
-                <pre className="whitespace-pre-wrap font-mono text-xs max-h-48 overflow-y-auto">
-                  {setupLogs.join('\n')}
-                </pre>
-              </div>
-            )}
+            {/* Config body — spec-loading, custom/generic form (+ docs panel), and
+                connection-test logs. Shared with the add-source wizard. */}
+            <SourceConfigFields
+              parsedSpec={parsedSpec}
+              specLoading={specLoading}
+              custom={custom}
+              sourceName={selectedName}
+              control={control}
+              setValue={setValue}
+              disabled={loading}
+              mode={isEdit ? 'edit' : 'create'}
+              oauth={
+                isGoogleSheetsCustom
+                  ? ({
+                      connected: isConnected,
+                      busy: oauthConnecting,
+                      buttonLabel: isEdit
+                        ? 'Re-authenticate & Save'
+                        : 'Sign in with Google to authorize Dalgo',
+                      lockWhenConnected: false,
+                      onClick: handleConnectGoogle,
+                    } satisfies CustomSourceOAuth)
+                  : undefined
+              }
+              setupLogs={setupLogs}
+              logsTestId="connection-logs"
+            />
 
             {/* Footer — single "Save changes and test" button like v1 */}
             <DialogFooter className="gap-2">

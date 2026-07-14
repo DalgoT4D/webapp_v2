@@ -48,6 +48,15 @@ export interface ConnectionFormBodyProps {
   // Optional custom footer (e.g. the wizard's own Back/Done buttons). Falls
   // back to the default Cancel/Create-Update footer when not provided.
   footerSlot?: React.ReactNode;
+  // Fired when the form gains/loses its second (help) column — i.e. once streams
+  // are discovered. Lets a host (the wizard) widen its modal only after the
+  // streams table needs the room.
+  onExpandedChange?: (expanded: boolean) => void;
+  // Fired (create/wizard flow) once the source's custom connection view resolves,
+  // so the host can put the "<source> created successfully — select your
+  // sheets/forms" copy in the modal header instead of the body. Null for
+  // generic sources (no custom noun).
+  onHeaderInfoChange?: (info: { sourceName: string; streamNoun: string } | null) => void;
 }
 
 // The Dialog-free core of the connection create/edit/view form. Rendered
@@ -62,6 +71,8 @@ export function ConnectionFormBody({
   onSuccess,
   onCancel,
   footerSlot,
+  onExpandedChange,
+  onHeaderInfoChange,
 }: ConnectionFormBodyProps) {
   const isCreate = mode === FormMode.CREATE;
   const isView = mode === FormMode.VIEW;
@@ -80,13 +91,29 @@ export function ConnectionFormBody({
     [sources]
   );
 
+  // Declared early so the source-resolution memos below can read it (create-mode
+  // combobox selection drives the friendly custom view, same as a preset source).
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(
+    presetSourceId ?? lockedSourceId ?? null
+  );
+
   // Read-only source display data: the preset source (wizard, create mode)
   // or the connection's existing source (edit/view mode).
   const presetSource = React.useMemo(
     () => (presetSourceId ? sources.find((s) => s.sourceId === presetSourceId) : undefined),
     [sources, presetSourceId]
   );
-  const readOnlySource = isCreate ? presetSource : connection?.source;
+  // In create mode the active source may come from a preset (wizard) OR from the
+  // source combobox (add-connection-from-list). Resolve either so the friendly
+  // custom view (relabels streams, hides incremental/cursor/PK) activates in both.
+  const createSelectedSource = React.useMemo(
+    () =>
+      isCreate && selectedSourceId
+        ? sources.find((s) => s.sourceId === selectedSourceId)
+        : undefined,
+    [isCreate, selectedSourceId, sources]
+  );
+  const readOnlySource = isCreate ? (presetSource ?? createSelectedSource) : connection?.source;
 
   // The Airbyte source-definition name (e.g. "Google Sheets"). In edit/view the
   // connection's own source can come back with an empty sourceName, so fall back
@@ -122,9 +149,6 @@ export function ConnectionFormBody({
   const [name, setName] = useState('');
   const [destinationSchema, setDestinationSchema] = useState('staging');
   const [catalogId, setCatalogId] = useState<string>('');
-  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(
-    presetSourceId ?? lockedSourceId ?? null
-  );
   const [normalize, setNormalize] = useState(false);
   const [discoveredCatalog, setDiscoveredCatalog] = useState<SyncCatalog | null>(null);
   const [isDiscovering, setIsDiscovering] = useState(false);
@@ -150,6 +174,15 @@ export function ConnectionFormBody({
     allSelected,
     hasSelectedStreams,
   } = useStreamConfig();
+
+  // Create mode: prefill a default connection name once the source-definition
+  // name resolves (it loads async via useSources). Functional update only fills
+  // when the field is still empty, so a user's typed name is never overwritten.
+  useEffect(() => {
+    if (isCreate && sourceDefName) {
+      setName((prev) => (prev === '' ? `${sourceDefName} connection` : prev));
+    }
+  }, [isCreate, sourceDefName]);
 
   // Load existing connection data
   useEffect(() => {
@@ -234,7 +267,11 @@ export function ConnectionFormBody({
   const handleSave = useCallback(async () => {
     if (!name.trim()) return;
     if (!hasSelectedStreams) {
-      toastError.api('Please select at least one stream');
+      // Use the friendly noun for custom sources: "one sheet" / "one form".
+      const noun = connectionView
+        ? connectionView.streamNoun.replace(/s$/i, '').toLowerCase()
+        : 'stream';
+      toastError.api(`Please select at least one ${noun}`);
       return;
     }
 
@@ -315,6 +352,7 @@ export function ConnectionFormBody({
     catalogId,
     discoveredCatalog,
     connection,
+    connectionView,
     onSuccess,
   ]);
 
@@ -398,15 +436,50 @@ export function ConnectionFormBody({
     </div>
   );
 
+  // Docs panel only appears once discovery finishes and streams exist — avoids
+  // an empty right-hand column while the schema is still loading. Until then the
+  // form uses the full modal width (single column).
+  const showHelpPanel = streams.length > 0 && !isDiscovering;
+
+  // Let the host (wizard) keep the modal compact during discovery and widen it
+  // only once the streams table + help column need the room.
+  useEffect(() => {
+    onExpandedChange?.(showHelpPanel);
+  }, [showHelpPanel, onExpandedChange]);
+
+  // Report custom-source header copy up to the host (create/wizard only). The
+  // header then reads "<source> created successfully" + the sheet/form prompt.
+  const headerSourceName =
+    readOnlySource?.name || readOnlySource?.sourceName || sourceDefName || null;
+  useEffect(() => {
+    onHeaderInfoChange?.(
+      isCreate && connectionView && headerSourceName
+        ? { sourceName: headerSourceName, streamNoun: connectionView.streamNoun }
+        : null
+    );
+  }, [isCreate, connectionView, headerSourceName, onHeaderInfoChange]);
+
   return (
     <>
-      <div className="flex-1 min-h-0 overflow-hidden px-6 py-5">
-        <div className="grid min-h-0 grid-cols-1 md:grid-cols-[62fr_38fr] gap-6">
-          <div className="flex min-h-0 flex-col gap-6 overflow-hidden">
-            {/* Persistent source chip — custom sources only, replaces the
-                create-only green banner below with a friendly, always-shown
-                identity chip. */}
-            {connectionView && readOnlySource && (
+      <div className="flex flex-1 min-h-0 flex-col overflow-hidden px-6 py-5">
+        {/* flex-1 + min-h-0 (not h-full) so the grid inherits a real bounded
+            height from the max-h-capped dialog — percentage height would collapse
+            to auto and let the column overflow the modal instead of scrolling. */}
+        <div
+          className={`grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] gap-6 ${
+            showHelpPanel ? 'md:grid-cols-[62fr_38fr]' : ''
+          }`}
+        >
+          {/* Plain scrolling block (no flex fill, so children never overlap). The
+              streams table scrolls its own rows; when the Advanced-options section
+              opens and the content gets taller than the column, the column itself
+              scrolls. */}
+          <div className="space-y-6 overflow-y-auto pr-1">
+            {/* Source identity chip — custom sources in edit/view only. In the
+                create (wizard) flow the success + "select your sheets/forms"
+                message lives in the modal header instead, freeing vertical
+                space so the form + streams table + advanced fit at once. */}
+            {connectionView && readOnlySource && !isCreate && (
               <div
                 className="flex items-center gap-2 rounded-lg border bg-muted/40 px-4 py-3"
                 data-testid="connection-source-chip"
@@ -421,7 +494,6 @@ export function ConnectionFormBody({
                 />
                 <span className="text-sm font-medium">
                   Source {readOnlySource.name || readOnlySource.sourceName}
-                  {isCreate && <span className="text-green-600"> created successfully</span>}
                 </span>
               </div>
             )}
@@ -516,7 +588,9 @@ export function ConnectionFormBody({
             {isDiscovering && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Discovering schema...
+                {connectionView?.streamNoun
+                  ? `Fetching ${connectionView.streamNoun.toLowerCase()}...`
+                  : 'Discovering schema...'}
               </div>
             )}
 
@@ -556,12 +630,15 @@ export function ConnectionFormBody({
           </div>
           {/* The help panel fills the left column's height and scrolls on its
               own, so its (tall) content never drives the modal taller than the
-              form side. */}
-          <div className="relative hidden min-h-0 md:block">
-            <div className="absolute inset-0">
-              <ConnectionHelpPanel activeConcept={activeConcept} />
+              form side. Hidden until streams are discovered so the modal never
+              shows an empty docs column mid-discovery. */}
+          {showHelpPanel && (
+            <div className="relative hidden min-h-0 md:block">
+              <div className="absolute inset-0">
+                <ConnectionHelpPanel activeConcept={activeConcept} />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
