@@ -111,40 +111,41 @@ export function RemoveUserDialog({
 
               {loadingImpact && (
                 <p data-testid="removal-impact-loading" className="text-sm text-muted-foreground">
-                  Checking what will be deleted…
+                  Checking what this will affect…
                 </p>
               )}
 
               {impactError && (
                 <p data-testid="removal-impact-error" className="text-sm text-destructive">
-                  Couldn’t load the deletion impact. Close this dialog and try again — removal is
-                  blocked until we can show you what will be deleted.
+                  Couldn’t load the removal impact. Close this dialog and try again — removal is
+                  blocked until we can show you what it will affect.
                 </p>
               )}
 
               {impact !== null && (
                 <div
                   data-testid="removal-impact-summary"
-                  className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+                  className="rounded-md border border-muted-foreground/30 bg-muted/40 p-3 text-sm"
                 >
-                  <p className="font-medium text-destructive">This will also permanently delete:</p>
-                  <ul className="mt-1 list-disc pl-5">
+                  <p className="font-medium">
+                    Their content will be kept — only the creator link is removed from:
+                  </p>
+                  <ul className="mt-1 list-disc pl-5 text-muted-foreground">
                     <li data-testid="removal-impact-dashboards">
-                      {impact.dashboards_deleted} dashboard
-                      {impact.dashboards_deleted === 1 ? '' : 's'} they created
+                      {impact.dashboards_orphaned} dashboard
+                      {impact.dashboards_orphaned === 1 ? '' : 's'} they created
                     </li>
                     <li data-testid="removal-impact-charts">
-                      {impact.charts_deleted} chart{impact.charts_deleted === 1 ? '' : 's'} they
+                      {impact.charts_orphaned} chart{impact.charts_orphaned === 1 ? '' : 's'} they
                       created
                     </li>
+                    {impact.reports_orphaned > 0 && (
+                      <li data-testid="removal-impact-reports">
+                        {impact.reports_orphaned} report snapshot
+                        {impact.reports_orphaned === 1 ? '' : 's'} they created
+                      </li>
+                    )}
                   </ul>
-                  {impact.reports_orphaned > 0 && (
-                    <p data-testid="removal-impact-reports" className="mt-1 text-muted-foreground">
-                      {impact.reports_orphaned} report snapshot
-                      {impact.reports_orphaned === 1 ? '' : 's'} will be kept but un-linked from
-                      this user.
-                    </p>
-                  )}
                 </div>
               )}
             </div>

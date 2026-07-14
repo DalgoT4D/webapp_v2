@@ -150,12 +150,14 @@ export interface AdminOrgUsers {
 }
 
 /**
- * What removing a user would destroy (drives the RemoveUserDialog warning).
- * dashboards/charts are CASCADE-deleted; reports are orphaned (SET_NULL, kept).
+ * What removing a user would orphan (drives the RemoveUserDialog warning).
+ * dashboards/charts/reports are all SET_NULL — kept, with the creator link cleared.
+ * Nothing is deleted (Access Control v2 switched dashboards/charts from CASCADE to
+ * SET_NULL; reports already were).
  */
 export interface RemovalImpact {
-  dashboards_deleted: number;
-  charts_deleted: number;
+  dashboards_orphaned: number;
+  charts_orphaned: number;
   reports_orphaned: number;
 }
 

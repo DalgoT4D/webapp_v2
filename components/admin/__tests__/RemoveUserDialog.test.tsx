@@ -51,8 +51,8 @@ function renderDialog() {
 describe('RemoveUserDialog', () => {
   it('fetches and displays the real removal-impact counts when opened', async () => {
     mockGetRemovalImpact.mockResolvedValue({
-      dashboards_deleted: 3,
-      charts_deleted: 5,
+      dashboards_orphaned: 3,
+      charts_orphaned: 5,
       reports_orphaned: 2,
     });
 
@@ -92,8 +92,8 @@ describe('RemoveUserDialog', () => {
 
   it('allows removal only after the counts are shown, then calls removeUser', async () => {
     mockGetRemovalImpact.mockResolvedValue({
-      dashboards_deleted: 1,
-      charts_deleted: 0,
+      dashboards_orphaned: 1,
+      charts_orphaned: 0,
       reports_orphaned: 0,
     });
 
