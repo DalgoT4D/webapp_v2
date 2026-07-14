@@ -31,6 +31,7 @@ export interface OrgUser {
   subscription_plan?: string | null; // Org base plan, used for analytics segmentation
   work_domain?: string | null; // User's work function at the NGO (M&E/program/data-tech/leadership/field), self-selected at signup; sent to PostHog as the `function` segmentation property
   has_seen_rbac_notice: boolean; // Whether the user has dismissed the one-time RBAC v2 migration carousel
+  invited_by?: string | null; // Inviter's email for the "Created By" column; only populated by GET /organizations/users, null for the org's first admin
 }
 
 interface AuthState {

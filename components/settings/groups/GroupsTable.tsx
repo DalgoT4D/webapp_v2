@@ -1,6 +1,7 @@
 'use client';
 
 import { Users as UsersIcon, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { format } from 'date-fns';
 import {
   Table,
   TableBody,
@@ -10,6 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { AvatarInitial, CreatedByCell } from '@/components/settings/AvatarInitial';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,6 +72,8 @@ export function GroupsTable({ groups, isLoading, onView, onRename, onDelete }: G
             <TableHead className="px-4 py-3">Name</TableHead>
             <TableHead className="px-4 py-3">Members</TableHead>
             <TableHead className="px-4 py-3">Shared with</TableHead>
+            <TableHead className="px-4 py-3">Created By</TableHead>
+            <TableHead className="px-4 py-3">Created</TableHead>
             <TableHead className="w-[10%] px-4 py-3">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -87,11 +91,44 @@ export function GroupsTable({ groups, isLoading, onView, onRename, onDelete }: G
                   {group.name}
                 </button>
               </TableCell>
-              <TableCell className="px-4 py-3" data-testid={`group-member-count-${group.id}`}>
-                {group.member_count}
+              <TableCell className="px-4 py-3">
+                <div
+                  data-testid={`group-member-count-${group.id}`}
+                  role="img"
+                  aria-label={`${group.member_count} member${group.member_count === 1 ? '' : 's'}`}
+                  className="flex items-center"
+                >
+                  {(group.member_preview ?? []).length > 0 ? (
+                    <>
+                      {group.member_preview.map((email, index) => (
+                        <AvatarInitial
+                          key={email}
+                          seed={email}
+                          className={index > 0 ? '-ml-2 ring-2 ring-white' : 'ring-2 ring-white'}
+                        />
+                      ))}
+                      {group.member_count > group.member_preview.length && (
+                        <span className="ml-2 text-xs font-medium text-teal-600">
+                          +{group.member_count - group.member_preview.length}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span>{group.member_count}</span>
+                  )}
+                </div>
               </TableCell>
               <TableCell className="px-4 py-3" data-testid={`group-shared-count-${group.id}`}>
                 {group.shared_resource_count}
+              </TableCell>
+              <TableCell className="px-4 py-3" data-testid={`group-created-by-${group.id}`}>
+                <CreatedByCell email={group.created_by?.email ?? null} />
+              </TableCell>
+              <TableCell
+                className="px-4 py-3 text-muted-foreground"
+                data-testid={`group-created-at-${group.id}`}
+              >
+                {format(new Date(group.created_at), 'MMM d, yyyy')}
               </TableCell>
               <TableCell className="px-4 py-3">
                 {canManageGroup(group) ? (

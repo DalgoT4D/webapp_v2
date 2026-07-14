@@ -8,6 +8,7 @@ export function createMockGroup(overrides: Partial<UserGroup> = {}): UserGroup {
     shared_resource_count: 3,
     created_by: { orguser_id: 5, email: 'asha@ngo.org', name: 'Asha Kumar' },
     created_at: '2026-01-01T00:00:00Z',
+    member_preview: ['asha@ngo.org', 'meera@ngo.org'],
     ...overrides,
   };
 }

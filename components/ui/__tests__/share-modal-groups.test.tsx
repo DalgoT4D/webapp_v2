@@ -70,6 +70,7 @@ const mockGroups: UserGroup[] = [
     shared_resource_count: 1,
     created_by: { orguser_id: 1, email: 'asha@ngo.org', name: 'Asha Kumar' },
     created_at: '2026-01-01T00:00:00Z',
+    member_preview: [],
   },
   {
     id: 21,
@@ -78,6 +79,7 @@ const mockGroups: UserGroup[] = [
     shared_resource_count: 2,
     created_by: { orguser_id: 1, email: 'asha@ngo.org', name: 'Asha Kumar' },
     created_at: '2026-01-01T00:00:00Z',
+    member_preview: [],
   },
 ];
 

@@ -25,6 +25,9 @@ export interface UserGroup {
   // null when the creating OrgUser has since been deleted (created_by is SET_NULL).
   created_by: GroupCreator | null;
   created_at: string;
+  // Up to 4 ACTIVE member emails for the avatar stack (Phase A / A2). Only
+  // the list endpoint fills this; create/rename/detail return [].
+  member_preview: string[];
 }
 
 export interface GroupMember {

@@ -58,7 +58,8 @@ describe('UserGroups page', () => {
     setup();
     render(<UserGroups />);
     expect(screen.getByTestId('group-row-1')).toHaveTextContent('Funders');
-    expect(screen.getByTestId('group-member-count-1')).toHaveTextContent('2');
+    // Phase A / A2: members render as an avatar stack; count is the aria-label
+    expect(screen.getByTestId('group-member-count-1')).toHaveAccessibleName('2 members');
     expect(screen.getByTestId('group-shared-count-1')).toHaveTextContent('3');
   });
 

@@ -47,6 +47,7 @@ import {
   Trash,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CreatedByCell } from '@/components/settings/AvatarInitial';
 import { DeleteUserDialog } from './DeleteUserDialog';
 
 export function UsersTable() {
@@ -308,7 +309,7 @@ export function UsersTable() {
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-white">
             <TableRow className="bg-gray-50">
-              <TableHead className="w-[45%] px-4 py-3">
+              <TableHead className="w-[35%] px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
@@ -340,7 +341,7 @@ export function UsersTable() {
                   </Popover>
                 </div>
               </TableHead>
-              <TableHead className="w-[45%] px-4 py-3">
+              <TableHead className="w-[30%] px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
@@ -372,6 +373,7 @@ export function UsersTable() {
                   </Popover>
                 </div>
               </TableHead>
+              <TableHead className="w-[25%] font-medium text-base px-4 py-3">Created By</TableHead>
               <TableHead className="w-[10%] font-medium text-base px-4 py-3">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -414,6 +416,9 @@ export function UsersTable() {
                   ) : (
                     <div className="text-gray-700">{formatRoleName(user.new_role_slug)}</div>
                   )}
+                </TableCell>
+                <TableCell className="px-4 py-3" data-testid={`user-created-by-${user.email}`}>
+                  <CreatedByCell email={user.invited_by} />
                 </TableCell>
                 <TableCell className="px-4 py-3 text-start">
                   {user.email !== currentUser?.email && (canEditUser || canDeleteUser) ? (
