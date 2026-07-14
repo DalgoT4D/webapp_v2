@@ -15,6 +15,9 @@ export type AccessAudience = 'private' | 'admins' | 'analysts_plus' | 'all_users
 export type AccessLevel = 'view' | 'edit';
 export type PrincipalType = 'user' | 'group';
 export type GrantStatus = 'active' | 'pending';
+// Roles a share-flow email invite may assign (Phase C3). Mirrors the
+// backend's INVITABLE_ROLE_SLUGS — non-member values are admin-callers-only.
+export type InviteRoleSlug = 'member' | 'analyst' | 'admin';
 
 export interface AccessCapabilities {
   general: boolean;
@@ -103,6 +106,10 @@ export interface AddGrantPayload {
   principal_id?: number;
   email?: string;
   permission: AccessLevel;
+  // Only consulted by the backend when `email` doesn't match an existing
+  // OrgUser (the invite path). Defaults to member server-side; analyst/admin
+  // require the CALLER to be an admin (403 otherwise).
+  invite_role?: InviteRoleSlug;
 }
 
 export async function addGrant(
