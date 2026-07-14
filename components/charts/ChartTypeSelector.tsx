@@ -1,8 +1,10 @@
 'use client';
 
-import { BarChart2, LineChart, Table, PieChart, Hash, MapPin } from 'lucide-react';
+import { BarChart2, LineChart, Table, PieChart, Hash, MapPin, Grid3X3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface ChartTypeSelectorProps {
   value?: string;
@@ -47,6 +49,12 @@ const chartTypes = [
     description: 'Display data in rows and columns',
     icon: Table,
   },
+  {
+    id: 'pivot_table',
+    name: 'Pivot Table',
+    description: 'Cross-tabulate data across two dimensions',
+    icon: Grid3X3,
+  },
 ];
 
 export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTypeSelectorProps) {
@@ -58,7 +66,7 @@ export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTy
         <h3 className="text-sm font-medium text-gray-900 mb-1">Chart Type</h3>
       </div>
 
-      <div className="grid grid-cols-6 gap-3">
+      <div className="grid grid-cols-7 gap-3">
         {chartTypes.map((type) => {
           const Icon = type.icon;
           const isSelected = selectedType === type.id;
@@ -80,7 +88,13 @@ export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTy
                     }
                   : undefined
               }
-              onClick={() => onChange(type.id)}
+              onClick={() => {
+                // Fire only on an actual switch (skip re-clicking the current type).
+                if (type.id !== selectedType) {
+                  trackEvent(ANALYTICS_EVENTS.CHART_TYPE_SELECTED, { chart_type: type.id });
+                }
+                onChange(type.id);
+              }}
               disabled={disabled}
               title={type.name}
             >

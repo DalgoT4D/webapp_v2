@@ -83,6 +83,14 @@ export const CHART_SIZE_CONSTRAINTS: Record<string, ChartSizeConstraint> = {
     defaultHeight: 350,
   },
 
+  // Pivot tables - scrollable content, responsive columns
+  pivot_table: {
+    minWidth: 80,
+    minHeight: 40,
+    defaultWidth: 500,
+    defaultHeight: 350,
+  },
+
   // Number cards - very compact, just show the number
   number: {
     minWidth: 80,
@@ -345,6 +353,25 @@ export function analyzeChartContent(chartData: any, chartType: string): ChartSiz
         }
         break;
 
+      case 'pivot_table': {
+        const base = CHART_SIZE_CONSTRAINTS.pivot_table;
+        const pivotData = chartData?.data;
+        if (Array.isArray(pivotData?.column_keys) && Array.isArray(pivotData?.rows)) {
+          const metricHeaders = Array.isArray(pivotData.metric_headers)
+            ? pivotData.metric_headers
+            : [];
+          const totalCols = pivotData.column_keys.length * (metricHeaders.length || 1) + 3;
+          const totalRows = pivotData.rows.length + 2;
+          return {
+            minWidth: base.minWidth,
+            minHeight: base.minHeight,
+            defaultWidth: Math.max(base.defaultWidth, totalCols * 80),
+            defaultHeight: Math.max(base.defaultHeight, Math.min(totalRows * 35, 600)),
+          };
+        }
+        return base;
+      }
+
       case 'number':
         console.log(`🔍 Analyzing number chart data:`, {
           hasEchartsConfig: !!chartData.echarts_config,
@@ -516,6 +543,7 @@ export function getContentAwareGridDimensions(
     bar: { minW: 1, minH: 2 }, // Bar charts - axes adapt
     line: { minW: 1, minH: 2 }, // Line charts - axes adapt
     table: { minW: 1, minH: 2 }, // Tables - scrollable
+    pivot_table: { minW: 1, minH: 2 }, // Pivot tables - scrollable
     map: { minW: 1, minH: 2 }, // Maps - legend scales with size
     default: { minW: 1, minH: 1 }, // Flexible default
   };

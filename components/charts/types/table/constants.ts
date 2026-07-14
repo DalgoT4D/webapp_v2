@@ -39,7 +39,7 @@ export const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
 /** Default theme id used when no theme is specified */
 export const DEFAULT_THEME_ID = 'gray';
 
-/** Predefined color themes for table charts */
+/** Predefined color themes for table and pivot table charts */
 export const TABLE_THEMES: TableTheme[] = [
   {
     id: 'gray',
@@ -51,6 +51,7 @@ export const TABLE_THEMES: TableTheme[] = [
     border: '#D1D5DB',
     subtotalRow: '#E5E7EB',
     grandTotalRow: '#D1D5DB',
+    grandTotalBorder: '#B7BCC4', // soft gray — visible against grandTotalRow without being harsh
     hoverRow: '#F9FAFB',
   },
   {
@@ -63,6 +64,7 @@ export const TABLE_THEMES: TableTheme[] = [
     border: '#BFDBFE',
     subtotalRow: '#DBEAFE',
     grandTotalRow: '#BFDBFE',
+    grandTotalBorder: '#93C5FD', // blue-300 — visible against grandTotalRow without being harsh
     hoverRow: '#EFF6FF',
   },
 ];
