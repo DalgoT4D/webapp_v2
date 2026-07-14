@@ -1,3 +1,4 @@
+import { Info } from 'lucide-react';
 import { getSourceHelp } from './wizard-state';
 
 export function SourceHelperPanel({ sourceName }: { sourceName: string }) {
@@ -13,11 +14,21 @@ export function SourceHelperPanel({ sourceName }: { sourceName: string }) {
             </span>
             <div className="space-y-1">
               <p className="text-sm font-semibold text-foreground">{step.title}</p>
-              <p className="text-sm text-muted-foreground">{step.body}</p>
+              <p className="text-sm leading-relaxed text-muted-foreground">{step.body}</p>
             </div>
           </li>
         ))}
       </ol>
+
+      {help.note && (
+        <div
+          className="mt-4 flex gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4"
+          data-testid="source-helper-note"
+        >
+          <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
+          <p className="text-sm leading-relaxed text-foreground">{help.note}</p>
+        </div>
+      )}
     </aside>
   );
 }

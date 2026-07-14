@@ -23,6 +23,8 @@ export interface SourceHelpStep {
 export interface SourceHelp {
   title: string;
   steps: SourceHelpStep[];
+  /** Highlighted "must-know" callout shown below the steps. Optional. */
+  note?: string;
 }
 
 const HELP: Record<string, SourceHelp> = {
@@ -30,18 +32,15 @@ const HELP: Record<string, SourceHelp> = {
     title: 'How to connect Google Sheets',
     steps: [
       {
-        title: "Copy your sheet's link",
-        body: 'In Google Sheets, click Share, Copy link. Paste it into Spreadsheet link on the left.',
+        title: "Paste your sheet's link",
+        body: "Open your spreadsheet, click Share → Copy link, and paste it into Spreadsheet link on the left. Any Google Sheets URL works — you don't need to make it public.",
       },
       {
-        title: 'Sign in with Google',
-        body: "Click Sign in with Google. You'll be asked to grant Dalgo read-only access to your sheets.",
-      },
-      {
-        title: 'Test the connection',
-        body: "Hit Test to confirm Dalgo can read your sheet. You'll pick which tabs to sync in the next step.",
+        title: 'Authorize with Google',
+        body: 'Click Sign in with Google and pick the account that can open this sheet. Dalgo asks only for read-only access, and never edits your data.',
       },
     ],
+    note: 'The Google account you sign in with must have access to this sheet. If someone else owns it, ask them to share the sheet with your email (Viewer is enough) before you authorize.',
   },
   KoboToolbox: {
     title: 'How to connect KoboToolbox',

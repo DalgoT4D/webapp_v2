@@ -136,23 +136,30 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   // WS-test → createSource flow.
   const useGoogleOAuthFlow = isGoogleSheets && !!oauthRef;
 
+  // Source-name field. For custom sources (Google Sheets / Kobo) it renders inside
+  // the form's left column via the nameField slot so it lines up with the other
+  // inputs; for generic sources it renders full-width above the spec-driven form.
+  const nameField = (
+    <div>
+      <label className="text-sm font-medium">
+        Source name <span className="text-destructive">*</span>
+      </label>
+      <Input
+        data-testid="wizard-source-name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder={`${def.name} source`}
+        className="mt-1.5"
+        disabled={busy}
+      />
+    </div>
+  );
+
   return (
     <div className="flex flex-1 min-h-0 flex-col" data-testid="create-source-step">
       <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
         <div className="space-y-5">
-          <div>
-            <label className="text-sm font-medium">
-              Source name <span className="text-destructive">*</span>
-            </label>
-            <Input
-              data-testid="wizard-source-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={`${def.name} source`}
-              className="mt-1.5"
-              disabled={busy}
-            />
-          </div>
+          {!custom && nameField}
 
           <SourceConfigFields
             parsedSpec={parsedSpec}
@@ -163,6 +170,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
             setValue={setValue}
             disabled={busy}
             mode="create"
+            nameField={custom ? nameField : undefined}
             oauth={
               isGoogleSheets
                 ? ({

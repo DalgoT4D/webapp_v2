@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 import type { Control, FieldValues, UseFormSetValue } from 'react-hook-form';
 import { ConnectorConfigForm } from '@/components/connectors/ConnectorConfigForm';
@@ -21,6 +22,9 @@ interface SourceConfigFieldsProps {
   mode: 'create' | 'edit';
   /** Google-only OAuth wiring; forwarded to the custom form. Undefined otherwise. */
   oauth?: CustomSourceOAuth;
+  /** Host-owned source-name field, rendered at the top of the custom form's left
+   *  column so it lines up with the other fields (not full-width above the grid). */
+  nameField?: ReactNode;
   /** Connection-test error logs from a failed check. */
   setupLogs: string[];
   /** Host-specific testid for the logs block ('wizard-setup-logs' | 'connection-logs'). */
@@ -47,6 +51,7 @@ export function SourceConfigFields({
   disabled,
   mode,
   oauth,
+  nameField,
   setupLogs,
   logsTestId,
 }: SourceConfigFieldsProps) {
@@ -62,8 +67,9 @@ export function SourceConfigFields({
       {/* Custom sources (Google Sheets, KoboToolbox) render a tailored form plus a
           docs panel; every other source keeps the generic spec-driven form. */}
       {!specLoading && parsedSpec && custom ? (
-        <div className="grid grid-cols-[55fr_45fr] gap-6">
+        <div className="grid grid-cols-[55fr_45fr] items-start gap-6">
           <div className="space-y-5">
+            {nameField}
             <custom.Form
               parsedSpec={parsedSpec}
               control={control}
