@@ -2,6 +2,7 @@
 
 import { useMemo, useCallback } from 'react';
 import { PivotTableResponse } from '@/types/pivot-table';
+import { cellsToGrid } from './cellsToGrid';
 import { formatNumber, NumberFormats, type NumberFormat } from '@/lib/formatters';
 import type { ConditionalFormattingRule } from '../types/table/types';
 import { getTableTheme } from '../types/table/constants';
@@ -90,9 +91,12 @@ export default function PivotTableChart({
   rowGrandTotalLabel,
   columnGrandTotalLabel,
 }: PivotTableChartProps) {
+  // Backend now returns a flat cells[] response; rebuild the row-major render grid.
+  const grid = useMemo(() => cellsToGrid(data), [data]);
+
   const dimCount = rowDimLabels.length;
-  const columnKeys = data.column_keys ?? [];
-  const metricHeaders = data.metric_headers ?? [];
+  const columnKeys = grid.column_keys ?? [];
+  const metricHeaders = grid.metric_headers ?? [];
   const hasColumnKeys = columnKeys.length > 0;
   const metricCount = metricHeaders.length;
 
@@ -100,8 +104,8 @@ export default function PivotTableChart({
   // values (not a grand-total column), so those cells must always render.
   const showRowTotalColumn = hasColumnKeys && showRowGrandTotal;
   const renderRowTotalCells = !hasColumnKeys || showRowGrandTotal;
-  const showColumnGrandTotalRow = showColumnGrandTotal && !!data.grand_total;
-  const numColDims = data.column_dimension_names?.length || 0;
+  const showColumnGrandTotalRow = showColumnGrandTotal && !!grid.grand_total;
+  const numColDims = grid.column_dimension_names?.length || 0;
 
   // Extract customization values
   const columnFormatting: Record<string, ColumnFormatConfig> =
@@ -113,14 +117,14 @@ export default function PivotTableChart({
   const theme = getTableTheme(customizations?.theme as string | undefined);
 
   const rowSpans = useMemo(
-    () => calculateRowSpans(data.rows ?? [], dimCount),
-    [data.rows, dimCount]
+    () => calculateRowSpans(grid.rows ?? [], dimCount),
+    [grid.rows, dimCount]
   );
 
   // Build an interleaved column list that includes both leaf and subtotal columns.
   // When column subtotals are absent, each entry is simply a leaf column.
   const effectiveColumns: RenderColumn[] = useMemo(() => {
-    const subtotals = data.column_subtotals;
+    const subtotals = grid.column_subtotals;
     if (!hasColumnKeys || !subtotals?.keys?.length) {
       return columnKeys.map((key, idx) => ({
         type: 'leaf' as const,
@@ -147,7 +151,7 @@ export default function PivotTableChart({
       }
     }
     return cols;
-  }, [columnKeys, data.column_subtotals, hasColumnKeys, numColDims]);
+  }, [columnKeys, grid.column_subtotals, hasColumnKeys, numColDims]);
 
   const formatCell = useCallback(
     (value: number | null, metricName: string): string => {
@@ -220,7 +224,7 @@ export default function PivotTableChart({
   // Build flat cell list for search: row dimension labels + value cells + row totals
   const searchCells = useMemo(() => {
     const cells: { rowIndex: number; colIndex: number; displayValue: string }[] = [];
-    const rows = data.rows ?? [];
+    const rows = grid.rows ?? [];
 
     rows.forEach((row, rowIdx) => {
       let colCounter = 0;
@@ -280,7 +284,7 @@ export default function PivotTableChart({
 
     return cells;
   }, [
-    data.rows,
+    grid.rows,
     dimCount,
     hasColumnKeys,
     metricHeaders,
@@ -355,7 +359,7 @@ export default function PivotTableChart({
     borderColor: theme.border,
   };
 
-  if (!data.rows || data.rows.length === 0) {
+  if (!grid.rows || grid.rows.length === 0) {
     return (
       <div
         className="flex items-center justify-center h-full text-muted-foreground"
@@ -507,7 +511,7 @@ export default function PivotTableChart({
             </tr>
           </thead>
           <tbody>
-            {data.rows.map((row, rowIdx) => {
+            {grid.rows.map((row, rowIdx) => {
               const isZebraRow = zebraRows && !row.is_subtotal && rowIdx % 2 === 1;
               const rowBg = row.is_subtotal
                 ? theme.subtotalRow
@@ -678,8 +682,8 @@ export default function PivotTableChart({
                   ? effectiveColumns.map((col, ecIdx) => {
                       const colValues =
                         col.type === 'leaf'
-                          ? data.grand_total!.values[col.leafIdx!]
-                          : (data.grand_total!.column_subtotal_values?.[col.subIdx!] ??
+                          ? grid.grand_total!.values[col.leafIdx!]
+                          : (grid.grand_total!.column_subtotal_values?.[col.subIdx!] ??
                             Array(metricCount).fill(null));
                       const isColSubtotal = col.type === 'column_subtotal';
                       return colValues.map((val, mIdx) => {
@@ -699,7 +703,7 @@ export default function PivotTableChart({
                     })
                   : null}
                 {renderRowTotalCells &&
-                  data.grand_total!.row_total.map((val, mIdx) => {
+                  grid.grand_total!.row_total.map((val, mIdx) => {
                     const metricName = metricHeaders[mIdx] || '';
                     return (
                       <td

@@ -387,11 +387,16 @@ describe('ChartExporter', () => {
   describe('exportPivotAsCSV', () => {
     // One row dim (state), one column dim (year, two leaves), one metric.
     const pivotData = {
-      column_keys: [['2024'], ['2025']],
+      row_dimension_names: ['state'],
       column_dimension_names: ['year'],
       metric_headers: ['Count'],
-      rows: [{ row_labels: ['CA'], is_subtotal: false, values: [[10], [20]], row_total: [30] }],
-      grand_total: { values: [[10], [20]], row_total: [30] },
+      column_keys: [['2024'], ['2025']],
+      column_subtotal_keys: [],
+      cells: [
+        { row_key: ['CA'], col_key: ['2024'], row_kind: 'data', col_kind: 'leaf', values: [10] },
+        { row_key: ['CA'], col_key: ['2025'], row_kind: 'data', col_kind: 'leaf', values: [20] },
+        { row_key: ['CA'], col_key: [], row_kind: 'data', col_kind: 'row_total', values: [30] },
+      ],
     } as any;
 
     const extraConfig = {
@@ -419,7 +424,7 @@ describe('ChartExporter', () => {
         /No pivot data/
       );
       await expect(
-        ChartExporter.exportPivotAsCSV({ rows: [] } as any, extraConfig)
+        ChartExporter.exportPivotAsCSV({ cells: [] } as any, extraConfig)
       ).rejects.toThrow(/No pivot data/);
       expect(saveAs).not.toHaveBeenCalled();
     });

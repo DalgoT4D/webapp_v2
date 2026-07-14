@@ -131,13 +131,21 @@ describe('resolvePivotTotals', () => {
 
 describe('exportPivotAsCsv grand-total gating', () => {
   // One row dim (state), one column dim (year) with two leaf columns, one metric.
-  const data = {
-    column_keys: [['2024'], ['2025']],
+  const data: PivotTableResponse = {
+    row_dimension_names: ['state'],
     column_dimension_names: ['year'],
     metric_headers: ['Count'],
-    rows: [{ row_labels: ['CA'], is_subtotal: false, values: [[10], [20]], row_total: [30] }],
-    grand_total: { values: [[10], [20]], row_total: [30] },
-  } as unknown as PivotTableResponse;
+    column_keys: [['2024'], ['2025']],
+    column_subtotal_keys: [],
+    cells: [
+      { row_key: ['CA'], col_key: ['2024'], row_kind: 'data', col_kind: 'leaf', values: [10] },
+      { row_key: ['CA'], col_key: ['2025'], row_kind: 'data', col_kind: 'leaf', values: [20] },
+      { row_key: ['CA'], col_key: [], row_kind: 'data', col_kind: 'row_total', values: [30] },
+      { row_key: [], col_key: ['2024'], row_kind: 'grand_total', col_kind: 'leaf', values: [10] },
+      { row_key: [], col_key: ['2025'], row_kind: 'grand_total', col_kind: 'leaf', values: [20] },
+      { row_key: [], col_key: [], row_kind: 'grand_total', col_kind: 'row_total', values: [30] },
+    ],
+  };
 
   it('includes both totals when both flags on', () => {
     const csv = exportPivotAsCsv(data, ['state'], true, true);

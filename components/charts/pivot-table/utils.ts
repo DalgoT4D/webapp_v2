@@ -1,4 +1,5 @@
 import { PivotTableResponse, PivotRow, ColumnSubtotals } from '@/types/pivot-table';
+import { cellsToGrid } from './cellsToGrid';
 import { formatDate, type DateFormat } from '@/lib/formatters';
 
 /**
@@ -263,11 +264,12 @@ export function exportPivotAsCsv(
   showRowGrandTotal = true,
   showColumnGrandTotal = true
 ): string {
+  const grid = cellsToGrid(data);
   const lines: string[] = [];
-  const columnKeys = data.column_keys ?? [];
-  const metricHeaders = data.metric_headers ?? [];
+  const columnKeys = grid.column_keys ?? [];
+  const metricHeaders = grid.metric_headers ?? [];
   const hasColumns = columnKeys.length > 0;
-  const colOrder = buildCsvColumnOrder(columnKeys, data.column_subtotals);
+  const colOrder = buildCsvColumnOrder(columnKeys, grid.column_subtotals);
 
   // With no column dimensions, row_total holds the primary metric values, so those
   // cells always render; with column dimensions they are the row grand total.
@@ -296,7 +298,7 @@ export function exportPivotAsCsv(
   lines.push(headerParts.map(escapeCsvField).join(','));
 
   // Data rows
-  for (const row of data.rows) {
+  for (const row of grid.rows) {
     const parts: string[] = [];
     for (let d = 0; d < rowDimLabels.length; d++) {
       parts.push(
@@ -323,14 +325,14 @@ export function exportPivotAsCsv(
   }
 
   // Grand total row (column grand total)
-  if (showColumnGrandTotal && data.grand_total) {
+  if (showColumnGrandTotal && grid.grand_total) {
     const parts: string[] = ['Grand Total'];
     for (let d = 1; d < rowDimLabels.length; d++) parts.push('');
     for (const col of colOrder) {
       const colValues =
         col.type === 'leaf'
-          ? data.grand_total.values[col.leafIdx!]
-          : (data.grand_total.column_subtotal_values?.[col.subIdx!] ?? []);
+          ? grid.grand_total.values[col.leafIdx!]
+          : (grid.grand_total.column_subtotal_values?.[col.subIdx!] ?? []);
       for (const v of colValues) {
         parts.push(v !== null && v !== undefined ? String(v) : '');
       }
@@ -338,7 +340,7 @@ export function exportPivotAsCsv(
     // Trailing cells are the corner (with columns) or the metric totals (without) —
     // shown only when the row grand total is on.
     if (renderRowTotalCells) {
-      for (const v of data.grand_total.row_total) {
+      for (const v of grid.grand_total.row_total) {
         parts.push(v !== null && v !== undefined ? String(v) : '');
       }
     }

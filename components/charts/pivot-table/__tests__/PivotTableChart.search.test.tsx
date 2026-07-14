@@ -6,28 +6,32 @@ import type { PivotTableResponse } from '@/types/pivot-table';
 // One NGO with three status sub-rows. The ngo_name cell is merged across all three
 // rows via rowSpan, so it renders once — search must count it once, not three times.
 const data: PivotTableResponse = {
-  column_keys: [],
+  row_dimension_names: ['ngo_name', 'status'],
   column_dimension_names: [],
   metric_headers: ['Total Count'],
-  grand_total: null,
-  rows: [
+  column_keys: [],
+  column_subtotal_keys: [],
+  cells: [
     {
-      row_labels: ['Action Against Hunger', 'Completed'],
-      is_subtotal: false,
-      values: [],
-      row_total: [18],
+      row_key: ['Action Against Hunger', 'Completed'],
+      col_key: [],
+      row_kind: 'data',
+      col_kind: 'row_total',
+      values: [18],
     },
     {
-      row_labels: ['Action Against Hunger', 'In Progress'],
-      is_subtotal: false,
-      values: [],
-      row_total: [7],
+      row_key: ['Action Against Hunger', 'In Progress'],
+      col_key: [],
+      row_kind: 'data',
+      col_kind: 'row_total',
+      values: [7],
     },
     {
-      row_labels: ['Action Against Hunger', 'Planned'],
-      is_subtotal: false,
-      values: [],
-      row_total: [4],
+      row_key: ['Action Against Hunger', 'Planned'],
+      col_key: [],
+      row_kind: 'data',
+      col_kind: 'row_total',
+      values: [4],
     },
   ],
 };

@@ -440,7 +440,7 @@ export class ChartExporter {
     options: ExportOptions = {}
   ): Promise<void> {
     const { filename = 'pivot-export' } = options;
-    if (!pivotData || !Array.isArray(pivotData.rows) || pivotData.rows.length === 0) {
+    if (!pivotData || !Array.isArray(pivotData.cells) || pivotData.cells.length === 0) {
       throw new Error('No pivot data available for export');
     }
     try {

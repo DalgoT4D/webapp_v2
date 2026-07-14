@@ -411,7 +411,7 @@ export function ChartPreview({
   // Render pivot table chart
   if (chartType === ChartTypes.PIVOT_TABLE) {
     const pivotData = tableData as unknown as PivotTableResponse | undefined;
-    if (!pivotData || !pivotData.rows || !pivotData.metric_headers) {
+    if (!pivotData || !pivotData.cells || !pivotData.metric_headers) {
       return (
         <div className="flex items-center justify-center h-full text-muted-foreground">
           Configure your pivot table
