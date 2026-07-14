@@ -19,6 +19,9 @@ export const ANALYTICS_EVENTS = {
   CHARTS_BULK_DELETED: 'chart:charts_bulk_deleted',
   CHART_SAVED_AS_NEW: 'chart:chart_saved_as_new',
   CHART_EXPORTED: 'chart:chart_exported',
+  // Selection-intent (funnel): which chart types users pick in the builder,
+  // distinct from CHART_CREATED which only fires if they actually save.
+  CHART_TYPE_SELECTED: 'chart:chart_type_selected',
   // Dashboards (DASHBOARD_SAVED is the edit/update event)
   DASHBOARD_CREATED: 'dashboard:dashboard_created',
   DASHBOARD_SAVED: 'dashboard:dashboard_saved',

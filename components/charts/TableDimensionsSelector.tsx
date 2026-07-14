@@ -39,6 +39,8 @@ interface TableDimensionsSelectorProps {
   onReorderWithScopedRules?: () => void;
   /** Maps dimension column name to count of conditional formatting rules scoped to it (T9) */
   scopedRuleCountByLevel?: Record<string, number>;
+  /** Label for the add button. Defaults to the table-chart wording. */
+  addButtonLabel?: string;
 }
 
 // Sortable dimension item component
@@ -182,6 +184,7 @@ export function TableDimensionsSelector({
   hasLevelScopedRules,
   onReorderWithScopedRules,
   scopedRuleCountByLevel,
+  addButtonLabel = 'ADD DIMENSION(s)',
 }: TableDimensionsSelectorProps) {
   // Index of the dimension pending removal confirmation (T9)
   const [pendingRemoveIndex, setPendingRemoveIndex] = useState<number | null>(null);
@@ -345,7 +348,7 @@ export function TableDimensionsSelector({
         className="w-full bg-black text-white hover:bg-gray-800"
       >
         <Plus className="h-4 w-4 mr-2" />
-        ADD DIMENSION(s)
+        {addButtonLabel}
       </Button>
 
       {/* T9: Inline confirmation when removing a dimension with scoped rules */}
