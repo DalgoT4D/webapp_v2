@@ -316,6 +316,11 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
         trackEvent(ANALYTICS_EVENTS.KPI_UPDATED, {
           metric_type_tag: data.metric_type_tag || null,
         });
+        // Re-pointing a KPI to a different metric also consumes that metric
+        // (metric adoption signal) — same as the create path below.
+        if (data.metric_id && data.metric_id !== kpi.metric.id) {
+          trackEvent(ANALYTICS_EVENTS.METRIC_USED, { metric_id: data.metric_id });
+        }
       } else {
         const createData: KPICreate = {
           metric_id: data.metric_id!,

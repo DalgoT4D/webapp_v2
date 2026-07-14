@@ -433,15 +433,11 @@ export function DashboardNativeView({
 
   // Allow editing in preview mode without any conditions
 
-  // Track dashboard view once per mount. Skip public (shared-link) views — those are
-  // anonymous external opens we don't track, and firing here would log dashboard_id:0.
-  useEffect(() => {
-    if (!isPublicMode) {
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_VIEWED, { dashboard_id: dashboardId });
-    }
-    // Fire once per mount — the dashboard id is stable for the view.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // DASHBOARD_VIEWED is intentionally NOT fired here. This component is shared by the
+  // live dashboard route, the impact/landing page, report snapshots, and public share
+  // views, so firing here leaked DASHBOARD_VIEWED into report and impact opens. The event
+  // now lives on the live dashboard route only (app/dashboards/[id]/page.tsx) so each page
+  // fires exactly its own view event.
 
   // Update current screen size on resize
   useEffect(() => {

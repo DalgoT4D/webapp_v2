@@ -44,11 +44,14 @@ export function LowerSectionTabs({
   const setSelectedTab = useTransformStore((s) => s.setSelectedLowerTab);
   const { isFeatureFlagEnabled } = useFeatureFlags();
 
-  // Fire analytics on a deliberate tab click (not the auto-switch effects below).
+  // Fire analytics on a deliberate switch to a tab (not the auto-switch effects below,
+  // and not a re-click of the already-active tab — that would over-count a single view).
   const handleTabSelect = (key: LowerTab) => {
-    if (key === 'preview') trackEvent(ANALYTICS_EVENTS.TRANSFORM_DATA_PREVIEWED);
-    else if (key === 'data statistics')
-      trackEvent(ANALYTICS_EVENTS.TRANSFORM_DATA_STATISTICS_VIEWED);
+    if (key !== selectedTab) {
+      if (key === 'preview') trackEvent(ANALYTICS_EVENTS.TRANSFORM_DATA_PREVIEWED);
+      else if (key === 'data statistics')
+        trackEvent(ANALYTICS_EVENTS.TRANSFORM_DATA_STATISTICS_VIEWED);
+    }
     setSelectedTab(key);
   };
 

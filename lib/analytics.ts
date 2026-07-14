@@ -15,14 +15,21 @@ export function isInternalEmail(email: string): boolean {
   return INTERNAL_EMAIL_DOMAINS.some((domain) => lower.endsWith(`@${domain}`));
 }
 
-export function trackEvent(event: AnalyticsEvent, properties?: Record<string, unknown>): void {
+export function trackEvent(
+  event: AnalyticsEvent,
+  properties?: Record<string, unknown>,
+  // `sendInstantly` flushes this one event immediately instead of batching it.
+  // Use it right before a full-page navigation/reload (e.g. org switch) where a
+  // queued event would otherwise be dropped when the page unloads.
+  options?: { sendInstantly?: boolean }
+): void {
   // Auto-stamp `is_value_action: true` on the North Star events (spec §2.1) so
   // the metric is one PostHog filter, not a hand-maintained event-name list.
   // Membership is defined once in VALUE_ACTION_EVENTS — call sites don't repeat it.
   const props = VALUE_ACTION_EVENTS.has(event)
     ? { ...properties, is_value_action: true }
     : properties;
-  posthog.capture(event, props);
+  posthog.capture(event, props, options?.sendInstantly ? { send_instantly: true } : undefined);
 }
 
 // Breadth event for feature-adoption: one fixed event, the feature/tab vary as
