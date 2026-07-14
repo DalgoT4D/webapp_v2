@@ -23,15 +23,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useSources, useSourceDefinitions, deleteSource } from '@/hooks/api/useSources';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
-import { SOURCE_PERMISSIONS } from '@/constants/source';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { SourceForm } from './SourceForm';
 
 export function SourceList() {
   const { data: sources, isLoading, mutate } = useSources();
   const { data: definitions } = useSourceDefinitions();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
   const { confirm, DialogComponent } = useConfirmationDialog();
 
   // Build lookup: sourceDefinitionId -> docker tag info + source type label
@@ -54,9 +53,9 @@ export function SourceList() {
   const [formOpen, setFormOpen] = useState(false);
   const [editSourceId, setEditSourceId] = useState<string | undefined>(undefined);
 
-  const canCreate = hasPermission(SOURCE_PERMISSIONS.CREATE);
-  const canEdit = hasPermission(SOURCE_PERMISSIONS.EDIT);
-  const canDelete = hasPermission(SOURCE_PERMISSIONS.DELETE);
+  const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_SOURCE);
+  const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_SOURCE);
+  const canDelete = hasPermission(PERMISSIONS.CAN_DELETE_SOURCE);
 
   const filteredSources = useMemo(() => {
     const sorted = [...sources].sort((a, b) => a.name.localeCompare(b.name));
@@ -137,17 +136,16 @@ export function SourceList() {
           ) : (
             <div />
           )}
-          {canCreate && (
-            <Button
-              variant="primary"
-              className="uppercase"
-              onClick={handleAddSource}
-              data-testid="add-source-btn"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              New Source
-            </Button>
-          )}
+          <Button
+            variant="primary"
+            className="uppercase"
+            onClick={handleAddSource}
+            disabled={!canCreate}
+            data-testid="add-source-btn"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Source
+          </Button>
         </div>
       </div>
 
@@ -231,42 +229,38 @@ export function SourceList() {
 
                       {/* Actions */}
                       <TableCell className="py-4">
-                        {(canEdit || canDelete) && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 p-0 hover:bg-gray-100"
-                                data-testid={`source-actions-${source.sourceId}`}
-                              >
-                                <MoreVertical className="w-4 h-4 text-gray-600" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
-                              {canEdit && (
-                                <DropdownMenuItem
-                                  onClick={() => handleEditSource(source.sourceId)}
-                                  className="text-[14px]"
-                                  data-testid={`edit-source-${source.sourceId}`}
-                                >
-                                  <Pencil className="h-4 w-4 mr-2" />
-                                  Edit
-                                </DropdownMenuItem>
-                              )}
-                              {canDelete && (
-                                <DropdownMenuItem
-                                  onClick={() => handleDeleteSource(source.sourceId, source.name)}
-                                  className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
-                                  data-testid={`delete-source-${source.sourceId}`}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 p-0 hover:bg-gray-100"
+                              data-testid={`source-actions-${source.sourceId}`}
+                            >
+                              <MoreVertical className="w-4 h-4 text-gray-600" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem
+                              onClick={() => handleEditSource(source.sourceId)}
+                              disabled={!canEdit}
+                              className="text-[14px]"
+                              data-testid={`edit-source-${source.sourceId}`}
+                            >
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteSource(source.sourceId, source.name)}
+                              disabled={!canDelete}
+                              className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
+                              data-testid={`delete-source-${source.sourceId}`}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   );

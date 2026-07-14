@@ -1,4 +1,5 @@
 import { renderHook } from '@testing-library/react';
+import { ROLES } from '@/lib/rbac';
 
 const mockIdentifyUser = jest.fn();
 const mockIdentifyOrg = jest.fn();
@@ -42,14 +43,14 @@ it('identifies user and org when authenticated', () => {
   authState.getCurrentOrgUser = () => ({
     user_id: 42,
     email: 'u@ngo.example',
-    new_role_slug: 'account-manager',
+    new_role_slug: ROLES.ADMIN,
     subscription_plan: 'Free Trial',
   });
 
   renderHook(() => usePostHogIdentify());
 
   expect(mockIdentifyUser).toHaveBeenCalledWith(42, 'u@ngo.example', {
-    role: 'account-manager',
+    role: ROLES.ADMIN,
   });
   expect(mockIdentifyOrg).toHaveBeenCalledWith('ngo-1', {
     name: 'NGO One',
@@ -71,7 +72,7 @@ it('does not re-identify the user when user_id is unchanged, but re-identifies w
   authState.getCurrentOrgUser = () => ({
     user_id: 42,
     email: 'u@ngo.example',
-    new_role_slug: 'account-manager',
+    new_role_slug: ROLES.ADMIN,
     subscription_plan: 'Free Trial',
   });
 
@@ -86,13 +87,13 @@ it('does not re-identify the user when user_id is unchanged, but re-identifies w
   authState.getCurrentOrgUser = () => ({
     user_id: 99,
     email: 'other@ngo.example',
-    new_role_slug: 'admin',
+    new_role_slug: ROLES.ADMIN,
     subscription_plan: null,
   });
   rerender();
   expect(mockIdentifyUser).toHaveBeenCalledTimes(2);
   expect(mockIdentifyUser).toHaveBeenLastCalledWith(99, 'other@ngo.example', {
-    role: 'admin',
+    role: ROLES.ADMIN,
   });
 });
 
@@ -102,7 +103,7 @@ it('re-identifies on org switch (same user_id) so the role super-property refres
   authState.getCurrentOrgUser = () => ({
     user_id: 42,
     email: 'u@ngo.example',
-    new_role_slug: 'account-manager',
+    new_role_slug: ROLES.ADMIN,
     subscription_plan: 'Free Trial',
   });
 
@@ -114,14 +115,14 @@ it('re-identifies on org switch (same user_id) so the role super-property refres
   authState.getCurrentOrgUser = () => ({
     user_id: 42,
     email: 'u@ngo.example',
-    new_role_slug: 'admin',
+    new_role_slug: ROLES.ADMIN,
     subscription_plan: 'Paid',
   });
   rerender();
 
-  // identifyUser must fire again so the registered role is updated to 'admin'.
+  // identifyUser must fire again so the registered role is re-emitted.
   expect(mockIdentifyUser).toHaveBeenCalledTimes(2);
-  expect(mockIdentifyUser).toHaveBeenLastCalledWith(42, 'u@ngo.example', { role: 'admin' });
+  expect(mockIdentifyUser).toHaveBeenLastCalledWith(42, 'u@ngo.example', { role: ROLES.ADMIN });
   expect(mockIdentifyOrg).toHaveBeenLastCalledWith('ngo-2', {
     name: 'NGO Two',
     plan: 'Paid',

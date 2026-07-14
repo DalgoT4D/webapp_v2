@@ -35,9 +35,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { DocsLink } from '@/components/ui/docs-link';
 import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
-import { ALERT_PERMISSIONS } from '@/types/alerts';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
 import { KPIDeleteDialog } from './kpi-delete-dialog';
@@ -60,6 +59,8 @@ function KPICardWithData({
   onDelete,
   onCreateAlert,
   canCreateAlert,
+  canEditKpis,
+  canDeleteKpis,
   statusFilter,
 }: {
   kpi: KPI;
@@ -68,6 +69,8 @@ function KPICardWithData({
   onDelete: () => void;
   onCreateAlert?: () => void;
   canCreateAlert?: boolean;
+  canEditKpis?: boolean;
+  canDeleteKpis?: boolean;
   statusFilter?: string;
 }) {
   const { chartData, echartsConfig, isLoading } = useKPIData(kpi.id);
@@ -112,24 +115,30 @@ function KPICardWithData({
               <Eye className="w-4 h-4 mr-2" />
               View KPI
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
-              <Pencil className="w-4 h-4 mr-2" />
-              Edit KPI
-            </DropdownMenuItem>
+            {canEditKpis && (
+              <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
+                <Pencil className="w-4 h-4 mr-2" />
+                Edit KPI
+              </DropdownMenuItem>
+            )}
             {canCreateAlert && onCreateAlert && (
               <DropdownMenuItem onClick={onCreateAlert} className="cursor-pointer">
                 <BellRing className="w-4 h-4 mr-2" />
                 Create alert
               </DropdownMenuItem>
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={onDelete}
-              className="cursor-pointer text-destructive focus:text-destructive"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete
-            </DropdownMenuItem>
+            {canDeleteKpis && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={onDelete}
+                  className="cursor-pointer text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
           </>
         }
       />
@@ -154,8 +163,13 @@ export function KPIPageComponent() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [alertKpiId, setAlertKpiId] = useState<number | null>(null);
 
-  const { hasPermission } = useUserPermissions();
-  const canCreateAlert = hasPermission(ALERT_PERMISSIONS.create);
+  const { hasPermission } = useRbac();
+  // Create/edit/delete affordances are hidden for view-only roles (members) and
+  // shown to roles that hold the matching permission (admins + analysts).
+  const canCreateKpis = hasPermission(PERMISSIONS.CAN_CREATE_KPIS);
+  const canEditKpis = hasPermission(PERMISSIONS.CAN_EDIT_KPIS);
+  const canDeleteKpis = hasPermission(PERMISSIONS.CAN_DELETE_KPIS);
+  const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
 
   const PAGE_SIZE = 10;
 
@@ -280,10 +294,12 @@ export function KPIPageComponent() {
               Track business objectives with measurable KPIs linked to your metrics
             </p>
           </div>
-          <Button variant="primary" onClick={handleCreate} data-testid="create-kpi-btn">
-            <Plus className="w-4 h-4 mr-2" />
-            CREATE KPI
-          </Button>
+          {canCreateKpis && (
+            <Button variant="primary" onClick={handleCreate} data-testid="create-kpi-btn">
+              <Plus className="w-4 h-4 mr-2" />
+              CREATE KPI
+            </Button>
+          )}
         </div>
       </div>
 
@@ -414,6 +430,8 @@ export function KPIPageComponent() {
                     onDelete={() => handleDeleteClick(kpi)}
                     onCreateAlert={() => setAlertKpiId(kpi.id)}
                     canCreateAlert={canCreateAlert}
+                    canEditKpis={canEditKpis}
+                    canDeleteKpis={canDeleteKpis}
                     statusFilter={statusFilter || undefined}
                   />
                 ))}
@@ -424,7 +442,7 @@ export function KPIPageComponent() {
                 <p className="text-muted-foreground">
                   {search ? 'No KPIs match your search' : 'No KPIs yet'}
                 </p>
-                {!search && (
+                {!search && canCreateKpis && (
                   <Button variant="primary" onClick={handleCreate}>
                     <Plus className="w-4 h-4 mr-2" />
                     CREATE YOUR FIRST KPI

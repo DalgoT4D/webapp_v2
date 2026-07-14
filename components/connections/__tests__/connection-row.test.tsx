@@ -81,10 +81,12 @@ describe('ConnectionRow', () => {
     expect(screen.getByTestId('cancel-sync-conn-1')).toBeInTheDocument();
   });
 
-  it('hides sync and cancel buttons when canSync is false', () => {
+  it('shows the sync button disabled when canSync is false', () => {
+    // Read-only roles see the action but cannot use it (no empty space).
     renderRow(createMockConnection(), { canSync: false });
-    expect(screen.queryByTestId('sync-btn-conn-1')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('cancel-sync-conn-1')).not.toBeInTheDocument();
+    const syncBtn = screen.getByTestId('sync-btn-conn-1');
+    expect(syncBtn).toBeInTheDocument();
+    expect(syncBtn).toBeDisabled();
   });
 
   it('shows View instead of Edit in dropdown when connection is locked', async () => {

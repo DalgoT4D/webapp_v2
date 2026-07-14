@@ -48,6 +48,8 @@ interface ChartDataConfigurationV3Props {
   onReorderWithScopedRules?: () => void;
   /** Maps dimension column name → count of rules scoped to it — for T9 remove warning */
   scopedRuleCountByLevel?: Record<string, number>;
+  /** New-chart flow only: lets MetricsSelector auto-expand the prefilled metric on mount/async prefill. */
+  isNewChart?: boolean;
 }
 
 const AGGREGATE_FUNCTIONS = [
@@ -205,6 +207,7 @@ export function ChartDataConfigurationV3({
   hasLevelScopedRules,
   onReorderWithScopedRules,
   scopedRuleCountByLevel,
+  isNewChart,
 }: ChartDataConfigurationV3Props) {
   const filterIds = useRef<string[]>([]);
   const nextFilterId = useRef(0);
@@ -470,6 +473,28 @@ export function ChartDataConfigurationV3({
           metrics: formData.metrics, // Preserve all metrics
         };
         break;
+
+      case 'map':
+        // Maps use a single metric (like pie/number). Preserve the selected metric so switching to
+        // map doesn't reset it to the auto-prefilled default count.
+        specificFields = {
+          computation_type: formData.computation_type || 'aggregated',
+          // Preserve the selected metric; when there is none, leave metrics unset so the
+          // auto-prefilled default (Total Count) stands instead of an empty Metrics section.
+          ...(formData.metrics &&
+            formData.metrics.length > 0 && { metrics: [formData.metrics[0]] }),
+          // Keep existing geometry/value fields; otherwise auto-prefill's detected values stand.
+          ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
+          ...(formData.value_column && { value_column: formData.value_column }),
+          ...(formData.aggregate_column && { aggregate_column: formData.aggregate_column }),
+          ...(formData.aggregate_function && { aggregate_function: formData.aggregate_function }),
+          // Clear axis/dimension fields not used by maps.
+          x_axis_column: null,
+          y_axis_column: null,
+          dimension_column: null,
+          extra_dimension_column: null,
+        };
+        break;
     }
 
     // Apply the changes with auto-prefill
@@ -645,6 +670,7 @@ export function ChartDataConfigurationV3({
           chartType={formData.chart_type}
           schemaName={formData.schema_name}
           tableName={formData.table_name}
+          isNewChart={isNewChart}
         />
       )}
 
@@ -659,6 +685,7 @@ export function ChartDataConfigurationV3({
           maxMetrics={1}
           schemaName={formData.schema_name}
           tableName={formData.table_name}
+          isNewChart={isNewChart}
         />
       )}
 
@@ -681,6 +708,7 @@ export function ChartDataConfigurationV3({
           maxMetrics={1}
           schemaName={formData.schema_name}
           tableName={formData.table_name}
+          isNewChart={isNewChart}
         />
       )}
 

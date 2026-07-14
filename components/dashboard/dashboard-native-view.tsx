@@ -90,7 +90,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Star, StarOff, Settings } from 'lucide-react';
 import { useFullscreen } from '@/hooks/useFullscreen';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { EmbedCodeDropdown } from '@/components/dashboard/embed-code-dropdown';
@@ -351,12 +351,12 @@ export function DashboardNativeView({
   const responsive = useResponsiveLayout();
 
   // Get user permissions
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
   // Check if user can edit - requires can_edit_dashboards permission
   const canEdit = useMemo(() => {
     if (isPublicMode || !dashboard || !currentUser) return false;
-    return hasPermission('can_edit_dashboards');
+    return hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS);
   }, [isPublicMode, dashboard, currentUser, hasPermission]);
 
   // Check if dashboard is locked
@@ -369,8 +369,8 @@ export function DashboardNativeView({
   // Check landing page status
   const isPersonalLanding = currentUser?.landing_dashboard_id === dashboardId;
   const isOrgDefault = currentUser?.org_default_dashboard_id === dashboardId;
-  const canManageOrgDefault =
-    currentUser?.new_role_slug === 'admin' || currentUser?.new_role_slug === 'super-admin';
+  // Same permission gate as the dashboard list — keep role assignments authoritative
+  const canManageOrgDefault = hasPermission(PERMISSIONS.CAN_MANAGE_ORG_DEFAULT_DASHBOARD);
 
   // Get target screen size (the size dashboard was designed for)
   const targetScreenSize = (dashboard?.target_screen_size as ScreenSizeKey) || 'desktop';

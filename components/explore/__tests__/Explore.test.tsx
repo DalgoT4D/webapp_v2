@@ -56,11 +56,19 @@ jest.mock('@/hooks/api/useFeatureFlags', () => ({
   },
 }));
 
-jest.mock('@/hooks/api/usePermissions', () => ({
-  useUserPermissions: jest.fn(() => ({
-    hasPermission: jest.fn(() => true),
-  })),
-}));
+jest.mock('@/lib/rbac', () => {
+  const actual = jest.requireActual('@/lib/rbac');
+  return {
+    ...actual,
+    useRbac: jest.fn(() => ({
+      hasPermission: jest.fn(() => true),
+      hasAnyPermission: jest.fn(() => true),
+      hasAllPermissions: jest.fn(() => true),
+      hasRole: jest.fn(() => true),
+      role: actual.ROLES.ADMIN,
+    })),
+  };
+});
 
 // Mock the store with a proper implementation that supports selectors
 const mockReset = jest.fn();

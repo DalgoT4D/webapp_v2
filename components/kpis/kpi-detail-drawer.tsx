@@ -42,8 +42,7 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
-import { ALERT_PERMISSIONS } from '@/types/alerts';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
 const grainLabel: Record<string, string> = {
   daily: 'day',
@@ -130,8 +129,9 @@ export function KPIDetailDrawer({
     { period: string; period_date: string | null; value: number | null }[]
   >([]);
   const [alertWizardOpen, setAlertWizardOpen] = useState(false);
-  const { hasPermission: hasAlertPermission } = useUserPermissions();
-  const canCreateAlert = hasAlertPermission(ALERT_PERMISSIONS.create);
+  const { hasPermission } = useRbac();
+  const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
+  const canEditKpis = hasPermission(PERMISSIONS.CAN_EDIT_KPIS);
 
   // Reset filters when KPI changes or drawer closes
   useEffect(() => {
@@ -226,9 +226,11 @@ export function KPIDetailDrawer({
                   <BellRing className="w-4 h-4" />
                 </Button>
               )}
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
-                <Pencil className="w-4 h-4" />
-              </Button>
+              {canEditKpis && (
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
@@ -360,6 +362,9 @@ function NotesSection({
 }) {
   const { annotations, mutate } = useAnnotations(kpi.id);
   const currentUserEmail = useAuthStore((s) => s.getCurrentOrgUser()?.email ?? '');
+  const { hasPermission } = useRbac();
+  // Notes are a write capability — hidden for view-only roles (members).
+  const canEditKpis = hasPermission(PERMISSIONS.CAN_EDIT_KPIS);
   const [showForm, setShowForm] = useState(false);
   const [noteType, setNoteType] = useState<NoteType>('beneficiary_quote');
   const [periodKey, setPeriodKey] = useState('');
@@ -473,7 +478,7 @@ function NotesSection({
           <h3 className="text-sm font-semibold">Notes</h3>
           <p className="text-xs text-muted-foreground">Add beneficiary quotes or notes</p>
         </div>
-        {!showForm && (
+        {!showForm && canEditKpis && (
           <Button
             size="sm"
             className="text-white"
@@ -642,37 +647,39 @@ function NotesSection({
                     >
                       {entry.note_type === 'beneficiary_quote' ? 'Beneficiary Quote' : 'Note'}
                     </Badge>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 p-0">
-                          <MoreVertical className="w-3.5 h-3.5 text-gray-400" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setEditingId(entry.id);
-                            setEditContent(entry.content);
-                            setEditNoteType(entry.note_type);
-                            setEditPeriodKey(entry.period_key);
-                            setEditPeriodDate(entry.period_date || '');
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <Pencil className="w-3.5 h-3.5 mr-1.5" />
-                          Edit
-                        </DropdownMenuItem>
-                        {entry.created_by_email === currentUserEmail && (
+                    {canEditKpis && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 p-0">
+                            <MoreVertical className="w-3.5 h-3.5 text-gray-400" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onClick={() => handleDelete(entry.id)}
-                            className="cursor-pointer text-destructive focus:text-destructive"
+                            onClick={() => {
+                              setEditingId(entry.id);
+                              setEditContent(entry.content);
+                              setEditNoteType(entry.note_type);
+                              setEditPeriodKey(entry.period_key);
+                              setEditPeriodDate(entry.period_date || '');
+                            }}
+                            className="cursor-pointer"
                           >
-                            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                            Delete
+                            <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                            Edit
                           </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          {entry.created_by_email === currentUserEmail && (
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(entry.id)}
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                              Delete
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 </div>
                 {editingId === entry.id ? (
