@@ -1,25 +1,31 @@
 'use client';
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { UsersTable } from './UsersTable';
 import { InvitationsTable } from './InvitationsTable';
 import { InviteUserDialog } from './InviteUserDialog';
-import { Info, UserPlus } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { trackFeatureView } from '@/lib/analytics';
 import { FEATURES } from '@/constants/analytics';
 
-const TAB_TRIGGER_CLASS =
-  'relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-gray-500 cursor-pointer data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-primary';
+interface UserManagementProps {
+  /** The INVITE USER button lives on the Access page header; dialog state is lifted there. */
+  showInviteDialog: boolean;
+  onShowInviteDialogChange: (open: boolean) => void;
+}
 
-export default function UserManagement() {
-  const [showInviteDialog, setShowInviteDialog] = useState(false);
+// People panel of Settings → Access. The page-level header (title, tabs,
+// INVITE USER button) is owned by AccessPage; this renders the users /
+// pending-invitations content as a secondary segmented control so it doesn't
+// clash with the page-level PEOPLE | GROUPS | ROLES tab row.
+export default function UserManagement({
+  showInviteDialog,
+  onShowInviteDialogChange,
+}: UserManagementProps) {
   const { hasPermission } = useRbac();
 
-  const canCreateInvitation = hasPermission(PERMISSIONS.CAN_CREATE_INVITATION);
   const canViewInvitations = hasPermission(PERMISSIONS.CAN_VIEW_INVITATIONS);
 
   return (
@@ -31,72 +37,45 @@ export default function UserManagement() {
         }
         className="w-full flex-1 flex flex-col min-h-0"
       >
-        <div className="flex-shrink-0 border-b bg-background">
-          <div className="flex items-center justify-between mb-6 p-6 pb-0">
-            <div>
-              <h1 className="text-3xl font-bold">User Management</h1>
-              <p className="text-muted-foreground mt-1">
-                Manage users and invitations for your organization
-              </p>
-            </div>
-
-            <Button
-              variant="primary"
-              onClick={() => setShowInviteDialog(true)}
-              disabled={!canCreateInvitation}
-              data-testid="invite-user-button"
-            >
-              <UserPlus className="h-4 w-4 mr-2" />
-              INVITE USER
-            </Button>
-          </div>
-          <div className="flex items-center gap-2 px-6 pb-0">
-            <TabsList className="bg-transparent p-0 h-auto gap-4">
-              <TabsTrigger value="users" className={TAB_TRIGGER_CLASS} data-testid="tab-users">
-                Users
+        <div className="flex-shrink-0 flex items-center gap-2 px-6 pt-6">
+          <TabsList>
+            <TabsTrigger value="users" data-testid="tab-users">
+              Users
+            </TabsTrigger>
+            {canViewInvitations && (
+              <TabsTrigger value="invitations" data-testid="tab-pending">
+                Pending Invitations
               </TabsTrigger>
-              {canViewInvitations && (
-                <TabsTrigger
-                  value="invitations"
-                  className={TAB_TRIGGER_CLASS}
-                  data-testid="tab-pending"
-                >
-                  Pending Invitations
-                </TabsTrigger>
-              )}
-            </TabsList>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger
-                  aria-label="Role information"
-                  data-testid="role-info-tooltip-trigger"
-                >
-                  <Info className="h-5 w-5 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs" side={`bottom`}>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <strong>Account Manager:</strong> Admin of the NGO org, responsible for user
-                      management
-                    </div>
-                    <div>
-                      <strong>Pipeline Manager:</strong> Org team member responsible for creating
-                      pipelines & DBT models
-                    </div>
-                    <div>
-                      <strong>Analyst:</strong> M&E team member working on transformation models
-                    </div>
-                    <div>
-                      <strong>Guest:</strong> Able to view the platform and usage dashboard
-                    </div>
+            )}
+          </TabsList>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger aria-label="Role information" data-testid="role-info-tooltip-trigger">
+                <Info className="h-5 w-5 text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs" side={`bottom`}>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <strong>Account Manager:</strong> Admin of the NGO org, responsible for user
+                    management
                   </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+                  <div>
+                    <strong>Pipeline Manager:</strong> Org team member responsible for creating
+                    pipelines & DBT models
+                  </div>
+                  <div>
+                    <strong>Analyst:</strong> M&E team member working on transformation models
+                  </div>
+                  <div>
+                    <strong>Guest:</strong> Able to view the platform and usage dashboard
+                  </div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
-        <div className="flex-1 w-full px-6 pt-6 pb-6 overflow-y-auto min-h-0">
+        <div className="flex-1 w-full px-6 pt-4 pb-6 overflow-y-auto min-h-0">
           <TabsContent value="users" className="mt-0">
             <UsersTable />
           </TabsContent>
@@ -109,7 +88,7 @@ export default function UserManagement() {
         </div>
       </Tabs>
 
-      <InviteUserDialog open={showInviteDialog} onOpenChange={setShowInviteDialog} />
+      <InviteUserDialog open={showInviteDialog} onOpenChange={onShowInviteDialogChange} />
     </div>
   );
 }

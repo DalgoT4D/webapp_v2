@@ -54,34 +54,30 @@ function setup({ canManage = true, groups = [createMockGroup()] } = {}) {
 describe('UserGroups page', () => {
   beforeEach(() => jest.clearAllMocks());
 
+  // The CREATE GROUP button now lives on the Access page header (AccessPage
+  // owns the dialog-open state); UserGroups receives it as controlled props.
+  const renderGroups = (props: Partial<React.ComponentProps<typeof UserGroups>> = {}) =>
+    render(<UserGroups showCreateDialog={false} onShowCreateDialogChange={jest.fn()} {...props} />);
+
   it('renders the groups table with counts', () => {
     setup();
-    render(<UserGroups />);
+    renderGroups();
     expect(screen.getByTestId('group-row-1')).toHaveTextContent('Funders');
     // Phase A / A2: members render as an avatar stack; count is the aria-label
     expect(screen.getByTestId('group-member-count-1')).toHaveAccessibleName('2 members');
     expect(screen.getByTestId('group-shared-count-1')).toHaveTextContent('3');
   });
 
-  it('disables the create button when the viewer lacks can_manage_user_groups', () => {
-    setup({ canManage: false });
-    render(<UserGroups />);
-    expect(screen.getByTestId('groups-create-btn')).toBeDisabled();
-  });
-
-  it('opens the create dialog and creates a group', async () => {
-    const user = userEvent.setup();
+  it('shows the create dialog when the page-level button opens it', () => {
     setup();
-    render(<UserGroups />);
-
-    await user.click(screen.getByTestId('groups-create-btn'));
+    renderGroups({ showCreateDialog: true });
     expect(screen.getByTestId('group-form-dialog')).toBeInTheDocument();
   });
 
   it('opens the detail drawer when a group name is clicked', async () => {
     const user = userEvent.setup();
     setup();
-    render(<UserGroups />);
+    renderGroups();
 
     await user.click(screen.getByTestId('group-view-btn-1'));
     await waitFor(() => {
@@ -92,7 +88,7 @@ describe('UserGroups page', () => {
   it('opens the delete confirmation from the row actions menu', async () => {
     const user = userEvent.setup();
     setup();
-    render(<UserGroups />);
+    renderGroups();
 
     await user.click(screen.getByTestId('group-actions-1'));
     await user.click(screen.getByTestId('group-delete-menu-item-1'));

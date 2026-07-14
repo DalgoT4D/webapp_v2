@@ -1,10 +1,6 @@
-import AccessManagement from '@/components/settings/access-management/AccessManagement';
-import { ADMIN_ROLES, RoleGuard } from '@/lib/rbac';
+import { redirect } from 'next/navigation';
 
+// Legacy route — org access defaults now live on Settings → Access (Roles tab).
 export default function AccessManagementPage() {
-  return (
-    <RoleGuard roles={ADMIN_ROLES}>
-      <AccessManagement />
-    </RoleGuard>
-  );
+  redirect('/settings/access?tab=roles');
 }

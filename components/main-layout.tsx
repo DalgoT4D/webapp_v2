@@ -23,8 +23,6 @@ import {
   ChevronRight,
   Info,
   CreditCard,
-  Users,
-  UsersRound,
   Target,
   Palette,
   ShieldCheck,
@@ -213,28 +211,14 @@ export const getNavItems = (
           visibleToRoles: ADMIN_ROLES,
         },
         {
-          title: 'User Management',
-          href: '/settings/user-management',
-          icon: Users,
-          isActive: currentPath.startsWith('/settings/user-management'),
-          visibleToRoles: ADMIN_ROLES,
-        },
-        {
-          title: 'Groups',
-          href: '/settings/groups',
-          icon: UsersRound,
-          isActive: currentPath.startsWith('/settings/groups'),
-          // can_view_user_groups is held by super-admin/admin/analyst — mirrors DATA_SECTION_ROLES.
-          visibleToRoles: DATA_SECTION_ROLES,
-        },
-        {
-          title: 'Access Management',
-          href: '/settings/access-management',
+          title: 'Access',
+          href: '/settings/access',
           icon: ShieldCheck,
-          isActive: currentPath.startsWith('/settings/access-management'),
-          // Mirrors the backend's direct is_admin_or_super_admin check on
-          // PUT /api/orgpreferences/sharing/ (task-11) — admin+ only.
-          visibleToRoles: ADMIN_ROLES,
+          isActive: currentPath.startsWith('/settings/access'),
+          // One page with People / Groups / Roles tabs. Analysts enter for
+          // Groups (can_view_user_groups mirrors DATA_SECTION_ROLES); the
+          // admin-only People and Roles tabs are hidden inside the page.
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         {
           title: 'About',

@@ -61,16 +61,6 @@ export default function AccessManagement() {
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      <div className="flex-shrink-0 border-b bg-background">
-        <div className="p-6 pb-6">
-          <h1 className="text-3xl font-bold">Access Management</h1>
-          <p className="text-muted-foreground mt-1">
-            Control public sharing and the default access new dashboards, reports, alerts, metrics,
-            and KPIs get in your organization.
-          </p>
-        </div>
-      </div>
-
       <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 pt-6 space-y-6">
         {isLoading || !orgPreferences ? (
           <p className="text-sm text-muted-foreground" data-testid="access-management-loading">
@@ -78,6 +68,26 @@ export default function AccessManagement() {
           </p>
         ) : (
           <>
+            <Card>
+              <CardContent className="p-4 space-y-3">
+                <Label className="text-sm font-medium">Roles in your organization</Label>
+                <div className="space-y-2" data-testid="access-mgmt-role-descriptions">
+                  <p className="text-xs text-muted-foreground">
+                    <strong className="text-foreground font-medium">Admins</strong> — Run the
+                    organisation, manage people, settings and data.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    <strong className="text-foreground font-medium">Analysts</strong> — Build and
+                    maintain dashboards, charts and reports.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    <strong className="text-foreground font-medium">Members</strong> — Work with the
+                    shared dashboards and reports.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between gap-4">

@@ -1,10 +1,6 @@
-import UserGroups from '@/components/settings/groups/UserGroups';
-import { DATA_SECTION_ROLES, RoleGuard } from '@/lib/rbac';
+import { redirect } from 'next/navigation';
 
+// Legacy route — groups now live on Settings → Access (Groups tab).
 export default function GroupsPage() {
-  return (
-    <RoleGuard roles={DATA_SECTION_ROLES}>
-      <UserGroups />
-    </RoleGuard>
-  );
+  redirect('/settings/access?tab=groups');
 }

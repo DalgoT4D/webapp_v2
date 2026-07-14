@@ -227,12 +227,13 @@ export const FEATURES = {
   ALERTS: 'alerts',
   NOTIFICATIONS: 'notifications',
   SETTINGS_BILLING: 'settings_billing',
+  // Fired with { tab: 'users' | 'invitations' } from the People panel's inner tabs.
   SETTINGS_USER_MANAGEMENT: 'settings_user_management',
   SETTINGS_ABOUT: 'settings_about',
   SETTINGS_SUPERSET_USAGE: 'settings_superset_usage',
   SETTINGS_BRANDING: 'settings_branding',
-  SETTINGS_GROUPS: 'settings_groups',
-  SETTINGS_ACCESS_MANAGEMENT: 'settings_access_management',
+  // Settings → Access (People | Groups | Roles); fired with { tab } on tab change.
+  SETTINGS_ACCESS: 'settings_access',
 } as const;
 
 export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
@@ -257,9 +258,8 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/alerts', feature: FEATURES.ALERTS },
   { prefix: '/notifications', feature: FEATURES.NOTIFICATIONS },
   { prefix: '/settings/billing', feature: FEATURES.SETTINGS_BILLING },
-  { prefix: '/settings/user-management', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
-  { prefix: '/settings/groups', feature: FEATURES.SETTINGS_GROUPS },
-  { prefix: '/settings/access-management', feature: FEATURES.SETTINGS_ACCESS_MANAGEMENT },
+  // Old user-management/groups/access-management routes redirect here.
+  { prefix: '/settings/access', feature: FEATURES.SETTINGS_ACCESS },
   { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
   { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
 ];
