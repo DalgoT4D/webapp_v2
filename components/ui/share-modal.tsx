@@ -560,7 +560,12 @@ export function ShareModal({
                 data-testid="share-commit-btn"
                 variant="primary"
                 onClick={staging.commit}
-                disabled={staging.committableCount === 0 || staging.isCommitting}
+                // hasPendingInput: typed-but-unstaged text keeps SHARE
+                // clickable so commit() can flush it into the batch.
+                disabled={
+                  (staging.committableCount === 0 && !staging.hasPendingInput) ||
+                  staging.isCommitting
+                }
               >
                 {staging.isCommitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 SHARE

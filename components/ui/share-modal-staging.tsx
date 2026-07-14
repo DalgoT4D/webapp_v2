@@ -14,7 +14,7 @@
  * fire from list pages that keep a closed ShareModal mounted).
  */
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Mail, User, UsersRound, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -39,7 +39,8 @@ import {
   type ResourceAccessOverview,
 } from '@/hooks/api/useResourceAccess';
 import { useUsers } from '@/hooks/api/useUserManagement';
-import { useUserGroups } from '@/hooks/api/useUserGroups';
+import { useUserGroups, type UserGroup } from '@/hooks/api/useUserGroups';
+import type { OrgUser } from '@/stores/authStore';
 import { ADMIN_ROLES, useRbac } from '@/lib/rbac';
 import { LEVEL_LABELS } from '@/lib/access-labels';
 
@@ -195,6 +196,11 @@ export interface UseShareStagingArgs {
   onCommitted: () => void;
 }
 
+/** What the search box's residual-text flush hands back to `commit`:
+ * the entries it just staged, or `null` when the text held invalid tokens —
+ * the commit must then abort so the inline error rows are seen. */
+export type ResidualFlushResult = StagedEntry[] | null;
+
 export interface ShareStaging {
   staged: StagedEntry[];
   /** Adds entries, deduping against already-staged keys AND emails. */
@@ -209,6 +215,14 @@ export interface ShareStaging {
   committableCount: number;
   /** Committable email-kind rows — drives the invite-role block. */
   stagedEmailCount: number;
+  /** True while the search box holds typed-but-unstaged text. Keeps the
+   * footer SHARE button enabled so clicking it can flush that text into
+   * the batch instead of silently discarding it. */
+  hasPendingInput: boolean;
+  setHasPendingInput: (has: boolean) => void;
+  /** The search box registers how to flush its residual text at SHARE time
+   * (tokenize → validate → stage). Pass null to unregister on unmount. */
+  registerResidualFlush: (flush: (() => ResidualFlushResult) | null) => void;
 }
 
 export function useShareStaging({
@@ -220,12 +234,22 @@ export function useShareStaging({
   const [staged, setStaged] = useState<StagedEntry[]>([]);
   const [inviteRole, setInviteRole] = useState<InviteRoleSlug>('member');
   const [isCommitting, setIsCommitting] = useState(false);
+  const [hasPendingInput, setHasPendingInput] = useState(false);
+  // Ref (not state): the double-submit guard must trip on the SECOND of two
+  // same-tick clicks, before any isCommitting re-render lands.
+  const commitInFlightRef = useRef(false);
+  const residualFlushRef = useRef<(() => ResidualFlushResult) | null>(null);
+
+  const registerResidualFlush = useCallback((flush: (() => ResidualFlushResult) | null) => {
+    residualFlushRef.current = flush;
+  }, []);
 
   // Staged ≠ applied: closing the modal throws the scratchpad away.
   useEffect(() => {
     if (!isOpen) {
       setStaged([]);
       setInviteRole('member');
+      setHasPendingInput(false);
     }
   }, [isOpen]);
 
@@ -296,9 +320,25 @@ export function useShareStaging({
   );
 
   const commit = useCallback(async () => {
-    const targets = staged.filter(isCommittable);
-    if (targets.length === 0 || !entityType) return;
+    // Double-submit guard: the disabled-button re-render alone can't stop a
+    // second same-tick invoke (double click, Enter+click).
+    if (commitInFlightRef.current || !entityType) return;
 
+    // Flush typed-but-unstaged search text into the batch first — an email
+    // typed without Enter must not be silently discarded. Invalid text
+    // aborts the whole commit; the flush staged it as inline-error rows.
+    const flushed = residualFlushRef.current ? residualFlushRef.current() : [];
+    if (flushed === null) return;
+    const stagedKeys = new Set(staged.map((e) => e.key));
+    const stagedEmails = new Set(staged.map((e) => e.email).filter(Boolean));
+    const flushedTargets = flushed.filter(
+      (e) => isCommittable(e) && !stagedKeys.has(e.key) && !(e.email && stagedEmails.has(e.email))
+    );
+
+    const targets = [...staged.filter(isCommittable), ...flushedTargets];
+    if (targets.length === 0) return;
+
+    commitInFlightRef.current = true;
     setIsCommitting(true);
     try {
       // Small-batch concurrency, not one big Promise.all — a 30-row commit
@@ -342,6 +382,7 @@ export function useShareStaging({
       else if (toastKind === 'error') toastError.api(summary);
       else toastInfo.generic(summary);
     } finally {
+      commitInFlightRef.current = false;
       setIsCommitting(false);
     }
   }, [staged, entityType, commitOne, onCommitted]);
@@ -363,6 +404,9 @@ export function useShareStaging({
     isCommitting,
     committableCount,
     stagedEmailCount,
+    hasPendingInput,
+    setHasPendingInput,
+    registerResidualFlush,
   };
 }
 
@@ -385,8 +429,56 @@ function stagedRowIcon(kind: StagedEntryKind) {
   return <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />;
 }
 
+/** Free-typed/pasted tokens → entries: valid unknown emails become email
+ * entries, emails matching an org member become that member, invalid tokens
+ * become inline-rejected rows (exactly the old invite panel's chip behavior). */
+function buildEmailEntries(
+  tokens: string[],
+  orgUsers: OrgUser[] | undefined,
+  grantedEmails: Set<string>
+): StagedEntry[] {
+  const usersByEmail = new Map(
+    (orgUsers || [])
+      .filter((u) => typeof u.orguser_id === 'number')
+      .map((u) => [u.email.toLowerCase(), u])
+  );
+  const entries: StagedEntry[] = [];
+  for (const raw of tokens) {
+    const email = raw.toLowerCase();
+    if (!email) continue;
+    const member = usersByEmail.get(email);
+    if (member) {
+      entries.push({
+        key: `user-${member.orguser_id}`,
+        kind: 'user',
+        label: email,
+        tag: roleTagLabel(member.new_role_slug),
+        principalId: member.orguser_id as number,
+        email,
+        permission: 'view',
+        status: grantedEmails.has(email) ? 'already' : 'staged',
+      });
+    } else {
+      const invalid = !EMAIL_REGEX.test(email);
+      entries.push({
+        key: `email-${email}`,
+        kind: 'email',
+        label: email,
+        tag: 'New',
+        email,
+        permission: 'view',
+        status: invalid ? 'invalid' : grantedEmails.has(email) ? 'already' : 'staged',
+      });
+    }
+  }
+  return entries;
+}
+
 export function ShareAddPeopleSearch({ access, staging }: ShareAddPeopleSearchProps) {
   const [query, setQuery] = useState('');
+  // Drives the dropdown: focusing the EMPTY input browses all groups + org
+  // members (discoverability — the user shouldn't have to guess a name).
+  const [isFocused, setIsFocused] = useState(false);
   const { users: orgUsers } = useUsers();
   // The grants capability is a given here — this component only mounts
   // inside the (capability-gated) People section for sharers.
@@ -421,19 +513,18 @@ export function ShareAddPeopleSearch({ access, staging }: ShareAddPeopleSearchPr
 
   // Org members without a resolved orguser_id (shouldn't happen post-6b, but
   // the field is optional on the wire) are excluded rather than offered as
-  // an unusable candidate — same rule as the old picker.
+  // an unusable candidate — same rule as the old picker. An empty query
+  // matches EVERYONE — that's the browse-on-focus list.
   const userMatches = useMemo(
     () =>
-      q
-        ? (orgUsers || []).filter(
-            (u) => typeof u.orguser_id === 'number' && u.email.toLowerCase().includes(q)
-          )
-        : [],
+      (orgUsers || []).filter(
+        (u) => typeof u.orguser_id === 'number' && (!q || u.email.toLowerCase().includes(q))
+      ),
     [orgUsers, q]
   );
 
   const groupMatches = useMemo(
-    () => (q ? (groups || []).filter((g) => g.name.toLowerCase().includes(q)) : []),
+    () => (groups || []).filter((g) => !q || g.name.toLowerCase().includes(q)),
     [groups, q]
   );
 
@@ -482,50 +573,55 @@ export function ShareAddPeopleSearch({ access, staging }: ShareAddPeopleSearchPr
     [staging, grantedGroupIds]
   );
 
-  /** Free-typed/pasted text → staged rows: valid unknown emails stage as
-   * email entries, emails matching an org member stage as that member,
-   * invalid tokens stage as inline-rejected rows (exactly the old invite
-   * panel's chip behavior). */
   const stageEmailTokens = useCallback(
     (tokens: string[]) => {
-      const usersByEmail = new Map(
-        (orgUsers || [])
-          .filter((u) => typeof u.orguser_id === 'number')
-          .map((u) => [u.email.toLowerCase(), u])
-      );
-      const entries: StagedEntry[] = [];
-      for (const raw of tokens) {
-        const email = raw.toLowerCase();
-        if (!email) continue;
-        const member = usersByEmail.get(email);
-        if (member) {
-          entries.push({
-            key: `user-${member.orguser_id}`,
-            kind: 'user',
-            label: email,
-            tag: roleTagLabel(member.new_role_slug),
-            principalId: member.orguser_id as number,
-            email,
-            permission: 'view',
-            status: grantedEmails.has(email) ? 'already' : 'staged',
-          });
-        } else {
-          const invalid = !EMAIL_REGEX.test(email);
-          entries.push({
-            key: `email-${email}`,
-            kind: 'email',
-            label: email,
-            tag: 'New',
-            email,
-            permission: 'view',
-            status: invalid ? 'invalid' : grantedEmails.has(email) ? 'already' : 'staged',
-          });
-        }
-      }
-      staging.stage(entries);
+      staging.stage(buildEmailEntries(tokens, orgUsers, grantedEmails));
       setQuery('');
     },
     [orgUsers, grantedEmails, staging]
+  );
+
+  // ---- Residual typed text (never silently dropped) ----
+
+  // SHARE-time flush: whatever is still typed in the box goes through the
+  // same tokenize/validate/stage path; `null` back means invalid tokens were
+  // found — commit aborts so their inline error rows are seen.
+  const { registerResidualFlush, setHasPendingInput } = staging;
+  const flushResidual = useCallback((): ResidualFlushResult => {
+    if (!trimmed) return [];
+    const entries = buildEmailEntries(splitEmailTokens(trimmed), orgUsers, grantedEmails);
+    staging.stage(entries);
+    setQuery('');
+    return entries.some((e) => e.status === 'invalid') ? null : entries;
+  }, [trimmed, orgUsers, grantedEmails, staging]);
+
+  useEffect(() => {
+    registerResidualFlush(flushResidual);
+    return () => registerResidualFlush(null);
+  }, [registerResidualFlush, flushResidual]);
+
+  // Lets the footer SHARE button stay enabled while text sits unstaged in
+  // the box — otherwise the flush above could never run from its click.
+  useEffect(() => {
+    setHasPendingInput(Boolean(trimmed));
+  }, [setHasPendingInput, trimmed]);
+  useEffect(() => () => setHasPendingInput(false), [setHasPendingInput]);
+
+  // Blur staging (parity with the old email panel): email-looking residual
+  // text stages when focus leaves the search area. relatedTarget guard: a
+  // dropdown pick moves focus WITHIN the container — don't close or stage
+  // mid-pick, or the clicked option would unmount before its click lands.
+  const handleContainerBlur = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+      setIsFocused(false);
+      // Non-email text (a half-typed search) stays put — it's a query, not
+      // an address.
+      if (trimmed.includes('@')) {
+        stageEmailTokens(splitEmailTokens(trimmed));
+      }
+    },
+    [trimmed, stageEmailTokens]
   );
 
   const handlePaste = useCallback(
@@ -570,7 +666,10 @@ export function ShareAddPeopleSearch({ access, staging }: ShareAddPeopleSearchPr
 
   return (
     <div className="space-y-2" data-testid="share-staging-area">
-      <div className="relative">
+      {/* Focus/blur on the wrapper (not the input) keeps the dropdown open
+          while focus moves onto one of its options — the relatedTarget
+          check in handleContainerBlur. */}
+      <div className="relative" onFocus={() => setIsFocused(true)} onBlur={handleContainerBlur}>
         <Input
           id="share-search-input"
           data-testid="share-search-input"
@@ -584,63 +683,20 @@ export function ShareAddPeopleSearch({ access, staging }: ShareAddPeopleSearchPr
           autoComplete="off"
         />
 
-        {trimmed && (
-          <div
-            data-testid="share-search-results"
-            className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md"
-          >
-            {userMatches.map((u) => {
-              const lower = u.email.toLowerCase();
-              const alreadyStaged =
-                stagedKeys.has(`user-${u.orguser_id}`) || stagedEmails.has(lower);
-              return (
-                <SearchResultButton
-                  key={`user-${u.orguser_id}`}
-                  testId={`share-search-user-${u.orguser_id}`}
-                  icon={<User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
-                  label={u.email}
-                  tag={roleTagLabel(u.new_role_slug)}
-                  alreadyStaged={alreadyStaged}
-                  hasAccess={grantedEmails.has(lower)}
-                  onPick={() => stageUser(u.orguser_id as number, u.email, u.new_role_slug)}
-                />
-              );
-            })}
-
-            {groupMatches.map((g) => (
-              <SearchResultButton
-                key={`group-${g.id}`}
-                testId={`share-search-group-${g.id}`}
-                icon={<UsersRound className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
-                label={g.name}
-                tag="Group"
-                alreadyStaged={stagedKeys.has(`group-${g.id}`)}
-                hasAccess={grantedGroupIds.has(g.id)}
-                onPick={() => stageGroup(g.id, g.name)}
-              />
-            ))}
-
-            {emailCandidate && (
-              <SearchResultButton
-                testId="share-search-add-email"
-                icon={<Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
-                label={`Invite ${emailCandidate}`}
-                tag="New"
-                alreadyStaged={false}
-                hasAccess={false}
-                onPick={() => stageEmailTokens([emailCandidate])}
-              />
-            )}
-
-            {userMatches.length === 0 && groupMatches.length === 0 && !emailCandidate && (
-              <div
-                data-testid="share-search-empty"
-                className="px-3 py-2 text-sm text-muted-foreground"
-              >
-                Type or paste emails…
-              </div>
-            )}
-          </div>
+        {isFocused && (
+          <SearchResultsDropdown
+            q={q}
+            emailCandidate={emailCandidate}
+            userMatches={userMatches}
+            groupMatches={groupMatches}
+            stagedKeys={stagedKeys}
+            stagedEmails={stagedEmails}
+            grantedEmails={grantedEmails}
+            grantedGroupIds={grantedGroupIds}
+            onPickUser={stageUser}
+            onPickGroup={stageGroup}
+            onPickEmail={(email) => stageEmailTokens([email])}
+          />
         )}
       </div>
 
@@ -664,6 +720,105 @@ export function ShareAddPeopleSearch({ access, staging }: ShareAddPeopleSearchPr
 }
 
 // ---- Presentational pieces (split out per the ~300-line component rule) ----
+
+interface SearchResultsDropdownProps {
+  q: string;
+  emailCandidate: string | null;
+  userMatches: OrgUser[];
+  groupMatches: UserGroup[];
+  stagedKeys: Set<string>;
+  stagedEmails: Set<string | undefined>;
+  grantedEmails: Set<string>;
+  grantedGroupIds: Set<number | null>;
+  onPickUser: (orguserId: number, email: string, roleSlug: string | undefined) => void;
+  onPickGroup: (groupId: number, name: string) => void;
+  onPickEmail: (email: string) => void;
+}
+
+/** The typeahead/browse dropdown. With nothing typed it lists ALL groups
+ * first, then ALL org members (Figma's scrollable share list — the user
+ * shouldn't have to guess a name); a typed query filters both and keeps
+ * people, the common case, on top. */
+function SearchResultsDropdown({
+  q,
+  emailCandidate,
+  userMatches,
+  groupMatches,
+  stagedKeys,
+  stagedEmails,
+  grantedEmails,
+  grantedGroupIds,
+  onPickUser,
+  onPickGroup,
+  onPickEmail,
+}: SearchResultsDropdownProps) {
+  const userItems = userMatches.map((u) => {
+    const lower = u.email.toLowerCase();
+    const alreadyStaged = stagedKeys.has(`user-${u.orguser_id}`) || stagedEmails.has(lower);
+    return (
+      <SearchResultButton
+        key={`user-${u.orguser_id}`}
+        testId={`share-search-user-${u.orguser_id}`}
+        icon={<User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+        label={u.email}
+        tag={roleTagLabel(u.new_role_slug)}
+        alreadyStaged={alreadyStaged}
+        hasAccess={grantedEmails.has(lower)}
+        onPick={() => onPickUser(u.orguser_id as number, u.email, u.new_role_slug)}
+      />
+    );
+  });
+
+  const groupItems = groupMatches.map((g) => (
+    <SearchResultButton
+      key={`group-${g.id}`}
+      testId={`share-search-group-${g.id}`}
+      icon={<UsersRound className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+      label={g.name}
+      tag="Group"
+      alreadyStaged={stagedKeys.has(`group-${g.id}`)}
+      hasAccess={grantedGroupIds.has(g.id)}
+      onPick={() => onPickGroup(g.id, g.name)}
+    />
+  ));
+
+  return (
+    <div
+      data-testid="share-search-results"
+      className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md"
+    >
+      {q ? (
+        <>
+          {userItems}
+          {groupItems}
+        </>
+      ) : (
+        <>
+          {groupItems}
+          {userItems}
+        </>
+      )}
+
+      {emailCandidate && (
+        <SearchResultButton
+          testId="share-search-add-email"
+          icon={<Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+          label={`Invite ${emailCandidate}`}
+          tag="New"
+          alreadyStaged={false}
+          hasAccess={false}
+          onPick={() => onPickEmail(emailCandidate)}
+        />
+      )}
+
+      {userMatches.length === 0 && groupMatches.length === 0 && !emailCandidate && (
+        <div data-testid="share-search-empty" className="px-3 py-2 text-sm text-muted-foreground">
+          Type or paste emails…
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface SearchResultButtonProps {
   testId: string;
