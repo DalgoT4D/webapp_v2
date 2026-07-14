@@ -710,7 +710,7 @@ describe('ChartBuilder', () => {
 
       (chartAutoPrefill.generateAutoPrefilledConfig as jest.Mock).mockReturnValue({
         dimension_column: 'category',
-        metrics: [{ column: null, aggregation: 'count', alias: 'Total Count' }],
+        metrics: [{ column: null, aggregation: 'count', alias: 'COUNT(*)' }],
       });
 
       const initialData = {
