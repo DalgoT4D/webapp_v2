@@ -1074,12 +1074,14 @@ function ConfigureChartPageContent() {
                       formData={formData}
                       onChange={handleFormChange}
                       disabled={false}
+                      isNewChart
                     />
                   ) : (
                     <ChartDataConfigurationV3
                       formData={formData}
                       onChange={handleFormChange}
                       disabled={false}
+                      isNewChart
                     />
                   )}
                 </div>
