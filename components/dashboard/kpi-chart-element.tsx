@@ -14,6 +14,7 @@ interface KPIChartElementProps {
   isResizing?: boolean;
   snapshotId?: number;
   dashboardFilters?: Record<string, any>;
+  publicToken?: string;
   commentStates?: CommentStates;
   onCommentStateChange?: () => void;
   autoOpenCommentChartId?: string;
@@ -24,18 +25,22 @@ export function KPIChartElement({
   config,
   snapshotId,
   dashboardFilters,
+  publicToken,
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
 }: KPIChartElementProps) {
   const { chartData, echartsConfig, isLoading, isError } = useKPIData(kpiId, snapshotId, {
     dashboardFilters,
+    publicToken,
   });
 
   const ragStatus = chartData?.rag_status as RAGStatus | null;
   const periods = chartData?.periods || [];
 
-  const lastTwo = periods.slice(-2).map((p) => p.value);
+  const lastTwo = periods
+    .slice(-2)
+    .map((p: { period: string; period_date: string | null; value: number | null }) => p.value);
   const popChange = computePopChanges(lastTwo)[1] ?? null;
 
   if (isError) {
