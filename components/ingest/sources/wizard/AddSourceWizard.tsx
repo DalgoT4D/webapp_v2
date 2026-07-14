@@ -63,9 +63,9 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
   // helper panel on the right of that step walks the user through each field.
   const header = {
     select: {
-      title: 'Choose your source',
+      title: 'Choose your data source',
       description:
-        'Select the tool you want to bring data from. We’ve securely connected a sample warehouse to your trial so you can see things working instantly.',
+        'Pick the tool you want to bring data from — Dalgo connects to 500+ sources. Start with a popular one below, or search the full catalog.',
     },
     configure: {
       title: `Configure ${def?.name ?? 'source'}`,
@@ -93,7 +93,7 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
           // fit the streams table alongside the help panel.
           'transition-[max-width,width] duration-300 ease-out',
           step === 'select'
-            ? 'sm:max-w-2xl'
+            ? 'sm:max-w-xl'
             : step === 'connection'
               ? connectionExpanded
                 ? '!max-w-[1600px] !w-[96vw] max-h-[85vh]'

@@ -54,7 +54,7 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
     <div className="flex flex-1 min-h-0 flex-col" data-testid="select-source-step">
       {/* Fixed-height body so the modal doesn't grow/shrink with the number of
           search results — the popular grid and the results list scroll inside. */}
-      <div className="h-[420px] overflow-y-auto px-6 py-5 space-y-5">
+      <div className="h-[280px] overflow-y-auto px-6 py-5 space-y-5">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
