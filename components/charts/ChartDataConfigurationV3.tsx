@@ -443,6 +443,9 @@ export function ChartDataConfigurationV3({
       case 'pivot_table': {
         specificFields = {
           computation_type: 'aggregated' as const,
+          // Pivot supports multiple metrics — preserve them so switching to pivot
+          // (from any chart type) keeps the selected/calculated/saved metrics intact.
+          metrics: formData.metrics,
           extra_config: {
             ...(formData.extra_config || {}),
             row_dimensions: [],

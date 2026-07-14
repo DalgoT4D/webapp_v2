@@ -298,7 +298,8 @@ function ConfigureChartPageContent() {
         (formData.metrics || []).length > 0 &&
         formData.metrics!.every(
           (metric) =>
-            metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+            metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
         );
       return hasRowDimensions && hasValidMetrics;
     }
@@ -869,7 +870,8 @@ function ConfigureChartPageContent() {
         (formData.metrics || []).length > 0 &&
         formData.metrics!.every(
           (metric) =>
-            metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)
+            metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
         );
       return hasRowDimensions && hasMetrics;
     }
