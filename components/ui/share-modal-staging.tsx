@@ -674,7 +674,7 @@ export function ShareAddPeopleSearch({ access, staging }: ShareAddPeopleSearchPr
           id="share-search-input"
           data-testid="share-search-input"
           type="text"
-          placeholder="Search for people, group or add emails"
+          placeholder="Type or paste emails…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onPaste={handlePaste}
@@ -817,7 +817,7 @@ function SearchResultsDropdown({
 
       {userMatches.length === 0 && groupMatches.length === 0 && !emailCandidate && (
         <div data-testid="share-search-empty" className="px-3 py-2 text-sm text-muted-foreground">
-          Type or paste emails…
+          Search for people, group or add emails
         </div>
       )}
     </div>
@@ -939,14 +939,12 @@ interface InviteRoleBlockProps {
   isAdmin: boolean;
 }
 
-/** The unknown-email notice + "Invite new users as [Member ▾]" role picker.
- * Analyst/Admin options render for admin callers ONLY — mirroring the
- * backend's 403 on non-admin invite_role escalation (Phase C3). */
+/** The unknown-email notice. Admins get an "Invite new users as [Member ▾]"
+ * role picker (Member/Analyst/Admin); non-admins get a plain locked sentence
+ * and no dropdown at all (design: 'Member -resource sharing-2.jpg') — they
+ * can only ever invite at Member, mirroring the backend's 403 on non-admin
+ * invite_role escalation (Phase C3), so there's nothing for them to pick. */
 function InviteRoleBlock({ stagedEmailEntries, staging, isAdmin }: InviteRoleBlockProps) {
-  const inviteRoleOptions = isAdmin
-    ? INVITE_ROLE_OPTIONS
-    : INVITE_ROLE_OPTIONS.filter((o) => o.value === 'member');
-
   return (
     <div data-testid="share-invite-role-block" className="space-y-2 rounded-md border p-3 text-xs">
       <p data-testid="share-invite-role-copy" className="font-medium">
@@ -954,31 +952,43 @@ function InviteRoleBlock({ stagedEmailEntries, staging, isAdmin }: InviteRoleBlo
           ? `${stagedEmailEntries[0].label} isn't on Dalgo yet.`
           : `${stagedEmailEntries.length} people aren't on Dalgo yet.`}
       </p>
-      <p className="text-muted-foreground">Assign new invites role before sharing the resource.</p>
-      <div className="flex items-center gap-2">
-        <Label htmlFor="share-invite-role">Invite new users as</Label>
-        <Select
-          value={staging.inviteRole}
-          onValueChange={(value) => staging.setInviteRole(value as InviteRoleSlug)}
-        >
-          <SelectTrigger
-            id="share-invite-role"
-            data-testid="share-invite-role"
-            size="sm"
-            className="w-28"
-            disabled={staging.isCommitting}
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {inviteRoleOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {isAdmin ? (
+        <>
+          <p className="text-muted-foreground">
+            Assign new invites role before sharing the resource.
+          </p>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="share-invite-role">Invite new users as</Label>
+            <Select
+              value={staging.inviteRole}
+              onValueChange={(value) => staging.setInviteRole(value as InviteRoleSlug)}
+            >
+              <SelectTrigger
+                id="share-invite-role"
+                data-testid="share-invite-role"
+                size="sm"
+                className="w-28"
+                disabled={staging.isCommitting}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {INVITE_ROLE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      ) : (
+        <p className="text-muted-foreground">
+          {stagedEmailEntries.length === 1
+            ? 'New member will be invited as member.'
+            : 'New members will be invited as members.'}
+        </p>
+      )}
     </div>
   );
 }

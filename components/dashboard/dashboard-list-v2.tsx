@@ -869,20 +869,25 @@ export function DashboardListV2() {
       return hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? `/dashboards/${dashboard.id}` : '#';
     };
 
+    const isDashboardSelected = selectedDashboardIds.has(dashboard.id);
+
     return (
-      <TableRow key={dashboard.id} className="hover:bg-gray-50">
-        {/* Bulk-select checkbox (task-17f) — gated with the row's Share button */}
+      <TableRow key={dashboard.id} className="group hover:bg-gray-50">
+        {/* Bulk-select checkbox (task-17f) — gated with the row's Share button.
+            Design (dashboard bulk share-1.jpg): no permanent checkbox column —
+            it only shows on row hover, or when that row is already selected. */}
         {canShareDashboards && (
           <TableCell className="py-4">
             <Checkbox
               data-testid={`dashboard-select-${dashboard.id}`}
               aria-label={`Select ${dashboard.title || dashboard.dashboard_title}`}
-              checked={selectedDashboardIds.has(dashboard.id)}
-              disabled={
-                !selectedDashboardIds.has(dashboard.id) &&
-                selectedDashboardIds.size >= MAX_BULK_SELECTION
-              }
+              checked={isDashboardSelected}
+              disabled={!isDashboardSelected && selectedDashboardIds.size >= MAX_BULK_SELECTION}
               onCheckedChange={() => toggleDashboardSelection(dashboard.id)}
+              className={cn(
+                'transition-opacity',
+                isDashboardSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              )}
             />
           </TableCell>
         )}
@@ -1759,22 +1764,31 @@ export function DashboardListV2() {
           )}
         </div>
 
-        {/* Bulk-selection bar (task-17f) — appears once ≥1 row is selected */}
+        {/* Bulk-selection bar (task-17f) — appears once ≥1 row is selected.
+            Design (dashboard bulk share-2/-3.jpg): dismiss X at the far left
+            next to the count; Select All sits at the far right, beside SHARE. */}
         {canShareDashboards && selectedDashboardIds.size > 0 && (
           <div
             data-testid="dashboard-bulk-share-bar"
             className="mx-6 mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between"
           >
-            {/* Design frame 1992:2488: "{N} selected · Select All", actions right */}
-            <div className="flex items-center gap-1 text-sm font-medium text-blue-900">
+            <div className="flex items-center gap-3 text-sm font-medium text-blue-900">
+              <button
+                type="button"
+                data-testid="dashboard-bulk-clear-btn"
+                aria-label="Clear selection"
+                className="text-blue-900 hover:text-blue-700"
+                onClick={clearDashboardSelection}
+              >
+                <X className="h-4 w-4" />
+              </button>
               <span>
                 {selectedDashboardIds.size} selected
                 {selectedOffPageCount > 0 && ` · ${selectedOffPageCount} on other pages`}
                 {selectedDashboardIds.size >= MAX_BULK_SELECTION && ' (maximum 100 reached)'}
               </span>
-              <span aria-hidden="true" className="px-1 text-blue-300">
-                ·
-              </span>
+            </div>
+            <div className="flex items-center gap-4">
               <Button
                 data-testid="dashboard-bulk-select-all-btn"
                 variant="link"
@@ -1785,28 +1799,15 @@ export function DashboardListV2() {
               >
                 Select All
               </Button>
-              <span aria-hidden="true" className="px-1 text-blue-300">
-                ·
-              </span>
               <Button
-                data-testid="dashboard-bulk-clear-btn"
-                variant="link"
+                data-testid="dashboard-bulk-share-btn"
+                variant="primary"
                 size="sm"
-                className="h-auto p-0 text-muted-foreground"
-                onClick={clearDashboardSelection}
+                onClick={() => setBulkShareOpen(true)}
               >
-                Clear
+                SHARE
               </Button>
             </div>
-            <Button
-              data-testid="dashboard-bulk-share-btn"
-              variant="primary"
-              size="sm"
-              onClick={() => setBulkShareOpen(true)}
-            >
-              <Share2 className="w-4 h-4 mr-2" />
-              Share
-            </Button>
           </div>
         )}
 

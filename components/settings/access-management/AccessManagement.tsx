@@ -82,7 +82,7 @@ export default function AccessManagement() {
                   </p>
                   <p className="text-xs text-muted-foreground">
                     <strong className="text-foreground font-medium">Members</strong> — Work with the
-                    shared dashboards and reports.
+                    shared dashboards and reports
                   </p>
                 </div>
               </CardContent>
@@ -96,8 +96,8 @@ export default function AccessManagement() {
                     <div>
                       <Label className="text-sm font-medium">Allow public sharing</Label>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        When off, all public links stop working immediately. Turning it back on
-                        restores them.
+                        Turn on to allow public links, owners can generate view-only public links
+                        for individual dashboards. Anyone with the link can view without signing in.
                       </p>
                     </div>
                   </div>

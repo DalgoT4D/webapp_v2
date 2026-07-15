@@ -286,16 +286,20 @@ describe('ShareModal — invite-role picker (Phase C3)', () => {
     expect(screen.getByRole('option', { name: 'Admin' })).toBeInTheDocument();
   });
 
-  it('offers only Member to non-admins', async () => {
-    const user = userEvent.setup();
+  it('locks non-admins to a plain "invited as member" sentence, with no role dropdown at all', () => {
     renderModal({}, { isAdmin: false });
 
     pasteIntoSearchInput('new@x.org');
-    await user.click(screen.getByTestId('share-invite-role'));
 
-    expect(screen.getByRole('option', { name: 'Member' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'Analyst' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'Admin' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('share-invite-role-block')).toHaveTextContent(
+      'New member will be invited as member.'
+    );
+    // Non-admins can't pick a role — the backend 403s any non-Member
+    // invite_role from a non-admin caller, so there's no control to show.
+    expect(screen.queryByTestId('share-invite-role')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Assign new invites role before sharing the resource.')
+    ).not.toBeInTheDocument();
   });
 
   it('sends the chosen invite_role with the SHARE commit', async () => {

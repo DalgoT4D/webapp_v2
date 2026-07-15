@@ -12,9 +12,7 @@ import {
   X,
   Loader2,
   Send,
-  Users,
   UsersRound,
-  Trash2,
   Inbox,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -311,7 +309,22 @@ export function ShareModal({
           translate and no max-height, so a tall People section would push
           BOTH the heading and the Close/SHARE footer off small screens with
           no way to scroll to them. */}
-      <DialogContent data-testid="share-modal" className="sm:max-w-md max-h-[85vh] overflow-y-auto">
+      <DialogContent
+        data-testid="share-modal"
+        className="sm:max-w-md max-h-[85vh] overflow-y-auto"
+        // P1 merged the owner row into PeopleWithAccessSection's list, which
+        // sits AFTER the add-people search input in DOM order — Radix's
+        // default open-autofocus would otherwise land on that search input
+        // (the first focusable descendant) and pop its browse dropdown open
+        // the instant the modal appears. Redirect the initial focus to the
+        // dialog surface itself instead (the documented Radix pattern) —
+        // keeps focus trapped inside the modal without landing in the
+        // search box.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          (e.currentTarget as HTMLElement).focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5" />
@@ -328,7 +341,10 @@ export function ShareModal({
             />
           )}
 
-          {entityType && access && (
+          {/* Grantless rtypes (metric/kpi) get no People-with-access card, but
+              the owner row + transfer flow must still render — merged into
+              PeopleWithAccessSection's list for every other rtype (P1). */}
+          {entityType && access && !showPeopleSection && (
             <OwnerSection
               entityType={entityType}
               entityId={entityId}
@@ -394,9 +410,11 @@ export function ShareModal({
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Share2 className="h-5 w-5 text-green-600" />
+                      {/* Design frames 1426:2063/2115: icon sits inside a circular badge */}
+                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-green-50">
+                        <Share2 className="h-4 w-4 text-green-600" />
+                      </div>
                       <div className="flex-1">
-                        {/* Design frames 1426:2063/2115: "Public sharing / Anyone with the link can view" */}
                         <Label className="text-sm font-medium">Public sharing</Label>
                         <p className="text-xs text-muted-foreground">
                           Anyone with the link can view
@@ -426,7 +444,9 @@ export function ShareModal({
                   {/* Copy URL Button */}
                   {shareStatus.is_public && shareStatus.public_url && (
                     <div className="space-y-2">
-                      <Label className="text-xs font-medium">Share this {entityLabelLower}:</Label>
+                      {/* Design frame "public toggle on-1.jpg": repeats the card
+                          title as a mini-header above the copy-link button. */}
+                      <Label className="text-xs font-medium">Public sharing</Label>
                       <Button
                         data-testid="copy-link-btn"
                         variant="outline"
@@ -558,7 +578,7 @@ export function ShareModal({
               (design frames 1426:2063/2115); disabled until something is staged. */}
           <div className="flex justify-end gap-3">
             <Button data-testid="share-close-btn" variant="outline" onClick={onClose}>
-              Close
+              CANCEL
             </Button>
             {canShare && showPeopleSection && (
               <Button
@@ -587,13 +607,16 @@ export function ShareModal({
 // Owner + transfer ownership (Milestone 5, task-12f)
 // ============================================================================
 //
-// Deliberately its OWN section (not folded into PeopleWithAccessSection):
-// the owner row/transfer action must render even for grantless rtypes
-// (metric/kpi, capabilities.grants === false) — the backend's transfer
-// endpoint works there too (pinned by a backend test), so the frontend
-// can't hide it behind the grants capability flag.
+// OwnerTransferBlock is the shared row+transfer-flow content. It renders
+// TWICE depending on rtype:
+//  - grantless rtypes (metric/kpi, capabilities.grants === false): wrapped in
+//    its own standalone OwnerSection Card below, since there's no
+//    People-with-access card to live inside.
+//  - every other rtype: as the FIRST row inside PeopleWithAccessSection's
+//    list (P1 — design shows the owner as row 1 of one continuous list, not
+//    a separate bordered card above it).
 
-interface OwnerSectionProps {
+interface OwnerTransferBlockProps {
   entityType: ShareableResourceType;
   entityId: number;
   access: NonNullable<ReturnType<typeof useResourceAccess>['data']>;
@@ -602,7 +625,7 @@ interface OwnerSectionProps {
 
 type TransferStep = 'idle' | 'picking' | 'confirming';
 
-function OwnerSection({ entityType, entityId, access, onChanged }: OwnerSectionProps) {
+function OwnerTransferBlock({ entityType, entityId, access, onChanged }: OwnerTransferBlockProps) {
   const { users: orgUsers } = useUsers();
   const { hasRole } = useRbac();
   const [step, setStep] = useState<TransferStep>('idle');
@@ -678,84 +701,108 @@ function OwnerSection({ entityType, entityId, access, onChanged }: OwnerSectionP
     : `${transferSentence} ${ownerLabel} keeps Edit access.`;
 
   return (
-    <Card data-testid="share-owner-section">
-      <CardContent className="p-4 space-y-3">
-        <div data-testid="share-owner-row" className="flex items-center justify-between text-sm">
-          <span>{ownerLabel}</span>
-          <Badge variant="secondary">Owner</Badge>
+    <div data-testid="share-owner-block" className="space-y-3">
+      <div data-testid="share-owner-row" className="flex items-center justify-between text-sm">
+        <span>{ownerLabel}</span>
+        <Badge variant="secondary">Owner</Badge>
+      </div>
+
+      {canTransfer && step === 'idle' && (
+        <Button
+          data-testid="share-transfer-owner-btn"
+          variant="outline"
+          size="sm"
+          onClick={handleStartTransfer}
+        >
+          Transfer ownership
+        </Button>
+      )}
+
+      {canTransfer && step === 'picking' && (
+        <div className="space-y-2 pt-2 border-t">
+          <Label className="text-xs font-medium">New owner</Label>
+          <div className="flex gap-2">
+            <Combobox
+              id="share-transfer-owner-combobox"
+              items={candidateItems}
+              value={selectedNewOwnerId}
+              onValueChange={setSelectedNewOwnerId}
+              placeholder="Select an org member"
+              searchPlaceholder="Search by email"
+              className="flex-1"
+            />
+            <Button
+              data-testid="share-transfer-owner-next-btn"
+              onClick={handleNext}
+              disabled={!selectedNewOwnerId}
+            >
+              Next
+            </Button>
+            <Button
+              data-testid="share-transfer-owner-cancel-btn"
+              variant="outline"
+              onClick={handleCancelTransfer}
+            >
+              Cancel
+            </Button>
+          </div>
         </div>
+      )}
 
-        {canTransfer && step === 'idle' && (
-          <Button
-            data-testid="share-transfer-owner-btn"
-            variant="outline"
-            size="sm"
-            onClick={handleStartTransfer}
-          >
-            Transfer ownership
-          </Button>
-        )}
-
-        {canTransfer && step === 'picking' && (
-          <div className="space-y-2 pt-2 border-t">
-            <Label className="text-xs font-medium">New owner</Label>
-            <div className="flex gap-2">
-              <Combobox
-                id="share-transfer-owner-combobox"
-                items={candidateItems}
-                value={selectedNewOwnerId}
-                onValueChange={setSelectedNewOwnerId}
-                placeholder="Select an org member"
-                searchPlaceholder="Search by email"
-                className="flex-1"
-              />
-              <Button
-                data-testid="share-transfer-owner-next-btn"
-                onClick={handleNext}
-                disabled={!selectedNewOwnerId}
-              >
-                Next
-              </Button>
-              <Button
-                data-testid="share-transfer-owner-cancel-btn"
-                variant="outline"
-                onClick={handleCancelTransfer}
-              >
-                Cancel
-              </Button>
-            </div>
+      {canTransfer && step === 'confirming' && (
+        <div
+          data-testid="share-transfer-owner-confirm"
+          className="space-y-3 p-3 bg-orange-50 border border-orange-200 rounded-md"
+        >
+          <p className="text-xs text-orange-800">{confirmCopy}</p>
+          <div className="flex gap-2">
+            <Button
+              data-testid="share-transfer-owner-confirm-btn"
+              size="sm"
+              variant="primary"
+              onClick={handleConfirmTransfer}
+              disabled={isTransferring}
+            >
+              {isTransferring && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Transfer ownership
+            </Button>
+            <Button
+              data-testid="share-transfer-owner-back-btn"
+              size="sm"
+              variant="outline"
+              onClick={() => setStep('picking')}
+              disabled={isTransferring}
+            >
+              Back
+            </Button>
           </div>
-        )}
+        </div>
+      )}
+    </div>
+  );
+}
 
-        {canTransfer && step === 'confirming' && (
-          <div
-            data-testid="share-transfer-owner-confirm"
-            className="space-y-3 p-3 bg-orange-50 border border-orange-200 rounded-md"
-          >
-            <p className="text-xs text-orange-800">{confirmCopy}</p>
-            <div className="flex gap-2">
-              <Button
-                data-testid="share-transfer-owner-confirm-btn"
-                size="sm"
-                variant="primary"
-                onClick={handleConfirmTransfer}
-                disabled={isTransferring}
-              >
-                {isTransferring && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Transfer ownership
-              </Button>
-              <Button
-                data-testid="share-transfer-owner-back-btn"
-                size="sm"
-                variant="outline"
-                onClick={() => setStep('picking')}
-                disabled={isTransferring}
-              >
-                Back
-              </Button>
-            </div>
-          </div>
-        )}
+interface OwnerSectionProps {
+  entityType: ShareableResourceType;
+  entityId: number;
+  access: NonNullable<ReturnType<typeof useResourceAccess>['data']>;
+  onChanged: () => void;
+}
+
+/** Standalone fallback for grantless rtypes (metric/kpi) — there's no
+ * People-with-access card for the owner row to merge into, so it keeps its
+ * own bordered card here. */
+function OwnerSection({ entityType, entityId, access, onChanged }: OwnerSectionProps) {
+  if (!access.owner) return null;
+  return (
+    <Card data-testid="share-owner-section">
+      <CardContent className="p-4">
+        <OwnerTransferBlock
+          entityType={entityType}
+          entityId={entityId}
+          access={access}
+          onChanged={onChanged}
+        />
       </CardContent>
     </Card>
   );
@@ -835,12 +882,20 @@ function PeopleWithAccessSection({
             Only ADDING is staged — the rows below stay live-editing. */}
         {canShare && <ShareAddPeopleSearch access={access} staging={staging} />}
 
-        <div className="flex items-center gap-3">
-          <Users className="h-5 w-5 text-primary" />
-          <Label className="text-sm font-medium">People with access</Label>
-        </div>
+        <Label className="text-sm font-medium">People with access</Label>
 
         <div className="space-y-2">
+          {/* Owner is row 1 of this same list (P1) — not a separate bordered
+              card above it. Transfer-ownership affordance travels with it. */}
+          {access.owner && (
+            <OwnerTransferBlock
+              entityType={entityType}
+              entityId={entityId}
+              access={access}
+              onChanged={onChanged}
+            />
+          )}
+
           {access.grants.map((grant) => (
             <div
               key={grant.id}
@@ -895,7 +950,7 @@ function PeopleWithAccessSection({
                     aria-label={`Remove ${grant.name || grant.email}`}
                     onClick={() => handleRemove(grant)}
                   >
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    <X className="h-3.5 w-3.5 text-destructive" />
                   </Button>
                 )}
               </div>
