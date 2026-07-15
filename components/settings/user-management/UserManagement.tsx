@@ -54,20 +54,18 @@ export default function UserManagement({
                 <Info className="h-5 w-5 text-muted-foreground" />
               </TooltipTrigger>
               <TooltipContent className="max-w-xs" side={`bottom`}>
+                {/* Same three roles + descriptions as the Roles card on the
+                    Access tab (AccessManagement.tsx) — keep them in sync. */}
                 <div className="space-y-2 text-sm">
                   <div>
-                    <strong>Account Manager:</strong> Admin of the NGO org, responsible for user
-                    management
+                    <strong>Admins</strong> — Run the organisation, manage people, settings and
+                    data.
                   </div>
                   <div>
-                    <strong>Pipeline Manager:</strong> Org team member responsible for creating
-                    pipelines & DBT models
+                    <strong>Analysts</strong> — Build and maintain dashboards, charts and reports.
                   </div>
                   <div>
-                    <strong>Analyst:</strong> M&E team member working on transformation models
-                  </div>
-                  <div>
-                    <strong>Guest:</strong> Able to view the platform and usage dashboard
+                    <strong>Members</strong> — Work with the shared dashboards and reports.
                   </div>
                 </div>
               </TooltipContent>

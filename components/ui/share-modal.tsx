@@ -63,7 +63,7 @@ import { ADMIN_ROLES, PERMISSIONS, useRbac, type Permission } from '@/lib/rbac';
 import { useAuthStore } from '@/stores/authStore';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { AUDIENCE_ORDER, audienceLabels, LEVEL_LABELS } from '@/lib/access-labels';
+import { AUDIENCE_ORDER, audienceLabels, LEVEL_LABELS, RESOURCE_NOUNS } from '@/lib/access-labels';
 
 // EMAIL_REGEX (share-modal-staging.tsx) validates the legacy Share-via-Email
 // input below; the unified add-people staging flow lives in that module too.
@@ -667,7 +667,7 @@ function OwnerSection({ entityType, entityId, access, onChanged }: OwnerSectionP
   // unconditionally keeps the CURRENT owner on an Edit grant, not the actor
   // — an admin transferring someone ELSE's resource keeps nothing
   // themselves, so only say "you" when the actor IS the current owner.
-  const transferSentence = `Ownership of this ${entityType} transfers to ${selectedNewOwnerLabel}. They can then delete it or transfer it again.`;
+  const transferSentence = `Ownership of this ${RESOURCE_NOUNS[entityType]} transfers to ${selectedNewOwnerLabel}. They can then delete it or transfer it again.`;
   const confirmCopy = access.viewer.is_owner
     ? `${transferSentence} You keep Edit access.`
     : `${transferSentence} ${ownerLabel} keeps Edit access.`;

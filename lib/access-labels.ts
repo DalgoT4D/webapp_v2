@@ -1,4 +1,8 @@
-import type { AccessAudience, AccessLevel } from '@/hooks/api/useResourceAccess';
+import type {
+  AccessAudience,
+  AccessLevel,
+  ShareableResourceType,
+} from '@/hooks/api/useResourceAccess';
 
 /**
  * Single source of truth for the audience/level vocabulary shown across every
@@ -30,4 +34,18 @@ export function audienceLabels(orgName?: string): Record<AccessAudience, string>
 export const LEVEL_LABELS: Record<AccessLevel, string> = {
   view: 'Viewer',
   edit: 'Editor',
+};
+
+/**
+ * Human noun per rtype for prose like the transfer-ownership sentence
+ * ("Ownership of this KPI transfers to …"). Mirrors the backend's
+ * NOUN_BY_RTYPE in ddpui/core/sharing/deep_links.py — keep the casing in
+ * sync (only "KPI" differs from the raw rtype string).
+ */
+export const RESOURCE_NOUNS: Record<ShareableResourceType, string> = {
+  dashboard: 'dashboard',
+  report: 'report',
+  alert: 'alert',
+  metric: 'metric',
+  kpi: 'KPI',
 };

@@ -187,6 +187,24 @@ describe('ShareModal — transfer ownership flow', () => {
     );
   });
 
+  it('uses the human noun map in the confirm copy — a kpi reads "this KPI", not "this kpi"', async () => {
+    const user = userEvent.setup();
+    renderModal({
+      resource_type: 'kpi',
+      capabilities: { general: false, grants: false, public_link: false, requests: false },
+      viewer: { effective_permission: 'edit', is_owner: true },
+    });
+
+    await user.click(screen.getByTestId('share-transfer-owner-btn'));
+    await user.click(screen.getByTestId('share-transfer-owner-combobox-input'));
+    await user.click(screen.getByTestId('share-transfer-owner-combobox-item-42'));
+    await user.click(screen.getByTestId('share-transfer-owner-next-btn'));
+
+    expect(screen.getByTestId('share-transfer-owner-confirm')).toHaveTextContent(
+      'Ownership of this KPI transfers to priya@ngo.org. They can then delete it or transfer it again. You keep Edit access.'
+    );
+  });
+
   it('surfaces a toast on a 400 (already-owner) error', async () => {
     const user = userEvent.setup();
     renderModal({ viewer: { effective_permission: 'edit', is_owner: true } });

@@ -1,4 +1,5 @@
 import React from 'react';
+import { format } from 'date-fns';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { GroupsTable } from '../GroupsTable';
@@ -102,7 +103,12 @@ describe('GroupsTable', () => {
     );
 
     expect(screen.getByTestId('group-created-by-1')).toHaveTextContent('asha@ngo.org');
-    expect(screen.getByTestId('group-created-at-1')).toHaveTextContent('Jan 1, 2026');
+    // Same formatter as the component (local-time) — a literal like
+    // 'Jan 1, 2026' would fail in negative-UTC timezones where the
+    // midnight-UTC mock date lands on Dec 31 local time.
+    expect(screen.getByTestId('group-created-at-1')).toHaveTextContent(
+      format(new Date(group.created_at), 'MMM d, yyyy')
+    );
   });
 
   it('shows a dash for Created By when the creator was deleted', () => {
