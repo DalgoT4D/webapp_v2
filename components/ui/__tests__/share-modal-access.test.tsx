@@ -145,12 +145,38 @@ describe('ShareModal — People with access', () => {
     expect(screen.getByTestId('share-grant-remove-4')).toBeInTheDocument();
   });
 
-  it('removes a grant and revalidates on click', async () => {
+  it('opens a confirmation dialog on remove click without deleting yet', async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByTestId('share-grant-remove-3'));
+
+    expect(screen.getByTestId('share-grant-remove-dialog-3')).toBeInTheDocument();
+    expect(screen.getByText('Remove access')).toBeInTheDocument();
+    expect(
+      screen.getByText('Are you sure you want to remove access of "Meera Das"? This change cannot be undone.')
+    ).toBeInTheDocument();
+    expect(mockRemoveGrant).not.toHaveBeenCalled();
+  });
+
+  it('does not remove the grant when the confirmation dialog is cancelled', async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByTestId('share-grant-remove-3'));
+    await user.click(screen.getByTestId('share-grant-remove-cancel-3'));
+
+    expect(screen.queryByTestId('share-grant-remove-dialog-3')).not.toBeInTheDocument();
+    expect(mockRemoveGrant).not.toHaveBeenCalled();
+  });
+
+  it('removes a grant and revalidates when the confirmation dialog is confirmed', async () => {
     const user = userEvent.setup();
     mockRemoveGrant.mockResolvedValue(undefined);
     renderModal();
 
     await user.click(screen.getByTestId('share-grant-remove-3'));
+    await user.click(screen.getByTestId('share-grant-remove-confirm-3'));
 
     await waitFor(() => {
       expect(mockRemoveGrant).toHaveBeenCalledWith('dashboard', 1, 3);

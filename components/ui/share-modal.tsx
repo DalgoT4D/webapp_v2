@@ -17,6 +17,17 @@ import {
   Inbox,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -945,15 +956,39 @@ function PeopleWithAccessSection({
                   </span>
                 )}
                 {canShare && (
-                  <Button
-                    data-testid={`share-grant-remove-${grant.id}`}
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Remove ${grant.name || grant.email}`}
-                    onClick={() => handleRemove(grant)}
-                  >
-                    <X className="h-3.5 w-3.5 text-destructive" />
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        data-testid={`share-grant-remove-${grant.id}`}
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Remove ${grant.name || grant.email}`}
+                      >
+                        <X className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent data-testid={`share-grant-remove-dialog-${grant.id}`}>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remove access</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to remove access of &quot;
+                          {grant.name || grant.email}&quot;? This change cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel data-testid={`share-grant-remove-cancel-${grant.id}`}>
+                          Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          data-testid={`share-grant-remove-confirm-${grant.id}`}
+                          onClick={() => handleRemove(grant)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </div>
             </div>

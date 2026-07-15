@@ -12,6 +12,7 @@ import { ShareModal } from '@/components/ui/share-modal';
 import {
   useResourceAccess,
   addGrant,
+  removeGrant,
   type ResourceAccessOverview,
 } from '@/hooks/api/useResourceAccess';
 import { useUsers } from '@/hooks/api/useUserManagement';
@@ -40,6 +41,7 @@ const mockUseUsers = useUsers as jest.Mock;
 const mockUseUserGroups = useUserGroups as jest.Mock;
 const mockUseRbac = useRbac as jest.Mock;
 const mockAddGrant = addGrant as jest.Mock;
+const mockRemoveGrant = removeGrant as jest.Mock;
 
 const baseOverview: ResourceAccessOverview = {
   resource_type: 'dashboard',
@@ -134,11 +136,29 @@ describe('ShareModal — group grant rows', () => {
     expect(row).toHaveTextContent('4');
   });
 
-  it('removes a group grant the same way a person grant is removed', async () => {
+  it('opens the same confirmation dialog for a group grant as for a person grant, and only removes on confirm', async () => {
     const user = userEvent.setup();
+    mockRemoveGrant.mockResolvedValue(undefined);
     renderModal();
     expect(screen.getByTestId('share-grant-remove-5')).toBeInTheDocument();
+
     await user.click(screen.getByTestId('share-grant-remove-5'));
+    expect(screen.getByTestId('share-grant-remove-dialog-5')).toBeInTheDocument();
+    expect(
+      screen.getByText('Are you sure you want to remove access of "Funders"? This change cannot be undone.')
+    ).toBeInTheDocument();
+    expect(mockRemoveGrant).not.toHaveBeenCalled();
+
+    await user.click(screen.getByTestId('share-grant-remove-cancel-5'));
+    expect(screen.queryByTestId('share-grant-remove-dialog-5')).not.toBeInTheDocument();
+    expect(mockRemoveGrant).not.toHaveBeenCalled();
+
+    await user.click(screen.getByTestId('share-grant-remove-5'));
+    await user.click(screen.getByTestId('share-grant-remove-confirm-5'));
+
+    await waitFor(() => {
+      expect(mockRemoveGrant).toHaveBeenCalledWith('dashboard', 1, 5);
+    });
   });
 });
 

@@ -475,7 +475,7 @@ describe('ShareModal — pending grant rows (email invites)', () => {
     status: 'pending',
   };
 
-  it('removes a pending grant row the same way as an active one, via DELETE', async () => {
+  it('removes a pending grant row the same way as an active one, via DELETE, after confirming', async () => {
     const user = userEvent.setup();
     mockRemoveGrant.mockResolvedValue(undefined);
     const { mutate } = renderModal({ grants: [pendingGrant] });
@@ -485,6 +485,12 @@ describe('ShareModal — pending grant rows (email invites)', () => {
     expect(row).toHaveTextContent('invite pending');
 
     await user.click(screen.getByTestId('share-grant-remove-9'));
+
+    // Pending rows are already-applied grants (POSTed, just awaiting invite
+    // acceptance) — not staged/unapplied — so they get the same confirmation
+    // dialog as active grants before removeGrant fires.
+    expect(mockRemoveGrant).not.toHaveBeenCalled();
+    await user.click(screen.getByTestId('share-grant-remove-confirm-9'));
 
     await waitFor(() => {
       expect(mockRemoveGrant).toHaveBeenCalledWith('dashboard', 1, 9);
