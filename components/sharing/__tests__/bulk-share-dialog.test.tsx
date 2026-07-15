@@ -131,6 +131,58 @@ describe('BulkShareDialog — add person/group', () => {
 describe('BulkShareDialog — general access + narrow confirmation', () => {
   beforeEach(() => jest.clearAllMocks());
 
+  it('defaults both role dropdowns to "No access" and sends analyst_level/member_level', async () => {
+    const user = userEvent.setup();
+    mockBulkApplyAccess.mockResolvedValue({
+      applied: items,
+      skipped: [],
+      requires_confirmation: [],
+      applied_count: 2,
+      skipped_count: 0,
+    });
+    setup();
+
+    expect(screen.getByTestId('bulk-share-general-analyst-level')).toHaveTextContent('No access');
+    expect(screen.getByTestId('bulk-share-general-member-level')).toHaveTextContent('No access');
+
+    await user.click(screen.getByTestId('bulk-share-general-apply-btn'));
+
+    await waitFor(() => {
+      expect(mockBulkApplyAccess).toHaveBeenCalledWith({
+        items,
+        action: 'set_general',
+        set_general: { analyst_level: 'none', member_level: 'none' },
+      });
+    });
+  });
+
+  it('sends the chosen per-role levels independently', async () => {
+    const user = userEvent.setup();
+    mockBulkApplyAccess.mockResolvedValue({
+      applied: items,
+      skipped: [],
+      requires_confirmation: [],
+      applied_count: 2,
+      skipped_count: 0,
+    });
+    setup();
+
+    await user.click(screen.getByTestId('bulk-share-general-analyst-level'));
+    await user.click(await screen.findByRole('option', { name: 'Can Edit' }));
+    await user.click(screen.getByTestId('bulk-share-general-member-level'));
+    await user.click(await screen.findByRole('option', { name: 'Can View' }));
+
+    await user.click(screen.getByTestId('bulk-share-general-apply-btn'));
+
+    await waitFor(() => {
+      expect(mockBulkApplyAccess).toHaveBeenCalledWith({
+        items,
+        action: 'set_general',
+        set_general: { analyst_level: 'edit', member_level: 'view' },
+      });
+    });
+  });
+
   it('shows the aggregated confirm step, "keep" re-sends remove_grant_ids: [], "remove" re-sends the persisting grant ids', async () => {
     const user = userEvent.setup();
     mockBulkApplyAccess.mockResolvedValueOnce({
@@ -176,7 +228,7 @@ describe('BulkShareDialog — general access + narrow confirmation', () => {
       expect(mockBulkApplyAccess).toHaveBeenLastCalledWith({
         items,
         action: 'set_general',
-        set_general: { audience: 'private', level: 'view', remove_grant_ids: [] },
+        set_general: { analyst_level: 'none', member_level: 'none', remove_grant_ids: [] },
       });
     });
   });
@@ -210,7 +262,7 @@ describe('BulkShareDialog — general access + narrow confirmation', () => {
       expect(mockBulkApplyAccess).toHaveBeenLastCalledWith({
         items,
         action: 'set_general',
-        set_general: { audience: 'private', level: 'view', remove_grant_ids: [7] },
+        set_general: { analyst_level: 'none', member_level: 'none', remove_grant_ids: [7] },
       });
     });
   });
@@ -274,7 +326,7 @@ describe('BulkShareDialog — items snapshot (finding 2)', () => {
       expect(mockBulkApplyAccess).toHaveBeenLastCalledWith({
         items, // the ORIGINAL two-item snapshot, not the shrunk one-item prop
         action: 'set_general',
-        set_general: { audience: 'private', level: 'view' },
+        set_general: { analyst_level: 'none', member_level: 'none' },
       });
     });
   });

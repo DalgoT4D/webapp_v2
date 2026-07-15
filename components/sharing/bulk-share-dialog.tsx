@@ -30,19 +30,15 @@ import {
   type BulkItemRef,
   type BulkAccessResponse,
   type ShareableResourceType,
-  type AccessAudience,
   type AccessLevel,
+  type RolePermissionLevel,
 } from '@/hooks/api/useResourceAccess';
 import { useUsers } from '@/hooks/api/useUserManagement';
 import { useUserGroups } from '@/hooks/api/useUserGroups';
 import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { AUDIENCE_ORDER, audienceLabels, LEVEL_LABELS } from '@/lib/access-labels';
-
-// No per-resource org name available in a bulk action across possibly-mixed
-// resources, so this uses the shared labels' "your organization" fallback.
-const AUDIENCE_LABELS = audienceLabels();
+import { ROLE_LEVEL_ORDER, ROLE_LEVEL_LABELS, LEVEL_LABELS } from '@/lib/access-labels';
 
 // Plain-language mapping for the stable machine reason codes from
 // ddpui/core/sharing/sharing_actions.py (see task-17-report.md's table).
@@ -133,14 +129,17 @@ export function BulkShareDialog({
   const [personPermission, setPersonPermission] = useState<AccessLevel>('view');
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [groupPermission, setGroupPermission] = useState<AccessLevel>('view');
-  const [audience, setAudience] = useState<AccessAudience>('private');
-  const [level, setLevel] = useState<AccessLevel>('view');
+  // Per-role general-access levels (D1 rework) — replaces the old
+  // audience+level pair. Mirrors ShareModal's GeneralAccessSection vocabulary:
+  // Analysts and Members are each independently "none"/"view"/"edit".
+  const [analystLevel, setAnalystLevel] = useState<RolePermissionLevel>('none');
+  const [memberLevel, setMemberLevel] = useState<RolePermissionLevel>('none');
 
   const [isApplying, setIsApplying] = useState(false);
   const [result, setResult] = useState<BulkAccessResponse | null>(null);
   const [confirmState, setConfirmState] = useState<{
-    audience: AccessAudience;
-    level: AccessLevel;
+    analystLevel: RolePermissionLevel;
+    memberLevel: RolePermissionLevel;
     confirmationItems: BulkAccessResponse['requires_confirmation'];
   } | null>(null);
 
@@ -229,13 +228,17 @@ export function BulkShareDialog({
           items: snapshotItems,
           action: 'set_general',
           set_general: {
-            audience,
-            level,
+            analyst_level: analystLevel,
+            member_level: memberLevel,
             ...(removeGrantIds !== undefined ? { remove_grant_ids: removeGrantIds } : {}),
           },
         });
         if (response.requires_confirmation.length > 0) {
-          setConfirmState({ audience, level, confirmationItems: response.requires_confirmation });
+          setConfirmState({
+            analystLevel,
+            memberLevel,
+            confirmationItems: response.requires_confirmation,
+          });
         }
         handleResponse(response, 'set_general');
       } catch (error) {
@@ -244,7 +247,7 @@ export function BulkShareDialog({
         setIsApplying(false);
       }
     },
-    [snapshotItems, audience, level, handleResponse]
+    [snapshotItems, analystLevel, memberLevel, handleResponse]
   );
 
   const handleApplyGeneral = useCallback(() => applyGeneralAccess(undefined), [applyGeneralAccess]);
@@ -383,46 +386,52 @@ export function BulkShareDialog({
                 <Shield className="h-5 w-5 text-blue-600" />
                 <Label className="text-sm font-medium">Set general access</Label>
               </div>
-              <div className="flex gap-2">
-                <div className="flex-1 space-y-1">
-                  <Label htmlFor="bulk-share-general-audience" className="text-xs">
-                    Who has access
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-4">
+                  <Label htmlFor="bulk-share-general-analyst-level" className="text-sm">
+                    Analysts
                   </Label>
                   <Select
-                    value={audience}
-                    onValueChange={(value) => setAudience(value as AccessAudience)}
+                    value={analystLevel}
+                    onValueChange={(value) => setAnalystLevel(value as RolePermissionLevel)}
                   >
                     <SelectTrigger
-                      id="bulk-share-general-audience"
-                      data-testid="bulk-share-general-audience"
-                      className="w-full"
+                      id="bulk-share-general-analyst-level"
+                      data-testid="bulk-share-general-analyst-level"
+                      className="w-40"
                     >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {AUDIENCE_ORDER.map((a) => (
-                        <SelectItem key={a} value={a}>
-                          {AUDIENCE_LABELS[a]}
+                      {ROLE_LEVEL_ORDER.map((lvl) => (
+                        <SelectItem key={lvl} value={lvl}>
+                          {ROLE_LEVEL_LABELS[lvl]}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="w-28 space-y-1">
-                  <Label htmlFor="bulk-share-general-level" className="text-xs">
-                    Permission
+                <div className="flex items-center justify-between gap-4">
+                  <Label htmlFor="bulk-share-general-member-level" className="text-sm">
+                    Members
                   </Label>
-                  <Select value={level} onValueChange={(value) => setLevel(value as AccessLevel)}>
+                  <Select
+                    value={memberLevel}
+                    onValueChange={(value) => setMemberLevel(value as RolePermissionLevel)}
+                  >
                     <SelectTrigger
-                      id="bulk-share-general-level"
-                      data-testid="bulk-share-general-level"
-                      className="w-full"
+                      id="bulk-share-general-member-level"
+                      data-testid="bulk-share-general-member-level"
+                      className="w-40"
                     >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="view">{LEVEL_LABELS.view}</SelectItem>
-                      <SelectItem value="edit">{LEVEL_LABELS.edit}</SelectItem>
+                      {ROLE_LEVEL_ORDER.map((lvl) => (
+                        <SelectItem key={lvl} value={lvl}>
+                          {ROLE_LEVEL_LABELS[lvl]}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

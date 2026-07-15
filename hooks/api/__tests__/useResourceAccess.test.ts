@@ -279,7 +279,7 @@ describe('Mutation functions', () => {
       const result = await bulkApplyAccess({
         items: [{ rtype: 'dashboard', id: '1' }],
         action: 'set_general',
-        set_general: { audience: 'private', level: 'view' },
+        set_general: { analyst_level: 'none', member_level: 'none' },
       });
 
       expect(result.requires_confirmation).toEqual([
@@ -302,13 +302,13 @@ describe('Mutation functions', () => {
       await bulkApplyAccess({
         items: [{ rtype: 'dashboard', id: '1' }],
         action: 'set_general',
-        set_general: { audience: 'private', level: 'view', remove_grant_ids: [3] },
+        set_general: { analyst_level: 'none', member_level: 'none', remove_grant_ids: [3] },
       });
 
       expect(mockApiPost).toHaveBeenCalledWith('/api/access/bulk/', {
         items: [{ rtype: 'dashboard', id: '1' }],
         action: 'set_general',
-        set_general: { audience: 'private', level: 'view', remove_grant_ids: [3] },
+        set_general: { analyst_level: 'none', member_level: 'none', remove_grant_ids: [3] },
       });
     });
 

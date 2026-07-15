@@ -1,12 +1,15 @@
 /**
  * DashboardListV2 — sharing badges (Task 6c)
  *
- * GET /api/dashboards/ now carries general_audience, general_level, is_owner,
- * is_creator (Task 6b DashboardResponse fields). This suite covers the
- * derived badges: 🔒 Private / audience badge, and "Shared with you". The
- * component also has grid/list card renderers, but viewMode is hardcoded to
- * 'table' (see the component's viewMode const), so only the table row is
- * reachable and tested here.
+ * GET /api/dashboards/ carries analyst_level, member_level, is_owner,
+ * is_creator (Task 6b DashboardResponse fields; D1 renamed the general-access
+ * pair from general_audience/general_level to these two independently
+ * settable per-role levels). This suite covers the derived badges: 🔒 Private
+ * / analysts-only / everyone-in-org badge, and "Shared with you" — see
+ * deriveGeneralAccessBadge in dashboard-list-utils.ts for how the per-role
+ * pair collapses back down to one badge. The component also has grid/list
+ * card renderers, but viewMode is hardcoded to 'table' (see the component's
+ * viewMode const), so only the table row is reachable and tested here.
  */
 import React from 'react';
 import { render, screen } from '@testing-library/react';
@@ -93,38 +96,50 @@ function setup(dashboards: Dashboard[]) {
 describe('DashboardListV2 — sharing badges', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('shows a Private badge when general_audience is "private"', () => {
-    setup([baseDashboard({ id: 1, general_audience: 'private', is_owner: true })]);
+  it('shows a Private badge when both analyst_level and member_level are "none"', () => {
+    setup([
+      baseDashboard({ id: 1, analyst_level: 'none', member_level: 'none', is_owner: true }),
+    ]);
     expect(screen.getByTestId('dashboard-badge-private-1')).toHaveTextContent('Private');
     expect(screen.queryByTestId('dashboard-badge-audience-1')).not.toBeInTheDocument();
   });
 
-  it.each([
-    ['admins', 'Admins only'],
-    ['analysts_plus', 'Analysts and up'],
-    ['all_users', 'Everyone in org'],
-  ])('shows an audience badge for general_audience=%s', (audience, label) => {
+  it('shows the "Everyone in org" badge when member_level is "view", with the higher (member) level in the tooltip', () => {
     setup([
       baseDashboard({
         id: 2,
-        general_audience: audience as Dashboard['general_audience'],
-        general_level: 'view',
+        analyst_level: 'view',
+        member_level: 'view',
         is_owner: true,
       }),
     ]);
     const badge = screen.getByTestId('dashboard-badge-audience-2');
-    expect(badge).toHaveTextContent(label);
-    // general_level surfaces in the tooltip, "{audience} · {level}" — the same
-    // format as ShareModal's read-only General-access summary.
-    expect(badge).toHaveAttribute('title', `${label} · Viewer`);
+    expect(badge).toHaveTextContent('Everyone in org');
+    // The tooltip format is "{label} · {level}" — the same as ShareModal's
+    // read-only General-access summary.
+    expect(badge).toHaveAttribute('title', 'Everyone in org · Viewer');
   });
 
-  it('shows the Editor level in the audience badge tooltip for general_level=edit', () => {
+  it('shows the analysts-scoped badge when only analyst_level has access (member_level is "none")', () => {
+    setup([
+      baseDashboard({
+        id: 11,
+        analyst_level: 'view',
+        member_level: 'none',
+        is_owner: true,
+      }),
+    ]);
+    const badge = screen.getByTestId('dashboard-badge-audience-11');
+    expect(badge).toHaveTextContent('Analysts and up');
+    expect(badge).toHaveAttribute('title', 'Analysts and up · Viewer');
+  });
+
+  it('shows the higher (Editor) level in the "Everyone in org" badge tooltip when analyst_level is Edit and member_level is View', () => {
     setup([
       baseDashboard({
         id: 9,
-        general_audience: 'all_users',
-        general_level: 'edit',
+        analyst_level: 'edit',
+        member_level: 'view',
         is_owner: true,
       }),
     ]);
@@ -134,23 +149,10 @@ describe('DashboardListV2 — sharing badges', () => {
     );
   });
 
-  it('falls back to the bare audience label in the tooltip when general_level is null', () => {
+  it('shows no audience/private badge when analyst_level and member_level are both null (predates general-access config, or an anonymous public-view caller)', () => {
     setup([
-      baseDashboard({
-        id: 10,
-        general_audience: 'admins',
-        general_level: null,
-        is_owner: true,
-      }),
+      baseDashboard({ id: 3, analyst_level: null, member_level: null, is_owner: true }),
     ]);
-    expect(screen.getByTestId('dashboard-badge-audience-10')).toHaveAttribute(
-      'title',
-      'Admins only'
-    );
-  });
-
-  it('shows no audience/private badge when general_audience is null', () => {
-    setup([baseDashboard({ id: 3, general_audience: null, is_owner: true })]);
     expect(screen.queryByTestId('dashboard-badge-private-3')).not.toBeInTheDocument();
     expect(screen.queryByTestId('dashboard-badge-audience-3')).not.toBeInTheDocument();
   });

@@ -206,9 +206,12 @@ export interface BulkAddGrantPayload {
   permission: AccessLevel;
 }
 
+// Mirrors SetGeneralAccessPayload above (D1 per-role rework) — the bulk
+// set_general action shares GeneralAccessUpdate's shape with the single-item
+// PUT, just applied across the selection instead of one resource.
 export interface BulkSetGeneralPayload {
-  audience: AccessAudience;
-  level: AccessLevel;
+  analyst_level: RolePermissionLevel;
+  member_level: RolePermissionLevel;
   // Present (possibly []) only when re-committing after a requires_confirmation
   // response — a flat, global list of grant ids (unique PKs, no per-resource nesting needed).
   remove_grant_ids?: number[];

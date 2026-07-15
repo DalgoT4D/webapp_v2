@@ -112,9 +112,9 @@ import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
 import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 import {
-  AUDIENCE_BADGE_LABELS,
   audienceBadgeTitle,
   isSharedWithViewer,
+  deriveGeneralAccessBadge,
 } from './dashboard-list-utils';
 
 // Simple debounce implementation
@@ -859,10 +859,16 @@ export function DashboardListV2() {
     const isLockedByOther =
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
     const isFavorited = favorites.has(dashboard.id);
-    const audienceBadgeLabel = dashboard.general_audience
-      ? AUDIENCE_BADGE_LABELS[dashboard.general_audience]
-      : undefined;
-    const isPrivate = dashboard.general_audience === 'private';
+    // D1: per-role levels replace the old general_audience/general_level pair
+    // -- see deriveGeneralAccessBadge for how {analyst_level, member_level}
+    // collapses back down to the single badge this row shows.
+    const generalAccessBadge = deriveGeneralAccessBadge(
+      dashboard.analyst_level,
+      dashboard.member_level
+    );
+    const audienceBadgeLabel =
+      generalAccessBadge?.kind !== 'private' ? generalAccessBadge?.label : undefined;
+    const isPrivate = generalAccessBadge?.kind === 'private';
     const isSharedWithMe = isSharedWithViewer(dashboard);
 
     const getNavigationUrl = () => {
@@ -938,7 +944,7 @@ export function DashboardListV2() {
                         variant="outline"
                         className="text-sm bg-blue-50 text-blue-700 border-blue-200"
                         data-testid={`dashboard-badge-audience-${dashboard.id}`}
-                        title={audienceBadgeTitle(audienceBadgeLabel, dashboard.general_level)}
+                        title={audienceBadgeTitle(audienceBadgeLabel, generalAccessBadge?.level)}
                       >
                         <Shield className="w-3 h-3 mr-1" />
                         {audienceBadgeLabel}

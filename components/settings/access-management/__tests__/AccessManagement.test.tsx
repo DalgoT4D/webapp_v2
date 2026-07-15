@@ -14,6 +14,7 @@ import userEvent from '@testing-library/user-event';
 import AccessManagement from '../AccessManagement';
 import { useOrgPreferences, updateSharingPreferences } from '@/hooks/api/useNotifications';
 import { trackEvent } from '@/lib/analytics';
+import type { OrgPreferences } from '@/types/notifications';
 
 jest.mock('@/hooks/api/useNotifications', () => ({
   ...jest.requireActual('@/hooks/api/useNotifications'),
@@ -29,12 +30,12 @@ jest.mock('@/lib/toast', () => ({
 const mockUseOrgPreferences = useOrgPreferences as jest.Mock;
 const mockUpdateSharingPreferences = updateSharingPreferences as jest.Mock;
 
-const baseOrgPreferences = {
+const baseOrgPreferences: OrgPreferences = {
   enable_discord_notifications: false,
   discord_webhook: '',
   allow_public_sharing: true,
-  default_analyst_level: 'edit' as const,
-  default_member_level: 'view' as const,
+  default_analyst_level: 'edit',
+  default_member_level: 'view',
 };
 
 function setup(overrides: Partial<typeof baseOrgPreferences> = {}) {
