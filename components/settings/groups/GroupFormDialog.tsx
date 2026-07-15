@@ -188,7 +188,7 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="group-form-dialog" className="sm:max-w-sm">
+      <DialogContent data-testid="group-form-dialog" className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isRename ? 'Rename group' : 'Create group'}</DialogTitle>
         </DialogHeader>
@@ -202,7 +202,7 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
               setName(e.target.value);
               setError(null);
             }}
-            placeholder="e.g. Funders"
+            placeholder="Add group name"
             disabled={isSubmitting}
             autoFocus
           />
@@ -233,7 +233,7 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
             onClick={handleSubmit}
             disabled={isSubmitting || !name.trim()}
           >
-            {isSubmitting ? 'Saving…' : isRename ? 'Rename' : 'Create'}
+            {isSubmitting ? 'Saving…' : isRename ? 'Rename' : 'Create group'}
           </Button>
         </DialogFooter>
       </DialogContent>
