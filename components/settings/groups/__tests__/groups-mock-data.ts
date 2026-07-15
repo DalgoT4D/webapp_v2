@@ -24,6 +24,7 @@ export function createMockGroupDetail(overrides: Partial<UserGroupDetail> = {}):
         name: 'Asha Kumar',
         pending_email: null,
         status: 'active',
+        role: 'analyst',
       },
       {
         id: 11,
@@ -32,6 +33,7 @@ export function createMockGroupDetail(overrides: Partial<UserGroupDetail> = {}):
         name: 'Meera Das',
         pending_email: null,
         status: 'active',
+        role: 'member',
       },
     ],
     ...overrides,

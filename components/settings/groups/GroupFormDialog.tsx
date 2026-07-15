@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,8 +11,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { createGroup, renameGroup, type UserGroup } from '@/hooks/api/useUserGroups';
-import { toastSuccess } from '@/lib/toast';
+import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
+import {
+  addGroupMember,
+  createGroup,
+  renameGroup,
+  type UserGroup,
+} from '@/hooks/api/useUserGroups';
+import { useUsers } from '@/hooks/api/useUserManagement';
+import { toastSuccess, toastWarning } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
@@ -31,11 +38,25 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
   const [name, setName] = useState(group?.name ?? '');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // F4: create-with-members, one dialog. Existing org users only — no
+  // invite-by-email here (blocked on a separate product decision); the
+  // two-step path (create empty, add via the detail drawer) still works.
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const { users: orgUsers } = useUsers();
+
+  const memberCandidates: ComboboxItem[] = useMemo(
+    () =>
+      (orgUsers || [])
+        .filter((u) => typeof u.orguser_id === 'number')
+        .map((u) => ({ value: String(u.orguser_id), label: u.email })),
+    [orgUsers]
+  );
 
   useEffect(() => {
     if (open) {
       setName(group?.name ?? '');
       setError(null);
+      setSelectedMemberIds([]);
     }
   }, [open, group]);
 
@@ -53,9 +74,36 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
         trackEvent(ANALYTICS_EVENTS.GROUP_RENAMED);
         toastSuccess.generic('Group renamed');
       } else {
-        await createGroup({ name: trimmed });
+        const newGroup = await createGroup({ name: trimmed });
         trackEvent(ANALYTICS_EVENTS.GROUP_CREATED);
-        toastSuccess.generic('Group created');
+
+        if (selectedMemberIds.length > 0) {
+          // Sequence: create -> add members. A member-add failure never
+          // rolls back the group — it stays created, and the toast names
+          // exactly who wasn't added so the admin can retry from the drawer.
+          const results = await Promise.allSettled(
+            selectedMemberIds.map((id) => addGroupMember(newGroup.id, { orguser_id: Number(id) }))
+          );
+          const failedLabels = results
+            .map((result, index) =>
+              result.status === 'rejected'
+                ? (memberCandidates.find((c) => c.value === selectedMemberIds[index])?.label ??
+                  selectedMemberIds[index])
+                : null
+            )
+            .filter((label): label is string => label !== null);
+
+          const addedCount = results.length - failedLabels.length;
+          if (addedCount > 0) trackEvent(ANALYTICS_EVENTS.GROUP_MEMBER_ADDED);
+
+          if (failedLabels.length > 0) {
+            toastWarning.generic(`Group created, but couldn't add: ${failedLabels.join(', ')}`);
+          } else {
+            toastSuccess.generic('Group created');
+          }
+        } else {
+          toastSuccess.generic('Group created');
+        }
       }
       onSuccess();
       onOpenChange(false);
@@ -94,6 +142,20 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
             </p>
           )}
         </div>
+        {!isRename && (
+          <div className="space-y-2">
+            <Label htmlFor="group-form-members-combobox-search">Add members (optional)</Label>
+            <Combobox
+              id="group-form-members-combobox"
+              mode="multi"
+              items={memberCandidates}
+              values={selectedMemberIds}
+              onValuesChange={setSelectedMemberIds}
+              searchPlaceholder="Search org members by email"
+              disabled={isSubmitting}
+            />
+          </div>
+        )}
         <DialogFooter>
           <Button
             variant="outline"

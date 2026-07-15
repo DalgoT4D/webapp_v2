@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Trash2, UserPlus } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { useUserGroup, removeGroupMember, addGroupMember } from '@/hooks/api/useUserGroups';
 import { useUsers } from '@/hooks/api/useUserManagement';
@@ -12,6 +13,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { formatRoleLabel } from '@/lib/access-labels';
 
 interface GroupDetailDrawerProps {
   groupId: number | null;
@@ -105,10 +107,22 @@ export function GroupDetailDrawer({
                 data-testid={`group-member-row-${member.id}`}
                 className="flex items-center justify-between gap-2 text-sm"
               >
-                <span className="truncate">
-                  {member.name || member.email || member.pending_email}
-                  {member.status === 'pending' && (
-                    <span className="ml-2 text-xs text-muted-foreground">(invite pending)</span>
+                <span className="flex items-center gap-2 truncate">
+                  <span className="truncate">
+                    {member.name || member.email || member.pending_email}
+                  </span>
+                  {member.status === 'pending' ? (
+                    <span className="text-xs text-muted-foreground shrink-0">(invite pending)</span>
+                  ) : (
+                    member.role && (
+                      <Badge
+                        variant="outline"
+                        data-testid={`group-member-role-${member.id}`}
+                        className="shrink-0"
+                      >
+                        {formatRoleLabel(member.role)}
+                      </Badge>
+                    )
                   )}
                 </span>
                 {canManage && (

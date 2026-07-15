@@ -75,7 +75,7 @@ export default function UserManagement({
 
         <div className="flex-1 w-full px-6 pt-4 pb-6 overflow-y-auto min-h-0">
           <TabsContent value="users" className="mt-0">
-            <UsersTable />
+            <UsersTable onInviteClick={() => onShowInviteDialogChange(true)} />
           </TabsContent>
 
           {canViewInvitations && (

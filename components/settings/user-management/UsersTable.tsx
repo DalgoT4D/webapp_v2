@@ -48,9 +48,15 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CreatedByCell } from '@/components/settings/AvatarInitial';
+import { LearnAccessLink } from '@/components/settings/access/LearnAccessLink';
 import { DeleteUserDialog } from './DeleteUserDialog';
 
-export function UsersTable() {
+interface UsersTableProps {
+  /** Empty-state CTA opens the People-tab invite dialog, owned by AccessPage. */
+  onInviteClick?: () => void;
+}
+
+export function UsersTable({ onInviteClick }: UsersTableProps = {}) {
   const { users, isLoading, mutate } = useUsers();
   const { roles } = useRoles();
   const { updateUserRole } = useUserActions();
@@ -299,6 +305,33 @@ export function UsersTable() {
         <div className="flex items-center justify-center h-32">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
+      </div>
+    );
+  }
+
+  // The signed-in user's own row is always present in this list (only their
+  // row *actions* are disabled, see below) — a literal zero-user org isn't
+  // reachable in practice. "No people yet" therefore fires at <= 1 (self
+  // only), matching the design's empty illustration honestly rather than a
+  // state that could never occur.
+  if (users && users.length <= 1) {
+    return (
+      <div
+        data-testid="users-empty-state"
+        className="border rounded-lg bg-white flex flex-col items-center justify-center gap-4 py-16 px-6 text-center"
+      >
+        <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
+          <User className="w-10 h-10 text-gray-400" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900">No people yet</h3>
+        <p className="text-muted-foreground max-w-sm">
+          Invite your team members to collaborate. They&apos;ll appear here once they&apos;ve
+          accepted your invitation.
+        </p>
+        <Button variant="primary" onClick={onInviteClick} data-testid="users-empty-invite-btn">
+          INVITE USER
+        </Button>
+        <LearnAccessLink />
       </div>
     );
   }
