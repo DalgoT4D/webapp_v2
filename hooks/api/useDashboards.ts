@@ -3,6 +3,7 @@ import { apiGet, apiPost, apiPut, apiDelete, apiPublicGet } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type { DashboardTab } from '@/types/dashboard';
+import type { RolePermissionLevel } from '@/hooks/api/useResourceAccess';
 
 // API response shape for a tab (same as DashboardTab from types)
 export type DashboardTabData = DashboardTab;
@@ -40,10 +41,11 @@ export interface Dashboard {
   org_name?: string;
   org_logo_url?: string;
   // Access-control sharing metadata (Task 6b DashboardResponse fields) — viewer-relative,
-  // so the same dashboard can read differently per viewer. Null audience/level means the
-  // resource predates general-access config or the caller is anonymous (public view).
-  general_audience?: 'private' | 'admins' | 'analysts_plus' | 'all_users' | null;
-  general_level?: 'view' | 'edit' | null;
+  // so the same dashboard can read differently per viewer. Null analyst_level/member_level
+  // means the resource predates general-access config or the caller is anonymous (public
+  // view). D1: per-role levels, replacing the old general_audience/general_level pair.
+  analyst_level?: RolePermissionLevel | null;
+  member_level?: RolePermissionLevel | null;
   is_owner?: boolean;
   is_creator?: boolean;
 }

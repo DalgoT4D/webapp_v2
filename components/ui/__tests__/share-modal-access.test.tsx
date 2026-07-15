@@ -43,7 +43,7 @@ const baseOverview: ResourceAccessOverview = {
   resource_id: '1',
   capabilities: { general: true, grants: true, public_link: true, requests: true },
   owner: { orguser_id: 1, email: 'asha@ngo.org', name: 'Asha Kumar' },
-  general_access: { audience: 'analysts_plus', level: 'view' },
+  general_access: { analyst_level: 'view', member_level: 'view' },
   grants: [
     {
       id: 3,
@@ -320,40 +320,66 @@ describe('ShareModal — People with access', () => {
   });
 });
 
-describe('ShareModal — General access', () => {
+describe('ShareModal — General access (per-role, permission-model rework D1)', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('renders the two dropdowns reflecting current audience/level', () => {
+  it('renders the Analysts and Members dropdowns reflecting current levels', () => {
     renderModal();
-    expect(screen.getByTestId('share-general-audience')).toHaveTextContent('Analysts and up');
-    expect(screen.getByTestId('share-general-level')).toHaveTextContent('Viewer');
+    expect(screen.getByTestId('share-general-analyst-level')).toHaveTextContent('Can View');
+    expect(screen.getByTestId('share-general-member-level')).toHaveTextContent('Can View');
   });
 
-  it('commits immediately when widening and fires analytics', async () => {
+  it('commits immediately when widening the analyst level and fires analytics', async () => {
     const user = userEvent.setup();
     mockSetGeneralAccess.mockResolvedValue({
       requires_confirmation: false,
       persisting_grants: [],
-      general_access: { audience: 'all_users', level: 'view' },
+      general_access: { analyst_level: 'edit', member_level: 'view' },
     });
     renderModal();
 
-    await user.click(screen.getByTestId('share-general-audience'));
-    await user.click(screen.getByRole('option', { name: /Everyone in/ }));
+    await user.click(screen.getByTestId('share-general-analyst-level'));
+    await user.click(screen.getByRole('option', { name: 'Can Edit' }));
 
     await waitFor(() => {
       expect(mockSetGeneralAccess).toHaveBeenCalledWith('dashboard', 1, {
-        audience: 'all_users',
-        level: 'view',
+        analyst_level: 'edit',
+        member_level: 'view',
       });
       expect(trackEvent).toHaveBeenCalledWith(
         'sharing:general_access_updated',
-        expect.objectContaining({ entity_type: 'dashboard', audience: 'all_users' })
+        expect.objectContaining({ entity_type: 'dashboard', analyst_level: 'edit' })
       );
     });
   });
 
-  it('shows the persisting-grants confirmation panel on narrowing and re-sends with remove_grant_ids on "Keep"', async () => {
+  it('widening the member level sends the unchanged analyst level alongside it', async () => {
+    const user = userEvent.setup();
+    mockSetGeneralAccess.mockResolvedValue({
+      requires_confirmation: false,
+      persisting_grants: [],
+      general_access: { analyst_level: 'view', member_level: 'edit' },
+    });
+    renderModal();
+
+    await user.click(screen.getByTestId('share-general-member-level'));
+    await user.click(screen.getByRole('option', { name: 'Can Edit' }));
+
+    await waitFor(() => {
+      expect(mockSetGeneralAccess).toHaveBeenCalledWith('dashboard', 1, {
+        analyst_level: 'view',
+        member_level: 'edit',
+      });
+    });
+  });
+
+  it('renders "No access" for a role with no general_access row (defaults)', () => {
+    renderModal({ general_access: null });
+    expect(screen.getByTestId('share-general-analyst-level')).toHaveTextContent('No access');
+    expect(screen.getByTestId('share-general-member-level')).toHaveTextContent('No access');
+  });
+
+  it('narrowing the member level to No access warns about members only, and re-sends with remove_grant_ids on "Keep"', async () => {
     const user = userEvent.setup();
     mockSetGeneralAccess.mockResolvedValueOnce({
       requires_confirmation: true,
@@ -362,30 +388,32 @@ describe('ShareModal — General access', () => {
     });
     renderModal();
 
-    await user.click(screen.getByTestId('share-general-audience'));
-    await user.click(screen.getByRole('option', { name: 'Restricted (only people with access)' }));
+    await user.click(screen.getByTestId('share-general-member-level'));
+    await user.click(screen.getByRole('option', { name: 'No access' }));
 
     await waitFor(() => {
-      expect(screen.getByTestId('share-general-confirm-panel')).toHaveTextContent('Meera Das');
+      const panel = screen.getByTestId('share-general-confirm-panel');
+      expect(panel).toHaveTextContent('Meera Das');
+      expect(panel).toHaveTextContent('member still has individual access');
     });
 
     mockSetGeneralAccess.mockResolvedValueOnce({
       requires_confirmation: false,
       persisting_grants: [],
-      general_access: { audience: 'private', level: 'view' },
+      general_access: { analyst_level: 'view', member_level: 'none' },
     });
     await user.click(screen.getByTestId('share-general-confirm-keep-btn'));
 
     await waitFor(() => {
       expect(mockSetGeneralAccess).toHaveBeenLastCalledWith('dashboard', 1, {
-        audience: 'private',
-        level: 'view',
+        analyst_level: 'view',
+        member_level: 'none',
         remove_grant_ids: [],
       });
     });
   });
 
-  it('re-sends with the persisting grant ids on "Remove their access too"', async () => {
+  it('narrowing the analyst level warns about analysts only and re-sends with the persisting grant ids on "Remove their access too"', async () => {
     const user = userEvent.setup();
     mockSetGeneralAccess.mockResolvedValueOnce({
       requires_confirmation: true,
@@ -394,24 +422,26 @@ describe('ShareModal — General access', () => {
     });
     renderModal();
 
-    await user.click(screen.getByTestId('share-general-audience'));
-    await user.click(screen.getByRole('option', { name: 'Restricted (only people with access)' }));
+    await user.click(screen.getByTestId('share-general-analyst-level'));
+    await user.click(screen.getByRole('option', { name: 'No access' }));
 
     await waitFor(() => {
-      expect(screen.getByTestId('share-general-confirm-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('share-general-confirm-panel')).toHaveTextContent(
+        'analyst still has individual access'
+      );
     });
 
     mockSetGeneralAccess.mockResolvedValueOnce({
       requires_confirmation: false,
       persisting_grants: [],
-      general_access: { audience: 'private', level: 'view' },
+      general_access: { analyst_level: 'none', member_level: 'view' },
     });
     await user.click(screen.getByTestId('share-general-confirm-remove-btn'));
 
     await waitFor(() => {
       expect(mockSetGeneralAccess).toHaveBeenLastCalledWith('dashboard', 1, {
-        audience: 'private',
-        level: 'view',
+        analyst_level: 'none',
+        member_level: 'view',
         remove_grant_ids: [3],
       });
     });
@@ -419,8 +449,74 @@ describe('ShareModal — General access', () => {
 
   it('renders a read-only summary instead of dropdowns when the viewer cannot share', () => {
     renderModal({ viewer: { effective_permission: 'view', is_owner: false } }, false);
-    expect(screen.queryByTestId('share-general-audience')).not.toBeInTheDocument();
-    expect(screen.getByTestId('share-general-readonly')).toHaveTextContent('Analysts and up');
+    expect(screen.queryByTestId('share-general-analyst-level')).not.toBeInTheDocument();
+    const readonly = screen.getByTestId('share-general-readonly');
+    expect(readonly).toHaveTextContent('Analysts — Can View');
+    expect(readonly).toHaveTextContent('Members — Can View');
+  });
+
+  it('disables both Selects while a general-access PATCH is in flight, preventing a second change from racing the first, then re-enables once it settles', async () => {
+    const user = userEvent.setup();
+    let resolveFirst: (value: unknown) => void = () => {};
+    const firstCall = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
+    mockSetGeneralAccess.mockReturnValueOnce(firstCall);
+    renderModal();
+
+    await user.click(screen.getByTestId('share-general-analyst-level'));
+    await user.click(screen.getByRole('option', { name: 'Can Edit' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('share-general-analyst-level')).toBeDisabled();
+    });
+    expect(screen.getByTestId('share-general-member-level')).toBeDisabled();
+
+    resolveFirst({
+      requires_confirmation: false,
+      persisting_grants: [],
+      general_access: { analyst_level: 'edit', member_level: 'view' },
+    });
+
+    await waitFor(() => {
+      expect(mockSetGeneralAccess).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('share-general-analyst-level')).toBeEnabled();
+    });
+    expect(screen.getByTestId('share-general-member-level')).toBeEnabled();
+  });
+
+  it('keeps both Selects disabled while the narrowing confirmation panel is open, then re-enables once Keep/Remove settles', async () => {
+    const user = userEvent.setup();
+    mockSetGeneralAccess.mockResolvedValueOnce({
+      requires_confirmation: true,
+      persisting_grants: [baseOverview.grants[0]],
+      general_access: null,
+    });
+    renderModal();
+
+    await user.click(screen.getByTestId('share-general-member-level'));
+    await user.click(screen.getByRole('option', { name: 'No access' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('share-general-confirm-panel')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('share-general-analyst-level')).toBeDisabled();
+    expect(screen.getByTestId('share-general-member-level')).toBeDisabled();
+
+    mockSetGeneralAccess.mockResolvedValueOnce({
+      requires_confirmation: false,
+      persisting_grants: [],
+      general_access: { analyst_level: 'view', member_level: 'none' },
+    });
+    await user.click(screen.getByTestId('share-general-confirm-keep-btn'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('share-general-confirm-panel')).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId('share-general-analyst-level')).toBeEnabled();
+    expect(screen.getByTestId('share-general-member-level')).toBeEnabled();
   });
 });
 

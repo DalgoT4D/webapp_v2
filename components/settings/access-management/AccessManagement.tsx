@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { ShieldCheck, Lock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
   SelectContent,
@@ -16,75 +18,246 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useOrgPreferences, updateSharingPreferences } from '@/hooks/api/useNotifications';
-import type { AccessAudience, AccessLevel } from '@/hooks/api/useResourceAccess';
-import { AUDIENCE_ORDER, audienceLabels, LEVEL_LABELS } from '@/lib/access-labels';
+import type { RolePermissionLevel } from '@/hooks/api/useResourceAccess';
+import { ROLE_LEVEL_ORDER, ROLE_LEVEL_LABELS } from '@/lib/access-labels';
 
-// Same vocabulary ShareModal/BulkShareDialog use everywhere else — this page
-// describes the ORG DEFAULT rather than "who has access to this resource",
-// and has no per-resource org name to interpolate, so it uses the shared
-// "your organization" fallback for "all_users".
-const AUDIENCE_LABELS = audienceLabels();
+// Draft state for the two editable per-role dropdowns (Admins is fixed and
+// never part of the draft — see the "Resources access" column below).
+interface DefaultPermissionsDraft {
+  analyst: RolePermissionLevel;
+  member: RolePermissionLevel;
+}
 
 export default function AccessManagement() {
   const { orgPreferences, isLoading, mutate } = useOrgPreferences();
 
-  const applySharingChange = useCallback(
-    async (
-      setting: 'allow_public_sharing' | 'default_general_audience' | 'default_general_level',
-      value: boolean | AccessAudience | AccessLevel,
-      payload: Parameters<typeof updateSharingPreferences>[0]
-    ) => {
-      try {
-        await updateSharingPreferences(payload);
-        mutate();
-        toastSuccess.generic('Sharing settings updated');
-        trackEvent(ANALYTICS_EVENTS.SHARING_SETTINGS_UPDATED, { setting, value });
-      } catch (error) {
-        toastError.api(error, 'update sharing settings');
-      }
-    },
-    [mutate]
+  // Draft/batch-commit state for the "Default permissions" table (design's
+  // page-level SAVE/CANCEL). Initialized once GET data arrives; CANCEL and a
+  // successful SAVE both reset it back to what orgPreferences currently
+  // holds (the last-saved value).
+  const [draft, setDraft] = useState<DefaultPermissionsDraft | null>(null);
+
+  // Tracks the last orgPreferences-derived values the draft was synced from,
+  // so a background SWR revalidation (another admin changing the org
+  // defaults elsewhere, a stale-then-fresh cache correction on mount — see
+  // the repo CLAUDE.md's SWR-stale-cache gotcha) can re-sync the draft
+  // WITHOUT clobbering an in-progress unsaved edit. Only resyncs when the
+  // current draft still matches the previously-known source (i.e. the user
+  // hasn't touched a dropdown since the last sync).
+  const lastSyncedSourceRef = useRef<DefaultPermissionsDraft | null>(null);
+
+  useEffect(() => {
+    if (!orgPreferences) return;
+    const source: DefaultPermissionsDraft = {
+      analyst: orgPreferences.default_analyst_level,
+      member: orgPreferences.default_member_level,
+    };
+    const lastSynced = lastSyncedSourceRef.current;
+    const sourceChanged =
+      !lastSynced || lastSynced.analyst !== source.analyst || lastSynced.member !== source.member;
+    if (!sourceChanged) return;
+
+    setDraft((current) => {
+      const draftMatchesLastSyncedSource =
+        !lastSynced ||
+        !current ||
+        (current.analyst === lastSynced.analyst && current.member === lastSynced.member);
+      return draftMatchesLastSyncedSource ? source : current;
+    });
+    lastSyncedSourceRef.current = source;
+  }, [orgPreferences]);
+
+  const isDirty = Boolean(
+    draft &&
+      orgPreferences &&
+      (draft.analyst !== orgPreferences.default_analyst_level ||
+        draft.member !== orgPreferences.default_member_level)
   );
 
-  const handleTogglePublicSharing = (checked: boolean) =>
-    applySharingChange('allow_public_sharing', checked, { allow_public_sharing: checked });
+  const handleAnalystLevelChange = (value: string) =>
+    setDraft((prev) => (prev ? { ...prev, analyst: value as RolePermissionLevel } : prev));
 
-  const handleAudienceChange = (value: string) =>
-    applySharingChange('default_general_audience', value as AccessAudience, {
-      default_general_audience: value as AccessAudience,
-    });
+  const handleMemberLevelChange = (value: string) =>
+    setDraft((prev) => (prev ? { ...prev, member: value as RolePermissionLevel } : prev));
 
-  const handleLevelChange = (value: string) =>
-    applySharingChange('default_general_level', value as AccessLevel, {
-      default_general_level: value as AccessLevel,
+  const handleCancel = () => {
+    if (!orgPreferences) return;
+    setDraft({
+      analyst: orgPreferences.default_analyst_level,
+      member: orgPreferences.default_member_level,
     });
+  };
+
+  const handleSave = useCallback(async () => {
+    if (!draft) return;
+    try {
+      await updateSharingPreferences({
+        default_analyst_level: draft.analyst,
+        default_member_level: draft.member,
+      });
+      mutate();
+      toastSuccess.generic('Default permissions updated');
+      trackEvent(ANALYTICS_EVENTS.SHARING_SETTINGS_UPDATED, {
+        setting: 'default_permissions',
+        analyst_level: draft.analyst,
+        member_level: draft.member,
+      });
+    } catch (error) {
+      toastError.api(error, 'update default permissions');
+    }
+  }, [draft, mutate]);
+
+  // Kill switch keeps its pre-existing immediate-apply behavior — deliberate
+  // deviation from the table's draft semantics, since toggling it has
+  // immediate side effects on live public links (see report note D2).
+  const handleTogglePublicSharing = async (checked: boolean) => {
+    try {
+      await updateSharingPreferences({ allow_public_sharing: checked });
+      mutate();
+      toastSuccess.generic('Sharing settings updated');
+      trackEvent(ANALYTICS_EVENTS.SHARING_SETTINGS_UPDATED, {
+        setting: 'allow_public_sharing',
+        value: checked,
+      });
+    } catch (error) {
+      toastError.api(error, 'update sharing settings');
+    }
+  };
 
   return (
     <div className="h-full flex flex-col min-h-0">
       <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 pt-6 space-y-6">
-        {isLoading || !orgPreferences ? (
-          <p className="text-sm text-muted-foreground" data-testid="access-management-loading">
-            Loading access settings…
-          </p>
+        {isLoading || !orgPreferences || !draft ? (
+          <div className="space-y-3" data-testid="access-management-loading">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </div>
         ) : (
           <>
             <Card>
-              <CardContent className="p-4 space-y-3">
-                <Label className="text-sm font-medium">Roles in your organization</Label>
-                <div className="space-y-2" data-testid="access-mgmt-role-descriptions">
-                  <p className="text-xs text-muted-foreground">
-                    <strong className="text-foreground font-medium">Admins</strong> — Run the
-                    organisation, manage people, settings and data.
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    <strong className="text-foreground font-medium">Analysts</strong> — Build and
-                    maintain dashboards, charts and reports.
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    <strong className="text-foreground font-medium">Members</strong> — Work with the
-                    shared dashboards and reports
+              <CardContent className="p-4 space-y-4">
+                <div>
+                  <Label className="text-sm font-medium">Default permissions</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Sets what each role can do across all resources on the platform.
                   </p>
                 </div>
+
+                <table className="w-full text-sm" data-testid="access-mgmt-roles-table">
+                  <thead>
+                    <tr className="border-b text-left text-xs font-medium text-muted-foreground">
+                      <th className="py-2 pr-4 font-medium">Role</th>
+                      <th className="py-2 px-4 font-medium">Data & Pipeline access</th>
+                      <th className="py-2 pl-4 font-medium">Resources access</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      className="border-b last:border-b-0"
+                      data-testid="access-mgmt-role-row-admin"
+                    >
+                      <td className="py-3 pr-4 align-top">
+                        <p className="font-medium text-foreground">Admins</p>
+                        <p className="text-xs text-muted-foreground">
+                          Run the organisation, manage people, settings and data.
+                        </p>
+                      </td>
+                      <td className="py-3 px-4 align-top">
+                        <span
+                          data-testid="access-mgmt-data-pipeline-admin"
+                          className="inline-flex items-center rounded-md border bg-muted px-3 py-1 text-xs text-muted-foreground"
+                        >
+                          All access
+                        </span>
+                      </td>
+                      <td className="py-3 pl-4 align-top">
+                        <span
+                          data-testid="access-mgmt-resources-admin"
+                          className="inline-flex items-center gap-2 rounded-md border bg-muted px-3 py-1.5 text-xs text-muted-foreground"
+                        >
+                          All access
+                          <Lock
+                            data-testid="access-mgmt-resources-admin-lock"
+                            className="h-3 w-3"
+                          />
+                        </span>
+                      </td>
+                    </tr>
+
+                    <tr
+                      className="border-b last:border-b-0"
+                      data-testid="access-mgmt-role-row-analyst"
+                    >
+                      <td className="py-3 pr-4 align-top">
+                        <p className="font-medium text-foreground">Analysts</p>
+                        <p className="text-xs text-muted-foreground">
+                          Build and maintain dashboards, charts and reports.
+                        </p>
+                      </td>
+                      <td className="py-3 px-4 align-top">
+                        <span
+                          data-testid="access-mgmt-data-pipeline-analyst"
+                          className="inline-flex items-center rounded-md border bg-muted px-3 py-1 text-xs text-muted-foreground"
+                        >
+                          View only
+                        </span>
+                      </td>
+                      <td className="py-3 pl-4 align-top">
+                        <Select value={draft.analyst} onValueChange={handleAnalystLevelChange}>
+                          <SelectTrigger
+                            id="access-mgmt-resources-analyst"
+                            data-testid="access-mgmt-resources-analyst"
+                            className="w-40"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ROLE_LEVEL_ORDER.map((level) => (
+                              <SelectItem key={level} value={level}>
+                                {ROLE_LEVEL_LABELS[level]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                    </tr>
+
+                    <tr data-testid="access-mgmt-role-row-member">
+                      <td className="py-3 pr-4 align-top">
+                        <p className="font-medium text-foreground">Members</p>
+                        <p className="text-xs text-muted-foreground">
+                          Work with the shared dashboards and reports
+                        </p>
+                      </td>
+                      <td className="py-3 px-4 align-top">
+                        <span
+                          data-testid="access-mgmt-data-pipeline-member"
+                          className="inline-flex items-center rounded-md border bg-muted px-3 py-1 text-xs text-muted-foreground"
+                        >
+                          No access
+                        </span>
+                      </td>
+                      <td className="py-3 pl-4 align-top">
+                        <Select value={draft.member} onValueChange={handleMemberLevelChange}>
+                          <SelectTrigger
+                            id="access-mgmt-resources-member"
+                            data-testid="access-mgmt-resources-member"
+                            className="w-40"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ROLE_LEVEL_ORDER.map((level) => (
+                              <SelectItem key={level} value={level}>
+                                {ROLE_LEVEL_LABELS[level]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </CardContent>
             </Card>
 
@@ -111,63 +284,19 @@ export default function AccessManagement() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <Label className="text-sm font-medium">Default access for new resources</Label>
-                <p className="text-xs text-muted-foreground">
-                  These settings only apply to dashboards, reports, alerts, metrics, and KPIs
-                  created from now on — they don&apos;t change access on anything that already
-                  exists.
-                </p>
-                <div className="flex gap-2">
-                  <div className="flex-1 space-y-1">
-                    <Label htmlFor="access-mgmt-default-audience" className="text-xs">
-                      Who has access
-                    </Label>
-                    <Select
-                      value={orgPreferences.default_general_audience}
-                      onValueChange={handleAudienceChange}
-                    >
-                      <SelectTrigger
-                        id="access-mgmt-default-audience"
-                        data-testid="access-mgmt-default-audience"
-                        className="w-full"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {AUDIENCE_ORDER.map((audience) => (
-                          <SelectItem key={audience} value={audience}>
-                            {AUDIENCE_LABELS[audience]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="w-40 space-y-1">
-                    <Label htmlFor="access-mgmt-default-level" className="text-xs">
-                      Permission
-                    </Label>
-                    <Select
-                      value={orgPreferences.default_general_level}
-                      onValueChange={handleLevelChange}
-                    >
-                      <SelectTrigger
-                        id="access-mgmt-default-level"
-                        data-testid="access-mgmt-default-level"
-                        className="w-full"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="view">{LEVEL_LABELS.view}</SelectItem>
-                        <SelectItem value="edit">{LEVEL_LABELS.edit}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="flex gap-2">
+              <Button data-testid="access-mgmt-save-btn" disabled={!isDirty} onClick={handleSave}>
+                SAVE
+              </Button>
+              <Button
+                data-testid="access-mgmt-cancel-btn"
+                variant="outline"
+                disabled={!isDirty}
+                onClick={handleCancel}
+              >
+                CANCEL
+              </Button>
+            </div>
           </>
         )}
       </div>

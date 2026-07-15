@@ -73,10 +73,11 @@ export async function updateUserPreference(data: Record<string, unknown>) {
 
 /**
  * Hook to fetch organization preferences — Discord notification settings AND
- * the sharing settings (allow_public_sharing, default_general_audience/level;
- * task-11f) come back in the same GET /api/orgpreferences/ response, so this
- * one hook backs both the notification dialog and the Access Management
- * settings page.
+ * the sharing settings (allow_public_sharing, default_analyst_level/
+ * default_member_level; task-11f, per-role since the permission-model
+ * rework D1) come back in the same GET /api/orgpreferences/ response, so
+ * this one hook backs both the notification dialog and the Access
+ * Management settings page.
  */
 export function useOrgPreferences() {
   const { data, error, isLoading, mutate } = useSWR<OrgPreferencesResponse>(
@@ -100,10 +101,7 @@ export function useOrgPreferences() {
  */
 export async function updateSharingPreferences(
   data: Partial<
-    Pick<
-      OrgPreferences,
-      'allow_public_sharing' | 'default_general_audience' | 'default_general_level'
-    >
+    Pick<OrgPreferences, 'allow_public_sharing' | 'default_analyst_level' | 'default_member_level'>
   >
 ): Promise<OrgPreferences> {
   const response: OrgPreferencesResponse = await apiPut('/api/orgpreferences/sharing/', data);
