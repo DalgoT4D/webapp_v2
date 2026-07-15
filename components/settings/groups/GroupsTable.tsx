@@ -1,6 +1,16 @@
 'use client';
 
-import { Users as UsersIcon, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import {
+  Users as UsersIcon,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
+  Plus,
+} from 'lucide-react';
 import { format } from 'date-fns';
 import {
   Table,
@@ -21,6 +31,9 @@ import {
 import { ADMIN_ROLES, PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useAuthStore } from '@/stores/authStore';
 import type { UserGroup } from '@/hooks/api/useUserGroups';
+import { LearnAccessLink } from '@/components/settings/access/LearnAccessLink';
+
+type GroupSortColumn = 'name' | 'created_at';
 
 interface GroupsTableProps {
   groups: UserGroup[] | undefined;
@@ -28,9 +41,18 @@ interface GroupsTableProps {
   onView: (group: UserGroup) => void;
   onRename: (group: UserGroup) => void;
   onDelete: (group: UserGroup) => void;
+  /** Empty-state CTA opens the create-group dialog, owned by AccessPage. */
+  onCreateGroup?: () => void;
 }
 
-export function GroupsTable({ groups, isLoading, onView, onRename, onDelete }: GroupsTableProps) {
+export function GroupsTable({
+  groups,
+  isLoading,
+  onView,
+  onRename,
+  onDelete,
+  onCreateGroup,
+}: GroupsTableProps) {
   const { hasPermission, hasRole } = useRbac();
   const currentOrgUser = useAuthStore((state) => state.getCurrentOrgUser());
   const canManageAny = hasPermission(PERMISSIONS.CAN_MANAGE_USER_GROUPS);
@@ -41,6 +63,46 @@ export function GroupsTable({ groups, isLoading, onView, onRename, onDelete }: G
   // (SET_NULL), which falls through to admin-only, same as the backend.
   const canManageGroup = (group: UserGroup) =>
     canManageAny && (isAdmin || group.created_by?.email === currentOrgUser?.email);
+
+  // Column sorting (F5): Name + Created, matching the design's chevron
+  // affordance (group.jpg). Members/Created By aren't in scope — the design
+  // shows chevrons there too, but the brief scopes sorting to Name/Created.
+  const [sortBy, setSortBy] = useState<GroupSortColumn>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (column: GroupSortColumn) => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('asc');
+    }
+  };
+
+  const renderSortIcon = (column: GroupSortColumn) => {
+    if (sortBy !== column) {
+      return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
+    }
+    return sortOrder === 'asc' ? (
+      <ChevronUp className="w-4 h-4 text-gray-600" />
+    ) : (
+      <ChevronDown className="w-4 h-4 text-gray-600" />
+    );
+  };
+
+  const sortedGroups = useMemo(() => {
+    if (!groups) return [];
+    const sorted = [...groups].sort((a, b) => {
+      let cmp: number;
+      if (sortBy === 'name') {
+        cmp = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+      } else {
+        cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      return sortOrder === 'asc' ? cmp : -cmp;
+    });
+    return sorted;
+  }, [groups, sortBy, sortOrder]);
 
   if (isLoading) {
     return (
@@ -54,13 +116,24 @@ export function GroupsTable({ groups, isLoading, onView, onRename, onDelete }: G
 
   if (!groups || groups.length === 0) {
     return (
-      <p
+      <div
         data-testid="groups-empty"
-        className="text-sm text-muted-foreground text-center py-8 border rounded-lg bg-white"
+        className="border rounded-lg bg-white flex flex-col items-center justify-center gap-4 py-16 px-6 text-center"
       >
-        No groups yet. Create one — like &quot;Funders&quot; or &quot;Field staff&quot; — to share
-        dashboards and reports with a whole team in one action.
-      </p>
+        <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
+          <UsersIcon className="w-10 h-10 text-gray-400" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900">No groups yet</h3>
+        <p className="text-muted-foreground max-w-sm">
+          Create groups of your team members to collaborate and share dashboards and reports with
+          them in one go.
+        </p>
+        <Button variant="primary" onClick={onCreateGroup} data-testid="groups-empty-create-btn">
+          <Plus className="h-4 w-4 mr-2" />
+          CREATE GROUP
+        </Button>
+        <LearnAccessLink />
+      </div>
     );
   }
 
@@ -69,16 +142,40 @@ export function GroupsTable({ groups, isLoading, onView, onRename, onDelete }: G
       <Table>
         <TableHeader>
           <TableRow className="bg-gray-50">
-            <TableHead className="px-4 py-3">Name</TableHead>
+            <TableHead className="px-4 py-3">
+              <Button
+                variant="ghost"
+                className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
+                onClick={() => handleSort('name')}
+                data-testid="groups-sort-name"
+              >
+                <div className="flex items-center gap-2">
+                  Name
+                  {renderSortIcon('name')}
+                </div>
+              </Button>
+            </TableHead>
             <TableHead className="px-4 py-3">Members</TableHead>
             <TableHead className="px-4 py-3">Shared with</TableHead>
             <TableHead className="px-4 py-3">Created By</TableHead>
-            <TableHead className="px-4 py-3">Created</TableHead>
+            <TableHead className="px-4 py-3">
+              <Button
+                variant="ghost"
+                className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
+                onClick={() => handleSort('created_at')}
+                data-testid="groups-sort-created"
+              >
+                <div className="flex items-center gap-2">
+                  Created
+                  {renderSortIcon('created_at')}
+                </div>
+              </Button>
+            </TableHead>
             <TableHead className="w-[10%] px-4 py-3">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {groups.map((group) => (
+          {sortedGroups.map((group) => (
             <TableRow key={group.id} data-testid={`group-row-${group.id}`}>
               <TableCell className="px-4 py-3">
                 <button

@@ -42,6 +42,7 @@ const mockGroupDetail: UserGroupDetail = {
       name: 'Asha Kumar',
       pending_email: null,
       status: 'active',
+      role: 'analyst',
     },
     {
       id: 11,
@@ -50,6 +51,7 @@ const mockGroupDetail: UserGroupDetail = {
       name: 'Meera Das',
       pending_email: null,
       status: 'active',
+      role: 'member',
     },
   ],
 };

@@ -90,3 +90,66 @@ describe('UsersTable — kebab actions', () => {
     expect(screen.getByTestId('delete-user-menu-item-meera@ngo.org')).toBeInTheDocument();
   });
 });
+
+describe('UsersTable — empty state (F1)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('shows the "No people yet" empty state when only the signed-in user is in the list', () => {
+    mockUseUsers.mockReturnValue({
+      users: [USERS[0]],
+      isLoading: false,
+      mutate: mockMutate,
+    });
+
+    render(<UsersTable />);
+
+    expect(screen.getByTestId('users-empty-state')).toBeInTheDocument();
+    expect(screen.getByText('No people yet')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Invite your team members to collaborate. They'll appear here once they've accepted your invitation."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Created By')).not.toBeInTheDocument();
+  });
+
+  it('calls onInviteClick from the empty-state CTA', async () => {
+    const user = userEvent.setup();
+    const onInviteClick = jest.fn();
+    mockUseUsers.mockReturnValue({
+      users: [USERS[0]],
+      isLoading: false,
+      mutate: mockMutate,
+    });
+
+    render(<UsersTable onInviteClick={onInviteClick} />);
+
+    await user.click(screen.getByTestId('users-empty-invite-btn'));
+    expect(onInviteClick).toHaveBeenCalled();
+  });
+
+  it('shows the "Learn how roles and access work" link in the empty state', () => {
+    mockUseUsers.mockReturnValue({
+      users: [USERS[0]],
+      isLoading: false,
+      mutate: mockMutate,
+    });
+
+    render(<UsersTable />);
+
+    expect(screen.getByTestId('learn-access-link')).toHaveTextContent(
+      'Learn how roles and access work'
+    );
+  });
+
+  it('renders the normal table (not the empty state) once a second user exists', () => {
+    mockUseUsers.mockReturnValue({ users: USERS, isLoading: false, mutate: mockMutate });
+
+    render(<UsersTable />);
+
+    expect(screen.queryByTestId('users-empty-state')).not.toBeInTheDocument();
+    expect(screen.getByText('Created By')).toBeInTheDocument();
+  });
+});

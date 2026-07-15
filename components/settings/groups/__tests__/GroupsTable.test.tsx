@@ -138,7 +138,28 @@ describe('GroupsTable', () => {
         onDelete={jest.fn()}
       />
     );
-    expect(screen.getByTestId('groups-empty')).toBeInTheDocument();
+    const empty = screen.getByTestId('groups-empty');
+    expect(empty).toBeInTheDocument();
+    expect(empty).toHaveTextContent('No groups yet');
+    expect(screen.getByTestId('learn-access-link')).toBeInTheDocument();
+  });
+
+  it('calls onCreateGroup from the empty-state CTA', async () => {
+    setRbac();
+    const user = userEvent.setup();
+    const onCreateGroup = jest.fn();
+    render(
+      <GroupsTable
+        groups={[]}
+        isLoading={false}
+        onView={jest.fn()}
+        onRename={jest.fn()}
+        onDelete={jest.fn()}
+        onCreateGroup={onCreateGroup}
+      />
+    );
+    await user.click(screen.getByTestId('groups-empty-create-btn'));
+    expect(onCreateGroup).toHaveBeenCalled();
   });
 
   it('opens the detail view on clicking a group name', async () => {
@@ -234,5 +255,76 @@ describe('GroupsTable', () => {
     await user.click(screen.getByTestId('group-actions-1'));
     await user.click(screen.getByTestId('group-delete-menu-item-1'));
     expect(onDelete).toHaveBeenCalledWith(group);
+  });
+});
+
+describe('GroupsTable — column sorting (F5)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const groups = [
+    createMockGroup({ id: 1, name: 'Zebra', created_at: '2026-01-01T00:00:00Z' }),
+    createMockGroup({ id: 2, name: 'Apple', created_at: '2026-03-01T00:00:00Z' }),
+  ];
+
+  function rowOrder() {
+    return screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => row.getAttribute('data-testid'));
+  }
+
+  it('sorts by name ascending by default', () => {
+    setRbac();
+    render(
+      <GroupsTable
+        groups={groups}
+        isLoading={false}
+        onView={jest.fn()}
+        onRename={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+    expect(rowOrder()).toEqual(['group-row-2', 'group-row-1']); // Apple, Zebra
+  });
+
+  it('toggles name sort order on repeated clicks', async () => {
+    setRbac();
+    const user = userEvent.setup();
+    render(
+      <GroupsTable
+        groups={groups}
+        isLoading={false}
+        onView={jest.fn()}
+        onRename={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByTestId('groups-sort-name'));
+    expect(rowOrder()).toEqual(['group-row-1', 'group-row-2']); // Zebra, Apple (desc)
+
+    await user.click(screen.getByTestId('groups-sort-name'));
+    expect(rowOrder()).toEqual(['group-row-2', 'group-row-1']); // back to asc
+  });
+
+  it('sorts by Created date on header click', async () => {
+    setRbac();
+    const user = userEvent.setup();
+    render(
+      <GroupsTable
+        groups={groups}
+        isLoading={false}
+        onView={jest.fn()}
+        onRename={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByTestId('groups-sort-created'));
+    // ascending by created_at: id 1 (Jan) before id 2 (Mar)
+    expect(rowOrder()).toEqual(['group-row-1', 'group-row-2']);
+
+    await user.click(screen.getByTestId('groups-sort-created'));
+    expect(rowOrder()).toEqual(['group-row-2', 'group-row-1']);
   });
 });

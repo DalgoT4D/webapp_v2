@@ -35,6 +35,7 @@ export default function UserGroups({
             onView={(group) => setDetailGroupId(group.id)}
             onRename={(group) => setRenameTarget(group)}
             onDelete={(group) => setDeleteTarget(group)}
+            onCreateGroup={() => onShowCreateDialogChange(true)}
           />
         </div>
       </div>

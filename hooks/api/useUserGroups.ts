@@ -37,6 +37,9 @@ export interface GroupMember {
   name: string | null;
   pending_email: string | null;
   status: GroupMemberStatus;
+  // The member's org-role slug (e.g. "analyst"), null for pending-email rows
+  // that have no OrgUser yet (Phase F5).
+  role: string | null;
 }
 
 export interface UserGroupDetail extends UserGroup {

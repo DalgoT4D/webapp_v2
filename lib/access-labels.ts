@@ -49,3 +49,13 @@ export const RESOURCE_NOUNS: Record<ShareableResourceType, string> = {
   metric: 'metric',
   kpi: 'KPI',
 };
+
+/**
+ * Human label for an org-role slug (e.g. "org-admin" -> "Org Admin"),
+ * shared by every surface that shows a member's role as a badge/tag
+ * (Users table, group member rows) — see the F5 gap-analysis finding on
+ * per-member role badges in the Groups detail drawer.
+ */
+export function formatRoleLabel(roleSlug: string): string {
+  return roleSlug.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}

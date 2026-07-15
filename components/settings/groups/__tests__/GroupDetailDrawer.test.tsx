@@ -190,3 +190,50 @@ describe('GroupDetailDrawer', () => {
     expect(screen.getByTestId('group-member-remove-10')).toBeInTheDocument();
   });
 });
+
+describe('GroupDetailDrawer — member role badges (F5)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("shows each active member's org-role as a badge", () => {
+    setup();
+    render(
+      <GroupDetailDrawer
+        groupId={1}
+        open
+        onOpenChange={jest.fn()}
+        onGroupsListChanged={jest.fn()}
+      />
+    );
+    // groups-mock-data.ts: asha@ngo.org = analyst, meera@ngo.org = member
+    expect(screen.getByTestId('group-member-role-10')).toHaveTextContent('Analyst');
+    expect(screen.getByTestId('group-member-role-11')).toHaveTextContent('Member');
+  });
+
+  it('shows no role badge, only "(invite pending)", for a pending member', () => {
+    const group = createMockGroupDetail({
+      members: [
+        {
+          id: 12,
+          orguser_id: null,
+          email: null,
+          name: null,
+          pending_email: 'new.person@ngo.org',
+          status: 'pending',
+          role: null,
+        },
+      ],
+    });
+    setup({ group });
+    render(
+      <GroupDetailDrawer
+        groupId={1}
+        open
+        onOpenChange={jest.fn()}
+        onGroupsListChanged={jest.fn()}
+      />
+    );
+    const row = screen.getByTestId('group-member-row-12');
+    expect(row).toHaveTextContent('(invite pending)');
+    expect(screen.queryByTestId('group-member-role-12')).not.toBeInTheDocument();
+  });
+});
