@@ -51,7 +51,10 @@ interface ApiResponse<T> {
   message?: string;
 }
 
-const ACCESS_REQUESTS_KEY = '/api/access/requests/';
+// Exported so callers outside this hook (e.g. the Notifications page's
+// actionable row, batch 2 / F6) can invalidate the share-modal's pending
+// request list after deciding a request from elsewhere.
+export const ACCESS_REQUESTS_KEY = '/api/access/requests/';
 
 /**
  * The caller's access-request inbox. `incoming` = pending requests on

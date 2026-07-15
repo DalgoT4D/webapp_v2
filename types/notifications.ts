@@ -1,3 +1,18 @@
+// Structured payload on an access-request "new request" notification
+// (batch 2 / F6) -- lets the Notifications page render inline Approve/Deny
+// instead of forcing a trip through the resource's share modal. `kind`
+// discriminates from any future actionable-notification payload the backend
+// may add to the same generic `metadata` column; unrecognized/absent
+// metadata always falls back to plain-text rendering.
+export interface AccessRequestNotificationMetadata {
+  kind: 'access_request';
+  request_id: number;
+  resource_type: ShareableResourceType;
+  resource_name: string;
+  requester_email: string;
+  requested_permission: AccessLevel;
+}
+
 // Core notification interface
 export interface Notification {
   id: number;
@@ -6,6 +21,9 @@ export interface Notification {
   message: string;
   read_status: boolean;
   timestamp: string; // ISO 8601 format from backend
+  // `null`/absent on every pre-existing notification and every notification
+  // type with no action -- the row renders exactly as today in that case.
+  metadata?: AccessRequestNotificationMetadata | null;
 }
 
 // API response for paginated notifications
@@ -28,7 +46,11 @@ export interface UserPreferences {
 // Organization preferences — GET /api/orgpreferences/ returns Discord
 // notification settings AND the sharing settings (task-11f) in the same
 // envelope, so both live on one interface rather than being split.
-import type { AccessAudience, AccessLevel } from '@/hooks/api/useResourceAccess';
+import type {
+  AccessAudience,
+  AccessLevel,
+  ShareableResourceType,
+} from '@/hooks/api/useResourceAccess';
 
 export interface OrgPreferences {
   enable_discord_notifications: boolean;
