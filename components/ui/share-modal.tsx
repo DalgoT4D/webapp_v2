@@ -5,6 +5,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { copyUrlToClipboard } from '@/lib/clipboard';
 import {
   Share2,
+  Link,
   Copy,
   Shield,
   AlertTriangle,
@@ -410,9 +411,10 @@ export function ShareModal({
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      {/* Design frames 1426:2063/2115: icon sits inside a circular badge */}
-                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-green-50">
-                        <Share2 className="h-4 w-4 text-green-600" />
+                      {/* Design frames 1426:2063/2115: link icon inside a plain
+                          white circle with a thin border, same in on/off states */}
+                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white">
+                        <Link className="h-4 w-4 text-muted-foreground" />
                       </div>
                       <div className="flex-1">
                         <Label className="text-sm font-medium">Public sharing</Label>
