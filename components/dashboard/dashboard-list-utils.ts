@@ -1,6 +1,6 @@
 import type { Dashboard } from '@/hooks/api/useDashboards';
 import type { RolePermissionLevel } from '@/hooks/api/useResourceAccess';
-import { audienceLabels, LEVEL_LABELS } from '@/lib/access-labels';
+import { audienceLabels, LEVEL_LABELS, ROLE_LEVEL_LABELS } from '@/lib/access-labels';
 
 // Labels for the non-private general-access badge shown on the dashboards
 // list. "private" gets its own dedicated badge instead — see
@@ -31,32 +31,45 @@ export function audienceBadgeTitle(audienceLabel: string, level?: string | null)
 // D1 per-role general-access badge (dashboards-list, replaces the old
 // general_audience/general_level derivation above for DashboardResponse
 // consumers). analyst_level/member_level are each independently
-// "none"/"view"/"edit" -- this collapses that pair back down to the single
-// badge the list row shows, keeping the existing badge vocabulary:
-//   - both "none"                -> the dedicated Private badge (kind "private")
-//   - member_level >= "view"     -> "Everyone in org" (kind "everyone"),
-//     since any Member access means every org member (Analysts included) can
-//     see it; the tooltip shows the HIGHER of the two levels
-//   - only analyst_level >= "view" -> the analysts-scoped badge (kind "analysts")
+// "none"/"view"/"edit", set by the backend's per-role access_resolver -- the
+// badge vocabulary has to be honest about BOTH roles rather than collapsing
+// to whichever is higher (that was the old tiered-model behavior, where any
+// Member access implied every org member, Analysts included, could see the
+// resource; per-role, that's no longer true -- analyst_level='none' with
+// member_level='view' means Analysts have ZERO access):
+//   - both "none"                    -> the dedicated Private badge (kind "private")
+//   - both >= "view" AND equal       -> "Everyone in org · {level}" (kind "everyone")
+//   - only analyst_level >= "view"   -> the analysts-scoped badge (kind "analysts"),
+//     accurate on its own since Members truly have none
+//   - levels diverge (including one   -> a per-role badge (kind "custom") whose
+//     role being "none" while the        tooltip always spells out both roles
+//     other is not)                      explicitly, e.g. "Analysts: No access
+//                                         · Members: Can View"
 // Both null/undefined (predates general-access config, or an anonymous
 // public-view caller) yields no badge at all -- same as the old null-audience
 // case.
 // ---------------------------------------------------------------------------
 
-const ROLE_LEVEL_RANK: Record<RolePermissionLevel, number> = { none: 0, view: 1, edit: 2 };
-
-function higherRoleLevel(a: RolePermissionLevel, b: RolePermissionLevel): RolePermissionLevel {
-  return ROLE_LEVEL_RANK[a] >= ROLE_LEVEL_RANK[b] ? a : b;
-}
-
-export type GeneralAccessBadgeKind = 'private' | 'analysts' | 'everyone';
+export type GeneralAccessBadgeKind = 'private' | 'analysts' | 'everyone' | 'custom';
 
 export interface GeneralAccessBadge {
   kind: GeneralAccessBadgeKind;
   /** Undefined for "private" -- that badge's copy ("Private") is fixed, not derived. */
   label?: string;
-  /** The level to surface in the tooltip; omitted for "private". */
+  /** The level to surface in the tooltip via audienceBadgeTitle; only set for "everyone"/"analysts". */
   level?: RolePermissionLevel;
+  /** Precomputed full tooltip for "custom", spelling out both roles explicitly. */
+  tooltip?: string;
+}
+
+/** "Analysts: No access · Members: Can View" -- always names both roles, so a
+ * diverging pair (including one role at "none") can never be misread as
+ * uniform org-wide access. */
+export function perRoleBadgeTooltip(
+  analystLevel: RolePermissionLevel,
+  memberLevel: RolePermissionLevel
+): string {
+  return `Analysts: ${ROLE_LEVEL_LABELS[analystLevel]} · Members: ${ROLE_LEVEL_LABELS[memberLevel]}`;
 }
 
 export function deriveGeneralAccessBadge(
@@ -73,14 +86,17 @@ export function deriveGeneralAccessBadge(
   if (analyst === 'none' && member === 'none') {
     return { kind: 'private' };
   }
-  if (member !== 'none') {
-    return {
-      kind: 'everyone',
-      label: AUDIENCE_BADGE_LABELS.all_users,
-      level: higherRoleLevel(analyst, member),
-    };
+  if (analyst === member) {
+    return { kind: 'everyone', label: AUDIENCE_BADGE_LABELS.all_users, level: analyst };
   }
-  return { kind: 'analysts', label: AUDIENCE_BADGE_LABELS.analysts_plus, level: analyst };
+  if (member === 'none') {
+    return { kind: 'analysts', label: AUDIENCE_BADGE_LABELS.analysts_plus, level: analyst };
+  }
+  return {
+    kind: 'custom',
+    label: 'Custom access',
+    tooltip: perRoleBadgeTooltip(analyst, member),
+  };
 }
 
 /**

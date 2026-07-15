@@ -944,7 +944,10 @@ export function DashboardListV2() {
                         variant="outline"
                         className="text-sm bg-blue-50 text-blue-700 border-blue-200"
                         data-testid={`dashboard-badge-audience-${dashboard.id}`}
-                        title={audienceBadgeTitle(audienceBadgeLabel, generalAccessBadge?.level)}
+                        title={
+                          generalAccessBadge?.tooltip ??
+                          audienceBadgeTitle(audienceBadgeLabel, generalAccessBadge?.level)
+                        }
                       >
                         <Shield className="w-3 h-3 mr-1" />
                         {audienceBadgeLabel}

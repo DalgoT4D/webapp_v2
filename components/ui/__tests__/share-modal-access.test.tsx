@@ -454,6 +454,70 @@ describe('ShareModal — General access (per-role, permission-model rework D1)',
     expect(readonly).toHaveTextContent('Analysts — Can View');
     expect(readonly).toHaveTextContent('Members — Can View');
   });
+
+  it('disables both Selects while a general-access PATCH is in flight, preventing a second change from racing the first, then re-enables once it settles', async () => {
+    const user = userEvent.setup();
+    let resolveFirst: (value: unknown) => void = () => {};
+    const firstCall = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
+    mockSetGeneralAccess.mockReturnValueOnce(firstCall);
+    renderModal();
+
+    await user.click(screen.getByTestId('share-general-analyst-level'));
+    await user.click(screen.getByRole('option', { name: 'Can Edit' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('share-general-analyst-level')).toBeDisabled();
+    });
+    expect(screen.getByTestId('share-general-member-level')).toBeDisabled();
+
+    resolveFirst({
+      requires_confirmation: false,
+      persisting_grants: [],
+      general_access: { analyst_level: 'edit', member_level: 'view' },
+    });
+
+    await waitFor(() => {
+      expect(mockSetGeneralAccess).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('share-general-analyst-level')).toBeEnabled();
+    });
+    expect(screen.getByTestId('share-general-member-level')).toBeEnabled();
+  });
+
+  it('keeps both Selects disabled while the narrowing confirmation panel is open, then re-enables once Keep/Remove settles', async () => {
+    const user = userEvent.setup();
+    mockSetGeneralAccess.mockResolvedValueOnce({
+      requires_confirmation: true,
+      persisting_grants: [baseOverview.grants[0]],
+      general_access: null,
+    });
+    renderModal();
+
+    await user.click(screen.getByTestId('share-general-member-level'));
+    await user.click(screen.getByRole('option', { name: 'No access' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('share-general-confirm-panel')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('share-general-analyst-level')).toBeDisabled();
+    expect(screen.getByTestId('share-general-member-level')).toBeDisabled();
+
+    mockSetGeneralAccess.mockResolvedValueOnce({
+      requires_confirmation: false,
+      persisting_grants: [],
+      general_access: { analyst_level: 'view', member_level: 'none' },
+    });
+    await user.click(screen.getByTestId('share-general-confirm-keep-btn'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('share-general-confirm-panel')).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId('share-general-analyst-level')).toBeEnabled();
+    expect(screen.getByTestId('share-general-member-level')).toBeEnabled();
+  });
 });
 
 describe('ShareModal — capability-gated sections', () => {

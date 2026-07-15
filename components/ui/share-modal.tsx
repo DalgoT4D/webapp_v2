@@ -1041,11 +1041,22 @@ function GeneralAccessSection({
     level: RolePermissionLevel;
     persistingGrants: AccessGrant[];
   } | null>(null);
+  // Guards the Analyst/Member Selects against a second immediate-apply change
+  // while the first's PATCH is still in flight -- without this, changing one
+  // Select while the other's request (or its narrowing Keep/Remove
+  // confirmation) is unresolved can silently revert/drop whichever change
+  // settles first. Both Selects are disabled whenever a mutation is pending
+  // or the confirmation panel is open (see `disabled` below), and this is
+  // cleared in `finally` so they re-enable once the request settles either
+  // way -- including when it comes back `requires_confirmation: true`, which
+  // hands off the "pending" state to `confirmState` instead.
+  const [isMutating, setIsMutating] = useState(false);
 
   const applyChange = useCallback(
     async (role: GeneralAccessRole, level: RolePermissionLevel, removeGrantIds?: number[]) => {
       const analyst_level = role === 'analyst' ? level : currentAnalystLevel;
       const member_level = role === 'member' ? level : currentMemberLevel;
+      setIsMutating(true);
       try {
         const result = await setGeneralAccess(entityType, entityId, {
           analyst_level,
@@ -1068,10 +1079,17 @@ function GeneralAccessSection({
         });
       } catch (error) {
         toastError.api(error, 'update general access');
+      } finally {
+        setIsMutating(false);
       }
     },
     [entityType, entityId, currentAnalystLevel, currentMemberLevel, onChanged]
   );
+
+  // Disabled while a PATCH is in flight, or while the narrowing confirmation
+  // panel is waiting on Keep/Remove -- both are states where a second
+  // immediate-apply change could race the first. See `isMutating` above.
+  const generalAccessControlsDisabled = isMutating || confirmState !== null;
 
   const handleAnalystLevelChange = (value: string) =>
     applyChange('analyst', value as RolePermissionLevel);
@@ -1106,7 +1124,11 @@ function GeneralAccessSection({
               <Label htmlFor="share-general-analyst-level" className="text-sm">
                 Analysts
               </Label>
-              <Select value={currentAnalystLevel} onValueChange={handleAnalystLevelChange}>
+              <Select
+                value={currentAnalystLevel}
+                onValueChange={handleAnalystLevelChange}
+                disabled={generalAccessControlsDisabled}
+              >
                 <SelectTrigger
                   id="share-general-analyst-level"
                   data-testid="share-general-analyst-level"
@@ -1127,7 +1149,11 @@ function GeneralAccessSection({
               <Label htmlFor="share-general-member-level" className="text-sm">
                 Members
               </Label>
-              <Select value={currentMemberLevel} onValueChange={handleMemberLevelChange}>
+              <Select
+                value={currentMemberLevel}
+                onValueChange={handleMemberLevelChange}
+                disabled={generalAccessControlsDisabled}
+              >
                 <SelectTrigger
                   id="share-general-member-level"
                   data-testid="share-general-member-level"
@@ -1175,6 +1201,7 @@ function GeneralAccessSection({
                 data-testid="share-general-confirm-keep-btn"
                 size="sm"
                 variant="outline"
+                disabled={isMutating}
                 onClick={handleKeepAccess}
               >
                 Keep their access
@@ -1183,6 +1210,7 @@ function GeneralAccessSection({
                 data-testid="share-general-confirm-remove-btn"
                 size="sm"
                 variant="outline"
+                disabled={isMutating}
                 onClick={handleRemoveAccessToo}
               >
                 Remove their access too

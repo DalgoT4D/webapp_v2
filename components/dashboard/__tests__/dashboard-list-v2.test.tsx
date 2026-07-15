@@ -134,7 +134,7 @@ describe('DashboardListV2 — sharing badges', () => {
     expect(badge).toHaveAttribute('title', 'Analysts and up · Viewer');
   });
 
-  it('shows the higher (Editor) level in the "Everyone in org" badge tooltip when analyst_level is Edit and member_level is View', () => {
+  it('shows a per-role "Custom access" badge (not "Everyone in org") when analyst_level is Edit and member_level is View, since the levels diverge', () => {
     setup([
       baseDashboard({
         id: 9,
@@ -143,10 +143,23 @@ describe('DashboardListV2 — sharing badges', () => {
         is_owner: true,
       }),
     ]);
-    expect(screen.getByTestId('dashboard-badge-audience-9')).toHaveAttribute(
-      'title',
-      'Everyone in org · Editor'
-    );
+    const badge = screen.getByTestId('dashboard-badge-audience-9');
+    expect(badge).toHaveTextContent('Custom access');
+    expect(badge).toHaveAttribute('title', 'Analysts: Can Edit · Members: Can View');
+  });
+
+  it('shows a per-role "Custom access" badge when analyst_level is "none" and member_level is "view" -- Analysts have ZERO access, so this must not collapse to "Everyone in org"', () => {
+    setup([
+      baseDashboard({
+        id: 10,
+        analyst_level: 'none',
+        member_level: 'view',
+        is_owner: true,
+      }),
+    ]);
+    const badge = screen.getByTestId('dashboard-badge-audience-10');
+    expect(badge).toHaveTextContent('Custom access');
+    expect(badge).toHaveAttribute('title', 'Analysts: No access · Members: Can View');
   });
 
   it('shows no audience/private badge when analyst_level and member_level are both null (predates general-access config, or an anonymous public-view caller)', () => {
