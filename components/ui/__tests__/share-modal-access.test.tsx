@@ -71,7 +71,10 @@ function renderModal(overrides: Partial<ResourceAccessOverview> = {}, canShareOv
     mutate: jest.fn(),
   });
   mockUseUsers.mockReturnValue({
-    users: [{ orguser_id: 42, email: 'new.person@ngo.org' }],
+    users: [
+      { orguser_id: 42, email: 'new.person@ngo.org', new_role_slug: 'analyst' },
+      { orguser_id: 9, email: 'meera@ngo.org', new_role_slug: 'member' },
+    ],
     isLoading: false,
   });
   mockUseRbac.mockReturnValue({
@@ -175,13 +178,13 @@ describe('ShareModal — People with access', () => {
     });
   });
 
-  it('shows the add-person picker with Add disabled until a person is selected', () => {
+  it('shows the unified search with SHARE disabled while nothing is staged', () => {
     renderModal();
-    expect(screen.getByTestId('share-add-person-btn')).toBeDisabled();
-    expect(screen.queryByTestId('share-add-person-hint')).not.toBeInTheDocument();
+    expect(screen.getByTestId('share-search-input')).toBeInTheDocument();
+    expect(screen.getByTestId('share-commit-btn')).toBeDisabled();
   });
 
-  it('adds a person grant via addGrant with the orguser_id as principal_id', async () => {
+  it('stages an org user from the typeahead and SHARE commits it with the orguser_id', async () => {
     const user = userEvent.setup();
     mockAddGrant.mockResolvedValue({
       id: 7,
@@ -194,9 +197,16 @@ describe('ShareModal — People with access', () => {
     });
     renderModal();
 
-    await user.click(screen.getByTestId('share-add-person-combobox-input'));
-    await user.click(screen.getByTestId('share-add-person-combobox-item-42'));
-    await user.click(screen.getByTestId('share-add-person-btn'));
+    await user.type(screen.getByTestId('share-search-input'), 'new.person');
+    await user.click(screen.getByTestId('share-search-user-42'));
+
+    // Staged, not applied: row shows with its role tag, nothing POSTed yet.
+    const stagedRow = screen.getByTestId('share-staged-row-user-42');
+    expect(stagedRow).toHaveTextContent('new.person@ngo.org');
+    expect(stagedRow).toHaveTextContent('Analyst');
+    expect(mockAddGrant).not.toHaveBeenCalled();
+
+    await user.click(screen.getByTestId('share-commit-btn'));
 
     await waitFor(() => {
       expect(mockAddGrant).toHaveBeenCalledWith('dashboard', 1, {
@@ -209,13 +219,74 @@ describe('ShareModal — People with access', () => {
         expect.objectContaining({ entity_type: 'dashboard', principal_type: 'user' })
       );
     });
+
+    // Success clears the staged area and disables SHARE again.
+    await waitFor(() => {
+      expect(screen.queryByTestId('share-staged-row-user-42')).not.toBeInTheDocument();
+      expect(screen.getByTestId('share-commit-btn')).toBeDisabled();
+    });
+  });
+
+  it('commits a staged row at the permission picked on its pill', async () => {
+    const user = userEvent.setup();
+    mockAddGrant.mockResolvedValue({
+      id: 7,
+      principal_type: 'user',
+      principal_id: 42,
+      email: 'new.person@ngo.org',
+      name: null,
+      permission: 'edit',
+      status: 'active',
+    });
+    renderModal();
+
+    await user.type(screen.getByTestId('share-search-input'), 'new.person');
+    await user.click(screen.getByTestId('share-search-user-42'));
+    await user.click(screen.getByTestId('share-staged-permission-user-42'));
+    await user.click(screen.getByRole('option', { name: 'Editor' }));
+    await user.click(screen.getByTestId('share-commit-btn'));
+
+    await waitFor(() => {
+      expect(mockAddGrant).toHaveBeenCalledWith('dashboard', 1, {
+        principal_type: 'user',
+        principal_id: 42,
+        permission: 'edit',
+      });
+    });
+  });
+
+  it('marks a person who already has access as unavailable in the typeahead', async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByTestId('share-search-input'), 'meera');
+
+    const item = screen.getByTestId('share-search-user-9');
+    expect(item).toBeDisabled();
+    expect(item).toHaveTextContent('Already has access');
+  });
+
+  it('removes a staged row before commit, disabling SHARE again', async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByTestId('share-search-input'), 'new.person');
+    await user.click(screen.getByTestId('share-search-user-42'));
+    expect(screen.getByTestId('share-commit-btn')).toBeEnabled();
+
+    await user.click(screen.getByTestId('share-staged-remove-user-42'));
+
+    expect(screen.queryByTestId('share-staged-row-user-42')).not.toBeInTheDocument();
+    expect(screen.getByTestId('share-commit-btn')).toBeDisabled();
+    expect(mockAddGrant).not.toHaveBeenCalled();
   });
 
   it('hides add/remove/permission controls in read-only mode (viewer cannot share)', () => {
     renderModal({ viewer: { effective_permission: 'view', is_owner: false } }, false);
     expect(screen.queryByTestId('share-grant-remove-3')).not.toBeInTheDocument();
     expect(screen.queryByTestId('share-grant-permission-3')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('share-add-person-btn')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('share-search-input')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('share-commit-btn')).not.toBeInTheDocument();
     // Read-only view still shows who has access
     expect(screen.getByTestId('share-grant-row-3')).toHaveTextContent('Meera Das');
   });
@@ -343,6 +414,8 @@ describe('ShareModal — capability-gated sections', () => {
     });
     expect(screen.queryByTestId('share-people-section')).not.toBeInTheDocument();
     expect(screen.queryByTestId('share-general-section')).not.toBeInTheDocument();
+    // No grants capability → nothing can be staged → no footer SHARE either.
+    expect(screen.queryByTestId('share-commit-btn')).not.toBeInTheDocument();
   });
 
   it('fires the modal-opened analytics event once per open', () => {

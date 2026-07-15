@@ -142,20 +142,26 @@ describe('ShareModal — group grant rows', () => {
   });
 });
 
-describe('ShareModal — add a group', () => {
+describe('ShareModal — staging a group from the unified search', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('shows candidate groups not already granted access', async () => {
+  it('mixes groups into the typeahead, marking already-granted ones unavailable', async () => {
     const user = userEvent.setup();
     renderModal();
 
-    await user.click(screen.getByTestId('share-add-group-combobox-input'));
-    // Funders (id 20) already has a grant — only Field staff should be offered.
-    expect(screen.queryByTestId('share-add-group-combobox-item-20')).not.toBeInTheDocument();
-    expect(screen.getByTestId('share-add-group-combobox-item-21')).toHaveTextContent('Field staff');
+    await user.type(screen.getByTestId('share-search-input'), 'f');
+
+    // Funders (id 20) already has a grant — offered but not selectable.
+    const funders = screen.getByTestId('share-search-group-20');
+    expect(funders).toBeDisabled();
+    expect(funders).toHaveTextContent('Already has access');
+    const fieldStaff = screen.getByTestId('share-search-group-21');
+    expect(fieldStaff).toBeEnabled();
+    expect(fieldStaff).toHaveTextContent('Field staff');
+    expect(fieldStaff).toHaveTextContent('Group');
   });
 
-  it('adds a group grant via addGrant with principal_type "group"', async () => {
+  it('stages a group and SHARE commits it via addGrant with principal_type "group"', async () => {
     const user = userEvent.setup();
     mockAddGrant.mockResolvedValue({
       id: 6,
@@ -169,9 +175,16 @@ describe('ShareModal — add a group', () => {
     });
     renderModal();
 
-    await user.click(screen.getByTestId('share-add-group-combobox-input'));
-    await user.click(screen.getByTestId('share-add-group-combobox-item-21'));
-    await user.click(screen.getByTestId('share-add-group-btn'));
+    await user.type(screen.getByTestId('share-search-input'), 'field');
+    await user.click(screen.getByTestId('share-search-group-21'));
+
+    // Staged, not applied — tagged as a Group with a permission pill.
+    const stagedRow = screen.getByTestId('share-staged-row-group-21');
+    expect(stagedRow).toHaveTextContent('Field staff');
+    expect(stagedRow).toHaveTextContent('Group');
+    expect(mockAddGrant).not.toHaveBeenCalled();
+
+    await user.click(screen.getByTestId('share-commit-btn'));
 
     await waitFor(() => {
       expect(mockAddGrant).toHaveBeenCalledWith('dashboard', 1, {
@@ -184,16 +197,34 @@ describe('ShareModal — add a group', () => {
         expect.objectContaining({ entity_type: 'dashboard', principal_type: 'group' })
       );
     });
+    await waitFor(() => {
+      expect(screen.queryByTestId('share-staged-row-group-21')).not.toBeInTheDocument();
+    });
   });
 
-  it('does not render the groups picker when the viewer cannot share', () => {
+  it('stages the same group only once', async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByTestId('share-search-input'), 'field');
+    await user.click(screen.getByTestId('share-search-group-21'));
+    await user.type(screen.getByTestId('share-search-input'), 'field');
+
+    // The already-staged group is now unavailable in the typeahead.
+    expect(screen.getByTestId('share-search-group-21')).toBeDisabled();
+    expect(screen.getByTestId('share-search-group-21')).toHaveTextContent('Added');
+    expect(screen.getAllByTestId('share-staged-row-group-21')).toHaveLength(1);
+  });
+
+  it('does not render the unified search when the viewer cannot share', () => {
     renderModal({ viewer: { effective_permission: 'view', is_owner: false } }, false);
-    expect(screen.queryByTestId('share-add-group-combobox-input')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('share-add-group-btn')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('share-search-input')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('share-commit-btn')).not.toBeInTheDocument();
   });
 
   it('does not fetch groups when the viewer cannot share', () => {
     renderModal({ viewer: { effective_permission: 'view', is_owner: false } }, false);
-    expect(mockUseUserGroups).toHaveBeenCalledWith(false);
+    // The search (the only groups consumer) never mounts for read-only viewers.
+    expect(mockUseUserGroups).not.toHaveBeenCalled();
   });
 });

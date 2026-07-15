@@ -1,9 +1,10 @@
 /**
- * ShareModal tests for the multi-email invite path in the "Add a person"
- * area (Milestone 4 frontend). Backend contract (task-09): POST
- * .../grants/ with {principal_type:'user', email, permission} resolves to
- * an instant active grant for a known org email, or a Member invitation +
- * pending grant for an unknown one — the response `status` tells us which.
+ * ShareModal tests for free-typed / pasted emails in the unified add-people
+ * search (Phase C rework of the Milestone 4 invite panel). Backend contract
+ * (task-09 + Phase C3): POST .../grants/ with {principal_type:'user', email,
+ * permission, invite_role} resolves to an instant active grant for a known
+ * org email, or an invitation (at invite_role, Member by default) + pending
+ * grant for an unknown one — the response `status` tells us which.
  * Extends share-modal-access.test.tsx / share-modal-groups.test.tsx, which
  * must keep passing unmodified.
  */
@@ -67,7 +68,15 @@ const mockGetShareStatus = jest
   .mockResolvedValue({ is_public: false, public_access_count: 0 });
 const mockUpdateSharing = jest.fn();
 
-function renderModal(overrides: Partial<ResourceAccessOverview> = {}) {
+interface RenderOptions {
+  isAdmin?: boolean;
+  orgUsers?: { orguser_id: number; email: string; new_role_slug: string }[];
+}
+
+function renderModal(
+  overrides: Partial<ResourceAccessOverview> = {},
+  { isAdmin = true, orgUsers = [] }: RenderOptions = {}
+) {
   const mutate = jest.fn();
   mockUseResourceAccess.mockReturnValue({
     data: { ...baseOverview, ...overrides },
@@ -75,7 +84,7 @@ function renderModal(overrides: Partial<ResourceAccessOverview> = {}) {
     isError: undefined,
     mutate,
   });
-  mockUseUsers.mockReturnValue({ users: [], isLoading: false });
+  mockUseUsers.mockReturnValue({ users: orgUsers, isLoading: false });
   mockUseUserGroups.mockReturnValue({
     data: [],
     isLoading: false,
@@ -84,9 +93,9 @@ function renderModal(overrides: Partial<ResourceAccessOverview> = {}) {
   });
   mockUseRbac.mockReturnValue({
     hasPermission: () => true,
-    role: 'admin',
+    role: isAdmin ? 'admin' : 'analyst',
     isLoaded: true,
-    hasRole: () => true,
+    hasRole: () => isAdmin,
     hasAnyPermission: () => true,
     hasAllPermissions: () => true,
   });
@@ -106,8 +115,8 @@ function renderModal(overrides: Partial<ResourceAccessOverview> = {}) {
   return { mutate };
 }
 
-function pasteIntoEmailInput(text: string) {
-  const input = screen.getByTestId('share-add-email-input');
+function pasteIntoSearchInput(text: string) {
+  const input = screen.getByTestId('share-search-input');
   fireEvent.paste(input, {
     clipboardData: { getData: () => text },
   });
@@ -126,152 +135,238 @@ function activeGrant(overrides: Partial<AccessGrant> = {}): AccessGrant {
   };
 }
 
-describe('ShareModal — email invite mode toggle', () => {
+describe('ShareModal — email parsing into staged rows', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('shows the org-member picker by default and switches to the email panel', async () => {
-    const user = userEvent.setup();
+  it('parses a paste of comma/newline-separated emails into staged + invalid rows', () => {
     renderModal();
 
-    expect(screen.getByTestId('share-add-person-combobox-input')).toBeInTheDocument();
-    expect(screen.queryByTestId('share-add-email-panel')).not.toBeInTheDocument();
+    pasteIntoSearchInput('a@x.org, b@x.org\nbad-email');
 
-    await user.click(screen.getByTestId('share-add-mode-email'));
-
-    expect(screen.getByTestId('share-add-email-panel')).toBeInTheDocument();
-    expect(screen.queryByTestId('share-add-person-combobox-input')).not.toBeInTheDocument();
+    expect(screen.getByTestId('share-staged-row-email-a@x.org')).toHaveAttribute(
+      'data-status',
+      'staged'
+    );
+    expect(screen.getByTestId('share-staged-row-email-b@x.org')).toHaveAttribute(
+      'data-status',
+      'staged'
+    );
+    // Invalid tokens are rejected inline: kept visible, never sent.
+    const badRow = screen.getByTestId('share-staged-row-email-bad-email');
+    expect(badRow).toHaveAttribute('data-status', 'invalid');
+    expect(badRow).toHaveTextContent('Not a valid email address');
   });
 
-  it('renders the "New people will join as Members" hint only in email mode', async () => {
+  it('dedups the same email pasted twice, case-insensitively', () => {
+    renderModal();
+
+    pasteIntoSearchInput('a@x.org, A@X.ORG');
+
+    expect(screen.getAllByTestId('share-staged-row-email-a@x.org')).toHaveLength(1);
+  });
+
+  it('strips the mail-client "Name <email>" wrapper into a single staged row', () => {
+    renderModal();
+
+    pasteIntoSearchInput('Asha Kumar <a@x.org>');
+
+    expect(screen.getByTestId('share-staged-row-email-a@x.org')).toHaveAttribute(
+      'data-status',
+      'staged'
+    );
+    // The display-name part must not become a row of its own.
+    expect(screen.getAllByTestId(/^share-staged-row-/)).toHaveLength(1);
+  });
+
+  it('parses a bare angle-bracketed token to the inner email', () => {
+    renderModal();
+
+    pasteIntoSearchInput('<a@x.org>');
+
+    expect(screen.getByTestId('share-staged-row-email-a@x.org')).toHaveAttribute(
+      'data-status',
+      'staged'
+    );
+    expect(screen.getAllByTestId(/^share-staged-row-/)).toHaveLength(1);
+  });
+
+  it('marks a token with an unmatched angle bracket as invalid and keeps SHARE disabled', () => {
+    renderModal();
+
+    pasteIntoSearchInput('<a@x.org');
+
+    expect(screen.getByTestId('share-staged-row-email-<a@x.org')).toHaveAttribute(
+      'data-status',
+      'invalid'
+    );
+    expect(screen.getByTestId('share-commit-btn')).toBeDisabled();
+  });
+
+  it('stages a typed email via Enter', async () => {
     const user = userEvent.setup();
     renderModal();
 
-    expect(screen.queryByTestId('share-add-email-hint')).not.toBeInTheDocument();
+    await user.type(screen.getByTestId('share-search-input'), 'typed@x.org{Enter}');
 
-    await user.click(screen.getByTestId('share-add-mode-email'));
+    expect(screen.getByTestId('share-staged-row-email-typed@x.org')).toHaveAttribute(
+      'data-status',
+      'staged'
+    );
+    expect(screen.getByTestId('share-search-input')).toHaveValue('');
+  });
 
-    expect(screen.getByTestId('share-add-email-hint')).toHaveTextContent(
-      'New people will join as Members'
+  it('stages an email matching an org member as that member (role tag, principal_id commit)', async () => {
+    const user = userEvent.setup();
+    mockAddGrant.mockResolvedValue(activeGrant({ id: 300, principal_id: 42 }));
+    renderModal(
+      {},
+      { orgUsers: [{ orguser_id: 42, email: 'member@ngo.org', new_role_slug: 'analyst' }] }
+    );
+
+    pasteIntoSearchInput('member@ngo.org');
+
+    const row = screen.getByTestId('share-staged-row-user-42');
+    expect(row).toHaveTextContent('Analyst');
+    // Known members never trigger the invite-role block.
+    expect(screen.queryByTestId('share-invite-role-block')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('share-commit-btn'));
+
+    await waitFor(() => {
+      expect(mockAddGrant).toHaveBeenCalledWith('dashboard', 1, {
+        principal_type: 'user',
+        principal_id: 42,
+        permission: 'view',
+      });
+    });
+  });
+
+  it('marks an email that already has access instead of staging it as sendable', () => {
+    renderModal({
+      grants: [activeGrant({ id: 44, email: 'granted@x.org', principal_id: 66 })],
+    });
+
+    pasteIntoSearchInput('granted@x.org');
+
+    const row = screen.getByTestId('share-staged-row-email-granted@x.org');
+    expect(row).toHaveAttribute('data-status', 'already');
+    expect(row).toHaveTextContent('Already has access');
+    expect(screen.getByTestId('share-commit-btn')).toBeDisabled();
+  });
+});
+
+describe('ShareModal — invite-role picker (Phase C3)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('appears once an unknown email is staged, with the single-email copy', () => {
+    renderModal();
+
+    expect(screen.queryByTestId('share-invite-role-block')).not.toBeInTheDocument();
+
+    pasteIntoSearchInput('new@x.org');
+
+    expect(screen.getByTestId('share-invite-role-block')).toBeInTheDocument();
+    expect(screen.getByTestId('share-invite-role-copy')).toHaveTextContent(
+      "new@x.org isn't on Dalgo yet."
+    );
+    expect(screen.getByTestId('share-invite-role-block')).toHaveTextContent(
+      'Assign new invites role before sharing the resource.'
     );
   });
-});
 
-describe('ShareModal — email invite parsing', () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it('parses a paste of comma/newline-separated emails into valid + error chips', async () => {
+  it('offers Member/Analyst/Admin to admins', async () => {
     const user = userEvent.setup();
-    renderModal();
-    await user.click(screen.getByTestId('share-add-mode-email'));
+    renderModal({}, { isAdmin: true });
 
-    pasteIntoEmailInput('a@x.org, b@x.org\nbad-email');
+    pasteIntoSearchInput('new@x.org');
+    await user.click(screen.getByTestId('share-invite-role'));
 
-    expect(screen.getByTestId('share-add-email-chip-a@x.org')).toBeInTheDocument();
-    expect(screen.getByTestId('share-add-email-chip-b@x.org')).toBeInTheDocument();
-    const badChip = screen.getByTestId('share-add-email-chip-bad-email');
-    expect(badChip).toBeInTheDocument();
-    expect(badChip).toHaveAttribute('data-status', 'invalid');
+    expect(screen.getByRole('option', { name: 'Member' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Analyst' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Admin' })).toBeInTheDocument();
   });
 
-  it('dedups the same email pasted twice, case-insensitively', async () => {
+  it('offers only Member to non-admins', async () => {
     const user = userEvent.setup();
-    renderModal();
-    await user.click(screen.getByTestId('share-add-mode-email'));
+    renderModal({}, { isAdmin: false });
 
-    pasteIntoEmailInput('a@x.org, A@X.ORG');
+    pasteIntoSearchInput('new@x.org');
+    await user.click(screen.getByTestId('share-invite-role'));
 
-    expect(screen.getAllByTestId('share-add-email-chip-a@x.org')).toHaveLength(1);
+    expect(screen.getByRole('option', { name: 'Member' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Analyst' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Admin' })).not.toBeInTheDocument();
   });
 
-  it('strips the mail-client "Name <email>" wrapper into a single valid chip', async () => {
+  it('sends the chosen invite_role with the SHARE commit', async () => {
     const user = userEvent.setup();
-    renderModal();
-    await user.click(screen.getByTestId('share-add-mode-email'));
+    mockAddGrant.mockResolvedValue(
+      activeGrant({ id: 101, email: 'new@x.org', principal_id: null, status: 'pending' })
+    );
+    renderModal({}, { isAdmin: true });
 
-    pasteIntoEmailInput('Asha Kumar <a@x.org>');
+    pasteIntoSearchInput('new@x.org');
+    await user.click(screen.getByTestId('share-invite-role'));
+    await user.click(screen.getByRole('option', { name: 'Analyst' }));
+    await user.click(screen.getByTestId('share-commit-btn'));
 
-    const chip = screen.getByTestId('share-add-email-chip-a@x.org');
-    expect(chip).toHaveAttribute('data-status', 'valid');
-    // The display-name part must not become a chip of its own.
-    expect(screen.getAllByTestId(/^share-add-email-chip-/)).toHaveLength(1);
-  });
-
-  it('parses a bare angle-bracketed token to the inner email', async () => {
-    const user = userEvent.setup();
-    renderModal();
-    await user.click(screen.getByTestId('share-add-mode-email'));
-
-    pasteIntoEmailInput('<a@x.org>');
-
-    const chip = screen.getByTestId('share-add-email-chip-a@x.org');
-    expect(chip).toHaveAttribute('data-status', 'valid');
-    expect(screen.getAllByTestId(/^share-add-email-chip-/)).toHaveLength(1);
-  });
-
-  it('marks a token with an unmatched angle bracket as invalid', async () => {
-    const user = userEvent.setup();
-    renderModal();
-    await user.click(screen.getByTestId('share-add-mode-email'));
-
-    pasteIntoEmailInput('<a@x.org');
-
-    const chip = screen.getByTestId('share-add-email-chip-<a@x.org');
-    expect(chip).toHaveAttribute('data-status', 'invalid');
-    expect(screen.getByTestId('share-add-email-btn')).toBeDisabled();
+    await waitFor(() => {
+      expect(mockAddGrant).toHaveBeenCalledWith('dashboard', 1, {
+        principal_type: 'user',
+        email: 'new@x.org',
+        permission: 'view',
+        invite_role: 'analyst',
+      });
+    });
   });
 });
 
-describe('ShareModal — email invite send', () => {
+describe('ShareModal — SHARE commit', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('sends one POST per valid email at the selected permission and revalidates on mixed active/pending results', async () => {
+  it('sends one POST per staged email at its pill permission and revalidates on mixed active/pending results', async () => {
     const user = userEvent.setup();
     const { mutate } = renderModal();
-    await user.click(screen.getByTestId('share-add-mode-email'));
 
-    pasteIntoEmailInput('active@x.org, pending@x.org');
+    pasteIntoSearchInput('active@x.org, pending@x.org');
 
-    await user.click(screen.getByTestId('share-add-email-permission'));
+    await user.click(screen.getByTestId('share-staged-permission-email-active@x.org'));
     await user.click(screen.getByRole('option', { name: 'Editor' }));
 
     mockAddGrant.mockImplementation(async (_rtype, _id, payload) => {
       if (payload.email === 'active@x.org') {
-        return activeGrant({
-          id: 101,
-          email: 'active@x.org',
-          permission: 'edit',
-          status: 'active',
-        });
+        return activeGrant({ id: 101, email: 'active@x.org', permission: 'edit' });
       }
       return activeGrant({
         id: 102,
         email: 'pending@x.org',
         principal_id: null,
-        permission: 'edit',
         status: 'pending',
       });
     });
 
-    await user.click(screen.getByTestId('share-add-email-btn'));
+    await user.click(screen.getByTestId('share-commit-btn'));
 
     await waitFor(() => {
       expect(mockAddGrant).toHaveBeenCalledWith('dashboard', 1, {
         principal_type: 'user',
         email: 'active@x.org',
         permission: 'edit',
+        invite_role: 'member',
       });
       expect(mockAddGrant).toHaveBeenCalledWith('dashboard', 1, {
         principal_type: 'user',
         email: 'pending@x.org',
-        permission: 'edit',
+        permission: 'view',
+        invite_role: 'member',
       });
     });
 
     await waitFor(() => {
       expect(mutate).toHaveBeenCalled();
-      // Both chips are gone from the invite panel — they now show as real rows.
-      expect(screen.queryByTestId('share-add-email-chip-active@x.org')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('share-add-email-chip-pending@x.org')).not.toBeInTheDocument();
+      // Both rows cleared from the staged area — they now show as real rows.
+      expect(screen.queryByTestId('share-staged-row-email-active@x.org')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('share-staged-row-email-pending@x.org')).not.toBeInTheDocument();
       expect(mockToastSuccess).toHaveBeenCalledWith('1 shared · 1 invited');
     });
 
@@ -281,51 +376,51 @@ describe('ShareModal — email invite send', () => {
     );
   });
 
-  it('retains a failed chip for retry and surfaces a summary toast', async () => {
+  it('retains a failed row for retry and surfaces a summary toast', async () => {
     const user = userEvent.setup();
     renderModal();
-    await user.click(screen.getByTestId('share-add-mode-email'));
 
-    pasteIntoEmailInput('ok@x.org, bad@x.org');
+    pasteIntoSearchInput('ok@x.org, bad@x.org');
 
     mockAddGrant.mockImplementation(async (_rtype, _id, payload) => {
       if (payload.email === 'bad@x.org') {
         throw new Error('This resource cannot be shared with that email');
       }
-      return activeGrant({ id: 200, email: 'ok@x.org', status: 'active' });
+      return activeGrant({ id: 200, email: 'ok@x.org' });
     });
 
-    await user.click(screen.getByTestId('share-add-email-btn'));
+    await user.click(screen.getByTestId('share-commit-btn'));
 
     await waitFor(() => {
-      expect(screen.queryByTestId('share-add-email-chip-ok@x.org')).not.toBeInTheDocument();
-      const failedChip = screen.getByTestId('share-add-email-chip-bad@x.org');
-      expect(failedChip).toHaveAttribute('data-status', 'failed');
+      expect(screen.queryByTestId('share-staged-row-email-ok@x.org')).not.toBeInTheDocument();
+      const failedRow = screen.getByTestId('share-staged-row-email-bad@x.org');
+      expect(failedRow).toHaveAttribute('data-status', 'failed');
+      expect(failedRow).toHaveTextContent('This resource cannot be shared with that email');
       expect(mockToastInfo).toHaveBeenCalledWith('1 shared · 1 failed');
     });
 
-    // Retry: clicking Invite again resends the still-failed chip.
+    // Retry: SHARE again resends the still-failed row.
     mockAddGrant.mockClear();
-    mockAddGrant.mockResolvedValue(activeGrant({ id: 201, email: 'bad@x.org', status: 'active' }));
-    await user.click(screen.getByTestId('share-add-email-btn'));
+    mockAddGrant.mockResolvedValue(activeGrant({ id: 201, email: 'bad@x.org' }));
+    await user.click(screen.getByTestId('share-commit-btn'));
 
     await waitFor(() => {
       expect(mockAddGrant).toHaveBeenCalledWith('dashboard', 1, {
         principal_type: 'user',
         email: 'bad@x.org',
         permission: 'view',
+        invite_role: 'member',
       });
-      expect(screen.queryByTestId('share-add-email-chip-bad@x.org')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('share-staged-row-email-bad@x.org')).not.toBeInTheDocument();
     });
   });
 
   it('sends a 7-email paste in small batches, never more than 5 concurrent requests', async () => {
     const user = userEvent.setup();
     renderModal();
-    await user.click(screen.getByTestId('share-add-mode-email'));
 
     const emails = Array.from({ length: 7 }, (_, i) => `user${i}@x.org`);
-    pasteIntoEmailInput(emails.join(', '));
+    pasteIntoSearchInput(emails.join(', '));
 
     let inFlight = 0;
     let maxInFlight = 0;
@@ -339,7 +434,7 @@ describe('ShareModal — email invite send', () => {
       }
     );
 
-    await user.click(screen.getByTestId('share-add-email-btn'));
+    await user.click(screen.getByTestId('share-commit-btn'));
 
     await waitFor(
       () => {
@@ -351,14 +446,14 @@ describe('ShareModal — email invite send', () => {
     expect(maxInFlight).toBeLessThanOrEqual(5);
   });
 
-  it('the Invite button stays disabled with only invalid chips present', async () => {
+  it('SHARE stays disabled with only invalid rows staged', async () => {
     const user = userEvent.setup();
     renderModal();
-    await user.click(screen.getByTestId('share-add-mode-email'));
 
-    pasteIntoEmailInput('not-an-email');
+    pasteIntoSearchInput('not-an-email, also@bad');
 
-    expect(screen.getByTestId('share-add-email-btn')).toBeDisabled();
+    expect(screen.getByTestId('share-commit-btn')).toBeDisabled();
+    await user.click(screen.getByTestId('share-commit-btn'));
     expect(mockAddGrant).not.toHaveBeenCalled();
   });
 });

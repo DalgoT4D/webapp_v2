@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
+import { toastSuccess, toastError } from '@/lib/toast';
 import { copyUrlToClipboard } from '@/lib/clipboard';
-import { cn } from '@/lib/utils';
 import {
   Share2,
   Copy,
@@ -15,7 +14,6 @@ import {
   Send,
   Users,
   UsersRound,
-  UserPlus,
   Trash2,
   Inbox,
 } from 'lucide-react';
@@ -54,19 +52,21 @@ import {
   type AccessRequestItem,
 } from '@/hooks/api/useAccessRequests';
 import { useUsers } from '@/hooks/api/useUserManagement';
-import { useUserGroups } from '@/hooks/api/useUserGroups';
 import { useOrgPreferences } from '@/hooks/api/useNotifications';
+import {
+  EMAIL_REGEX,
+  ShareAddPeopleSearch,
+  useShareStaging,
+  type ShareStaging,
+} from '@/components/ui/share-modal-staging';
 import { ADMIN_ROLES, PERMISSIONS, useRbac, type Permission } from '@/lib/rbac';
 import { useAuthStore } from '@/stores/authStore';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { AUDIENCE_ORDER, audienceLabels, LEVEL_LABELS } from '@/lib/access-labels';
 
-// Angle brackets excluded so stray leftovers of a mis-parsed mail-client
-// "Name <email>" wrapper (e.g. an unmatched "<a@x.org") fail validation
-// instead of being POSTed to the backend, which has no email-format check
-// on the share-invite path.
-const EMAIL_REGEX = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
+// EMAIL_REGEX (share-modal-staging.tsx) validates the legacy Share-via-Email
+// input below; the unified add-people staging flow lives in that module too.
 const MAX_RECIPIENTS = 20;
 
 // Mirrors ddpui/core/sharing/shareable_types.py's share_permission_slug per rtype.
@@ -77,99 +77,6 @@ const SHARE_PERMISSION_BY_RTYPE: Record<ShareableResourceType, Permission> = {
   metric: PERMISSIONS.CAN_SHARE_METRICS,
   kpi: PERMISSIONS.CAN_SHARE_KPIS,
 };
-
-// ---- Email invite parsing (Add-a-person "Invite by email" mode) ----
-
-// Mail-client "Display Name <email>" wrapper (also bare "<email>").
-// Anchored + no nested brackets so an unmatched bracket falls through to
-// plain tokenization and then fails EMAIL_REGEX as an invalid chip.
-const ANGLE_BRACKET_EMAIL_REGEX = /^[^<>]*<([^<>]+)>$/;
-
-/** Splits pasted/typed text into email candidates. Entries are separated
- * by commas/semicolons/newlines; a "Name <email>" entry (the common
- * mail-client copy format) yields just the address; anything else is
- * further split on whitespace. */
-function splitEmailTokens(text: string): string[] {
-  const tokens: string[] = [];
-  for (const entry of text.split(/[,;\r\n]+/)) {
-    const trimmed = entry.trim();
-    if (!trimmed) continue;
-    const angleMatch = trimmed.match(ANGLE_BRACKET_EMAIL_REGEX);
-    if (angleMatch) {
-      tokens.push(angleMatch[1].trim());
-    } else {
-      tokens.push(...trimmed.split(/\s+/).filter(Boolean));
-    }
-  }
-  return tokens;
-}
-
-// A paste-30-emails batch sends one POST per email (each can trigger a
-// backend invitation — user creation + an outbound email). Small-batch
-// concurrency instead of firing all of them at once keeps that load, and
-// the org's mail-sending rate, bounded — considerate of slow-connection
-// NGO users and shared org mail infrastructure alike.
-const EMAIL_INVITE_BATCH_SIZE = 5;
-
-function chunk<T>(items: T[], size: number): T[][] {
-  const batches: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    batches.push(items.slice(i, i + size));
-  }
-  return batches;
-}
-
-type EmailChipStatus = 'valid' | 'invalid' | 'failed';
-
-interface EmailInviteChip {
-  /** Lowercased — the backend lowercases emails too, so this is the canonical key. */
-  email: string;
-  status: EmailChipStatus;
-  error?: string;
-}
-
-interface EmailInviteResult {
-  email: string;
-  grant: AccessGrant | null;
-  error: string | null;
-}
-
-/** Drops chips that succeeded (they now show as real grant rows), flips
- * sent-but-failed chips to 'failed' with the error, and leaves untouched
- * anything not part of this batch (e.g. still-invalid chips). */
-function mergeEmailInviteResults(
-  chips: EmailInviteChip[],
-  results: EmailInviteResult[]
-): EmailInviteChip[] {
-  const resultByEmail = new Map(results.map((r) => [r.email, r]));
-  return chips.reduce<EmailInviteChip[]>((acc, chip) => {
-    const result = resultByEmail.get(chip.email);
-    if (!result) {
-      acc.push(chip);
-    } else if (result.error) {
-      acc.push({ email: chip.email, status: 'failed', error: result.error });
-    }
-    return acc;
-  }, []);
-}
-
-/** Builds the "N shared · N invited · N failed" summary and picks which
- * toast flavor fits (all-success / all-failure / mixed). */
-function summarizeEmailInviteResults(results: EmailInviteResult[]) {
-  const sharedCount = results.filter((r) => r.grant?.status === 'active').length;
-  const invitedCount = results.filter((r) => r.grant?.status === 'pending').length;
-  const failedCount = results.filter((r) => r.error).length;
-
-  const parts: string[] = [];
-  if (sharedCount > 0) parts.push(`${sharedCount} shared`);
-  if (invitedCount > 0) parts.push(`${invitedCount} invited`);
-  if (failedCount > 0) parts.push(`${failedCount} failed`);
-
-  const toastKind: 'success' | 'error' | 'info' =
-    failedCount === 0 ? 'success' : sharedCount + invitedCount === 0 ? 'error' : 'info';
-
-  return { sharedCount, invitedCount, failedCount, summary: parts.join(' · '), toastKind };
-}
 
 interface ShareModalProps {
   entityId: number;
@@ -239,6 +146,16 @@ export function ShareModal({
       access.viewer.effective_permission === 'edit' &&
       hasPermission(SHARE_PERMISSION_BY_RTYPE[entityType])
   );
+
+  // Staged add-people rows + the footer SHARE commit (Phase C). State lives
+  // here (not in the People section) because the SHARE button sits in the
+  // modal footer; closing the modal discards whatever was staged.
+  const staging = useShareStaging({
+    entityType: entityType ?? null,
+    entityId,
+    isOpen,
+    onCommitted: mutateAccess,
+  });
 
   // ---- /api/access/requests/ — pending requests decidable on THIS resource ----
   // `incoming` is already filtered server-side to requests the caller can
@@ -421,6 +338,7 @@ export function ShareModal({
               entityId={entityId}
               access={access}
               canShare={canShare}
+              staging={staging}
               onChanged={mutateAccess}
             />
           )}
@@ -631,11 +549,28 @@ export function ShareModal({
             </Card>
           )}
 
-          {/* Actions */}
+          {/* Actions — SHARE applies every staged add-people row in one go
+              (design frames 1426:2063/2115); disabled until something is staged. */}
           <div className="flex justify-end gap-3">
             <Button data-testid="share-close-btn" variant="outline" onClick={onClose}>
               Close
             </Button>
+            {canShare && showPeopleSection && (
+              <Button
+                data-testid="share-commit-btn"
+                variant="primary"
+                onClick={staging.commit}
+                // hasPendingInput: typed-but-unstaged text keeps SHARE
+                // clickable so commit() can flush it into the batch.
+                disabled={
+                  (staging.committableCount === 0 && !staging.hasPendingInput) ||
+                  staging.isCommitting
+                }
+              >
+                {staging.isCommitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                SHARE
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>
@@ -830,6 +765,7 @@ interface PeopleWithAccessSectionProps {
   entityId: number;
   access: NonNullable<ReturnType<typeof useResourceAccess>['data']>;
   canShare: boolean;
+  staging: ShareStaging;
   onChanged: () => void;
 }
 
@@ -838,57 +774,9 @@ function PeopleWithAccessSection({
   entityId,
   access,
   canShare,
+  staging,
   onChanged,
 }: PeopleWithAccessSectionProps) {
-  const { users: orgUsers } = useUsers();
-  // Groups source for the add-principal picker (Part C). Group ids are
-  // available from GET /api/groups/.
-  const { data: groups } = useUserGroups(canShare);
-  const [selectedPersonId, setSelectedPersonId] = useState('');
-  const [pendingPermission, setPendingPermission] = useState<AccessLevel>('view');
-  const [selectedGroupId, setSelectedGroupId] = useState('');
-  const [groupPendingPermission, setGroupPendingPermission] = useState<AccessLevel>('view');
-
-  // Email invite mode — paste/type many emails, invite each as a Member
-  // (share path hardcodes Member; see PLAN DEVIATION note in the report).
-  // The chips/send state itself lives in <EmailInvitePanel> below.
-  const [addPersonMode, setAddPersonMode] = useState<'picker' | 'email'>('picker');
-
-  const grantedEmails = useMemo(
-    () =>
-      new Set([
-        ...(access.owner ? [access.owner.email] : []),
-        ...access.grants.map((g) => g.email),
-      ]),
-    [access.owner, access.grants]
-  );
-
-  // Candidate value is the OrgUser PK (orguser_id) — what POST .../grants/
-  // wants as principal_id (Task 6b Part B). Org members without a resolved
-  // orguser_id (shouldn't happen post-6b, but the field is optional on the
-  // wire) are excluded rather than offered as an unusable candidate.
-  const candidateItems: ComboboxItem[] = useMemo(
-    () =>
-      (orgUsers || [])
-        .filter((u) => !grantedEmails.has(u.email) && typeof u.orguser_id === 'number')
-        .map((u) => ({ value: String(u.orguser_id), label: u.email })),
-    [orgUsers, grantedEmails]
-  );
-
-  const grantedGroupIds = useMemo(
-    () =>
-      new Set(access.grants.filter((g) => g.principal_type === 'group').map((g) => g.principal_id)),
-    [access.grants]
-  );
-
-  const candidateGroupItems: ComboboxItem[] = useMemo(
-    () =>
-      (groups || [])
-        .filter((g) => !grantedGroupIds.has(g.id))
-        .map((g) => ({ value: String(g.id), label: g.name })),
-    [groups, grantedGroupIds]
-  );
-
   const handlePermissionChange = useCallback(
     async (grant: AccessGrant, permission: AccessLevel) => {
       // Pending rows have no principal_id yet — re-POST via the email path
@@ -934,49 +822,14 @@ function PeopleWithAccessSection({
     [entityType, entityId, onChanged]
   );
 
-  const handleAddPerson = useCallback(async () => {
-    if (!selectedPersonId) return;
-    try {
-      await addGrant(entityType, entityId, {
-        principal_type: 'user',
-        principal_id: Number(selectedPersonId),
-        permission: pendingPermission,
-      });
-      onChanged();
-      setSelectedPersonId('');
-      toastSuccess.generic('Person added');
-      trackEvent(ANALYTICS_EVENTS.SHARING_GRANT_ADDED, {
-        entity_type: entityType,
-        principal_type: 'user',
-      });
-    } catch (error) {
-      toastError.api(error, 'add this person');
-    }
-  }, [entityType, entityId, selectedPersonId, pendingPermission, onChanged]);
-
-  const handleAddGroup = useCallback(async () => {
-    if (!selectedGroupId) return;
-    try {
-      await addGrant(entityType, entityId, {
-        principal_type: 'group',
-        principal_id: Number(selectedGroupId),
-        permission: groupPendingPermission,
-      });
-      onChanged();
-      setSelectedGroupId('');
-      toastSuccess.generic('Group added');
-      trackEvent(ANALYTICS_EVENTS.SHARING_GRANT_ADDED, {
-        entity_type: entityType,
-        principal_type: 'group',
-      });
-    } catch (error) {
-      toastError.api(error, 'add this group');
-    }
-  }, [entityType, entityId, selectedGroupId, groupPendingPermission, onChanged]);
-
   return (
     <Card data-testid="share-people-section">
       <CardContent className="p-4 space-y-4">
+        {/* Unified add flow (Phase C): search people/groups or paste emails,
+            entries stage as rows here, the footer SHARE button applies them.
+            Only ADDING is staged — the rows below stay live-editing. */}
+        {canShare && <ShareAddPeopleSearch access={access} staging={staging} />}
+
         <div className="flex items-center gap-3">
           <Users className="h-5 w-5 text-primary" />
           <Label className="text-sm font-medium">People with access</Label>
@@ -1048,333 +901,8 @@ function PeopleWithAccessSection({
             <p className="text-xs text-muted-foreground">No one else has access yet.</p>
           )}
         </div>
-
-        {canShare && (
-          <div className="space-y-2 pt-2 border-t">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <UserPlus className="h-4 w-4 text-muted-foreground" />
-                <Label className="text-xs font-medium">Add a person</Label>
-              </div>
-              <div className="flex gap-1">
-                <Button
-                  type="button"
-                  data-testid="share-add-mode-picker"
-                  variant={addPersonMode === 'picker' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setAddPersonMode('picker')}
-                >
-                  Org member
-                </Button>
-                <Button
-                  type="button"
-                  data-testid="share-add-mode-email"
-                  variant={addPersonMode === 'email' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setAddPersonMode('email')}
-                >
-                  Invite by email
-                </Button>
-              </div>
-            </div>
-
-            {addPersonMode === 'picker' ? (
-              <div className="flex gap-2">
-                <Combobox
-                  id="share-add-person-combobox"
-                  items={candidateItems}
-                  value={selectedPersonId}
-                  onValueChange={setSelectedPersonId}
-                  placeholder="Select an org member"
-                  searchPlaceholder="Search by email"
-                  className="flex-1"
-                />
-                <Select
-                  value={pendingPermission}
-                  onValueChange={(value) => setPendingPermission(value as AccessLevel)}
-                >
-                  <SelectTrigger
-                    id="share-add-person-permission"
-                    data-testid="share-add-person-permission"
-                    size="sm"
-                    className="w-24"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="view">{LEVEL_LABELS.view}</SelectItem>
-                    <SelectItem value="edit">{LEVEL_LABELS.edit}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  data-testid="share-add-person-btn"
-                  onClick={handleAddPerson}
-                  disabled={!selectedPersonId}
-                >
-                  Add
-                </Button>
-              </div>
-            ) : (
-              <EmailInvitePanel entityType={entityType} entityId={entityId} onChanged={onChanged} />
-            )}
-
-            <div className="flex items-center gap-2 pt-2">
-              <UsersRound className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-xs font-medium">Add a group</Label>
-            </div>
-            <div className="flex gap-2">
-              <Combobox
-                id="share-add-group-combobox"
-                items={candidateGroupItems}
-                value={selectedGroupId}
-                onValueChange={setSelectedGroupId}
-                placeholder="Select a group"
-                searchPlaceholder="Search groups"
-                className="flex-1"
-              />
-              <Select
-                value={groupPendingPermission}
-                onValueChange={(value) => setGroupPendingPermission(value as AccessLevel)}
-              >
-                <SelectTrigger
-                  id="share-add-group-permission"
-                  data-testid="share-add-group-permission"
-                  size="sm"
-                  className="w-24"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="view">{LEVEL_LABELS.view}</SelectItem>
-                  <SelectItem value="edit">{LEVEL_LABELS.edit}</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                data-testid="share-add-group-btn"
-                onClick={handleAddGroup}
-                disabled={!selectedGroupId}
-              >
-                Add
-              </Button>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
-  );
-}
-
-// ============================================================================
-// Add a person — "Invite by email" mode
-// ============================================================================
-
-interface EmailInvitePanelProps {
-  entityType: ShareableResourceType;
-  entityId: number;
-  onChanged: () => void;
-}
-
-/** Paste/type many emails at once; each becomes a chip, "Invite" sends one
- * POST per chip at the selected permission. The backend (not this panel)
- * decides known-vs-unknown-email — a known org email grants instantly, an
- * unknown one sends a Member invitation + pending grant (task-09 contract).
- * Successful chips are dropped (they now show as real rows in the People
- * list above); failed ones stay, marked, so the user can retry. */
-function EmailInvitePanel({ entityType, entityId, onChanged }: EmailInvitePanelProps) {
-  const [emailInputText, setEmailInputText] = useState('');
-  const [emailChips, setEmailChips] = useState<EmailInviteChip[]>([]);
-  const [emailPermission, setEmailPermission] = useState<AccessLevel>('view');
-  const [isSendingInvites, setIsSendingInvites] = useState(false);
-
-  const addEmailTokens = useCallback((tokens: string[]) => {
-    setEmailChips((prev) => {
-      const seen = new Set(prev.map((chip) => chip.email));
-      const next = [...prev];
-      for (const raw of tokens) {
-        const email = raw.toLowerCase();
-        if (!email || seen.has(email)) continue;
-        seen.add(email);
-        next.push({ email, status: EMAIL_REGEX.test(email) ? 'valid' : 'invalid' });
-      }
-      return next;
-    });
-  }, []);
-
-  const handleEmailInputPaste = useCallback(
-    (e: React.ClipboardEvent<HTMLInputElement>) => {
-      const text = e.clipboardData.getData('text');
-      if (!text) return;
-      e.preventDefault();
-      addEmailTokens(splitEmailTokens(text));
-      setEmailInputText('');
-    },
-    [addEmailTokens]
-  );
-
-  const handleEmailInputKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter' || e.key === ',') {
-        e.preventDefault();
-        addEmailTokens(splitEmailTokens(emailInputText));
-        setEmailInputText('');
-      }
-    },
-    [emailInputText, addEmailTokens]
-  );
-
-  const handleEmailInputBlur = useCallback(() => {
-    const leftover = emailInputText.trim();
-    if (!leftover) return;
-    addEmailTokens(splitEmailTokens(leftover));
-    setEmailInputText('');
-  }, [emailInputText, addEmailTokens]);
-
-  const handleRemoveEmailChip = useCallback((email: string) => {
-    setEmailChips((prev) => prev.filter((chip) => chip.email !== email));
-  }, []);
-
-  const hasSendableEmailChips = emailChips.some(
-    (chip) => chip.status === 'valid' || chip.status === 'failed'
-  );
-
-  const sendOneInvite = useCallback(
-    async (chip: EmailInviteChip): Promise<EmailInviteResult> => {
-      try {
-        const grant = await addGrant(entityType, entityId, {
-          principal_type: 'user',
-          email: chip.email,
-          permission: emailPermission,
-        });
-        return { email: chip.email, grant, error: null };
-      } catch (error) {
-        return {
-          email: chip.email,
-          grant: null,
-          error: error instanceof Error ? error.message : 'Failed to invite',
-        };
-      }
-    },
-    [entityType, entityId, emailPermission]
-  );
-
-  const handleAddEmails = useCallback(async () => {
-    const targets = emailChips.filter(
-      (chip) => chip.status === 'valid' || chip.status === 'failed'
-    );
-    if (targets.length === 0) return;
-
-    setIsSendingInvites(true);
-    try {
-      // Small-batch concurrency, not one big Promise.all — a 30-email paste
-      // would otherwise fire 30 simultaneous invite emails/POSTs at once.
-      const results: EmailInviteResult[] = [];
-      for (const batch of chunk(targets, EMAIL_INVITE_BATCH_SIZE)) {
-        results.push(...(await Promise.all(batch.map(sendOneInvite))));
-      }
-
-      setEmailChips((prev) => mergeEmailInviteResults(prev, results));
-
-      const { sharedCount, invitedCount, summary, toastKind } =
-        summarizeEmailInviteResults(results);
-      const successCount = sharedCount + invitedCount;
-      if (successCount > 0) {
-        onChanged();
-        // Fire on the success path only, and count actual sends — not
-        // attempts that 400'd (rules/analytics.md).
-        trackEvent(ANALYTICS_EVENTS.SHARING_EMAIL_INVITE_SENT, {
-          entity_type: entityType,
-          count: successCount,
-        });
-      }
-      if (toastKind === 'success') toastSuccess.generic(summary);
-      else if (toastKind === 'error') toastError.api(summary);
-      else toastInfo.generic(summary);
-    } finally {
-      setIsSendingInvites(false);
-    }
-  }, [emailChips, sendOneInvite, entityType, onChanged]);
-
-  return (
-    <div className="space-y-2" data-testid="share-add-email-panel">
-      <div className="flex gap-2">
-        <Input
-          id="share-add-email-input"
-          data-testid="share-add-email-input"
-          type="text"
-          placeholder="Paste or type emails — separated by commas, spaces, or new lines"
-          value={emailInputText}
-          onChange={(e) => setEmailInputText(e.target.value)}
-          onPaste={handleEmailInputPaste}
-          onKeyDown={handleEmailInputKeyDown}
-          onBlur={handleEmailInputBlur}
-          disabled={isSendingInvites}
-          className="flex-1"
-        />
-        <Select
-          value={emailPermission}
-          onValueChange={(value) => setEmailPermission(value as AccessLevel)}
-        >
-          <SelectTrigger
-            id="share-add-email-permission"
-            data-testid="share-add-email-permission"
-            size="sm"
-            className="w-24"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="view">{LEVEL_LABELS.view}</SelectItem>
-            <SelectItem value="edit">{LEVEL_LABELS.edit}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {emailChips.length > 0 && (
-        <div className="flex flex-wrap gap-1.5" data-testid="share-add-email-chips">
-          {emailChips.map((chip) => (
-            <span
-              key={chip.email}
-              data-testid={`share-add-email-chip-${chip.email}`}
-              data-status={chip.status}
-              title={
-                chip.error ?? (chip.status === 'invalid' ? 'Not a valid email address' : undefined)
-              }
-              className={cn(
-                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs',
-                chip.status === 'valid'
-                  ? 'bg-primary/10 text-primary'
-                  : 'bg-destructive/10 text-destructive'
-              )}
-            >
-              {chip.email}
-              <button
-                type="button"
-                data-testid={`share-add-email-remove-${chip.email}`}
-                onClick={() => handleRemoveEmailChip(chip.email)}
-                disabled={isSendingInvites}
-                className="hover:opacity-70"
-                aria-label={`Remove ${chip.email}`}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      <p className="text-xs text-muted-foreground" data-testid="share-add-email-hint">
-        New people will join as Members. Existing org members are shared with instantly.
-      </p>
-
-      <Button
-        data-testid="share-add-email-btn"
-        onClick={handleAddEmails}
-        disabled={isSendingInvites || !hasSendableEmailChips}
-      >
-        {isSendingInvites && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-        Invite
-      </Button>
-    </div>
   );
 }
 
