@@ -52,8 +52,8 @@ import {
   transferOwnership,
   type ShareableResourceType,
   type AccessGrant,
-  type AccessAudience,
   type AccessLevel,
+  type RolePermissionLevel,
 } from '@/hooks/api/useResourceAccess';
 import {
   useAccessRequests,
@@ -70,10 +70,14 @@ import {
   type ShareStaging,
 } from '@/components/ui/share-modal-staging';
 import { ADMIN_ROLES, PERMISSIONS, useRbac, type Permission } from '@/lib/rbac';
-import { useAuthStore } from '@/stores/authStore';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { AUDIENCE_ORDER, audienceLabels, LEVEL_LABELS, RESOURCE_NOUNS } from '@/lib/access-labels';
+import {
+  ROLE_LEVEL_ORDER,
+  ROLE_LEVEL_LABELS,
+  LEVEL_LABELS,
+  RESOURCE_NOUNS,
+} from '@/lib/access-labels';
 
 // EMAIL_REGEX (share-modal-staging.tsx) validates the legacy Share-via-Email
 // input below; the unified add-people staging flow lives in that module too.
@@ -142,7 +146,6 @@ export function ShareModal({
     mutate: mutateAccess,
   } = useResourceAccess(entityType ?? null, entityType ? entityId : null);
   const { hasPermission } = useRbac();
-  const orgName = useAuthStore((state) => state.currentOrg?.name) || '';
 
   // Org-wide public-sharing kill switch (task-11 backend, task-11f frontend).
   // No-row / not-yet-loaded must NOT hide the toggle — mirrors the backend's
@@ -382,7 +385,6 @@ export function ShareModal({
               entityId={entityId}
               access={access}
               canShare={canShare}
-              orgName={orgName}
               onChanged={mutateAccess}
             />
           )}
@@ -1012,39 +1014,47 @@ interface GeneralAccessSectionProps {
   entityId: number;
   access: NonNullable<ReturnType<typeof useResourceAccess>['data']>;
   canShare: boolean;
-  orgName: string;
   onChanged: () => void;
 }
+
+// Which per-role dropdown a change/confirmation applies to. Admins are
+// implicit "all access" and have no row here — see the D1 report note.
+type GeneralAccessRole = 'analyst' | 'member';
+
+const GENERAL_ACCESS_ROLE_NOUN: Record<GeneralAccessRole, { singular: string; plural: string }> = {
+  analyst: { singular: 'analyst', plural: 'analysts' },
+  member: { singular: 'member', plural: 'members' },
+};
 
 function GeneralAccessSection({
   entityType,
   entityId,
   access,
   canShare,
-  orgName,
   onChanged,
 }: GeneralAccessSectionProps) {
-  const currentAudience = access.general_access?.audience ?? 'private';
-  const currentLevel = access.general_access?.level ?? 'view';
-  const labels = audienceLabels(orgName);
+  const currentAnalystLevel = access.general_access?.analyst_level ?? 'none';
+  const currentMemberLevel = access.general_access?.member_level ?? 'none';
 
   const [confirmState, setConfirmState] = useState<{
-    audience: AccessAudience;
-    level: AccessLevel;
+    role: GeneralAccessRole;
+    level: RolePermissionLevel;
     persistingGrants: AccessGrant[];
   } | null>(null);
 
   const applyChange = useCallback(
-    async (audience: AccessAudience, level: AccessLevel, removeGrantIds?: number[]) => {
+    async (role: GeneralAccessRole, level: RolePermissionLevel, removeGrantIds?: number[]) => {
+      const analyst_level = role === 'analyst' ? level : currentAnalystLevel;
+      const member_level = role === 'member' ? level : currentMemberLevel;
       try {
         const result = await setGeneralAccess(entityType, entityId, {
-          audience,
-          level,
+          analyst_level,
+          member_level,
           ...(removeGrantIds !== undefined ? { remove_grant_ids: removeGrantIds } : {}),
         });
 
         if (result.requires_confirmation) {
-          setConfirmState({ audience, level, persistingGrants: result.persisting_grants });
+          setConfirmState({ role, level, persistingGrants: result.persisting_grants });
           return;
         }
 
@@ -1053,29 +1063,30 @@ function GeneralAccessSection({
         toastSuccess.generic('General access updated');
         trackEvent(ANALYTICS_EVENTS.SHARING_GENERAL_ACCESS_UPDATED, {
           entity_type: entityType,
-          audience,
-          level,
+          analyst_level,
+          member_level,
         });
       } catch (error) {
         toastError.api(error, 'update general access');
       }
     },
-    [entityType, entityId, onChanged]
+    [entityType, entityId, currentAnalystLevel, currentMemberLevel, onChanged]
   );
 
-  const handleAudienceChange = (value: string) =>
-    applyChange(value as AccessAudience, currentLevel);
-  const handleLevelChange = (value: string) => applyChange(currentAudience, value as AccessLevel);
+  const handleAnalystLevelChange = (value: string) =>
+    applyChange('analyst', value as RolePermissionLevel);
+  const handleMemberLevelChange = (value: string) =>
+    applyChange('member', value as RolePermissionLevel);
 
   const handleKeepAccess = () => {
     if (!confirmState) return;
-    applyChange(confirmState.audience, confirmState.level, []);
+    applyChange(confirmState.role, confirmState.level, []);
   };
 
   const handleRemoveAccessToo = () => {
     if (!confirmState) return;
     applyChange(
-      confirmState.audience,
+      confirmState.role,
       confirmState.level,
       confirmState.persistingGrants.map((g) => g.id)
     );
@@ -1090,50 +1101,54 @@ function GeneralAccessSection({
         </div>
 
         {canShare ? (
-          <div className="flex gap-2">
-            <div className="flex-1 space-y-1">
-              <Label htmlFor="share-general-audience" className="text-xs">
-                Who has access
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="share-general-analyst-level" className="text-sm">
+                Analysts
               </Label>
-              <Select value={currentAudience} onValueChange={handleAudienceChange}>
+              <Select value={currentAnalystLevel} onValueChange={handleAnalystLevelChange}>
                 <SelectTrigger
-                  id="share-general-audience"
-                  data-testid="share-general-audience"
-                  className="w-full"
+                  id="share-general-analyst-level"
+                  data-testid="share-general-analyst-level"
+                  className="w-40"
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {AUDIENCE_ORDER.map((audience) => (
-                    <SelectItem key={audience} value={audience}>
-                      {labels[audience]}
+                  {ROLE_LEVEL_ORDER.map((level) => (
+                    <SelectItem key={level} value={level}>
+                      {ROLE_LEVEL_LABELS[level]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="w-28 space-y-1">
-              <Label htmlFor="share-general-level" className="text-xs">
-                Permission
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="share-general-member-level" className="text-sm">
+                Members
               </Label>
-              <Select value={currentLevel} onValueChange={handleLevelChange}>
+              <Select value={currentMemberLevel} onValueChange={handleMemberLevelChange}>
                 <SelectTrigger
-                  id="share-general-level"
-                  data-testid="share-general-level"
-                  className="w-full"
+                  id="share-general-member-level"
+                  data-testid="share-general-member-level"
+                  className="w-40"
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="view">{LEVEL_LABELS.view}</SelectItem>
-                  <SelectItem value="edit">{LEVEL_LABELS.edit}</SelectItem>
+                  {ROLE_LEVEL_ORDER.map((level) => (
+                    <SelectItem key={level} value={level}>
+                      {ROLE_LEVEL_LABELS[level]}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
         ) : (
-          <p className="text-sm" data-testid="share-general-readonly">
-            {labels[currentAudience]} · {LEVEL_LABELS[currentLevel]}
+          <p className="text-sm space-y-1" data-testid="share-general-readonly">
+            <span className="block">Analysts — {ROLE_LEVEL_LABELS[currentAnalystLevel]}</span>
+            <span className="block">Members — {ROLE_LEVEL_LABELS[currentMemberLevel]}</span>
           </p>
         )}
 
@@ -1143,8 +1158,12 @@ function GeneralAccessSection({
             className="space-y-3 p-3 bg-orange-50 border border-orange-200 rounded-md"
           >
             <p className="text-xs text-orange-800">
-              {confirmState.persistingGrants.length} people still have individual access to this{' '}
-              {entityType}. Keep their access, or remove it along with this change?
+              {confirmState.persistingGrants.length}{' '}
+              {confirmState.persistingGrants.length === 1
+                ? GENERAL_ACCESS_ROLE_NOUN[confirmState.role].singular
+                : GENERAL_ACCESS_ROLE_NOUN[confirmState.role].plural}{' '}
+              still {confirmState.persistingGrants.length === 1 ? 'has' : 'have'} individual access
+              to this {entityType}. Keep their access, or remove it along with this change?
             </p>
             <ul className="text-xs text-orange-800 list-disc list-inside">
               {confirmState.persistingGrants.map((g) => (

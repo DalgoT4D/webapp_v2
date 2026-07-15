@@ -47,17 +47,21 @@ export interface UserPreferences {
 // notification settings AND the sharing settings (task-11f) in the same
 // envelope, so both live on one interface rather than being split.
 import type {
-  AccessAudience,
   AccessLevel,
+  RolePermissionLevel,
   ShareableResourceType,
 } from '@/hooks/api/useResourceAccess';
 
+// default_analyst_level / default_member_level replace the old
+// default_general_audience / default_general_level org-wide pair
+// (permission-model rework, D1) — each role's platform-wide default is now
+// independently settable instead of one audience threshold + one level.
 export interface OrgPreferences {
   enable_discord_notifications: boolean;
   discord_webhook: string;
   allow_public_sharing: boolean;
-  default_general_audience: AccessAudience;
-  default_general_level: AccessLevel;
+  default_analyst_level: RolePermissionLevel;
+  default_member_level: RolePermissionLevel;
 }
 
 // API response wrappers

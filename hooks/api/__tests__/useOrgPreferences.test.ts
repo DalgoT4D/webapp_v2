@@ -3,6 +3,11 @@
  * useOrgPreferences() itself (GET /api/orgpreferences/) is already exercised
  * indirectly by NotificationPreferencesDialog.test.tsx; this file covers the
  * new PUT-sharing mutation and the extended OrgPreferences shape.
+ *
+ * Permission-model rework (D1): default_general_audience/default_general_level
+ * were replaced by an independently settable default_analyst_level and
+ * default_member_level (each 'none' | 'view' | 'edit') — the org-wide
+ * equivalent of the ShareModal's per-role General-access rows.
  */
 import { mockApiPut } from '@/test-utils/api';
 import { updateSharingPreferences } from '@/hooks/api/useNotifications';
@@ -17,8 +22,8 @@ describe('updateSharingPreferences', () => {
       enable_discord_notifications: false,
       discord_webhook: '',
       allow_public_sharing: false,
-      default_general_audience: 'admins' as const,
-      default_general_level: 'view' as const,
+      default_analyst_level: 'view' as const,
+      default_member_level: 'none' as const,
     };
     mockApiPut.mockResolvedValue({ success: true, res: updated });
 
@@ -37,19 +42,19 @@ describe('updateSharingPreferences', () => {
         enable_discord_notifications: false,
         discord_webhook: '',
         allow_public_sharing: true,
-        default_general_audience: 'all_users',
-        default_general_level: 'edit',
+        default_analyst_level: 'edit',
+        default_member_level: 'view',
       },
     });
 
     await updateSharingPreferences({
-      default_general_audience: 'all_users',
-      default_general_level: 'edit',
+      default_analyst_level: 'edit',
+      default_member_level: 'view',
     });
 
     expect(mockApiPut).toHaveBeenCalledWith('/api/orgpreferences/sharing/', {
-      default_general_audience: 'all_users',
-      default_general_level: 'edit',
+      default_analyst_level: 'edit',
+      default_member_level: 'view',
     });
   });
 });

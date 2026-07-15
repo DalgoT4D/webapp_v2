@@ -58,7 +58,7 @@ const baseOverview: ResourceAccessOverview = {
   resource_id: '1',
   capabilities: { general: true, grants: true, public_link: true, requests: true },
   owner: { orguser_id: 1, email: 'asha@ngo.org', name: 'Asha Kumar' },
-  general_access: { audience: 'analysts_plus', level: 'view' },
+  general_access: { analyst_level: 'view', member_level: 'none' },
   grants: [],
   viewer: { effective_permission: 'edit', is_owner: false },
 };

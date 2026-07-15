@@ -1,6 +1,7 @@
 import type {
   AccessAudience,
   AccessLevel,
+  RolePermissionLevel,
   ShareableResourceType,
 } from '@/hooks/api/useResourceAccess';
 
@@ -34,6 +35,20 @@ export function audienceLabels(orgName?: string): Record<AccessAudience, string>
 export const LEVEL_LABELS: Record<AccessLevel, string> = {
   view: 'Viewer',
   edit: 'Editor',
+};
+
+/**
+ * Vocabulary for the per-role permission model (permission-model rework,
+ * D1): the Default-permissions table (Settings > Access > Roles) and the
+ * ShareModal General-access section's Analyst/Member rows both use this
+ * exact 3-state wording, matching the design's dropdown copy verbatim.
+ */
+export const ROLE_LEVEL_ORDER: RolePermissionLevel[] = ['none', 'view', 'edit'];
+
+export const ROLE_LEVEL_LABELS: Record<RolePermissionLevel, string> = {
+  none: 'No access',
+  view: 'Can View',
+  edit: 'Can Edit',
 };
 
 /**

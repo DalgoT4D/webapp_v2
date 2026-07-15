@@ -24,7 +24,7 @@ const mockOverview: ResourceAccessOverview = {
   resource_id: '1',
   capabilities: { general: true, grants: true, public_link: true, requests: true },
   owner: { orguser_id: 1, email: 'asha@ngo.org', name: 'Asha Kumar' },
-  general_access: { audience: 'analysts_plus', level: 'view' },
+  general_access: { analyst_level: 'edit', member_level: 'view' },
   grants: [
     {
       id: 1,
@@ -146,20 +146,20 @@ describe('Mutation functions', () => {
         data: {
           requires_confirmation: false,
           persisting_grants: [],
-          general_access: { audience: 'all_users', level: 'view' },
+          general_access: { analyst_level: 'edit', member_level: 'view' },
         },
       });
 
       const result = await setGeneralAccess('dashboard', 1, {
-        audience: 'all_users',
-        level: 'view',
+        analyst_level: 'edit',
+        member_level: 'view',
       });
 
       expect(result.requires_confirmation).toBe(false);
-      expect(result.general_access).toEqual({ audience: 'all_users', level: 'view' });
+      expect(result.general_access).toEqual({ analyst_level: 'edit', member_level: 'view' });
       expect(mockApiPut).toHaveBeenCalledWith('/api/access/dashboard/1/general/', {
-        audience: 'all_users',
-        level: 'view',
+        analyst_level: 'edit',
+        member_level: 'view',
       });
     });
 
@@ -174,8 +174,8 @@ describe('Mutation functions', () => {
       });
 
       const result = await setGeneralAccess('dashboard', 1, {
-        audience: 'private',
-        level: 'view',
+        analyst_level: 'view',
+        member_level: 'none',
       });
 
       expect(result.requires_confirmation).toBe(true);
@@ -188,19 +188,19 @@ describe('Mutation functions', () => {
         data: {
           requires_confirmation: false,
           persisting_grants: [],
-          general_access: { audience: 'private', level: 'view' },
+          general_access: { analyst_level: 'view', member_level: 'none' },
         },
       });
 
       await setGeneralAccess('dashboard', 1, {
-        audience: 'private',
-        level: 'view',
+        analyst_level: 'view',
+        member_level: 'none',
         remove_grant_ids: [],
       });
 
       expect(mockApiPut).toHaveBeenCalledWith('/api/access/dashboard/1/general/', {
-        audience: 'private',
-        level: 'view',
+        analyst_level: 'view',
+        member_level: 'none',
         remove_grant_ids: [],
       });
     });

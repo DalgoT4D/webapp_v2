@@ -13,6 +13,13 @@ export type ShareableResourceType = 'dashboard' | 'report' | 'alert' | 'metric' 
 
 export type AccessAudience = 'private' | 'admins' | 'analysts_plus' | 'all_users';
 export type AccessLevel = 'view' | 'edit';
+// Per-role permission level (permission-model rework, D1): 'none' extends
+// AccessLevel's view/edit to cover "no access" for a role. Backs the
+// per-role Default-permissions table (Settings > Access > Roles) and the
+// ShareModal General-access section's Analyst/Member rows — both replaced
+// the org-wide AccessAudience+AccessLevel pair with one independently
+// settable level per role.
+export type RolePermissionLevel = 'none' | 'view' | 'edit';
 export type PrincipalType = 'user' | 'group';
 export type GrantStatus = 'active' | 'pending';
 // Roles a share-flow email invite may assign (Phase C3). Mirrors the
@@ -32,9 +39,13 @@ export interface AccessOwner {
   name: string | null;
 }
 
+// Per-resource general access, keyed by role rather than an audience
+// threshold (permission-model rework, D1 — replaces the old
+// { audience, level } pair). Admins are always implicitly "all access" and
+// have no stored level here.
 export interface GeneralAccess {
-  audience: AccessAudience;
-  level: AccessLevel;
+  analyst_level: RolePermissionLevel;
+  member_level: RolePermissionLevel;
 }
 
 export interface AccessGrant {
@@ -133,8 +144,8 @@ export async function removeGrant(
 }
 
 export interface SetGeneralAccessPayload {
-  audience: AccessAudience;
-  level: AccessLevel;
+  analyst_level: RolePermissionLevel;
+  member_level: RolePermissionLevel;
   // Present (possibly []) only when re-committing after a requires_confirmation response.
   remove_grant_ids?: number[];
 }

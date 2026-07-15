@@ -48,7 +48,7 @@ const baseOverview: ResourceAccessOverview = {
   resource_id: '1',
   capabilities: { general: true, grants: true, public_link: true, requests: true },
   owner: { orguser_id: 1, email: 'asha@ngo.org', name: 'Asha Kumar' },
-  general_access: { audience: 'analysts_plus', level: 'view' },
+  general_access: { analyst_level: 'view', member_level: 'none' },
   grants: [
     {
       id: 5,
@@ -145,7 +145,9 @@ describe('ShareModal — group grant rows', () => {
     await user.click(screen.getByTestId('share-grant-remove-5'));
     expect(screen.getByTestId('share-grant-remove-dialog-5')).toBeInTheDocument();
     expect(
-      screen.getByText('Are you sure you want to remove access of "Funders"? This change cannot be undone.')
+      screen.getByText(
+        'Are you sure you want to remove access of "Funders"? This change cannot be undone.'
+      )
     ).toBeInTheDocument();
     expect(mockRemoveGrant).not.toHaveBeenCalled();
 
