@@ -407,6 +407,31 @@ describe('GroupFormDialog — create mode', () => {
         expect(toastSuccess.generic).not.toHaveBeenCalledWith('Group created');
       });
     });
+
+    it("creates the group even when a staged group's flatten fetch fails, and surfaces a partial-success warning naming that group (not silent success)", async () => {
+      const { toastWarning, toastSuccess } = jest.requireMock('@/lib/toast');
+      const user = userEvent.setup();
+      const onSuccess = jest.fn();
+      mockCreateGroup.mockResolvedValue(createMockGroup({ id: 1, name: 'Funders' }));
+      mockFetchGroupDetail.mockRejectedValue(new Error('group not found'));
+
+      render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={onSuccess} />);
+
+      await user.type(screen.getByTestId('group-form-name-input'), 'Funders');
+      await user.click(screen.getByTestId('group-member-search-input'));
+      await user.click(screen.getByTestId('group-member-search-group-5')); // stages "Field staff"; flatten fetch will fail
+      await user.click(screen.getByTestId('group-form-submit-btn'));
+
+      await waitFor(() => {
+        expect(mockFetchGroupDetail).toHaveBeenCalledWith(5);
+        expect(onSuccess).toHaveBeenCalled();
+        expect(mockAddGroupMember).not.toHaveBeenCalled();
+        expect(toastWarning.generic).toHaveBeenCalledWith(
+          "Group created, but couldn't add: Field staff"
+        );
+        expect(toastSuccess.generic).not.toHaveBeenCalledWith('Group created');
+      });
+    });
   });
 });
 

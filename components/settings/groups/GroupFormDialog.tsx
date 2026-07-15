@@ -45,20 +45,33 @@ interface ResolvedMember {
   payload: AddGroupMemberPayload;
 }
 
+/** Result of flattening staged rows: the resolved add-member list, plus the
+ * labels of any staged groups whose current members couldn't be fetched
+ * (surfaced by the caller in the same partial-failure toast as a failed
+ * addGroupMember call — see handleSubmit). */
+interface ResolveMembersResult {
+  resolved: ResolvedMember[];
+  failedGroupLabels: string[];
+}
+
 /** Flattens staged rows into the final add-member list: users and emails
  * pass through; a staged GROUP expands to its CURRENT active members
  * (fetched fresh here, not from the list page's stale `member_preview`).
  * Deduped by the same key convention the typeahead uses (`user-{id}` /
  * `email-{email}`) so a person staged directly AND pulled in via a group
  * is only added once. A group with zero active members contributes
- * nothing. There is no "exclude the group being edited" case here — this
- * picker only renders in create mode (rename mode has no typeahead), so
- * there is no group-being-edited to exclude. */
+ * nothing. If the flatten fetch itself fails (group vanished, network
+ * error), the group contributes nothing AND its label is reported back so
+ * the caller can name it in the partial-failure toast — it is never a
+ * silent zero. There is no "exclude the group being edited" case here —
+ * this picker only renders in create mode (rename mode has no typeahead),
+ * so there is no group-being-edited to exclude. */
 async function resolveMembers(
   staged: GroupMemberEntry[],
   inviteRole: InviteRoleSlug
-): Promise<ResolvedMember[]> {
+): Promise<ResolveMembersResult> {
   const resolved: ResolvedMember[] = [];
+  const failedGroupLabels: string[] = [];
   const seenKeys = new Set<string>();
 
   const add = (key: string, label: string, payload: AddGroupMemberPayload) => {
@@ -84,7 +97,8 @@ async function resolveMembers(
     try {
       detail = await fetchGroupDetail(groupEntry.principalId as number);
     } catch {
-      continue; // group vanished/fetch failed — contributes nothing, not fatal
+      failedGroupLabels.push(groupEntry.label); // fetch failed — name it, don't swallow it
+      continue;
     }
     for (const member of detail.members) {
       if (member.status !== 'active' || member.orguser_id === null) continue;
@@ -94,7 +108,7 @@ async function resolveMembers(
     }
   }
 
-  return resolved;
+  return { resolved, failedGroupLabels };
 }
 
 // Backend rejects a blank name (GroupValidationError) — checked client-side
@@ -132,27 +146,31 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
         const newGroup = await createGroup({ name: trimmed });
         trackEvent(ANALYTICS_EVENTS.GROUP_CREATED);
 
-        const members = await resolveMembers(memberStaging.staged, memberStaging.inviteRole);
+        const { resolved: members, failedGroupLabels } = await resolveMembers(
+          memberStaging.staged,
+          memberStaging.inviteRole
+        );
 
+        // Sequence: create -> add members. Neither a member-add failure nor
+        // a failed group-flatten fetch ever rolls back the group — it stays
+        // created, and the toast names exactly who/what wasn't added so the
+        // admin can retry from the drawer.
+        let addFailedLabels: string[] = [];
         if (members.length > 0) {
-          // Sequence: create -> add members. A member-add failure never
-          // rolls back the group — it stays created, and the toast names
-          // exactly who wasn't added so the admin can retry from the drawer.
           const results = await Promise.allSettled(
             members.map((m) => addGroupMember(newGroup.id, m.payload))
           );
-          const failedLabels = results
+          addFailedLabels = results
             .map((result, index) => (result.status === 'rejected' ? members[index].label : null))
             .filter((label): label is string => label !== null);
 
-          const addedCount = results.length - failedLabels.length;
+          const addedCount = results.length - addFailedLabels.length;
           if (addedCount > 0) trackEvent(ANALYTICS_EVENTS.GROUP_MEMBER_ADDED);
+        }
 
-          if (failedLabels.length > 0) {
-            toastWarning.generic(`Group created, but couldn't add: ${failedLabels.join(', ')}`);
-          } else {
-            toastSuccess.generic('Group created');
-          }
+        const failedLabels = [...failedGroupLabels, ...addFailedLabels];
+        if (failedLabels.length > 0) {
+          toastWarning.generic(`Group created, but couldn't add: ${failedLabels.join(', ')}`);
         } else {
           toastSuccess.generic('Group created');
         }
