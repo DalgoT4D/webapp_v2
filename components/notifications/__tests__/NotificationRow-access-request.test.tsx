@@ -9,10 +9,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { NotificationRow } from '../NotificationRow';
 import { createMockNotification } from './notification-mock-data';
-import {
-  approveAccessRequest,
-  declineAccessRequest,
-} from '@/hooks/api/useAccessRequests';
+import { approveAccessRequest, declineAccessRequest } from '@/hooks/api/useAccessRequests';
 import { trackEvent } from '@/lib/analytics';
 import { toastError, toastSuccess } from '@/lib/toast';
 import type { AccessRequestNotificationMetadata } from '@/types/notifications';

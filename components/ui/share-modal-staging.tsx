@@ -43,38 +43,20 @@ import { useUserGroups, type UserGroup } from '@/hooks/api/useUserGroups';
 import type { OrgUser } from '@/stores/authStore';
 import { ADMIN_ROLES, useRbac } from '@/lib/rbac';
 import { LEVEL_LABELS } from '@/lib/access-labels';
+import {
+  EMAIL_REGEX,
+  splitEmailTokens,
+  roleTagLabel,
+  dedupeStage,
+  principalRowIcon,
+  SearchResultButton,
+  type PrincipalEntryKind,
+} from '@/components/ui/principal-search-shared';
 
-// ---- Email parsing (shared with share-modal.tsx's legacy email section) ----
-
-// Angle brackets excluded so stray leftovers of a mis-parsed mail-client
-// "Name <email>" wrapper (e.g. an unmatched "<a@x.org") fail validation
-// instead of being POSTed to the backend, which has no email-format check
-// on the share-invite path.
-export const EMAIL_REGEX = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
-
-// Mail-client "Display Name <email>" wrapper (also bare "<email>").
-// Anchored + no nested brackets so an unmatched bracket falls through to
-// plain tokenization and then fails EMAIL_REGEX as an invalid entry.
-const ANGLE_BRACKET_EMAIL_REGEX = /^[^<>]*<([^<>]+)>$/;
-
-/** Splits pasted/typed text into email candidates. Entries are separated
- * by commas/semicolons/newlines; a "Name <email>" entry (the common
- * mail-client copy format) yields just the address; anything else is
- * further split on whitespace. */
-export function splitEmailTokens(text: string): string[] {
-  const tokens: string[] = [];
-  for (const entry of text.split(/[,;\r\n]+/)) {
-    const trimmed = entry.trim();
-    if (!trimmed) continue;
-    const angleMatch = trimmed.match(ANGLE_BRACKET_EMAIL_REGEX);
-    if (angleMatch) {
-      tokens.push(angleMatch[1].trim());
-    } else {
-      tokens.push(...trimmed.split(/\s+/).filter(Boolean));
-    }
-  }
-  return tokens;
-}
+// Re-exported for share-modal.tsx / share-modal-staging.test.tsx — moved to
+// principal-search-shared.tsx (shared with the Create-group typeahead) but
+// this stays the public import path for existing consumers.
+export { EMAIL_REGEX, splitEmailTokens, roleTagLabel };
 
 // A SHARE commit sends one POST per staged row (an email row can trigger a
 // backend invitation — user creation + an outbound email). Small-batch
@@ -93,7 +75,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 // ---- Staged entries ----
 
-export type StagedEntryKind = 'user' | 'group' | 'email';
+export type StagedEntryKind = PrincipalEntryKind;
 
 /**
  * - `staged`  — will be applied by SHARE
@@ -123,19 +105,6 @@ const COMMITTABLE_STATUSES: StagedEntryStatus[] = ['staged', 'failed'];
 
 function isCommittable(entry: StagedEntry): boolean {
   return COMMITTABLE_STATUSES.includes(entry.status);
-}
-
-// Mirrors DDP_backend/seed/001_roles.json slugs → display tags.
-const ROLE_TAG_LABELS: Record<string, string> = {
-  'super-admin': 'Super Admin',
-  admin: 'Admin',
-  analyst: 'Analyst',
-  member: 'Member',
-};
-
-export function roleTagLabel(slug: string | undefined): string {
-  if (!slug) return 'Member';
-  return ROLE_TAG_LABELS[slug] ?? slug;
 }
 
 export const INVITE_ROLE_OPTIONS: { value: InviteRoleSlug; label: string }[] = [
@@ -254,19 +223,7 @@ export function useShareStaging({
   }, [isOpen]);
 
   const stage = useCallback((entries: StagedEntry[]) => {
-    setStaged((prev) => {
-      const seenKeys = new Set(prev.map((e) => e.key));
-      const seenEmails = new Set(prev.map((e) => e.email).filter(Boolean));
-      const next = [...prev];
-      for (const entry of entries) {
-        if (seenKeys.has(entry.key)) continue;
-        if (entry.email && seenEmails.has(entry.email)) continue;
-        seenKeys.add(entry.key);
-        if (entry.email) seenEmails.add(entry.email);
-        next.push(entry);
-      }
-      return next;
-    });
+    setStaged((prev) => dedupeStage(prev, entries));
   }, []);
 
   const remove = useCallback((key: string) => {
@@ -422,12 +379,7 @@ const STATUS_NOTES: Partial<Record<StagedEntryStatus, string>> = {
   already: 'Already has access',
 };
 
-function stagedRowIcon(kind: StagedEntryKind) {
-  if (kind === 'group')
-    return <UsersRound className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />;
-  if (kind === 'email') return <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />;
-  return <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />;
-}
+const stagedRowIcon = principalRowIcon;
 
 /** Free-typed/pasted tokens → entries: valid unknown emails become email
  * entries, emails matching an org member become that member, invalid tokens
@@ -821,49 +773,6 @@ function SearchResultsDropdown({
         </div>
       )}
     </div>
-  );
-}
-
-interface SearchResultButtonProps {
-  testId: string;
-  icon: React.ReactNode;
-  label: string;
-  tag: string;
-  alreadyStaged: boolean;
-  hasAccess: boolean;
-  onPick: () => void;
-}
-
-function SearchResultButton({
-  testId,
-  icon,
-  label,
-  tag,
-  alreadyStaged,
-  hasAccess,
-  onPick,
-}: SearchResultButtonProps) {
-  const unavailable = alreadyStaged || hasAccess;
-  return (
-    <button
-      type="button"
-      data-testid={testId}
-      disabled={unavailable}
-      onClick={onPick}
-      className={cn(
-        'flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent',
-        unavailable && 'cursor-not-allowed opacity-60'
-      )}
-    >
-      {icon}
-      <span className="flex-1 truncate">{label}</span>
-      {unavailable && (
-        <span className="text-xs text-muted-foreground">
-          {hasAccess ? 'Already has access' : 'Added'}
-        </span>
-      )}
-      <Badge variant="secondary">{tag}</Badge>
-    </button>
   );
 }
 

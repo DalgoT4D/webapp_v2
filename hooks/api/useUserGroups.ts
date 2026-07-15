@@ -116,13 +116,24 @@ export async function renameGroup(
   return response.data;
 }
 
+/** One-off (non-SWR) group-detail fetch — used by the Create-group dialog's
+ * typeahead to resolve a staged GROUP's CURRENT active members at submit
+ * time (flatten-on-create), not via a hook (there's no fixed set of group
+ * ids to subscribe to; the staged list changes as the admin picks). */
+export async function fetchGroupDetail(groupId: number): Promise<UserGroupDetail> {
+  const response: ApiResponse<UserGroupDetail> = await apiGet(`/api/groups/${groupId}/`);
+  return response.data;
+}
+
 export async function deleteGroup(groupId: number): Promise<void> {
   await apiDelete(`/api/groups/${groupId}/`);
 }
 
-export interface AddGroupMemberPayload {
-  orguser_id: number;
-}
+// Exactly one of orguser_id/email — mirrors the backend's GroupMemberCreate
+// (an unknown email invites them at Member and stages a pending row).
+export type AddGroupMemberPayload =
+  | { orguser_id: number; email?: never }
+  | { orguser_id?: never; email: string };
 
 export async function addGroupMember(
   groupId: number,

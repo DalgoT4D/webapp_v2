@@ -145,7 +145,9 @@ describe('ShareModal — group grant rows', () => {
     await user.click(screen.getByTestId('share-grant-remove-5'));
     expect(screen.getByTestId('share-grant-remove-dialog-5')).toBeInTheDocument();
     expect(
-      screen.getByText('Are you sure you want to remove access of "Funders"? This change cannot be undone.')
+      screen.getByText(
+        'Are you sure you want to remove access of "Funders"? This change cannot be undone.'
+      )
     ).toBeInTheDocument();
     expect(mockRemoveGrant).not.toHaveBeenCalled();
 

@@ -154,7 +154,9 @@ describe('ShareModal — People with access', () => {
     expect(screen.getByTestId('share-grant-remove-dialog-3')).toBeInTheDocument();
     expect(screen.getByText('Remove access')).toBeInTheDocument();
     expect(
-      screen.getByText('Are you sure you want to remove access of "Meera Das"? This change cannot be undone.')
+      screen.getByText(
+        'Are you sure you want to remove access of "Meera Das"? This change cannot be undone.'
+      )
     ).toBeInTheDocument();
     expect(mockRemoveGrant).not.toHaveBeenCalled();
   });
