@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { ShieldCheck, Lock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -37,14 +37,35 @@ export default function AccessManagement() {
   // holds (the last-saved value).
   const [draft, setDraft] = useState<DefaultPermissionsDraft | null>(null);
 
+  // Tracks the last orgPreferences-derived values the draft was synced from,
+  // so a background SWR revalidation (another admin changing the org
+  // defaults elsewhere, a stale-then-fresh cache correction on mount — see
+  // the repo CLAUDE.md's SWR-stale-cache gotcha) can re-sync the draft
+  // WITHOUT clobbering an in-progress unsaved edit. Only resyncs when the
+  // current draft still matches the previously-known source (i.e. the user
+  // hasn't touched a dropdown since the last sync).
+  const lastSyncedSourceRef = useRef<DefaultPermissionsDraft | null>(null);
+
   useEffect(() => {
-    if (orgPreferences && draft === null) {
-      setDraft({
-        analyst: orgPreferences.default_analyst_level,
-        member: orgPreferences.default_member_level,
-      });
-    }
-  }, [orgPreferences, draft]);
+    if (!orgPreferences) return;
+    const source: DefaultPermissionsDraft = {
+      analyst: orgPreferences.default_analyst_level,
+      member: orgPreferences.default_member_level,
+    };
+    const lastSynced = lastSyncedSourceRef.current;
+    const sourceChanged =
+      !lastSynced || lastSynced.analyst !== source.analyst || lastSynced.member !== source.member;
+    if (!sourceChanged) return;
+
+    setDraft((current) => {
+      const draftMatchesLastSyncedSource =
+        !lastSynced ||
+        !current ||
+        (current.analyst === lastSynced.analyst && current.member === lastSynced.member);
+      return draftMatchesLastSyncedSource ? source : current;
+    });
+    lastSyncedSourceRef.current = source;
+  }, [orgPreferences]);
 
   const isDirty = Boolean(
     draft &&

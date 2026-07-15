@@ -168,6 +168,39 @@ describe('AccessManagement — Default permissions table', () => {
     expect(screen.getByTestId('access-mgmt-save-btn')).toBeDisabled();
   });
 
+  it('resyncs the draft when orgPreferences changes in the background and the draft is untouched', () => {
+    setup({ default_analyst_level: 'edit', default_member_level: 'view' });
+    const { rerender } = render(<AccessManagement />);
+    expect(screen.getByTestId('access-mgmt-resources-member')).toHaveTextContent('Can View');
+
+    // Simulate a background SWR revalidation bringing in a value changed
+    // elsewhere (another admin, or a stale->fresh cache correction) while
+    // this user hasn't touched a dropdown.
+    setup({ default_analyst_level: 'edit', default_member_level: 'edit' });
+    rerender(<AccessManagement />);
+
+    expect(screen.getByTestId('access-mgmt-resources-member')).toHaveTextContent('Can Edit');
+    expect(screen.getByTestId('access-mgmt-save-btn')).toBeDisabled();
+  });
+
+  it('does not clobber an in-progress unsaved edit when orgPreferences changes in the background', async () => {
+    const user = userEvent.setup();
+    setup({ default_analyst_level: 'edit', default_member_level: 'view' });
+    const { rerender } = render(<AccessManagement />);
+
+    await user.click(screen.getByTestId('access-mgmt-resources-member'));
+    await user.click(screen.getByRole('option', { name: 'Can Edit' }));
+    expect(screen.getByTestId('access-mgmt-resources-member')).toHaveTextContent('Can Edit');
+
+    // Background revalidation lands mid-edit — must not overwrite the
+    // user's unsaved draft change.
+    setup({ default_analyst_level: 'none', default_member_level: 'view' });
+    rerender(<AccessManagement />);
+
+    expect(screen.getByTestId('access-mgmt-resources-member')).toHaveTextContent('Can Edit');
+    expect(screen.getByTestId('access-mgmt-resources-analyst')).toHaveTextContent('Can Edit');
+  });
+
   it('shows a toast error and does not crash when SAVE fails', async () => {
     const user = userEvent.setup();
     setup();
