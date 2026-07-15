@@ -190,6 +190,16 @@ describe('ShareModal — browse-without-typing (F1)', () => {
     // Scrollable list — the Figma "scrollable list of users to share" pattern.
     expect(results.className).toMatch(/max-h-/);
     expect(results.className).toMatch(/overflow/);
+    // OVERLAY contract (jsdom can't assert real layout, so pin the classes):
+    // the dropdown must be absolutely positioned below the input, above the
+    // modal content, with its own opaque surface — an in-flow list grows the
+    // modal past small viewports and pushes the SHARE footer out of reach.
+    expect(results.className).toMatch(/\babsolute\b/);
+    expect(results.className).toMatch(/\btop-full\b/);
+    expect(results.className).toMatch(/\bz-50\b/);
+    expect(results.className).toMatch(/\bbg-popover\b/);
+    // ...and its anchor wrapper must establish the positioning context.
+    expect(results.parentElement?.className).toMatch(/\brelative\b/);
 
     // All groups first, then all org members.
     const items = screen.getAllByTestId(/^share-search-(group|user)-/);
@@ -199,6 +209,17 @@ describe('ShareModal — browse-without-typing (F1)', () => {
       'share-search-user-42',
       'share-search-user-9',
     ]);
+  });
+
+  it('bounds the dialog to the viewport with internal scroll (CSS contract)', () => {
+    renderModal();
+
+    // Belt-and-braces against ANY section growth pushing the Close/SHARE
+    // footer off small screens: the dialog itself is viewport-bounded and
+    // scrolls internally (repo pattern — CreateOrgDialog, schema-change-form).
+    const dialog = screen.getByTestId('share-modal');
+    expect(dialog.className).toContain('max-h-[85vh]');
+    expect(dialog.className).toContain('overflow-y-auto');
   });
 
   it('keeps the dup guard in the browse list: granted entries are disabled with "Already has access"', async () => {

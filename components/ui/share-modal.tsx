@@ -306,7 +306,12 @@ export function ShareModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent data-testid="share-modal" className="sm:max-w-md">
+      {/* Viewport-bounded with internal scroll (repo pattern: CreateOrgDialog,
+          schema-change-form) — the base DialogContent is centered with a
+          translate and no max-height, so a tall People section would push
+          BOTH the heading and the Close/SHARE footer off small screens with
+          no way to scroll to them. */}
+      <DialogContent data-testid="share-modal" className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5" />

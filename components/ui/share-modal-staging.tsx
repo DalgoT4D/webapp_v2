@@ -785,7 +785,11 @@ function SearchResultsDropdown({
   return (
     <div
       data-testid="share-search-results"
-      className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md"
+      // OVERLAY, not in-flow: anchored to the input's `relative` wrapper so
+      // opening it never grows the modal — with ~10 org members an in-flow
+      // list pushed the SHARE footer off a 720px-tall viewport. bg + border
+      // + shadow keep the modal content underneath from bleeding through.
+      className="absolute top-full left-0 right-0 z-50 mt-1 max-h-64 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md"
     >
       {q ? (
         <>
