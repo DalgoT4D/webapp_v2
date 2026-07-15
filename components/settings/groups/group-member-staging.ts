@@ -17,6 +17,7 @@ import {
   EMAIL_REGEX,
   type PrincipalEntryKind,
 } from '@/components/ui/principal-search-shared';
+import type { InviteRoleSlug } from '@/hooks/api/useResourceAccess';
 import type { OrgUser } from '@/stores/authStore';
 
 export type GroupMemberEntryStatus = 'staged' | 'invalid';
@@ -40,10 +41,17 @@ export interface GroupMemberStaging {
   stage: (entries: GroupMemberEntry[]) => void;
   remove: (key: string) => void;
   reset: () => void;
+  /** Role every currently-staged unknown email invites at -- one choice
+   * applies to the whole batch, mirroring ShareModal's single invite-role
+   * picker. Member unless an admin picks higher (see
+   * group-member-typeahead.tsx's InviteRoleBlock). */
+  inviteRole: InviteRoleSlug;
+  setInviteRole: (role: InviteRoleSlug) => void;
 }
 
 export function useGroupMemberStaging(): GroupMemberStaging {
   const [staged, setStaged] = useState<GroupMemberEntry[]>([]);
+  const [inviteRole, setInviteRole] = useState<InviteRoleSlug>('member');
 
   const stage = useCallback((entries: GroupMemberEntry[]) => {
     setStaged((prev) => dedupeStage(prev, entries));
@@ -53,9 +61,12 @@ export function useGroupMemberStaging(): GroupMemberStaging {
     setStaged((prev) => prev.filter((entry) => entry.key !== key));
   }, []);
 
-  const reset = useCallback(() => setStaged([]), []);
+  const reset = useCallback(() => {
+    setStaged([]);
+    setInviteRole('member');
+  }, []);
 
-  return { staged, stage, remove, reset };
+  return { staged, stage, remove, reset, inviteRole, setInviteRole };
 }
 
 /** Free-typed/pasted tokens → entries: an email matching an org member

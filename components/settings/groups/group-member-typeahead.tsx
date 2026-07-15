@@ -7,41 +7,47 @@
  * people, groups, or paste emails", placeholder "Type or paste emails…").
  * Reuses ShareModal's generic parsing/dropdown-row pieces
  * (principal-search-shared.tsx); staging state lives in
- * group-member-staging.ts (split out per the repo's ~300-lines guidance).
- * Staging a GROUP here means "add its current active members" (flattened at
- * submit time by GroupFormDialog), not a group grant — group members have
- * no per-row permission control.
+ * group-member-staging.ts, the dropdown in group-member-search-dropdown.tsx,
+ * the staged-row list in group-member-staged-rows.tsx, and the invite-role
+ * notice in group-member-invite-role-block.tsx (all split out per the
+ * repo's ~300-lines guidance). Staging a GROUP here means "add its current
+ * active members" (flattened at submit time by GroupFormDialog), not a
+ * group grant — group members have no per-row permission control.
  *
  * Dropdown ordering deliberately differs from ShareModal's (which buckets
  * groups-then-users): the design shows users and groups interleaved
  * alphabetically, so this list is one alphabetically-sorted merge instead.
  *
- * Unknown emails stage as an invite entry -- Member only. Unlike the share
- * modal, there is no admin role-escalation picker here: no reviewed design
- * screen (including the Analyst one showing a staged unknown email) shows a
- * role dropdown for group invites, so every group invite lands at Member
- * (see the batch-2b report for the screens checked).
+ * Unknown emails stage as an invite entry, gated the same way the share
+ * modal's is: an admin/super-admin sees an "Invite new users as [role]"
+ * picker (Member/Analyst/Admin); anyone else sees the locked "invited as
+ * Member" sentence, no dropdown (design: the Analyst screen showing a
+ * staged unknown email carries "Assign new invites role before adding to
+ * group" -- the share modal's admin-picker copy, not its non-admin
+ * variant). One choice applies to the whole batch of staged emails, not
+ * per-row (`GroupMemberStaging.inviteRole`).
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { Mail, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
   EMAIL_REGEX,
   splitEmailTokens,
   roleTagLabel,
-  principalRowIcon,
-  SearchResultButton,
 } from '@/components/ui/principal-search-shared';
 import {
   buildEmailEntries,
   type GroupMemberStaging,
 } from '@/components/settings/groups/group-member-staging';
+import {
+  GroupMemberSearchDropdown,
+  type GroupMemberSearchRow,
+} from '@/components/settings/groups/group-member-search-dropdown';
+import { GroupMemberStagedRows } from '@/components/settings/groups/group-member-staged-rows';
+import { InviteRoleBlock } from '@/components/settings/groups/group-member-invite-role-block';
 import { useUsers } from '@/hooks/api/useUserManagement';
-import { useUserGroups, type UserGroup } from '@/hooks/api/useUserGroups';
-import type { OrgUser } from '@/stores/authStore';
+import { useUserGroups } from '@/hooks/api/useUserGroups';
+import { ADMIN_ROLES, useRbac } from '@/lib/rbac';
 
 interface GroupMemberSearchProps {
   staging: GroupMemberStaging;
@@ -53,6 +59,8 @@ export function GroupMemberSearch({ staging, disabled }: GroupMemberSearchProps)
   const [isFocused, setIsFocused] = useState(false);
   const { users: orgUsers } = useUsers();
   const { data: groups } = useUserGroups(true);
+  const { hasRole } = useRbac();
+  const isAdmin = hasRole(ADMIN_ROLES);
 
   const stagedKeys = useMemo(() => new Set(staging.staged.map((e) => e.key)), [staging.staged]);
   const stagedEmails = useMemo(
@@ -78,16 +86,17 @@ export function GroupMemberSearch({ staging, disabled }: GroupMemberSearchProps)
 
   // Design ordering ('group creation-1.jpg'): users and groups interleaved
   // alphabetically -- NOT ShareModal's groups-first bucketing.
-  const combinedMatches = useMemo(() => {
-    type Row =
-      | { kind: 'user'; sortKey: string; user: OrgUser }
-      | { kind: 'group'; sortKey: string; group: UserGroup };
-    const rows: Row[] = [
+  const combinedMatches: GroupMemberSearchRow[] = useMemo(() => {
+    const rows: GroupMemberSearchRow[] = [
       ...userMatches.map(
-        (user): Row => ({ kind: 'user', sortKey: user.email.toLowerCase(), user })
+        (user): GroupMemberSearchRow => ({ kind: 'user', sortKey: user.email.toLowerCase(), user })
       ),
       ...groupMatches.map(
-        (group): Row => ({ kind: 'group', sortKey: group.name.toLowerCase(), group })
+        (group): GroupMemberSearchRow => ({
+          kind: 'group',
+          sortKey: group.name.toLowerCase(),
+          group,
+        })
       ),
     ];
     return rows.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
@@ -192,6 +201,8 @@ export function GroupMemberSearch({ staging, disabled }: GroupMemberSearchProps)
 
   return (
     <div className="space-y-2" data-testid="group-member-staging-area">
+      {/* Focus/blur on the wrapper (not the input) keeps the dropdown open
+          while focus moves onto one of its options. */}
       <div className="relative" onFocus={() => setIsFocused(true)} onBlur={handleContainerBlur}>
         <Input
           id="group-member-search-input"
@@ -207,112 +218,27 @@ export function GroupMemberSearch({ staging, disabled }: GroupMemberSearchProps)
         />
 
         {isFocused && (
-          <div
-            data-testid="group-member-search-results"
-            className="absolute top-full left-0 right-0 z-50 mt-1 max-h-64 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md"
-          >
-            {combinedMatches.map((row) =>
-              row.kind === 'user' ? (
-                <SearchResultButton
-                  key={`user-${row.user.orguser_id}`}
-                  testId={`group-member-search-user-${row.user.orguser_id}`}
-                  icon={principalRowIcon('user')}
-                  label={row.user.email}
-                  tag={roleTagLabel(row.user.new_role_slug)}
-                  alreadyStaged={
-                    stagedKeys.has(`user-${row.user.orguser_id}`) ||
-                    stagedEmails.has(row.user.email.toLowerCase())
-                  }
-                  hasAccess={false}
-                  onPick={() =>
-                    stageUser(row.user.orguser_id as number, row.user.email, row.user.new_role_slug)
-                  }
-                />
-              ) : (
-                <SearchResultButton
-                  key={`group-${row.group.id}`}
-                  testId={`group-member-search-group-${row.group.id}`}
-                  icon={principalRowIcon('group')}
-                  label={row.group.name}
-                  tag="Group"
-                  alreadyStaged={stagedKeys.has(`group-${row.group.id}`)}
-                  hasAccess={false}
-                  onPick={() => stageGroup(row.group.id, row.group.name)}
-                />
-              )
-            )}
-
-            {emailCandidate && (
-              <SearchResultButton
-                testId="group-member-search-add-email"
-                icon={<Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
-                label={`Invite ${emailCandidate}`}
-                tag="New"
-                alreadyStaged={false}
-                hasAccess={false}
-                onPick={() => stageEmailTokens([emailCandidate])}
-              />
-            )}
-
-            {combinedMatches.length === 0 && !emailCandidate && (
-              <div
-                data-testid="group-member-search-empty"
-                className="px-3 py-2 text-sm text-muted-foreground"
-              >
-                Search for people, a group, or add emails
-              </div>
-            )}
-          </div>
+          <GroupMemberSearchDropdown
+            combinedMatches={combinedMatches}
+            emailCandidate={emailCandidate}
+            stagedKeys={stagedKeys}
+            stagedEmails={stagedEmails}
+            onPickUser={stageUser}
+            onPickGroup={stageGroup}
+            onPickEmail={(email) => stageEmailTokens([email])}
+          />
         )}
       </div>
 
-      {staging.staged.length > 0 && (
-        <div className="space-y-2" data-testid="group-member-staged-rows">
-          {staging.staged.map((entry) => (
-            <div
-              key={entry.key}
-              data-testid={`group-member-staged-row-${entry.key}`}
-              data-status={entry.status}
-              className="flex items-center justify-between gap-2 text-sm"
-            >
-              <span className="flex-1 truncate inline-flex items-center gap-1.5 min-w-0">
-                {principalRowIcon(entry.kind)}
-                <span className={cn('truncate', entry.status === 'invalid' && 'text-destructive')}>
-                  {entry.label}
-                </span>
-                {entry.status === 'invalid' && (
-                  <span className="text-xs flex-shrink-0 text-destructive">
-                    Not a valid email address
-                  </span>
-                )}
-              </span>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <Badge variant="secondary">{entry.tag}</Badge>
-                <button
-                  type="button"
-                  data-testid={`group-member-staged-remove-${entry.key}`}
-                  onClick={() => staging.remove(entry.key)}
-                  disabled={disabled}
-                  className="p-1 hover:text-destructive"
-                  aria-label={`Remove ${entry.label}`}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <GroupMemberStagedRows staging={staging} disabled={disabled} />
 
       {stagedEmailEntries.length > 0 && (
-        <div
-          data-testid="group-member-invite-hint"
-          className="rounded-md border p-3 text-xs text-muted-foreground"
-        >
-          {stagedEmailEntries.length === 1
-            ? `${stagedEmailEntries[0].label} isn't on Dalgo yet. They'll be invited as a Member.`
-            : `${stagedEmailEntries.length} people aren't on Dalgo yet. They'll be invited as Members.`}
-        </div>
+        <InviteRoleBlock
+          stagedEmailEntries={stagedEmailEntries}
+          staging={staging}
+          isAdmin={isAdmin}
+          disabled={disabled}
+        />
       )}
     </div>
   );

@@ -20,6 +20,7 @@ import React from 'react';
 import { Mail, User, UsersRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import type { InviteRoleSlug } from '@/hooks/api/useResourceAccess';
 
 // ---- Email parsing ----
 
@@ -67,6 +68,15 @@ export function roleTagLabel(slug: string | undefined): string {
   if (!slug) return 'Member';
   return ROLE_TAG_LABELS[slug] ?? slug;
 }
+
+/** The three roles an unknown-email invite can land at -- shared by
+ * ShareModal's and the Create-group dialog's admin-only invite-role
+ * pickers. */
+export const INVITE_ROLE_OPTIONS: { value: InviteRoleSlug; label: string }[] = [
+  { value: 'member', label: 'Member' },
+  { value: 'analyst', label: 'Analyst' },
+  { value: 'admin', label: 'Admin' },
+];
 
 // ---- Dedup helper ----
 

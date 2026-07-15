@@ -24,6 +24,7 @@ import {
   type AddGroupMemberPayload,
   type UserGroup,
 } from '@/hooks/api/useUserGroups';
+import type { InviteRoleSlug } from '@/hooks/api/useResourceAccess';
 import { toastSuccess, toastWarning } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -53,7 +54,10 @@ interface ResolvedMember {
  * nothing. There is no "exclude the group being edited" case here — this
  * picker only renders in create mode (rename mode has no typeahead), so
  * there is no group-being-edited to exclude. */
-async function resolveMembers(staged: GroupMemberEntry[]): Promise<ResolvedMember[]> {
+async function resolveMembers(
+  staged: GroupMemberEntry[],
+  inviteRole: InviteRoleSlug
+): Promise<ResolvedMember[]> {
   const resolved: ResolvedMember[] = [];
   const seenKeys = new Set<string>();
 
@@ -67,7 +71,10 @@ async function resolveMembers(staged: GroupMemberEntry[]): Promise<ResolvedMembe
     if (entry.kind === 'user') {
       add(entry.key, entry.label, { orguser_id: entry.principalId as number });
     } else if (entry.kind === 'email' && entry.status === 'staged') {
-      add(entry.key, entry.label, { email: entry.email as string });
+      // invite_role only matters here (the unknown-email path) -- the
+      // backend ignores it for orguser_id rows and resolves Member unless
+      // an admin caller chose more (403s a non-admin escalation attempt).
+      add(entry.key, entry.label, { email: entry.email as string, invite_role: inviteRole });
     }
   }
 
@@ -125,7 +132,7 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
         const newGroup = await createGroup({ name: trimmed });
         trackEvent(ANALYTICS_EVENTS.GROUP_CREATED);
 
-        const members = await resolveMembers(memberStaging.staged);
+        const members = await resolveMembers(memberStaging.staged, memberStaging.inviteRole);
 
         if (members.length > 0) {
           // Sequence: create -> add members. A member-add failure never

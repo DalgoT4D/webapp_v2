@@ -10,6 +10,7 @@ import {
   useUserGroups,
 } from '@/hooks/api/useUserGroups';
 import { useUsers } from '@/hooks/api/useUserManagement';
+import { useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { createMockGroup, createMockGroupDetail } from './groups-mock-data';
 
@@ -25,6 +26,7 @@ jest.mock('@/hooks/api/useUserManagement', () => ({
   ...jest.requireActual('@/hooks/api/useUserManagement'),
   useUsers: jest.fn(),
 }));
+jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
 jest.mock('@/lib/analytics', () => ({ trackEvent: jest.fn() }));
 jest.mock('@/lib/toast', () => ({
   toastSuccess: { generic: jest.fn() },
@@ -37,6 +39,18 @@ const mockAddGroupMember = addGroupMember as jest.Mock;
 const mockFetchGroupDetail = fetchGroupDetail as jest.Mock;
 const mockUseUserGroups = useUserGroups as jest.Mock;
 const mockUseUsers = useUsers as jest.Mock;
+const mockUseRbac = useRbac as jest.Mock;
+
+const NON_ADMIN_RBAC = {
+  hasPermission: () => false,
+  role: 'analyst',
+  isLoaded: true,
+  hasRole: () => false,
+  hasAnyPermission: () => false,
+  hasAllPermissions: () => false,
+};
+
+const ADMIN_RBAC = { ...NON_ADMIN_RBAC, role: 'admin', hasRole: () => true };
 
 const ORG_USERS = [
   { orguser_id: 10, email: 'asha@ngo.org', new_role_slug: 'analyst' },
@@ -55,7 +69,7 @@ const GROUPS = [
   },
 ];
 
-function setUpHooks() {
+function setUpHooks(rbac: typeof NON_ADMIN_RBAC = NON_ADMIN_RBAC) {
   mockUseUsers.mockReturnValue({ users: ORG_USERS, isLoading: false, mutate: jest.fn() });
   mockUseUserGroups.mockReturnValue({
     data: GROUPS,
@@ -63,6 +77,7 @@ function setUpHooks() {
     isError: undefined,
     mutate: jest.fn(),
   });
+  mockUseRbac.mockReturnValue(rbac);
 }
 
 function pasteIntoSearchInput(text: string) {
@@ -175,7 +190,7 @@ describe('GroupFormDialog — create mode', () => {
       expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     });
 
-    it('stages a pasted unknown email as an invite entry and shows the "isn\'t on Dalgo yet" hint', async () => {
+    it('stages a pasted unknown email as an invite entry; a non-admin sees the locked Member-only copy, no picker', async () => {
       render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
 
       pasteIntoSearchInput('new.person@ngo.org');
@@ -183,11 +198,25 @@ describe('GroupFormDialog — create mode', () => {
       const row = screen.getByTestId('group-member-staged-row-email-new.person@ngo.org');
       expect(row).toHaveTextContent('new.person@ngo.org');
       expect(row).toHaveTextContent('New');
-      expect(screen.getByTestId('group-member-invite-hint')).toHaveTextContent(
-        "new.person@ngo.org isn't on Dalgo yet. They'll be invited as a Member."
+      expect(screen.getByTestId('group-member-invite-role-copy')).toHaveTextContent(
+        "new.person@ngo.org isn't on Dalgo yet."
       );
-      // No admin invite-role picker in this design (unlike ShareModal's).
-      expect(screen.queryByTestId('share-invite-role')).not.toBeInTheDocument();
+      expect(screen.getByTestId('group-member-invite-role-block')).toHaveTextContent(
+        'New member will be invited as member.'
+      );
+      expect(screen.queryByTestId('group-member-invite-role')).not.toBeInTheDocument();
+    });
+
+    it('an admin sees the "Invite new users as" role picker (design: "Assign new invites role before adding to group")', async () => {
+      setUpHooks(ADMIN_RBAC);
+      render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
+
+      pasteIntoSearchInput('new.person@ngo.org');
+
+      expect(screen.getByTestId('group-member-invite-role-block')).toHaveTextContent(
+        'Assign new invites role before adding to group.'
+      );
+      expect(screen.getByTestId('group-member-invite-role')).toBeInTheDocument();
     });
 
     it('marks an invalid pasted token inline and keeps it out of the committable set', async () => {
@@ -247,8 +276,53 @@ describe('GroupFormDialog — create mode', () => {
       await waitFor(() => {
         expect(mockCreateGroup).toHaveBeenCalledWith({ name: 'Funders' });
         expect(mockAddGroupMember).toHaveBeenCalledWith(1, { orguser_id: 10 });
-        expect(mockAddGroupMember).toHaveBeenCalledWith(1, { email: 'new.person@ngo.org' });
+        expect(mockAddGroupMember).toHaveBeenCalledWith(1, {
+          email: 'new.person@ngo.org',
+          invite_role: 'member',
+        });
         expect(onSuccess).toHaveBeenCalled();
+      });
+    });
+
+    it('commits a typed-but-not-yet-staged email on a direct Create click (blur-stages before submit reads it)', async () => {
+      const user = userEvent.setup();
+      mockCreateGroup.mockResolvedValue(createMockGroup({ id: 1, name: 'Funders' }));
+      mockAddGroupMember.mockResolvedValue({});
+
+      render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
+
+      await user.type(screen.getByTestId('group-form-name-input'), 'Funders');
+      // Typed but never Enter/comma/paste-staged — Create is clicked directly.
+      await user.type(screen.getByTestId('group-member-search-input'), 'typed@ngo.org');
+      await user.click(screen.getByTestId('group-form-submit-btn'));
+
+      await waitFor(() => {
+        expect(mockAddGroupMember).toHaveBeenCalledWith(1, {
+          email: 'typed@ngo.org',
+          invite_role: 'member',
+        });
+      });
+    });
+
+    it('sends the admin-picked invite_role for a staged unknown email', async () => {
+      const user = userEvent.setup();
+      setUpHooks(ADMIN_RBAC);
+      mockCreateGroup.mockResolvedValue(createMockGroup({ id: 1, name: 'Funders' }));
+      mockAddGroupMember.mockResolvedValue({});
+
+      render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
+
+      await user.type(screen.getByTestId('group-form-name-input'), 'Funders');
+      pasteIntoSearchInput('future-analyst@ngo.org');
+      await user.click(screen.getByTestId('group-member-invite-role'));
+      await user.click(screen.getByRole('option', { name: 'Analyst' }));
+      await user.click(screen.getByTestId('group-form-submit-btn'));
+
+      await waitFor(() => {
+        expect(mockAddGroupMember).toHaveBeenCalledWith(1, {
+          email: 'future-analyst@ngo.org',
+          invite_role: 'analyst',
+        });
       });
     });
 

@@ -50,13 +50,14 @@ import {
   dedupeStage,
   principalRowIcon,
   SearchResultButton,
+  INVITE_ROLE_OPTIONS,
   type PrincipalEntryKind,
 } from '@/components/ui/principal-search-shared';
 
 // Re-exported for share-modal.tsx / share-modal-staging.test.tsx — moved to
 // principal-search-shared.tsx (shared with the Create-group typeahead) but
 // this stays the public import path for existing consumers.
-export { EMAIL_REGEX, splitEmailTokens, roleTagLabel };
+export { EMAIL_REGEX, splitEmailTokens, roleTagLabel, INVITE_ROLE_OPTIONS };
 
 // A SHARE commit sends one POST per staged row (an email row can trigger a
 // backend invitation — user creation + an outbound email). Small-batch
@@ -106,12 +107,6 @@ const COMMITTABLE_STATUSES: StagedEntryStatus[] = ['staged', 'failed'];
 function isCommittable(entry: StagedEntry): boolean {
   return COMMITTABLE_STATUSES.includes(entry.status);
 }
-
-export const INVITE_ROLE_OPTIONS: { value: InviteRoleSlug; label: string }[] = [
-  { value: 'member', label: 'Member' },
-  { value: 'analyst', label: 'Analyst' },
-  { value: 'admin', label: 'Admin' },
-];
 
 // ---- Commit result plumbing ----
 

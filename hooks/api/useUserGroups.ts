@@ -8,6 +8,7 @@
  */
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
+import type { InviteRoleSlug } from '@/hooks/api/useResourceAccess';
 
 export type GroupMemberStatus = 'active' | 'pending';
 
@@ -129,11 +130,13 @@ export async function deleteGroup(groupId: number): Promise<void> {
   await apiDelete(`/api/groups/${groupId}/`);
 }
 
-// Exactly one of orguser_id/email — mirrors the backend's GroupMemberCreate
-// (an unknown email invites them at Member and stages a pending row).
+// Exactly one of orguser_id/email — mirrors the backend's GroupMemberCreate.
+// `invite_role` is only consulted on the email/unknown-user path (Member
+// unless an admin/super-admin caller chose more; a non-admin escalation
+// attempt 403s) and stages a pending row that activates on signup.
 export type AddGroupMemberPayload =
-  | { orguser_id: number; email?: never }
-  | { orguser_id?: never; email: string };
+  | { orguser_id: number; email?: never; invite_role?: never }
+  | { orguser_id?: never; email: string; invite_role?: InviteRoleSlug };
 
 export async function addGroupMember(
   groupId: number,
