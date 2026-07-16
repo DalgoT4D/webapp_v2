@@ -807,6 +807,7 @@ export default function ChartsPage() {
               <Checkbox
                 id={`chart-select-${chart.id}`}
                 data-testid={`chart-select-checkbox-${chart.id}`}
+                aria-label={`Select chart ${chart.title}`}
                 checked={isChartSelected}
                 onCheckedChange={() => toggleChartSelection(chart.id)}
               />
