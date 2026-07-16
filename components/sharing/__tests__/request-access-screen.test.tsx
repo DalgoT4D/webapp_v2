@@ -188,4 +188,37 @@ describe('RequestAccessScreen', () => {
     expect(screen.getByTestId('request-access-submit-btn')).toBeInTheDocument();
     expect(screen.getByTestId('request-access-submit-btn')).not.toBeDisabled();
   });
+
+  // v1.1 M4: a member_sharing=False rtype (charts today) rejects a Member's
+  // request outright with a plain-language 400 pointing at the path that
+  // DOES work for them. That's a real, permanent answer for this viewer —
+  // rendered inline, not as a dismissible toast.
+  it('renders the backend\'s "member_sharing=False" 400 message inline instead of a toast', async () => {
+    const user = userEvent.setup();
+    const { toastError } = jest.requireMock('@/lib/toast');
+    mockCreateAccessRequest.mockRejectedValue(
+      Object.assign(
+        new Error(
+          "charts can't be shared with Members yet — request access to the dashboard instead"
+        ),
+        { status: 400 }
+      )
+    );
+    render(
+      <TestWrapper>
+        <RequestAccessScreen rtype="chart" resourceId={7} resourceLabel="chart" />
+      </TestWrapper>
+    );
+
+    await user.click(screen.getByTestId('request-access-submit-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('request-access-blocked-state')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('request-access-blocked-message')).toHaveTextContent(
+      "charts can't be shared with Members yet — request access to the dashboard instead"
+    );
+    expect(toastError.api).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('request-access-submit-btn')).not.toBeInTheDocument();
+  });
 });

@@ -1,6 +1,6 @@
 /**
- * ShareModal — M5 member-block states for member-grants-deferred rtypes
- * (metric/kpi today; chart joins this list once its own Milestone lands).
+ * ShareModal — M5/M3a member-block states for member-grants-deferred rtypes
+ * (metric/kpi from M5; chart joins here in v1.1 M3a).
  * Direct grants to a Member principal, and Member-role email invites, are
  * blocked server-side (`sharing_actions._reject_member_principal` /
  * `_reject_member_invite`); this suite pins the modal's presentational
@@ -113,7 +113,7 @@ function renderModal(
   );
 }
 
-describe.each(['metric', 'kpi'] as const)(
+describe.each(['metric', 'kpi', 'chart'] as const)(
   'ShareModal — member-block typeahead for %s (member-grants-deferred)',
   (entityType) => {
     beforeEach(() => jest.clearAllMocks());

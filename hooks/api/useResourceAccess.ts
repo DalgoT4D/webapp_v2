@@ -9,7 +9,10 @@ import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 
 // Mirrors ddpui/core/sharing/shareable_types.py — the rtypes with a registry entry.
-export type ShareableResourceType = 'dashboard' | 'report' | 'alert' | 'metric' | 'kpi';
+// 'chart' (v1.1 M1, backend-merged): grants=True, public_link=False,
+// member_sharing=False (Member grants deferred — see
+// MEMBER_GRANTS_DEFERRED_RTYPES in share-modal-staging.tsx).
+export type ShareableResourceType = 'dashboard' | 'report' | 'alert' | 'metric' | 'kpi' | 'chart';
 
 export type AccessAudience = 'private' | 'admins' | 'analysts_plus' | 'all_users';
 export type AccessLevel = 'view' | 'edit';

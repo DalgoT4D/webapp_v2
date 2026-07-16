@@ -63,6 +63,7 @@ export const RESOURCE_NOUNS: Record<ShareableResourceType, string> = {
   alert: 'alert',
   metric: 'metric',
   kpi: 'KPI',
+  chart: 'chart',
 };
 
 /**
