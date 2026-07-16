@@ -142,12 +142,9 @@ export function PeopleTable({ onInviteClick }: PeopleTableProps = {}) {
     return roleSlug.replace('-', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
   };
 
-  // Build the merged row set. Every invited row currently returned by
-  // GET /v1/users/invitations/ was sent by the signed-in viewer (the backend
-  // filters `Invitation.objects.filter(invited_by=orguser)`), and the
-  // response doesn't carry an inviter field — so the viewer's own email is
-  // the correct, always-true "Created By" value for a pending row, not a
-  // guess. See features/access-control/resourcesharing/screens-review/people-tab.md #7.
+  // Build the merged row set. GET /v1/users/invitations/ is now org-wide and
+  // carries the real inviter per row (`invited_by`), so pending rows show
+  // who actually sent the invite rather than deriving it from the viewer.
   const mergedRows: MergedRow[] = useMemo(() => {
     const activeRows: ActiveRow[] = (users ?? []).map((user) => ({
       kind: 'active',
@@ -163,7 +160,7 @@ export function PeopleTable({ onInviteClick }: PeopleTableProps = {}) {
       rowKey: `pending-${invitation.id}`,
       email: invitation.invited_email,
       role: invitation.invited_role.name,
-      createdBy: currentUser?.email ?? null,
+      createdBy: invitation.invited_by,
       invitationId: invitation.id,
     }));
 

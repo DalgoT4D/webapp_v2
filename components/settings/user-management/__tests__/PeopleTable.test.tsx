@@ -41,6 +41,10 @@ const INVITATIONS = [
     invited_email: 'zubin@ngo.org',
     invited_role: { uuid: 'uuid-pipeline', name: 'Pipeline Manager' },
     invited_on: '2026-01-01T00:00:00Z',
+    // Deliberately NOT the signed-in viewer ('admin@ngo.org') -- the org-wide
+    // invitations endpoint now returns invites sent by any admin, and this
+    // proves Created By reflects the real inviter, not the viewer.
+    invited_by: 'another-admin@ngo.org',
   },
 ];
 
@@ -140,10 +144,12 @@ describe('PeopleTable — merged rendering', () => {
     expect(screen.getByTestId('user-created-by-admin@ngo.org')).toHaveTextContent('—');
   });
 
-  it("shows the current admin's email as Created By for a pending row (invitations list is always self-sent)", () => {
+  it('shows the real inviter as Created By for a pending row, not the viewer', () => {
     render(<PeopleTable />);
 
-    expect(screen.getByTestId('invitation-created-by-101')).toHaveTextContent('admin@ngo.org');
+    expect(screen.getByTestId('invitation-created-by-101')).toHaveTextContent(
+      'another-admin@ngo.org'
+    );
   });
 });
 
@@ -319,5 +325,54 @@ describe('PeopleTable — empty state (no other users AND no pending invitations
 
     await userEvent.click(screen.getByTestId('users-empty-invite-btn'));
     expect(onInviteClick).toHaveBeenCalled();
+  });
+});
+
+describe('PeopleTable — inviter attribution (mixed inviters)', () => {
+  // Placed last: mockUseInvitations.mockReturnValue persists across tests
+  // (jest.clearAllMocks() does not reset a configured return value), so this
+  // block must not run before other describes that assume the base
+  // single-invitation INVITATIONS fixture.
+  const MIXED_INVITATIONS = [
+    {
+      id: 201,
+      invited_email: 'farah@ngo.org',
+      invited_role: { uuid: 'uuid-admin', name: 'Admin' },
+      invited_on: '2026-01-02T00:00:00Z',
+      invited_by: 'admin@ngo.org', // sent by the signed-in viewer
+    },
+    {
+      id: 202,
+      invited_email: 'zubin@ngo.org',
+      invited_role: { uuid: 'uuid-pipeline', name: 'Pipeline Manager' },
+      invited_on: '2026-01-01T00:00:00Z',
+      invited_by: 'another-admin@ngo.org', // sent by a different admin
+    },
+  ];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPermissions = [
+      PERMISSIONS.CAN_VIEW_INVITATIONS,
+      PERMISSIONS.CAN_EDIT_ORGUSER,
+      PERMISSIONS.CAN_DELETE_ORGUSER,
+      PERMISSIONS.CAN_RESEND_EMAIL_VERIFICATION,
+      PERMISSIONS.CAN_DELETE_INVITATION,
+    ];
+    mockUseUsers.mockReturnValue({ users: USERS, isLoading: false, mutate: mockMutateUsers });
+    mockUseInvitations.mockReturnValue({
+      invitations: MIXED_INVITATIONS,
+      isLoading: false,
+      mutate: mockMutateInvitations,
+    });
+  });
+
+  it('attributes each pending row to its own real inviter, not a single shared value', () => {
+    render(<PeopleTable />);
+
+    expect(screen.getByTestId('invitation-created-by-201')).toHaveTextContent('admin@ngo.org');
+    expect(screen.getByTestId('invitation-created-by-202')).toHaveTextContent(
+      'another-admin@ngo.org'
+    );
   });
 });
