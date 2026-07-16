@@ -53,6 +53,7 @@ export const SKIP_REASON_COPY: Record<string, string> = {
   public_sharing_disabled: 'Public links are turned off for your organization.',
   principal_not_found: "That person or group isn't in your organization.",
   validation_error: "This change isn't allowed for one or more items.",
+  member_grants_deferred: "Members can't be added to this type directly yet.",
 };
 const DEFAULT_SKIP_REASON_COPY = "This one couldn't be updated.";
 
