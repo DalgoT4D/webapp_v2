@@ -126,20 +126,20 @@ describe('ShareModal — Pending requests', () => {
     expect(screen.queryByTestId('share-requests-section')).not.toBeInTheDocument();
   });
 
-  it('renders requester, requested permission, and note for a matching request', () => {
+  it('renders requester, requested permission (bolded), and note for a matching request', () => {
     renderModal([viewRequest]);
     const row = screen.getByTestId('share-request-row-12');
     expect(row).toHaveTextContent('Sarah K');
-    expect(row).toHaveTextContent('Requested Viewer');
+    expect(row).toHaveTextContent('wants to view');
     expect(row).toHaveTextContent('need this for the board report');
   });
 
   it('caps the permission choice at the requested level — a View request offers no Edit option', () => {
     renderModal([viewRequest]);
-    // Single-option requests render a static label, not a Select, so there's
-    // nothing to click into an escalated choice at all.
+    // Single-option requests render a static bolded word, not a Select, so
+    // there's nothing to click into an escalated choice at all.
     expect(screen.queryByTestId('share-request-permission-12')).not.toBeInTheDocument();
-    expect(screen.getByTestId('share-request-row-12')).toHaveTextContent('Viewer');
+    expect(screen.getByTestId('share-request-row-12')).toHaveTextContent('wants to view');
   });
 
   it('offers a downgrade choice (Edit default, View option) for an Edit request', async () => {
@@ -147,11 +147,11 @@ describe('ShareModal — Pending requests', () => {
     renderModal([editRequest]);
 
     const permissionSelect = screen.getByTestId('share-request-permission-13');
-    expect(permissionSelect).toHaveTextContent('Editor');
+    expect(permissionSelect).toHaveTextContent('edit');
 
     await user.click(permissionSelect);
-    expect(screen.getByRole('option', { name: 'Viewer' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Editor' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'view' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'edit' })).toBeInTheDocument();
   });
 
   it('approves at the requested level (no permission override) when the default is kept', async () => {
@@ -177,7 +177,7 @@ describe('ShareModal — Pending requests', () => {
     renderModal([editRequest]);
 
     await user.click(screen.getByTestId('share-request-permission-13'));
-    await user.click(screen.getByRole('option', { name: 'Viewer' }));
+    await user.click(screen.getByRole('option', { name: 'view' }));
     await user.click(screen.getByTestId('share-request-approve-13'));
 
     await waitFor(() => {
@@ -222,5 +222,36 @@ describe('ShareModal — Pending requests', () => {
   it('shows no count header for a single pending request', () => {
     renderModal([viewRequest]);
     expect(screen.queryByTestId('share-requests-count-header')).not.toBeInTheDocument();
+  });
+
+  it('shows a plain-text Deny button before the filled Approve button (design: "request on sharing")', () => {
+    renderModal([viewRequest]);
+    const row = screen.getByTestId('share-request-row-12');
+    const deny = screen.getByTestId('share-request-decline-12');
+    const approve = screen.getByTestId('share-request-approve-12');
+    expect(deny).toHaveTextContent('Deny');
+    expect(approve).toHaveTextContent('Approve');
+    // Deny sits to the left of Approve in DOM order.
+    expect(
+      row.compareDocumentPosition(deny) & Node.DOCUMENT_POSITION_PRECEDING
+    ).toBeFalsy();
+    expect(deny.compareDocumentPosition(approve) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('collapses and re-expands the request rows via the header chevron, defaulting to expanded', async () => {
+    const user = userEvent.setup();
+    renderModal([viewRequest, editRequest]);
+
+    expect(screen.getByTestId('share-request-row-12')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('share-requests-count-header'));
+    expect(screen.queryByTestId('share-request-row-12')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('share-request-row-13')).not.toBeInTheDocument();
+    // The header itself stays visible while collapsed.
+    expect(screen.getByTestId('share-requests-count-header')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('share-requests-count-header'));
+    expect(screen.getByTestId('share-request-row-12')).toBeInTheDocument();
+    expect(screen.getByTestId('share-request-row-13')).toBeInTheDocument();
   });
 });

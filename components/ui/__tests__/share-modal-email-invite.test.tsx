@@ -380,7 +380,7 @@ describe('ShareModal — SHARE commit', () => {
     pasteIntoSearchInput('active@x.org, pending@x.org');
 
     await user.click(screen.getByTestId('share-staged-permission-email-active@x.org'));
-    await user.click(screen.getByRole('option', { name: 'Editor' }));
+    await user.click(screen.getByRole('option', { name: 'Edit' }));
 
     mockAddGrant.mockImplementation(async (_rtype, _id, payload) => {
       if (payload.email === 'active@x.org') {
@@ -550,7 +550,7 @@ describe('ShareModal — pending grant rows (email invites)', () => {
 
     // The dropdown must render for pending rows, same as active ones.
     await user.click(screen.getByTestId('share-grant-permission-9'));
-    await user.click(screen.getByRole('option', { name: 'Editor' }));
+    await user.click(screen.getByRole('option', { name: 'Edit' }));
 
     await waitFor(() => {
       expect(mockAddGrant).toHaveBeenCalledWith('dashboard', 1, {

@@ -42,13 +42,13 @@ import { useUsers } from '@/hooks/api/useUserManagement';
 import { useUserGroups, type UserGroup } from '@/hooks/api/useUserGroups';
 import type { OrgUser } from '@/stores/authStore';
 import { ADMIN_ROLES, useRbac } from '@/lib/rbac';
-import { LEVEL_LABELS } from '@/lib/access-labels';
 import {
   EMAIL_REGEX,
   splitEmailTokens,
   roleTagLabel,
   dedupeStage,
   principalRowIcon,
+  PermissionSelect,
   SearchResultButton,
   INVITE_ROLE_OPTIONS,
   type PrincipalEntryKind,
@@ -633,6 +633,9 @@ export function ShareAddPeopleSearch({ access, staging }: ShareAddPeopleSearchPr
 
   return (
     <div className="space-y-2" data-testid="share-staging-area">
+      <Label htmlFor="share-search-input" className="text-sm font-medium">
+        Search for people, group or add emails
+      </Label>
       {/* Focus/blur on the wrapper (not the input) keeps the dropdown open
           while focus moves onto one of its options — the relatedTarget
           check in handleContainerBlur. */}
@@ -668,7 +671,10 @@ export function ShareAddPeopleSearch({ access, staging }: ShareAddPeopleSearchPr
       </div>
 
       {staging.staged.length > 0 && (
-        <div className="space-y-2" data-testid="share-staged-rows">
+        // Scrolls internally when many rows are staged (design: "resource
+        // sharing- scrollable list of user to share" — the third row is cut
+        // off behind a scrollbar rather than growing the modal).
+        <div className="max-h-44 space-y-2 overflow-y-auto" data-testid="share-staged-rows">
           {staging.staged.map((entry) => (
             <StagedRowView key={entry.key} entry={entry} staging={staging} />
           ))}
@@ -823,24 +829,13 @@ function StagedRowView({ entry, staging }: StagedRowViewProps) {
       <div className="flex items-center gap-1 flex-shrink-0">
         <Badge variant="secondary">{entry.tag}</Badge>
         {isCommittable(entry) && (
-          <Select
+          <PermissionSelect
+            testId={`share-staged-permission-${entry.key}`}
+            ariaLabel={`Permission for ${entry.label}`}
             value={entry.permission}
             onValueChange={(value) => staging.setPermission(entry.key, value as AccessLevel)}
-          >
-            <SelectTrigger
-              data-testid={`share-staged-permission-${entry.key}`}
-              aria-label={`Permission for ${entry.label}`}
-              size="sm"
-              className="w-24"
-              disabled={staging.isCommitting}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="view">{LEVEL_LABELS.view}</SelectItem>
-              <SelectItem value="edit">{LEVEL_LABELS.edit}</SelectItem>
-            </SelectContent>
-          </Select>
+            disabled={staging.isCommitting}
+          />
         )}
         <button
           type="button"

@@ -5,7 +5,7 @@
  * and must keep passing unmodified — entityType is optional.
  */
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ShareModal } from '@/components/ui/share-modal';
 import {
@@ -63,7 +63,11 @@ const mockGetShareStatus = jest
   .mockResolvedValue({ is_public: false, public_access_count: 0 });
 const mockUpdateSharing = jest.fn();
 
-function renderModal(overrides: Partial<ResourceAccessOverview> = {}, canShareOverride = true) {
+function renderModal(
+  overrides: Partial<ResourceAccessOverview> = {},
+  canShareOverride = true,
+  usersOverride?: { orguser_id: number; email: string; new_role_slug?: string }[]
+) {
   mockUseResourceAccess.mockReturnValue({
     data: { ...baseOverview, ...overrides },
     isLoading: false,
@@ -71,7 +75,7 @@ function renderModal(overrides: Partial<ResourceAccessOverview> = {}, canShareOv
     mutate: jest.fn(),
   });
   mockUseUsers.mockReturnValue({
-    users: [
+    users: usersOverride ?? [
       { orguser_id: 42, email: 'new.person@ngo.org', new_role_slug: 'analyst' },
       { orguser_id: 9, email: 'meera@ngo.org', new_role_slug: 'member' },
     ],
@@ -102,12 +106,49 @@ function renderModal(overrides: Partial<ResourceAccessOverview> = {}, canShareOv
 describe('ShareModal — People with access', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('renders the owner row with a non-removable Owner badge', () => {
+  it('renders the owner row as plain text — no pill, no border, no permission control', () => {
     renderModal();
     const ownerRow = screen.getByTestId('share-owner-row');
     expect(ownerRow).toHaveTextContent('Asha Kumar');
     expect(ownerRow).toHaveTextContent('Owner');
     expect(screen.queryByTestId('share-grant-remove-1')).not.toBeInTheDocument();
+    // Owner has no permission dropdown at all (design: "resource sharing-
+    // scrollable list of people with access" — plain text "Owner" only).
+    expect(within(ownerRow).queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it("shows the owner's and each grantee's role tag joined from org users, and no tag for an unresolvable principal (a group)", () => {
+    renderModal(
+      {
+        grants: [
+          baseOverview.grants[0],
+          {
+            id: 5,
+            principal_type: 'group',
+            principal_id: 7,
+            email: null,
+            name: 'Funders',
+            permission: 'view',
+            status: 'active',
+            member_count: 4,
+          },
+        ],
+      },
+      true,
+      [
+        { orguser_id: 1, email: 'asha@ngo.org', new_role_slug: 'admin' },
+        { orguser_id: 42, email: 'new.person@ngo.org', new_role_slug: 'analyst' },
+        { orguser_id: 9, email: 'meera@ngo.org', new_role_slug: 'member' },
+      ]
+    );
+
+    expect(screen.getByTestId('share-owner-row')).toHaveTextContent('Admin');
+    expect(screen.getByTestId('share-grant-row-3')).toHaveTextContent('Member');
+
+    const groupRow = screen.getByTestId('share-grant-row-5');
+    expect(groupRow).not.toHaveTextContent('Member');
+    expect(groupRow).not.toHaveTextContent('Analyst');
+    expect(groupRow).not.toHaveTextContent('Admin');
   });
 
   it('renders a row per active grant with a permission dropdown and remove button', () => {
@@ -195,7 +236,7 @@ describe('ShareModal — People with access', () => {
     renderModal();
 
     await user.click(screen.getByTestId('share-grant-permission-3'));
-    await user.click(screen.getByRole('option', { name: 'Editor' }));
+    await user.click(screen.getByRole('option', { name: 'Edit' }));
 
     await waitFor(() => {
       expect(mockAddGrant).toHaveBeenCalledWith('dashboard', 1, {
@@ -271,7 +312,7 @@ describe('ShareModal — People with access', () => {
     await user.type(screen.getByTestId('share-search-input'), 'new.person');
     await user.click(screen.getByTestId('share-search-user-42'));
     await user.click(screen.getByTestId('share-staged-permission-user-42'));
-    await user.click(screen.getByRole('option', { name: 'Editor' }));
+    await user.click(screen.getByRole('option', { name: 'Edit' }));
     await user.click(screen.getByTestId('share-commit-btn'));
 
     await waitFor(() => {
