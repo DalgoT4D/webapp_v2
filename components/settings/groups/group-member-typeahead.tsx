@@ -26,9 +26,16 @@
  * group" -- the share modal's admin-picker copy, not its non-admin
  * variant). One choice applies to the whole batch of staged emails, not
  * per-row (`GroupMemberStaging.inviteRole`).
+ *
+ * Staged entries render as CHIPS INSIDE the input container itself (design:
+ * 'Analyst-group new user added.jpg') -- the bordered box grows and wraps
+ * to multiple lines as chips are added; the text caret always sits after
+ * the last chip. Backspace on an empty query removes the most recently
+ * staged chip, the standard chip-input convention.
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import {
   EMAIL_REGEX,
@@ -49,23 +56,53 @@ import { useUsers } from '@/hooks/api/useUserManagement';
 import { useUserGroups } from '@/hooks/api/useUserGroups';
 import { ADMIN_ROLES, useRbac } from '@/lib/rbac';
 
+/** A principal already on the group (edit mode only) -- fed into the
+ * dropdown's dup guard so an existing member shows "Added" instead of
+ * being offered again (re-adding would just 400/no-op on the backend). */
+export interface ExistingMemberRef {
+  key: string;
+  email?: string;
+}
+
 interface GroupMemberSearchProps {
   staging: GroupMemberStaging;
   disabled?: boolean;
+  existingMemberRefs?: ExistingMemberRef[];
+  /** Edit mode only: the group being edited can't be added to itself. */
+  excludeGroupId?: number;
 }
 
-export function GroupMemberSearch({ staging, disabled }: GroupMemberSearchProps) {
+export function GroupMemberSearch({
+  staging,
+  disabled,
+  existingMemberRefs,
+  excludeGroupId,
+}: GroupMemberSearchProps) {
   const [query, setQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const { users: orgUsers } = useUsers();
   const { data: groups } = useUserGroups(true);
   const { hasRole } = useRbac();
   const isAdmin = hasRole(ADMIN_ROLES);
 
-  const stagedKeys = useMemo(() => new Set(staging.staged.map((e) => e.key)), [staging.staged]);
+  const stagedKeys = useMemo(
+    () =>
+      new Set([
+        ...staging.staged.map((e) => e.key),
+        ...(existingMemberRefs ?? []).map((e) => e.key),
+      ]),
+    [staging.staged, existingMemberRefs]
+  );
   const stagedEmails = useMemo(
-    () => new Set(staging.staged.map((e) => e.email).filter(Boolean)),
-    [staging.staged]
+    () =>
+      new Set(
+        [
+          ...staging.staged.map((e) => e.email),
+          ...(existingMemberRefs ?? []).map((e) => e.email),
+        ].filter(Boolean)
+      ),
+    [staging.staged, existingMemberRefs]
   );
 
   const trimmed = query.trim();
@@ -80,8 +117,11 @@ export function GroupMemberSearch({ staging, disabled }: GroupMemberSearchProps)
   );
 
   const groupMatches = useMemo(
-    () => (groups || []).filter((g) => !q || g.name.toLowerCase().includes(q)),
-    [groups, q]
+    () =>
+      (groups || []).filter(
+        (g) => g.id !== excludeGroupId && (!q || g.name.toLowerCase().includes(q))
+      ),
+    [groups, q, excludeGroupId]
   );
 
   // Design ordering ('group creation-1.jpg'): users and groups interleaved
@@ -178,6 +218,12 @@ export function GroupMemberSearch({ staging, disabled }: GroupMemberSearchProps)
         stageEmailTokens(splitEmailTokens(trimmed));
         return;
       }
+      // Standard chip-input convention: Backspace on an empty query pops
+      // the most recently staged chip instead of doing nothing.
+      if (e.key === 'Backspace' && !trimmed && staging.staged.length > 0) {
+        staging.remove(staging.staged[staging.staged.length - 1].key);
+        return;
+      }
       if (e.key !== 'Enter') return;
       e.preventDefault();
       if (!trimmed) return;
@@ -192,7 +238,7 @@ export function GroupMemberSearch({ staging, disabled }: GroupMemberSearchProps)
         else stageGroup(only.group.id, only.group.name);
       }
     },
-    [trimmed, stageEmailTokens, combinedMatches, stageUser, stageGroup]
+    [trimmed, stageEmailTokens, combinedMatches, stageUser, stageGroup, staging]
   );
 
   const stagedEmailEntries = staging.staged.filter(
@@ -204,18 +250,34 @@ export function GroupMemberSearch({ staging, disabled }: GroupMemberSearchProps)
       {/* Focus/blur on the wrapper (not the input) keeps the dropdown open
           while focus moves onto one of its options. */}
       <div className="relative" onFocus={() => setIsFocused(true)} onBlur={handleContainerBlur}>
-        <Input
-          id="group-member-search-input"
-          data-testid="group-member-search-input"
-          type="text"
-          placeholder="Type or paste emails…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onPaste={handlePaste}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
-          autoComplete="off"
-        />
+        {/* The bordered "input" is this div -- chips and the real <input>
+            are its flex-wrap children (design: 'Analyst-group new user
+            added.jpg'), so the box grows and wraps as chips are added. */}
+        <div
+          data-testid="group-member-chip-input"
+          onClick={() => inputRef.current?.focus()}
+          className={cn(
+            'flex min-h-9 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-transparent px-3 py-1.5 shadow-xs transition-[color,box-shadow]',
+            'has-[input:focus]:border-ring has-[input:focus]:ring-[3px] has-[input:focus]:ring-ring/50',
+            disabled && 'cursor-not-allowed opacity-50'
+          )}
+        >
+          <GroupMemberStagedRows staging={staging} disabled={disabled} />
+          <Input
+            ref={inputRef}
+            id="group-member-search-input"
+            data-testid="group-member-search-input"
+            type="text"
+            placeholder={staging.staged.length === 0 ? 'Type or paste emails…' : ''}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onPaste={handlePaste}
+            onKeyDown={handleKeyDown}
+            disabled={disabled}
+            autoComplete="off"
+            className="h-6 min-w-[120px] flex-1 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+          />
+        </div>
 
         {isFocused && (
           <GroupMemberSearchDropdown
@@ -229,8 +291,6 @@ export function GroupMemberSearch({ staging, disabled }: GroupMemberSearchProps)
           />
         )}
       </div>
-
-      <GroupMemberStagedRows staging={staging} disabled={disabled} />
 
       {stagedEmailEntries.length > 0 && (
         <InviteRoleBlock

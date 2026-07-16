@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -16,11 +16,14 @@ import {
   useGroupMemberStaging,
   type GroupMemberEntry,
 } from '@/components/settings/groups/group-member-staging';
+import { GroupExistingMembers } from '@/components/settings/groups/group-existing-members';
 import {
   addGroupMember,
   createGroup,
   fetchGroupDetail,
+  removeGroupMember,
   renameGroup,
+  useUserGroup,
   type AddGroupMemberPayload,
   type UserGroup,
 } from '@/hooks/api/useUserGroups';
@@ -32,7 +35,8 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 interface GroupFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Present -> rename mode; omit -> create mode. */
+  /** Present -> unified edit mode (rename + typeahead + Existing Members);
+   * omit -> create mode (typeahead only, no Existing Members section). */
   group?: UserGroup | null;
   onSuccess: () => void;
 }
@@ -63,9 +67,10 @@ interface ResolveMembersResult {
  * nothing. If the flatten fetch itself fails (group vanished, network
  * error), the group contributes nothing AND its label is reported back so
  * the caller can name it in the partial-failure toast — it is never a
- * silent zero. There is no "exclude the group being edited" case here —
- * this picker only renders in create mode (rename mode has no typeahead),
- * so there is no group-being-edited to exclude. */
+ * silent zero. The typeahead itself excludes the group being edited from
+ * its own dropdown (see GroupMemberSearch's `excludeGroupId`), so a staged
+ * group here is always some OTHER group, never the one being flattened
+ * into. */
 async function resolveMembers(
   staged: GroupMemberEntry[],
   inviteRole: InviteRoleSlug
@@ -114,20 +119,50 @@ async function resolveMembers(
 // Backend rejects a blank name (GroupValidationError) — checked client-side
 // too so we don't round-trip for an obviously-empty field.
 export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupFormDialogProps) {
-  const isRename = Boolean(group);
+  const isEdit = Boolean(group);
   const [name, setName] = useState(group?.name ?? '');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingRemoveIds, setPendingRemoveIds] = useState<Set<number>>(new Set());
   const memberStaging = useGroupMemberStaging();
+
+  // Edit mode's Existing Members list — only fetched while the dialog is
+  // open in edit mode (create mode has no group id yet). Not the row list
+  // page's stale member_preview: this is the live detail fetch, same one
+  // GroupDetailDrawer used before this dialog absorbed its edit surface.
+  const { data: detail, isLoading: detailLoading } = useUserGroup(
+    open && isEdit && group ? group.id : null
+  );
+  const existingMembers = useMemo(() => detail?.members ?? [], [detail]);
 
   useEffect(() => {
     if (open) {
       setName(group?.name ?? '');
       setError(null);
+      setPendingRemoveIds(new Set());
       memberStaging.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, group]);
+
+  const existingMemberRefs = useMemo(
+    () =>
+      existingMembers
+        .filter(
+          (m) => m.status === 'active' && !pendingRemoveIds.has(m.id) && typeof m.orguser_id === 'number'
+        )
+        .map((m) => ({ key: `user-${m.orguser_id}`, email: m.email?.toLowerCase() })),
+    [existingMembers, pendingRemoveIds]
+  );
+
+  const handleToggleRemove = (memberId: number) => {
+    setPendingRemoveIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(memberId)) next.delete(memberId);
+      else next.add(memberId);
+      return next;
+    });
+  };
 
   const handleSubmit = async () => {
     const trimmed = name.trim();
@@ -138,43 +173,72 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
     setIsSubmitting(true);
     setError(null);
     try {
-      if (isRename && group) {
-        await renameGroup(group.id, { name: trimmed });
-        trackEvent(ANALYTICS_EVENTS.GROUP_RENAMED);
-        toastSuccess.generic('Group renamed');
+      let targetGroupId: number;
+      if (isEdit && group) {
+        // Skip the no-op PUT when the name didn't change — avoids a
+        // self-collision against the group's own current name.
+        if (trimmed !== group.name) {
+          await renameGroup(group.id, { name: trimmed });
+          trackEvent(ANALYTICS_EVENTS.GROUP_RENAMED);
+        }
+        targetGroupId = group.id;
       } else {
         const newGroup = await createGroup({ name: trimmed });
         trackEvent(ANALYTICS_EVENTS.GROUP_CREATED);
-
-        const { resolved: members, failedGroupLabels } = await resolveMembers(
-          memberStaging.staged,
-          memberStaging.inviteRole
-        );
-
-        // Sequence: create -> add members. Neither a member-add failure nor
-        // a failed group-flatten fetch ever rolls back the group — it stays
-        // created, and the toast names exactly who/what wasn't added so the
-        // admin can retry from the drawer.
-        let addFailedLabels: string[] = [];
-        if (members.length > 0) {
-          const results = await Promise.allSettled(
-            members.map((m) => addGroupMember(newGroup.id, m.payload))
-          );
-          addFailedLabels = results
-            .map((result, index) => (result.status === 'rejected' ? members[index].label : null))
-            .filter((label): label is string => label !== null);
-
-          const addedCount = results.length - addFailedLabels.length;
-          if (addedCount > 0) trackEvent(ANALYTICS_EVENTS.GROUP_MEMBER_ADDED);
-        }
-
-        const failedLabels = [...failedGroupLabels, ...addFailedLabels];
-        if (failedLabels.length > 0) {
-          toastWarning.generic(`Group created, but couldn't add: ${failedLabels.join(', ')}`);
-        } else {
-          toastSuccess.generic('Group created');
-        }
+        targetGroupId = newGroup.id;
       }
+
+      const { resolved: members, failedGroupLabels } = await resolveMembers(
+        memberStaging.staged,
+        memberStaging.inviteRole
+      );
+
+      // Sequence: create/rename -> add members -> remove members. None of
+      // these steps roll back an earlier one on failure — the toast names
+      // exactly who/what wasn't applied so the admin can retry.
+      let addFailedLabels: string[] = [];
+      if (members.length > 0) {
+        const results = await Promise.allSettled(
+          members.map((m) => addGroupMember(targetGroupId, m.payload))
+        );
+        addFailedLabels = results
+          .map((result, index) => (result.status === 'rejected' ? members[index].label : null))
+          .filter((label): label is string => label !== null);
+
+        const addedCount = results.length - addFailedLabels.length;
+        if (addedCount > 0) trackEvent(ANALYTICS_EVENTS.GROUP_MEMBER_ADDED);
+      }
+
+      // Removals staged via the Existing Members list's ✕ are batched here
+      // (applied on Save, not immediately on click) so Cancel discards a
+      // pending removal exactly like it discards an un-submitted chip.
+      let removeFailedLabels: string[] = [];
+      if (isEdit && pendingRemoveIds.size > 0) {
+        const idsToRemove = Array.from(pendingRemoveIds);
+        const results = await Promise.allSettled(
+          idsToRemove.map((id) => removeGroupMember(targetGroupId, id))
+        );
+        removeFailedLabels = results
+          .map((result, index) => {
+            if (result.status !== 'rejected') return null;
+            const member = existingMembers.find((m) => m.id === idsToRemove[index]);
+            return member?.email || member?.pending_email || member?.name || 'a member';
+          })
+          .filter((label): label is string => label !== null);
+
+        const removedCount = results.length - removeFailedLabels.length;
+        if (removedCount > 0) trackEvent(ANALYTICS_EVENTS.GROUP_MEMBER_REMOVED);
+      }
+
+      const failedLabels = [...failedGroupLabels, ...addFailedLabels, ...removeFailedLabels];
+      if (failedLabels.length > 0) {
+        toastWarning.generic(
+          `${isEdit ? 'Group updated' : 'Group created'}, but couldn't apply: ${failedLabels.join(', ')}`
+        );
+      } else {
+        toastSuccess.generic(isEdit ? 'Group updated' : 'Group created');
+      }
+
       onSuccess();
       onOpenChange(false);
     } catch (err) {
@@ -190,7 +254,7 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent data-testid="group-form-dialog" className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isRename ? 'Rename group' : 'Create group'}</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit group' : 'Create group'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-2">
           <Label htmlFor="group-form-name-input">Group name</Label>
@@ -212,11 +276,22 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
             </p>
           )}
         </div>
-        {!isRename && (
-          <div className="space-y-2">
-            <Label htmlFor="group-member-search-input">Add people, groups, or paste emails</Label>
-            <GroupMemberSearch staging={memberStaging} disabled={isSubmitting} />
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="group-member-search-input">Add people, groups, or paste emails</Label>
+          <GroupMemberSearch
+            staging={memberStaging}
+            disabled={isSubmitting}
+            existingMemberRefs={isEdit ? existingMemberRefs : undefined}
+            excludeGroupId={isEdit ? group?.id : undefined}
+          />
+        </div>
+        {isEdit && !detailLoading && (
+          <GroupExistingMembers
+            members={existingMembers}
+            pendingRemoveIds={pendingRemoveIds}
+            onToggleRemove={handleToggleRemove}
+            disabled={isSubmitting}
+          />
         )}
         <DialogFooter>
           <Button
@@ -233,7 +308,7 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
             onClick={handleSubmit}
             disabled={isSubmitting || !name.trim()}
           >
-            {isSubmitting ? 'Saving…' : isRename ? 'Rename' : 'Create group'}
+            {isSubmitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create group'}
           </Button>
         </DialogFooter>
       </DialogContent>

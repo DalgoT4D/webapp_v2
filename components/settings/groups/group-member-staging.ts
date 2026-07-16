@@ -49,6 +49,20 @@ export interface GroupMemberStaging {
   setInviteRole: (role: InviteRoleSlug) => void;
 }
 
+/** Chip color per the design (Analyst-group new user added.jpg): internal
+ * principals (existing org users AND groups) render teal; an
+ * outside/unknown email renders amber; a malformed pasted token renders as
+ * an explicit invalid/destructive chip (never amber -- amber means "will be
+ * invited", invalid means "won't be sent at all"). */
+export type GroupMemberChipVariant = 'internal' | 'external' | 'invalid';
+
+export function chipVariant(entry: GroupMemberEntry): GroupMemberChipVariant {
+  if (entry.kind === 'email') {
+    return entry.status === 'invalid' ? 'invalid' : 'external';
+  }
+  return 'internal';
+}
+
 export function useGroupMemberStaging(): GroupMemberStaging {
   const [staged, setStaged] = useState<GroupMemberEntry[]>([]);
   const [inviteRole, setInviteRole] = useState<InviteRoleSlug>('member');
