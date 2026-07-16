@@ -831,7 +831,10 @@ function StagedRowView({ entry, staging }: StagedRowViewProps) {
         )}
       </span>
       <div className="flex items-center gap-1 flex-shrink-0">
-        <Badge variant="secondary">{entry.tag}</Badge>
+        {/* Frames show role/Group tags on staged people/groups but NO tag on
+            unknown-email rows ("resource sharing New users" — amber icon
+            carries that state alone). */}
+        {entry.kind !== 'email' && <Badge variant="secondary">{entry.tag}</Badge>}
         {isCommittable(entry) && (
           <PermissionSelect
             testId={`share-staged-permission-${entry.key}`}

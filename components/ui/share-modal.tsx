@@ -1110,9 +1110,10 @@ function PeopleWithAccessSection({
                         data-testid={`share-grant-remove-${grant.id}`}
                         variant="ghost"
                         size="icon"
+                        className="text-muted-foreground hover:text-destructive"
                         aria-label={`Remove ${grant.name || grant.email}`}
                       >
-                        <X className="h-3.5 w-3.5 text-destructive" />
+                        <X className="h-3.5 w-3.5" />
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent data-testid={`share-grant-remove-dialog-${grant.id}`}>
