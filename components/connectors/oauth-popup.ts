@@ -24,6 +24,13 @@ const OAUTH_POPUP_WIDTH = 600;
 const OAUTH_POPUP_HEIGHT = 700;
 // how often to poll for the stored result / a manually-closed popup
 const POPUP_POLL_MS = 500;
+// Google's COOP headers can trigger a browsing-context-group swap that makes the
+// opener observe `popup.closed === true` while the popup is actually alive and the
+// user is still on the consent screen. A single closed reading is therefore not a
+// reliable cancel signal. Only treat the popup as cancelled after it reads closed for
+// this many consecutive polls with no result — by then a real redirect would have
+// written its result to localStorage (which the poll checks first and wins on).
+const POPUP_CLOSE_GRACE_POLLS = 4;
 
 export function openOAuthPopup(authUrl: string): Promise<{ ref: string }> {
   return new Promise((resolve, reject) => {
@@ -47,6 +54,7 @@ export function openOAuthPopup(authUrl: string): Promise<{ ref: string }> {
       return;
     }
 
+    let closedPolls = 0;
     const timer = setInterval(() => {
       // 1. did the callback store a result?
       let raw: string | null = null;
@@ -84,10 +92,17 @@ export function openOAuthPopup(authUrl: string): Promise<{ ref: string }> {
         return;
       }
 
-      // 2. user closed the popup without finishing
+      // 2. user closed the popup without finishing — but tolerate a transient
+      // COOP false-close (see POPUP_CLOSE_GRACE_POLLS). Only cancel once the popup
+      // has read closed for several consecutive polls with no result arriving.
       if (popup.closed) {
-        clearInterval(timer);
-        reject(new Error('Google sign-in was cancelled'));
+        closedPolls += 1;
+        if (closedPolls >= POPUP_CLOSE_GRACE_POLLS) {
+          clearInterval(timer);
+          reject(new Error('Google sign-in was cancelled'));
+        }
+      } else {
+        closedPolls = 0;
       }
     }, POPUP_POLL_MS);
   });
