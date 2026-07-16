@@ -157,6 +157,32 @@ describe('ShareModal — email parsing into staged rows', () => {
     expect(badRow).toHaveTextContent('Not a valid email address');
   });
 
+  it('shows an amber warning badge (not the plain person/email icon) on a not-on-Dalgo staged row', () => {
+    renderModal();
+
+    pasteIntoSearchInput('new@x.org');
+
+    const row = screen.getByTestId('share-staged-row-email-new@x.org');
+    expect(
+      row.querySelector('[data-testid="share-staged-email-warning-icon"]')
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the plain person icon (no warning badge) for a staged row matching a known org member', async () => {
+    mockAddGrant.mockResolvedValue(activeGrant({ id: 300, principal_id: 42 }));
+    renderModal(
+      {},
+      { orgUsers: [{ orguser_id: 42, email: 'member@ngo.org', new_role_slug: 'analyst' }] }
+    );
+
+    pasteIntoSearchInput('member@ngo.org');
+
+    const row = screen.getByTestId('share-staged-row-user-42');
+    expect(
+      row.querySelector('[data-testid="share-staged-email-warning-icon"]')
+    ).not.toBeInTheDocument();
+  });
+
   it('dedups the same email pasted twice, case-insensitively', () => {
     renderModal();
 
@@ -274,11 +300,30 @@ describe('ShareModal — invite-role picker (Phase C3)', () => {
     );
   });
 
-  it('offers Member/Analyst/Admin to admins', async () => {
+  it('renders the notice as an amber warning callout (design: "resource sharing New users" frame — matches group-member-invite-role-block\'s recent polish)', () => {
+    renderModal();
+
+    pasteIntoSearchInput('new@x.org');
+
+    // The amber box is the copy's nearest bordered ancestor, not the outer
+    // `share-invite-role-block` wrapper (which also holds the admin-only
+    // field below it, outside the box).
+    const calloutBox = screen.getByTestId('share-invite-role-copy').closest('div.rounded-md');
+    expect(calloutBox).toHaveClass('border-orange-200', 'bg-orange-50');
+    expect(calloutBox?.querySelector('svg')).toBeInTheDocument(); // warning-triangle icon
+  });
+
+  it('offers Member/Analyst/Admin to admins in a full-width labeled field below the callout', async () => {
     const user = userEvent.setup();
     renderModal({}, { isAdmin: true });
 
     pasteIntoSearchInput('new@x.org');
+
+    // Frame shows "Invite new users as" as its own label line above a
+    // full-width Select, separate from the amber notice box.
+    expect(screen.getByText('Invite new users as')).toBeInTheDocument();
+    expect(screen.getByTestId('share-invite-role')).toHaveClass('w-full');
+
     await user.click(screen.getByTestId('share-invite-role'));
 
     expect(screen.getByRole('option', { name: 'Member' })).toBeInTheDocument();

@@ -385,6 +385,7 @@ export default function AlertsPage() {
         <ShareModal
           entityId={sharingAlert.id}
           entityLabel="Alert"
+          resourceName={sharingAlert.name}
           entityType="alert"
           isOpen={sharingAlert !== null}
           onClose={() => setSharingAlert(null)}

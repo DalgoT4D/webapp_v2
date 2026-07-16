@@ -63,6 +63,15 @@ describe('ShareModal', () => {
       expect(screen.getByText('Share Report')).toBeInTheDocument();
     });
 
+    it('quotes the resourceName in the title when provided (design: "Share \\"Untitled Dashboard\\"")', () => {
+      mockGetShareStatus.mockResolvedValue(createMockShareStatus());
+
+      renderShareModal({ resourceName: 'Q1 Sales Report' });
+
+      expect(screen.getByText('Share "Q1 Sales Report"')).toBeInTheDocument();
+      expect(screen.queryByText('Share Report')).not.toBeInTheDocument();
+    });
+
     it('does not render modal when isOpen is false', () => {
       mockGetShareStatus.mockResolvedValue(createMockShareStatus());
 

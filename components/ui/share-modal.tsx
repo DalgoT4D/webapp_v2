@@ -111,6 +111,14 @@ interface ShareModalProps {
    * Omit to keep the legacy public-link-only modal (reports, until they adopt sharing).
    */
   entityType?: ShareableResourceType;
+  /**
+   * The resource's own name/title (e.g. a dashboard's "Untitled Dashboard",
+   * a report snapshot's title, an alert's name) — when given, the dialog
+   * title becomes `Share "{resourceName}"` (design: "resource sharing New
+   * users" frame) instead of the generic `Share {entityLabel}`. Omit when
+   * the caller has no name in hand yet; the generic title is a safe fallback.
+   */
+  resourceName?: string;
 }
 
 export function ShareModal({
@@ -124,6 +132,7 @@ export function ShareModal({
   updateSharing,
   onShareViaEmail,
   entityType,
+  resourceName,
 }: ShareModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [shareStatus, setShareStatus] = useState<ShareStatus>({
@@ -343,7 +352,7 @@ export function ShareModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5" />
-            Share {entityLabel}
+            {resourceName ? `Share "${resourceName}"` : `Share ${entityLabel}`}
           </DialogTitle>
         </DialogHeader>
 

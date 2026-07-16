@@ -2228,6 +2228,7 @@ export function DashboardListV2() {
         <ShareModal
           entityId={selectedDashboard.id}
           entityLabel="Dashboard"
+          resourceName={selectedDashboard.title || selectedDashboard.dashboard_title}
           entityType="dashboard"
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}

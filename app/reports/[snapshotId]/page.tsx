@@ -350,6 +350,7 @@ export default function SnapshotViewerPage() {
       <ShareModal
         entityId={parsedId}
         entityLabel="Report"
+        resourceName={report_metadata.title}
         entityType="report"
         isOpen={shareModalOpen}
         onClose={() => setShareModalOpen(false)}

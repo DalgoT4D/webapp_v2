@@ -886,6 +886,7 @@ export default function ReportsPage() {
         <ShareModal
           entityId={selectedSnapshot.id}
           entityLabel="Report"
+          resourceName={selectedSnapshot.title}
           entityType="report"
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}

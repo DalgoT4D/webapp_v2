@@ -1478,6 +1478,7 @@ export function DashboardNativeView({
         <ShareModal
           entityId={dashboard.id}
           entityLabel="Dashboard"
+          resourceName={dashboard.title}
           entityType="dashboard"
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}

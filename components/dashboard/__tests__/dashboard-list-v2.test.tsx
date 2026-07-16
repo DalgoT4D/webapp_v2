@@ -97,9 +97,7 @@ describe('DashboardListV2 — sharing badges', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('shows a Private badge when both analyst_level and member_level are "none"', () => {
-    setup([
-      baseDashboard({ id: 1, analyst_level: 'none', member_level: 'none', is_owner: true }),
-    ]);
+    setup([baseDashboard({ id: 1, analyst_level: 'none', member_level: 'none', is_owner: true })]);
     expect(screen.getByTestId('dashboard-badge-private-1')).toHaveTextContent('Private');
     expect(screen.queryByTestId('dashboard-badge-audience-1')).not.toBeInTheDocument();
   });
@@ -163,9 +161,7 @@ describe('DashboardListV2 — sharing badges', () => {
   });
 
   it('shows no audience/private badge when analyst_level and member_level are both null (predates general-access config, or an anonymous public-view caller)', () => {
-    setup([
-      baseDashboard({ id: 3, analyst_level: null, member_level: null, is_owner: true }),
-    ]);
+    setup([baseDashboard({ id: 3, analyst_level: null, member_level: null, is_owner: true })]);
     expect(screen.queryByTestId('dashboard-badge-private-3')).not.toBeInTheDocument();
     expect(screen.queryByTestId('dashboard-badge-audience-3')).not.toBeInTheDocument();
   });

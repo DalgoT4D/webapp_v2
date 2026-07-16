@@ -15,7 +15,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Mail, User, UsersRound, X } from 'lucide-react';
+import { AlertTriangle, Mail, User, UsersRound, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -374,7 +374,27 @@ const STATUS_NOTES: Partial<Record<StagedEntryStatus, string>> = {
   already: 'Already has access',
 };
 
-const stagedRowIcon = principalRowIcon;
+/** Staged rows get one extra treatment ShareModal alone needs: an
+ * unknown-email row (kind === 'email' is always a not-yet-on-Dalgo address —
+ * see buildEmailEntries/stageEmailTokens below, the only producers of that
+ * kind) shows an amber warning badge instead of the plain icon (design:
+ * "resource sharing New users" frame). Kept LOCAL rather than folded into
+ * the shared `principalRowIcon` so the Create-group dialog's staged rows
+ * (group-member-staged-rows.tsx, which also calls principalRowIcon) are
+ * untouched. */
+function stagedRowIcon(kind: StagedEntryKind) {
+  if (kind === 'email') {
+    return (
+      <span
+        data-testid="share-staged-email-warning-icon"
+        className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-orange-100"
+      >
+        <AlertTriangle className="h-3 w-3 text-orange-600" />
+      </span>
+    );
+  }
+  return principalRowIcon(kind);
+}
 
 /** Free-typed/pasted tokens → entries: valid unknown emails become email
  * entries, emails matching an org member become that member, invalid tokens
@@ -843,55 +863,63 @@ interface InviteRoleBlockProps {
   isAdmin: boolean;
 }
 
-/** The unknown-email notice. Admins get an "Invite new users as [Member ▾]"
- * role picker (Member/Analyst/Admin); non-admins get a plain locked sentence
- * and no dropdown at all (design: 'Member -resource sharing-2.jpg') — they
- * can only ever invite at Member, mirroring the backend's 403 on non-admin
- * invite_role escalation (Phase C3), so there's nothing for them to pick. */
+/** The unknown-email notice: an amber warning callout (design: "resource
+ * sharing New users" frame), styled to match the Create-group dialog's
+ * equivalent notice (group-member-invite-role-block.tsx's recent polish)
+ * so the two flows read as one system. Admins additionally get an "Invite
+ * new users as" labeled field — a full-width Select (Member/Analyst/Admin)
+ * BELOW the callout, not inside it, per the same frame; non-admins get a
+ * plain locked sentence inside the callout and no dropdown at all (design:
+ * 'Member -resource sharing-2.jpg') — they can only ever invite at Member,
+ * mirroring the backend's 403 on non-admin invite_role escalation (Phase
+ * C3), so there's nothing for them to pick. */
 function InviteRoleBlock({ stagedEmailEntries, staging, isAdmin }: InviteRoleBlockProps) {
   return (
-    <div data-testid="share-invite-role-block" className="space-y-2 rounded-md border p-3 text-xs">
-      <p data-testid="share-invite-role-copy" className="font-medium">
-        {stagedEmailEntries.length === 1
-          ? `${stagedEmailEntries[0].label} isn't on Dalgo yet.`
-          : `${stagedEmailEntries.length} people aren't on Dalgo yet.`}
-      </p>
-      {isAdmin ? (
-        <>
-          <p className="text-muted-foreground">
-            Assign new invites role before sharing the resource.
+    <div data-testid="share-invite-role-block" className="space-y-2">
+      <div className="flex items-start gap-2 rounded-md border border-orange-200 bg-orange-50 p-3 text-xs">
+        <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-orange-600" />
+        <div className="flex-1 space-y-1">
+          <p data-testid="share-invite-role-copy" className="font-semibold text-red-800">
+            {stagedEmailEntries.length === 1
+              ? `${stagedEmailEntries[0].label} isn't on Dalgo yet.`
+              : `${stagedEmailEntries.length} people aren't on Dalgo yet.`}
           </p>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="share-invite-role">Invite new users as</Label>
-            <Select
-              value={staging.inviteRole}
-              onValueChange={(value) => staging.setInviteRole(value as InviteRoleSlug)}
+          <p className="text-orange-800">
+            {isAdmin
+              ? 'Assign new invites role before sharing the resource.'
+              : stagedEmailEntries.length === 1
+                ? 'New member will be invited as member.'
+                : 'New members will be invited as members.'}
+          </p>
+        </div>
+      </div>
+
+      {isAdmin && (
+        <div className="space-y-1.5">
+          <Label htmlFor="share-invite-role" className="text-sm font-medium">
+            Invite new users as
+          </Label>
+          <Select
+            value={staging.inviteRole}
+            onValueChange={(value) => staging.setInviteRole(value as InviteRoleSlug)}
+          >
+            <SelectTrigger
+              id="share-invite-role"
+              data-testid="share-invite-role"
+              className="w-full"
+              disabled={staging.isCommitting}
             >
-              <SelectTrigger
-                id="share-invite-role"
-                data-testid="share-invite-role"
-                size="sm"
-                className="w-28"
-                disabled={staging.isCommitting}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {INVITE_ROLE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </>
-      ) : (
-        <p className="text-muted-foreground">
-          {stagedEmailEntries.length === 1
-            ? 'New member will be invited as member.'
-            : 'New members will be invited as members.'}
-        </p>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {INVITE_ROLE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       )}
     </div>
   );

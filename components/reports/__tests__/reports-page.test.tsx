@@ -297,7 +297,11 @@ describe('ReportsPage', () => {
       await user.click(screen.getByTestId('report-share-btn-1'));
 
       expect(screen.getByTestId('share-modal')).toBeInTheDocument();
-      expect(screen.getByText('Share Report')).toBeInTheDocument();
+      // Title now carries the resource's own name (task: share-modal
+      // "New users" frame fidelity) — mockSnapshots' id:1 row is titled
+      // 'Q1 Sales Report' (report-mock-data.ts), falling back to the
+      // generic "Share Report" only when no resourceName is available.
+      expect(screen.getByText('Share "Q1 Sales Report"')).toBeInTheDocument();
     });
 
     it('hides the share button when the viewer lacks can_share_reports', () => {
