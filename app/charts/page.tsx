@@ -417,9 +417,9 @@ export default function ChartsPage() {
   );
 
   // Multi-select functions
-  const enterSelectionMode = useCallback(() => {
+  const enterSelectionMode = useCallback((chartId: number) => {
     setIsSelectionMode(true);
-    setSelectedCharts(new Set());
+    setSelectedCharts(new Set([chartId]));
   }, []);
 
   const exitSelectionMode = useCallback(() => {
@@ -796,12 +796,21 @@ export default function ChartsPage() {
     const typeColors = getChartTypeColor(chart.chart_type as ChartType);
     const isFavorited = favorites.has(chart.id);
     const dataSource = `${chart.schema_name}.${chart.table_name}`;
+    const isChartSelected = selectedCharts.has(chart.id);
 
     return (
       <TableRow key={chart.id} className="hover:bg-gray-50">
         {/* Name Column with Star */}
         <TableCell className="py-4">
           <div className="flex items-center gap-3">
+            {isSelectionMode && (
+              <Checkbox
+                id={`chart-select-${chart.id}`}
+                data-testid={`chart-select-checkbox-${chart.id}`}
+                checked={isChartSelected}
+                onCheckedChange={() => toggleChartSelection(chart.id)}
+              />
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -892,9 +901,14 @@ export default function ChartsPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={enterSelectionMode} className="cursor-pointer">
+                <DropdownMenuItem
+                  onClick={() =>
+                    isSelectionMode ? toggleChartSelection(chart.id) : enterSelectionMode(chart.id)
+                  }
+                  className="cursor-pointer"
+                >
                   <CheckSquare className="w-4 h-4 mr-2" />
-                  Select
+                  {isChartSelected ? 'Deselect' : 'Select'}
                 </DropdownMenuItem>
                 {hasPermission(PERMISSIONS.CAN_CREATE_CHARTS) && (
                   <>
