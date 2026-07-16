@@ -4,7 +4,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { ReadyState } from 'react-use-websocket';
-import { Check, ChevronDown, Loader2 } from 'lucide-react';
+import { ChevronDown, Loader2 } from 'lucide-react';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -52,11 +52,12 @@ export interface ConnectionFormBodyProps {
   // are discovered. Lets a host (the wizard) widen its modal only after the
   // streams table needs the room.
   onExpandedChange?: (expanded: boolean) => void;
-  // Fired (create/wizard flow) once the source's custom connection view resolves,
-  // so the host can put the "<source> created successfully — select your
-  // sheets/forms" copy in the modal header instead of the body. Null for
-  // generic sources (no custom noun).
-  onHeaderInfoChange?: (info: { sourceName: string; streamNoun: string } | null) => void;
+  // Fired once the active source resolves, so the host can name the source in the
+  // modal header (and, in the wizard, show "<source> created successfully") for
+  // every source — generic and custom alike. `streamNoun` is set only for custom
+  // sources (Sheets/Kobo), which relabel their streams; generic sources omit it
+  // and the host falls back to neutral copy. Null until a source resolves.
+  onHeaderInfoChange?: (info: { sourceName: string; streamNoun?: string } | null) => void;
 }
 
 // The Dialog-free core of the connection create/edit/view form. Rendered
@@ -486,15 +487,17 @@ export function ConnectionFormBody({
     onExpandedChange?.(showHelpPanel);
   }, [showHelpPanel, onExpandedChange]);
 
-  // Report custom-source header copy up to the host (create/edit/view). The
-  // dialog/wizard header then names the source + its stream noun, so every mode
-  // reads the same as the wizard's connection step (no in-body source chip).
+  // Report the source name up to the host (create/edit/view) for every source, so
+  // the dialog/wizard header names it — and the wizard shows "<source> created
+  // successfully" in the heading instead of a body banner. `streamNoun` rides
+  // along only for custom sources (Sheets/Kobo relabel their streams); generic
+  // sources omit it and the host uses neutral copy.
   const headerSourceName =
     readOnlySource?.name || readOnlySource?.sourceName || sourceDefName || null;
   useEffect(() => {
     onHeaderInfoChange?.(
-      connectionView && headerSourceName
-        ? { sourceName: headerSourceName, streamNoun: connectionView.streamNoun }
+      headerSourceName
+        ? { sourceName: headerSourceName, streamNoun: connectionView?.streamNoun }
         : null
     );
   }, [connectionView, headerSourceName, onHeaderInfoChange]);
@@ -515,20 +518,10 @@ export function ConnectionFormBody({
               so users scroll the full side to reach every stream/sheet/form. */}
           <div className="flex min-h-0 flex-col gap-6 overflow-y-auto pr-1">
             <div className="flex-shrink-0 space-y-6">
-              {/* Source identity for custom sources (Sheets/Kobo) lives in the
-                dialog/wizard header for every mode — reported via
-                onHeaderInfoChange — so the body carries no source chip. */}
-
-              {/* Success banner — shown right after the wizard creates the source. Generic sources only; custom sources surface identity in the header. */}
-              {isCreate && presetSource && !connectionView && (
-                <div
-                  className="flex items-center gap-2 rounded-lg border border-green-600/30 bg-green-600/5 px-4 py-3 text-base font-medium text-green-600 dark:border-green-400/30 dark:text-green-400"
-                  data-testid="source-created-banner"
-                >
-                  <Check className="h-4 w-4 flex-shrink-0" />
-                  {presetSource.name} created successfully
-                </div>
-              )}
+              {/* Source identity + "created successfully" now live in the
+                dialog/wizard header for every source (generic and custom),
+                reported via onHeaderInfoChange — so the body carries no banner
+                or source chip. */}
 
               {/* Connection name */}
               <div>

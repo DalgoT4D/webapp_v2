@@ -124,8 +124,10 @@ describe('ConnectionForm', () => {
       </TestWrapper>
     );
 
+    // Header now names the source for every source (matches the gsheet/kobo
+    // treatment): the mock connection's source display name is 'Prod DB'.
     await waitFor(() => {
-      expect(screen.getByText('Edit Connection')).toBeInTheDocument();
+      expect(screen.getByText('Edit Prod DB connection')).toBeInTheDocument();
       expect(screen.getByTestId('connection-name-input')).toHaveValue('My Connection');
     });
   });
@@ -149,7 +151,8 @@ describe('ConnectionForm', () => {
       </TestWrapper>
     );
 
-    await waitFor(() => expect(screen.getByText('View Connection')).toBeInTheDocument());
+    // Header names the source for every source now — mock source name is 'Prod DB'.
+    await waitFor(() => expect(screen.getByText('Prod DB connection')).toBeInTheDocument());
     expect(screen.queryByTestId('save-connection-btn')).not.toBeInTheDocument();
   });
 

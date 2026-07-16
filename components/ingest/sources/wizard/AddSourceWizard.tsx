@@ -32,11 +32,13 @@ export function AddSourceWizard({ open, onClose, onComplete, needsWarehouse = fa
   // Connection step starts compact (just name + "Fetching…") and widens only
   // once the streams table appears — driven by ConnectionFormBody.
   const [connectionExpanded, setConnectionExpanded] = useState(false);
-  // Custom sources (Sheets/Kobo) put their success + "select your sheets/forms"
-  // copy in the header; null for generic sources (keep the neutral header).
+  // Once the source resolves, its name drives the connection-step heading
+  // ("<source> created successfully") for every source. `streamNoun` is set only
+  // for custom sources (Sheets/Kobo) and tunes the helper line; generic sources
+  // omit it and fall back to neutral copy. Null until the source resolves.
   const [connectionHeaderInfo, setConnectionHeaderInfo] = useState<{
     sourceName: string;
-    streamNoun: string;
+    streamNoun?: string;
   } | null>(null);
 
   // Reset whenever the dialog is (re)opened, so a prior run doesn't leak in.
@@ -98,7 +100,11 @@ export function AddSourceWizard({ open, onClose, onComplete, needsWarehouse = fa
           // Standard success state: teal check icon (brand --primary) beside a
           // default-colour title — plain green title text read as odd.
           success: true,
-          description: `Now select the ${connectionHeaderInfo.streamNoun.toLowerCase()} you want to sync into your warehouse.`,
+          // Custom sources name their streams ("sheets"/"forms"); generic sources
+          // fall back to the neutral sync helper.
+          description: connectionHeaderInfo.streamNoun
+            ? `Now select the ${connectionHeaderInfo.streamNoun.toLowerCase()} you want to sync into your warehouse.`
+            : 'Choose what to sync from this source into your warehouse.',
         }
       : {
           title: 'Set up a connection',

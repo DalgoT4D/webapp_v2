@@ -39,12 +39,13 @@ export function ConnectionForm({
   // Stay compact until streams are discovered (same as the wizard), then widen
   // to fit the streams table alongside the help panel.
   const [expanded, setExpanded] = useState(false);
-  // Custom sources (Sheets/Kobo) report their name + stream noun so the header
-  // reads the same way as the wizard's connection step (source-named title +
-  // "select which <forms/sheets> to sync"). Null → generic fallback copy.
+  // The body reports the active source name (every source) + an optional stream
+  // noun (custom sources only) so the header reads the same as the wizard's
+  // connection step: a source-named title, and for custom sources a "select which
+  // <forms/sheets> to sync" line. Null → generic fallback copy.
   const [headerInfo, setHeaderInfo] = useState<{
     sourceName: string;
-    streamNoun: string;
+    streamNoun?: string;
   } | null>(null);
 
   const sourceName = headerInfo?.sourceName;
@@ -63,7 +64,7 @@ export function ConnectionForm({
   const description = isCreate
     ? streamNoun
       ? `Choose which ${streamNoun} to sync from this source into your warehouse.`
-      : 'Set up a new data connection.'
+      : 'Choose what to sync from this source into your warehouse.'
     : isView
       ? streamNoun
         ? `Viewing which ${streamNoun} sync into your warehouse (read-only during a sync).`
