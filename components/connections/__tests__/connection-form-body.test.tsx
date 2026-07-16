@@ -274,18 +274,26 @@ describe('ConnectionFormBody split help + custom view', () => {
       syncCatalog: { streams: [] },
     } as unknown as Connection;
 
+    const onHeaderInfoChange = jest.fn();
     render(
       <ConnectionFormBody
         mode={FormMode.EDIT}
         connectionId="c1"
         onSuccess={jest.fn()}
         onCancel={jest.fn()}
+        onHeaderInfoChange={onHeaderInfoChange}
       />
     );
 
-    // Custom view active → chip shown, no generic read-only source box.
-    expect(screen.getByTestId('connection-source-chip')).toBeInTheDocument();
-    expect(screen.getByTestId('advanced-options-toggle')).toBeInTheDocument();
+    // Custom view active → identity moves to the header (reported via
+    // onHeaderInfoChange) for every mode, so the body shows neither the source
+    // chip nor the generic read-only source box.
+    expect(screen.queryByTestId('connection-source-chip')).not.toBeInTheDocument();
     expect(screen.queryByTestId('connection-source-name')).not.toBeInTheDocument();
+    expect(screen.getByTestId('advanced-options-toggle')).toBeInTheDocument();
+    expect(onHeaderInfoChange).toHaveBeenCalledWith({
+      sourceName: 'My Sheet',
+      streamNoun: 'sheet',
+    });
   });
 });

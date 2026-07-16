@@ -11,6 +11,9 @@ export interface CustomSourceOAuth {
   /** Create: render a static confirmation once connected. Edit: keep re-auth clickable. */
   lockWhenConnected: boolean;
   onClick: () => void;
+  /** Inline validation error shown under the Authentication section (e.g. neither
+   *  Google sign-in nor a service-account JSON was provided). */
+  error?: string;
 }
 
 /**

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -59,6 +60,16 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
     }
   };
 
+  // Wizard progress: the header shows a 3-segment bar + "Step N of 3 · label"
+  // so the modal reads as a stepper rather than three unrelated dialogs.
+  const STEP_ORDER: WizardStep[] = ['select', 'configure', 'connection'];
+  const STEP_LABELS: Record<WizardStep, string> = {
+    select: 'Choose source',
+    configure: 'Configure',
+    connection: 'Select data',
+  };
+  const stepIndex = STEP_ORDER.indexOf(step);
+
   // Step-aware modal header. The configure step names the chosen source; the
   // helper panel on the right of that step walks the user through each field.
   const header = {
@@ -75,7 +86,10 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
     connection: connectionHeaderInfo
       ? {
           title: `${connectionHeaderInfo.sourceName} created successfully`,
-          description: `Now choose which ${connectionHeaderInfo.streamNoun.toLowerCase()} you want to sync into your warehouse.`,
+          // Standard success state: teal check icon (brand --primary) beside a
+          // default-colour title — plain green title text read as odd.
+          success: true,
+          description: `Now select the ${connectionHeaderInfo.streamNoun.toLowerCase()} you want to sync into your warehouse.`,
         }
       : {
           title: 'Set up a connection',
@@ -102,9 +116,35 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
         )}
         preventOutsideClose
       >
-        <DialogHeader className="flex-shrink-0 space-y-1 border-b px-6 pt-6 pb-4 text-left">
-          <DialogTitle className="text-2xl font-bold">{header.title}</DialogTitle>
-          <DialogDescription>{header.description}</DialogDescription>
+        <DialogHeader className="flex-shrink-0 space-y-2 border-b px-6 pt-6 pb-4 text-left">
+          {/* Stepper eyebrow: segmented progress + "Step N of 3 · label". */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5" aria-hidden="true">
+              {STEP_ORDER.map((s, i) => (
+                <span
+                  key={s}
+                  className={cn(
+                    'h-1.5 rounded-full transition-all duration-300',
+                    i < stepIndex
+                      ? 'w-6 bg-primary'
+                      : i === stepIndex
+                        ? 'w-8 bg-primary'
+                        : 'w-4 bg-muted-foreground/25'
+                  )}
+                />
+              ))}
+            </div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Step {stepIndex + 1} of {STEP_ORDER.length} · {STEP_LABELS[step]}
+            </span>
+          </div>
+          <DialogTitle className="flex items-center gap-2 text-2xl font-bold">
+            {header.success && (
+              <CheckCircle2 className="h-6 w-6 flex-shrink-0 text-primary" aria-hidden="true" />
+            )}
+            {header.title}
+          </DialogTitle>
+          <DialogDescription className="text-base">{header.description}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-1 min-h-0 flex-col">

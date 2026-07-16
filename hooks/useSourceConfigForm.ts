@@ -30,7 +30,7 @@ interface UseSourceConfigFormArgs {
 export function useSourceConfigForm({ sourceDefId, sourceName }: UseSourceConfigFormArgs) {
   const { data: spec, isLoading: specLoading } = useSourceSpec(sourceDefId);
 
-  const { control, setValue, getValues, reset, handleSubmit } = useForm({
+  const { control, setValue, getValues, reset, handleSubmit, trigger } = useForm({
     defaultValues: {} as Record<string, unknown>,
   });
 
@@ -60,6 +60,7 @@ export function useSourceConfigForm({ sourceDefId, sourceName }: UseSourceConfig
     getValues,
     reset,
     handleSubmit,
+    trigger,
     buildConfig,
     custom,
     isGoogleSheetsCustom,

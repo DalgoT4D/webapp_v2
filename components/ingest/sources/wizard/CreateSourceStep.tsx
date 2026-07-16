@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useWatch } from 'react-hook-form';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,11 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { toastError, toastSuccess } from '@/lib/toast';
 import type { SourceDefinition } from '@/types/source';
 import { SourceConfigFields } from '@/components/ingest/sources/SourceConfigFields';
-import { SOURCE_NAME_GOOGLE_SHEETS } from '@/components/ingest/sources/custom/constants';
+import {
+  SOURCE_NAME_GOOGLE_SHEETS,
+  GSHEETS_KEY_SERVICE_INFO,
+  GSHEETS_SERVICE_AUTH_TYPE,
+} from '@/components/ingest/sources/custom/constants';
 import type { CustomSourceOAuth } from '@/components/ingest/sources/custom/types';
 
 interface Props {
@@ -29,7 +34,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   const isGoogleSheets = def.name === SOURCE_NAME_GOOGLE_SHEETS;
 
   // Shared spec + react-hook-form plumbing (also used by the edit-source dialog).
-  const { parsedSpec, specLoading, control, setValue, reset, buildConfig, custom } =
+  const { parsedSpec, specLoading, control, setValue, reset, trigger, buildConfig, custom } =
     useSourceConfigForm({ sourceDefId: def.sourceDefinitionId, sourceName: def.name });
 
   // Default the source name to "<Source> source" so the user can proceed without
@@ -37,6 +42,12 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   // initializer re-runs (fresh default) whenever a different source is picked,
   // and stays editable.
   const [name, setName] = useState(`${def.name} source`);
+  // Inline required-field errors surfaced on Next (matches the alerts/KPI pattern):
+  // the source name lives in local state (not react-hook-form), and Google's
+  // "sign in OR paste a service-account JSON" choice isn't a single form field, so
+  // both need their own error strings. Spec-driven fields self-report via RHF.
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Two-phase Google flow: "Sign in with Google" authorizes and stashes the
   // redeem ref; the footer's Next then creates the source from that ref. Kept
@@ -52,6 +63,16 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   // "cancelled" toast). A ref blocks the second call synchronously.
   const authorizingRef = useRef(false);
   const creatingGoogleRef = useRef(false);
+
+  // Required-name check: sets the inline error and returns validity.
+  const validateName = useCallback(() => {
+    if (!name.trim()) {
+      setNameError('Source name is required');
+      return false;
+    }
+    setNameError(null);
+    return true;
+  }, [name]);
 
   // Populate the form with the spec's defaults once per source definition. Guarded by
   // a ref (keyed on def.sourceDefinitionId) rather than depending on `parsedSpec`
@@ -82,10 +103,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   // Phase 1: open Google consent, stash the redeem ref. No source is created yet.
   const handleAuthorizeGoogle = useCallback(async () => {
     if (authorizingRef.current) return; // a sign-in is already in progress — ignore re-entry
-    if (!name.trim()) {
-      toastError.api('Enter a source name first');
-      return;
-    }
+    if (!validateName()) return;
     authorizingRef.current = true;
     setAuthorizing(true);
     try {
@@ -100,7 +118,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
       authorizingRef.current = false;
       setAuthorizing(false);
     }
-  }, [name, def.sourceDefinitionId]);
+  }, [validateName, def.sourceDefinitionId]);
 
   // Phase 2: create the source from the redeemed ref and advance.
   const handleCreateGoogle = useCallback(async () => {
@@ -136,6 +154,65 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   // WS-test → createSource flow.
   const useGoogleOAuthFlow = isGoogleSheets && !!oauthRef;
 
+  // Google Sheets auth-gating: besides the (required) spreadsheet link — which the
+  // spec-driven form validates via react-hook-form — the user must supply one auth
+  // method: a Google OAuth ref (the ref state above) or a pasted service-account
+  // JSON. The service path comes from the parsed spec so it tracks the same
+  // discriminator layout GoogleSheetsForm renders.
+  const servicePath = useMemo(() => {
+    if (!isGoogleSheets || !parsedSpec) return '';
+    const credentials = parsedSpec.fields.find((f) => f.type === 'oneOf');
+    const service = credentials?.oneOfSubFields?.find(
+      (f) =>
+        f.parentValue === GSHEETS_SERVICE_AUTH_TYPE &&
+        f.path[f.path.length - 1] === GSHEETS_KEY_SERVICE_INFO
+    );
+    return service?.path.join('.') ?? '';
+  }, [isGoogleSheets, parsedSpec]);
+
+  // useWatch needs a name even when a path is unresolved; '__none__' never matches
+  // a real field, so the watched value stays undefined for non-Google sources.
+  const serviceValue = useWatch({ control, name: servicePath || '__none__' }) as string | undefined;
+  const serviceProvided = !!serviceValue?.trim();
+
+  // Clear the auth error the moment either auth method is satisfied.
+  useEffect(() => {
+    if (oauthRef || serviceProvided) setAuthError(null);
+  }, [oauthRef, serviceProvided]);
+
+  // Validate required fields, then run the appropriate create flow. Spec-driven
+  // fields self-report inline via react-hook-form's `trigger`; the source name and
+  // (for Google) the sign-in-or-service-account choice are checked here. Nothing
+  // submits unless every required field is satisfied.
+  const handleNext = useCallback(async () => {
+    const nameOk = validateName();
+    const fieldsOk = await trigger();
+
+    let authOk = true;
+    if (isGoogleSheets && !oauthRef && !serviceProvided) {
+      setAuthError('Sign in with Google or paste a service-account JSON to continue');
+      authOk = false;
+    }
+
+    if (!nameOk || !fieldsOk || !authOk) return;
+
+    if (useGoogleOAuthFlow) {
+      handleCreateGoogle();
+    } else {
+      save(name);
+    }
+  }, [
+    validateName,
+    trigger,
+    isGoogleSheets,
+    oauthRef,
+    serviceProvided,
+    useGoogleOAuthFlow,
+    handleCreateGoogle,
+    save,
+    name,
+  ]);
+
   // Source-name field. For custom sources (Google Sheets / Kobo) it renders inside
   // the form's left column via the nameField slot so it lines up with the other
   // inputs; for generic sources it renders full-width above the spec-driven form.
@@ -147,11 +224,19 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
       <Input
         data-testid="wizard-source-name"
         value={name}
-        onChange={(e) => setName(e.target.value)}
+        onChange={(e) => {
+          setName(e.target.value);
+          if (nameError) setNameError(null);
+        }}
         placeholder={`${def.name} source`}
-        className="mt-1.5"
+        className={`mt-1.5 ${nameError ? 'border-destructive' : ''}`}
         disabled={busy}
       />
+      {nameError && (
+        <p className="text-xs text-destructive mt-1" data-testid="wizard-source-name-error">
+          {nameError}
+        </p>
+      )}
     </div>
   );
 
@@ -181,6 +266,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
                       : 'Sign in with Google to authorize Dalgo',
                     lockWhenConnected: true,
                     onClick: handleAuthorizeGoogle,
+                    error: authError ?? undefined,
                   } satisfies CustomSourceOAuth)
                 : undefined
             }
@@ -200,13 +286,16 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
         >
           Back
         </Button>
+        {/* Button stays clickable so pressing Next surfaces inline required-field
+            errors (handleNext validates and blocks). Only disabled while a request
+            is in flight or the spec hasn't loaded yet (nothing to validate). */}
         {useGoogleOAuthFlow ? (
           <Button
             type="button"
             variant="primary"
             data-testid="wizard-next-btn"
-            disabled={!oauthRef || creatingGoogle || !name.trim()}
-            onClick={handleCreateGoogle}
+            disabled={creatingGoogle}
+            onClick={handleNext}
           >
             {creatingGoogle && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
             {creatingGoogle ? 'Adding data source' : 'Next'}
@@ -216,8 +305,8 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
             type="button"
             variant="primary"
             data-testid="wizard-next-btn"
-            disabled={loading || !name.trim() || !parsedSpec}
-            onClick={() => save(name)}
+            disabled={loading || !parsedSpec}
+            onClick={handleNext}
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
             {loading ? 'Adding data source' : 'Next'}

@@ -39,6 +39,38 @@ export function ConnectionForm({
   // Stay compact until streams are discovered (same as the wizard), then widen
   // to fit the streams table alongside the help panel.
   const [expanded, setExpanded] = useState(false);
+  // Custom sources (Sheets/Kobo) report their name + stream noun so the header
+  // reads the same way as the wizard's connection step (source-named title +
+  // "select which <forms/sheets> to sync"). Null → generic fallback copy.
+  const [headerInfo, setHeaderInfo] = useState<{
+    sourceName: string;
+    streamNoun: string;
+  } | null>(null);
+
+  const sourceName = headerInfo?.sourceName;
+  const streamNoun = headerInfo?.streamNoun?.toLowerCase();
+  const title = isCreate
+    ? sourceName
+      ? `Connect ${sourceName}`
+      : 'New Connection'
+    : isView
+      ? sourceName
+        ? `${sourceName} connection`
+        : 'View Connection'
+      : sourceName
+        ? `Edit ${sourceName} connection`
+        : 'Edit Connection';
+  const description = isCreate
+    ? streamNoun
+      ? `Choose which ${streamNoun} to sync from this source into your warehouse.`
+      : 'Set up a new data connection.'
+    : isView
+      ? streamNoun
+        ? `Viewing which ${streamNoun} sync into your warehouse (read-only during a sync).`
+        : 'Connection details (read-only while syncing).'
+      : streamNoun
+        ? `Update which ${streamNoun} sync into your warehouse.`
+        : 'Update your connection settings.';
 
   return (
     <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -49,17 +81,9 @@ export function ConnectionForm({
         )}
         preventOutsideClose
       >
-        <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
-          <DialogTitle>
-            {isCreate ? 'New Connection' : isView ? 'View Connection' : 'Edit Connection'}
-          </DialogTitle>
-          <DialogDescription>
-            {isCreate
-              ? 'Set up a new data connection.'
-              : isView
-                ? 'Connection details (read-only while syncing).'
-                : 'Update your connection settings.'}
-          </DialogDescription>
+        <DialogHeader className="flex-shrink-0 space-y-2 px-6 pt-6 pb-4 border-b text-left">
+          <DialogTitle className="text-2xl font-bold">{title}</DialogTitle>
+          <DialogDescription className="text-base">{description}</DialogDescription>
         </DialogHeader>
 
         <ConnectionFormBody
@@ -69,6 +93,7 @@ export function ConnectionForm({
           onSuccess={onSuccess}
           onCancel={onClose}
           onExpandedChange={setExpanded}
+          onHeaderInfoChange={setHeaderInfo}
         />
       </DialogContent>
     </Dialog>

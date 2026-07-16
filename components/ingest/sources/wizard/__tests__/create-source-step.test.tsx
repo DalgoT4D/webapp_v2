@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CreateSourceStep } from '../CreateSourceStep';
 
@@ -69,9 +69,10 @@ jest.mock('@/hooks/api/useSources', () => ({
   getSourceOAuthConsent: jest.fn(),
   createOAuthSource: jest.fn(),
 }));
+const mockSave = jest.fn();
 jest.mock('@/hooks/useSourceSave', () => ({
   useSourceSave: () => ({
-    save: jest.fn(),
+    save: mockSave,
     loading: false,
     setupLogs: [],
   }),
@@ -79,6 +80,7 @@ jest.mock('@/hooks/useSourceSave', () => ({
 
 beforeEach(() => {
   mockSourceSpec = { properties: {} };
+  mockSave.mockClear();
 });
 
 it('shows the in-form Google authorize button plus a Next disabled until authorized', () => {
@@ -147,4 +149,59 @@ it('renders the generic form with no docs panel for a non-custom source', () => 
   expect(screen.getByTestId('connector-config-form')).toBeInTheDocument();
   expect(screen.queryByTestId('source-helper-panel')).not.toBeInTheDocument();
   expect(screen.getByTestId('wizard-next-btn')).toBeInTheDocument();
+});
+
+it('blocks Next and shows inline required errors for empty spec fields (Kobo)', async () => {
+  const user = userEvent.setup();
+  mockSourceSpec = KOBO_SPEC;
+  render(
+    <CreateSourceStep
+      def={{ sourceDefinitionId: 'kobo', name: 'KoboToolbox' }}
+      onCreated={jest.fn()}
+      onBack={jest.fn()}
+    />
+  );
+
+  // Required username/password/base_url are empty — pressing Next must not save.
+  await user.click(screen.getByTestId('wizard-next-btn'));
+
+  expect(await screen.findByText('Username is required')).toBeInTheDocument();
+  expect(screen.getByText('Password is required')).toBeInTheDocument();
+  expect(mockSave).not.toHaveBeenCalled();
+});
+
+it('blocks Next with an inline error when the source name is cleared', async () => {
+  const user = userEvent.setup();
+  mockSourceSpec = POSTGRES_SPEC;
+  render(
+    <CreateSourceStep
+      def={{ sourceDefinitionId: 'pg', name: 'Postgres' }}
+      onCreated={jest.fn()}
+      onBack={jest.fn()}
+    />
+  );
+
+  await user.clear(screen.getByTestId('wizard-source-name'));
+  await user.click(screen.getByTestId('wizard-next-btn'));
+
+  expect(await screen.findByTestId('wizard-source-name-error')).toBeInTheDocument();
+  expect(mockSave).not.toHaveBeenCalled();
+});
+
+it('saves when name and required spec fields are filled (generic source)', async () => {
+  const user = userEvent.setup();
+  mockSourceSpec = POSTGRES_SPEC;
+  render(
+    <CreateSourceStep
+      def={{ sourceDefinitionId: 'pg', name: 'Postgres' }}
+      onCreated={jest.fn()}
+      onBack={jest.fn()}
+    />
+  );
+
+  // Name is prefilled ("Postgres source"); fill the required host, then Next saves.
+  await user.type(screen.getByLabelText(/Host/i), 'db.example.com');
+  await user.click(screen.getByTestId('wizard-next-btn'));
+
+  await waitFor(() => expect(mockSave).toHaveBeenCalledWith('Postgres source'));
 });

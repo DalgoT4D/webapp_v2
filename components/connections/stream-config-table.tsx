@@ -125,11 +125,27 @@ export function StreamConfigTable({
     (showIncrementalColumn ? 1 : 0) +
     (advancedOpen ? ADVANCED_CORE_COLUMN_COUNT : 0) +
     (showCursorPkColumns ? CURSOR_PK_COLUMN_COUNT : 0);
+
+  // Column widths per open-state, each summing to exactly 100% so the fixed
+  // table never exceeds its scroll box (no horizontal overflow/clipping).
+  const colWidths = !advancedOpen
+    ? { stream: '84%', sync: '16%' }
+    : showCursorPkColumns
+      ? {
+          stream: '22%',
+          sync: '8%',
+          incremental: '12%',
+          destination: '18%',
+          cursor: '20%',
+          pk: '11%',
+          chevron: '9%',
+        }
+      : { stream: '40%', sync: '12%', destination: '38%', chevron: '10%' };
   return (
-    <div>
+    <div className="flex h-full min-h-0 flex-col">
       {/* Header with stream count + shared advanced toggle */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">
+        <h3 className="text-base font-semibold">
           {isCustom
             ? `Select your ${streamNoun.toLowerCase()} (${selectedCount}/${streams.length} selected)`
             : `Streams (${selectedCount}/${streams.length} selected)`}
@@ -137,7 +153,7 @@ export function StreamConfigTable({
         <button
           type="button"
           onClick={onToggleAdvanced}
-          className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+          className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted"
           data-testid="advanced-streams-toggle"
           aria-expanded={advancedOpen}
         >
@@ -148,57 +164,61 @@ export function StreamConfigTable({
           />
         </button>
       </div>
-      {helpText && <p className="mt-1 mb-3 text-xs text-muted-foreground">{helpText}</p>}
+      {helpText && <p className="mt-1 mb-3 text-sm text-muted-foreground">{helpText}</p>}
       {!helpText && <div className="mb-3" />}
 
       {/* Fixed-height scroll box: rows scroll internally under the sticky header.
           Kept simple (a plain max-height, no flex fill) so it never collides with
           the Advanced-options section below — that just makes the left column
           scroll. */}
-      <div className="max-h-[42vh] overflow-y-auto rounded-md border">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-md border">
         <table className="w-full text-sm table-fixed" data-testid="streams-table">
           <colgroup>
-            <col className="w-[18%]" />
-            <col className="w-[60px]" />
-            {showIncrementalColumn && <col className="w-[90px]" />}
-            {advancedOpen && <col className="w-[18%]" />}
+            <col style={{ width: colWidths.stream }} />
+            <col style={{ width: colWidths.sync }} />
+            {showIncrementalColumn && <col style={{ width: colWidths.incremental }} />}
+            {advancedOpen && <col style={{ width: colWidths.destination }} />}
             {showCursorPkColumns && (
               <>
-                <col className="w-[22%]" />
-                <col className="w-[22%]" />
+                <col style={{ width: colWidths.cursor }} />
+                <col style={{ width: colWidths.pk }} />
               </>
             )}
-            {advancedOpen && <col className="w-[40px]" />}
+            {advancedOpen && <col style={{ width: colWidths.chevron }} />}
           </colgroup>
           <thead className="sticky top-0 z-10">
             <tr className="border-b bg-muted">
-              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+              <th className="px-3 py-2 text-left text-sm font-medium text-muted-foreground">
                 {conceptLabel(streamNoun, 'stream')}
               </th>
-              <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">
+              <th className="px-3 py-2 text-center text-sm font-medium text-muted-foreground">
                 Sync?
               </th>
               {showIncrementalColumn && (
-                <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">
+                <th className="px-3 py-2 text-center text-sm font-medium text-muted-foreground">
                   {conceptLabel('Incremental?', 'sync-mode')}
                 </th>
               )}
               {advancedOpen && (
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                <th className="px-3 py-2 text-left text-sm font-medium text-muted-foreground">
                   {conceptLabel('Destination', 'dest-mode')}
                 </th>
               )}
               {showCursorPkColumns && (
                 <>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                  <th className="px-3 py-2 text-left text-sm font-medium text-muted-foreground">
                     {conceptLabel('Cursor Field', 'cursor')}
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                  <th className="px-3 py-2 text-left text-sm font-medium text-muted-foreground">
                     {conceptLabel('Primary Key', 'primary-key')}
                   </th>
                 </>
               )}
-              {advancedOpen && <th className="px-3 py-2"></th>}
+              {advancedOpen && (
+                <th className="px-3 py-2 text-center text-sm font-medium text-muted-foreground">
+                  {conceptLabel('Columns', 'columns')}
+                </th>
+              )}
             </tr>
             {/* Global toggle row */}
             <tr className="border-b bg-muted">
@@ -207,7 +227,7 @@ export function StreamConfigTable({
                   placeholder="Filter..."
                   value={streamSearch}
                   onChange={(e) => onStreamSearchChange(e.target.value)}
-                  className="w-full h-7 text-xs"
+                  className="w-full max-w-[260px] h-8 text-sm"
                   data-testid="stream-filter-input"
                 />
               </td>
@@ -314,7 +334,18 @@ export function StreamConfigTable({
                   >
                     {/* Stream name */}
                     <td className="px-3 py-3">
-                      <span className="text-xs font-medium text-foreground">{stream.name}</span>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-block max-w-full truncate align-middle text-sm font-medium text-foreground">
+                              {stream.name}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs break-all">
+                            <p className="text-xs">{stream.name}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </td>
                     {/* Sync toggle */}
                     <td className="px-3 py-3 text-center">
@@ -353,7 +384,7 @@ export function StreamConfigTable({
                           onValueChange={(v) => onUpdateStreamDestMode(stream.name, v)}
                           disabled={disabled || isSaving || !isSelected}
                         >
-                          <SelectTrigger className="h-7 text-xs w-full">
+                          <SelectTrigger className="h-8 text-sm w-full">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -425,7 +456,7 @@ export function StreamConfigTable({
                                     searchPlaceholder="Select keys..."
                                     compact
                                     id={`pk-${stream.name}`}
-                                    triggerClassName="min-h-[28px]"
+                                    triggerClassName="h-8 !min-h-0 !flex-nowrap overflow-hidden"
                                     className="w-full"
                                   />
                                 </div>

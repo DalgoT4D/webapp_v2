@@ -140,6 +140,11 @@ export function GoogleSheetsForm({
               {oauth.busy && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
             </button>
           )}
+          {oauth.error && (
+            <p className="text-xs text-destructive mt-1" data-testid="gsheets-auth-error">
+              {oauth.error}
+            </p>
+          )}
         </div>
       )}
 
