@@ -18,6 +18,7 @@ import {
   removeGrant,
   type ResourceAccessOverview,
   type AccessGrant,
+  type GrantCreateResult,
 } from '@/hooks/api/useResourceAccess';
 import { useUsers } from '@/hooks/api/useUserManagement';
 import { useUserGroups } from '@/hooks/api/useUserGroups';
@@ -135,6 +136,17 @@ function activeGrant(overrides: Partial<AccessGrant> = {}): AccessGrant {
   };
 }
 
+/** v1.1 M3b: addGrant resolves the GrantCreateResult envelope — the created
+ * grant now lives at `.grant`, alongside the broadening-confirmation fields
+ * (mirrors GrantCreateResponse in ddpui/schemas/access_schema.py). */
+function grantResult(overrides: Partial<AccessGrant> = {}): GrantCreateResult {
+  return {
+    requires_confirmation: false,
+    under_covering_charts: [],
+    grant: activeGrant(overrides),
+  };
+}
+
 describe('ShareModal — email parsing into staged rows', () => {
   beforeEach(() => jest.clearAllMocks());
 
@@ -169,7 +181,7 @@ describe('ShareModal — email parsing into staged rows', () => {
   });
 
   it('keeps the plain person icon (no warning badge) for a staged row matching a known org member', async () => {
-    mockAddGrant.mockResolvedValue(activeGrant({ id: 300, principal_id: 42 }));
+    mockAddGrant.mockResolvedValue(grantResult({ id: 300, principal_id: 42 }));
     renderModal(
       {},
       { orgUsers: [{ orguser_id: 42, email: 'member@ngo.org', new_role_slug: 'analyst' }] }
@@ -243,7 +255,7 @@ describe('ShareModal — email parsing into staged rows', () => {
 
   it('stages an email matching an org member as that member (role tag, principal_id commit)', async () => {
     const user = userEvent.setup();
-    mockAddGrant.mockResolvedValue(activeGrant({ id: 300, principal_id: 42 }));
+    mockAddGrant.mockResolvedValue(grantResult({ id: 300, principal_id: 42 }));
     renderModal(
       {},
       { orgUsers: [{ orguser_id: 42, email: 'member@ngo.org', new_role_slug: 'analyst' }] }
@@ -350,7 +362,7 @@ describe('ShareModal — invite-role picker (Phase C3)', () => {
   it('sends the chosen invite_role with the SHARE commit', async () => {
     const user = userEvent.setup();
     mockAddGrant.mockResolvedValue(
-      activeGrant({ id: 101, email: 'new@x.org', principal_id: null, status: 'pending' })
+      grantResult({ id: 101, email: 'new@x.org', principal_id: null, status: 'pending' })
     );
     renderModal({}, { isAdmin: true });
 
@@ -384,9 +396,9 @@ describe('ShareModal — SHARE commit', () => {
 
     mockAddGrant.mockImplementation(async (_rtype, _id, payload) => {
       if (payload.email === 'active@x.org') {
-        return activeGrant({ id: 101, email: 'active@x.org', permission: 'edit' });
+        return grantResult({ id: 101, email: 'active@x.org', permission: 'edit' });
       }
-      return activeGrant({
+      return grantResult({
         id: 102,
         email: 'pending@x.org',
         principal_id: null,
@@ -435,7 +447,7 @@ describe('ShareModal — SHARE commit', () => {
       if (payload.email === 'bad@x.org') {
         throw new Error('This resource cannot be shared with that email');
       }
-      return activeGrant({ id: 200, email: 'ok@x.org' });
+      return grantResult({ id: 200, email: 'ok@x.org' });
     });
 
     await user.click(screen.getByTestId('share-commit-btn'));
@@ -450,7 +462,7 @@ describe('ShareModal — SHARE commit', () => {
 
     // Retry: SHARE again resends the still-failed row.
     mockAddGrant.mockClear();
-    mockAddGrant.mockResolvedValue(activeGrant({ id: 201, email: 'bad@x.org' }));
+    mockAddGrant.mockResolvedValue(grantResult({ id: 201, email: 'bad@x.org' }));
     await user.click(screen.getByTestId('share-commit-btn'));
 
     await waitFor(() => {
@@ -479,7 +491,7 @@ describe('ShareModal — SHARE commit', () => {
         maxInFlight = Math.max(maxInFlight, inFlight);
         await new Promise((resolve) => setTimeout(resolve, 10));
         inFlight -= 1;
-        return activeGrant({ id: emails.indexOf(payload.email) + 1, email: payload.email });
+        return grantResult({ id: emails.indexOf(payload.email) + 1, email: payload.email });
       }
     );
 

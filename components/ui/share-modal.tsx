@@ -53,7 +53,10 @@ import {
   type ShareableResourceType,
   type AccessGrant,
   type AccessLevel,
+  type ChartCoverageVerdict,
 } from '@/hooks/api/useResourceAccess';
+import { BroadeningConfirmDialog } from '@/components/sharing/broadening-confirm-dialog';
+import type { CoverageDecision } from '@/components/sharing/coverage-confirm-utils';
 import {
   useAccessRequests,
   approveAccessRequest,
@@ -103,7 +106,13 @@ interface ShareModalProps {
   onUpdate?: () => void;
   initialShareStatus?: Partial<ShareStatus>;
   getShareStatus: (id: number) => Promise<ShareStatus>;
-  updateSharing: (id: number, data: { is_public: boolean }) => Promise<ShareStatus>;
+  /** `proceed` (v1.1 M3b) is only sent on the broadening-confirm re-send
+   * after the backend answered `requires_confirmation` — callers whose
+   * endpoint has no such contract (reports) never receive it. */
+  updateSharing: (
+    id: number,
+    data: { is_public: boolean; proceed?: boolean }
+  ) => Promise<ShareStatus>;
   /** When provided, enables the "Share via Email" section */
   onShareViaEmail?: (data: {
     recipient_emails: string[];
@@ -148,6 +157,16 @@ export function ShareModal({
   const [recipientEmails, setRecipientEmails] = useState<string[]>([]);
   const [personalMessage, setPersonalMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+
+  // v1.1 M3b — enabling the public link can come back `requires_confirmation`
+  // (the inner charts the link would expose anonymously, named). Nothing was
+  // flipped server-side, so the Switch stays visually off (shareStatus is
+  // only updated on a committed response); YES re-sends with `proceed`,
+  // CANCEL just drops the prompt. Driven purely by the response shape — no
+  // rtype conditionals.
+  const [publicConfirmVerdicts, setPublicConfirmVerdicts] = useState<ChartCoverageVerdict[] | null>(
+    null
+  );
 
   const entityLabelLower = entityLabel.toLowerCase();
 
@@ -244,12 +263,22 @@ export function ShareModal({
     }
   }, [isOpen, entityId, fetchShareStatus]);
 
-  const handleToggleSharing = useCallback(
-    async (isPublic: boolean) => {
+  const performToggleSharing = useCallback(
+    async (isPublic: boolean, proceed?: boolean) => {
       setIsLoading(true);
 
       try {
-        const response = await updateSharing(entityId, { is_public: isPublic });
+        const response = await updateSharing(entityId, {
+          is_public: isPublic,
+          ...(proceed ? { proceed: true } : {}),
+        });
+
+        // v1.1 M3b: the enable was held behind the broadening warning —
+        // nothing flipped; render the confirm instead of committing state.
+        if (response.requires_confirmation) {
+          setPublicConfirmVerdicts(response.under_covering_charts ?? []);
+          return;
+        }
 
         setShareStatus((prev) => ({
           ...prev,
@@ -274,6 +303,26 @@ export function ShareModal({
     },
     [entityId, entityLabel, updateSharing, onUpdate]
   );
+
+  const handleToggleSharing = useCallback(
+    (isPublic: boolean) => performToggleSharing(isPublic),
+    [performToggleSharing]
+  );
+
+  // YES on the public-enable confirm: acknowledge the exposure and commit.
+  // (Public exposure is never extendable — the decision's chart ids are
+  // always empty; only `proceed` rides on the re-send.)
+  const handlePublicConfirm = useCallback(
+    async (_decision: CoverageDecision) => {
+      setPublicConfirmVerdicts(null);
+      await performToggleSharing(true, true);
+    },
+    [performToggleSharing]
+  );
+
+  // CANCEL: the switch never moved (state was never committed) — just drop
+  // the prompt.
+  const handlePublicCancel = useCallback(() => setPublicConfirmVerdicts(null), []);
 
   const handleCopyUrl = useCallback(async () => {
     if (shareStatus.public_url) {
@@ -415,6 +464,7 @@ export function ShareModal({
               staging={staging}
               searchRef={shareSearchRef}
               onChanged={mutateAccess}
+              resourceName={resourceName || entityLabel}
             />
           )}
 
@@ -646,6 +696,32 @@ export function ShareModal({
             )}
           </div>
         </div>
+
+        {/* v1.1 M3b — dashboard-broadening confirms. Both are driven purely
+            by requires_confirmation responses (capability, not rtype):
+            1. grants the SHARE commit held back (one aggregated prompt);
+            2. the public-link enable. Nested Radix dialogs portal out, so
+            rendering them inside this DialogContent is safe. */}
+        {staging.pendingBroadening && staging.broadeningVerdicts.length > 0 && (
+          <BroadeningConfirmDialog
+            open
+            resourceName={resourceName || entityLabel}
+            verdicts={staging.broadeningVerdicts}
+            isSubmitting={staging.isCommitting}
+            onCancel={staging.cancelBroadening}
+            onConfirm={() => staging.confirmBroadening()}
+          />
+        )}
+        {publicConfirmVerdicts && publicConfirmVerdicts.length > 0 && (
+          <BroadeningConfirmDialog
+            open
+            resourceName={resourceName || entityLabel}
+            verdicts={publicConfirmVerdicts}
+            isSubmitting={isLoading}
+            onCancel={handlePublicCancel}
+            onConfirm={handlePublicConfirm}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -870,6 +946,8 @@ interface PeopleWithAccessSectionProps {
    * close the dropdown first — see the Escape-layering note in ShareModal. */
   searchRef: React.Ref<ShareAddPeopleSearchHandle>;
   onChanged: () => void;
+  /** Names the container in the broadening-confirm copy (v1.1 M3b). */
+  resourceName: string;
 }
 
 // Sentinel SelectItem value for the "Transfer Ownership" menu item folded
@@ -888,6 +966,7 @@ function PeopleWithAccessSection({
   staging,
   searchRef,
   onChanged,
+  resourceName,
 }: PeopleWithAccessSectionProps) {
   const { users: orgUsers } = useUsers();
   const { hasRole } = useRbac();
@@ -929,8 +1008,22 @@ function PeopleWithAccessSection({
     [orgUsers]
   );
 
+  // v1.1 M3b — a permission change (view→edit is a grant-add under the
+  // hood) can come back `requires_confirmation` on a dashboard whose tiles
+  // the principal can't see standalone; held here for the broadening
+  // confirm, nothing written until YES re-sends with the confirm fields.
+  const [permChangeConfirm, setPermChangeConfirm] = useState<{
+    grant: AccessGrant;
+    permission: AccessLevel;
+    verdicts: ChartCoverageVerdict[];
+  } | null>(null);
+
   const handlePermissionChange = useCallback(
-    async (grant: AccessGrant, permission: AccessLevel) => {
+    async (
+      grant: AccessGrant,
+      permission: AccessLevel,
+      confirmFields?: { extend_chart_ids?: number[]; proceed?: boolean }
+    ) => {
       // Pending rows have no principal_id yet — re-POST via the email path
       // instead; the backend's update_or_create keyed on pending_email
       // updates the pending row's permission in place.
@@ -942,11 +1035,20 @@ function PeopleWithAccessSection({
             : null;
       if (principalRef === null) return; // defensive — shouldn't occur on the wire
       try {
-        await addGrant(entityType, entityId, {
+        const result = await addGrant(entityType, entityId, {
           principal_type: grant.principal_type,
           ...principalRef,
           permission,
+          ...(confirmFields ?? {}),
         });
+        if (result.requires_confirmation) {
+          setPermChangeConfirm({
+            grant,
+            permission,
+            verdicts: result.under_covering_charts ?? [],
+          });
+          return;
+        }
         onChanged();
         toastSuccess.generic('Permission updated');
         trackEvent(ANALYTICS_EVENTS.SHARING_GRANT_ADDED, {
@@ -958,6 +1060,21 @@ function PeopleWithAccessSection({
       }
     },
     [entityType, entityId, onChanged]
+  );
+
+  const handlePermChangeConfirm = useCallback(
+    (decision: CoverageDecision) => {
+      if (!permChangeConfirm) return;
+      const { grant, permission } = permChangeConfirm;
+      setPermChangeConfirm(null);
+      handlePermissionChange(grant, permission, {
+        ...(decision.extendChartIds.length > 0
+          ? { extend_chart_ids: decision.extendChartIds }
+          : {}),
+        proceed: true,
+      });
+    },
+    [permChangeConfirm, handlePermissionChange]
   );
 
   const handleRemove = useCallback(
@@ -1175,6 +1292,17 @@ function PeopleWithAccessSection({
           isTransferring={isTransferring}
           onConfirm={handleConfirmTransfer}
           onCancel={handleCancelTransfer}
+        />
+      )}
+
+      {/* v1.1 M3b — broadening confirm for a held permission change. */}
+      {permChangeConfirm && permChangeConfirm.verdicts.length > 0 && (
+        <BroadeningConfirmDialog
+          open
+          resourceName={resourceName}
+          verdicts={permChangeConfirm.verdicts}
+          onCancel={() => setPermChangeConfirm(null)}
+          onConfirm={handlePermChangeConfirm}
         />
       )}
     </div>

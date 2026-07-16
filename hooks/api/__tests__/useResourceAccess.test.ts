@@ -90,9 +90,15 @@ describe('Mutation functions', () => {
   });
 
   describe('addGrant', () => {
-    it('posts a new grant and returns the created grant', async () => {
+    // v1.1 M3b: the grant-create response envelope moved the grant to
+    // `data.grant` (alongside the confirmation fields) — a bare
+    // `response.data` is no longer the grant itself.
+    it('posts a new grant and returns the GrantCreateResult envelope (new shape)', async () => {
       const mockGrant = mockOverview.grants[0];
-      mockApiPost.mockResolvedValue({ success: true, data: mockGrant });
+      mockApiPost.mockResolvedValue({
+        success: true,
+        data: { requires_confirmation: false, under_covering_charts: [], grant: mockGrant },
+      });
 
       const result = await addGrant('dashboard', 1, {
         principal_type: 'user',
@@ -100,11 +106,98 @@ describe('Mutation functions', () => {
         permission: 'view',
       });
 
-      expect(result).toEqual(mockGrant);
+      expect(result.requires_confirmation).toBe(false);
+      expect(result.grant).toEqual(mockGrant);
       expect(mockApiPost).toHaveBeenCalledWith('/api/access/dashboard/1/grants/', {
         principal_type: 'user',
         principal_id: 3,
         permission: 'view',
+      });
+    });
+
+    // Old-shape absence: the function must NOT treat the raw response.data
+    // as the grant — a naive `response.data as AccessGrant` read would make
+    // `result.id`/`result.permission` defined even though this file no
+    // longer awaits that shape from the backend.
+    it('does not read the response envelope itself as the grant (old shape gone)', async () => {
+      const mockGrant = mockOverview.grants[0];
+      mockApiPost.mockResolvedValue({
+        success: true,
+        data: { requires_confirmation: false, under_covering_charts: [], grant: mockGrant },
+      });
+
+      const result = await addGrant('dashboard', 1, {
+        principal_type: 'user',
+        principal_id: 3,
+        permission: 'view',
+      });
+
+      expect((result as unknown as { id?: number }).id).toBeUndefined();
+      expect((result as unknown as { permission?: string }).permission).toBeUndefined();
+    });
+
+    it('surfaces requires_confirmation with the under-covering charts named, grant null (nothing written)', async () => {
+      mockApiPost.mockResolvedValue({
+        success: true,
+        data: {
+          requires_confirmation: true,
+          under_covering_charts: [
+            {
+              chart_id: 7,
+              title: 'Salary Breakdown',
+              covered: false,
+              role_gaps: [],
+              principal_gaps: [
+                {
+                  principal_type: 'group',
+                  principal_id: 4,
+                  name: 'Funders',
+                  email: null,
+                  skipped_member: false,
+                },
+              ],
+              public_exposure: false,
+              extendable: true,
+              viewer_can_edit: true,
+            },
+          ],
+          grant: null,
+        },
+      });
+
+      const result = await addGrant('dashboard', 1, {
+        principal_type: 'group',
+        principal_id: 4,
+        permission: 'view',
+      });
+
+      expect(result.requires_confirmation).toBe(true);
+      expect(result.grant).toBeNull();
+      expect(result.under_covering_charts).toHaveLength(1);
+      expect(result.under_covering_charts[0].title).toBe('Salary Breakdown');
+    });
+
+    it('re-sends with extend_chart_ids and/or proceed to commit after confirmation', async () => {
+      const mockGrant = mockOverview.grants[0];
+      mockApiPost.mockResolvedValue({
+        success: true,
+        data: { requires_confirmation: false, under_covering_charts: [], grant: mockGrant },
+      });
+
+      await addGrant('dashboard', 1, {
+        principal_type: 'group',
+        principal_id: 4,
+        permission: 'view',
+        extend_chart_ids: [7],
+        proceed: true,
+      });
+
+      expect(mockApiPost).toHaveBeenCalledWith('/api/access/dashboard/1/grants/', {
+        principal_type: 'group',
+        principal_id: 4,
+        permission: 'view',
+        extend_chart_ids: [7],
+        proceed: true,
       });
     });
   });
@@ -112,7 +205,10 @@ describe('Mutation functions', () => {
   describe('addGrant — email invite path', () => {
     it('posts a grant with email instead of principal_id', async () => {
       const pendingGrant = mockOverview.grants[1];
-      mockApiPost.mockResolvedValue({ success: true, data: pendingGrant });
+      mockApiPost.mockResolvedValue({
+        success: true,
+        data: { requires_confirmation: false, under_covering_charts: [], grant: pendingGrant },
+      });
 
       const result = await addGrant('dashboard', 1, {
         principal_type: 'user',
@@ -120,7 +216,7 @@ describe('Mutation functions', () => {
         permission: 'view',
       });
 
-      expect(result).toEqual(pendingGrant);
+      expect(result.grant).toEqual(pendingGrant);
       expect(mockApiPost).toHaveBeenCalledWith('/api/access/dashboard/1/grants/', {
         principal_type: 'user',
         email: 'new.person@ngo.org',

@@ -10,12 +10,33 @@ import { StaticChartPreview } from '@/components/charts/StaticChartPreview';
 import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 import { Loader2, Search, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { apiGet } from '@/lib/api';
+import { toastSuccess, toastError } from '@/lib/toast';
+import { createAccessRequest } from '@/hooks/api/useAccessRequests';
+import { EmbedCoverageDialog } from '@/components/sharing/embed-coverage-dialog';
+import type { CoverageDecision } from '@/components/sharing/coverage-confirm-utils';
+import type { ChartCoverageVerdict } from '@/hooks/api/useResourceAccess';
+
+interface ChartCoverageResponse {
+  dashboard_id: number;
+  covered: boolean;
+  charts: ChartCoverageVerdict[];
+}
 
 interface ChartSelectorModalProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (chartId: number) => void;
+  /** `coverage` is set when the pick went through the embed warning — the
+   * caller must carry it into its next dashboard save (`extend_chart_ids`
+   * / `proceed`), or the server 409s the under-covering tile (v1.1 M2). */
+  onSelect: (chartId: number, coverage?: CoverageDecision) => void;
   excludedChartIds?: number[];
+  /** Enables the embed-time coverage pre-flight (v1.1 M3b). Omitted (e.g.
+   * a not-yet-saved dashboard), picks embed directly — the server still
+   * validates at save time. */
+  dashboardId?: number;
+  /** Names the container in the warning copy. */
+  dashboardTitle?: string;
 }
 
 export function ChartSelectorModal({
@@ -23,19 +44,82 @@ export function ChartSelectorModal({
   onClose,
   onSelect,
   excludedChartIds = [],
+  dashboardId,
+  dashboardTitle,
 }: ChartSelectorModalProps) {
   const [chartSearch, setChartSearch] = useState('');
+  // The pick currently held behind the embed warning (v1.1 M3b): the
+  // coverage verdicts name the exposure; the dialog's decision releases or
+  // aborts the pick.
+  const [pendingPick, setPendingPick] = useState<{
+    chartId: number;
+    verdicts: ChartCoverageVerdict[];
+  } | null>(null);
+  const [checkingChartId, setCheckingChartId] = useState<number | null>(null);
+  const [isRequestingEdit, setIsRequestingEdit] = useState(false);
 
   const { data: charts, isLoading: chartsLoading } = useCharts({ search: chartSearch });
 
-  const handleSelectChart = (chartId: number) => {
-    if (excludedChartIds.includes(chartId)) return;
-    onSelect(chartId);
+  const completeSelect = (chartId: number, coverage?: CoverageDecision) => {
+    setPendingPick(null);
+    onSelect(chartId, coverage);
     onClose();
     setChartSearch('');
   };
 
+  const handleSelectChart = async (chartId: number) => {
+    if (excludedChartIds.includes(chartId)) return;
+    if (checkingChartId !== null) return; // one pre-flight at a time
+
+    // No saved dashboard yet → nothing to check coverage against.
+    if (!dashboardId) {
+      completeSelect(chartId, undefined);
+      return;
+    }
+
+    setCheckingChartId(chartId);
+    try {
+      const response: ChartCoverageResponse = await apiGet(
+        `/api/dashboards/${dashboardId}/chart-coverage/?chart_id=${chartId}`
+      );
+      const gaps = (response.charts ?? []).filter((v) => !v.covered);
+      if (gaps.length === 0) {
+        completeSelect(chartId, undefined);
+      } else {
+        setPendingPick({ chartId, verdicts: gaps });
+      }
+    } catch (error) {
+      // Fail open: the pre-flight is a courtesy — update_dashboard
+      // re-validates server-side and 409s if the embed under-covers.
+      console.error('Chart coverage pre-flight failed:', error);
+      completeSelect(chartId, undefined);
+    } finally {
+      setCheckingChartId(null);
+    }
+  };
+
+  const handleCoverageConfirm = (decision: CoverageDecision) => {
+    if (!pendingPick) return;
+    completeSelect(pendingPick.chartId, decision);
+  };
+
+  const handleRequestEdit = async (chartIds: number[]) => {
+    setIsRequestingEdit(true);
+    try {
+      await Promise.all(
+        chartIds.map((id) => createAccessRequest('chart', id, { requested_permission: 'edit' }))
+      );
+      toastSuccess.generic("Edit access requested — the chart's owner will be notified.");
+      setPendingPick(null); // the pick stays aborted until access arrives
+    } catch (error) {
+      toastError.api(error, 'request edit access');
+    } finally {
+      setIsRequestingEdit(false);
+    }
+  };
+
   const handleClose = () => {
+    setPendingPick(null);
     onClose();
     setChartSearch('');
   };
@@ -78,6 +162,7 @@ export function ChartSelectorModal({
             <div className="grid grid-cols-3 gap-4">
               {charts.map((chart) => {
                 const isAlreadyAdded = excludedChartIds.includes(chart.id);
+                const isChecking = checkingChartId === chart.id;
                 return (
                   <div
                     key={chart.id}
@@ -100,6 +185,9 @@ export function ChartSelectorModal({
                       <p className="text-xs text-gray-500 capitalize">{chart.chart_type}</p>
                       {isAlreadyAdded && (
                         <p className="text-xs text-orange-600 font-medium mt-1">Already added</p>
+                      )}
+                      {isChecking && (
+                        <p className="text-xs text-muted-foreground mt-1">Checking access…</p>
                       )}
                     </div>
                   </div>
@@ -129,6 +217,18 @@ export function ChartSelectorModal({
             </div>
           )}
         </ScrollArea>
+
+        {pendingPick && (
+          <EmbedCoverageDialog
+            open
+            containerName={dashboardTitle || 'this dashboard'}
+            verdicts={pendingPick.verdicts}
+            isSubmitting={isRequestingEdit}
+            onCancel={() => setPendingPick(null)}
+            onConfirm={handleCoverageConfirm}
+            onRequestEdit={handleRequestEdit}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
