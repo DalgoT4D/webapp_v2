@@ -315,12 +315,19 @@ describe('GroupFormDialog — create mode', () => {
       const onOpenChange = jest.fn();
       render(<GroupFormDialog open onOpenChange={onOpenChange} onSuccess={jest.fn()} />);
 
+      // Stage a chip first so the first Escape's "no staged-work loss" claim
+      // is actually checked, not just implied by the dropdown assertion.
+      await user.click(screen.getByTestId('group-member-search-input'));
+      await user.click(screen.getByTestId('group-member-search-user-10'));
+      expect(screen.getByTestId('group-member-staged-row-user-10')).toBeInTheDocument();
+
       await user.click(screen.getByTestId('group-member-search-input'));
       expect(screen.getByTestId('group-member-search-results')).toBeInTheDocument();
 
       await user.keyboard('{Escape}');
       expect(screen.queryByTestId('group-member-search-results')).not.toBeInTheDocument();
       expect(onOpenChange).not.toHaveBeenCalled();
+      expect(screen.getByTestId('group-member-staged-row-user-10')).toBeInTheDocument();
 
       await user.keyboard('{Escape}');
       expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -355,6 +362,38 @@ describe('GroupFormDialog — create mode', () => {
 
       await user.type(input, 'x');
       expect(screen.queryByTestId('group-member-dup-hint')).not.toBeInTheDocument();
+    });
+
+    it('a paste mixing one fresh email with one already-staged email stages only the fresh one and hints only the dupe', async () => {
+      const user = userEvent.setup();
+      render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
+      const input = screen.getByTestId('group-member-search-input');
+
+      await user.type(input, 'new.person@ngo.org{Enter}');
+      pasteIntoSearchInput('new.person@ngo.org, fresh.person@ngo.org');
+
+      expect(
+        screen.getByTestId('group-member-staged-row-email-fresh.person@ngo.org')
+      ).toBeInTheDocument();
+      expect(
+        screen.getAllByTestId('group-member-staged-row-email-new.person@ngo.org')
+      ).toHaveLength(1);
+      expect(screen.getByTestId('group-member-dup-hint')).toHaveTextContent(
+        'new.person@ngo.org is already added'
+      );
+    });
+
+    it('pasting the same new email twice in one batch (nothing pre-staged) stages a single chip and hints the repeat', async () => {
+      render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
+
+      pasteIntoSearchInput('dup.person@ngo.org, dup.person@ngo.org');
+
+      expect(
+        screen.getAllByTestId('group-member-staged-row-email-dup.person@ngo.org')
+      ).toHaveLength(1);
+      expect(screen.getByTestId('group-member-dup-hint')).toHaveTextContent(
+        'dup.person@ngo.org is already added'
+      );
     });
 
     it('disables the "Invite …" dropdown row with an Added tag when that email is already staged', async () => {

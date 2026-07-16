@@ -109,7 +109,15 @@ export function useStagedIdentitySets(
  * existing chip, or — in edit mode — an existing group member). `dedupeStage`
  * alone would swallow the repeat silently; the typeahead uses the `dupes`
  * bucket to show an inline "already added" hint instead (manual-testing
- * report: repeat Enter looked like a no-op bug). */
+ * report: repeat Enter looked like a no-op bug).
+ *
+ * Also tracks keys/emails seen WITHIN this same batch (not just the
+ * pre-call `presentKeys`/`presentEmails` snapshot): a paste of
+ * "dup@ngo.org, dup@ngo.org" has neither copy in the pre-call snapshot, so
+ * without this the first copy stages and the second silently falls into
+ * `dedupeStage`'s own dedup with no hint at all — the "never a silent
+ * swallow" invariant (see group-member-typeahead.tsx's stageEmailTokens)
+ * would be violated for intra-batch repeats specifically. */
 export function partitionAgainstStaged(
   entries: GroupMemberEntry[],
   presentKeys: Set<string>,
@@ -117,11 +125,19 @@ export function partitionAgainstStaged(
 ): { fresh: GroupMemberEntry[]; dupes: GroupMemberEntry[] } {
   const fresh: GroupMemberEntry[] = [];
   const dupes: GroupMemberEntry[] = [];
+  const seenKeys = new Set<string>();
+  const seenEmails = new Set<string>();
   for (const entry of entries) {
-    if (presentKeys.has(entry.key) || (entry.email && presentEmails.has(entry.email))) {
+    const alreadyPresent =
+      presentKeys.has(entry.key) || (entry.email && presentEmails.has(entry.email));
+    const alreadySeenThisBatch =
+      seenKeys.has(entry.key) || (entry.email ? seenEmails.has(entry.email) : false);
+    if (alreadyPresent || alreadySeenThisBatch) {
       dupes.push(entry);
     } else {
       fresh.push(entry);
+      seenKeys.add(entry.key);
+      if (entry.email) seenEmails.add(entry.email);
     }
   }
   return { fresh, dupes };
@@ -129,18 +145,32 @@ export function partitionAgainstStaged(
 
 /** The inline hint for a re-added principal. Distinguishes "already added"
  * (staged chip in this session) from "already in this group" (edit mode's
- * existing members) so the message matches what the user can actually see. */
+ * existing members) so the message matches what the user can actually see.
+ * The multi-dupe branch keeps that same distinction: it buckets by reason
+ * instead of always saying "Already added", so a mixed batch (one repeat
+ * chip + one existing group member) doesn't misname the existing member as
+ * freshly staged. */
 export function duplicateNotice(
   dupes: { key: string; label: string; email?: string }[],
   existingKeys: Set<string>,
   existingEmails: Set<string | undefined>
 ): string {
+  const inGroup = (d: { key: string; email?: string }) =>
+    existingKeys.has(d.key) || (d.email ? existingEmails.has(d.email) : false);
   if (dupes.length === 1) {
     const d = dupes[0];
-    const inGroup = existingKeys.has(d.key) || (d.email ? existingEmails.has(d.email) : false);
-    return inGroup ? `${d.label} is already in this group` : `${d.label} is already added`;
+    return inGroup(d) ? `${d.label} is already in this group` : `${d.label} is already added`;
   }
-  return `Already added: ${dupes.map((d) => d.label).join(', ')}`;
+  const alreadyAdded = dupes.filter((d) => !inGroup(d));
+  const alreadyInGroup = dupes.filter(inGroup);
+  const parts: string[] = [];
+  if (alreadyAdded.length > 0) {
+    parts.push(`Already added: ${alreadyAdded.map((d) => d.label).join(', ')}`);
+  }
+  if (alreadyInGroup.length > 0) {
+    parts.push(`Already in this group: ${alreadyInGroup.map((d) => d.label).join(', ')}`);
+  }
+  return parts.join(' · ');
 }
 
 /** Free-typed/pasted tokens → entries: an email matching an org member
