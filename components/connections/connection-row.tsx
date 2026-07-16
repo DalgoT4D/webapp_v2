@@ -177,46 +177,70 @@ export const ConnectionRow = memo(function ConnectionRow({
       <TableCell className="py-4">
         <div className={cn('flex items-center gap-1', alignActionsEnd && 'justify-end')}>
           {/* History button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onViewHistory}
-            className="h-8 w-8 p-0 hover:bg-gray-100"
-            data-testid={`view-history-${conn.connectionId}`}
-            aria-label="History"
-          >
-            <History className="w-4 h-4 text-gray-600" />
-          </Button>
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onViewHistory}
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                  data-testid={`view-history-${conn.connectionId}`}
+                  aria-label="History"
+                >
+                  <History className="w-4 h-4 text-gray-600" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>View history</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           {/* Sync / Cancel button */}
           {canSync &&
             (conn.lock?.status === LockStatus.QUEUED ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onCancelSync}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-                data-testid={`cancel-sync-${conn.connectionId}`}
-                aria-label="Cancel sync"
-              >
-                <XCircle className="w-4 h-4 text-red-600" />
-              </Button>
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={onCancelSync}
+                      className="h-8 w-8 p-0 hover:bg-gray-100"
+                      data-testid={`cancel-sync-${conn.connectionId}`}
+                      aria-label="Cancel sync"
+                    >
+                      <XCircle className="w-4 h-4 text-red-600" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Cancel sync</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ) : (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleSyncClick}
-                disabled={isSyncing}
-                className={cn('h-8 w-8 p-0 hover:bg-gray-100', isSyncing && 'cursor-not-allowed')}
-                data-testid={`sync-btn-${conn.connectionId}`}
-                aria-label="Sync"
-              >
-                {isSyncing ? (
-                  <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4 text-gray-600" />
-                )}
-              </Button>
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleSyncClick}
+                      disabled={isSyncing}
+                      className={cn(
+                        'h-8 w-8 p-0 hover:bg-gray-100',
+                        isSyncing && 'cursor-not-allowed'
+                      )}
+                      data-testid={`sync-btn-${conn.connectionId}`}
+                      aria-label="Sync"
+                    >
+                      {isSyncing ? (
+                        <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4 text-gray-600" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{isSyncing ? 'Syncing…' : 'Sync now'}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ))}
 
           {/* Three-dot menu */}

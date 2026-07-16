@@ -142,7 +142,7 @@ export function StreamConfigTable({
         }
       : { stream: '40%', sync: '12%', destination: '38%', chevron: '10%' };
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex flex-col">
       {/* Header with stream count + shared advanced toggle */}
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold">
@@ -167,11 +167,10 @@ export function StreamConfigTable({
       {helpText && <p className="mt-1 mb-3 text-sm text-muted-foreground">{helpText}</p>}
       {!helpText && <div className="mb-3" />}
 
-      {/* Fixed-height scroll box: rows scroll internally under the sticky header.
-          Kept simple (a plain max-height, no flex fill) so it never collides with
-          the Advanced-options section below — that just makes the left column
-          scroll. */}
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-md border">
+      {/* Table grows to its natural height; the parent left column owns the
+          scroll (overflow-y-auto), so the whole side scrolls as one and the
+          sticky header pins to the column while every row stays reachable. */}
+      <div className="overflow-x-hidden rounded-md border">
         <table className="w-full text-sm table-fixed" data-testid="streams-table">
           <colgroup>
             <col style={{ width: colWidths.stream }} />

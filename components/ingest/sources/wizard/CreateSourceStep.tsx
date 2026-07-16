@@ -29,7 +29,7 @@ interface Props {
 }
 
 export function CreateSourceStep({ def, onCreated, onBack }: Props) {
-  // Google Sheets and KoboToolbox get a hand-tailored form + docs panel; every other
+  // Google Sheets and KoboToolbox get a hand-tailored form; every other
   // source falls back to the generic spec-driven form with no panel.
   const isGoogleSheets = def.name === SOURCE_NAME_GOOGLE_SHEETS;
 
@@ -250,7 +250,6 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
             parsedSpec={parsedSpec}
             specLoading={specLoading}
             custom={custom}
-            sourceName={def.name}
             control={control}
             setValue={setValue}
             disabled={busy}

@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { Search } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Search, ArrowUp, ArrowDown, ArrowUpDown, Info } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import {
   useConnectionsList,
@@ -30,6 +32,50 @@ import { groupConnectionsBySource } from '@/components/ingest/redesign/utils';
 import type { Connection, ClearStreamData } from '@/types/connections';
 import type { Source } from '@/types/source';
 
+// Source-list sort. Clicking the "Source details" header cycles through these in
+// order: created_desc (default, newest first) → name_asc → name_desc → back.
+type SortOption = 'created_desc' | 'name_asc' | 'name_desc';
+
+const SORT_CYCLE: SortOption[] = ['created_desc', 'name_asc', 'name_desc'];
+
+function nextSort(current: SortOption): SortOption {
+  const i = SORT_CYCLE.indexOf(current);
+  return SORT_CYCLE[(i + 1) % SORT_CYCLE.length];
+}
+
+// Small info icon + tooltip shown beside each column header to explain the column
+// in plain language. `label` names the icon for screen readers and testids.
+function ColumnInfo({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Info
+          className="h-3.5 w-3.5 flex-shrink-0 cursor-help text-gray-400 hover:text-gray-600"
+          aria-label={`About ${label}`}
+          data-testid={`column-info-${label.toLowerCase().replace(/\s+/g, '-')}`}
+        />
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-xs text-xs font-normal leading-relaxed">
+        {children}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function compareSources(a: Source, b: Source, sort: SortOption): number {
+  switch (sort) {
+    case 'name_asc':
+      return a.name.localeCompare(b.name);
+    case 'name_desc':
+      return b.name.localeCompare(a.name);
+    case 'created_desc':
+    default:
+      // Newest first; fall back to name so order stays stable when timestamps
+      // are equal or missing.
+      return (b.createdAt ?? 0) - (a.createdAt ?? 0) || a.name.localeCompare(b.name);
+  }
+}
+
 /**
  * The steady-state Ingest surface: a control bar (search + New Source), the
  * pending-schema-change banner, and the source-grouped connection list rendered
@@ -43,6 +89,7 @@ export function SteadyView() {
   const { confirm, DialogComponent } = useConfirmationDialog();
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortOption, setSortOption] = useState<SortOption>('created_desc');
   const [syncingIds, setSyncingIds] = useState<string[]>([]);
 
   // Connection dialog state
@@ -86,11 +133,7 @@ export function SteadyView() {
   const groups = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
 
-    // Newest source first (Airbyte's createdAt is unix seconds). Fall back to
-    // name when timestamps are equal or missing, so order stays stable.
-    const sortedSources = [...sources].sort(
-      (a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0) || a.name.localeCompare(b.name)
-    );
+    const sortedSources = [...sources].sort((a, b) => compareSources(a, b, sortOption));
     const visibleConnections = q
       ? connections.filter(
           (c) =>
@@ -111,7 +154,11 @@ export function SteadyView() {
     return allGroups.filter(
       (group) => group.source.name.toLowerCase().includes(q) || group.connections.length > 0
     );
-  }, [sources, connections, searchTerm]);
+  }, [sources, connections, searchTerm, sortOption]);
+
+  const handleSortSources = useCallback(() => {
+    setSortOption((prev) => nextSort(prev));
+  }, []);
 
   // ============ Connection sync polling (mirrors connections-list) ============
 
@@ -339,28 +386,103 @@ export function SteadyView() {
             wrapper) so `sticky` still resolves against the scroll container. */}
         {groups.length > 0 && (
           <div className="rounded-lg border bg-gray-50">
-            <div
-              className="sticky top-0 z-10 flex rounded-t-lg border-b bg-gray-100 py-3 text-sm font-semibold text-gray-700"
-              data-testid="ingest-column-labels"
-            >
-              <div className="w-[30%] flex-shrink-0 px-4">Source details</div>
-              <div className="flex-1 min-w-0">
-                <table className="table-fixed w-full">
-                  <colgroup>
-                    <col style={{ width: '45%' }} />
-                    <col style={{ width: '35%' }} />
-                    <col style={{ width: '20%' }} />
-                  </colgroup>
-                  <tbody>
-                    <tr>
-                      <td className="px-2">Connections</td>
-                      <td className="px-2">Last sync</td>
-                      <td className="px-2 text-right">Actions</td>
-                    </tr>
-                  </tbody>
-                </table>
+            <TooltipProvider delayDuration={150}>
+              <div
+                className="sticky top-0 z-10 flex rounded-t-lg border-b bg-gray-100 py-3 text-sm font-semibold text-gray-700"
+                data-testid="ingest-column-labels"
+              >
+                <div className="w-[30%] flex-shrink-0 flex items-center gap-1.5 px-4">
+                  <button
+                    type="button"
+                    onClick={handleSortSources}
+                    className="flex items-center gap-2 text-left font-semibold text-gray-700 transition-colors cursor-pointer hover:text-gray-900"
+                    data-testid="sort-source-details"
+                    aria-label="Sort sources"
+                  >
+                    Source details
+                    {sortOption === 'name_asc' ? (
+                      <ArrowUp className="h-4 w-4 text-gray-600" />
+                    ) : sortOption === 'name_desc' ? (
+                      <ArrowDown className="h-4 w-4 text-gray-600" />
+                    ) : (
+                      <ArrowUpDown className="h-4 w-4 text-gray-400" />
+                    )}
+                  </button>
+                  <ColumnInfo label="Source">
+                    <p>
+                      A <strong>source</strong> is where your data comes from — like Google Sheets
+                      or KoboToolbox.
+                    </p>
+                    <p className="mt-1.5">
+                      To pull data in, add a <strong>connection</strong>: open the ⋮ menu on a
+                      source and choose <em>Add connection</em>. One source can have several
+                      connections.
+                    </p>
+                  </ColumnInfo>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <table className="table-fixed w-full">
+                    <colgroup>
+                      <col style={{ width: '45%' }} />
+                      <col style={{ width: '35%' }} />
+                      <col style={{ width: '20%' }} />
+                    </colgroup>
+                    <tbody>
+                      <tr>
+                        <td className="px-2">
+                          <span className="inline-flex items-center gap-1.5">
+                            Connections
+                            <ColumnInfo label="Connections">
+                              <p>
+                                A <strong>connection</strong> links a source to your warehouse and
+                                decides what gets copied over — which sheets, tables or forms. One
+                                source can have several connections.
+                              </p>
+                            </ColumnInfo>
+                          </span>
+                        </td>
+                        <td className="px-2">
+                          <span className="inline-flex items-center gap-1.5">
+                            Last sync
+                            <ColumnInfo label="Last sync">
+                              <p>
+                                A <strong>sync</strong> is one run that copies the latest data from
+                                the source into your warehouse. This shows when it last ran and
+                                whether it worked.
+                              </p>
+                            </ColumnInfo>
+                          </span>
+                        </td>
+                        <td className="px-2 text-right">
+                          <span className="inline-flex items-center gap-1.5">
+                            Actions
+                            <ColumnInfo label="Actions">
+                              <p>What you can do with a connection:</p>
+                              <ul className="mt-1 list-disc space-y-1 pl-4">
+                                <li>
+                                  <strong>View history</strong> — see past sync runs.
+                                </li>
+                                <li>
+                                  <strong>Sync now</strong> — pull the latest data right away.
+                                </li>
+                                <li>
+                                  <strong>Clear</strong> — remove the data already copied into the
+                                  warehouse (the connection stays).
+                                </li>
+                                <li>
+                                  <strong>Refresh schema</strong> — check the source for new or
+                                  changed columns, tables or forms.
+                                </li>
+                              </ul>
+                            </ColumnInfo>
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            </TooltipProvider>
 
             <div className="flex flex-col gap-2 rounded-b-lg p-2">
               {groups.map((group) => (

@@ -103,8 +103,8 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
         className={cn(
           'max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden',
           // The picker is a compact, near-square card grid; the configure step
-          // needs room for the form + helper; the connection step is widest to
-          // fit the streams table alongside the help panel.
+          // holds a single-column form; the connection step is widest to fit the
+          // streams table alongside the help panel.
           'transition-[max-width,width] duration-300 ease-out',
           step === 'select'
             ? 'sm:max-w-xl'
@@ -112,7 +112,7 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
               ? connectionExpanded
                 ? '!max-w-[1600px] !w-[96vw] max-h-[85vh]'
                 : '!max-w-[720px] !w-[92vw] max-h-[85vh]'
-              : 'sm:max-w-[1240px] min-h-[640px]'
+              : 'sm:max-w-[720px] min-h-[640px]'
         )}
         preventOutsideClose
       >

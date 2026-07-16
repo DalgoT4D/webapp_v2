@@ -510,11 +510,10 @@ export function ConnectionFormBody({
             showHelpPanel ? 'md:grid-cols-[62fr_38fr]' : ''
           }`}
         >
-          {/* Plain scrolling block (no flex fill, so children never overlap). The
-              streams table scrolls its own rows; when the Advanced-options section
-              opens and the content gets taller than the column, the column itself
-              scrolls. */}
-          <div className="flex min-h-0 flex-col gap-6 overflow-hidden pr-1">
+          {/* The whole left column is the single scroll container: the streams
+              table grows to its natural height instead of scrolling internally,
+              so users scroll the full side to reach every stream/sheet/form. */}
+          <div className="flex min-h-0 flex-col gap-6 overflow-y-auto pr-1">
             <div className="flex-shrink-0 space-y-6">
               {/* Source identity for custom sources (Sheets/Kobo) lives in the
                 dialog/wizard header for every mode — reported via
@@ -616,13 +615,15 @@ export function ConnectionFormBody({
               ) : null}
             </div>
 
-            {/* Destination Schema + Normalize live in the Advanced-options
-                section at the bottom for every connection (source → name →
-                streams → advanced). */}
+            {/* Advanced options (Destination Schema + Normalize) above the
+                stream picker, for every connection (source → name → advanced →
+                streams). */}
+            <div className="flex-shrink-0">{advancedOptionsSection}</div>
 
-            {/* Streams region fills remaining height; the table body scrolls
-                internally so the column itself never grows a second scrollbar. */}
-            <div className="flex min-h-0 flex-1 flex-col">
+            {/* Streams region grows to its natural height; the whole left column
+                owns the scroll, so users scroll the full side to see every
+                stream/sheet/form. */}
+            <div className="flex flex-col gap-6">
               {/* Schema discovery loading */}
               {isDiscovering && (
                 <div className="flex items-center gap-2 text-base text-muted-foreground py-4 justify-center">
@@ -663,17 +664,12 @@ export function ConnectionFormBody({
                   helpText={connectionView?.streamHelp}
                 />
               )}
-            </div>
 
-            <div className="flex-shrink-0 space-y-6">
               {errors.streams && (
                 <p className="text-sm text-destructive" data-testid="connection-streams-error">
                   {errors.streams}
                 </p>
               )}
-
-              {/* Advanced options (schema + normalize) last, for every connection. */}
-              {advancedOptionsSection}
             </div>
           </div>
           {/* The help panel fills the left column's height and scrolls on its

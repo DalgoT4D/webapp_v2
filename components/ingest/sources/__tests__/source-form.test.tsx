@@ -169,7 +169,7 @@ describe('SourceForm', () => {
     });
   });
 
-  it('renders the KoboToolbox custom form + docs panel instead of the generic form', async () => {
+  it('renders the KoboToolbox custom form instead of the generic form', async () => {
     const user = userEvent.setup();
     mockApiGet.mockImplementation((url: string) => {
       if (url === '/api/airbyte/source_definitions')
@@ -187,7 +187,7 @@ describe('SourceForm', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('kobo-toolbox-form')).toBeInTheDocument();
-      expect(screen.getByTestId('source-helper-panel')).toBeInTheDocument();
+      expect(screen.queryByTestId('source-helper-panel')).not.toBeInTheDocument();
     });
     // The generic form must NOT render for a custom source.
     expect(screen.queryByTestId('connector-config-form')).not.toBeInTheDocument();

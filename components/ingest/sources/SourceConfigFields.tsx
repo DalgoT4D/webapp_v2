@@ -4,7 +4,6 @@ import type { ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 import type { Control, FieldValues, UseFormSetValue } from 'react-hook-form';
 import { ConnectorConfigForm } from '@/components/connectors/ConnectorConfigForm';
-import { SourceHelperPanel } from '@/components/ingest/sources/wizard/SourceHelperPanel';
 import type { ParsedSpec } from '@/components/connectors/types';
 import type { CustomSource } from '@/components/ingest/sources/custom/registry';
 import type { CustomSourceOAuth } from '@/components/ingest/sources/custom/types';
@@ -12,10 +11,8 @@ import type { CustomSourceOAuth } from '@/components/ingest/sources/custom/types
 interface SourceConfigFieldsProps {
   parsedSpec: ParsedSpec | null;
   specLoading: boolean;
-  /** Non-null when the source has a hand-tailored form + docs panel. */
+  /** Non-null when the source has a hand-tailored form. */
   custom: CustomSource | null;
-  /** Source-definition display name — labels the docs panel. */
-  sourceName: string;
   control: Control<FieldValues>;
   setValue: UseFormSetValue<FieldValues>;
   disabled: boolean;
@@ -33,8 +30,8 @@ interface SourceConfigFieldsProps {
 
 /**
  * The shared "configure a source" body: a spec-loading indicator, then either the
- * custom (Google Sheets / KoboToolbox) form beside its docs panel OR the generic
- * spec-driven form, followed by connection-test error logs.
+ * custom (Google Sheets / KoboToolbox) form OR the generic spec-driven form,
+ * followed by connection-test error logs.
  *
  * Rendered by both the add-source wizard's create step and the edit-source dialog.
  * The source-name field, source-type picker, footer buttons, and save/OAuth
@@ -45,7 +42,6 @@ export function SourceConfigFields({
   parsedSpec,
   specLoading,
   custom,
-  sourceName,
   control,
   setValue,
   disabled,
@@ -64,22 +60,19 @@ export function SourceConfigFields({
         </div>
       )}
 
-      {/* Custom sources (Google Sheets, KoboToolbox) render a tailored form plus a
-          docs panel; every other source keeps the generic spec-driven form. */}
+      {/* Custom sources (Google Sheets, KoboToolbox) render a tailored form; every
+          other source keeps the generic spec-driven form. */}
       {!specLoading && parsedSpec && custom ? (
-        <div className="grid grid-cols-[55fr_45fr] items-start gap-6">
-          <div className="space-y-5">
-            {nameField}
-            <custom.Form
-              parsedSpec={parsedSpec}
-              control={control}
-              setValue={setValue}
-              disabled={disabled}
-              mode={mode}
-              oauth={oauth}
-            />
-          </div>
-          <SourceHelperPanel sourceName={sourceName} />
+        <div className="space-y-5">
+          {nameField}
+          <custom.Form
+            parsedSpec={parsedSpec}
+            control={control}
+            setValue={setValue}
+            disabled={disabled}
+            mode={mode}
+            oauth={oauth}
+          />
         </div>
       ) : !specLoading && parsedSpec ? (
         <ConnectorConfigForm

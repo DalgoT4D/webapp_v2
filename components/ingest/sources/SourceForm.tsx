@@ -55,7 +55,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
 
   const [selectedDefId, setSelectedDefId] = useState<string | null>(null);
 
-  // Google Sheets and KoboToolbox get a hand-tailored form + docs panel; other sources
+  // Google Sheets and KoboToolbox get a hand-tailored form; other sources
   // keep the generic spec-driven form. Resolved by the definition's name.
   const selectedName = definitions.find((d) => d.sourceDefinitionId === selectedDefId)?.name ?? '';
 
@@ -79,9 +79,11 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   const [editSetupLogs, setEditSetupLogs] = useState<string[]>([]);
   const [sourceName, setSourceName] = useState('');
 
-  // Google OAuth: the credentials never reach the browser. The "Authenticate" action
-  // runs consent → complete, and the backend creates/updates the source server-side.
+  // Google OAuth: the credentials never reach the browser. In edit mode "Re-authenticate"
+  // only runs consent + popup and stashes the redeemed ref here; the actual update happens
+  // when the user clicks "Save Changes And Test" (mirrors the create wizard's two phases).
   const [editOauthConnecting, setEditOauthConnecting] = useState(false);
+  const [editOauthRef, setEditOauthRef] = useState<string | null>(null);
   // useSourceSave owns its own setupLogs but has no external reset — this flag lets us
   // hide a stale failure banner the instant the create dialog reopens or the source
   // type changes, without waiting for the next save/connect attempt to clear it.
@@ -242,9 +244,10 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     { enabled: editLoading, onLoadingChange: setEditLoading }
   );
 
-  // "Authenticate": get a consent URL, run the popup, then complete — which on the
-  // backend exchanges the code, injects the credentials, and creates/updates the source
-  // in one step. The OAuth credentials never reach the browser.
+  // "Authenticate" (create) / "Re-authenticate" (edit): get a consent URL and run the
+  // popup. In edit mode this only stashes the redeemed ref — the source is not saved
+  // until the footer "Save Changes And Test". The OAuth credentials never reach the
+  // browser. Create mode keeps its own two-phase flow inside useSourceSave.
   const handleConnectGoogle = useCallback(async () => {
     if (!selectedDefId) return;
     if (!sourceName.trim()) {
@@ -263,29 +266,17 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     setEditOauthConnecting(true);
     try {
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_STARTED, { source_type: 'Google Sheets' });
-      const config = buildConfig();
       const { authUrl } = await getSourceOAuthConsent(selectedDefId);
       const { ref } = await openOAuthPopup(authUrl);
-      await createOAuthSource({
-        sourceDefId: selectedDefId,
-        name: sourceName,
-        config,
-        ref,
-        ...(sourceId ? { sourceId } : {}),
-      });
+      setEditOauthRef(ref);
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
-      trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED, {
-        source_type: 'Google Sheets',
-        auth_mode: 'oauth',
-      });
-      toastSuccess.generic('Source updated');
-      onSuccess();
+      toastSuccess.generic('Authorized with Google — click Save Changes And Test to apply');
     } catch (error) {
       toastError.api(error instanceof Error ? error.message : 'Google sign-in failed');
     } finally {
       setEditOauthConnecting(false);
     }
-  }, [selectedDefId, sourceName, isEdit, sourceSave, buildConfig, sourceId, onSuccess]);
+  }, [selectedDefId, sourceName, isEdit, sourceSave]);
 
   // Handle WebSocket response for edit mode — v1 pattern: test succeeded → auto-save
   const handleSaveSource = useCallback(async () => {
@@ -349,12 +340,44 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     [reset]
   );
 
-  // Single submit: edit mode tests over WS then updates; create mode delegates to the
-  // shared useSourceSave hook (WS test → createSource).
+  // Edit + a fresh OAuth ref: redeem it into an update. The refresh_token lives only in
+  // the server-side ref, so there's no client-side WS check here — the backend's
+  // update_source runs Airbyte's connection check itself.
+  const handleUpdateOAuthSource = useCallback(async () => {
+    setEditSetupLogs([]);
+    setEditLoading(true);
+    try {
+      await createOAuthSource({
+        sourceDefId: selectedDefId!,
+        name: sourceName,
+        config: buildConfig(),
+        ref: editOauthRef!,
+        ...(sourceId ? { sourceId } : {}),
+      });
+      trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED, {
+        source_type: 'Google Sheets',
+        auth_mode: 'oauth',
+      });
+      toastSuccess.updated('Source');
+      onSuccess();
+    } catch (error) {
+      toastError.save(error, 'source');
+    } finally {
+      setEditLoading(false);
+    }
+  }, [selectedDefId, sourceName, buildConfig, editOauthRef, sourceId, onSuccess]);
+
+  // Single submit: edit mode with a fresh OAuth ref redeems it; otherwise edit tests over
+  // WS then updates; create mode delegates to the shared useSourceSave hook (WS test →
+  // createSource).
   const onSubmit = useCallback(() => {
     if (!sourceName.trim() || !selectedDefId) return;
 
     if (isEdit) {
+      if (editOauthRef) {
+        handleUpdateOAuthSource();
+        return;
+      }
       const config = buildConfig();
       setEditSetupLogs([]);
       setEditLoading(true);
@@ -370,7 +393,17 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     pendingCreateKindRef.current = 'ws';
     setCreateLogsDismissed(false);
     sourceSave.save(sourceName);
-  }, [sourceName, selectedDefId, isEdit, buildConfig, sourceId, editSendOrQueue, sourceSave]);
+  }, [
+    sourceName,
+    selectedDefId,
+    isEdit,
+    editOauthRef,
+    handleUpdateOAuthSource,
+    buildConfig,
+    sourceId,
+    editSendOrQueue,
+    sourceSave,
+  ]);
 
   // Unified display values — edit mode uses its own local state; create mode reads
   // from the shared hook (setupLogs additionally gated by createLogsDismissed, see above).
@@ -381,13 +414,10 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent
-        className={cn(
-          'max-h-[85vh] overflow-y-auto overscroll-none',
-          custom ? 'sm:max-w-[1100px]' : 'sm:max-w-3xl'
-        )}
+        className={cn('max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden', 'sm:max-w-3xl')}
         preventOutsideClose
       >
-        <DialogHeader>
+        <DialogHeader className="flex-shrink-0 border-b px-6 pt-6 pb-4 text-left">
           <DialogTitle>{isEdit ? 'Edit Source' : 'Add Source'}</DialogTitle>
           <DialogDescription>
             {isEdit ? 'Update your source connection settings.' : 'Configure a new data source.'}
@@ -399,92 +429,100 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
         {isEdit && (!source || !selectedDefId || specLoading) ? (
           <div
             data-testid="source-form-loading"
-            className="flex flex-col items-center justify-center gap-3 py-24 text-sm text-muted-foreground"
+            className="flex flex-1 flex-col items-center justify-center gap-3 py-24 text-sm text-muted-foreground"
           >
             <Loader2 className="h-7 w-7 animate-spin text-primary" />
             Loading source…
           </div>
         ) : (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" data-testid="source-form">
-            {/* Source Name */}
-            <div>
-              <label htmlFor="source-name" className="text-[15px] font-medium">
-                Source Name <span className="text-destructive">*</span>
-              </label>
-              <Input
-                id="source-name"
-                data-testid="source-name-input"
-                value={sourceName}
-                onChange={(e) => setSourceName(e.target.value)}
-                placeholder="Enter source name"
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="flex min-h-0 flex-1 flex-col"
+            data-testid="source-form"
+          >
+            {/* Only this middle region scrolls; header + footer stay fixed. */}
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-none px-6 py-5">
+              {/* Source Name */}
+              <div>
+                <label htmlFor="source-name" className="text-[15px] font-medium">
+                  Source Name <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="source-name"
+                  data-testid="source-name-input"
+                  value={sourceName}
+                  onChange={(e) => setSourceName(e.target.value)}
+                  placeholder="Enter source name"
+                  disabled={loading}
+                  className="mt-1.5"
+                />
+              </div>
+
+              {/* Source Type Selector */}
+              <div>
+                <label htmlFor="source-type" className="text-[15px] font-medium">
+                  Source Type <span className="text-destructive">*</span>
+                </label>
+                <div className="mt-1.5">
+                  <Combobox
+                    id="source-type"
+                    items={sourceDefItems}
+                    value={selectedDefId ?? ''}
+                    onValueChange={handleSourceDefChange}
+                    placeholder="Select source type"
+                    searchPlaceholder="Search sources..."
+                    emptyMessage="No sources found."
+                    disabled={isEdit || loading}
+                    renderItem={(item, _isSelected, searchQuery) => (
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={(item.icon as string) || '/icons/connection.svg'}
+                          alt=""
+                          className="h-4 w-4 flex-shrink-0"
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.src = '/icons/connection.svg';
+                          }}
+                        />
+                        <span className="text-sm">{highlightText(item.label, searchQuery)}</span>
+                      </div>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Config body — spec-loading, custom/generic form, and
+                connection-test logs. Shared with the add-source wizard. */}
+              <SourceConfigFields
+                parsedSpec={parsedSpec}
+                specLoading={specLoading}
+                custom={custom}
+                control={control}
+                setValue={setValue}
                 disabled={loading}
-                className="mt-1.5"
+                mode={isEdit ? 'edit' : 'create'}
+                oauth={
+                  isGoogleSheetsCustom
+                    ? ({
+                        connected: isConnected || !!editOauthRef,
+                        busy: oauthConnecting,
+                        buttonLabel: isEdit
+                          ? editOauthRef
+                            ? 'Re-authenticated with Google'
+                            : 'Re-authenticate with Google'
+                          : 'Sign in with Google to authorize Dalgo',
+                        lockWhenConnected: false,
+                        onClick: handleConnectGoogle,
+                      } satisfies CustomSourceOAuth)
+                    : undefined
+                }
+                setupLogs={setupLogs}
+                logsTestId="connection-logs"
               />
             </div>
 
-            {/* Source Type Selector */}
-            <div>
-              <label htmlFor="source-type" className="text-[15px] font-medium">
-                Source Type <span className="text-destructive">*</span>
-              </label>
-              <div className="mt-1.5">
-                <Combobox
-                  id="source-type"
-                  items={sourceDefItems}
-                  value={selectedDefId ?? ''}
-                  onValueChange={handleSourceDefChange}
-                  placeholder="Select source type"
-                  searchPlaceholder="Search sources..."
-                  emptyMessage="No sources found."
-                  disabled={isEdit || loading}
-                  renderItem={(item, _isSelected, searchQuery) => (
-                    <div className="flex items-center gap-2">
-                      <img
-                        src={(item.icon as string) || '/icons/connection.svg'}
-                        alt=""
-                        className="h-4 w-4 flex-shrink-0"
-                        loading="lazy"
-                        onError={(e) => {
-                          e.currentTarget.src = '/icons/connection.svg';
-                        }}
-                      />
-                      <span className="text-sm">{highlightText(item.label, searchQuery)}</span>
-                    </div>
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Config body — spec-loading, custom/generic form (+ docs panel), and
-                connection-test logs. Shared with the add-source wizard. */}
-            <SourceConfigFields
-              parsedSpec={parsedSpec}
-              specLoading={specLoading}
-              custom={custom}
-              sourceName={selectedName}
-              control={control}
-              setValue={setValue}
-              disabled={loading}
-              mode={isEdit ? 'edit' : 'create'}
-              oauth={
-                isGoogleSheetsCustom
-                  ? ({
-                      connected: isConnected,
-                      busy: oauthConnecting,
-                      buttonLabel: isEdit
-                        ? 'Re-authenticate & Save'
-                        : 'Sign in with Google to authorize Dalgo',
-                      lockWhenConnected: false,
-                      onClick: handleConnectGoogle,
-                    } satisfies CustomSourceOAuth)
-                  : undefined
-              }
-              setupLogs={setupLogs}
-              logsTestId="connection-logs"
-            />
-
             {/* Footer — single "Save changes and test" button like v1 */}
-            <DialogFooter className="gap-2">
+            <DialogFooter className="flex-shrink-0 gap-2 border-t px-6 py-4">
               <Button
                 type="button"
                 variant="outline"

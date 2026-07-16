@@ -123,7 +123,7 @@ it('keeps the service-account field behind Advanced and never renders raw OAuth 
   expect(screen.queryByLabelText(/Refresh Token/i)).not.toBeInTheDocument();
 });
 
-it('renders the KoboToolbox custom form + docs panel', () => {
+it('renders the KoboToolbox custom form', () => {
   mockSourceSpec = KOBO_SPEC;
   render(
     <CreateSourceStep
@@ -134,10 +134,10 @@ it('renders the KoboToolbox custom form + docs panel', () => {
   );
   expect(screen.getByTestId('kobo-toolbox-form')).toBeInTheDocument();
   expect(screen.getByTestId('start-time-field')).toBeInTheDocument();
-  expect(screen.getByTestId('source-helper-panel')).toBeInTheDocument();
+  expect(screen.queryByTestId('source-helper-panel')).not.toBeInTheDocument();
 });
 
-it('renders the generic form with no docs panel for a non-custom source', () => {
+it('renders the generic form for a non-custom source', () => {
   mockSourceSpec = POSTGRES_SPEC;
   render(
     <CreateSourceStep

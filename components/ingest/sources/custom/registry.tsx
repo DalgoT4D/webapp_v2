@@ -7,7 +7,6 @@ import type { CustomSourceFormProps, ConnectionViewConfig } from './types';
 
 export interface CustomSource {
   Form: ComponentType<CustomSourceFormProps>;
-  helpKey: string;
   connectionView: ConnectionViewConfig;
 }
 
@@ -15,7 +14,6 @@ export interface CustomSource {
 const CUSTOM_SOURCES: Record<string, CustomSource> = {
   [SOURCE_NAME_GOOGLE_SHEETS]: {
     Form: GoogleSheetsForm,
-    helpKey: SOURCE_NAME_GOOGLE_SHEETS,
     connectionView: {
       streamNoun: 'Sheets',
       supportsIncremental: false,
@@ -26,7 +24,6 @@ const CUSTOM_SOURCES: Record<string, CustomSource> = {
   },
   [SOURCE_NAME_KOBOTOOLBOX]: {
     Form: KoboToolboxForm,
-    helpKey: SOURCE_NAME_KOBOTOOLBOX,
     connectionView: {
       streamNoun: 'Forms',
       supportsIncremental: true,
@@ -41,7 +38,7 @@ const CUSTOM_SOURCES: Record<string, CustomSource> = {
   },
 };
 
-/** A custom form + docs panel exist for this source iff this returns non-null. */
+/** A custom form exists for this source iff this returns non-null. */
 export function getCustomSource(name: string): CustomSource | null {
   return CUSTOM_SOURCES[name] ?? null;
 }
