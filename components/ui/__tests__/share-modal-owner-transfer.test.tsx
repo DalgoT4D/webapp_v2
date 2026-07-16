@@ -162,9 +162,8 @@ describe('ShareModal — owner row', () => {
     });
     expect(screen.getByTestId('share-owner-row')).toHaveTextContent('Asha Kumar');
     expect(screen.getByTestId('share-transfer-owner-btn')).toBeInTheDocument();
-    // But People/General sections themselves are absent for a grantless rtype.
+    // But the People-with-access section itself is absent for a grantless rtype.
     expect(screen.queryByTestId('share-people-section')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('share-general-section')).not.toBeInTheDocument();
   });
 });
 

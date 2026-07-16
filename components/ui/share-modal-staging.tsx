@@ -809,7 +809,11 @@ function StagedRowView({ entry, staging }: StagedRowViewProps) {
     <div
       data-testid={`share-staged-row-${entry.key}`}
       data-status={entry.status}
-      className="flex items-center justify-between gap-2 text-sm"
+      // Full-width light-gray rounded row (design: "resource sharing New
+      // users"/"resource sharing- user added" — every staged row, not just
+      // unknown-email ones, sits in this muted pill before SHARE applies it;
+      // committed People-with-access rows below stay plain, no fill).
+      className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-3 py-2 text-sm"
     >
       <span className="flex-1 truncate inline-flex items-center gap-1.5 min-w-0">
         {stagedRowIcon(entry.kind)}

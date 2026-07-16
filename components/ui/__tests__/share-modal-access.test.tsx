@@ -1,8 +1,12 @@
 /**
- * ShareModal tests for the entityType-driven People/General-access sections
+ * ShareModal tests for the entityType-driven People-with-access section
  * (backed by /api/access/*). The legacy prop-driven public-link-only path is
  * covered separately in components/reports/__tests__/ReportShareModal.test.tsx
  * and must keep passing unmodified — entityType is optional.
+ *
+ * General access has no single-resource UI in this modal at all (design
+ * decision — it appears in no RBAC frame): it's settable only via the bulk
+ * action (components/sharing/bulk-share-dialog.tsx) or the API directly.
  */
 import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -12,7 +16,6 @@ import {
   useResourceAccess,
   addGrant,
   removeGrant,
-  setGeneralAccess,
   type ResourceAccessOverview,
 } from '@/hooks/api/useResourceAccess';
 import { useUsers } from '@/hooks/api/useUserManagement';
@@ -36,7 +39,6 @@ const mockUseUsers = useUsers as jest.Mock;
 const mockUseRbac = useRbac as jest.Mock;
 const mockAddGrant = addGrant as jest.Mock;
 const mockRemoveGrant = removeGrant as jest.Mock;
-const mockSetGeneralAccess = setGeneralAccess as jest.Mock;
 
 const baseOverview: ResourceAccessOverview = {
   resource_type: 'dashboard',
@@ -361,206 +363,6 @@ describe('ShareModal — People with access', () => {
   });
 });
 
-describe('ShareModal — General access (per-role, permission-model rework D1)', () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it('renders the Analysts and Members dropdowns reflecting current levels', () => {
-    renderModal();
-    expect(screen.getByTestId('share-general-analyst-level')).toHaveTextContent('Can View');
-    expect(screen.getByTestId('share-general-member-level')).toHaveTextContent('Can View');
-  });
-
-  it('commits immediately when widening the analyst level and fires analytics', async () => {
-    const user = userEvent.setup();
-    mockSetGeneralAccess.mockResolvedValue({
-      requires_confirmation: false,
-      persisting_grants: [],
-      general_access: { analyst_level: 'edit', member_level: 'view' },
-    });
-    renderModal();
-
-    await user.click(screen.getByTestId('share-general-analyst-level'));
-    await user.click(screen.getByRole('option', { name: 'Can Edit' }));
-
-    await waitFor(() => {
-      expect(mockSetGeneralAccess).toHaveBeenCalledWith('dashboard', 1, {
-        analyst_level: 'edit',
-        member_level: 'view',
-      });
-      expect(trackEvent).toHaveBeenCalledWith(
-        'sharing:general_access_updated',
-        expect.objectContaining({ entity_type: 'dashboard', analyst_level: 'edit' })
-      );
-    });
-  });
-
-  it('widening the member level sends the unchanged analyst level alongside it', async () => {
-    const user = userEvent.setup();
-    mockSetGeneralAccess.mockResolvedValue({
-      requires_confirmation: false,
-      persisting_grants: [],
-      general_access: { analyst_level: 'view', member_level: 'edit' },
-    });
-    renderModal();
-
-    await user.click(screen.getByTestId('share-general-member-level'));
-    await user.click(screen.getByRole('option', { name: 'Can Edit' }));
-
-    await waitFor(() => {
-      expect(mockSetGeneralAccess).toHaveBeenCalledWith('dashboard', 1, {
-        analyst_level: 'view',
-        member_level: 'edit',
-      });
-    });
-  });
-
-  it('renders "No access" for a role with no general_access row (defaults)', () => {
-    renderModal({ general_access: null });
-    expect(screen.getByTestId('share-general-analyst-level')).toHaveTextContent('No access');
-    expect(screen.getByTestId('share-general-member-level')).toHaveTextContent('No access');
-  });
-
-  it('narrowing the member level to No access warns about members only, and re-sends with remove_grant_ids on "Keep"', async () => {
-    const user = userEvent.setup();
-    mockSetGeneralAccess.mockResolvedValueOnce({
-      requires_confirmation: true,
-      persisting_grants: [baseOverview.grants[0]],
-      general_access: null,
-    });
-    renderModal();
-
-    await user.click(screen.getByTestId('share-general-member-level'));
-    await user.click(screen.getByRole('option', { name: 'No access' }));
-
-    await waitFor(() => {
-      const panel = screen.getByTestId('share-general-confirm-panel');
-      expect(panel).toHaveTextContent('Meera Das');
-      expect(panel).toHaveTextContent('member still has individual access');
-    });
-
-    mockSetGeneralAccess.mockResolvedValueOnce({
-      requires_confirmation: false,
-      persisting_grants: [],
-      general_access: { analyst_level: 'view', member_level: 'none' },
-    });
-    await user.click(screen.getByTestId('share-general-confirm-keep-btn'));
-
-    await waitFor(() => {
-      expect(mockSetGeneralAccess).toHaveBeenLastCalledWith('dashboard', 1, {
-        analyst_level: 'view',
-        member_level: 'none',
-        remove_grant_ids: [],
-      });
-    });
-  });
-
-  it('narrowing the analyst level warns about analysts only and re-sends with the persisting grant ids on "Remove their access too"', async () => {
-    const user = userEvent.setup();
-    mockSetGeneralAccess.mockResolvedValueOnce({
-      requires_confirmation: true,
-      persisting_grants: [baseOverview.grants[0]],
-      general_access: null,
-    });
-    renderModal();
-
-    await user.click(screen.getByTestId('share-general-analyst-level'));
-    await user.click(screen.getByRole('option', { name: 'No access' }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('share-general-confirm-panel')).toHaveTextContent(
-        'analyst still has individual access'
-      );
-    });
-
-    mockSetGeneralAccess.mockResolvedValueOnce({
-      requires_confirmation: false,
-      persisting_grants: [],
-      general_access: { analyst_level: 'none', member_level: 'view' },
-    });
-    await user.click(screen.getByTestId('share-general-confirm-remove-btn'));
-
-    await waitFor(() => {
-      expect(mockSetGeneralAccess).toHaveBeenLastCalledWith('dashboard', 1, {
-        analyst_level: 'none',
-        member_level: 'view',
-        remove_grant_ids: [3],
-      });
-    });
-  });
-
-  it('renders a read-only summary instead of dropdowns when the viewer cannot share', () => {
-    renderModal({ viewer: { effective_permission: 'view', is_owner: false } }, false);
-    expect(screen.queryByTestId('share-general-analyst-level')).not.toBeInTheDocument();
-    const readonly = screen.getByTestId('share-general-readonly');
-    expect(readonly).toHaveTextContent('Analysts — Can View');
-    expect(readonly).toHaveTextContent('Members — Can View');
-  });
-
-  it('disables both Selects while a general-access PATCH is in flight, preventing a second change from racing the first, then re-enables once it settles', async () => {
-    const user = userEvent.setup();
-    let resolveFirst: (value: unknown) => void = () => {};
-    const firstCall = new Promise((resolve) => {
-      resolveFirst = resolve;
-    });
-    mockSetGeneralAccess.mockReturnValueOnce(firstCall);
-    renderModal();
-
-    await user.click(screen.getByTestId('share-general-analyst-level'));
-    await user.click(screen.getByRole('option', { name: 'Can Edit' }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('share-general-analyst-level')).toBeDisabled();
-    });
-    expect(screen.getByTestId('share-general-member-level')).toBeDisabled();
-
-    resolveFirst({
-      requires_confirmation: false,
-      persisting_grants: [],
-      general_access: { analyst_level: 'edit', member_level: 'view' },
-    });
-
-    await waitFor(() => {
-      expect(mockSetGeneralAccess).toHaveBeenCalledTimes(1);
-    });
-    await waitFor(() => {
-      expect(screen.getByTestId('share-general-analyst-level')).toBeEnabled();
-    });
-    expect(screen.getByTestId('share-general-member-level')).toBeEnabled();
-  });
-
-  it('keeps both Selects disabled while the narrowing confirmation panel is open, then re-enables once Keep/Remove settles', async () => {
-    const user = userEvent.setup();
-    mockSetGeneralAccess.mockResolvedValueOnce({
-      requires_confirmation: true,
-      persisting_grants: [baseOverview.grants[0]],
-      general_access: null,
-    });
-    renderModal();
-
-    await user.click(screen.getByTestId('share-general-member-level'));
-    await user.click(screen.getByRole('option', { name: 'No access' }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('share-general-confirm-panel')).toBeInTheDocument();
-    });
-    expect(screen.getByTestId('share-general-analyst-level')).toBeDisabled();
-    expect(screen.getByTestId('share-general-member-level')).toBeDisabled();
-
-    mockSetGeneralAccess.mockResolvedValueOnce({
-      requires_confirmation: false,
-      persisting_grants: [],
-      general_access: { analyst_level: 'view', member_level: 'none' },
-    });
-    await user.click(screen.getByTestId('share-general-confirm-keep-btn'));
-
-    await waitFor(() => {
-      expect(screen.queryByTestId('share-general-confirm-panel')).not.toBeInTheDocument();
-    });
-    expect(screen.getByTestId('share-general-analyst-level')).toBeEnabled();
-    expect(screen.getByTestId('share-general-member-level')).toBeEnabled();
-  });
-});
-
 describe('ShareModal — capability-gated sections', () => {
   beforeEach(() => jest.clearAllMocks());
 
@@ -573,12 +375,11 @@ describe('ShareModal — capability-gated sections', () => {
     });
   });
 
-  it('hides People/General sections entirely when their capability flags are off', () => {
+  it('hides the People section entirely when its capability flag is off', () => {
     renderModal({
       capabilities: { general: false, grants: false, public_link: true, requests: false },
     });
     expect(screen.queryByTestId('share-people-section')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('share-general-section')).not.toBeInTheDocument();
     // No grants capability → nothing can be staged → no footer SHARE either.
     expect(screen.queryByTestId('share-commit-btn')).not.toBeInTheDocument();
   });
@@ -601,7 +402,7 @@ describe('ShareModal — entityType="alert" (task-17f per-item Share, cross-task
   // closing the brief's explicit "no public-link section" assertion.
   beforeEach(() => jest.clearAllMocks());
 
-  it('opens with alert rtype, hides the public-link section, and still shows People/General', async () => {
+  it('opens with alert rtype, hides the public-link section, and still shows People with access', async () => {
     mockUseResourceAccess.mockReturnValue({
       data: {
         ...baseOverview,
@@ -641,7 +442,6 @@ describe('ShareModal — entityType="alert" (task-17f per-item Share, cross-task
       expect(screen.queryByTestId('share-toggle')).not.toBeInTheDocument();
     });
     expect(screen.getByTestId('share-people-section')).toBeInTheDocument();
-    expect(screen.getByTestId('share-general-section')).toBeInTheDocument();
     expect(trackEvent).toHaveBeenCalledWith(
       'sharing:modal_opened',
       expect.objectContaining({ entity_type: 'alert' })
