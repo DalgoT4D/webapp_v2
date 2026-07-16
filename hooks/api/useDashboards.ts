@@ -248,9 +248,18 @@ export async function duplicateDashboard(dashboardId: number): Promise<Dashboard
 }
 
 // Dashboard sharing functions
-export async function updateDashboardSharing(dashboardId: number, data: { is_public: boolean }) {
+// `proceed` (v1.1 M3b): the broadening-confirm re-send after the backend
+// answered `requires_confirmation` on an enable (inner charts would be
+// exposed anonymously — see ShareResponse in ddpui/schemas/dashboard_schema.py).
+export async function updateDashboardSharing(
+  dashboardId: number,
+  data: { is_public: boolean; proceed?: boolean }
+) {
   const result = await apiPut(`/api/dashboards/${dashboardId}/share/`, data);
-  trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { is_public: data.is_public });
+  // A requires_confirmation response flipped nothing — only count committed toggles.
+  if (!result?.requires_confirmation) {
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { is_public: data.is_public });
+  }
   return result;
 }
 

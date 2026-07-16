@@ -41,6 +41,7 @@ import {
   addGrant,
   type AccessGrant,
   type AccessLevel,
+  type ChartCoverageVerdict,
   type InviteRoleSlug,
   type ShareableResourceType,
   type ResourceAccessOverview,
@@ -48,6 +49,7 @@ import {
 import { useUsers } from '@/hooks/api/useUserManagement';
 import { useUserGroups, type UserGroup } from '@/hooks/api/useUserGroups';
 import type { OrgUser } from '@/stores/authStore';
+import { unionCoverageVerdicts } from '@/components/sharing/coverage-confirm-utils';
 import { ADMIN_ROLES, useRbac } from '@/lib/rbac';
 import {
   EMAIL_REGEX,
@@ -134,6 +136,18 @@ interface CommitResult {
   key: string;
   grant: AccessGrant | null;
   error: string | null;
+  /** v1.1 M3b: the backend held this grant behind the dashboard-broadening
+   * warning (`requires_confirmation` — nothing written). The entry stays
+   * staged; the confirm dialog's YES re-sends it with the confirm fields. */
+  confirmation?: ChartCoverageVerdict[] | null;
+}
+
+/** One staged entry held behind the broadening warning, with ITS OWN
+ * verdicts — the re-send's `extend_chart_ids` must be a subset of the charts
+ * warned for THAT grant, so per-entry verdicts can't be pooled. */
+export interface PendingBroadeningEntry {
+  entry: StagedEntry;
+  verdicts: ChartCoverageVerdict[];
 }
 
 /** Drops entries that succeeded (they now show as real grant rows), flips
@@ -207,6 +221,18 @@ export interface ShareStaging {
   /** The search box registers how to flush its residual text at SHARE time
    * (tokenize → validate → stage). Pass null to unregister on unmount. */
   registerResidualFlush: (flush: (() => ResidualFlushResult) | null) => void;
+  /** v1.1 M3b — grants the SHARE commit held behind the dashboard-broadening
+   * warning (nothing written yet). Null when nothing is pending; the modal
+   * renders the BroadeningConfirmDialog off this. */
+  pendingBroadening: PendingBroadeningEntry[] | null;
+  /** The union of the pending entries' verdicts, deduplicated by chart —
+   * what the aggregated confirm dialog lists. */
+  broadeningVerdicts: ChartCoverageVerdict[];
+  /** YES: re-send every held grant with its own extendable-and-editable
+   * `extend_chart_ids` plus `proceed` (extend-all semantics). */
+  confirmBroadening: () => Promise<void>;
+  /** CANCEL: nothing commits; the rows stay staged for editing/removal. */
+  cancelBroadening: () => void;
 }
 
 // The invite-role Select's default: Member everywhere EXCEPT the
@@ -227,6 +253,9 @@ export function useShareStaging({
   const [inviteRole, setInviteRole] = useState<InviteRoleSlug>(() => defaultInviteRole(entityType));
   const [isCommitting, setIsCommitting] = useState(false);
   const [hasPendingInput, setHasPendingInput] = useState(false);
+  // v1.1 M3b — grants held behind the dashboard-broadening warning after a
+  // SHARE commit (one aggregated prompt for the whole batch, per spec §1).
+  const [pendingBroadening, setPendingBroadening] = useState<PendingBroadeningEntry[] | null>(null);
   // Ref (not state): the double-submit guard must trip on the SECOND of two
   // same-tick clicks, before any isCommitting re-render lands.
   const commitInFlightRef = useRef(false);
@@ -242,6 +271,7 @@ export function useShareStaging({
       setStaged([]);
       setInviteRole(defaultInviteRole(entityType));
       setHasPendingInput(false);
+      setPendingBroadening(null);
     }
   }, [isOpen, entityType]);
 
@@ -260,34 +290,49 @@ export function useShareStaging({
   }, []);
 
   const commitOne = useCallback(
-    async (entry: StagedEntry): Promise<CommitResult> => {
+    async (
+      entry: StagedEntry,
+      confirmFields?: { extend_chart_ids?: number[]; proceed?: boolean }
+    ): Promise<CommitResult> => {
       if (!entityType) return { key: entry.key, grant: null, error: 'No resource type' };
       try {
-        const grant = await addGrant(
-          entityType,
-          entityId,
+        const basePayload =
           entry.kind === 'group'
             ? {
-                principal_type: 'group',
+                principal_type: 'group' as const,
                 principal_id: entry.principalId as number,
                 permission: entry.permission,
               }
             : entry.kind === 'user'
               ? {
-                  principal_type: 'user',
+                  principal_type: 'user' as const,
                   principal_id: entry.principalId as number,
                   permission: entry.permission,
                 }
               : {
-                  principal_type: 'user',
+                  principal_type: 'user' as const,
                   email: entry.email as string,
                   permission: entry.permission,
                   // Only consulted by the backend on the unknown-email
                   // invite path (Phase C3); Member unless an admin chose more.
                   invite_role: inviteRole,
-                }
-        );
-        return { key: entry.key, grant: grant ?? null, error: null };
+                };
+        const result = await addGrant(entityType, entityId, {
+          ...basePayload,
+          ...(confirmFields ?? {}),
+        });
+        // v1.1 M3b: a dashboard grant that would widen exposure past an
+        // inner chart's own access comes back requires_confirmation with
+        // nothing written — held for the broadening confirm, not a success.
+        if (result.requires_confirmation) {
+          return {
+            key: entry.key,
+            grant: null,
+            error: null,
+            confirmation: result.under_covering_charts,
+          };
+        }
+        return { key: entry.key, grant: result.grant ?? null, error: null };
       } catch (error) {
         return {
           key: entry.key,
@@ -299,35 +344,12 @@ export function useShareStaging({
     [entityType, entityId, inviteRole]
   );
 
-  const commit = useCallback(async () => {
-    // Double-submit guard: the disabled-button re-render alone can't stop a
-    // second same-tick invoke (double click, Enter+click).
-    if (commitInFlightRef.current || !entityType) return;
-
-    // Flush typed-but-unstaged search text into the batch first — an email
-    // typed without Enter must not be silently discarded. Invalid text
-    // aborts the whole commit; the flush staged it as inline-error rows.
-    const flushed = residualFlushRef.current ? residualFlushRef.current() : [];
-    if (flushed === null) return;
-    const stagedKeys = new Set(staged.map((e) => e.key));
-    const stagedEmails = new Set(staged.map((e) => e.email).filter(Boolean));
-    const flushedTargets = flushed.filter(
-      (e) => isCommittable(e) && !stagedKeys.has(e.key) && !(e.email && stagedEmails.has(e.email))
-    );
-
-    const targets = [...staged.filter(isCommittable), ...flushedTargets];
-    if (targets.length === 0) return;
-
-    commitInFlightRef.current = true;
-    setIsCommitting(true);
-    try {
-      // Small-batch concurrency, not one big Promise.all — a 30-row commit
-      // would otherwise fire 30 simultaneous invite emails/POSTs at once.
-      const results: CommitResult[] = [];
-      for (const batch of chunk(targets, GRANT_COMMIT_BATCH_SIZE)) {
-        results.push(...(await Promise.all(batch.map(commitOne))));
-      }
-
+  // Shared tail for commit() and confirmBroadening(): merge DECIDED results
+  // (success/failure — never pending confirmations) into the staged rows,
+  // fire analytics, revalidate, and toast the summary.
+  const finalizeDecidedResults = useCallback(
+    (results: CommitResult[], targets: StagedEntry[]) => {
+      if (results.length === 0) return;
       setStaged((prev) => mergeCommitResults(prev, results));
 
       const targetByKey = new Map(targets.map((t) => [t.key, t]));
@@ -361,11 +383,109 @@ export function useShareStaging({
       if (toastKind === 'success') toastSuccess.generic(summary);
       else if (toastKind === 'error') toastError.api(summary);
       else toastInfo.generic(summary);
+    },
+    [entityType, onCommitted]
+  );
+
+  const commit = useCallback(async () => {
+    // Double-submit guard: the disabled-button re-render alone can't stop a
+    // second same-tick invoke (double click, Enter+click).
+    if (commitInFlightRef.current || !entityType) return;
+
+    // Flush typed-but-unstaged search text into the batch first — an email
+    // typed without Enter must not be silently discarded. Invalid text
+    // aborts the whole commit; the flush staged it as inline-error rows.
+    const flushed = residualFlushRef.current ? residualFlushRef.current() : [];
+    if (flushed === null) return;
+    const stagedKeys = new Set(staged.map((e) => e.key));
+    const stagedEmails = new Set(staged.map((e) => e.email).filter(Boolean));
+    const flushedTargets = flushed.filter(
+      (e) => isCommittable(e) && !stagedKeys.has(e.key) && !(e.email && stagedEmails.has(e.email))
+    );
+
+    const targets = [...staged.filter(isCommittable), ...flushedTargets];
+    if (targets.length === 0) return;
+
+    commitInFlightRef.current = true;
+    setIsCommitting(true);
+    try {
+      // Small-batch concurrency, not one big Promise.all — a 30-row commit
+      // would otherwise fire 30 simultaneous invite emails/POSTs at once.
+      const results: CommitResult[] = [];
+      for (const batch of chunk(targets, GRANT_COMMIT_BATCH_SIZE)) {
+        results.push(...(await Promise.all(batch.map((entry) => commitOne(entry)))));
+      }
+
+      // v1.1 M3b: grants the backend held behind the broadening warning are
+      // neither successes nor failures — their rows stay staged and ONE
+      // aggregated confirm prompt covers the whole batch (spec §1).
+      const targetByKey = new Map(targets.map((t) => [t.key, t]));
+      const held: PendingBroadeningEntry[] = [];
+      const decided: CommitResult[] = [];
+      for (const result of results) {
+        const entry = targetByKey.get(result.key);
+        if (result.confirmation && entry) {
+          held.push({ entry, verdicts: result.confirmation });
+        } else {
+          decided.push(result);
+        }
+      }
+      if (held.length > 0) {
+        setPendingBroadening(held);
+      }
+      finalizeDecidedResults(decided, targets);
     } finally {
       commitInFlightRef.current = false;
       setIsCommitting(false);
     }
-  }, [staged, entityType, commitOne, onCommitted]);
+  }, [staged, entityType, commitOne, finalizeDecidedResults]);
+
+  // YES on the aggregated broadening prompt: re-send every held grant with
+  // ITS OWN extendable-and-editable charts (`extend_chart_ids` must be a
+  // subset of the charts warned for that grant) plus `proceed`.
+  const confirmBroadening = useCallback(async () => {
+    if (commitInFlightRef.current || !pendingBroadening) return;
+    commitInFlightRef.current = true;
+    setIsCommitting(true);
+    try {
+      const results = await Promise.all(
+        pendingBroadening.map(async ({ entry, verdicts }) => {
+          const extendIds = verdicts
+            .filter((v) => v.extendable && v.viewer_can_edit)
+            .map((v) => v.chart_id);
+          const result = await commitOne(entry, {
+            ...(extendIds.length > 0 ? { extend_chart_ids: extendIds } : {}),
+            proceed: true,
+          });
+          // A confirmed re-send must decide — a second confirmation would
+          // loop forever, so fail the row loudly instead.
+          return result.confirmation
+            ? { ...result, confirmation: null, error: 'Could not confirm this share' }
+            : result;
+        })
+      );
+      setPendingBroadening(null);
+      finalizeDecidedResults(
+        results,
+        pendingBroadening.map((p) => p.entry)
+      );
+    } finally {
+      commitInFlightRef.current = false;
+      setIsCommitting(false);
+    }
+  }, [pendingBroadening, commitOne, finalizeDecidedResults]);
+
+  // CANCEL: nothing was written; the rows stay staged for editing/removal.
+  const cancelBroadening = useCallback(() => setPendingBroadening(null), []);
+
+  // What the aggregated prompt lists: the union of every held grant's
+  // verdicts, deduplicated by chart (the same chart can gap for several
+  // principals; per-grant extend subsets are preserved in pendingBroadening).
+  const broadeningVerdicts = useMemo(
+    () =>
+      pendingBroadening ? unionCoverageVerdicts(pendingBroadening.map((p) => p.verdicts)) : [],
+    [pendingBroadening]
+  );
 
   const committableCount = useMemo(() => staged.filter(isCommittable).length, [staged]);
   const stagedEmailCount = useMemo(
@@ -387,6 +507,10 @@ export function useShareStaging({
     hasPendingInput,
     setHasPendingInput,
     registerResidualFlush,
+    pendingBroadening,
+    broadeningVerdicts,
+    confirmBroadening,
+    cancelBroadening,
   };
 }
 

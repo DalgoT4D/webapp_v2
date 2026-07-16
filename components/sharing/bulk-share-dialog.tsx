@@ -28,7 +28,12 @@ import {
 import {
   bulkApplyAccess,
   type BulkItemRef,
+  type BulkAccessRequest,
   type BulkAccessResponse,
+  type BulkAddGrantPayload,
+  type BulkSetGeneralPayload,
+  type BulkTogglePublicPayload,
+  type ChartCoverageVerdict,
   type ShareableResourceType,
   type AccessLevel,
   type RolePermissionLevel,
@@ -38,7 +43,17 @@ import { useUserGroups } from '@/hooks/api/useUserGroups';
 import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { ROLE_LEVEL_ORDER, ROLE_LEVEL_LABELS, LEVEL_LABELS } from '@/lib/access-labels';
+import {
+  ROLE_LEVEL_ORDER,
+  ROLE_LEVEL_LABELS,
+  LEVEL_LABELS,
+  RESOURCE_NOUNS,
+} from '@/lib/access-labels';
+import { BroadeningConfirmDialog } from '@/components/sharing/broadening-confirm-dialog';
+import {
+  unionCoverageVerdicts,
+  type CoverageDecision,
+} from '@/components/sharing/coverage-confirm-utils';
 
 // Plain-language mapping for the stable machine reason codes from
 // ddpui/core/sharing/sharing_actions.py (see task-17-report.md's table).
@@ -144,6 +159,42 @@ export function BulkShareDialog({
     confirmationItems: BulkAccessResponse['requires_confirmation'];
   } | null>(null);
 
+  // v1.1 M3b — dashboard-BROADENING confirmations (add_grant, set_general
+  // raise, public enable): items held with their under-covering charts
+  // named. ONE aggregated prompt covers the whole selection (spec §1);
+  // `resend` snapshots the action payload so YES can re-send exactly what
+  // was asked, plus the confirm fields, to just the held items.
+  type BroadeningResend =
+    | { action: 'add_grant'; add_grant: BulkAddGrantPayload }
+    | { action: 'set_general'; set_general: BulkSetGeneralPayload }
+    | { action: 'toggle_public'; toggle_public: BulkTogglePublicPayload };
+  const [broadening, setBroadening] = useState<{
+    items: BulkItemRef[];
+    verdicts: ChartCoverageVerdict[];
+    resend: BroadeningResend;
+  } | null>(null);
+
+  const captureBroadening = useCallback(
+    (response: BulkAccessResponse, resend: BroadeningResend) => {
+      // Pure-broadening items only — items with persisting_grants belong to
+      // the narrowing keep/remove panel; its re-send (still without the
+      // broadening confirm fields) returns any broadening half again, so a
+      // mixed narrow+widen request resolves sequentially.
+      const held = response.requires_confirmation.filter(
+        (item) =>
+          (item.under_covering_charts?.length ?? 0) > 0 &&
+          (item.persisting_grants?.length ?? 0) === 0
+      );
+      if (held.length === 0) return;
+      setBroadening({
+        items: held.map(({ rtype, id }) => ({ rtype, id })),
+        verdicts: unionCoverageVerdicts(held.map((item) => item.under_covering_charts ?? [])),
+        resend,
+      });
+    },
+    []
+  );
+
   const personItems: ComboboxItem[] = useMemo(
     () => (orgUsers || []).map((u) => ({ value: String(u.orguser_id), label: u.email })),
     [orgUsers]
@@ -180,15 +231,17 @@ export function BulkShareDialog({
     if (!selectedPersonId || snapshotItems.length === 0) return;
     setIsApplying(true);
     try {
+      const payload: BulkAddGrantPayload = {
+        principal_type: 'user',
+        principal_id: Number(selectedPersonId),
+        permission: personPermission,
+      };
       const response = await bulkApplyAccess({
         items: snapshotItems,
         action: 'add_grant',
-        add_grant: {
-          principal_type: 'user',
-          principal_id: Number(selectedPersonId),
-          permission: personPermission,
-        },
+        add_grant: payload,
       });
+      captureBroadening(response, { action: 'add_grant', add_grant: payload });
       handleResponse(response, 'add_grant');
       setSelectedPersonId('');
     } catch (error) {
@@ -196,21 +249,23 @@ export function BulkShareDialog({
     } finally {
       setIsApplying(false);
     }
-  }, [snapshotItems, selectedPersonId, personPermission, handleResponse]);
+  }, [snapshotItems, selectedPersonId, personPermission, captureBroadening, handleResponse]);
 
   const handleAddGroup = useCallback(async () => {
     if (!selectedGroupId || snapshotItems.length === 0) return;
     setIsApplying(true);
     try {
+      const payload: BulkAddGrantPayload = {
+        principal_type: 'group',
+        principal_id: Number(selectedGroupId),
+        permission: groupPermission,
+      };
       const response = await bulkApplyAccess({
         items: snapshotItems,
         action: 'add_grant',
-        add_grant: {
-          principal_type: 'group',
-          principal_id: Number(selectedGroupId),
-          permission: groupPermission,
-        },
+        add_grant: payload,
       });
+      captureBroadening(response, { action: 'add_grant', add_grant: payload });
       handleResponse(response, 'add_grant');
       setSelectedGroupId('');
     } catch (error) {
@@ -218,29 +273,39 @@ export function BulkShareDialog({
     } finally {
       setIsApplying(false);
     }
-  }, [snapshotItems, selectedGroupId, groupPermission, handleResponse]);
+  }, [snapshotItems, selectedGroupId, groupPermission, captureBroadening, handleResponse]);
 
   const applyGeneralAccess = useCallback(
     async (removeGrantIds?: number[]) => {
       if (snapshotItems.length === 0) return;
       setIsApplying(true);
       try {
+        const payload: BulkSetGeneralPayload = {
+          analyst_level: analystLevel,
+          member_level: memberLevel,
+          ...(removeGrantIds !== undefined ? { remove_grant_ids: removeGrantIds } : {}),
+        };
         const response = await bulkApplyAccess({
           items: snapshotItems,
           action: 'set_general',
-          set_general: {
-            analyst_level: analystLevel,
-            member_level: memberLevel,
-            ...(removeGrantIds !== undefined ? { remove_grant_ids: removeGrantIds } : {}),
-          },
+          set_general: payload,
         });
-        if (response.requires_confirmation.length > 0) {
+        // Narrowing half (persisting grants) → the keep/remove panel below;
+        // pure-broadening items → the aggregated confirm dialog. A mixed
+        // narrow+widen request resolves sequentially: the keep/remove
+        // re-send still lacks the broadening confirm fields, so its items
+        // come back as pure broadening on the next round trip.
+        const narrowingItems = response.requires_confirmation.filter(
+          (item) => (item.persisting_grants?.length ?? 0) > 0
+        );
+        if (narrowingItems.length > 0) {
           setConfirmState({
             analystLevel,
             memberLevel,
-            confirmationItems: response.requires_confirmation,
+            confirmationItems: narrowingItems,
           });
         }
+        captureBroadening(response, { action: 'set_general', set_general: payload });
         handleResponse(response, 'set_general');
       } catch (error) {
         toastError.api(error, 'update general access');
@@ -248,7 +313,7 @@ export function BulkShareDialog({
         setIsApplying(false);
       }
     },
-    [snapshotItems, analystLevel, memberLevel, handleResponse]
+    [snapshotItems, analystLevel, memberLevel, captureBroadening, handleResponse]
   );
 
   const handleApplyGeneral = useCallback(() => applyGeneralAccess(undefined), [applyGeneralAccess]);
@@ -274,6 +339,10 @@ export function BulkShareDialog({
           action: 'toggle_public',
           toggle_public: { is_public: isPublic },
         });
+        captureBroadening(response, {
+          action: 'toggle_public',
+          toggle_public: { is_public: isPublic },
+        });
         handleResponse(response, 'toggle_public');
       } catch (error) {
         toastError.api(error, 'update the public link');
@@ -281,8 +350,54 @@ export function BulkShareDialog({
         setIsApplying(false);
       }
     },
-    [snapshotItems, handleResponse]
+    [snapshotItems, captureBroadening, handleResponse]
   );
+
+  // YES on the aggregated broadening prompt: re-send the SAME action to just
+  // the held items, plus the confirm fields. The `extend_chart_ids` list is
+  // flat — the backend partitions it per dashboard by tile membership.
+  // (Public exposure is never extendable, so toggle_public only adds
+  // `proceed` — its payload has no extend field.)
+  const handleBroadeningConfirm = useCallback(
+    async (decision: CoverageDecision) => {
+      if (!broadening) return;
+      setIsApplying(true);
+      try {
+        const confirmFields = {
+          ...(decision.extendChartIds.length > 0
+            ? { extend_chart_ids: decision.extendChartIds }
+            : {}),
+          proceed: true,
+        };
+        const { resend, items } = broadening;
+        const request: BulkAccessRequest =
+          resend.action === 'add_grant'
+            ? { items, action: 'add_grant', add_grant: { ...resend.add_grant, ...confirmFields } }
+            : resend.action === 'set_general'
+              ? {
+                  items,
+                  action: 'set_general',
+                  set_general: { ...resend.set_general, ...confirmFields },
+                }
+              : {
+                  items,
+                  action: 'toggle_public',
+                  toggle_public: { ...resend.toggle_public, proceed: true },
+                };
+        const response = await bulkApplyAccess(request);
+        setBroadening(null);
+        handleResponse(response, resend.action);
+      } catch (error) {
+        toastError.api(error, 'apply this change');
+      } finally {
+        setIsApplying(false);
+      }
+    },
+    [broadening, handleResponse]
+  );
+
+  // CANCEL: nothing was written for the held items; they stay selected.
+  const handleBroadeningCancel = useCallback(() => setBroadening(null), []);
 
   const skipReasonGroups = result ? groupSkipReasons(result.skipped) : [];
 
@@ -541,6 +656,24 @@ export function BulkShareDialog({
             </Button>
           </div>
         </div>
+
+        {/* v1.1 M3b — ONE aggregated dashboard-broadening prompt for the
+            whole selection (spec §1: no per-chart or per-item picker). */}
+        {broadening && broadening.verdicts.length > 0 && (
+          <BroadeningConfirmDialog
+            open
+            resourceName={
+              broadening.items.length === 1
+                ? RESOURCE_NOUNS[broadening.items[0].rtype]
+                : `${broadening.items.length} ${entityLabel}`
+            }
+            verdicts={broadening.verdicts}
+            containerNoun="selection"
+            isSubmitting={isApplying}
+            onCancel={handleBroadeningCancel}
+            onConfirm={handleBroadeningConfirm}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

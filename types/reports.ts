@@ -1,6 +1,7 @@
 // Report Types
 
 import type { Dashboard } from '@/hooks/api/useDashboards';
+import type { ChartCoverageVerdict } from '@/hooks/api/useResourceAccess';
 
 export interface DateColumn {
   schema_name: string;
@@ -75,4 +76,11 @@ export interface ShareStatus {
   public_access_count: number;
   last_public_accessed?: string;
   public_shared_at?: string;
+  // v1.1 M3b (dashboards): enabling the public link can come back as a
+  // confirmation instead of a flip — the inner charts the link would expose
+  // anonymously, named. When set, NOTHING was changed server-side; re-send
+  // with `proceed: true` to commit. Mirrors ShareResponse in
+  // ddpui/schemas/dashboard_schema.py. Absent for reports (frozen configs).
+  requires_confirmation?: boolean;
+  under_covering_charts?: ChartCoverageVerdict[];
 }

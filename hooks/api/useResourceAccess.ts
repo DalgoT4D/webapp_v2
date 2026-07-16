@@ -70,6 +70,41 @@ export interface AccessViewer {
   is_owner: boolean;
 }
 
+// ---- Chart coverage (v1.1 M3b) ----
+// Mirrors ddpui/schemas/access_schema.py's PrincipalGapOut/ChartCoverageOut —
+// the "honesty ledger" a dashboard's audience is checked against. Shared by
+// the embed-time warning (GET .../chart-coverage/) and every dashboard
+// broadening path (grant-add, general-access raise, public enable — each
+// returns the same shape under `under_covering_charts`).
+
+export interface PrincipalGap {
+  principal_type: 'user' | 'group' | 'invite';
+  principal_id: number | null;
+  name: string | null;
+  email: string | null;
+  // A Member-role principal: extend never copies these onto the chart
+  // (Member chart sharing is deferred) — only acknowledgeable via `proceed`.
+  skipped_member: boolean;
+}
+
+export interface ChartCoverageVerdict {
+  chart_id: number;
+  title: string;
+  covered: boolean;
+  // 'analyst' (extendable) and/or 'member' (informational — charts can't
+  // admit Members in v1.1).
+  role_gaps: string[];
+  principal_gaps: PrincipalGap[];
+  // The dashboard's public link exposes this chart anonymously —
+  // informational, never extendable.
+  public_exposure: boolean;
+  // True when "extend" can close at least one gap on this chart.
+  extendable: boolean;
+  // True when the CALLING viewer resolves to Edit on this chart — extend
+  // requires it; a viewer without it gets a request-Edit/ask-owner prompt.
+  viewer_can_edit: boolean;
+}
+
 export interface ResourceAccessOverview {
   resource_type: ShareableResourceType;
   resource_id: string;
@@ -124,14 +159,32 @@ export interface AddGrantPayload {
   // OrgUser (the invite path). Defaults to member server-side; analyst/admin
   // require the CALLER to be an admin (403 otherwise).
   invite_role?: InviteRoleSlug;
+  // v1.1 M3b — the dashboard-broadening confirm/proceed contract (mirrors
+  // `remove_grant_ids` on the narrowing side): re-send with one or both
+  // present to commit a grant a first call flagged with
+  // `requires_confirmation`. Ignored for every rtype but dashboard.
+  extend_chart_ids?: number[];
+  proceed?: boolean;
+}
+
+// POST grants response (v1.1 M3b): either the created/updated grant, or a
+// dashboard-broadening confirmation (`requires_confirmation=true`, nothing
+// written) naming the under-covering charts. Callers MUST check
+// `requires_confirmation` before treating `grant` as committed — a plain
+// `.grant` read (the pre-M3b shape) would silently treat an unwritten
+// confirmation prompt as success.
+export interface GrantCreateResult {
+  requires_confirmation: boolean;
+  under_covering_charts: ChartCoverageVerdict[];
+  grant: AccessGrant | null;
 }
 
 export async function addGrant(
   rtype: ShareableResourceType,
   resourceId: number,
   payload: AddGrantPayload
-): Promise<AccessGrant> {
-  const response: ApiResponse<AccessGrant> = await apiPost(
+): Promise<GrantCreateResult> {
+  const response: ApiResponse<GrantCreateResult> = await apiPost(
     `/api/access/${rtype}/${resourceId}/grants/`,
     payload
   );
@@ -151,11 +204,18 @@ export interface SetGeneralAccessPayload {
   member_level: RolePermissionLevel;
   // Present (possibly []) only when re-committing after a requires_confirmation response.
   remove_grant_ids?: number[];
+  // v1.1 M3b — the BROADENING mirror, dashboards only: re-send with one or
+  // both present to commit a RAISE a first call flagged with
+  // `requires_confirmation` (narrowing one role + widening the other in the
+  // same request may need both confirm fields at once).
+  extend_chart_ids?: number[];
+  proceed?: boolean;
 }
 
 export interface SetGeneralAccessResult {
   requires_confirmation: boolean;
   persisting_grants: AccessGrant[];
+  under_covering_charts: ChartCoverageVerdict[];
   general_access: GeneralAccess | null;
 }
 
@@ -207,6 +267,10 @@ export interface BulkAddGrantPayload {
   principal_id?: number;
   email?: string;
   permission: AccessLevel;
+  // v1.1 M3b — flat, global lists (see BulkSetGeneralPayload's note below);
+  // the server partitions `extend_chart_ids` per dashboard by tile membership.
+  extend_chart_ids?: number[];
+  proceed?: boolean;
 }
 
 // Mirrors SetGeneralAccessPayload above (D1 per-role rework) — the bulk
@@ -218,10 +282,18 @@ export interface BulkSetGeneralPayload {
   // Present (possibly []) only when re-committing after a requires_confirmation
   // response — a flat, global list of grant ids (unique PKs, no per-resource nesting needed).
   remove_grant_ids?: number[];
+  // v1.1 M3b — the broadening mirror: a flat, global list of chart ids,
+  // partitioned per dashboard server-side by tile membership.
+  extend_chart_ids?: number[];
+  proceed?: boolean;
 }
 
 export interface BulkTogglePublicPayload {
   is_public: boolean;
+  // v1.1 M3b — enabling a dashboard's public link exposes every tile
+  // anonymously; public exposure is never extendable, so there is no
+  // `extend_chart_ids` here, only the acknowledge-and-commit flag.
+  proceed?: boolean;
 }
 
 export interface BulkAccessRequest {
@@ -242,6 +314,9 @@ export interface BulkSkippedItem extends BulkItemRef {
 
 export interface BulkConfirmationItem extends BulkItemRef {
   persisting_grants: AccessGrant[];
+  // v1.1 M3b — populated for dashboard BROADENING (set_general raise,
+  // add_grant, toggle_public enable): the exposed charts, named.
+  under_covering_charts: ChartCoverageVerdict[];
 }
 
 export interface BulkAccessResponse {

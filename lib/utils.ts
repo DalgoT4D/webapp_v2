@@ -28,3 +28,19 @@ export function getApiErrorStatus(error: unknown): number | undefined {
   }
   return undefined;
 }
+
+/**
+ * Reads the parsed JSON response body off an error thrown by `apiFetch`
+ * (which stamps `.body` alongside `.status` for a non-2xx response — see
+ * lib/api.ts). Needed wherever a non-2xx response carries a typed payload
+ * the caller must act on, not just a message string — e.g. `update_dashboard`'s
+ * 409 `EmbedCoverageConfirmation` (v1.1 M3b), which names the under-covering
+ * charts a save must re-prompt for. Duck-typed for the same reason as
+ * `getApiErrorStatus` above.
+ */
+export function getApiErrorBody<T = unknown>(error: unknown): T | undefined {
+  if (error && typeof error === 'object' && 'body' in error) {
+    return (error as { body?: T }).body;
+  }
+  return undefined;
+}
