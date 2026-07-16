@@ -1,15 +1,10 @@
 'use client';
 
 /**
- * BulkShareDialog — the "Share" action opened from a list's bulk-selection
- * bar (Dashboards/Reports/Alerts, task-17f). One POST per action to
- * /api/access/bulk/ — apply-where-possible, never all-or-nothing (see
- * task-17-report.md for the verbatim backend contract).
- *
- * Deliberately its own component rather than folded into ShareModal: a bulk
- * action has no single "current state" to show (each selected resource can
- * already differ), so every section here is a one-shot action + result,
- * not a live-editing view of one resource's grants.
+ * BulkShareDialog — the "Share" action on a list's bulk-selection bar. One
+ * POST per action to /api/access/bulk/, apply-where-possible. Deliberately
+ * separate from ShareModal: a bulk action has no single current state to
+ * show, so every section is a one-shot action + result.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Share2, Users, UsersRound, Shield, Globe, Loader2 } from 'lucide-react';
@@ -55,9 +50,8 @@ import {
   type CoverageDecision,
 } from '@/components/sharing/coverage-confirm-utils';
 
-// Plain-language mapping for the stable machine reason codes from
-// ddpui/core/sharing/sharing_actions.py (see task-17-report.md's table).
-// Kept here (not in useResourceAccess.ts) since it's presentation, not contract.
+// Plain-language mapping for the backend's stable skip-reason codes. Kept
+// here (not in useResourceAccess.ts) since it's presentation, not contract.
 export const SKIP_REASON_COPY: Record<string, string> = {
   not_found: "This item couldn't be found.",
   share_permission_denied: "You don't have permission to share this.",
@@ -120,15 +114,9 @@ export function BulkShareDialog({
   const { users: orgUsers } = useUsers();
   const { data: groups } = useUserGroups();
 
-  // Snapshot `items` at the moment the dialog opens and act on that snapshot
-  // for the whole open lifecycle — NOT the live `items` prop. The parent
-  // derives `items` from its current selection, and `onApplied` deselects
-  // applied ids right away (see the three list pages), so the live prop
-  // shrinks (even to []) the instant the first action resolves. Without a
-  // snapshot, a second action here would silently narrow to whatever's left
-  // selected — or, once nothing is, send an empty `items` array and 400.
-  // Parent deselection is fine for AFTER this dialog closes; it must not
-  // change what an already-open dialog is acting on.
+  // Snapshot `items` when the dialog opens, not the live prop: onApplied
+  // deselects applied ids immediately, shrinking the live prop, so a second
+  // action would silently narrow (or 400 on an empty list) without this.
   const [snapshotItems, setSnapshotItems] = useState<BulkItemRef[]>(items);
   const wasOpenRef = useRef(isOpen);
   useEffect(() => {
@@ -136,8 +124,7 @@ export function BulkShareDialog({
       setSnapshotItems(items);
     }
     wasOpenRef.current = isOpen;
-    // Deliberately excludes `items` — re-snapshotting on every prop change
-    // would defeat the point; only a closed->open transition re-snapshots.
+    // Deliberately excludes `items` — only a closed->open transition re-snapshots.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
@@ -145,9 +132,8 @@ export function BulkShareDialog({
   const [personPermission, setPersonPermission] = useState<AccessLevel>('view');
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [groupPermission, setGroupPermission] = useState<AccessLevel>('view');
-  // Per-role general-access levels (D1 rework) — replaces the old
-  // audience+level pair. Mirrors ShareModal's GeneralAccessSection vocabulary:
-  // Analysts and Members are each independently "none"/"view"/"edit".
+  // Per-role general-access levels: Analysts and Members are each
+  // independently "none"/"view"/"edit".
   const [analystLevel, setAnalystLevel] = useState<RolePermissionLevel>('none');
   const [memberLevel, setMemberLevel] = useState<RolePermissionLevel>('none');
 
@@ -159,11 +145,9 @@ export function BulkShareDialog({
     confirmationItems: BulkAccessResponse['requires_confirmation'];
   } | null>(null);
 
-  // v1.1 M3b — dashboard-BROADENING confirmations (add_grant, set_general
-  // raise, public enable): items held with their under-covering charts
-  // named. ONE aggregated prompt covers the whole selection (spec §1);
-  // `resend` snapshots the action payload so YES can re-send exactly what
-  // was asked, plus the confirm fields, to just the held items.
+  // Dashboard-broadening confirmations: held items with their charts named,
+  // one aggregated prompt for the whole selection. `resend` snapshots the
+  // action payload so YES re-sends exactly what was asked to just the held items.
   type BroadeningResend =
     | { action: 'add_grant'; add_grant: BulkAddGrantPayload }
     | { action: 'set_general'; set_general: BulkSetGeneralPayload }
@@ -177,9 +161,8 @@ export function BulkShareDialog({
   const captureBroadening = useCallback(
     (response: BulkAccessResponse, resend: BroadeningResend) => {
       // Pure-broadening items only — items with persisting_grants belong to
-      // the narrowing keep/remove panel; its re-send (still without the
-      // broadening confirm fields) returns any broadening half again, so a
-      // mixed narrow+widen request resolves sequentially.
+      // the narrowing keep/remove panel; a mixed narrow+widen request
+      // resolves sequentially.
       const held = response.requires_confirmation.filter(
         (item) =>
           (item.under_covering_charts?.length ?? 0) > 0 &&
@@ -204,10 +187,8 @@ export function BulkShareDialog({
     [groups]
   );
 
-  // Handles a resolved bulk response uniformly across all three actions:
-  // always notify the caller (so already-committed items revalidate/deselect
-  // right away); only toast + fire analytics once the round-trip is CLOSED —
-  // i.e. this specific response carries no pending confirmation.
+  // Always notify the caller so committed items revalidate/deselect right
+  // away; only toast + fire analytics once no confirmation is pending.
   const handleResponse = useCallback(
     (response: BulkAccessResponse, action: 'add_grant' | 'set_general' | 'toggle_public') => {
       setResult(response);
@@ -290,11 +271,9 @@ export function BulkShareDialog({
           action: 'set_general',
           set_general: payload,
         });
-        // Narrowing half (persisting grants) → the keep/remove panel below;
-        // pure-broadening items → the aggregated confirm dialog. A mixed
-        // narrow+widen request resolves sequentially: the keep/remove
-        // re-send still lacks the broadening confirm fields, so its items
-        // come back as pure broadening on the next round trip.
+        // Narrowing half (persisting grants) → keep/remove panel;
+        // pure-broadening items → the aggregated confirm dialog. Mixed
+        // requests resolve sequentially across round trips.
         const narrowingItems = response.requires_confirmation.filter(
           (item) => (item.persisting_grants?.length ?? 0) > 0
         );
@@ -353,11 +332,8 @@ export function BulkShareDialog({
     [snapshotItems, captureBroadening, handleResponse]
   );
 
-  // YES on the aggregated broadening prompt: re-send the SAME action to just
-  // the held items, plus the confirm fields. The `extend_chart_ids` list is
-  // flat — the backend partitions it per dashboard by tile membership.
-  // (Public exposure is never extendable, so toggle_public only adds
-  // `proceed` — its payload has no extend field.)
+  // YES: re-send the same action to just the held items, plus the confirm
+  // fields. toggle_public only adds `proceed` — public exposure is never extendable.
   const handleBroadeningConfirm = useCallback(
     async (decision: CoverageDecision) => {
       if (!broadening) return;
@@ -657,8 +633,8 @@ export function BulkShareDialog({
           </div>
         </div>
 
-        {/* v1.1 M3b — ONE aggregated dashboard-broadening prompt for the
-            whole selection (spec §1: no per-chart or per-item picker). */}
+        {/* One aggregated broadening prompt for the whole selection —
+            no per-chart or per-item picker. */}
         {broadening && broadening.verdicts.length > 0 && (
           <BroadeningConfirmDialog
             open

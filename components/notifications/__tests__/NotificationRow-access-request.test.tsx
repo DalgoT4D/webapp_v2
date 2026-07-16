@@ -1,9 +1,7 @@
 /**
- * NotificationRow — inline Approve/Deny on an access-request notification
- * (batch 2 / F6). A notification only gets `metadata` when the backend
- * created it for a new access request (see ddpui/core/sharing/access_requests.py
- * `_notify_new_request`); every other notification keeps rendering as plain
- * text (`metadata` null/absent), covered by NotificationRow.test.tsx.
+ * NotificationRow inline Approve/Deny on an access-request notification.
+ * Only access-request notifications carry `metadata`; every other
+ * notification renders as plain text (covered by NotificationRow.test.tsx).
  */
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

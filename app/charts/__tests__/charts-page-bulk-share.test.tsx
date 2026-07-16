@@ -1,14 +1,8 @@
 /**
- * ChartsPage — v1.1 M3a: per-row Share action + bulk-selection bar +
- * BulkShareDialog wiring, mirroring metrics-library-bulk-share.test.tsx /
- * kpi-page-bulk-share.test.tsx (M5). ShareModal/BulkShareDialog themselves
- * are unit-tested elsewhere, so they're stubbed here to isolate the list's
- * own wiring: checkbox column, row Share button, the bar's count/select-all/
- * clear, and the items/onApplied contract handed to the dialog.
- *
- * This selection is a SEPARATE mechanism from the page's pre-existing
- * bulk-delete "selection mode" — see app/charts/page.tsx's
- * selectedShareChartIds vs. selectedCharts.
+ * ChartsPage share wiring: checkbox column, row Share button, bulk bar, and
+ * the items/onApplied contract. ShareModal/BulkShareDialog are stubbed —
+ * unit-tested elsewhere. The share selection is separate from the page's
+ * pre-existing bulk-delete selection.
  */
 import React from 'react';
 import { render, screen } from '@testing-library/react';

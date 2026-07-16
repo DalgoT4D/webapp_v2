@@ -114,8 +114,7 @@ describe('ShareModal — People with access', () => {
     expect(ownerRow).toHaveTextContent('Asha Kumar');
     expect(ownerRow).toHaveTextContent('Owner');
     expect(screen.queryByTestId('share-grant-remove-1')).not.toBeInTheDocument();
-    // Owner has no permission dropdown at all (design: "resource sharing-
-    // scrollable list of people with access" — plain text "Owner" only).
+    // Owner has no permission dropdown at all — plain text "Owner" only.
     expect(within(ownerRow).queryByRole('combobox')).not.toBeInTheDocument();
   });
 
@@ -162,11 +161,9 @@ describe('ShareModal — People with access', () => {
   });
 
   it('renders pending grants with a working permission dropdown and remove button', () => {
-    // Task 10 fix round 1 (deliberate spec change): pending rows get the
-    // same permission dropdown as active ones — changing it re-POSTs via
-    // the email path (the backend's update_or_create keyed on
-    // pending_email updates the row in place). POST behavior is covered in
-    // share-modal-email-invite.test.tsx.
+    // Pending rows deliberately get the same permission dropdown as active
+    // ones — changing it re-POSTs via the email path (covered in
+    // share-modal-email-invite.test.tsx).
     renderModal({
       grants: [
         {
@@ -394,12 +391,8 @@ describe('ShareModal — capability-gated sections', () => {
 });
 
 describe('ShareModal — entityType="alert" (task-17f per-item Share, cross-task gap closure)', () => {
-  // Alerts are public_link=False in the rtype registry (task-17-report.md's
-  // skip table) — the access overview's capabilities.public_link reflects
-  // that, and the SAME capability-gate mechanism pinned above (no
-  // alert-specific conditional in ShareModal) hides the section. This test
-  // exercises it through the real entityType="alert" path end-to-end,
-  // closing the brief's explicit "no public-link section" assertion.
+  // Alerts are public_link=False — the same capability gate pinned above
+  // hides the section, exercised here through the real alert path.
   beforeEach(() => jest.clearAllMocks());
 
   it('opens with alert rtype, hides the public-link section, and still shows People with access', async () => {

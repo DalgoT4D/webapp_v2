@@ -1,17 +1,11 @@
 'use client';
 
 /**
- * The dashboard-broadening warning (v1.1, design frame "resource sharing-
- * warning modal.jpg"): widening a container's audience past its inner
- * charts' own access lists the affected charts BY NAME, default emphasis on
- * CANCEL (red outline, focused), teal YES = extend-all where possible.
- *
- * Fires on every widening path that returns `requires_confirmation` +
- * `under_covering_charts`: grant-add (share modal SHARE commit and
- * permission changes), the bulk share dialog's aggregated prompt, and
- * enabling the public link. Capability-driven off the verdicts alone — no
- * rtype conditionals; `containerNoun` keeps the copy reusable for any
- * future container rtype.
+ * Dashboard-broadening warning: widening a container's audience past its
+ * inner charts' own access lists the affected charts by name; CANCEL is the
+ * default, YES = extend-all where possible. Fires on every widening path
+ * that returns requires_confirmation. Capability-driven off the verdicts —
+ * no rtype conditionals.
  */
 import React, { useMemo, useRef } from 'react';
 import {
@@ -38,9 +32,8 @@ interface BroadeningConfirmDialogProps {
   containerNoun?: string;
   isSubmitting?: boolean;
   onCancel: () => void;
-  /** YES: `extendChartIds` = the extendable charts this viewer can edit
-   * (may be empty — public/Member exposure is only acknowledgeable);
-   * `proceed` is always true (either confirm field commits server-side). */
+  /** YES: extendChartIds = extendable charts this viewer can edit (may be
+   * empty); proceed is always true. */
   onConfirm: (decision: CoverageDecision) => void;
 }
 
@@ -67,8 +60,7 @@ export function BroadeningConfirmDialog({
       <DialogContent
         data-testid="broadening-confirm-dialog"
         className="sm:max-w-md"
-        // Default emphasis on CANCEL (spec §1: "default button Cancel") —
-        // land the initial focus there instead of the first focusable.
+        // Default emphasis on CANCEL — land the initial focus there.
         onOpenAutoFocus={(e) => {
           e.preventDefault();
           cancelRef.current?.focus();

@@ -39,8 +39,7 @@ interface GroupsTableProps {
   groups: UserGroup[] | undefined;
   isLoading: boolean;
   onView: (group: UserGroup) => void;
-  /** Opens the unified GroupFormDialog in edit mode (name + members +
-   * Existing Members) — replaces the old rename-only dialog. */
+  /** Opens GroupFormDialog in edit mode (name + members). */
   onEdit: (group: UserGroup) => void;
   onDelete: (group: UserGroup) => void;
   /** Empty-state CTA opens the create-group dialog, owned by AccessPage. */
@@ -66,9 +65,7 @@ export function GroupsTable({
   const canManageGroup = (group: UserGroup) =>
     canManageAny && (isAdmin || group.created_by?.email === currentOrgUser?.email);
 
-  // Column sorting (F5): Name + Created, matching the design's chevron
-  // affordance (group.jpg). Members/Created By aren't in scope — the design
-  // shows chevrons there too, but the brief scopes sorting to Name/Created.
+  // Column sorting: Name + Created only.
   const [sortBy, setSortBy] = useState<GroupSortColumn>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 

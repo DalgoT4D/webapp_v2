@@ -1,8 +1,7 @@
 /**
- * ShareModal — in-modal request decisions (Milestone 9). `incoming` from
- * GET /api/access/requests/ is already filtered server-side to requests the
- * caller can decide (owner/admin) — the modal only narrows it to requests
- * on THIS resource and renders Approve/Decline, no extra permission check.
+ * ShareModal in-modal request decisions. `incoming` is already filtered
+ * server-side to what the caller can decide — the modal only narrows it to
+ * this resource and renders Approve/Decline.
  */
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';

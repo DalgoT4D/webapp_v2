@@ -2,11 +2,8 @@ import type { Dashboard } from '@/hooks/api/useDashboards';
 import type { RolePermissionLevel } from '@/hooks/api/useResourceAccess';
 import { audienceLabels, LEVEL_LABELS, ROLE_LEVEL_LABELS } from '@/lib/access-labels';
 
-// Labels for the non-private general-access badge shown on the dashboards
-// list. "private" gets its own dedicated badge instead — see
-// renderDashboardTableRow. "analysts_plus"/"all_users" reuse the same wording
-// as ShareModal/BulkShareDialog/AccessManagement where it still applies;
-// "all_users" keeps a deliberately shorter abbreviation to fit the badge.
+// Labels for the non-private general-access badge; "private" gets its own
+// dedicated badge. "all_users" keeps a shorter abbreviation to fit the badge.
 const SHARED_AUDIENCE_LABELS = audienceLabels();
 export const AUDIENCE_BADGE_LABELS: Record<string, string> = {
   admins: SHARED_AUDIENCE_LABELS.admins,
@@ -14,8 +11,7 @@ export const AUDIENCE_BADGE_LABELS: Record<string, string> = {
   all_users: 'Everyone in org',
 };
 
-// Same level labels the ShareModal uses (its read-only General-access summary
-// renders "{audience} · {level}"); surfaced here in the audience badge tooltip.
+// Same level labels the ShareModal uses; surfaced in the badge tooltip.
 export const GENERAL_LEVEL_LABELS: Record<string, string> = LEVEL_LABELS;
 
 /**
@@ -27,28 +23,10 @@ export function audienceBadgeTitle(audienceLabel: string, level?: string | null)
   return levelLabel ? `${audienceLabel} · ${levelLabel}` : audienceLabel;
 }
 
-// ---------------------------------------------------------------------------
-// D1 per-role general-access badge (dashboards-list, replaces the old
-// general_audience/general_level derivation above for DashboardResponse
-// consumers). analyst_level/member_level are each independently
-// "none"/"view"/"edit", set by the backend's per-role access_resolver -- the
-// badge vocabulary has to be honest about BOTH roles rather than collapsing
-// to whichever is higher (that was the old tiered-model behavior, where any
-// Member access implied every org member, Analysts included, could see the
-// resource; per-role, that's no longer true -- analyst_level='none' with
-// member_level='view' means Analysts have ZERO access):
-//   - both "none"                    -> the dedicated Private badge (kind "private")
-//   - both >= "view" AND equal       -> "Everyone in org · {level}" (kind "everyone")
-//   - only analyst_level >= "view"   -> the analysts-scoped badge (kind "analysts"),
-//     accurate on its own since Members truly have none
-//   - levels diverge (including one   -> a per-role badge (kind "custom") whose
-//     role being "none" while the        tooltip always spells out both roles
-//     other is not)                      explicitly, e.g. "Analysts: No access
-//                                         · Members: Can View"
-// Both null/undefined (predates general-access config, or an anonymous
-// public-view caller) yields no badge at all -- same as the old null-audience
-// case.
-// ---------------------------------------------------------------------------
+// Per-role general-access badge. The vocabulary must be honest about BOTH
+// roles — analyst_level='none' with member_level='view' means Analysts have
+// zero access, so diverging levels get a "custom" badge whose tooltip
+// spells out both roles. Both levels null/undefined yields no badge.
 
 export type GeneralAccessBadgeKind = 'private' | 'analysts' | 'everyone' | 'custom';
 
@@ -62,9 +40,8 @@ export interface GeneralAccessBadge {
   tooltip?: string;
 }
 
-/** "Analysts: No access · Members: Can View" -- always names both roles, so a
- * diverging pair (including one role at "none") can never be misread as
- * uniform org-wide access. */
+/** "Analysts: No access · Members: Can View" — always names both roles so a
+ * diverging pair can't be misread as uniform org-wide access. */
 export function perRoleBadgeTooltip(
   analystLevel: RolePermissionLevel,
   memberLevel: RolePermissionLevel

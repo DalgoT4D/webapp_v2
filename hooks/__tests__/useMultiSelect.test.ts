@@ -1,8 +1,6 @@
 /**
- * useMultiSelect — generic row-selection state for bulk-action bars
- * (Dashboards/Reports/Alerts lists, task-17f). Selection persists across
- * pages (selectPage/deselectPage only touch the ids handed to them), and is
- * capped so a bulk POST can never exceed the backend's BULK_MAX_ITEMS (100).
+ * useMultiSelect — selection persists across pages and is capped so a bulk
+ * POST can never exceed the backend's item limit.
  */
 import { renderHook, act } from '@testing-library/react';
 import { useMultiSelect } from '@/hooks/useMultiSelect';

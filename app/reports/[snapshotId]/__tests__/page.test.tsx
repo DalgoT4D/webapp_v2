@@ -1,12 +1,7 @@
 /**
- * SnapshotViewerPage — 403 interception (Milestone 9 request-access) and
- * the summary CommentPopover's fixed gating (previously locked behind
- * canEdit/CAN_EDIT_DASHBOARDS, which blocked Members from commenting at
- * all — Task 14 relaxed comment creation to resolver-View).
- *
- * `DashboardNativeView` is heavy (grid layout, chart rendering, filters) and
- * is covered by its own suites — stubbed here so this file only asserts the
- * page-level branching this task changed.
+ * SnapshotViewerPage: 403 interception and the summary CommentPopover's
+ * gating (any viewer can comment, not just canEdit). DashboardNativeView is
+ * heavy and covered by its own suites — stubbed here.
  */
 import React from 'react';
 import { render, screen } from '@testing-library/react';

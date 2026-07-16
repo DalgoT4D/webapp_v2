@@ -1,17 +1,8 @@
 /**
- * ShareModal tests for the Phase C review fixes on the unified add-people
- * staging flow (share-modal-staging.tsx):
- *
- *  F1 — browse-without-typing: focusing the empty search opens a scrollable
- *       list of ALL groups first, then ALL org members (dup entries disabled).
- *  F2 — commit() guards against double submission (rapid double invoke
- *       sends exactly one batch).
- *  F3 — text typed but not staged is not silently dropped: SHARE flushes it
- *       through tokenize/validate first (invalid text blocks the commit),
- *       and blur stages valid residual email text.
- *
- * Extends share-modal-access / share-modal-groups / share-modal-email-invite
- * tests, which must keep passing unmodified.
+ * ShareModal add-people staging flow (share-modal-staging.tsx):
+ * browse-without-typing (empty focus lists all groups then all members),
+ * commit()'s double-submission guard, and typed-but-unstaged text never
+ * being silently dropped (SHARE flushes it; invalid text blocks the commit).
  */
 import React from 'react';
 import { render, renderHook, screen, waitFor, fireEvent, act } from '@testing-library/react';

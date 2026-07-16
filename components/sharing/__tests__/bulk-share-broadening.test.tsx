@@ -1,9 +1,7 @@
 /**
- * BulkShareDialog — v1.1 M3b dashboard-broadening confirmations: bulk
- * add_grant / toggle_public (enable) items held with their under-covering
- * charts come back in `requires_confirmation`; the dialog aggregates them
- * into ONE prompt (spec §1) and YES re-sends the SAME action to just the
- * held items with the confirm fields.
+ * BulkShareDialog broadening confirmations: held items come back in
+ * requires_confirmation; the dialog aggregates them into one prompt and YES
+ * re-sends the same action to just the held items with confirm fields.
  */
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';

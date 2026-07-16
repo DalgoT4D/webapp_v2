@@ -1,10 +1,7 @@
 /**
- * Tests for ChartElementView's dashboard_id wiring.
- *
- * Backend contract (task-04): GET /api/charts/{id}/ and GET /api/charts/{id}/data/
- * 403 Members without a `dashboard_id` query param — charts are only visible in
- * dashboard context for that role. The dashboard VIEW page must pass it per tile;
- * the chart builder / standalone Charts page must not (untouched, out of scope here).
+ * ChartElementView dashboard_id wiring. The chart GET endpoints 403 Members
+ * without a dashboard_id query param, so the dashboard view page must pass
+ * it per tile; the chart builder / standalone Charts page must not.
  */
 import React from 'react';
 import { render, waitFor } from '@testing-library/react';
@@ -151,10 +148,9 @@ describe('ChartElementView — dashboard_id wiring', () => {
   });
 });
 
-// Task 6b gates POST /api/charts/chart-data-preview/ (+ total-rows) and
-// POST /api/charts/map-data-overlay/ on chart_id + dashboard_id when a
-// dashboard tile is asking (task-06b-report.md, Part C). Task 6c wires the
-// dashboard VIEW's table/map tiles to send them; the builder must not.
+// The chart-data-preview and map-data-overlay POSTs are gated on
+// chart_id + dashboard_id when a dashboard tile is asking. The dashboard
+// view's table/map tiles must send them; the builder must not.
 describe('ChartElementView — table tile access context (Task 6c)', () => {
   beforeEach(() => {
     jest.clearAllMocks();

@@ -77,11 +77,8 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 
-// Metrics have no public-link concept (public_link=False in the rtype
-// registry — ShareModal already hides that section via the capabilities
-// flag). getShareStatus/updateSharing are still required props on
-// ShareModal (called unconditionally on open); these stubs never hit a
-// real endpoint since the section they'd back is never rendered for metrics.
+// Metrics have no public link. getShareStatus/updateSharing are required
+// ShareModal props, but these stubs never back a rendered section.
 async function getMetricShareStatus(): Promise<ShareStatus> {
   return { is_public: false, public_access_count: 0 };
 }
@@ -110,8 +107,7 @@ export function MetricsLibrary() {
   const [kpiPreselectedMetricId, setKpiPreselectedMetricId] = useState<number | undefined>();
   const [alertFormOpen, setAlertFormOpen] = useState(false);
   const [alertPreselectedMetricId, setAlertPreselectedMetricId] = useState<number | null>(null);
-  // Per-item Share (M5) — one shared ShareModal instance for the whole
-  // table, matching alerts/dashboard-list-v2's pattern.
+  // One shared ShareModal instance for the whole table.
   const [sharingMetric, setSharingMetric] = useState<Metric | null>(null);
   const { hasPermission } = useRbac();
   // Create/edit/delete affordances are hidden for view-only roles (members) and
@@ -126,8 +122,7 @@ export function MetricsLibrary() {
   // the table doesn't render an orphaned empty column.
   const canMetricActions = canEditMetrics || canCreateKpis || canCreateAlert || canDeleteMetrics;
 
-  // Bulk-selection bar (M5) — persists across pagination, capped at 100
-  // (BULK_MAX_ITEMS) via useMultiSelect.
+  // Bulk selection — persists across pagination, capped via useMultiSelect.
   const {
     selectedIds: selectedMetricIds,
     toggle: toggleMetricSelection,
@@ -352,7 +347,7 @@ export function MetricsLibrary() {
         key={metric.id}
         className={`hover:bg-gray-50 ${highlightMetricId === String(metric.id) ? 'bg-primary/5 ring-1 ring-primary/20' : ''}`}
       >
-        {/* Bulk-select checkbox (M5) — gated with the row's Share button */}
+        {/* Bulk-select checkbox — gated with the row's Share button */}
         {canShareMetrics && (
           <TableCell className="py-4">
             <Checkbox
@@ -510,7 +505,7 @@ export function MetricsLibrary() {
 
   const columnHeaders = (
     <TableRow className="bg-gray-50">
-      {/* Bulk-select checkbox (M5) */}
+      {/* Bulk-select checkbox */}
       {canShareMetrics && (
         <TableHead className="w-[3%]">
           <Checkbox
@@ -655,7 +650,7 @@ export function MetricsLibrary() {
           </div>
         )}
 
-        {/* Bulk-selection bar (M5) — appears once >=1 row is selected */}
+        {/* Bulk-selection bar — appears once >=1 row is selected */}
         {canShareMetrics && selectedMetricIds.size > 0 && (
           <div
             data-testid="metric-bulk-share-bar"
@@ -952,9 +947,8 @@ export function MetricsLibrary() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Per-item Share (M5) — the modal's capability flags already omit
-          the public-link section for metrics; no metric-specific
-          conditionals live in ShareModal itself. */}
+      {/* Per-item Share — the modal's capability flags already omit the
+          public-link section for metrics. */}
       {sharingMetric && (
         <ShareModal
           entityId={sharingMetric.id}
@@ -968,8 +962,7 @@ export function MetricsLibrary() {
         />
       )}
 
-      {/* Bulk Share Dialog (M5) — no public-link action (metric is
-          public_link=False; the backend would skip every item). */}
+      {/* Bulk Share Dialog — no public-link action for metrics. */}
       {bulkShareOpen && (
         <BulkShareDialog
           entityType="metric"

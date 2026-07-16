@@ -1,11 +1,8 @@
 'use client';
 
 /**
- * The browse/search dropdown for the Create-group dialog's typeahead.
- * Split out of group-member-typeahead.tsx per the repo's ~300-lines
- * guidance. Ordering is one alphabetical merge of users + groups (design:
- * 'group creation-1.jpg') -- deliberately NOT ShareModal's groups-first
- * bucketing.
+ * Browse/search dropdown for the Create-group typeahead. One alphabetical
+ * merge of users + groups — deliberately not ShareModal's groups-first bucketing.
  */
 
 import { Mail } from 'lucide-react';
@@ -82,9 +79,8 @@ export function GroupMemberSearchDropdown({
           icon={<Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
           label={`Invite ${emailCandidate}`}
           tag="New"
-          // An email that's already a staged chip (or an existing member's
-          // address) renders disabled with "Added" — same dup guard as the
-          // user/group rows above, previously missing here.
+          // An already-staged (or existing-member) email renders disabled
+          // with "Added" — same dup guard as the user/group rows.
           alreadyStaged={stagedEmails.has(emailCandidate)}
           hasAccess={false}
           onPick={() => onPickEmail(emailCandidate)}

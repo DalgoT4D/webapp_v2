@@ -1,17 +1,9 @@
 'use client';
 
 /**
- * The unknown-email notice for the Create-group dialog's typeahead, gated
- * exactly like ShareModal's InviteRoleBlock (components/ui/share-modal-staging.tsx):
- * an admin/super-admin gets an "Invite new users as [Member ▾]" role picker
- * (Member/Analyst/Admin); anyone else gets a plain locked sentence and no
- * dropdown -- they can only ever invite at Member, mirroring the backend's
- * 403 on a non-admin invite_role escalation (see
- * ddpui/core/sharing/sharing_actions.py's `_resolve_invite_role`, reused
- * as-is by the group-members email path).
- *
- * Split into its own file (rather than living in group-member-typeahead.tsx)
- * per the repo's ~300-lines-per-component guidance.
+ * Unknown-email notice for the Create-group typeahead, gated like
+ * ShareModal's InviteRoleBlock: admins get an invite-role picker; anyone
+ * else can only invite at Member (the backend 403s an escalation).
  */
 
 import { AlertTriangle } from 'lucide-react';

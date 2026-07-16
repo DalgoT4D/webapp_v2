@@ -47,10 +47,8 @@ export function GroupDetailDrawer({
     [group]
   );
 
-  // Candidate value is the OrgUser PK (orguser_id) — what POST
-  // /api/groups/{id}/members/ wants (Task 6b Part B). Org members without a
-  // resolved orguser_id are excluded rather than offered as an unusable
-  // candidate.
+  // Candidate value is the OrgUser PK (orguser_id) — what the add-member
+  // POST wants. Users without a resolved orguser_id are excluded.
   const candidateItems: ComboboxItem[] = useMemo(
     () =>
       (orgUsers || [])

@@ -90,9 +90,8 @@ describe('Mutation functions', () => {
   });
 
   describe('addGrant', () => {
-    // v1.1 M3b: the grant-create response envelope moved the grant to
-    // `data.grant` (alongside the confirmation fields) — a bare
-    // `response.data` is no longer the grant itself.
+    // The grant-create response envelope holds the grant at `data.grant`
+    // (alongside the confirmation fields) — `response.data` is not the grant.
     it('posts a new grant and returns the GrantCreateResult envelope (new shape)', async () => {
       const mockGrant = mockOverview.grants[0];
       mockApiPost.mockResolvedValue({

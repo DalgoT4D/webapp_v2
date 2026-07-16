@@ -1,8 +1,7 @@
 /**
- * The dashboard editor's autosave half of the embed-warning contract
- * (v1.1 M3b, task 5): picker decisions ride on the PUT payload, and a save
- * rejected with 409 EmbedCoverageConfirmation is parsed back out for the
- * recovery dialog instead of being swallowed.
+ * The dashboard editor's autosave half of the embed-warning contract:
+ * picker decisions ride on the PUT payload, and a rejected 409 save is
+ * parsed back out for the recovery dialog instead of being swallowed.
  */
 import {
   EMPTY_PENDING_COVERAGE,

@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 
-// Deterministic avatar backgrounds (design frames 1335:2070 / 1184:3242 show
-// colored initial circles); hashing the seed keeps a given email's color stable.
+// Deterministic avatar backgrounds — hashing the seed keeps a given email's
+// color stable.
 const AVATAR_BG_CLASSES = [
   'bg-teal-600',
   'bg-blue-600',

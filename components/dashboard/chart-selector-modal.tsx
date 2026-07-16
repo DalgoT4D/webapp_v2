@@ -27,13 +27,11 @@ interface ChartSelectorModalProps {
   open: boolean;
   onClose: () => void;
   /** `coverage` is set when the pick went through the embed warning — the
-   * caller must carry it into its next dashboard save (`extend_chart_ids`
-   * / `proceed`), or the server 409s the under-covering tile (v1.1 M2). */
+   * caller must carry it into its next save, or the server 409s the tile. */
   onSelect: (chartId: number, coverage?: CoverageDecision) => void;
   excludedChartIds?: number[];
-  /** Enables the embed-time coverage pre-flight (v1.1 M3b). Omitted (e.g.
-   * a not-yet-saved dashboard), picks embed directly — the server still
-   * validates at save time. */
+  /** Enables the embed-time coverage pre-flight. Omitted, picks embed
+   * directly — the server still validates at save time. */
   dashboardId?: number;
   /** Names the container in the warning copy. */
   dashboardTitle?: string;
@@ -48,9 +46,8 @@ export function ChartSelectorModal({
   dashboardTitle,
 }: ChartSelectorModalProps) {
   const [chartSearch, setChartSearch] = useState('');
-  // The pick currently held behind the embed warning (v1.1 M3b): the
-  // coverage verdicts name the exposure; the dialog's decision releases or
-  // aborts the pick.
+  // The pick currently held behind the embed warning; the dialog's decision
+  // releases or aborts it.
   const [pendingPick, setPendingPick] = useState<{
     chartId: number;
     verdicts: ChartCoverageVerdict[];

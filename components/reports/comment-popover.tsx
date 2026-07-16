@@ -67,16 +67,8 @@ interface CommentPopoverProps {
   triggerClassName?: string;
   onStateChange?: () => void;
   autoOpen?: boolean;
-  /**
-   * Resolver-**edit** on the report this snapshot belongs to (owner, admin,
-   * or an edit-grant holder — see access_resolver.effective_permission).
-   * Lets the viewer moderate (edit/delete) comments authored by OTHER
-   * people, mirroring the backend's `CommentService._can_moderate` (Task
-   * 14). Authors can always edit/delete their own comment regardless of
-   * this prop — moderation is additive, never a restriction on self-rights.
-   * Defaults to false (author-only), preserving prior behavior for any
-   * caller that hasn't been updated to pass it.
-   */
+  /** Resolver-edit on the report — lets the viewer moderate other people's
+   * comments. Authors always keep self-rights. Defaults to false (author-only). */
   canModerate?: boolean;
 }
 
@@ -199,9 +191,8 @@ const CommentItem = memo(function CommentItem({
   canModerate,
 }: CommentItemProps) {
   const isAuthor = comment.author_email === currentUserEmail;
-  // Author self-rights are unchanged; a resolver-edit viewer additionally
-  // gets the same edit/delete affordances on comments they didn't write
-  // (backend: CommentService._can_moderate, Task 14).
+  // Authors keep self-rights; a resolver-edit viewer additionally gets
+  // edit/delete on comments they didn't write.
   const canManage = isAuthor || canModerate;
   const avatarColor = useMemo(() => getAvatarColor(comment.author_email), [comment.author_email]);
   const [isEditing, setIsEditing] = useState(false);

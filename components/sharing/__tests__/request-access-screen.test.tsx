@@ -61,7 +61,7 @@ describe('RequestAccessScreen', () => {
   it('shows the request form when there is no pending request', () => {
     renderScreen();
 
-    // Design frame 1184:6222 copy (Phase A / A3)
+    // Request-access headline + supporting copy
     expect(screen.getByText('Request access to this dashboard')).toBeInTheDocument();
     expect(
       screen.getByText('You can view this dashboard once your request is approved')
@@ -189,10 +189,8 @@ describe('RequestAccessScreen', () => {
     expect(screen.getByTestId('request-access-submit-btn')).not.toBeDisabled();
   });
 
-  // v1.1 M4: a member_sharing=False rtype (charts today) rejects a Member's
-  // request outright with a plain-language 400 pointing at the path that
-  // DOES work for them. That's a real, permanent answer for this viewer —
-  // rendered inline, not as a dismissible toast.
+  // A member_sharing=False rtype rejects a Member's request with a
+  // plain-language 400 — a permanent answer, rendered inline, not a toast.
   it('renders the backend\'s "member_sharing=False" 400 message inline instead of a toast', async () => {
     const user = userEvent.setup();
     const { toastError } = jest.requireMock('@/lib/toast');

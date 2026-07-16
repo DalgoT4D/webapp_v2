@@ -114,8 +114,7 @@ export default function ReportsPage() {
     setSelectedSnapshot(null);
   }, []);
 
-  // Bulk-selection bar (task-17f, Milestone 10) — persists across pagination,
-  // capped at 100 (BULK_MAX_ITEMS) via useMultiSelect.
+  // Bulk selection — persists across pagination, capped via useMultiSelect.
   const {
     selectedIds: selectedReportIds,
     toggle: toggleReportSelection,
@@ -291,9 +290,8 @@ export default function ReportsPage() {
   const visibleReportIds = useMemo(() => paginatedSnapshots.map((s) => s.id), [paginatedSnapshots]);
 
   // Selection persists across pagination, so the bar's count must be the
-  // TRUE cross-page total (selectedReportIds.size) — never a page-local
-  // "N of {visible}" denominator, which contradicts the (unchecked) visible
-  // checkboxes as soon as the user pages away (finding 1).
+  // true cross-page total — a page-local denominator would contradict the
+  // visible checkboxes as soon as the user pages away.
   const selectedOnPageCount = useMemo(
     () => visibleReportIds.filter((id) => selectedReportIds.has(id)).length,
     [visibleReportIds, selectedReportIds]
@@ -345,13 +343,12 @@ export default function ReportsPage() {
           )}
         </div>
 
-        {/* Bulk-selection bar (task-17f) — appears once >=1 row is selected */}
+        {/* Bulk-selection bar — appears once >=1 row is selected */}
         {canShareReports && selectedReportIds.size > 0 && (
           <div
             data-testid="report-bulk-share-bar"
             className="mx-6 mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between"
           >
-            {/* Design frame 1992:2488: "{N} selected · Select All", actions right */}
             <div className="flex items-center gap-1 text-sm font-medium text-blue-900">
               <span>
                 {selectedReportIds.size} selected
@@ -896,7 +893,7 @@ export default function ReportsPage() {
         />
       )}
 
-      {/* Bulk Share Dialog (task-17f) */}
+      {/* Bulk Share Dialog */}
       {bulkShareOpen && (
         <BulkShareDialog
           entityType="report"

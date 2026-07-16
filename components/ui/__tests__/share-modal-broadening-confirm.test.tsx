@@ -1,5 +1,5 @@
 /**
- * ShareModal — v1.1 M3b dashboard-broadening confirms:
+ * ShareModal dashboard-broadening confirms:
  *
  *  1. Public-link enable: a `requires_confirmation` response renders the
  *     BroadeningConfirmDialog (charts named, CANCEL default); YES re-sends

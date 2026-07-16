@@ -40,10 +40,9 @@ export interface Dashboard {
   // Public view fields
   org_name?: string;
   org_logo_url?: string;
-  // Access-control sharing metadata (Task 6b DashboardResponse fields) — viewer-relative,
-  // so the same dashboard can read differently per viewer. Null analyst_level/member_level
-  // means the resource predates general-access config or the caller is anonymous (public
-  // view). D1: per-role levels, replacing the old general_audience/general_level pair.
+  // Viewer-relative sharing metadata — the same dashboard can read
+  // differently per viewer. Null levels mean the resource predates
+  // general-access config or the caller is anonymous.
   analyst_level?: RolePermissionLevel | null;
   member_level?: RolePermissionLevel | null;
   is_owner?: boolean;
@@ -248,9 +247,8 @@ export async function duplicateDashboard(dashboardId: number): Promise<Dashboard
 }
 
 // Dashboard sharing functions
-// `proceed` (v1.1 M3b): the broadening-confirm re-send after the backend
-// answered `requires_confirmation` on an enable (inner charts would be
-// exposed anonymously — see ShareResponse in ddpui/schemas/dashboard_schema.py).
+// `proceed` is the broadening-confirm re-send after the backend answered
+// requires_confirmation on an enable.
 export async function updateDashboardSharing(
   dashboardId: number,
   data: { is_public: boolean; proceed?: boolean }

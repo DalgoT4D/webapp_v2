@@ -1,8 +1,7 @@
 /**
- * Embed-time coverage warning in ChartSelectorModal (v1.1 M3b, task 4):
- * picking a chart pre-flights GET /api/dashboards/{id}/chart-coverage/ —
- * covered embeds silently, a gap raises the EmbedCoverageDialog, and the
- * decision (extend / proceed / request-edit / cancel) drives onSelect.
+ * Embed-time coverage warning in ChartSelectorModal: picking a chart
+ * pre-flights the coverage endpoint — covered embeds silently, a gap raises
+ * EmbedCoverageDialog, and the decision drives onSelect.
  */
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';

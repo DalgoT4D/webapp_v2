@@ -1,11 +1,7 @@
 /**
- * DashboardViewPage — 403 interception (Milestone 9 request-access).
- *
- * `useDashboard` 403ing (resolver denied view access) should render
- * <RequestAccessScreen> instead of falling through to the native/Superset
- * dashboard views (both of which would re-fetch and show their own generic
- * error state). Child views + RequestAccessScreen are stubbed — their own
- * behavior is covered by their own test suites.
+ * DashboardViewPage 403 interception: a denied useDashboard renders
+ * RequestAccessScreen instead of the dashboard views' own error states.
+ * Child views are stubbed — covered by their own suites.
  */
 import React from 'react';
 import { render, screen } from '@testing-library/react';

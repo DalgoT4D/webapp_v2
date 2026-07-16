@@ -1,7 +1,5 @@
 /**
- * BulkShareDialog — the "Share" action opened from a list's bulk-selection
- * bar (Dashboards/Reports/Alerts, task-17f). One POST per action to
- * /api/access/bulk/; covers the add-person/group, set-general (with the
+ * BulkShareDialog: covers the add-person/group, set-general (with the
  * aggregated narrow-confirm step), and toggle-public-link actions, plus the
  * plain-language skip-reason mapping.
  */

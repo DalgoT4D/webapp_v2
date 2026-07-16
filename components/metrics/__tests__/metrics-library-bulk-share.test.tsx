@@ -1,10 +1,7 @@
 /**
- * MetricsLibrary — M5: per-item Share + bulk-selection bar + BulkShareDialog
- * wiring, mirroring app/alerts/__tests__/page-bulk-share.test.tsx. ShareModal/
- * BulkShareDialog themselves are unit-tested elsewhere, so they're stubbed
- * here to isolate the list's own wiring: checkbox column, row Share button,
- * the bar's count/select-all/clear, and the items/onApplied contract handed
- * to the dialog.
+ * MetricsLibrary share wiring: checkbox column, row Share button, bulk bar,
+ * and the items/onApplied contract. ShareModal/BulkShareDialog are stubbed —
+ * unit-tested elsewhere.
  */
 import React from 'react';
 import { render, screen } from '@testing-library/react';

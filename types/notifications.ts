@@ -1,9 +1,7 @@
-// Structured payload on an access-request "new request" notification
-// (batch 2 / F6) -- lets the Notifications page render inline Approve/Deny
-// instead of forcing a trip through the resource's share modal. `kind`
-// discriminates from any future actionable-notification payload the backend
-// may add to the same generic `metadata` column; unrecognized/absent
-// metadata always falls back to plain-text rendering.
+// Structured payload on an access-request notification — lets the
+// Notifications page render inline Approve/Deny. `kind` discriminates from
+// future actionable payloads; unrecognized/absent metadata falls back to
+// plain-text rendering.
 export interface AccessRequestNotificationMetadata {
   kind: 'access_request';
   request_id: number;
@@ -21,8 +19,7 @@ export interface Notification {
   message: string;
   read_status: boolean;
   timestamp: string; // ISO 8601 format from backend
-  // `null`/absent on every pre-existing notification and every notification
-  // type with no action -- the row renders exactly as today in that case.
+  // Null/absent for notifications with no action — the row renders as plain text.
   metadata?: AccessRequestNotificationMetadata | null;
 }
 
@@ -44,18 +41,14 @@ export interface UserPreferences {
 }
 
 // Organization preferences — GET /api/orgpreferences/ returns Discord
-// notification settings AND the sharing settings (task-11f) in the same
-// envelope, so both live on one interface rather than being split.
+// notification settings and sharing settings in the same envelope.
 import type {
   AccessLevel,
   RolePermissionLevel,
   ShareableResourceType,
 } from '@/hooks/api/useResourceAccess';
 
-// default_analyst_level / default_member_level replace the old
-// default_general_audience / default_general_level org-wide pair
-// (permission-model rework, D1) — each role's platform-wide default is now
-// independently settable instead of one audience threshold + one level.
+// Each role's platform-wide default level is independently settable.
 export interface OrgPreferences {
   enable_discord_notifications: boolean;
   discord_webhook: string;

@@ -1,21 +1,8 @@
 /**
- * ShareModal — Owner row + transfer-ownership (task-12f; restyled per the
- * design-alignment task's reconciliation with "Transfer ownership.jpg").
- *
- * Two distinct transfer entry points now exist:
- *  - Grantless rtypes (metric/kpi, capabilities.grants === false): no
- *    People-with-access list to fold a per-row action into, so they keep the
- *    original standalone "Transfer ownership" button + "pick any org member"
- *    combobox (OwnerSection/OwnerTransferBlock) — no design frame covers
- *    these rtypes at all.
- *  - Every other rtype (People-with-access list present): the owner row is
- *    plain text (icon · email · role tag · "Owner", no control at all — see
- *    share-modal-access.test.tsx for that). Transfer now lives INSIDE a
- *    non-owner grantee's own permission dropdown as a "Transfer Ownership"
- *    item (exactly what "Transfer ownership.jpg" shows: "Can View ✓ / Can
- *    Edit / Transfer Ownership") — picking it targets that specific person
- *    and jumps straight to the confirm step, skipping the old "pick a
- *    person" combobox screen entirely (the row already identifies them).
+ * ShareModal owner row + transfer-ownership. Two entry points: grantless
+ * rtypes (metric/kpi) keep the standalone button + combobox flow; every
+ * other rtype puts "Transfer Ownership" inside a grantee row's permission
+ * dropdown, targeting that person and jumping straight to the confirm step.
  */
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -182,8 +169,7 @@ describe('ShareModal — transfer ownership flow (grants-capable rtype, per-row 
     await user.click(screen.getByTestId('share-grant-permission-3'));
     await user.click(screen.getByRole('option', { name: 'Transfer Ownership' }));
 
-    // Confirm copy (Phase A / A4, design frame 1184:6198 kept truthful — no
-    // "reclaim anytime"): actor IS the owner -> "You keep Edit access"
+    // Actor is the owner -> "You keep Edit access"
     expect(screen.getByTestId('share-transfer-owner-confirm')).toHaveTextContent(
       'Ownership of this dashboard transfers to priya@ngo.org. They can then delete it or transfer it again. You keep Edit access.'
     );

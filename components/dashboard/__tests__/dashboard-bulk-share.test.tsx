@@ -1,9 +1,7 @@
 /**
- * DashboardListV2 — bulk-selection bar + BulkShareDialog wiring (task-17f).
- * BulkShareDialog itself is unit-tested in
- * components/sharing/__tests__/bulk-share-dialog.test.tsx; this suite only
- * covers the list-side wiring: checkbox column, the bar's count/select-all/
- * clear, gating, and the items/onApplied contract handed to the dialog.
+ * DashboardListV2 bulk-share wiring: checkbox column, bar count/select-all/
+ * clear, gating, and the items/onApplied contract. BulkShareDialog itself is
+ * unit-tested in its own suite.
  */
 import React from 'react';
 import { render, screen } from '@testing-library/react';
@@ -18,11 +16,9 @@ import { useMultiSelect } from '@/hooks/useMultiSelect';
 import type { Dashboard } from '@/hooks/api/useDashboards';
 import type { BulkAccessResponse } from '@/hooks/api/useResourceAccess';
 
-// Real hook by default (selection genuinely works via clicks in every other
-// test); only the cap test below overrides the return value directly, since
-// driving 100 real clicks (or the pagination Select, which is flaky with
-// Radix in jsdom) just to pin a boolean comparison isn't worth the cost —
-// the cap ENFORCEMENT itself is unit-tested in hooks/__tests__/useMultiSelect.test.ts.
+// Real hook by default; only the cap test overrides the return value —
+// driving 100 real clicks isn't worth it, and cap enforcement is
+// unit-tested in useMultiSelect's own suite.
 jest.mock('@/hooks/useMultiSelect', () => {
   const actual = jest.requireActual('@/hooks/useMultiSelect');
   return { ...actual, useMultiSelect: jest.fn(actual.useMultiSelect) };
@@ -47,9 +43,8 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
 }));
 
-// Isolate the wiring: stub BulkShareDialog so this suite doesn't re-cover
-// its own internals (add-grant/general/public-link/confirm), just the props
-// DashboardListV2 hands it and the onApplied contract.
+// Stub BulkShareDialog — this suite only covers the props DashboardListV2
+// hands it and the onApplied contract.
 let lastBulkShareDialogProps: any = null;
 const pendingResponseBox: { current: any } = { current: null };
 jest.mock('@/components/sharing/bulk-share-dialog', () => ({
@@ -157,8 +152,8 @@ describe('DashboardListV2 — bulk selection bar', () => {
     await user.click(screen.getByTestId('dashboard-select-1'));
     const bar = screen.getByTestId('dashboard-bulk-share-bar');
     expect(bar).toHaveTextContent('1 selected');
-    // Regression guard for the old, page-local "N of M selected" phrasing
-    // that lied once selection persisted across pagination (finding 1).
+    // Regression guard for the old page-local "N of M selected" phrasing,
+    // which lied once selection persisted across pagination.
     expect(bar).not.toHaveTextContent('of 2 selected');
     expect(bar).not.toHaveTextContent('other pages');
 

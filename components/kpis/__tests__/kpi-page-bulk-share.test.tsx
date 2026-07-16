@@ -1,10 +1,7 @@
 /**
- * KPIPageComponent — M5: per-item Share + bulk-selection bar + BulkShareDialog
- * wiring, mirroring app/alerts/__tests__/page-bulk-share.test.tsx. ShareModal/
- * BulkShareDialog themselves are unit-tested elsewhere, so they're stubbed
- * here to isolate the page's own wiring: the per-card checkbox overlay, the
- * card's Share menu item, the bar's count/select-all/clear, and the
- * items/onApplied contract handed to the dialog.
+ * KPIPageComponent share wiring: per-card checkbox overlay, Share menu
+ * item, bulk bar, and the items/onApplied contract.
+ * ShareModal/BulkShareDialog are stubbed — unit-tested elsewhere.
  */
 import React from 'react';
 import { render, screen, within } from '@testing-library/react';

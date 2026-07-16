@@ -1,18 +1,9 @@
 /**
- * ShareModal — M5/M3a member-block states for member-grants-deferred rtypes
- * (metric/kpi from M5; chart joins here in v1.1 M3a).
- * Direct grants to a Member principal, and Member-role email invites, are
- * blocked server-side (`sharing_actions._reject_member_principal` /
- * `_reject_member_invite`); this suite pins the modal's presentational
- * mirror of that rule:
- *  - the add-people typeahead hides Member-role org users entirely
- *  - the unknown-email invite role picker never offers "Member"
- *  - the non-admin explanatory copy differs from the dashboard/report/alert
- *    "will be invited as member" default
- *
- * A parallel `dashboard` render in each test proves the SAME modal code
- * stays unaffected for rtypes outside the deferred set — the regression
- * guard the M5 brief asked for.
+ * ShareModal member-block states for member-grants-deferred rtypes
+ * (metric/kpi/chart): the typeahead hides Member-role users, the invite
+ * picker never offers "Member", and the non-admin copy differs. A parallel
+ * dashboard render in each test proves the same code stays unaffected
+ * outside the deferred set.
  */
 import React from 'react';
 import { render, screen } from '@testing-library/react';

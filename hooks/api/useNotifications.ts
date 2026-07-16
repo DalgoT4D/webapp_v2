@@ -72,12 +72,9 @@ export async function updateUserPreference(data: Record<string, unknown>) {
 }
 
 /**
- * Hook to fetch organization preferences — Discord notification settings AND
- * the sharing settings (allow_public_sharing, default_analyst_level/
- * default_member_level; task-11f, per-role since the permission-model
- * rework D1) come back in the same GET /api/orgpreferences/ response, so
- * this one hook backs both the notification dialog and the Access
- * Management settings page.
+ * Fetches org preferences — Discord notification settings and the sharing
+ * settings come back in the same response, so this one hook backs both the
+ * notification dialog and the Access Management settings page.
  */
 export function useOrgPreferences() {
   const { data, error, isLoading, mutate } = useSWR<OrgPreferencesResponse>(
@@ -94,10 +91,8 @@ export function useOrgPreferences() {
 }
 
 /**
- * Standalone mutation: partial-update the org's sharing preferences
- * (PUT /api/orgpreferences/sharing/ — task-11 backend contract). All fields
- * optional; only send what changed. Callers should `mutate()` the
- * useOrgPreferences() cache key afterwards to refresh.
+ * Partial-update the org's sharing preferences — only send what changed.
+ * Callers should mutate() the useOrgPreferences() cache key afterwards.
  */
 export async function updateSharingPreferences(
   data: Partial<

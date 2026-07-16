@@ -106,8 +106,7 @@ interface ShareModalProps {
   onUpdate?: () => void;
   initialShareStatus?: Partial<ShareStatus>;
   getShareStatus: (id: number) => Promise<ShareStatus>;
-  /** `proceed` (v1.1 M3b) is only sent on the broadening-confirm re-send
-   * after the backend answered `requires_confirmation` — callers whose
+  /** `proceed` is only sent on the broadening-confirm re-send; callers whose
    * endpoint has no such contract (reports) never receive it. */
   updateSharing: (
     id: number,
@@ -123,13 +122,8 @@ interface ShareModalProps {
    * the legacy public-link-only modal (reports, until they adopt sharing).
    */
   entityType?: ShareableResourceType;
-  /**
-   * The resource's own name/title (e.g. a dashboard's "Untitled Dashboard",
-   * a report snapshot's title, an alert's name) — when given, the dialog
-   * title becomes `Share "{resourceName}"` (design: "resource sharing New
-   * users" frame) instead of the generic `Share {entityLabel}`. Omit when
-   * the caller has no name in hand yet; the generic title is a safe fallback.
-   */
+  /** The resource's own name/title. When given, the dialog title becomes
+   * `Share "{resourceName}"` instead of the generic `Share {entityLabel}`. */
   resourceName?: string;
 }
 
@@ -158,12 +152,9 @@ export function ShareModal({
   const [personalMessage, setPersonalMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
 
-  // v1.1 M3b — enabling the public link can come back `requires_confirmation`
-  // (the inner charts the link would expose anonymously, named). Nothing was
-  // flipped server-side, so the Switch stays visually off (shareStatus is
-  // only updated on a committed response); YES re-sends with `proceed`,
-  // CANCEL just drops the prompt. Driven purely by the response shape — no
-  // rtype conditionals.
+  // Enabling the public link can come back requires_confirmation with
+  // nothing flipped server-side — the Switch stays off until YES re-sends
+  // with `proceed`; CANCEL just drops the prompt.
   const [publicConfirmVerdicts, setPublicConfirmVerdicts] = useState<ChartCoverageVerdict[] | null>(
     null
   );
@@ -178,9 +169,8 @@ export function ShareModal({
   } = useResourceAccess(entityType ?? null, entityType ? entityId : null);
   const { hasPermission } = useRbac();
 
-  // Org-wide public-sharing kill switch (task-11 backend, task-11f frontend).
-  // No-row / not-yet-loaded must NOT hide the toggle — mirrors the backend's
-  // own no-row-means-True default (public_sharing_gate.py).
+  // Org-wide public-sharing kill switch. No-row / not-yet-loaded must NOT
+  // hide the toggle — mirrors the backend's no-row-means-True default.
   const { orgPreferences } = useOrgPreferences();
   const allowPublicSharing = orgPreferences?.allow_public_sharing !== false;
 
@@ -191,9 +181,8 @@ export function ShareModal({
       hasPermission(SHARE_PERMISSION_BY_RTYPE[entityType])
   );
 
-  // Staged add-people rows + the footer SHARE commit (Phase C). State lives
-  // here (not in the People section) because the SHARE button sits in the
-  // modal footer; closing the modal discards whatever was staged.
+  // Staging state lives here (not in the People section) because the SHARE
+  // button sits in the modal footer; closing the modal discards it.
   const staging = useShareStaging({
     entityType: entityType ?? null,
     entityId,
@@ -201,16 +190,13 @@ export function ShareModal({
     onCommitted: mutateAccess,
   });
 
-  // Escape layering (mirrors GroupFormDialog/group-member-typeahead): with
-  // the add-people dropdown open, a first Escape must close ONLY the
-  // dropdown — not the whole dialog, which would discard every staged row.
+  // With the add-people dropdown open, a first Escape must close only the
+  // dropdown — not the dialog, which would discard every staged row.
   const shareSearchRef = useRef<ShareAddPeopleSearchHandle>(null);
 
-  // ---- /api/access/requests/ — pending requests decidable on THIS resource ----
-  // `incoming` is already filtered server-side to requests the caller can
-  // decide (owner/admin) — no extra client-side permission check needed,
-  // just narrow it down to this specific resource. Lazy-fetched only while
-  // the modal is open, same pattern as useUserGroups(canShare) below.
+  // Pending requests decidable on this resource. `incoming` is already
+  // filtered server-side to what the caller can decide; only narrow it to
+  // this resource. Fetched only while the modal is open.
   const { incoming: incomingRequests, mutate: mutateAccessRequests } = useAccessRequests(
     isOpen && Boolean(entityType)
   );
@@ -235,15 +221,12 @@ export function ShareModal({
     }
   }, [isOpen, entityType]);
 
-  // Public-link section stays visible for the legacy (no entityType) callers;
-  // for rtype-driven callers it's gated off capabilities.public_link AND the
-  // org-wide allow_public_sharing switch (task-11f) — same hard-hide
-  // treatment as the existing capability gate, for consistency.
+  // Public-link section stays visible for legacy (no entityType) callers;
+  // otherwise gated off capabilities.public_link AND the org-wide switch.
   const showPublicLink =
     !entityType || (access?.capabilities?.public_link !== false && allowPublicSharing);
-  // Legacy-only static card (no entityType). Per-resource General access has
-  // no single-resource UI here at all — see the "General access" removal
-  // note above the render tree below.
+  // Legacy-only static card (no entityType); the new surface has no
+  // per-resource General access UI.
   const showOrgAccessCard = !entityType;
   const showPeopleSection = Boolean(entityType && access?.capabilities?.grants);
 
@@ -273,8 +256,8 @@ export function ShareModal({
           ...(proceed ? { proceed: true } : {}),
         });
 
-        // v1.1 M3b: the enable was held behind the broadening warning —
-        // nothing flipped; render the confirm instead of committing state.
+        // Held behind the broadening warning — nothing flipped server-side;
+        // render the confirm instead of committing state.
         if (response.requires_confirmation) {
           setPublicConfirmVerdicts(response.under_covering_charts ?? []);
           return;
@@ -309,9 +292,8 @@ export function ShareModal({
     [performToggleSharing]
   );
 
-  // YES on the public-enable confirm: acknowledge the exposure and commit.
-  // (Public exposure is never extendable — the decision's chart ids are
-  // always empty; only `proceed` rides on the re-send.)
+  // YES on the public-enable confirm. Public exposure is never extendable —
+  // only `proceed` rides on the re-send.
   const handlePublicConfirm = useCallback(
     async (_decision: CoverageDecision) => {
       setPublicConfirmVerdicts(null);
@@ -320,8 +302,7 @@ export function ShareModal({
     [performToggleSharing]
   );
 
-  // CANCEL: the switch never moved (state was never committed) — just drop
-  // the prompt.
+  // CANCEL: the switch never moved — just drop the prompt.
   const handlePublicCancel = useCallback(() => setPublicConfirmVerdicts(null), []);
 
   const handleCopyUrl = useCallback(async () => {
@@ -387,46 +368,30 @@ export function ShareModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      {/* Viewport-bounded with internal scroll (repo pattern: CreateOrgDialog,
-          schema-change-form) — the base DialogContent is centered with a
-          translate and no max-height, so a tall People section would push
-          BOTH the heading and the Close/SHARE footer off small screens with
-          no way to scroll to them. */}
+      {/* Viewport-bounded with internal scroll — the base DialogContent has
+          no max-height, so a tall People section would push the heading and
+          footer off small screens. */}
       <DialogContent
         data-testid="share-modal"
-        // Widened to match the RBAC design frames (~850px dialog on a
-        // 2000px canvas) — sm:max-w-md clipped the request rows' Approve
-        // buttons and forced the request note to wrap onto ragged lines at
-        // 1512px viewports. sm:max-w-3xl mirrors the existing "wide dialog"
-        // convention already used by AlertWizardModal/SourceForm elsewhere
-        // in the app.
+        // Wide dialog: sm:max-w-md clipped the request rows' Approve buttons.
+        // sm:max-w-3xl matches AlertWizardModal/SourceForm.
         className="sm:max-w-3xl max-h-[85vh] overflow-y-auto"
-        // P1 merged the owner row into PeopleWithAccessSection's list, which
-        // sits AFTER the add-people search input in DOM order — Radix's
-        // default open-autofocus would otherwise land on that search input
-        // (the first focusable descendant) and pop its browse dropdown open
-        // the instant the modal appears. Redirect the initial focus to the
-        // dialog surface itself instead (the documented Radix pattern) —
-        // keeps focus trapped inside the modal without landing in the
-        // search box.
+        // Radix's default open-autofocus would land on the search input and
+        // pop its dropdown open on mount — redirect initial focus to the
+        // dialog surface instead (documented Radix pattern).
         onOpenAutoFocus={(e) => {
           e.preventDefault();
           (e.currentTarget as HTMLElement).focus();
         }}
-        // Escape layering: with the add-people dropdown open, Escape closes
-        // ONLY the dropdown (Radix's document-capture listener fires before
-        // any input handler could, so the interception lives here); a second
-        // Escape — dropdown closed — dismisses the dialog as usual, same
-        // pattern as GroupFormDialog's onEscapeKeyDown.
+        // First Escape closes only the add-people dropdown (Radix captures
+        // Escape at the document, so the interception must live here); the
+        // next Escape dismisses the dialog as usual.
         onEscapeKeyDown={(e) => {
           if (shareSearchRef.current?.closeDropdownIfOpen()) e.preventDefault();
         }}
       >
-        {/* Full-bleed hairline under the title (every RBAC frame shows one,
-            independent of what's directly below it — confirmed against
-            "resource sharing New users"/"-new users", which have no card
-            immediately underneath either). -mx-6/px-6 bleeds it past
-            DialogContent's own p-6 padding to the modal's true edges. */}
+        {/* Full-bleed hairline under the title; -mx-6/px-6 bleeds it past
+            DialogContent's p-6 padding to the modal's true edges. */}
         <DialogHeader className="-mx-6 border-b px-6 pb-4">
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5" />
@@ -443,9 +408,8 @@ export function ShareModal({
             />
           )}
 
-          {/* Grantless rtypes (metric/kpi) get no People-with-access card, but
-              the owner row + transfer flow must still render — merged into
-              PeopleWithAccessSection's list for every other rtype (P1). */}
+          {/* Grantless rtypes (metric/kpi) have no People-with-access card,
+              but the owner row + transfer flow must still render. */}
           {entityType && access && !showPeopleSection && (
             <OwnerSection
               entityType={entityType}
@@ -474,10 +438,8 @@ export function ShareModal({
             </p>
           )}
 
-          {/* Organization Access (Default) — legacy static card for the
-              no-entityType (public-link-only) callers only; unrelated to
-              per-resource General access, which this modal no longer
-              surfaces at all (see the removal note above the render tree). */}
+          {/* Organization Access — legacy static card for no-entityType
+              callers only; unrelated to per-resource General access. */}
           {showOrgAccessCard && (
             <Card>
               <CardContent className="p-4">
@@ -505,8 +467,7 @@ export function ShareModal({
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      {/* Design frames 1426:2063/2115: link icon inside a plain
-                          white circle with a thin border, same in on/off states */}
+                      {/* Link icon in a bordered white circle, same in on/off states */}
                       <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white">
                         <Link className="h-4 w-4 text-muted-foreground" />
                       </div>
@@ -540,8 +501,7 @@ export function ShareModal({
                   {/* Copy URL Button */}
                   {shareStatus.is_public && shareStatus.public_url && (
                     <div className="space-y-2">
-                      {/* Design frame "public toggle on-1.jpg": repeats the card
-                          title as a mini-header above the copy-link button. */}
+                      {/* Repeats the card title as a mini-header above the copy-link button */}
                       <Label className="text-xs font-medium">Public sharing</Label>
                       <Button
                         data-testid="copy-link-btn"
@@ -670,10 +630,8 @@ export function ShareModal({
             </Card>
           )}
 
-          {/* Actions — SHARE applies every staged add-people row in one go
-              (design frames 1426:2063/2115); disabled until something is
-              staged. Full-bleed hairline above the footer, matching every
-              RBAC frame (same -mx-6/px-6 bleed as the header divider). */}
+          {/* SHARE applies every staged row in one go; disabled until
+              something is staged. Hairline matches the header divider. */}
           <div className="-mx-6 flex justify-end gap-3 border-t px-6 pt-4">
             <Button data-testid="share-close-btn" variant="outline" onClick={onClose}>
               CANCEL
@@ -683,8 +641,8 @@ export function ShareModal({
                 data-testid="share-commit-btn"
                 variant="primary"
                 onClick={staging.commit}
-                // hasPendingInput: typed-but-unstaged text keeps SHARE
-                // clickable so commit() can flush it into the batch.
+                // hasPendingInput keeps SHARE clickable while text sits
+                // unstaged in the search box, so commit() can flush it.
                 disabled={
                   (staging.committableCount === 0 && !staging.hasPendingInput) ||
                   staging.isCommitting
@@ -697,11 +655,8 @@ export function ShareModal({
           </div>
         </div>
 
-        {/* v1.1 M3b — dashboard-broadening confirms. Both are driven purely
-            by requires_confirmation responses (capability, not rtype):
-            1. grants the SHARE commit held back (one aggregated prompt);
-            2. the public-link enable. Nested Radix dialogs portal out, so
-            rendering them inside this DialogContent is safe. */}
+        {/* Broadening confirms for held grants and the public-link enable.
+            Nested Radix dialogs portal out, so rendering them here is safe. */}
         {staging.pendingBroadening && staging.broadeningVerdicts.length > 0 && (
           <BroadeningConfirmDialog
             open
@@ -728,17 +683,12 @@ export function ShareModal({
 }
 
 // ============================================================================
-// Owner + transfer ownership (Milestone 5, task-12f)
+// Owner + transfer ownership
 // ============================================================================
 //
-// OwnerTransferBlock is the shared row+transfer-flow content. It renders
-// TWICE depending on rtype:
-//  - grantless rtypes (metric/kpi, capabilities.grants === false): wrapped in
-//    its own standalone OwnerSection Card below, since there's no
-//    People-with-access card to live inside.
-//  - every other rtype: as the FIRST row inside PeopleWithAccessSection's
-//    list (P1 — design shows the owner as row 1 of one continuous list, not
-//    a separate bordered card above it).
+// OwnerTransferBlock renders in two places: inside its own OwnerSection card
+// for grantless rtypes (metric/kpi), and as the first row of
+// PeopleWithAccessSection's list for everything else.
 
 interface OwnerTransferBlockProps {
   entityType: ShareableResourceType;
@@ -756,9 +706,8 @@ function OwnerTransferBlock({ entityType, entityId, access, onChanged }: OwnerTr
   const [selectedNewOwnerId, setSelectedNewOwnerId] = useState('');
   const [isTransferring, setIsTransferring] = useState(false);
 
-  // Mirrors the backend's require_owner_access / can_delete_resource gate:
-  // the literal owner, or an org admin — general-access/grant-derived
-  // "edit" is NOT enough (see task-12 backend report).
+  // Mirrors the backend's gate: the literal owner or an org admin —
+  // grant-derived "edit" is not enough.
   const canTransfer = access.viewer.is_owner || hasRole(ADMIN_ROLES);
 
   const candidateItems: ComboboxItem[] = useMemo(
@@ -800,7 +749,7 @@ function OwnerTransferBlock({ entityType, entityId, access, onChanged }: OwnerTr
       setStep('idle');
       setSelectedNewOwnerId('');
       toastSuccess.generic('Ownership transferred');
-      // rtype only — no emails/ids (rules/analytics.md: no PII).
+      // rtype only — no emails/IDs, avoids PII.
       trackEvent(ANALYTICS_EVENTS.SHARING_OWNERSHIP_TRANSFERRED, { entity_type: entityType });
     } catch (error) {
       toastError.api(error, 'transfer ownership');
@@ -813,12 +762,9 @@ function OwnerTransferBlock({ entityType, entityId, access, onChanged }: OwnerTr
 
   const ownerLabel = access.owner.name || access.owner.email;
 
-  // Plain-language confirm copy (Phase A / A4, aligned toward design frame
-  // 1184:6198 but kept truthful — the design's "you can reclaim ownership
-  // anytime" is false: the old owner only keeps Edit). The backend
-  // unconditionally keeps the CURRENT owner on an Edit grant, not the actor
-  // — an admin transferring someone ELSE's resource keeps nothing
-  // themselves, so only say "you" when the actor IS the current owner.
+  // The backend keeps the CURRENT owner on an Edit grant, not the actor —
+  // an admin transferring someone else's resource keeps nothing themselves,
+  // so only say "you" when the actor is the current owner.
   const transferSentence = `Ownership of this ${RESOURCE_NOUNS[entityType]} transfers to ${selectedNewOwnerLabel}. They can then delete it or transfer it again.`;
   const confirmCopy = access.viewer.is_owner
     ? `${transferSentence} You keep Edit access.`
@@ -913,9 +859,8 @@ interface OwnerSectionProps {
   onChanged: () => void;
 }
 
-/** Standalone fallback for grantless rtypes (metric/kpi) — there's no
- * People-with-access card for the owner row to merge into, so it keeps its
- * own bordered card here. */
+/** Standalone owner card for grantless rtypes (metric/kpi) — there's no
+ * People-with-access card for the owner row to merge into. */
 function OwnerSection({ entityType, entityId, access, onChanged }: OwnerSectionProps) {
   if (!access.owner) return null;
   return (
@@ -943,19 +888,16 @@ interface PeopleWithAccessSectionProps {
   canShare: boolean;
   staging: ShareStaging;
   /** Forwarded to ShareAddPeopleSearch so the dialog's onEscapeKeyDown can
-   * close the dropdown first — see the Escape-layering note in ShareModal. */
+   * close the dropdown first. */
   searchRef: React.Ref<ShareAddPeopleSearchHandle>;
   onChanged: () => void;
-  /** Names the container in the broadening-confirm copy (v1.1 M3b). */
+  /** Names the container in the broadening-confirm copy. */
   resourceName: string;
 }
 
-// Sentinel SelectItem value for the "Transfer Ownership" menu item folded
-// into a grantee row's own permission control (design: "Transfer
-// ownership.jpg" — the dropdown reads "Can View ✓ / Can Edit / Transfer
-// Ownership" for a non-owner row). Distinct from the 'view'/'edit'
-// AccessLevel values so onValueChange can branch to the transfer flow
-// instead of a permission PATCH.
+// Sentinel value for the "Transfer Ownership" item inside a grantee row's
+// permission Select — distinct from 'view'/'edit' so onValueChange can
+// branch to the transfer flow instead of a permission PATCH.
 const TRANSFER_OWNERSHIP_VALUE = '__transfer_ownership__';
 
 function PeopleWithAccessSection({
@@ -970,32 +912,21 @@ function PeopleWithAccessSection({
 }: PeopleWithAccessSectionProps) {
   const { users: orgUsers } = useUsers();
   const { hasRole } = useRbac();
-  // Mirrors the backend's require_owner_access / can_delete_resource gate:
-  // the literal owner, or an org admin — general-access/grant-derived "edit"
-  // is NOT enough (see task-12 backend report).
+  // Mirrors the backend's gate: the literal owner or an org admin —
+  // grant-derived "edit" is not enough.
   const canTransfer = access.viewer.is_owner || hasRole(ADMIN_ROLES);
 
-  // Reconciliation note (design-alignment task, item 6): the only frame that
-  // shows a transfer affordance ("Transfer ownership.jpg") puts it INSIDE a
-  // non-owner row's own permission dropdown, not as a standalone button under
-  // the owner (no frame shows that, and item 4 leaves the owner row no
-  // control at all). So for rtypes with a People-with-access list, "Transfer
-  // Ownership" is a menu item on each eligible grantee's Select, targeting
-  // THAT person — see TRANSFER_OWNERSHIP_VALUE above. This trades away the
-  // old combobox's "transfer to any org member" reach for an exact frame
-  // match; transferring to someone not yet granted access now means sharing
-  // with them first. Grantless rtypes (metric/kpi — no frame covers them)
-  // keep the broader OwnerSection/OwnerTransferBlock combobox flow untouched.
+  // "Transfer Ownership" is a menu item on each eligible grantee's Select,
+  // targeting that person — transferring to someone without access means
+  // sharing with them first. Grantless rtypes keep the combobox flow.
   const [transferTarget, setTransferTarget] = useState<{ orguserId: number; label: string } | null>(
     null
   );
   const [isTransferring, setIsTransferring] = useState(false);
 
-  // Role tags (item 4): joined client-side from the org-users list the modal
-  // already fetches for the typeahead — the grants/owner payload only has an
-  // email/principal_id, not the person's role. A group principal, or a user
-  // that isn't resolvable in that list (e.g. a pending cross-org invite),
-  // gets no tag rather than a guessed one.
+  // Role tags are joined client-side from the org-users list (the grants
+  // payload has no role). An unresolvable principal gets no tag rather than
+  // a guessed one.
   const roleTagFor = useCallback(
     (principalId: number | null, email: string | null) => {
       const match = (orgUsers || []).find(
@@ -1008,10 +939,8 @@ function PeopleWithAccessSection({
     [orgUsers]
   );
 
-  // v1.1 M3b — a permission change (view→edit is a grant-add under the
-  // hood) can come back `requires_confirmation` on a dashboard whose tiles
-  // the principal can't see standalone; held here for the broadening
-  // confirm, nothing written until YES re-sends with the confirm fields.
+  // A permission change can come back requires_confirmation (broadening);
+  // held here, nothing written until YES re-sends with the confirm fields.
   const [permChangeConfirm, setPermChangeConfirm] = useState<{
     grant: AccessGrant;
     permission: AccessLevel;
@@ -1024,9 +953,8 @@ function PeopleWithAccessSection({
       permission: AccessLevel,
       confirmFields?: { extend_chart_ids?: number[]; proceed?: boolean }
     ) => {
-      // Pending rows have no principal_id yet — re-POST via the email path
-      // instead; the backend's update_or_create keyed on pending_email
-      // updates the pending row's permission in place.
+      // Pending rows have no principal_id — re-POST via the email path; the
+      // backend updates the pending row's permission in place.
       const principalRef =
         grant.principal_id !== null
           ? { principal_id: grant.principal_id }
@@ -1106,7 +1034,7 @@ function PeopleWithAccessSection({
       onChanged();
       setTransferTarget(null);
       toastSuccess.generic('Ownership transferred');
-      // rtype only — no emails/ids (rules/analytics.md: no PII).
+      // rtype only — no emails/IDs, avoids PII.
       trackEvent(ANALYTICS_EVENTS.SHARING_OWNERSHIP_TRANSFERRED, { entity_type: entityType });
     } catch (error) {
       toastError.api(error, 'transfer ownership');
@@ -1120,10 +1048,8 @@ function PeopleWithAccessSection({
     ? roleTagFor(access.owner.orguser_id, access.owner.email)
     : undefined;
 
-  // Same plain-language confirm copy as the grantless-rtype combobox flow
-  // (OwnerTransferBlock) — kept truthful about who keeps Edit access after
-  // the transfer (the backend unconditionally keeps the CURRENT owner on an
-  // Edit grant, not the actor).
+  // Same confirm copy as OwnerTransferBlock — the backend keeps the CURRENT
+  // owner on an Edit grant, not the actor.
   const transferConfirmCopy = transferTarget
     ? (() => {
         const sentence = `Ownership of this ${RESOURCE_NOUNS[entityType]} transfers to ${transferTarget.label}. They can then delete it or transfer it again.`;
@@ -1134,29 +1060,21 @@ function PeopleWithAccessSection({
     : '';
 
   return (
-    // Flat content, not a bordered card — every RBAC frame shows the search
-    // block and People-with-access as plain sections separated by
-    // whitespace; only the Public-sharing block below gets its own rounded
-    // bordered card.
+    // Flat content, not a bordered card — only the Public-sharing block
+    // gets its own card.
     <div data-testid="share-people-section" className="space-y-4">
-      {/* Unified add flow (Phase C): search people/groups or paste emails,
-          entries stage as rows here, the footer SHARE button applies them.
-          Only ADDING is staged — the rows below stay live-editing. */}
+      {/* Search people/groups or paste emails; entries stage as rows and the
+          footer SHARE applies them. Only adding is staged — the rows below
+          stay live-editing. */}
       {canShare && <ShareAddPeopleSearch ref={searchRef} access={access} staging={staging} />}
 
       <Label className="text-sm font-medium">People with access</Label>
 
-      {/* Scrolls internally when the list gets long (design: "resource
-            sharing- scrollable list of people with access" — a scrollbar
-            beside the rows, not a taller modal). The Select/AlertDialog
-            popovers portal out, so clipping here can't cut them off; the
-            transfer confirm panel renders BELOW this container so it can
-            never hide behind the scrollbar. */}
+      {/* Scrolls internally when the list gets long. Select/AlertDialog
+          popovers portal out, so clipping can't cut them off; the transfer
+          confirm renders below this container so it can't hide behind the scrollbar. */}
       <div className="max-h-56 space-y-2 overflow-y-auto">
-        {/* Owner is row 1 of this same list (P1) — not a separate bordered
-              card above it. Plain text "Owner", no pill/border, no control
-              (design: "resource sharing- scrollable list of people with
-              access" / "resource sharing- user added" frames). */}
+        {/* Owner is row 1 of this same list: plain text "Owner", no control. */}
         {access.owner && (
           <div
             data-testid="share-owner-row"
@@ -1295,7 +1213,7 @@ function PeopleWithAccessSection({
         />
       )}
 
-      {/* v1.1 M3b — broadening confirm for a held permission change. */}
+      {/* Broadening confirm for a held permission change. */}
       {permChangeConfirm && permChangeConfirm.verdicts.length > 0 && (
         <BroadeningConfirmDialog
           open
@@ -1309,8 +1227,8 @@ function PeopleWithAccessSection({
   );
 }
 
-/** The amber confirm step for a per-row "Transfer Ownership" pick — rendered
- * BELOW the scrollable People list so it can never hide behind its scrollbar. */
+/** Amber confirm step for a per-row "Transfer Ownership" pick — rendered
+ * below the scrollable People list so it can't hide behind the scrollbar. */
 function TransferConfirmPanel({
   copy,
   isTransferring,
@@ -1354,7 +1272,7 @@ function TransferConfirmPanel({
 }
 
 // ============================================================================
-// Pending requests (Milestone 9 — request-access, in-modal decisions)
+// Pending requests (in-modal decisions)
 // ============================================================================
 
 interface PendingRequestsSectionProps {
@@ -1364,10 +1282,8 @@ interface PendingRequestsSectionProps {
 }
 
 function PendingRequestsSection({ entityType, requests, onDecided }: PendingRequestsSectionProps) {
-  // Collapsible header (design frames "resource sharing- multiple request"
-  // /"-1"): only shown once there are 2+ requests — a single request just
-  // renders its row directly, nothing to collapse ("request on sharing.jpg").
-  // Defaults to expanded so incoming requests are seen immediately.
+  // Collapsible header only appears with 2+ requests; a single request
+  // renders its row directly. Defaults to expanded.
   const [isExpanded, setIsExpanded] = useState(true);
   const showHeader = requests.length >= 2;
   const showRows = !showHeader || isExpanded;
@@ -1415,10 +1331,8 @@ interface PendingRequestRowProps {
 }
 
 function PendingRequestRow({ entityType, request, onDecided }: PendingRequestRowProps) {
-  // Approve may only ever downgrade (Edit ask -> View grant), never escalate
-  // — the backend 400s an attempt to grant above what was requested. Cap the
-  // options offered so that 400 is unreachable from this UI: a View request
-  // only ever offers View.
+  // Approve may only downgrade (Edit ask -> View grant), never escalate —
+  // the backend 400s a grant above what was requested, so cap the options.
   const permissionOptions: AccessLevel[] =
     request.requested_permission === 'edit' ? ['edit', 'view'] : ['view'];
   const [selectedPermission, setSelectedPermission] = useState<AccessLevel>(
@@ -1467,32 +1381,16 @@ function PendingRequestRow({ entityType, request, onDecided }: PendingRequestRow
     >
       <span className="flex min-w-0 flex-1 items-center gap-2">
         <PrincipalAvatar />
-        {/* A single non-wrapping line (design: "request on sharing" /
-            "resource sharing- multiple request" — email + bold permission
-            together, never split across lines). The requester's name/email
-            keeps min-w-0 + truncate as a defensive backstop for very long
-            values; the note is the one genuinely variable-length piece, so
-            it's the flex-basis-0 "expendable" child — it takes any leftover
-            space when there's room and is the first to shrink toward an
-            ellipsis (or nothing) when there isn't, instead of forcing the
-            whole row onto ragged wrapped lines. */}
+        {/* Single non-wrapping line. The note is the expendable flex child:
+            it shrinks to an ellipsis first instead of wrapping the row. */}
         <span className="flex min-w-0 flex-1 items-center gap-1">
-          {/* Literal space text nodes ARE needed in addition to the flex
-              `gap` above: toHaveTextContent asserts on the concatenated
-              textContent ("wants to view"), which only contains a real
-              space character if one is actually in the DOM — gap is a
-              purely visual layout property and contributes nothing to
-              textContent. Conversely, gap is needed for the visible space
-              because flexbox drops whitespace-only text runs between flex
-              items from layout (they don't generate a rendered box), so
-              the literal spaces alone produce no visual gap. */}
+          {/* Keep the literal space text nodes: flex gap is visual-only and
+              contributes nothing to textContent, which tests assert on. */}
           <span className="min-w-0 truncate">{requesterLabel}</span>{' '}
           <span className="flex-shrink-0 text-muted-foreground">wants to</span>{' '}
           {permissionOptions.length > 1 ? (
-            // Inline lowercase "edit ⌄" control (embedded mid-sentence) — the
-            // same borderless chrome as PermissionSelect, but with "view"/
-            // "edit" item text instead of that component's standalone
-            // "View"/"Edit", so it can't reuse the component itself.
+            // Inline mid-sentence select — same borderless chrome as
+            // PermissionSelect but lowercase item text, so it can't reuse it.
             <Select
               value={selectedPermission}
               onValueChange={(value) => setSelectedPermission(value as AccessLevel)}

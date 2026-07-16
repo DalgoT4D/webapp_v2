@@ -15,11 +15,9 @@ export function isValidHttpUrl(url: string): boolean {
 }
 
 /**
- * Reads the HTTP status off an error thrown by `lib/api.ts`'s `apiFetch`
- * (which stamps `.status` on the Error it throws for a non-2xx response).
- * Duck-typed on purpose — SWR's `error` is untyped, and tests mock rejected
- * values as plain `Object.assign(new Error(...), { status })` rather than a
- * real class instance, so `instanceof` would be brittle here.
+ * Reads the HTTP status off an error thrown by apiFetch. Duck-typed on
+ * purpose — SWR's `error` is untyped and tests mock plain Errors, so
+ * `instanceof` would be brittle.
  */
 export function getApiErrorStatus(error: unknown): number | undefined {
   if (error && typeof error === 'object' && 'status' in error) {
@@ -30,13 +28,9 @@ export function getApiErrorStatus(error: unknown): number | undefined {
 }
 
 /**
- * Reads the parsed JSON response body off an error thrown by `apiFetch`
- * (which stamps `.body` alongside `.status` for a non-2xx response — see
- * lib/api.ts). Needed wherever a non-2xx response carries a typed payload
- * the caller must act on, not just a message string — e.g. `update_dashboard`'s
- * 409 `EmbedCoverageConfirmation` (v1.1 M3b), which names the under-covering
- * charts a save must re-prompt for. Duck-typed for the same reason as
- * `getApiErrorStatus` above.
+ * Reads the parsed JSON body off an error thrown by apiFetch — for non-2xx
+ * responses that carry a typed payload (e.g. a 409's confirmation body).
+ * Duck-typed for the same reason as getApiErrorStatus.
  */
 export function getApiErrorBody<T = unknown>(error: unknown): T | undefined {
   if (error && typeof error === 'object' && 'body' in error) {

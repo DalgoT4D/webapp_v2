@@ -41,11 +41,8 @@ import { AlertType } from '@/types/alerts';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { getApiErrorStatus } from '@/lib/utils';
 
-// Alerts have no public-link concept (public_link=False in the rtype
-// registry — ShareModal already hides that section via the capabilities
-// flag). getShareStatus/updateSharing are still required props on
-// ShareModal (called unconditionally on open); these stubs never hit a
-// real endpoint since the section they'd back is never rendered for alerts.
+// Alerts have no public link. getShareStatus/updateSharing are required
+// ShareModal props, but these stubs never back a rendered section.
 async function getAlertShareStatus(): Promise<ShareStatus> {
   return { is_public: false, public_access_count: 0 };
 }
@@ -69,12 +66,11 @@ export default function AlertsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [logModalAlert, setLogModalAlert] = useState<AlertListItem | null>(null);
 
-  // Per-item Share (task-17f, cross-task gap closure) — one shared ShareModal
-  // instance for the whole table, matching dashboard-list-v2.tsx's pattern.
+  // One shared ShareModal instance for the whole table, matching
+  // dashboard-list-v2.tsx's pattern.
   const [sharingAlert, setSharingAlert] = useState<AlertListItem | null>(null);
 
-  // Bulk-selection bar (task-17f, Milestone 10) — persists across pagination,
-  // capped at 100 (BULK_MAX_ITEMS) via useMultiSelect.
+  // Bulk selection — persists across pagination, capped via useMultiSelect.
   const {
     selectedIds: selectedAlertIds,
     toggle: toggleAlertSelection,
@@ -97,9 +93,8 @@ export default function AlertsPage() {
   });
 
   // Selection persists across pagination, so the bar's count must be the
-  // TRUE cross-page total (selectedAlertIds.size) — never a page-local
-  // "N of {alerts.length}" denominator, which contradicts the (unchecked)
-  // visible checkboxes as soon as the user pages away (finding 1).
+  // true cross-page total — a page-local denominator would contradict the
+  // visible checkboxes as soon as the user pages away.
   const selectedOnPageCount = useMemo(
     () => alerts.filter((a) => selectedAlertIds.has(a.id)).length,
     [alerts, selectedAlertIds]
@@ -122,13 +117,10 @@ export default function AlertsPage() {
     [removeAppliedAlertIds, mutate]
   );
 
-  // Deep-link from an access-request/notification email: /alerts?alertId={id}
-  // (Task 13's build_alert_url). The alerts list is already resolver-scoped
-  // (accessible_filter), so an alert the viewer can see just needs
-  // highlighting on whichever page it lands on; one the viewer CANNOT see
-  // never appears in that list at all, but a fetch keyed to it individually
-  // still 403s — the same generic access-overview endpoint every detail page
-  // uses — so that's the seam this checks to offer the request-access flow.
+  // Deep-link (/alerts?alertId={id}): a visible alert just gets highlighted;
+  // one the viewer can't see never appears in the resolver-scoped list, but
+  // its individual access fetch 403s — the seam this checks to offer the
+  // request-access flow.
   const searchParams = useSearchParams();
   const alertIdParam = searchParams.get('alertId');
   const deepLinkedAlertId = alertIdParam ? Number(alertIdParam) : null;
@@ -196,13 +188,12 @@ export default function AlertsPage() {
           )}
         </div>
 
-        {/* Bulk-selection bar (task-17f) — appears once >=1 row is selected */}
+        {/* Bulk-selection bar — appears once >=1 row is selected */}
         {canShareAlerts && selectedAlertIds.size > 0 && (
           <div
             data-testid="alert-bulk-share-bar"
             className="mx-6 mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between"
           >
-            {/* Design frame 1992:2488: "{N} selected · Select All", actions right */}
             <div className="flex items-center gap-1 text-sm font-medium text-blue-900">
               <span>
                 {selectedAlertIds.size} selected
@@ -378,9 +369,8 @@ export default function AlertsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Per-item Share (task-17f, cross-task gap closure) — the modal's
-          capability flags already omit the public-link section for alerts;
-          no alert-specific conditionals live in ShareModal itself. */}
+      {/* Per-item Share — the modal's capability flags already omit the
+          public-link section for alerts. */}
       {sharingAlert && (
         <ShareModal
           entityId={sharingAlert.id}
@@ -394,8 +384,7 @@ export default function AlertsPage() {
         />
       )}
 
-      {/* Bulk Share Dialog (task-17f) — no public-link action (alert is
-          public_link=False; the backend would skip every item). */}
+      {/* Bulk Share Dialog — no public-link action for alerts. */}
       {bulkShareOpen && (
         <BulkShareDialog
           entityType="alert"

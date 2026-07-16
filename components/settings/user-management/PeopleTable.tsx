@@ -88,16 +88,13 @@ interface PeopleTableProps {
   onInviteClick?: () => void;
 }
 
-// Merged People table (Settings → Access → People). Replaces the old
-// Users / Pending Invitations split view: ONE table lists everyone, and the
-// leading icon carries the state — envelope for a pending invitation, person
-// for an active user (see design frame `RBAC screens/people.jpg`).
+// Merged People table (Settings → Access → People): one table lists
+// everyone; the leading icon carries the state — envelope for a pending
+// invitation, person for an active user.
 export function PeopleTable({ onInviteClick }: PeopleTableProps = {}) {
   const { users, isLoading: usersLoading, mutate: mutateUsers } = useUsers();
-  // Always called (rules of hooks) — its result is only merged into the table
-  // when the viewer has can_view_invitations, so a viewer without that
-  // permission never sees pending rows (same gate the old secondary
-  // "Pending Invitations" tab used).
+  // Always called (rules of hooks) — the result is only merged in when the
+  // viewer has can_view_invitations, so others never see pending rows.
   const {
     invitations: rawInvitations,
     isLoading: invitationsLoading,
@@ -133,18 +130,16 @@ export function PeopleTable({ onInviteClick }: PeopleTableProps = {}) {
   const [openFilters, setOpenFilters] = useState({ email: false, role: false });
 
   const formatRoleName = (roleSlug: string) => {
-    // Prefer the org's actual role name (e.g. "Pipeline Manager") from the
-    // roles catalog so an active user's Role text matches a pending
-    // invitation's `invited_role.name` for the same role — keeping the merged
-    // Role filter from splitting one role into two differently-cased entries.
+    // Prefer the org's actual role name from the roles catalog so active
+    // and pending rows show identical Role text — otherwise the Role filter
+    // splits one role into two differently-cased entries.
     const catalogName = roles?.find((r) => r.slug === roleSlug)?.name;
     if (catalogName) return catalogName;
     return roleSlug.replace('-', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
   };
 
-  // Build the merged row set. GET /v1/users/invitations/ is now org-wide and
-  // carries the real inviter per row (`invited_by`), so pending rows show
-  // who actually sent the invite rather than deriving it from the viewer.
+  // The invitations endpoint is org-wide and carries the real inviter per
+  // row, so pending rows show who actually sent the invite.
   const mergedRows: MergedRow[] = useMemo(() => {
     const activeRows: ActiveRow[] = (users ?? []).map((user) => ({
       kind: 'active',
@@ -366,12 +361,9 @@ export function PeopleTable({ onInviteClick }: PeopleTableProps = {}) {
     );
   }
 
-  // The signed-in user's own row is always present in the active-users list
-  // (only their row *actions* are disabled, see below), so a literal
-  // zero-people org isn't reachable in practice. "No people yet" fires when
-  // there are no OTHER active users (<=1, i.e. self only) AND no pending
-  // invitations — matching the design's empty illustration honestly rather
-  // than a state that could never occur.
+  // The signed-in user's own row always exists, so a literal zero-people org
+  // is unreachable. "No people yet" fires when there are no OTHER active
+  // users (self only) and no pending invitations.
   const hasOtherActiveUsers = (users?.length ?? 0) > 1;
   const hasPendingInvites = (invitations?.length ?? 0) > 0;
 

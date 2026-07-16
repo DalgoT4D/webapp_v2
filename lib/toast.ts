@@ -165,9 +165,7 @@ export const toastInfo = {
 
 /**
  * Warning toast for partial-success outcomes — the primary action
- * succeeded, but a secondary step failed for some of its targets (e.g.
- * "group created, but couldn't add: a@ngo.org" in GroupFormDialog's F4
- * create-with-members flow).
+ * succeeded but a secondary step failed for some targets.
  */
 export const toastWarning = {
   generic: (message: string) => toast.warning(message),

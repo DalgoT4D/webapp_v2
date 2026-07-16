@@ -1,13 +1,8 @@
 /**
- * Shared logic for the two v1.1 coverage warnings (spec §3, the "exposure
- * honesty" layer): the dashboard-broadening confirm and the embed-time
- * warning. Both consume the same `ChartCoverageVerdict[]` payload the
- * backend returns from every widening path (`under_covering_charts`) and
- * from `GET /api/dashboards/{id}/chart-coverage/`.
- *
- * Everything here is CAPABILITY-driven off the verdicts themselves
- * (`extendable`, `viewer_can_edit`, gap classes) — no rtype conditionals,
- * so the dialogs stay reusable for any future container rtype.
+ * Shared logic for the dashboard-broadening confirm and the embed-time
+ * warning — both consume the same ChartCoverageVerdict[] payload. Everything
+ * is capability-driven off the verdicts (no rtype conditionals), so the
+ * dialogs stay reusable for any future container rtype.
  */
 import type { ChartCoverageVerdict, PrincipalGap } from '@/hooks/api/useResourceAccess';
 
@@ -15,9 +10,8 @@ export interface CoverageDecision {
   /** Charts YES will extend (subset of the warned charts — the backend
    * validates this). Empty when nothing is extendable by this viewer. */
   extendChartIds: number[];
-  /** Always true on YES: commits the widening/embed while acknowledging any
-   * exposure extend can't close (backend contract: either confirm field
-   * present commits). */
+  /** Always true on YES: commits while acknowledging any exposure extend
+   * can't close (either confirm field present commits). */
   proceed: boolean;
 }
 
@@ -30,10 +24,8 @@ export interface CoverageSummary {
   /** Titles of extendable charts the viewer CANNOT edit — extend needs Edit
    * on the chart, so these drive the request-Edit/ask-owner prompt. */
   editBlockedTitles: string[];
-  /** True when at least one named chart keeps exposure extend can't close
-   * (public link, Member visibility, skipped Member principals, or an
-   * extendable gap the viewer can't edit) — the copy must say those charts
-   * stay visible inline regardless. */
+  /** True when at least one chart keeps exposure extend can't close — the
+   * copy must say those charts stay visible inline regardless. */
   hasResidualExposure: boolean;
   /** Who gains visibility — e.g. "Funders group", "Members and anyone with
    * the link". */
@@ -85,11 +77,10 @@ function fullyExtendable(v: ChartCoverageVerdict): boolean {
   );
 }
 
-/** One aggregated verdict list from several sources (per-grant / per-item
- * warnings), deduplicated by chart with gap classes OR-merged — a chart
- * extendable in ONE source stays extendable in the union, so the aggregated
- * prompt's extend-all doesn't silently drop it. Display + extend-id
- * aggregation only; per-source subsets stay with their source. */
+/** One aggregated verdict list from several sources, deduped by chart with
+ * gap classes OR-merged — extendable in one source stays extendable in the
+ * union. Display + extend-id aggregation only; per-source subsets stay with
+ * their source. */
 export function unionCoverageVerdicts(lists: ChartCoverageVerdict[][]): ChartCoverageVerdict[] {
   const byChartId = new Map<number, ChartCoverageVerdict>();
   for (const list of lists) {

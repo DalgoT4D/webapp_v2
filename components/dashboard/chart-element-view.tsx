@@ -1603,12 +1603,10 @@ export function ChartElementView({
 
       // Pass dashboard filters as query string so the backend can resolve them
       // against the chart's table (mirrors the chart-data-preview pattern).
-      // v1.1 M3b: the authed tile export also carries chart_id/dashboard_id —
-      // the M2 warehouse gate treats a bare raw payload as Analyst-only, so
-      // without the chart context a Member's dashboard-tile export 403s.
-      // (Frozen report configs are copied by value and may no longer match
-      // the live chart, so they keep the bare-payload path; the public
-      // endpoint carries the chart id in its path already.)
+      // The authed tile export also carries chart_id/dashboard_id — without
+      // that context a Member's dashboard-tile export 403s (bare raw
+      // payloads are Analyst-only). Frozen report configs may no longer
+      // match the live chart, so they keep the bare-payload path.
       const csvParams = new URLSearchParams();
       if (!isPublicMode && !frozenChartConfig) {
         csvParams.append('chart_id', String(chartId));

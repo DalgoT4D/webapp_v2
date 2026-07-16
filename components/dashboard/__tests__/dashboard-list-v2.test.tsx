@@ -1,15 +1,7 @@
 /**
- * DashboardListV2 — sharing badges (Task 6c)
- *
- * GET /api/dashboards/ carries analyst_level, member_level, is_owner,
- * is_creator (Task 6b DashboardResponse fields; D1 renamed the general-access
- * pair from general_audience/general_level to these two independently
- * settable per-role levels). This suite covers the derived badges: 🔒 Private
- * / analysts-only / everyone-in-org badge, and "Shared with you" — see
- * deriveGeneralAccessBadge in dashboard-list-utils.ts for how the per-role
- * pair collapses back down to one badge. The component also has grid/list
- * card renderers, but viewMode is hardcoded to 'table' (see the component's
- * viewMode const), so only the table row is reachable and tested here.
+ * DashboardListV2 sharing badges, derived from analyst_level/member_level/
+ * is_owner/is_creator (see deriveGeneralAccessBadge). viewMode is hardcoded
+ * to 'table', so only the table row is reachable and tested here.
  */
 import React from 'react';
 import { render, screen } from '@testing-library/react';

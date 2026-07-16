@@ -1,10 +1,7 @@
 /**
- * useUserGroups — the single place that talks to /api/groups/*.
- *
- * Backs Settings → Groups (create/rename/delete a group, manage members) and
- * the Groups source in ShareModal's add-principal picker.
- * Contract verified against ddpui/api/groups_api.py + ddpui/schemas/group_schema.py
- * on the paired backend branch (see task-07 report for the verbatim JSON shape).
+ * useUserGroups — the single place that talks to /api/groups/*. Backs
+ * Settings → Groups and ShareModal's Groups picker; types mirror the
+ * backend's group_schema.py.
  */
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
@@ -26,8 +23,8 @@ export interface UserGroup {
   // null when the creating OrgUser has since been deleted (created_by is SET_NULL).
   created_by: GroupCreator | null;
   created_at: string;
-  // Up to 4 ACTIVE member emails for the avatar stack (Phase A / A2). Only
-  // the list endpoint fills this; create/rename/detail return [].
+  // Up to 4 active member emails for the avatar stack. Only the list
+  // endpoint fills this; create/rename/detail return [].
   member_preview: string[];
 }
 
@@ -38,8 +35,8 @@ export interface GroupMember {
   name: string | null;
   pending_email: string | null;
   status: GroupMemberStatus;
-  // The member's org-role slug (e.g. "analyst"), null for pending-email rows
-  // that have no OrgUser yet (Phase F5).
+  // The member's org-role slug (e.g. "analyst"); null for pending-email
+  // rows that have no OrgUser yet.
   role: string | null;
 }
 
@@ -61,9 +58,8 @@ export function groupKey(groupId: number | null): string | null {
   return groupId ? `/api/groups/${groupId}/` : null;
 }
 
-// `enabled` lets callers that only need the list conditionally (e.g. the
-// ShareModal's Groups picker, which shouldn't fetch /api/groups/ for a
-// view-only viewer) pass a null SWR key instead of always fetching.
+// `enabled` lets conditional callers (e.g. ShareModal for a view-only
+// viewer) pass a null SWR key instead of always fetching.
 export function useUserGroups(enabled: boolean = true) {
   const { data, error, isLoading, mutate } = useSWR<ApiResponse<UserGroup[]>>(
     groupsKey(enabled),
@@ -117,10 +113,8 @@ export async function renameGroup(
   return response.data;
 }
 
-/** One-off (non-SWR) group-detail fetch — used by the Create-group dialog's
- * typeahead to resolve a staged GROUP's CURRENT active members at submit
- * time (flatten-on-create), not via a hook (there's no fixed set of group
- * ids to subscribe to; the staged list changes as the admin picks). */
+/** One-off (non-SWR) group-detail fetch — resolves a staged group's current
+ * active members at submit time; no fixed set of ids to subscribe to. */
 export async function fetchGroupDetail(groupId: number): Promise<UserGroupDetail> {
   const response: ApiResponse<UserGroupDetail> = await apiGet(`/api/groups/${groupId}/`);
   return response.data;
@@ -130,10 +124,8 @@ export async function deleteGroup(groupId: number): Promise<void> {
   await apiDelete(`/api/groups/${groupId}/`);
 }
 
-// Exactly one of orguser_id/email — mirrors the backend's GroupMemberCreate.
-// `invite_role` is only consulted on the email/unknown-user path (Member
-// unless an admin/super-admin caller chose more; a non-admin escalation
-// attempt 403s) and stages a pending row that activates on signup.
+// Exactly one of orguser_id/email. `invite_role` is only used on the
+// unknown-email path and stages a pending row that activates on signup.
 export type AddGroupMemberPayload =
   | { orguser_id: number; email?: never; invite_role?: never }
   | { orguser_id?: never; email: string; invite_role?: InviteRoleSlug };

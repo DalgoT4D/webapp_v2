@@ -1,13 +1,9 @@
 /**
- * The dashboard editor's half of the embed-warning contract (v1.1 M3b).
- *
- * `update_dashboard` 409s (`EmbedCoverageConfirmation`) when a tabs payload
- * ADDS charts that under-cover the dashboard's audience and the request
- * carries neither `extend_chart_ids` nor `proceed`. These helpers keep that
- * plumbing testable outside the (very large) builder component:
- * picker decisions accumulate into a `PendingCoverage`, ride on the next
- * save as payload fields, and a rejected save's verdicts are parsed back
- * out of the stamped API error for the recovery dialog.
+ * The dashboard editor's half of the embed-warning contract.
+ * update_dashboard 409s when a save adds under-covering charts without
+ * confirm fields. These helpers keep that plumbing testable outside the
+ * builder: picker decisions accumulate into PendingCoverage and ride on the
+ * next save; a rejected save's verdicts are parsed back for the recovery dialog.
  */
 import { getApiErrorBody, getApiErrorStatus } from '@/lib/utils';
 import type { ChartCoverageVerdict } from '@/hooks/api/useResourceAccess';

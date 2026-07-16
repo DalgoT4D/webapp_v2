@@ -1,7 +1,7 @@
 /**
- * v1.1 M3b (task 6): the authed dashboard-tile CSV export must carry
- * chart_id + dashboard_id — the M2 warehouse gate treats a bare raw payload
- * as Analyst-only, so without the chart context a Member's tile export 403s.
+ * The authed dashboard-tile CSV export must carry chart_id + dashboard_id —
+ * without that context a Member's tile export 403s (bare raw payloads are
+ * Analyst-only).
  */
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';

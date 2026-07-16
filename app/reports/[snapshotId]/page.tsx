@@ -57,15 +57,11 @@ export default function SnapshotViewerPage() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const { hasPermission } = useRbac();
   const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS);
-  // Was CAN_SHARE_DASHBOARDS (copy-paste leftover from before reports had
-  // their own slug) — fixed while migrating onto the shared ShareModal.
   const canShare = hasPermission(PERMISSIONS.CAN_SHARE_REPORTS);
 
   // Resolver-level permission on this specific report — distinct from the
-  // role-level `canEdit` above. Comment moderation (hiding/editing/deleting
-  // someone else's comment) is gated on this, matching the backend's
-  // `CommentService._can_moderate` (Task 14): author, or resolver-edit via
-  // owner/admin/an edit-grant, not the static can_edit_dashboards slug.
+  // role-level `canEdit` above. Comment moderation is gated on this, not
+  // the static role slug.
   const { data: reportAccess } = useResourceAccess(isValidId ? 'report' : null, parsedId);
   const canModerateComments = reportAccess?.viewer.effective_permission === 'edit';
 
@@ -260,10 +256,8 @@ export default function SnapshotViewerPage() {
             <div className="flex-shrink-0 px-6 pt-4 pb-2">
               <div className="border rounded-lg p-5 bg-background relative">
                 <div className="absolute top-3 right-3 flex items-center gap-1">
-                  {/* Any viewer can comment — this used to be locked behind
-                      canEdit (CAN_EDIT_DASHBOARDS), which silently blocked
-                      Members from ever opening the summary comment thread.
-                      Task 14 relaxed comment creation to resolver-View. */}
+                  {/* Any viewer can comment — deliberately not gated on
+                      canEdit, which would block Members from the thread. */}
                   <CommentPopover
                     snapshotId={parsedId}
                     targetType="summary"

@@ -580,16 +580,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [saveError, setSaveError] = useState<string | null>(null);
 
-    // ---- Embed-coverage confirm plumbing (v1.1 M3b) ----
-    // Decisions made in the chart picker's embed warning accumulate here (a
-    // ref: autosave's debounced closure must always read the latest) and ride
-    // on the next PUT as `extend_chart_ids`/`proceed`; cleared once a save
-    // commits. `save409` holds a rejected save's coverage verdicts
-    // (update_dashboard's 409 EmbedCoverageConfirmation — e.g. a tile
-    // restored by undo/redo that never went through the picker) for the
-    // recovery dialog. `dismissed409Ref` remembers a cancelled prompt so the
-    // 5s autosave loop doesn't reopen the same dialog forever — the header
-    // keeps showing the save error instead.
+    // ---- Embed-coverage confirm plumbing ----
+    // Embed-warning decisions accumulate here (a ref: autosave's debounced
+    // closure must read the latest) and ride on the next PUT; cleared once a
+    // save commits. `save409` holds a rejected save's verdicts for the
+    // recovery dialog; `dismissed409Ref` remembers a cancelled prompt so the
+    // autosave loop doesn't reopen the same dialog forever.
     const pendingCoverageRef = useRef<PendingCoverage>(EMPTY_PENDING_COVERAGE);
     const [save409, setSave409] = useState<ChartCoverageVerdict[] | null>(null);
     const dismissed409Ref = useRef<string | null>(null);
@@ -981,9 +977,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             : t
         );
 
-        // Embed-warning confirmation (v1.1 M3b): decisions from the chart
-        // picker ride on the save — only when there is one, so every
-        // already-working save path keeps its exact payload shape.
+        // Embed-warning decisions ride on the save — only when there is one,
+        // so every existing save path keeps its exact payload shape.
         const coverageFields = coveragePayloadFields(pendingCoverageRef.current);
 
         // Create safe serializable payload (filters removed - managed independently)
@@ -1012,9 +1007,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           setSaveStatus('idle');
         }, 3000);
       } catch (error: any) {
-        // v1.1 M3b: update_dashboard 409s (EmbedCoverageConfirmation) when
-        // newly added tiles under-cover the dashboard's audience and the
-        // request carried no confirmation — surface it, don't swallow it.
+        // update_dashboard 409s when newly added tiles under-cover the
+        // dashboard's audience and no confirmation was sent — surface it.
         const coverage409 = parseEmbedCoverage409(error);
         if (coverage409) {
           const message = coverage409Message(coverage409);
@@ -1366,8 +1360,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Add chart component - optimized for speed
     const handleChartSelected = async (chartId: number, coverage?: CoverageDecision) => {
-      // The pick went through the embed warning (v1.1 M3b) — carry the
-      // decision into the next save, or update_dashboard 409s the new tile.
+      // The pick went through the embed warning — carry the decision into
+      // the next save, or update_dashboard 409s the new tile.
       if (coverage) {
         pendingCoverageRef.current = mergeCoverageDecision(pendingCoverageRef.current, coverage);
         dismissed409Ref.current = null;
@@ -2512,8 +2506,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           dashboardId={dashboardId}
           dashboardTitle={title}
         />
-        {/* Autosave 409 recovery (v1.1 M3b): update_dashboard rejected an
-            under-covering tile — same warning dialog as the picker, YES
+        {/* Autosave 409 recovery: same warning dialog as the picker, YES
             re-sends the save with the confirmation. */}
         {save409 && (
           <EmbedCoverageDialog

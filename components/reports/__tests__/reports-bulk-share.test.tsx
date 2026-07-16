@@ -1,9 +1,7 @@
 /**
- * ReportsPage — bulk-selection bar + BulkShareDialog wiring (task-17f).
- * BulkShareDialog itself is unit-tested in
- * components/sharing/__tests__/bulk-share-dialog.test.tsx; this suite only
- * covers the list-side wiring: checkbox column, the bar's count/select-all/
- * clear, gating, and the items/onApplied contract handed to the dialog.
+ * ReportsPage bulk-share wiring: checkbox column, bar count/select-all/
+ * clear, gating, and the items/onApplied contract. BulkShareDialog itself is
+ * unit-tested in its own suite.
  */
 import React from 'react';
 import { render, screen } from '@testing-library/react';

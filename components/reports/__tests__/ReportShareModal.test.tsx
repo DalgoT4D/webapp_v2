@@ -96,7 +96,7 @@ describe('ShareModal', () => {
 
       renderShareModal();
 
-      // Design copy (Phase A / A3): "Public sharing / Anyone with the link can view"
+      // "Public sharing / Anyone with the link can view"
       expect(screen.getByText('Public sharing')).toBeInTheDocument();
       expect(screen.getByText('Anyone with the link can view')).toBeInTheDocument();
     });

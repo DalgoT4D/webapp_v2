@@ -17,9 +17,8 @@ export interface Permission {
 
 export interface OrgUser {
   user_id: number;
-  // The OrgUser PK — what POST /api/access/{rtype}/{id}/grants/ principal_id and
-  // POST /api/groups/{id}/members/ orguser_id want (Task 6b Part B). Optional
-  // because it's new on the wire; older cached auth state won't have it yet.
+  // The OrgUser PK — what grant/group-member POSTs want as principal_id/
+  // orguser_id. Optional: older cached auth state won't have it yet.
   orguser_id?: number;
   email: string;
   org: Org;

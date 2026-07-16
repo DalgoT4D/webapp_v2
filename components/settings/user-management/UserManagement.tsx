@@ -12,11 +12,8 @@ interface UserManagementProps {
   onShowInviteDialogChange: (open: boolean) => void;
 }
 
-// People panel of Settings → Access. The page-level header (title, tabs,
-// INVITE USER button) is owned by AccessPage; this renders the merged
-// people table — one list of active users and pending invitations,
-// distinguished by row icon (see PeopleTable) — with no secondary
-// Users/Pending-Invitations tabs.
+// People panel of Settings → Access. The page-level header is owned by
+// AccessPage; this renders the merged people table (see PeopleTable).
 export default function UserManagement({
   showInviteDialog,
   onShowInviteDialogChange,

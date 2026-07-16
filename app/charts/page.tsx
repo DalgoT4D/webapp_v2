@@ -86,12 +86,8 @@ const chartIcons = {
   table: Table,
 };
 
-// Charts have no public-link concept (v1.1 decision: public_link=False in
-// the rtype registry — ShareModal already hides that section via the
-// capabilities flag, mirrors the metric/kpi stubs from M5).
-// getShareStatus/updateSharing are still required props on ShareModal
-// (called unconditionally on open); these stubs never hit a real endpoint
-// since the section they'd back is never rendered for charts.
+// Charts have no public link. getShareStatus/updateSharing are required
+// ShareModal props, but these stubs never back a rendered section.
 async function getChartShareStatus(): Promise<ShareStatus> {
   return { is_public: false, public_access_count: 0 };
 }
@@ -139,14 +135,12 @@ export default function ChartsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // Per-item Share (v1.1 M3a) — one shared ShareModal instance for the whole
-  // table, mirroring metrics-library.tsx / dashboard-list-v2.tsx's pattern.
+  // One shared ShareModal instance for the whole table.
   const [sharingChart, setSharingChart] = useState<Chart | null>(null);
 
-  // Bulk-selection bar for sharing (v1.1 M3a) — a SEPARATE selection state
-  // from the pre-existing bulk-delete selection above; persists across
-  // pagination, capped at 100 (MAX_BULK_SELECTION) via useMultiSelect, same
-  // as the metrics/KPI/dashboard lists.
+  // Share selection — deliberately separate from the pre-existing
+  // bulk-delete selection above; persists across pagination, capped via
+  // useMultiSelect.
   const {
     selectedIds: selectedShareChartIds,
     toggle: toggleShareChartSelection,
@@ -544,7 +538,7 @@ export default function ChartsPage() {
     exitSelectionMode,
   ]);
 
-  // Share handlers (v1.1 M3a) — mirrors metrics-library.tsx/dashboard-list-v2.tsx.
+  // Share handlers.
   const handleShareChart = useCallback((chart: Chart) => {
     setSharingChart(chart);
   }, []);
@@ -872,7 +866,7 @@ export default function ChartsPage() {
 
     return (
       <TableRow key={chart.id} className="hover:bg-gray-50">
-        {/* Bulk-select checkbox (v1.1 M3a) — gated with the row's Share button */}
+        {/* Bulk-select checkbox — gated with the row's Share button */}
         {canShareCharts && (
           <TableCell className="py-4">
             <Checkbox
@@ -1172,8 +1166,7 @@ export default function ChartsPage() {
           </div>
         )}
 
-        {/* Bulk-selection bar for sharing (v1.1 M3a) — appears once >=1 row is
-            selected, mirroring the metrics/KPI/dashboard lists' bar. */}
+        {/* Bulk-share bar — appears once at least one row is selected. */}
         {canShareCharts && selectedShareChartIds.size > 0 && (
           <div
             id="charts-bulk-share-bar"
@@ -1338,7 +1331,7 @@ export default function ChartsPage() {
                 <TableComponent>
                   <TableHeader>
                     <TableRow className="bg-gray-50">
-                      {/* Bulk-select checkbox (v1.1 M3a) */}
+                      {/* Bulk-select checkbox */}
                       {canShareCharts && (
                         <TableHead className="w-[3%]">
                           <Checkbox
@@ -1601,9 +1594,8 @@ export default function ChartsPage() {
       </div>
       <DialogComponent />
 
-      {/* Per-item Share (v1.1 M3a) — the modal's capability flags already
-          omit the public-link section for charts; no chart-specific
-          conditionals live in ShareModal itself. */}
+      {/* Per-item Share — the modal's capability flags already omit the
+          public-link section for charts. */}
       {sharingChart && (
         <ShareModal
           entityId={sharingChart.id}
@@ -1617,8 +1609,7 @@ export default function ChartsPage() {
         />
       )}
 
-      {/* Bulk Share Dialog (v1.1 M3a) — no public-link action (chart is
-          public_link=False; the backend would skip every item). */}
+      {/* Bulk Share Dialog — no public-link action for charts. */}
       {bulkShareOpen && (
         <BulkShareDialog
           entityType="chart"

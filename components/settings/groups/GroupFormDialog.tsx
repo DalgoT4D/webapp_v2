@@ -52,28 +52,18 @@ interface ResolvedMember {
   payload: AddGroupMemberPayload;
 }
 
-/** Result of flattening staged rows: the resolved add-member list, plus the
- * labels of any staged groups whose current members couldn't be fetched
- * (surfaced by the caller in the same partial-failure toast as a failed
- * addGroupMember call — see handleSubmit). */
+/** Result of flattening staged rows: the resolved add-member list, plus
+ * labels of staged groups whose members couldn't be fetched (named in the
+ * partial-failure toast). */
 interface ResolveMembersResult {
   resolved: ResolvedMember[];
   failedGroupLabels: string[];
 }
 
-/** Flattens staged rows into the final add-member list: users and emails
- * pass through; a staged GROUP expands to its CURRENT active members
- * (fetched fresh here, not from the list page's stale `member_preview`).
- * Deduped by the same key convention the typeahead uses (`user-{id}` /
- * `email-{email}`) so a person staged directly AND pulled in via a group
- * is only added once. A group with zero active members contributes
- * nothing. If the flatten fetch itself fails (group vanished, network
- * error), the group contributes nothing AND its label is reported back so
- * the caller can name it in the partial-failure toast — it is never a
- * silent zero. The typeahead itself excludes the group being edited from
- * its own dropdown (see GroupMemberSearch's `excludeGroupId`), so a staged
- * group here is always some OTHER group, never the one being flattened
- * into. */
+/** Flattens staged rows into the final add-member list: users/emails pass
+ * through; a staged group expands to its current active members (fetched
+ * fresh, deduped against direct picks). A failed flatten fetch reports the
+ * group's label back — never a silent zero. */
 async function resolveMembers(
   staged: GroupMemberEntry[],
   inviteRole: InviteRoleSlug
@@ -92,9 +82,8 @@ async function resolveMembers(
     if (entry.kind === 'user') {
       add(entry.key, entry.label, { orguser_id: entry.principalId as number });
     } else if (entry.kind === 'email' && entry.status === 'staged') {
-      // invite_role only matters here (the unknown-email path) -- the
-      // backend ignores it for orguser_id rows and resolves Member unless
-      // an admin caller chose more (403s a non-admin escalation attempt).
+      // invite_role only matters on the unknown-email path — the backend
+      // ignores it for orguser_id rows.
       add(entry.key, entry.label, { email: entry.email as string, invite_role: inviteRole });
     }
   }
@@ -119,8 +108,6 @@ async function resolveMembers(
   return { resolved, failedGroupLabels };
 }
 
-// Backend rejects a blank name (GroupValidationError) — checked client-side
-// too so we don't round-trip for an obviously-empty field.
 export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupFormDialogProps) {
   const isEdit = Boolean(group);
   const [name, setName] = useState(group?.name ?? '');
@@ -130,10 +117,8 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
   const memberStaging = useGroupMemberStaging();
   const memberSearchRef = useRef<GroupMemberSearchHandle>(null);
 
-  // Edit mode's Existing Members list — only fetched while the dialog is
-  // open in edit mode (create mode has no group id yet). Not the row list
-  // page's stale member_preview: this is the live detail fetch, same one
-  // GroupDetailDrawer used before this dialog absorbed its edit surface.
+  // Edit mode's Existing Members list — the live detail fetch, not the list
+  // page's stale member_preview. Only fetched while open in edit mode.
   const { data: detail, isLoading: detailLoading } = useUserGroup(
     open && isEdit && group ? group.id : null
   );
@@ -260,10 +245,9 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
       <DialogContent
         data-testid="group-form-dialog"
         className="sm:max-w-md"
-        // Escape layering: with the member-typeahead dropdown open, Escape
-        // closes ONLY the dropdown (Radix's document-capture listener fires
-        // before any input handler could, so the interception lives here);
-        // a second Escape — dropdown closed — dismisses the dialog as usual.
+        // First Escape closes only the typeahead dropdown (Radix captures
+        // Escape at the document, so the interception must live here); the
+        // next Escape dismisses the dialog as usual.
         onEscapeKeyDown={(e) => {
           if (memberSearchRef.current?.closeDropdownIfOpen()) e.preventDefault();
         }}

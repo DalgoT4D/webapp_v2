@@ -187,19 +187,11 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
         }
       }
 
-      // Attach the HTTP status to the thrown Error (without changing its
-      // shape/behavior otherwise) so callers can branch on specific codes —
-      // e.g. a 403 on a resource detail fetch renders a request-access
-      // screen instead of a generic error state. Read via
-      // `getApiErrorStatus()` in lib/utils.ts rather than casting `any`
-      // at each call site.
-      //
-      // v1.1 M3b: also attach the parsed JSON body itself — some non-2xx
-      // responses carry a typed payload the caller must act on, not just a
-      // message string (e.g. `update_dashboard`'s 409 `EmbedCoverageConfirmation`,
-      // which names the under-covering charts a save must re-prompt for).
-      // Read via `getApiErrorBody()` in lib/utils.ts. Purely additive —
-      // every existing caller only ever read `.message`/`.status`.
+      // Attach the HTTP status and parsed body to the thrown Error so
+      // callers can branch on codes (e.g. 403 → request-access screen) or
+      // act on typed payloads (e.g. a 409's confirmation body). Read via
+      // getApiErrorStatus()/getApiErrorBody() in lib/utils.ts. Purely
+      // additive — existing callers only ever read `.message`.
       const apiError = new Error(errorMessage) as Error & { status?: number; body?: unknown };
       apiError.status = response.status;
       apiError.body = data;

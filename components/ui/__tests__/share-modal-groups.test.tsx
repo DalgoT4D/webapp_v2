@@ -1,9 +1,6 @@
 /**
- * ShareModal tests for the Groups source in the add-principal picker
- * (Milestone 3 — group ids are available via GET /api/groups/, so group
- * shares are enabled even while person-shares stay disabled by the T6
- * orguser_id gap). Extends the People-with-access section covered in
- * share-modal-access.test.tsx, which must keep passing unmodified.
+ * ShareModal Groups source in the add-principal picker. Extends the
+ * People-with-access section covered in share-modal-access.test.tsx.
  */
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';

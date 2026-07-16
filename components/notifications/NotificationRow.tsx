@@ -25,19 +25,13 @@ interface NotificationRowProps {
   onToggleExpand: (id: number) => void;
 }
 
-// The row's local view of an access-request decision -- independent of the
-// notification's read/unread status. `alreadyResolved` covers BOTH a
-// concurrent decision made elsewhere (e.g. the share modal) and an expired
-// request: `_ensure_decidable` (ddpui/core/sharing/access_requests.py) 400s
-// each with a different message, but from this row's perspective both mean
-// the same thing -- nothing left to decide, no crash, just stop offering
-// the buttons.
+// The row's local view of an access-request decision, independent of
+// read/unread. `alreadyResolved` covers both a decision made elsewhere and
+// an expired request — either way, stop offering the buttons.
 type AccessRequestDecisionState = 'idle' | 'deciding' | 'approved' | 'denied' | 'alreadyResolved';
 
-// Mirrors `_ensure_decidable`'s two 400 messages verbatim ("this request has
-// already been {status}" / "this request has expired") -- brittle to a
-// backend copy change, but the brief calls this sufficient rather than
-// adding a status lookup endpoint.
+// Matches the backend's two 400 messages verbatim — brittle to a backend
+// copy change; there is no status-lookup endpoint.
 function isAlreadyResolvedError(message: string): boolean {
   return /already been \w+/i.test(message) || /has expired/i.test(message);
 }
@@ -89,9 +83,8 @@ export function NotificationRow({
     if (!accessRequest) return;
     setDecisionState('deciding');
     try {
-      // Grant exactly what was requested -- the row offers no permission
-      // picker (unlike the share modal's downgrade option), so there is no
-      // "escalate above the ask" 400 this call could ever hit.
+      // Grants exactly what was requested — the row offers no permission
+      // picker, so the "escalate above the ask" 400 is unreachable here.
       await approveAccessRequest(accessRequest.request_id);
       setDecisionState('approved');
       globalMutate(ACCESS_REQUESTS_KEY);

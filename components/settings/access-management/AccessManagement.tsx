@@ -31,19 +31,13 @@ interface DefaultPermissionsDraft {
 export default function AccessManagement() {
   const { orgPreferences, isLoading, mutate } = useOrgPreferences();
 
-  // Draft/batch-commit state for the "Default permissions" table (design's
-  // page-level SAVE/CANCEL). Initialized once GET data arrives; CANCEL and a
-  // successful SAVE both reset it back to what orgPreferences currently
-  // holds (the last-saved value).
+  // Draft state for the "Default permissions" table. CANCEL and a
+  // successful SAVE both reset it to the last-saved value.
   const [draft, setDraft] = useState<DefaultPermissionsDraft | null>(null);
 
-  // Tracks the last orgPreferences-derived values the draft was synced from,
-  // so a background SWR revalidation (another admin changing the org
-  // defaults elsewhere, a stale-then-fresh cache correction on mount — see
-  // the repo CLAUDE.md's SWR-stale-cache gotcha) can re-sync the draft
-  // WITHOUT clobbering an in-progress unsaved edit. Only resyncs when the
-  // current draft still matches the previously-known source (i.e. the user
-  // hasn't touched a dropdown since the last sync).
+  // Tracks the last source values the draft was synced from, so a background
+  // SWR revalidation can re-sync without clobbering an unsaved edit — only
+  // resyncs when the draft still matches the previous source.
   const lastSyncedSourceRef = useRef<DefaultPermissionsDraft | null>(null);
 
   useEffect(() => {
@@ -107,9 +101,8 @@ export default function AccessManagement() {
     }
   }, [draft, mutate]);
 
-  // Kill switch keeps its pre-existing immediate-apply behavior — deliberate
-  // deviation from the table's draft semantics, since toggling it has
-  // immediate side effects on live public links (see report note D2).
+  // Kill switch deliberately applies immediately (not via the draft) —
+  // toggling it has immediate side effects on live public links.
   const handleTogglePublicSharing = async (checked: boolean) => {
     try {
       await updateSharingPreferences({ allow_public_sharing: checked });

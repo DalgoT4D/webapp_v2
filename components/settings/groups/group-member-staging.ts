@@ -1,13 +1,7 @@
 /**
- * Staging state for the Create-group dialog's member picker: a plain list
- * of picked-but-not-yet-added entries (users / groups / free-typed emails).
- * Split out of group-member-typeahead.tsx (the search UI) so neither file
- * balloons past the repo's ~300-lines-per-component guidance.
- *
- * Deliberately NOT ShareModal's `useShareStaging`: a group member has no
- * per-row permission, and there is no commit-to-backend step here — the
- * dialog itself flattens staged GROUP entries to their active members and
- * calls addGroupMember (see GroupFormDialog.resolveMembers).
+ * Staging state for the Create-group member picker. Deliberately not
+ * ShareModal's useShareStaging: group members have no per-row permission and
+ * no commit step here — GroupFormDialog flattens and submits the entries.
  */
 
 import { useCallback, useMemo, useState } from 'react';
@@ -41,19 +35,14 @@ export interface GroupMemberStaging {
   stage: (entries: GroupMemberEntry[]) => void;
   remove: (key: string) => void;
   reset: () => void;
-  /** Role every currently-staged unknown email invites at -- one choice
-   * applies to the whole batch, mirroring ShareModal's single invite-role
-   * picker. Member unless an admin picks higher (see
-   * group-member-typeahead.tsx's InviteRoleBlock). */
+  /** Role every staged unknown email invites at — one choice for the whole
+   * batch. Member unless an admin picks higher. */
   inviteRole: InviteRoleSlug;
   setInviteRole: (role: InviteRoleSlug) => void;
 }
 
-/** Chip color per the design (Analyst-group new user added.jpg): internal
- * principals (existing org users AND groups) render teal; an
- * outside/unknown email renders amber; a malformed pasted token renders as
- * an explicit invalid/destructive chip (never amber -- amber means "will be
- * invited", invalid means "won't be sent at all"). */
+/** Chip color: internal principals teal, unknown emails amber ("will be
+ * invited"), malformed tokens destructive ("won't be sent at all"). */
 export type GroupMemberChipVariant = 'internal' | 'external' | 'invalid';
 
 export function chipVariant(entry: GroupMemberEntry): GroupMemberChipVariant {
@@ -83,12 +72,8 @@ export function useGroupMemberStaging(): GroupMemberStaging {
   return { staged, stage, remove, reset, inviteRole, setInviteRole };
 }
 
-/** The dup guard's identity sets: keys/emails of everything already picked
- * this session (staged chips) merged with — in edit mode — the group's
- * existing members, plus the existing members alone (so hints can say
- * "already in this group" rather than "already added" when that's the
- * reason). One memoized place instead of four inline memos in the
- * typeahead component. */
+/** Dup-guard identity sets: staged chips merged with (in edit mode) existing
+ * members, plus the existing members alone so hints can name the right reason. */
 export function useStagedIdentitySets(
   staged: GroupMemberEntry[],
   existingMemberRefs?: { key: string; email?: string }[]
@@ -105,19 +90,10 @@ export function useStagedIdentitySets(
   }, [staged, existingMemberRefs]);
 }
 
-/** Splits candidate entries into fresh-to-stage vs already-present (an
- * existing chip, or — in edit mode — an existing group member). `dedupeStage`
- * alone would swallow the repeat silently; the typeahead uses the `dupes`
- * bucket to show an inline "already added" hint instead (manual-testing
- * report: repeat Enter looked like a no-op bug).
- *
- * Also tracks keys/emails seen WITHIN this same batch (not just the
- * pre-call `presentKeys`/`presentEmails` snapshot): a paste of
- * "dup@ngo.org, dup@ngo.org" has neither copy in the pre-call snapshot, so
- * without this the first copy stages and the second silently falls into
- * `dedupeStage`'s own dedup with no hint at all — the "never a silent
- * swallow" invariant (see group-member-typeahead.tsx's stageEmailTokens)
- * would be violated for intra-batch repeats specifically. */
+/** Splits candidates into fresh-to-stage vs already-present so the typeahead
+ * can show an "already added" hint instead of a silent swallow. Also tracks
+ * repeats within the same batch (e.g. "dup@x.org, dup@x.org" in one paste),
+ * which the pre-call snapshot alone would miss. */
 export function partitionAgainstStaged(
   entries: GroupMemberEntry[],
   presentKeys: Set<string>,
@@ -143,13 +119,9 @@ export function partitionAgainstStaged(
   return { fresh, dupes };
 }
 
-/** The inline hint for a re-added principal. Distinguishes "already added"
- * (staged chip in this session) from "already in this group" (edit mode's
- * existing members) so the message matches what the user can actually see.
- * The multi-dupe branch keeps that same distinction: it buckets by reason
- * instead of always saying "Already added", so a mixed batch (one repeat
- * chip + one existing group member) doesn't misname the existing member as
- * freshly staged. */
+/** Inline hint for a re-added principal. Distinguishes "already added"
+ * (staged this session) from "already in this group" (existing member),
+ * bucketing mixed batches by reason. */
 export function duplicateNotice(
   dupes: { key: string; label: string; email?: string }[],
   existingKeys: Set<string>,

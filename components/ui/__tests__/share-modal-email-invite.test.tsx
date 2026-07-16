@@ -1,12 +1,7 @@
 /**
- * ShareModal tests for free-typed / pasted emails in the unified add-people
- * search (Phase C rework of the Milestone 4 invite panel). Backend contract
- * (task-09 + Phase C3): POST .../grants/ with {principal_type:'user', email,
- * permission, invite_role} resolves to an instant active grant for a known
- * org email, or an invitation (at invite_role, Member by default) + pending
- * grant for an unknown one — the response `status` tells us which.
- * Extends share-modal-access.test.tsx / share-modal-groups.test.tsx, which
- * must keep passing unmodified.
+ * ShareModal free-typed/pasted emails in the add-people search. A known org
+ * email becomes an instant active grant; an unknown one becomes an
+ * invitation + pending grant — the response `status` tells us which.
  */
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
@@ -136,9 +131,8 @@ function activeGrant(overrides: Partial<AccessGrant> = {}): AccessGrant {
   };
 }
 
-/** v1.1 M3b: addGrant resolves the GrantCreateResult envelope — the created
- * grant now lives at `.grant`, alongside the broadening-confirmation fields
- * (mirrors GrantCreateResponse in ddpui/schemas/access_schema.py). */
+/** addGrant resolves the GrantCreateResult envelope — the created grant
+ * lives at `.grant`, alongside the broadening-confirmation fields. */
 function grantResult(overrides: Partial<AccessGrant> = {}): GrantCreateResult {
   return {
     requires_confirmation: false,

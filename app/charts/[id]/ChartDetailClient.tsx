@@ -32,11 +32,8 @@ import { ShareModal } from '@/components/ui/share-modal';
 import type { ShareStatus } from '@/types/reports';
 import type * as echarts from 'echarts';
 
-// Charts have no public-link concept (v1.1 decision: public_link=False in
-// the rtype registry — ShareModal already hides that section via the
-// capabilities flag). getShareStatus/updateSharing are still required props
-// on ShareModal; these stubs never hit a real endpoint since the section
-// they'd back is never rendered for charts.
+// Charts have no public link. getShareStatus/updateSharing are required
+// ShareModal props, but these stubs never back a rendered section.
 async function getChartShareStatus(): Promise<ShareStatus> {
   return { is_public: false, public_access_count: 0 };
 }
@@ -74,8 +71,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const { hasPermission } = useRbac();
   const canViewCharts = hasPermission(PERMISSIONS.CAN_VIEW_CHARTS);
   const canShareCharts = hasPermission(PERMISSIONS.CAN_SHARE_CHARTS);
-  // Header share affordance (v1.1 M3a) — mirrors the dashboard detail view's
-  // ShareModal mount.
+  // Header share affordance — mirrors the dashboard detail view's ShareModal mount.
   const [shareModalOpen, setShareModalOpen] = useState(false);
   // Don't start the chart request without view permission; the access-denied
   // return lives below, after all hooks (Rules of Hooks)
@@ -765,11 +761,8 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     );
   }
 
-  // Resolver denied view access (v1.1 M4) — the chart's own General
-  // access/grants deny this viewer standalone view (e.g. a Member, or an
-  // Analyst not covered by analyst_level/grants). Offer the request-access
-  // flow instead of the generic error state below — mirrors the dashboard
-  // detail page's RequestAccessScreen wiring.
+  // Resolver denied view access — offer the request-access flow instead of
+  // the generic error state below.
   if (chartError && getApiErrorStatus(chartError) === 403) {
     return <RequestAccessScreen rtype="chart" resourceId={chartId} resourceLabel="chart" />;
   }
@@ -986,8 +979,8 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
         </div>
       </div>
 
-      {/* Share Modal (v1.1 M3a) — the modal's capability flags already omit
-          the public-link section for charts. */}
+      {/* Share Modal — the modal's capability flags already omit the
+          public-link section for charts. */}
       <ShareModal
         entityId={chart.id}
         entityLabel="Chart"

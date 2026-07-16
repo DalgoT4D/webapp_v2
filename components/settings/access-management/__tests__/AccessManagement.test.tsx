@@ -1,12 +1,7 @@
 /**
- * Settings > Access > Roles tab: "Default permissions" table
- * (permission-model rework, D1). Replaces the old org-wide
- * audience+level picker pair with a 3-row Role | Data & Pipeline access |
- * Resources access table — Admins fixed/locked, Analysts and Members each
- * an independently settable No access / Can View / Can Edit dropdown — plus
- * page-level SAVE/CANCEL draft semantics for the table. The public-sharing
- * kill switch keeps its pre-existing immediate-apply behavior (deliberate
- * deviation — it has side effects on live public links).
+ * Settings > Access > Roles: the per-role "Default permissions" table with
+ * SAVE/CANCEL draft semantics. The public-sharing kill switch deliberately
+ * applies immediately — it has side effects on live public links.
  */
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';

@@ -1,17 +1,10 @@
 'use client';
 
 /**
- * ShareModal's unified add-people flow (Phase C of the sharing design
- * alignment): ONE search input that mixes org users, groups, and free-typed
- * emails; picked entries become STAGED rows (staged ≠ applied); the modal
- * footer's SHARE button commits every staged row in one action.
- *
- * Split out of share-modal.tsx so neither file balloons past the repo's
- * ~300-lines-per-component guidance. The staged STATE lives in
- * `useShareStaging` (called by ShareModal so the footer button can reach
- * `commit`); the data-fetching search UI lives in `ShareAddPeopleSearch`
- * (mounted only inside the open dialog, so the users/groups fetches never
- * fire from list pages that keep a closed ShareModal mounted).
+ * ShareModal's add-people flow: one search box for org users, groups, and
+ * typed emails; picks become staged rows that the SHARE button commits
+ * together. Split out of share-modal.tsx to keep files small; the search UI
+ * is mounted only while the dialog is open, so it never fetches in the background.
  */
 
 import React, {
@@ -63,29 +56,22 @@ import {
   type PrincipalEntryKind,
 } from '@/components/ui/principal-search-shared';
 
-// Re-exported for share-modal.tsx / share-modal-staging.test.tsx — moved to
-// principal-search-shared.tsx (shared with the Create-group typeahead) but
-// this stays the public import path for existing consumers.
+// Re-exported for existing importers; the implementation lives in
+// principal-search-shared.tsx (shared with the Create-group typeahead).
 export { EMAIL_REGEX, splitEmailTokens, roleTagLabel, INVITE_ROLE_OPTIONS };
 
-// M5/M3a (v1.1): rtypes where a Member principal/invite is deliberately
-// excluded from this modal's PROACTIVE add-people flow -- mirrors the
-// backend's `sharing_actions.MEMBER_GRANTS_DEFERRED_RTYPES` (metric/kpi from
-// M5; chart joins here too -- its registry entry also sets
-// member_sharing=False, see ddpui/core/sharing/shareable_types.py).
-// Members still reach these resources via general access or an approved
-// access request -- only the share modal's typeahead/invite are affected.
+// Resource types where a Member grant/invite is deliberately blocked here,
+// mirroring the backend's restriction. Members can still reach these via
+// general access or an approved access request.
 const MEMBER_GRANTS_DEFERRED_RTYPES: ShareableResourceType[] = ['metric', 'kpi', 'chart'];
 
 export function isMemberGrantsDeferred(entityType: ShareableResourceType | null): boolean {
   return entityType !== null && MEMBER_GRANTS_DEFERRED_RTYPES.includes(entityType);
 }
 
-// A SHARE commit sends one POST per staged row (an email row can trigger a
-// backend invitation — user creation + an outbound email). Small-batch
-// concurrency instead of firing all of them at once keeps that load, and
-// the org's mail-sending rate, bounded — considerate of slow-connection
-// NGO users and shared org mail infrastructure alike.
+// SHARE sends one POST per staged row (email rows also trigger an invite).
+// Sending in small batches instead of all at once keeps load bounded for
+// slow connections and the org's mail sending.
 export const GRANT_COMMIT_BATCH_SIZE = 5;
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -136,23 +122,20 @@ interface CommitResult {
   key: string;
   grant: AccessGrant | null;
   error: string | null;
-  /** v1.1 M3b: the backend held this grant behind the dashboard-broadening
-   * warning (`requires_confirmation` — nothing written). The entry stays
-   * staged; the confirm dialog's YES re-sends it with the confirm fields. */
+  /** Backend held this grant behind the broadening warning — nothing
+   * written yet. The confirm dialog's YES re-sends it with confirm fields. */
   confirmation?: ChartCoverageVerdict[] | null;
 }
 
-/** One staged entry held behind the broadening warning, with ITS OWN
- * verdicts — the re-send's `extend_chart_ids` must be a subset of the charts
- * warned for THAT grant, so per-entry verdicts can't be pooled. */
+/** A staged entry held behind the broadening warning, with its own verdicts —
+ * the re-send's extend_chart_ids must be a subset of that grant's warned charts. */
 export interface PendingBroadeningEntry {
   entry: StagedEntry;
   verdicts: ChartCoverageVerdict[];
 }
 
-/** Drops entries that succeeded (they now show as real grant rows), flips
- * sent-but-failed entries to 'failed' with the error, and leaves untouched
- * anything not part of this commit (invalid / already-has-access rows). */
+/** Drops entries that succeeded, flips failed ones to 'failed' with the
+ * error, and leaves anything not part of this commit untouched. */
 function mergeCommitResults(entries: StagedEntry[], results: CommitResult[]): StagedEntry[] {
   const resultByKey = new Map(results.map((r) => [r.key, r]));
   return entries.reduce<StagedEntry[]>((acc, entry) => {
@@ -166,8 +149,7 @@ function mergeCommitResults(entries: StagedEntry[], results: CommitResult[]): St
   }, []);
 }
 
-/** Builds the "N shared · N invited · N failed" summary and picks which
- * toast flavor fits (all-success / all-failure / mixed). */
+/** Builds the "N shared · N invited · N failed" summary and picks the toast flavor. */
 function summarizeCommitResults(results: CommitResult[]) {
   const sharedCount = results.filter((r) => r.grant?.status === 'active').length;
   const invitedCount = results.filter((r) => r.grant?.status === 'pending').length;
@@ -194,9 +176,8 @@ export interface UseShareStagingArgs {
   onCommitted: () => void;
 }
 
-/** What the search box's residual-text flush hands back to `commit`:
- * the entries it just staged, or `null` when the text held invalid tokens —
- * the commit must then abort so the inline error rows are seen. */
+/** Result of the residual-text flush: the entries it staged, or null when
+ * the text held invalid tokens — commit must then abort so the errors show. */
 export type ResidualFlushResult = StagedEntry[] | null;
 
 export interface ShareStaging {
@@ -213,32 +194,27 @@ export interface ShareStaging {
   committableCount: number;
   /** Committable email-kind rows — drives the invite-role block. */
   stagedEmailCount: number;
-  /** True while the search box holds typed-but-unstaged text. Keeps the
-   * footer SHARE button enabled so clicking it can flush that text into
-   * the batch instead of silently discarding it. */
+  /** True while the search box holds typed-but-unstaged text — keeps SHARE
+   * enabled so the click can flush that text instead of dropping it. */
   hasPendingInput: boolean;
   setHasPendingInput: (has: boolean) => void;
-  /** The search box registers how to flush its residual text at SHARE time
-   * (tokenize → validate → stage). Pass null to unregister on unmount. */
+  /** The search box registers how to flush its residual text at SHARE time.
+   * Pass null to unregister on unmount. */
   registerResidualFlush: (flush: (() => ResidualFlushResult) | null) => void;
-  /** v1.1 M3b — grants the SHARE commit held behind the dashboard-broadening
-   * warning (nothing written yet). Null when nothing is pending; the modal
-   * renders the BroadeningConfirmDialog off this. */
+  /** Grants held behind the broadening warning (nothing written yet). Null
+   * when nothing is pending; the modal renders BroadeningConfirmDialog off this. */
   pendingBroadening: PendingBroadeningEntry[] | null;
-  /** The union of the pending entries' verdicts, deduplicated by chart —
-   * what the aggregated confirm dialog lists. */
+  /** Union of the pending entries' verdicts, deduped by chart — what the
+   * confirm dialog lists. */
   broadeningVerdicts: ChartCoverageVerdict[];
-  /** YES: re-send every held grant with its own extendable-and-editable
-   * `extend_chart_ids` plus `proceed` (extend-all semantics). */
+  /** YES: re-sends every held grant with its own `extend_chart_ids` plus `proceed`. */
   confirmBroadening: () => Promise<void>;
   /** CANCEL: nothing commits; the rows stay staged for editing/removal. */
   cancelBroadening: () => void;
 }
 
-// The invite-role Select's default: Member everywhere EXCEPT the
-// member-grants-deferred rtypes (metric/kpi), where Member isn't even an
-// offered option (see InviteRoleBlock below) -- Analyst is the sensible
-// floor there instead.
+// Default invite role is Member, except on member-grants-deferred types
+// (metric/kpi) where Member isn't offered — Analyst is the floor there.
 function defaultInviteRole(entityType: ShareableResourceType | null): InviteRoleSlug {
   return isMemberGrantsDeferred(entityType) ? 'analyst' : 'member';
 }
@@ -253,8 +229,8 @@ export function useShareStaging({
   const [inviteRole, setInviteRole] = useState<InviteRoleSlug>(() => defaultInviteRole(entityType));
   const [isCommitting, setIsCommitting] = useState(false);
   const [hasPendingInput, setHasPendingInput] = useState(false);
-  // v1.1 M3b — grants held behind the dashboard-broadening warning after a
-  // SHARE commit (one aggregated prompt for the whole batch, per spec §1).
+  // Grants held behind the broadening warning after a SHARE commit; one
+  // aggregated confirm prompt covers the whole batch.
   const [pendingBroadening, setPendingBroadening] = useState<PendingBroadeningEntry[] | null>(null);
   // Ref (not state): the double-submit guard must trip on the SECOND of two
   // same-tick clicks, before any isCommitting re-render lands.
@@ -313,17 +289,17 @@ export function useShareStaging({
                   principal_type: 'user' as const,
                   email: entry.email as string,
                   permission: entry.permission,
-                  // Only consulted by the backend on the unknown-email
-                  // invite path (Phase C3); Member unless an admin chose more.
+                  // Only used by the backend on the unknown-email invite
+                  // path; Member unless an admin chose something else.
                   invite_role: inviteRole,
                 };
         const result = await addGrant(entityType, entityId, {
           ...basePayload,
           ...(confirmFields ?? {}),
         });
-        // v1.1 M3b: a dashboard grant that would widen exposure past an
-        // inner chart's own access comes back requires_confirmation with
-        // nothing written — held for the broadening confirm, not a success.
+        // A dashboard grant that would widen access past an inner chart's
+        // own permissions comes back requires_confirmation with nothing
+        // written — held for confirm, not a success.
         if (result.requires_confirmation) {
           return {
             key: entry.key,
@@ -344,9 +320,8 @@ export function useShareStaging({
     [entityType, entityId, inviteRole]
   );
 
-  // Shared tail for commit() and confirmBroadening(): merge DECIDED results
-  // (success/failure — never pending confirmations) into the staged rows,
-  // fire analytics, revalidate, and toast the summary.
+  // Shared by commit() and confirmBroadening(): merges decided results
+  // (success/failure only) into staged rows, fires analytics, toasts a summary.
   const finalizeDecidedResults = useCallback(
     (results: CommitResult[], targets: StagedEntry[]) => {
       if (results.length === 0) return;
@@ -354,8 +329,7 @@ export function useShareStaging({
 
       const targetByKey = new Map(targets.map((t) => [t.key, t]));
       const successes = results.filter((r) => r.error === null);
-      // Fire on the success path only, and count actual applies — not
-      // attempts that 400'd (rules/analytics.md; no emails/ids — no PII).
+      // Counts only successful applies, not 400s. No emails/IDs sent — avoids PII.
       let emailSuccessCount = 0;
       for (const result of successes) {
         const entry = targetByKey.get(result.key);
@@ -388,13 +362,12 @@ export function useShareStaging({
   );
 
   const commit = useCallback(async () => {
-    // Double-submit guard: the disabled-button re-render alone can't stop a
-    // second same-tick invoke (double click, Enter+click).
+    // Double-submit guard: a disabled-button re-render can't stop a second
+    // same-tick invoke (double click, Enter+click).
     if (commitInFlightRef.current || !entityType) return;
 
-    // Flush typed-but-unstaged search text into the batch first — an email
-    // typed without Enter must not be silently discarded. Invalid text
-    // aborts the whole commit; the flush staged it as inline-error rows.
+    // Flush typed-but-unstaged search text first — an email typed without
+    // Enter must not be dropped. Invalid text aborts the whole commit.
     const flushed = residualFlushRef.current ? residualFlushRef.current() : [];
     if (flushed === null) return;
     const stagedKeys = new Set(staged.map((e) => e.key));
@@ -409,16 +382,15 @@ export function useShareStaging({
     commitInFlightRef.current = true;
     setIsCommitting(true);
     try {
-      // Small-batch concurrency, not one big Promise.all — a 30-row commit
-      // would otherwise fire 30 simultaneous invite emails/POSTs at once.
+      // Small batches, not one big Promise.all — a 30-row commit would
+      // otherwise fire 30 simultaneous POSTs/invite emails.
       const results: CommitResult[] = [];
       for (const batch of chunk(targets, GRANT_COMMIT_BATCH_SIZE)) {
         results.push(...(await Promise.all(batch.map((entry) => commitOne(entry)))));
       }
 
-      // v1.1 M3b: grants the backend held behind the broadening warning are
-      // neither successes nor failures — their rows stay staged and ONE
-      // aggregated confirm prompt covers the whole batch (spec §1).
+      // Grants held behind the broadening warning are neither success nor
+      // failure — they stay staged, and one confirm prompt covers the batch.
       const targetByKey = new Map(targets.map((t) => [t.key, t]));
       const held: PendingBroadeningEntry[] = [];
       const decided: CommitResult[] = [];
@@ -440,9 +412,9 @@ export function useShareStaging({
     }
   }, [staged, entityType, commitOne, finalizeDecidedResults]);
 
-  // YES on the aggregated broadening prompt: re-send every held grant with
-  // ITS OWN extendable-and-editable charts (`extend_chart_ids` must be a
-  // subset of the charts warned for that grant) plus `proceed`.
+  // YES on the broadening prompt: re-send every held grant with its own
+  // extendable charts (extend_chart_ids must be a subset of the charts
+  // warned for that grant) plus `proceed`.
   const confirmBroadening = useCallback(async () => {
     if (commitInFlightRef.current || !pendingBroadening) return;
     commitInFlightRef.current = true;
@@ -478,9 +450,8 @@ export function useShareStaging({
   // CANCEL: nothing was written; the rows stay staged for editing/removal.
   const cancelBroadening = useCallback(() => setPendingBroadening(null), []);
 
-  // What the aggregated prompt lists: the union of every held grant's
-  // verdicts, deduplicated by chart (the same chart can gap for several
-  // principals; per-grant extend subsets are preserved in pendingBroadening).
+  // Union of every held grant's verdicts, deduped by chart — the same chart
+  // can appear for several principals.
   const broadeningVerdicts = useMemo(
     () =>
       pendingBroadening ? unionCoverageVerdicts(pendingBroadening.map((p) => p.verdicts)) : [],
@@ -516,13 +487,10 @@ export function useShareStaging({
 
 // ---- The search + staged-rows UI ----
 
-/** Escape layering (ShareModal wires this into DialogContent's
- * onEscapeKeyDown): Radix listens for Escape on the document in the CAPTURE
- * phase, so an input-level keydown handler can never intercept it — the
- * dialog must ask the search box first. Returns true when the dropdown was
- * open and consumed the Escape (caller must then preventDefault so the
- * dialog survives, keeping staged rows intact); false lets the dialog close
- * as usual. Mirrors GroupMemberSearchHandle (group-member-typeahead.tsx). */
+/** Radix fires Escape in the capture phase before any input-level handler,
+ * so ShareModal must ask this first. Returns true if it consumed Escape
+ * (caller then preventDefaults to keep the dialog open); false lets the
+ * dialog close as usual. */
 export interface ShareAddPeopleSearchHandle {
   closeDropdownIfOpen: () => boolean;
 }
@@ -538,14 +506,9 @@ const STATUS_NOTES: Partial<Record<StagedEntryStatus, string>> = {
   already: 'Already has access',
 };
 
-/** Staged rows get one extra treatment ShareModal alone needs: an
- * unknown-email row (kind === 'email' is always a not-yet-on-Dalgo address —
- * see buildEmailEntries/stageEmailTokens below, the only producers of that
- * kind) shows an amber warning badge instead of the plain icon (design:
- * "resource sharing New users" frame). Kept LOCAL rather than folded into
- * the shared `principalRowIcon` so the Create-group dialog's staged rows
- * (group-member-staged-rows.tsx, which also calls principalRowIcon) are
- * untouched. */
+/** Unknown-email rows show an amber warning icon instead of the plain one.
+ * Kept local rather than folded into principalRowIcon so the Create-group
+ * dialog's staged rows are unaffected. */
 function stagedRowIcon(kind: StagedEntryKind) {
   if (kind === 'email') {
     return (
@@ -560,9 +523,9 @@ function stagedRowIcon(kind: StagedEntryKind) {
   return principalRowIcon(kind);
 }
 
-/** Free-typed/pasted tokens → entries: valid unknown emails become email
- * entries, emails matching an org member become that member, invalid tokens
- * become inline-rejected rows (exactly the old invite panel's chip behavior). */
+/** Converts typed/pasted tokens into entries: an email matching an org
+ * member becomes that member, an unknown valid email becomes an email
+ * entry, and an invalid token becomes an inline-rejected row. */
 function buildEmailEntries(
   tokens: string[],
   orgUsers: OrgUser[] | undefined,
@@ -607,12 +570,12 @@ function buildEmailEntries(
 
 export function ShareAddPeopleSearch({ access, staging, ref }: ShareAddPeopleSearchProps) {
   const [query, setQuery] = useState('');
-  // Drives the dropdown: focusing the EMPTY input browses all groups + org
-  // members (discoverability — the user shouldn't have to guess a name).
+  // Focusing the empty input browses all groups + org members, so the user
+  // doesn't have to guess a name.
   const [isFocused, setIsFocused] = useState(false);
   const { users: orgUsers } = useUsers();
-  // The grants capability is a given here — this component only mounts
-  // inside the (capability-gated) People section for sharers.
+  // Always enabled: this component only mounts inside the capability-gated
+  // People section.
   const { data: groups } = useUserGroups(true);
   const { hasRole } = useRbac();
   const isAdmin = hasRole(ADMIN_ROLES);
@@ -655,12 +618,9 @@ export function ShareAddPeopleSearch({ access, staging, ref }: ShareAddPeopleSea
   const trimmed = query.trim();
   const q = trimmed.toLowerCase();
 
-  // Org members without a resolved orguser_id (shouldn't happen post-6b, but
-  // the field is optional on the wire) are excluded rather than offered as
-  // an unusable candidate — same rule as the old picker. An empty query
-  // matches EVERYONE — that's the browse-on-focus list. M5: a Member-role
-  // user is also excluded on member-grants-deferred rtypes (metric/kpi) --
-  // hidden from the typeahead entirely rather than offered-then-rejected,
+  // Users without a resolved orguser_id are excluded rather than shown as
+  // an unusable candidate. Empty query matches everyone (browse-on-focus).
+  // Member-role users are hidden entirely on member-grants-deferred types,
   // since a direct grant to them would just 400.
   const userMatches = useMemo(
     () =>
@@ -733,9 +693,8 @@ export function ShareAddPeopleSearch({ access, staging, ref }: ShareAddPeopleSea
 
   // ---- Residual typed text (never silently dropped) ----
 
-  // SHARE-time flush: whatever is still typed in the box goes through the
-  // same tokenize/validate/stage path; `null` back means invalid tokens were
-  // found — commit aborts so their inline error rows are seen.
+  // SHARE-time flush: leftover typed text goes through the same
+  // tokenize/validate/stage path; null back means invalid tokens — commit aborts.
   const { registerResidualFlush, setHasPendingInput } = staging;
   const flushResidual = useCallback((): ResidualFlushResult => {
     if (!trimmed) return [];
@@ -757,16 +716,14 @@ export function ShareAddPeopleSearch({ access, staging, ref }: ShareAddPeopleSea
   }, [setHasPendingInput, trimmed]);
   useEffect(() => () => setHasPendingInput(false), [setHasPendingInput]);
 
-  // Blur staging (parity with the old email panel): email-looking residual
-  // text stages when focus leaves the search area. relatedTarget guard: a
-  // dropdown pick moves focus WITHIN the container — don't close or stage
-  // mid-pick, or the clicked option would unmount before its click lands.
+  // Email-looking text stages when focus leaves the search area. The
+  // relatedTarget guard skips focus moves within the container — closing
+  // mid-pick would unmount the clicked option before its click lands.
   const handleContainerBlur = useCallback(
     (e: React.FocusEvent<HTMLDivElement>) => {
       if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
       setIsFocused(false);
-      // Non-email text (a half-typed search) stays put — it's a query, not
-      // an address.
+      // Non-email text stays put — it's a search query, not an address.
       if (trimmed.includes('@')) {
         stageEmailTokens(splitEmailTokens(trimmed));
       }
@@ -820,8 +777,7 @@ export function ShareAddPeopleSearch({ access, staging, ref }: ShareAddPeopleSea
         Search for people, group or add emails
       </Label>
       {/* Focus/blur on the wrapper (not the input) keeps the dropdown open
-          while focus moves onto one of its options — the relatedTarget
-          check in handleContainerBlur. */}
+          while focus moves onto one of its options. */}
       <div className="relative" onFocus={() => setIsFocused(true)} onBlur={handleContainerBlur}>
         <Input
           id="share-search-input"
@@ -833,10 +789,8 @@ export function ShareAddPeopleSearch({ access, staging, ref }: ShareAddPeopleSea
             setQuery(e.target.value);
             setIsFocused(true); // typing reopens a dropdown closed by Escape
           }}
-          // The input already has DOM focus after an Escape-close (only our
-          // isFocused flag flipped, not the browser's focus target) — a click
-          // there fires no fresh focus event, so it needs its own explicit
-          // reopen (mirrors GroupMemberSearch's chip-input onClick).
+          // After an Escape-close the input still has DOM focus, so a click
+          // fires no focus event — it needs its own explicit reopen.
           onClick={() => setIsFocused(true)}
           onPaste={handlePaste}
           onKeyDown={handleKeyDown}
@@ -862,9 +816,8 @@ export function ShareAddPeopleSearch({ access, staging, ref }: ShareAddPeopleSea
       </div>
 
       {staging.staged.length > 0 && (
-        // Scrolls internally when many rows are staged (design: "resource
-        // sharing- scrollable list of user to share" — the third row is cut
-        // off behind a scrollbar rather than growing the modal).
+        // Scrolls internally when many rows are staged, rather than growing
+        // the modal.
         <div className="max-h-44 space-y-2 overflow-y-auto" data-testid="share-staged-rows">
           {staging.staged.map((entry) => (
             <StagedRowView key={entry.key} entry={entry} staging={staging} />
@@ -884,7 +837,7 @@ export function ShareAddPeopleSearch({ access, staging, ref }: ShareAddPeopleSea
   );
 }
 
-// ---- Presentational pieces (split out per the ~300-line component rule) ----
+// ---- Presentational pieces ----
 
 interface SearchResultsDropdownProps {
   q: string;
@@ -900,10 +853,8 @@ interface SearchResultsDropdownProps {
   onPickEmail: (email: string) => void;
 }
 
-/** The typeahead/browse dropdown. With nothing typed it lists ALL groups
- * first, then ALL org members (Figma's scrollable share list — the user
- * shouldn't have to guess a name); a typed query filters both and keeps
- * people, the common case, on top. */
+/** Typeahead/browse dropdown. Empty query lists all groups then all org
+ * members; a typed query filters both and puts people (the common case) on top. */
 function SearchResultsDropdown({
   q,
   emailCandidate,
@@ -950,10 +901,8 @@ function SearchResultsDropdown({
   return (
     <div
       data-testid="share-search-results"
-      // OVERLAY, not in-flow: anchored to the input's `relative` wrapper so
-      // opening it never grows the modal — with ~10 org members an in-flow
-      // list pushed the SHARE footer off a 720px-tall viewport. bg + border
-      // + shadow keep the modal content underneath from bleeding through.
+      // Overlay, not in-flow: an in-flow list would grow the modal and push
+      // the SHARE footer off short viewports.
       className="absolute top-full left-0 right-0 z-50 mt-1 max-h-64 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md"
     >
       {q ? (
@@ -1001,10 +950,8 @@ function StagedRowView({ entry, staging }: StagedRowViewProps) {
     <div
       data-testid={`share-staged-row-${entry.key}`}
       data-status={entry.status}
-      // Full-width light-gray rounded row (design: "resource sharing New
-      // users"/"resource sharing- user added" — every staged row, not just
-      // unknown-email ones, sits in this muted pill before SHARE applies it;
-      // committed People-with-access rows below stay plain, no fill).
+      // Muted pill marks a row as staged-not-applied; committed rows below
+      // stay plain.
       className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-3 py-2 text-sm"
     >
       <span className="flex-1 truncate inline-flex items-center gap-1.5 min-w-0">
@@ -1023,9 +970,7 @@ function StagedRowView({ entry, staging }: StagedRowViewProps) {
         )}
       </span>
       <div className="flex items-center gap-1 flex-shrink-0">
-        {/* Frames show role/Group tags on staged people/groups but NO tag on
-            unknown-email rows ("resource sharing New users" — amber icon
-            carries that state alone). */}
+        {/* No tag on unknown-email rows — the amber icon carries that state. */}
         {entry.kind !== 'email' && <Badge variant="secondary">{entry.tag}</Badge>}
         {isCommittable(entry) && (
           <PermissionSelect
@@ -1055,28 +1000,14 @@ interface InviteRoleBlockProps {
   stagedEmailEntries: StagedEntry[];
   staging: ShareStaging;
   isAdmin: boolean;
-  /** M5: metric/kpi (and, later, chart) defer Member grants v1.1-wide --
-   * Member isn't offered as an invite-role option, and the non-admin copy
-   * explains new users can't be invited directly yet instead of promising
-   * a Member invite it can't deliver (the backend 400s it). */
+  /** On member-grants-deferred types, Member isn't offered as an invite
+   * role and the non-admin copy explains invites aren't possible yet. */
   memberGrantsDeferred: boolean;
 }
 
-/** The unknown-email notice: an amber warning callout (design: "resource
- * sharing New users" frame), styled to match the Create-group dialog's
- * equivalent notice (group-member-invite-role-block.tsx's recent polish)
- * so the two flows read as one system. Admins additionally get an "Invite
- * new users as" labeled field — a full-width Select (Member/Analyst/Admin,
- * or just Analyst/Admin when `memberGrantsDeferred`) BELOW the callout, not
- * inside it, per the same frame; non-admins get a plain locked sentence
- * inside the callout and no dropdown at all (design: 'Member -resource
- * sharing-2.jpg') — they can only ever invite at Member, mirroring the
- * backend's 403 on non-admin invite_role escalation (Phase C3) -- EXCEPT on
- * a `memberGrantsDeferred` rtype, where that Member invite is itself blocked
- * (backend 400), so non-admins get a different explanatory sentence instead
- * (this is presentational only; the backend remains the enforcement layer,
- * same as every other validation in this flow -- an attempt that slips
- * through still fails cleanly as a "failed" staged row). */
+/** Amber callout for unknown emails. Admins also get an invite-role Select;
+ * non-admins can only invite at Member (or not at all on deferred types).
+ * Presentational only — the backend is the enforcement layer. */
 function InviteRoleBlock({
   stagedEmailEntries,
   staging,

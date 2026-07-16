@@ -1,17 +1,9 @@
 'use client';
 
 /**
- * Staged CHIPS for the group member typeahead (create AND edit mode): icon ·
- * label · remove, rendered as siblings of the text caret inside the same
- * bordered container (design: 'Analyst-group new user added.jpg') -- not
- * rows below the input. Color follows `chipVariant`: teal for internal
- * principals (org users/groups already on Dalgo), amber for an
- * outside/unknown email awaiting an invite-role choice, and a destructive
- * variant for a malformed pasted token that will never be sent. Split out
- * of group-member-typeahead.tsx per the repo's ~300-lines guidance.
- *
- * Renders a bare fragment (no wrapping element) so the chips lay out via
- * the parent's `flex flex-wrap` alongside the actual `<input>`.
+ * Staged chips for the group member typeahead, rendered inside the input
+ * container (color follows chipVariant). Renders a bare fragment so the
+ * chips lay out via the parent's flex-wrap alongside the actual <input>.
  */
 
 import { X } from 'lucide-react';

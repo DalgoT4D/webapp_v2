@@ -107,7 +107,7 @@ describe('summarizeCoverage', () => {
       summarizeCoverage([verdict({ chart_id: 1, public_exposure: true })]).hasResidualExposure
     ).toBe(true);
 
-    // member role gap is informational in v1.1 → residue
+    // member role gap is informational → residue
     expect(
       summarizeCoverage([
         verdict({

@@ -1,20 +1,11 @@
 'use client';
 
 /**
- * The embed-time warning (v1.1, design frame "Analyst-warning on adding
- * charts.jpg"): adding a chart the container's audience can't see standalone
- * asks before exposing it. Also reused by the dashboard editor's autosave
- * 409 recovery (`update_dashboard`'s `EmbedCoverageConfirmation` names the
- * same verdict shape, possibly for several charts at once).
- *
- * Branches are CAPABILITY-driven off the verdicts (spec §3):
- * - extendable gap + viewer has Edit on the chart → YES = extend (add the
- *   audience to the chart's share list), CANCEL default.
- * - extendable gap + view-only viewer → no YES; request-Edit / ask-owner
- *   prompt instead (an embedder with only View can't close the gap).
- * - informational-only exposure (Member visibility / public link — never
- *   extendable) → YES = proceed; the copy says the chart stays visible
- *   inline regardless.
+ * Embed-time warning: adding a chart the container's audience can't see
+ * standalone asks before exposing it. Also reused by the dashboard editor's
+ * autosave 409 recovery. Branches off the verdicts: extendable + editable →
+ * YES extends; extendable but view-only → request-Edit prompt, no YES;
+ * informational-only exposure → YES just proceeds.
  */
 import React, { useMemo, useRef } from 'react';
 import {
@@ -80,7 +71,7 @@ export function EmbedCoverageDialog({
       <DialogContent
         data-testid="embed-coverage-dialog"
         className="sm:max-w-md"
-        // Default emphasis on CANCEL (spec §3: Cancel aborts the pick).
+        // Default emphasis on CANCEL — land the initial focus there.
         onOpenAutoFocus={(e) => {
           e.preventDefault();
           cancelRef.current?.focus();

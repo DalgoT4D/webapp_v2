@@ -100,21 +100,11 @@ interface AlertsTableProps {
   onDelete: (a: AlertListItem) => void;
   onToggle: (a: AlertListItem) => void;
   onOpenLog: (a: AlertListItem) => void;
-  /**
-   * The `?alertId=` deep-link target (from an access-request/notification
-   * email) — highlights the matching row, mirroring metrics-library.tsx's
-   * `highlight` param. Only takes effect if the alert is on the currently
-   * loaded page; the list is already resolver-scoped, so an alert the
-   * viewer can't see never has a row here in the first place (unlike the
-   * 403 case, which the page handles before this table even renders).
-   */
+  /** `?alertId=` deep-link target — highlights the matching row. Only takes
+   * effect if the alert is on the currently loaded page. */
   highlightAlertId?: string | null;
-  /**
-   * Gates BOTH the per-item Share button and the bulk-select checkbox
-   * column (task-17f) — same can_share_alerts slug the page computes.
-   * Defaults to false so existing callers that don't pass it keep the
-   * pre-task-17f row shape (no Share button, no checkboxes).
-   */
+  /** Gates both the per-item Share button and the bulk-select checkbox
+   * column. Defaults to false so existing callers keep the old row shape. */
   canShare?: boolean;
   onShare?: (a: AlertListItem) => void;
   /** Bulk-selection state, lifted to the page (owns the selection + bar). */
@@ -203,7 +193,7 @@ export function AlertsTable({
       <TableComponent>
         <TableHeader>
           <TableRow className="bg-gray-50">
-            {/* Bulk-select checkbox (task-17f) — gated with the row's Share button */}
+            {/* Bulk-select checkbox — gated with the row's Share button */}
             {canShare && (
               <TableHead className="w-[3%]">
                 <Checkbox
@@ -331,7 +321,7 @@ export function AlertsTable({
                   )}
                   data-testid={`alert-row-${a.id}`}
                 >
-                  {/* Bulk-select checkbox (task-17f) */}
+                  {/* Bulk-select checkbox */}
                   {canShare && (
                     <TableCell className="py-4">
                       <Checkbox

@@ -1,14 +1,7 @@
 /**
- * useAccessRequests — the request-access flow (Milestone 9), sibling to
- * useResourceAccess.ts.
- *
- * Deliberately a separate file rather than folded into useResourceAccess.ts:
- * that file owns the People-with-access / General-access sections (grants +
- * general), which are a different mental model (an owner/editor managing who
- * has access) from this one (any org member asking for access, and an
- * owner/admin deciding on that ask). Contract verified against
- * ddpui/api/access_api.py + ddpui/schemas/access_schema.py on the paired
- * backend branch (see task-15 report for the verbatim JSON shape).
+ * useAccessRequests — the request-access flow. Kept separate from
+ * useResourceAccess.ts: managing who has access vs asking for access are
+ * different mental models. Types mirror the backend's access_schema.py.
  */
 import useSWR from 'swr';
 import { apiGet, apiPost } from '@/lib/api';
@@ -19,8 +12,7 @@ export const ACCESS_REQUEST_NOTE_MAX_LENGTH = 500;
 
 export type AccessRequestStatus = 'pending' | 'approved' | 'declined' | 'expired';
 
-// An OrgUser reference on an AccessRequest — the requester, or the decider
-// once decided (mirrors RequesterOut in access_schema.py).
+// An OrgUser reference on an AccessRequest — the requester, or the decider.
 export interface AccessRequestPerson {
   orguser_id: number;
   email: string;
@@ -51,20 +43,14 @@ interface ApiResponse<T> {
   message?: string;
 }
 
-// Exported so callers outside this hook (e.g. the Notifications page's
-// actionable row, batch 2 / F6) can invalidate the share-modal's pending
-// request list after deciding a request from elsewhere.
+// Exported so callers elsewhere (e.g. the Notifications page) can
+// invalidate the pending-request list after deciding a request.
 export const ACCESS_REQUESTS_KEY = '/api/access/requests/';
 
 /**
- * The caller's access-request inbox. `incoming` = pending requests on
- * resources they can decide (owner/admin — server-filtered, no client-side
- * permission check needed to decide whether to show decision UI).
- * `outgoing` = the caller's own requests, any status.
- *
- * `enabled` gates the fetch (e.g. only while a modal is open, or only when
- * the viewer actually needs the pending-request check) — matches the
- * `useUserGroups(canShare)` lazy-fetch pattern elsewhere in this feature.
+ * The caller's access-request inbox. `incoming` = pending requests they can
+ * decide (server-filtered); `outgoing` = their own requests, any status.
+ * `enabled` gates the fetch (e.g. only while a modal is open).
  */
 export function useAccessRequests(enabled: boolean) {
   const { data, error, isLoading, mutate } = useSWR<ApiResponse<AccessRequestListResult>>(
@@ -102,10 +88,8 @@ export async function createAccessRequest(
 }
 
 /**
- * Omit `permission` to grant exactly what was requested. Passing a value
- * only ever downgrades (Edit ask -> View grant) — the backend 400s an
- * attempt to escalate above the original ask, so callers must cap the
- * choices they offer at `requested_permission`, not just the payload.
+ * Omit `permission` to grant exactly what was requested. A value may only
+ * downgrade — the backend 400s an escalation above the original ask.
  */
 export async function approveAccessRequest(
   requestId: number,

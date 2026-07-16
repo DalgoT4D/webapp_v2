@@ -1,21 +1,9 @@
 'use client';
 
 /**
- * "Existing Members" section of the unified group edit modal (design:
- * 'edit group.jpg') -- person icon · email · role tag · remove, scrollable
- * when long. A pending member keeps the "(invite pending)" treatment with
- * the Mail icon, same as the old detail-drawer copy.
- *
- * Removal is STAGED, not immediate: clicking remove hides the row and adds
- * the member id to `pendingRemoveIds`; GroupFormDialog only calls
- * removeGroupMember for real when Save is clicked (batched alongside the
- * name change and new-member adds), so Cancel discards a removal exactly
- * like it discards an unsent chip. This deliberately differs from
- * GroupDetailDrawer's immediate remove-on-click — see this dialog's Save
- * handler and the task report for why a single batched action reads truer
- * to a Cancel/Save modal than an immediate per-row mutation would.
- *
- * Split out of GroupFormDialog.tsx per the repo's ~300-lines guidance.
+ * "Existing Members" section of the group edit modal. Removal is staged,
+ * not immediate: clicking remove only hides the row; GroupFormDialog calls
+ * removeGroupMember on Save, so Cancel discards a removal like an unsent chip.
  */
 
 import { Mail, User, X } from 'lucide-react';
@@ -50,9 +38,8 @@ export function GroupExistingMembers({
           <p className="px-2 py-1 text-xs text-muted-foreground">No members yet.</p>
         )}
         {visible.map((member) => {
-          // Design ('edit group.jpg'): the row shows the EMAIL, not the
-          // display name — matches every other principal row in this
-          // dialog (chips, dropdown) which are keyed by email too.
+          // Rows show the email, not the display name — matching every
+          // other principal row in this dialog.
           const displayName = member.email || member.pending_email || member.name || '';
           return (
             <div

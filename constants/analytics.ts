@@ -134,28 +134,25 @@ export const ANALYTICS_EVENTS = {
   // Notifications
   NOTIFICATION_PREFERENCES_UPDATED: 'notification:preferences_updated',
   NOTIFICATIONS_ALL_READ: 'notification:all_marked_read',
-  // Resource sharing — ShareModal's rtype-driven People/General-access sections
-  // (entity_type is passed as a property; dashboards, reports, alerts, etc.
-  // all funnel through the same modal so the event names stay fixed).
+  // Resource sharing — every rtype funnels through the same ShareModal, so
+  // event names stay fixed and entity_type rides as a property.
   SHARING_MODAL_OPENED: 'sharing:modal_opened',
   SHARING_GRANT_ADDED: 'sharing:grant_added',
   SHARING_GRANT_REMOVED: 'sharing:grant_removed',
   SHARING_GENERAL_ACCESS_UPDATED: 'sharing:general_access_updated',
   SHARING_EMAIL_INVITE_SENT: 'sharing:email_invite_sent',
-  // Resource sharing — bulk share bar (Milestone 10, task-17f). Fired once
-  // per bulk apply, on the terminal response (after a set_general narrow
-  // re-send, using that call's own counts — not the intermediate
-  // requires_confirmation response).
+  // Bulk share bar. Fired once per bulk apply, on the terminal response —
+  // not an intermediate requires_confirmation response.
   SHARING_BULK_APPLIED: 'sharing:bulk_applied',
-  // Resource sharing — request-access flow (Milestone 9)
+  // Request-access flow
   SHARING_ACCESS_REQUESTED: 'sharing:access_requested',
   SHARING_ACCESS_REQUEST_APPROVED: 'sharing:access_request_approved',
   SHARING_ACCESS_REQUEST_DECLINED: 'sharing:access_request_declined',
-  // Resource sharing — ownership transfer (Milestone 5, task-12f)
+  // Ownership transfer
   SHARING_OWNERSHIP_TRANSFERRED: 'sharing:ownership_transferred',
-  // Settings → Access Management (org-wide sharing defaults, task-11f)
+  // Settings → Access Management (org-wide sharing defaults)
   SHARING_SETTINGS_UPDATED: 'settings:sharing_settings_updated',
-  // Settings → Groups (resource-sharing audiences, Milestone 3)
+  // Settings → Groups (resource-sharing audiences)
   GROUP_CREATED: 'settings:group_created',
   GROUP_RENAMED: 'settings:group_renamed',
   GROUP_DELETED: 'settings:group_deleted',

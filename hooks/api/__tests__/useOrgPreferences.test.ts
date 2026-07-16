@@ -1,13 +1,7 @@
 /**
- * Tests for the orgpreferences sharing-settings mutation added in task-11f.
- * useOrgPreferences() itself (GET /api/orgpreferences/) is already exercised
- * indirectly by NotificationPreferencesDialog.test.tsx; this file covers the
- * new PUT-sharing mutation and the extended OrgPreferences shape.
- *
- * Permission-model rework (D1): default_general_audience/default_general_level
- * were replaced by an independently settable default_analyst_level and
- * default_member_level (each 'none' | 'view' | 'edit') — the org-wide
- * equivalent of the ShareModal's per-role General-access rows.
+ * Orgpreferences sharing-settings mutation. useOrgPreferences() itself is
+ * exercised by NotificationPreferencesDialog.test.tsx; this file covers the
+ * PUT-sharing mutation and the extended OrgPreferences shape.
  */
 import { mockApiPut } from '@/test-utils/api';
 import { updateSharingPreferences } from '@/hooks/api/useNotifications';

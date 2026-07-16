@@ -144,10 +144,8 @@ export function DashboardListV2() {
   const [favorites, setFavorites] = useState<Set<number>>(new Set());
 
   // Column filter states
-  // "Show only shared" filters on is_owner/is_creator (Task 6b DashboardResponse fields) —
-  // see isSharedWithViewer in dashboard-list-utils.ts. A prior version of this filter keyed
-  // off dashboard.is_public, which the list DTO never returned; it was removed as dead rather
-  // than shipped broken until the real fields landed.
+  // "Show only shared" filters on is_owner/is_creator — see
+  // isSharedWithViewer in dashboard-list-utils.ts.
   const [nameFilters, setNameFilters] = useState({
     text: '',
     showFavorites: false,
@@ -174,8 +172,7 @@ export function DashboardListV2() {
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [selectedDashboard, setSelectedDashboard] = useState<any>(null);
-  // Bulk-selection bar (task-17f, Milestone 10) — persists across pagination,
-  // capped at 100 (BULK_MAX_ITEMS) via useMultiSelect.
+  // Bulk selection — persists across pagination, capped via useMultiSelect.
   const {
     selectedIds: selectedDashboardIds,
     toggle: toggleDashboardSelection,
@@ -444,9 +441,8 @@ export function DashboardListV2() {
   );
 
   // Selection persists across pagination, so the bar's count must be the
-  // TRUE cross-page total (selectedDashboardIds.size) — never a page-local
-  // "N of {visible}" denominator, which contradicts the (unchecked) visible
-  // checkboxes as soon as the user pages away (finding 1).
+  // true cross-page total — a page-local denominator would contradict the
+  // visible checkboxes as soon as the user pages away.
   const selectedOnPageCount = useMemo(
     () => visibleDashboardIds.filter((id) => selectedDashboardIds.has(id)).length,
     [visibleDashboardIds, selectedDashboardIds]
@@ -526,10 +522,9 @@ export function DashboardListV2() {
     mutate(); // Refresh the dashboard list
   }, [mutate]);
 
-  // Bulk-share apply (task-17f) — deselect only the ids the server actually
-  // applied; skipped/pending-confirmation ids stay selected so the user can
-  // see which ones need attention. Always revalidate — applied changes are
-  // real even mid a set_general narrow-confirm round-trip.
+  // Deselect only the ids the server actually applied; skipped/pending ids
+  // stay selected so the user can see which ones need attention. Always
+  // revalidate — applied changes are real even mid confirm round-trip.
   const handleBulkApplied = useCallback(
     (response: BulkAccessResponse) => {
       const appliedIds = response.applied
@@ -859,9 +854,8 @@ export function DashboardListV2() {
     const isLockedByOther =
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
     const isFavorited = favorites.has(dashboard.id);
-    // D1: per-role levels replace the old general_audience/general_level pair
-    // -- see deriveGeneralAccessBadge for how {analyst_level, member_level}
-    // collapses back down to the single badge this row shows.
+    // deriveGeneralAccessBadge collapses {analyst_level, member_level} down
+    // to the single badge this row shows.
     const generalAccessBadge = deriveGeneralAccessBadge(
       dashboard.analyst_level,
       dashboard.member_level
@@ -879,9 +873,8 @@ export function DashboardListV2() {
 
     return (
       <TableRow key={dashboard.id} className="group hover:bg-gray-50">
-        {/* Bulk-select checkbox (task-17f) — gated with the row's Share button.
-            Design (dashboard bulk share-1.jpg): no permanent checkbox column —
-            it only shows on row hover, or when that row is already selected. */}
+        {/* Bulk-select checkbox, gated with the row's Share button. No
+            permanent column — shows on hover or when already selected. */}
         {canShareDashboards && (
           <TableCell className="py-4">
             <Checkbox
@@ -1773,9 +1766,7 @@ export function DashboardListV2() {
           )}
         </div>
 
-        {/* Bulk-selection bar (task-17f) — appears once ≥1 row is selected.
-            Design (dashboard bulk share-2/-3.jpg): dismiss X at the far left
-            next to the count; Select All sits at the far right, beside SHARE. */}
+        {/* Bulk-selection bar — appears once at least one row is selected. */}
         {canShareDashboards && selectedDashboardIds.size > 0 && (
           <div
             data-testid="dashboard-bulk-share-bar"
@@ -2242,7 +2233,7 @@ export function DashboardListV2() {
         />
       )}
 
-      {/* Bulk Share Dialog (task-17f) */}
+      {/* Bulk Share Dialog */}
       {bulkShareOpen && (
         <BulkShareDialog
           entityType="dashboard"

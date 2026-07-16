@@ -43,7 +43,7 @@ describe('GroupsTable', () => {
 
     const row = screen.getByTestId('group-row-1');
     expect(row).toHaveTextContent('Funders');
-    // Phase A / A2: members render as an avatar stack; the full count stays
+    // Members render as an avatar stack; the full count stays
     // accessible via aria-label
     const stack = screen.getByTestId('group-member-count-1');
     expect(stack).toHaveAccessibleName('2 members');

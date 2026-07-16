@@ -1,14 +1,7 @@
 /**
- * ShareModal — org-wide "Allow public sharing" kill switch (task-11f).
- *
- * The backend already 403s the enable path when allow_public_sharing is
- * false (task-11 backend report); the frontend must not present a dead
- * control, so the public-link/toggle card is hidden the same way the
- * existing capabilities.public_link === false case already hides it.
- *
- * useOrgPreferences() defaults to undefined when unmocked (as in the other
- * ShareModal test files) — gating must key off `=== false` specifically, so
- * "not yet loaded" never hides the toggle for every other test in the suite.
+ * ShareModal org-wide "Allow public sharing" kill switch: the toggle card
+ * hides when allow_public_sharing is false. Gating must key off `=== false`
+ * specifically so "not yet loaded" never hides the toggle.
  */
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';

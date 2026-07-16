@@ -1,12 +1,7 @@
 /**
- * AlertsPage — bulk-selection bar + per-item Share (task-17f).
- *
- * Unlike page.test.tsx (which stubs AlertsTable to isolate the deep-link
- * behavior), this suite renders the REAL AlertsTable so the full wiring —
- * row Share button -> ShareModal, checkboxes -> bulk bar -> BulkShareDialog
- * — is exercised end-to-end. ShareModal/BulkShareDialog themselves are
- * unit-tested elsewhere, so they're stubbed here to isolate the page/table
- * wiring this task adds.
+ * AlertsPage bulk-selection bar + per-item Share. Renders the real
+ * AlertsTable (unlike page.test.tsx) so the full page/table wiring is
+ * exercised; ShareModal/BulkShareDialog are stubbed.
  */
 import React from 'react';
 import { render, screen } from '@testing-library/react';

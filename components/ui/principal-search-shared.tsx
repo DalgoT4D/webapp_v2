@@ -1,19 +1,10 @@
 'use client';
 
 /**
- * Generic, presentation-only pieces of the unified people/groups/emails
- * typeahead, shared by ShareModal's staging flow (share-modal-staging.tsx)
- * and the Create-group dialog's member picker
- * (components/settings/groups/group-member-typeahead.tsx) — split out so
- * neither surface copy-pastes email parsing, role-tag labels, or the
- * dropdown row button (repo convention: extract, don't duplicate, see
- * CLAUDE.md's ~300-lines-per-component guidance).
- *
- * Nothing here knows about AccessLevel/permission or about Groups' own
- * membership rules — those stay in each surface's own staging hook. Moving
- * these out changes NOTHING about share-modal-staging's behavior: it
- * re-exports every symbol that moved so its own imports (and share-modal.tsx's)
- * are unaffected.
+ * Presentation-only pieces of the people/groups/emails typeahead, shared by
+ * ShareModal's staging flow and the Create-group member picker. Knows
+ * nothing about permissions or group membership — that stays in each
+ * surface's own staging hook.
  */
 
 import React from 'react';
@@ -31,10 +22,9 @@ import type { InviteRoleSlug } from '@/hooks/api/useResourceAccess';
 
 // ---- Email parsing ----
 
-// Angle brackets excluded so stray leftovers of a mis-parsed mail-client
-// "Name <email>" wrapper (e.g. an unmatched "<a@x.org") fail validation
-// instead of being POSTed to the backend, which has no email-format check
-// on the share-invite path.
+// Angle brackets excluded so leftovers of a mis-parsed "Name <email>"
+// wrapper fail validation instead of being POSTed (the backend has no
+// email-format check on the share-invite path).
 export const EMAIL_REGEX = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 
 // Mail-client "Display Name <email>" wrapper (also bare "<email>").
@@ -42,10 +32,9 @@ export const EMAIL_REGEX = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 // plain tokenization and then fails EMAIL_REGEX as an invalid entry.
 const ANGLE_BRACKET_EMAIL_REGEX = /^[^<>]*<([^<>]+)>$/;
 
-/** Splits pasted/typed text into email candidates. Entries are separated
- * by commas/semicolons/newlines; a "Name <email>" entry (the common
- * mail-client copy format) yields just the address; anything else is
- * further split on whitespace. */
+/** Splits pasted/typed text into email candidates: commas/semicolons/
+ * newlines separate entries, "Name <email>" yields just the address,
+ * anything else splits on whitespace. */
 export function splitEmailTokens(text: string): string[] {
   const tokens: string[] = [];
   for (const entry of text.split(/[,;\r\n]+/)) {
@@ -76,9 +65,7 @@ export function roleTagLabel(slug: string | undefined): string {
   return ROLE_TAG_LABELS[slug] ?? slug;
 }
 
-/** The three roles an unknown-email invite can land at -- shared by
- * ShareModal's and the Create-group dialog's admin-only invite-role
- * pickers. */
+/** The three roles an unknown-email invite can land at. */
 export const INVITE_ROLE_OPTIONS: { value: InviteRoleSlug; label: string }[] = [
   { value: 'member', label: 'Member' },
   { value: 'analyst', label: 'Analyst' },
@@ -87,9 +74,8 @@ export const INVITE_ROLE_OPTIONS: { value: InviteRoleSlug; label: string }[] = [
 
 // ---- Dedup helper ----
 
-/** Adds `entries` to `prev`, skipping anything whose `key` OR (if present)
- * `email` already exists in `prev` — the dup guard used by every staging
- * surface (ShareModal's grants, the Create-group dialog's member list). */
+/** Adds `entries` to `prev`, skipping anything whose key or email already
+ * exists in `prev`. */
 export function dedupeStage<T extends { key: string; email?: string }>(
   prev: T[],
   entries: T[]
@@ -118,12 +104,8 @@ export function principalRowIcon(kind: PrincipalEntryKind) {
   return <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />;
 }
 
-/** The circular avatar icon design puts on every People-with-access and
- * pending-request row (design: "resource sharing- scrollable list of people
- * with access" / "resource sharing- multiple request" frames) — a small
- * tinted circle with a person (or group) glyph, distinct from the plain
- * muted-foreground icon `principalRowIcon` renders for the typeahead/staged
- * rows. */
+/** Tinted circular avatar for People-with-access and pending-request rows —
+ * distinct from the plain icon `principalRowIcon` renders for typeahead rows. */
 export function PrincipalAvatar({ kind = 'user' }: { kind?: PrincipalEntryKind }) {
   const Icon = kind === 'group' ? UsersRound : User;
   return (
@@ -133,18 +115,11 @@ export function PrincipalAvatar({ kind = 'user' }: { kind?: PrincipalEntryKind }
   );
 }
 
-// ---- Borderless permission control (design: "View ⌄" / "View ^") ----
+// ---- Borderless permission control ("View ⌄") ----
 
-// Shared trigger classes for the "View ⌄" / "Edit ⌄" control on staged and
-// granted rows (design frames: "resource sharing New users",
-// "resource sharing- scrollable list of people with access") — replaces the
-// old bordered Select pill with plain text + a chevron that flips to point
-// up while the dropdown is open. Still an accessible Select under the hood;
-// only the trigger's visual chrome changes.
-// Exported so PendingRequestRow (share-modal.tsx) can build its own inline
-// lowercase "wants to edit ⌄" control — it needs different item text ("view"/
-// "edit", mid-sentence) than the standalone "View"/"Edit" control below, so it
-// can't reuse the `PermissionSelect` component itself, only its chrome.
+// Plain text + chevron instead of a bordered Select pill; still an
+// accessible Select under the hood. Exported so PendingRequestRow can build
+// its own inline lowercase control from the same chrome.
 export const BORDERLESS_PERMISSION_TRIGGER_CLASSES =
   'h-auto w-auto gap-1 rounded-sm border-none bg-transparent p-0 text-sm font-normal text-foreground shadow-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:[&_svg]:rotate-180';
 
@@ -154,14 +129,12 @@ export interface PermissionSelectProps {
   value: string;
   onValueChange: (value: string) => void;
   disabled?: boolean;
-  /** Extra items appended after View/Edit — e.g. ShareModal's grant rows add
-   * a "Transfer Ownership" item + separator here (Transfer ownership.jpg). */
+  /** Extra items appended after View/Edit — e.g. "Transfer Ownership". */
   extraItems?: React.ReactNode;
 }
 
-/** The borderless View/Edit permission control shared by ShareModal's staged
- * rows (share-modal-staging.tsx) and granted rows (share-modal.tsx) — kept
- * here so neither copy-pastes the restyled trigger. */
+/** Borderless View/Edit permission control shared by ShareModal's staged
+ * and granted rows. */
 export function PermissionSelect({
   testId,
   ariaLabel,

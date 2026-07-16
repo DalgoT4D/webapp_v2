@@ -28,29 +28,19 @@ interface RequestAccessScreenProps {
   resourceId: number;
   /** Lowercase noun for copy — e.g. "dashboard", "report", "alert". */
   resourceLabel: string;
-  /**
-   * The resource's display name for the supporting line (design frame
-   * 1184:6222). Usually unavailable — the resource fetch just 403'd — so
-   * the copy falls back to "this {resourceLabel}".
-   */
+  /** Display name for the supporting line. Usually unavailable (the fetch
+   * just 403'd), so the copy falls back to "this {resourceLabel}". */
   resourceName?: string | null;
-  /**
-   * Testing seam for the "already have access" recovery path. Production
-   * callers never pass this — it defaults to a real full-page reload.
-   * jsdom's `window.location.reload` is non-configurable and can't be
-   * stubbed directly, so tests inject a spy here instead.
-   */
+  /** Testing seam: jsdom's window.location.reload can't be stubbed, so
+   * tests inject a spy. Production callers never pass this. */
   reloadPage?: () => void;
 }
 
 /**
- * Full-page substitute for the generic error state when a resource fetch
- * 403s: lets the viewer ask the owner for access instead of dead-ending.
- * Renders one of three states — form / just-submitted / already-pending —
- * driven by a local `submitted` flag (this session) and the caller's own
- * `outgoing` access requests (GET /api/access/requests/, which is NOT
- * view-gated on this resource — it's "any authenticated org member", so it
- * works even though the viewer just failed the view-gated resource fetch).
+ * Full-page substitute for the generic error state on a 403: lets the
+ * viewer ask for access instead of dead-ending. Three states — form /
+ * just-submitted / already-pending. The outgoing-requests fetch is not
+ * view-gated, so it works even though the resource fetch just failed.
  */
 export function RequestAccessScreen({
   rtype,
@@ -65,12 +55,9 @@ export function RequestAccessScreen({
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  // v1.1 M4: some rtypes (charts today — member_sharing=False) reject a
-  // Member's request outright with a plain-language 400 pointing at the path
-  // that DOES work for them ("...request access to the dashboard instead").
-  // That's a real, permanent answer for this viewer, not a transient failure
-  // — surfaced inline instead of a toast so it reads as an answer, not an
-  // error, and can't be missed/dismissed accidentally.
+  // Some rtypes reject a Member's request outright with a plain-language
+  // 400. That's a permanent answer, not a transient failure — shown inline
+  // instead of a toast so it can't be missed or dismissed.
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
 
   const pendingRequest = useMemo(
@@ -99,20 +86,15 @@ export function RequestAccessScreen({
       mutate();
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
-      // The only 400 that isn't a real failure: the caller already has
-      // access (e.g. a grant landed between page load and this click, or a
-      // stale tab). Reloading re-runs the resource fetch, which now
-      // succeeds — simplest honest recovery, no bespoke re-fetch plumbing.
-      // Gated on status === 400 too (not just the message) so a future
-      // wording change on an unrelated error can't accidentally trigger it.
+      // The one 400 that isn't a failure: the caller already has access
+      // (a grant landed since page load). Reload re-runs the resource fetch.
+      // Gated on status AND message so unrelated errors can't trigger it.
       if (getApiErrorStatus(error) === 400 && /already have access/i.test(message)) {
         reloadPage();
         return;
       }
       // A deliberate, permanent block (e.g. a Member requesting a chart) —
-      // render its own plain-language message rather than a generic toast,
-      // which would read as a bug rather than an answer. Any other 400/500
-      // still toasts (unexpected, worth surfacing as a transient failure).
+      // rendered inline as an answer. Any other error still toasts.
       if (getApiErrorStatus(error) === 400 && message) {
         setBlockedMessage(message);
         return;
@@ -163,7 +145,7 @@ export function RequestAccessScreen({
           </div>
         ) : (
           <>
-            {/* Design frame 1184:6222 copy (Phase A / A3) */}
+            {/* Request-access headline + supporting copy */}
             <h2 className="text-xl font-semibold">Request access to this {resourceLabel}</h2>
             <p className="text-sm text-muted-foreground">
               {resourceName

@@ -67,10 +67,9 @@ export function useChartData(payload: ChartDataPayload | null) {
   });
 }
 
-// chartId + dashboardId scope the request to a dashboard-tile view — the backend
-// requires both (Task 6b) to gate table tiles the same way GET chart/dashboard
-// endpoints already are for Members. Omit them for the chart builder / standalone
-// Charts page live preview (Analyst+ only, unchanged — no chart_id to own yet).
+// chartId + dashboardId scope the request to a dashboard-tile view — the
+// backend requires both to gate table tiles for Members. Omit them for the
+// chart builder / standalone Charts page live preview.
 export function useChartDataPreview(
   payload: ChartDataPayload | null,
   page: number = 1,
@@ -108,7 +107,7 @@ export function useChartDataPreview(
         queryParams.append('dashboard_filters', JSON.stringify(dashboardFilters));
       }
 
-      // Access context (Task 6b gating) — dashboard-tile callers only.
+      // Access context — dashboard-tile callers only.
       if (cId) queryParams.append('chart_id', String(cId));
       if (dId) queryParams.append('dashboard_id', String(dId));
 
@@ -434,8 +433,8 @@ export function transformMapDataOverlayPayload(payload: MapDataOverlayRawPayload
 
 // Fetch map data separately (for data overlay on existing GeoJSON).
 // chartId + dashboardId scope the request to a dashboard-tile view — the
-// backend (Task 6b) requires both, sent as body fields, to gate map tiles.
-// Omit them for the chart builder / standalone Charts page (unchanged).
+// backend requires both (as body fields) to gate map tiles. Omit them for
+// the chart builder / standalone Charts page.
 export function useMapDataOverlay(
   payload: MapDataOverlayRawPayload | null,
   chartId?: number,

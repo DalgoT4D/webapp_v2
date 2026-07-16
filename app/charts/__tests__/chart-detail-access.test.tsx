@@ -1,10 +1,6 @@
 /**
- * ChartDetailClient — v1.1 M3a/M4:
- *  - a header Share affordance (gated on can_share_charts) opens ShareModal
- *    with entityType="chart" (mirrors the dashboard detail view's pattern)
- *  - a 403 from the chart fetch (resolver denied standalone view — e.g. a
- *    Member, or an Analyst not covered by analyst_level/grants) renders the
- *    generic RequestAccessScreen instead of the generic error state
+ * ChartDetailClient: header Share affordance opens ShareModal; a 403 from
+ * the chart fetch renders RequestAccessScreen instead of the error state.
  */
 import React from 'react';
 import { render, screen } from '@testing-library/react';

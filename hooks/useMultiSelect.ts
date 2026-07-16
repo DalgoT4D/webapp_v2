@@ -1,10 +1,7 @@
 /**
  * useMultiSelect — generic row-selection state for bulk-action bars.
- *
- * Selection persists across pagination (selectPage/deselectPage only ever
- * touch the ids handed to them, e.g. the current page's rows), and is capped
- * at `max` so a downstream bulk POST can never exceed the backend's item
- * limit (BULK_MAX_ITEMS = 100 for /api/access/bulk/ — see task-17f).
+ * Selection persists across pagination and is capped at `max` so a bulk
+ * POST can never exceed the backend's item limit.
  */
 import { useCallback, useMemo, useState } from 'react';
 
@@ -52,8 +49,7 @@ export function useMultiSelect<K extends string | number>(max: number = MAX_BULK
   }, []);
 
   // Drop a specific subset without touching the rest — used after a bulk
-  // apply to deselect only the ids the server actually applied (skipped/
-  // needs-confirmation ids stay selected so the user can see which they were).
+  // apply to deselect only the ids the server actually applied.
   const remove = useCallback((ids: Iterable<K>) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);

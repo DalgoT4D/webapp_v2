@@ -1,37 +1,11 @@
 'use client';
 
 /**
- * The Create-group dialog's member picker: ONE search input mixing org
- * users, groups, and free-typed/pasted emails — the same unified typeahead
- * pattern as ShareModal's (design: 'group creation-1.jpg' — label "Add
- * people, groups, or paste emails", placeholder "Type or paste emails…").
- * Reuses ShareModal's generic parsing/dropdown-row pieces
- * (principal-search-shared.tsx); staging state lives in
- * group-member-staging.ts, the dropdown in group-member-search-dropdown.tsx,
- * the staged-row list in group-member-staged-rows.tsx, and the invite-role
- * notice in group-member-invite-role-block.tsx (all split out per the
- * repo's ~300-lines guidance). Staging a GROUP here means "add its current
- * active members" (flattened at submit time by GroupFormDialog), not a
- * group grant — group members have no per-row permission control.
- *
- * Dropdown ordering deliberately differs from ShareModal's (which buckets
- * groups-then-users): the design shows users and groups interleaved
- * alphabetically, so this list is one alphabetically-sorted merge instead.
- *
- * Unknown emails stage as an invite entry, gated the same way the share
- * modal's is: an admin/super-admin sees an "Invite new users as [role]"
- * picker (Member/Analyst/Admin); anyone else sees the locked "invited as
- * Member" sentence, no dropdown (design: the Analyst screen showing a
- * staged unknown email carries "Assign new invites role before adding to
- * group" -- the share modal's admin-picker copy, not its non-admin
- * variant). One choice applies to the whole batch of staged emails, not
- * per-row (`GroupMemberStaging.inviteRole`).
- *
- * Staged entries render as CHIPS INSIDE the input container itself (design:
- * 'Analyst-group new user added.jpg') -- the bordered box grows and wraps
- * to multiple lines as chips are added; the text caret always sits after
- * the last chip. Backspace on an empty query removes the most recently
- * staged chip, the standard chip-input convention.
+ * Create-group member picker: one search input mixing org users, groups,
+ * and typed/pasted emails, staged as chips inside the input container.
+ * Staging a GROUP means "add its current active members" (flattened at
+ * submit by GroupFormDialog), not a group grant. Unknown emails stage as
+ * invites; one invite-role choice applies to the whole batch.
  */
 
 import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
@@ -59,20 +33,16 @@ import { useUsers } from '@/hooks/api/useUserManagement';
 import { useUserGroups } from '@/hooks/api/useUserGroups';
 import { ADMIN_ROLES, useRbac } from '@/lib/rbac';
 
-/** A principal already on the group (edit mode only) -- fed into the
- * dropdown's dup guard so an existing member shows "Added" instead of
- * being offered again (re-adding would just 400/no-op on the backend). */
+/** A principal already on the group (edit mode only) — fed into the dup
+ * guard so an existing member shows "Added" instead of being offered again. */
 export interface ExistingMemberRef {
   key: string;
   email?: string;
 }
 
-/** Escape layering (GroupFormDialog wires this into DialogContent's
- * onEscapeKeyDown): Radix listens for Escape on the document in the CAPTURE
- * phase, so an input-level keydown handler can never intercept it — the
- * dialog must ask the typeahead first. Returns true when the dropdown was
- * open and consumed the Escape (caller must then preventDefault so the
- * dialog survives); false lets the dialog close as usual. */
+/** Radix fires Escape in the capture phase before any input-level handler,
+ * so GroupFormDialog must ask the typeahead first. Returns true if it
+ * consumed the Escape (caller preventDefaults to keep the dialog open). */
 export interface GroupMemberSearchHandle {
   closeDropdownIfOpen: () => boolean;
 }
@@ -94,13 +64,11 @@ export function GroupMemberSearch({
   ref,
 }: GroupMemberSearchProps) {
   const [query, setQuery] = useState('');
-  // Dropdown visibility. Opened by focus/click/typing in the chip input,
-  // closed by outside blur, Escape (via closeDropdownIfOpen), or staging an
-  // email (the intent is complete, and the open browse list would otherwise
-  // sit over the invite-role block and the dialog's footer buttons).
+  // Dropdown visibility: opened by focus/click/typing, closed by outside
+  // blur, Escape, or staging an email (the open list would otherwise cover
+  // the invite-role block and footer buttons).
   const [isFocused, setIsFocused] = useState(false);
-  // Inline "already added" hint — replaces the silent dedupe swallow when a
-  // typed/pasted email (or repeat Enter) targets an already-staged principal.
+  // Inline "already added" hint — a repeat pick must never be silently swallowed.
   const [dupNotice, setDupNotice] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { users: orgUsers } = useUsers();
@@ -144,8 +112,8 @@ export function GroupMemberSearch({
     [groups, q, excludeGroupId]
   );
 
-  // Design ordering ('group creation-1.jpg'): users and groups interleaved
-  // alphabetically -- NOT ShareModal's groups-first bucketing.
+  // Users and groups interleaved alphabetically — deliberately not
+  // ShareModal's groups-first bucketing.
   const combinedMatches: GroupMemberSearchRow[] = useMemo(() => {
     const rows: GroupMemberSearchRow[] = [
       ...userMatches.map(
@@ -216,9 +184,8 @@ export function GroupMemberSearch({
       // mode) gets an inline hint — never a silent swallow, never a dup chip.
       setDupNotice(dupes.length > 0 ? duplicateNotice(dupes, existingKeys, existingEmails) : null);
       setQuery('');
-      // The address is dealt with — collapse the browse dropdown so it stops
-      // covering the invite-role block and the dialog's Cancel/Create buttons
-      // (typing or clicking the input reopens it).
+      // Collapse the dropdown so it stops covering the invite-role block and
+      // footer buttons (typing or clicking reopens it).
       setIsFocused(false);
     },
     [orgUsers, staging, stagedKeys, stagedEmails, existingKeys, existingEmails]
@@ -305,16 +272,14 @@ export function GroupMemberSearch({
       {/* Focus/blur on the wrapper (not the input) keeps the dropdown open
           while focus moves onto one of its options. */}
       <div className="relative" onFocus={() => setIsFocused(true)} onBlur={handleContainerBlur}>
-        {/* The bordered "input" is this div -- chips and the real <input>
-            are its flex-wrap children (design: 'Analyst-group new user
-            added.jpg'), so the box grows and wraps as chips are added. */}
+        {/* The bordered "input" is this div — chips and the real <input> are
+            its flex-wrap children, so the box grows as chips are added. */}
         <div
           data-testid="group-member-chip-input"
           onClick={() => {
             inputRef.current?.focus();
-            // Focus alone doesn't refire onFocus when the input already has
-            // it — an explicit click must still reopen an Escape-closed (or
-            // post-staging-collapsed) dropdown.
+            // focus() doesn't refire onFocus when the input already has it —
+            // a click must still reopen an Escape-closed dropdown.
             setIsFocused(true);
           }}
           className={cn(

@@ -58,11 +58,8 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { formatDistanceToNow } from 'date-fns';
 import { computePopChanges } from '@/lib/formatters';
 
-// KPIs have no public-link concept (public_link=False in the rtype
-// registry — ShareModal already hides that section via the capabilities
-// flag). getShareStatus/updateSharing are still required props on
-// ShareModal (called unconditionally on open); these stubs never hit a
-// real endpoint since the section they'd back is never rendered for KPIs.
+// KPIs have no public link. getShareStatus/updateSharing are required
+// ShareModal props, but these stubs never back a rendered section.
 async function getKpiShareStatus(): Promise<ShareStatus> {
   return { is_public: false, public_access_count: 0 };
 }
@@ -130,7 +127,7 @@ function KPICardWithData({
 
   return (
     <div className="relative h-72" data-testid={`kpi-card-${kpi.id}`}>
-      {/* Bulk-select checkbox (M5) — overlaid top-left; the card grid has no
+      {/* Bulk-select checkbox — overlaid top-left; the card grid has no
           row/column chrome to add a checkbox column to the way list tables
           do, so it floats over the card corner instead. */}
       {canShareKpis && (
@@ -216,7 +213,7 @@ export function KPIPageComponent() {
   const [deletingKpi, setDeletingKpi] = useState<KPI | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [alertKpiId, setAlertKpiId] = useState<number | null>(null);
-  // Per-item Share (M5) — one shared ShareModal instance for the whole grid.
+  // Per-item Share — one shared ShareModal instance for the whole grid.
   const [sharingKpi, setSharingKpi] = useState<KPI | null>(null);
   const [bulkShareOpen, setBulkShareOpen] = useState(false);
 
@@ -229,8 +226,7 @@ export function KPIPageComponent() {
   const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
   const canShareKpis = hasPermission(PERMISSIONS.CAN_SHARE_KPIS);
 
-  // Bulk-selection bar (M5) — persists across pagination/filters, capped at
-  // 100 (BULK_MAX_ITEMS) via useMultiSelect.
+  // Bulk selection — persists across pagination/filters, capped via useMultiSelect.
   const {
     selectedIds: selectedKpiIds,
     toggle: toggleKpiSelection,
@@ -395,7 +391,7 @@ export function KPIPageComponent() {
           )}
         </div>
 
-        {/* Bulk-selection bar (M5) — appears once >=1 card is selected */}
+        {/* Bulk-selection bar — appears once >=1 card is selected */}
         {canShareKpis && selectedKpiIds.size > 0 && (
           <div
             data-testid="kpi-bulk-share-bar"
@@ -637,9 +633,8 @@ export function KPIPageComponent() {
         initial={{ alertType: 'kpi_rag', kpiId: alertKpiId }}
       />
 
-      {/* Per-item Share (M5) — the modal's capability flags already omit
-          the public-link section for KPIs; no KPI-specific conditionals
-          live in ShareModal itself. */}
+      {/* Per-item Share — the modal's capability flags already omit the
+          public-link section for KPIs. */}
       {sharingKpi && (
         <ShareModal
           entityId={sharingKpi.id}
@@ -653,8 +648,7 @@ export function KPIPageComponent() {
         />
       )}
 
-      {/* Bulk Share Dialog (M5) — no public-link action (kpi is
-          public_link=False; the backend would skip every item). */}
+      {/* Bulk Share Dialog — no public-link action for KPIs. */}
       {bulkShareOpen && (
         <BulkShareDialog
           entityType="kpi"

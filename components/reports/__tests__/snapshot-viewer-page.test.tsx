@@ -423,12 +423,8 @@ describe('SnapshotViewerPage', () => {
     });
 
     it('hides the summary-edit pencil, but NOT the comment trigger, when user lacks can_edit_dashboards', () => {
-      // Task 16 (resource-sharing): the summary comment trigger used to be
-      // locked behind the same canEdit gate as the edit pencil, which
-      // silently blocked Members from ever commenting on a report — a bug
-      // Task 14 (backend) already fixed by relaxing comment creation to
-      // resolver-View. This pins the corrected behavior: editing the
-      // summary text stays a role-gated affordance, commenting doesn't.
+      // Editing the summary text stays role-gated; commenting doesn't —
+      // gating the comment trigger on canEdit would block Members entirely.
       mockHasPermission.mockImplementation((slug: string) => slug !== 'can_edit_dashboards');
       renderPage();
 
