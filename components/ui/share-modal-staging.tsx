@@ -66,6 +66,18 @@ import {
 // this stays the public import path for existing consumers.
 export { EMAIL_REGEX, splitEmailTokens, roleTagLabel, INVITE_ROLE_OPTIONS };
 
+// M5 (v1.1): rtypes where a Member principal/invite is deliberately excluded
+// from this modal's PROACTIVE add-people flow -- mirrors the backend's
+// `sharing_actions.MEMBER_GRANTS_DEFERRED_RTYPES` (metric/kpi today; chart
+// joins this list once its own Milestone lands, on a separate branch).
+// Members still reach these resources via general access or an approved
+// access request -- only the share modal's typeahead/invite are affected.
+const MEMBER_GRANTS_DEFERRED_RTYPES: ShareableResourceType[] = ['metric', 'kpi'];
+
+export function isMemberGrantsDeferred(entityType: ShareableResourceType | null): boolean {
+  return entityType !== null && MEMBER_GRANTS_DEFERRED_RTYPES.includes(entityType);
+}
+
 // A SHARE commit sends one POST per staged row (an email row can trigger a
 // backend invitation — user creation + an outbound email). Small-batch
 // concurrency instead of firing all of them at once keeps that load, and
@@ -196,6 +208,14 @@ export interface ShareStaging {
   registerResidualFlush: (flush: (() => ResidualFlushResult) | null) => void;
 }
 
+// The invite-role Select's default: Member everywhere EXCEPT the
+// member-grants-deferred rtypes (metric/kpi), where Member isn't even an
+// offered option (see InviteRoleBlock below) -- Analyst is the sensible
+// floor there instead.
+function defaultInviteRole(entityType: ShareableResourceType | null): InviteRoleSlug {
+  return isMemberGrantsDeferred(entityType) ? 'analyst' : 'member';
+}
+
 export function useShareStaging({
   entityType,
   entityId,
@@ -203,7 +223,7 @@ export function useShareStaging({
   onCommitted,
 }: UseShareStagingArgs): ShareStaging {
   const [staged, setStaged] = useState<StagedEntry[]>([]);
-  const [inviteRole, setInviteRole] = useState<InviteRoleSlug>('member');
+  const [inviteRole, setInviteRole] = useState<InviteRoleSlug>(() => defaultInviteRole(entityType));
   const [isCommitting, setIsCommitting] = useState(false);
   const [hasPendingInput, setHasPendingInput] = useState(false);
   // Ref (not state): the double-submit guard must trip on the SECOND of two
@@ -219,10 +239,10 @@ export function useShareStaging({
   useEffect(() => {
     if (!isOpen) {
       setStaged([]);
-      setInviteRole('member');
+      setInviteRole(defaultInviteRole(entityType));
       setHasPendingInput(false);
     }
-  }, [isOpen]);
+  }, [isOpen, entityType]);
 
   const stage = useCallback((entries: StagedEntry[]) => {
     setStaged((prev) => dedupeStage(prev, entries));
@@ -471,6 +491,7 @@ export function ShareAddPeopleSearch({ access, staging, ref }: ShareAddPeopleSea
   const { data: groups } = useUserGroups(true);
   const { hasRole } = useRbac();
   const isAdmin = hasRole(ADMIN_ROLES);
+  const memberGrantsDeferred = isMemberGrantsDeferred(access.resource_type);
 
   useImperativeHandle(
     ref,
@@ -512,13 +533,19 @@ export function ShareAddPeopleSearch({ access, staging, ref }: ShareAddPeopleSea
   // Org members without a resolved orguser_id (shouldn't happen post-6b, but
   // the field is optional on the wire) are excluded rather than offered as
   // an unusable candidate — same rule as the old picker. An empty query
-  // matches EVERYONE — that's the browse-on-focus list.
+  // matches EVERYONE — that's the browse-on-focus list. M5: a Member-role
+  // user is also excluded on member-grants-deferred rtypes (metric/kpi) --
+  // hidden from the typeahead entirely rather than offered-then-rejected,
+  // since a direct grant to them would just 400.
   const userMatches = useMemo(
     () =>
       (orgUsers || []).filter(
-        (u) => typeof u.orguser_id === 'number' && (!q || u.email.toLowerCase().includes(q))
+        (u) =>
+          typeof u.orguser_id === 'number' &&
+          (!q || u.email.toLowerCase().includes(q)) &&
+          (!memberGrantsDeferred || u.new_role_slug !== 'member')
       ),
-    [orgUsers, q]
+    [orgUsers, q, memberGrantsDeferred]
   );
 
   const groupMatches = useMemo(
@@ -725,6 +752,7 @@ export function ShareAddPeopleSearch({ access, staging, ref }: ShareAddPeopleSea
           stagedEmailEntries={stagedEmailEntries}
           staging={staging}
           isAdmin={isAdmin}
+          memberGrantsDeferred={memberGrantsDeferred}
         />
       )}
     </div>
@@ -902,19 +930,38 @@ interface InviteRoleBlockProps {
   stagedEmailEntries: StagedEntry[];
   staging: ShareStaging;
   isAdmin: boolean;
+  /** M5: metric/kpi (and, later, chart) defer Member grants v1.1-wide --
+   * Member isn't offered as an invite-role option, and the non-admin copy
+   * explains new users can't be invited directly yet instead of promising
+   * a Member invite it can't deliver (the backend 400s it). */
+  memberGrantsDeferred: boolean;
 }
 
 /** The unknown-email notice: an amber warning callout (design: "resource
  * sharing New users" frame), styled to match the Create-group dialog's
  * equivalent notice (group-member-invite-role-block.tsx's recent polish)
  * so the two flows read as one system. Admins additionally get an "Invite
- * new users as" labeled field — a full-width Select (Member/Analyst/Admin)
- * BELOW the callout, not inside it, per the same frame; non-admins get a
- * plain locked sentence inside the callout and no dropdown at all (design:
- * 'Member -resource sharing-2.jpg') — they can only ever invite at Member,
- * mirroring the backend's 403 on non-admin invite_role escalation (Phase
- * C3), so there's nothing for them to pick. */
-function InviteRoleBlock({ stagedEmailEntries, staging, isAdmin }: InviteRoleBlockProps) {
+ * new users as" labeled field — a full-width Select (Member/Analyst/Admin,
+ * or just Analyst/Admin when `memberGrantsDeferred`) BELOW the callout, not
+ * inside it, per the same frame; non-admins get a plain locked sentence
+ * inside the callout and no dropdown at all (design: 'Member -resource
+ * sharing-2.jpg') — they can only ever invite at Member, mirroring the
+ * backend's 403 on non-admin invite_role escalation (Phase C3) -- EXCEPT on
+ * a `memberGrantsDeferred` rtype, where that Member invite is itself blocked
+ * (backend 400), so non-admins get a different explanatory sentence instead
+ * (this is presentational only; the backend remains the enforcement layer,
+ * same as every other validation in this flow -- an attempt that slips
+ * through still fails cleanly as a "failed" staged row). */
+function InviteRoleBlock({
+  stagedEmailEntries,
+  staging,
+  isAdmin,
+  memberGrantsDeferred,
+}: InviteRoleBlockProps) {
+  const roleOptions = memberGrantsDeferred
+    ? INVITE_ROLE_OPTIONS.filter((option) => option.value !== 'member')
+    : INVITE_ROLE_OPTIONS;
+
   return (
     <div data-testid="share-invite-role-block" className="space-y-2">
       <div className="flex items-start gap-2 rounded-md border border-orange-200 bg-orange-50 p-3 text-xs">
@@ -925,12 +972,16 @@ function InviteRoleBlock({ stagedEmailEntries, staging, isAdmin }: InviteRoleBlo
               ? `${stagedEmailEntries[0].label} isn't on Dalgo yet.`
               : `${stagedEmailEntries.length} people aren't on Dalgo yet.`}
           </p>
-          <p className="text-orange-800">
+          <p data-testid="share-invite-role-note" className="text-orange-800">
             {isAdmin
-              ? 'Assign new invites role before sharing the resource.'
-              : stagedEmailEntries.length === 1
-                ? 'New member will be invited as member.'
-                : 'New members will be invited as members.'}
+              ? memberGrantsDeferred
+                ? 'New users can only be invited as Analyst or Admin for this type right now.'
+                : 'Assign new invites role before sharing the resource.'
+              : memberGrantsDeferred
+                ? "New users can't be invited directly for this type yet — ask an admin, or share it with an existing org member instead."
+                : stagedEmailEntries.length === 1
+                  ? 'New member will be invited as member.'
+                  : 'New members will be invited as members.'}
           </p>
         </div>
       </div>
@@ -953,7 +1004,7 @@ function InviteRoleBlock({ stagedEmailEntries, staging, isAdmin }: InviteRoleBlo
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {INVITE_ROLE_OPTIONS.map((option) => (
+              {roleOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>
