@@ -169,6 +169,30 @@ describe('SourceForm', () => {
     });
   });
 
+  it('renders the KoboToolbox custom form instead of the generic form', async () => {
+    const user = userEvent.setup();
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/api/airbyte/source_definitions')
+        return Promise.resolve([
+          createMockDefinition({ sourceDefinitionId: 'kobo-def', name: 'KoboToolbox' }),
+        ]);
+      if (url.includes('/specifications'))
+        return Promise.resolve({ connectionSpecification: { type: 'object', properties: {} } });
+      return Promise.resolve(undefined);
+    });
+
+    render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
+    await waitFor(() => expect(screen.getByTestId('combobox-option-kobo-def')).toBeInTheDocument());
+    await user.click(screen.getByTestId('combobox-option-kobo-def'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('kobo-toolbox-form')).toBeInTheDocument();
+      expect(screen.queryByTestId('source-helper-panel')).not.toBeInTheDocument();
+    });
+    // The generic form must NOT render for a custom source.
+    expect(screen.queryByTestId('connector-config-form')).not.toBeInTheDocument();
+  });
+
   it('enables save button when name, source type, and spec are all present', async () => {
     const user = userEvent.setup();
     mockApiGet.mockImplementation((url: string) => {

@@ -21,8 +21,6 @@ import {
   ChartBarBig,
   ChevronLeft,
   ChevronRight,
-  Info,
-  CreditCard,
   Users,
   Target,
   Palette,
@@ -204,13 +202,6 @@ export const getNavItems = (
           visibleToRoles: ADMIN_ROLES,
         },
         {
-          title: 'Billing',
-          href: '/settings/billing',
-          icon: CreditCard,
-          isActive: currentPath.startsWith('/settings/billing'),
-          visibleToRoles: ADMIN_ROLES,
-        },
-        {
           title: 'User Management',
           href: '/settings/user-management',
           icon: Users,
@@ -218,10 +209,11 @@ export const getNavItems = (
           visibleToRoles: ADMIN_ROLES,
         },
         {
-          title: 'About',
-          href: '/settings/about',
-          icon: Info,
-          isActive: currentPath.startsWith('/settings/about'),
+          title: 'Warehouse',
+          href: '/settings/warehouse',
+          icon: Database,
+          isActive: currentPath.startsWith('/settings/warehouse'),
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         ...(isFeatureFlagEnabled(FeatureFlagKeys.USAGE_DASHBOARD) && hasSupersetSetup
           ? [
@@ -376,6 +368,7 @@ function ExpandedNavItem({
                     child.title === 'About' ||
                       child.title === 'Billing' ||
                       child.title === 'Branding' ||
+                      child.title === 'Warehouse' ||
                       child.title === 'User Management'
                       ? 'h-5 w-5'
                       : 'h-6 w-6'
@@ -476,6 +469,7 @@ function MobileNavItem({
                     child.title === 'About' ||
                       child.title === 'Billing' ||
                       child.title === 'Branding' ||
+                      child.title === 'Warehouse' ||
                       child.title === 'User Management'
                       ? 'h-5 w-5'
                       : 'h-6 w-6'

@@ -5,6 +5,9 @@ import type {
   SourceDefinition,
   CreateSourcePayload,
   UpdateSourcePayload,
+  SourceOAuthConsent,
+  CreateOAuthSourcePayload,
+  CreateOAuthSourceResponse,
 } from '@/types/source';
 import type { ConnectionSpecification } from '@/components/connectors/types';
 
@@ -77,4 +80,24 @@ export async function updateSource(
 
 export async function deleteSource(sourceId: string): Promise<void> {
   return apiDelete(`${'/api/airbyte/sources'}/${sourceId}`);
+}
+
+// ============ Google OAuth (Sign in with Google) ============
+
+/** Google Sheets source-definition id — the connector that supports "Sign in with Google" */
+export const GOOGLE_SHEETS_SOURCE_DEFINITION_ID = '71607ba1-c0ac-4799-8049-7f4b90dd50f7';
+
+/** Start the OAuth flow (Variant A): Dalgo builds the Google consent URL and returns it.
+ * The state nonce stays server-side; the browser only opens the URL. */
+export async function getSourceOAuthConsent(sourceDefId: string): Promise<SourceOAuthConsent> {
+  return apiPost('/api/airbyte/sources/oauth/consent/', { sourceDefId });
+}
+
+/** Create (or update) the source from a redeemed OAuth `ref`: the backend redeems the ref,
+ * injects the credentials server-side, and creates/updates the source. Returns the saved
+ * source's id — no credentials or tokens are returned to the browser. */
+export async function createOAuthSource(
+  payload: CreateOAuthSourcePayload
+): Promise<CreateOAuthSourceResponse> {
+  return apiPost('/api/airbyte/sources/oauth/create/', payload);
 }
