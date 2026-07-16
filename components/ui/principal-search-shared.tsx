@@ -146,7 +146,7 @@ export function PrincipalAvatar({ kind = 'user' }: { kind?: PrincipalEntryKind }
 // "edit", mid-sentence) than the standalone "View"/"Edit" control below, so it
 // can't reuse the `PermissionSelect` component itself, only its chrome.
 export const BORDERLESS_PERMISSION_TRIGGER_CLASSES =
-  'h-auto w-auto gap-1 border-none bg-transparent p-0 text-sm font-normal text-foreground shadow-none hover:bg-transparent focus-visible:ring-0 data-[state=open]:[&_svg]:rotate-180';
+  'h-auto w-auto gap-1 rounded-sm border-none bg-transparent p-0 text-sm font-normal text-foreground shadow-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:[&_svg]:rotate-180';
 
 export interface PermissionSelectProps {
   testId: string;
