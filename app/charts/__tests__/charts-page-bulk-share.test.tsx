@@ -14,11 +14,10 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ChartsPage from '@/app/charts/page';
-import { useCharts } from '@/hooks/api/useCharts';
+import { useCharts, type Chart } from '@/hooks/api/useCharts';
 import { useDeleteChart, useBulkDeleteCharts, useCreateChart } from '@/hooks/api/useChart';
 import { useRbac } from '@/lib/rbac';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
-import type { Chart } from '@/hooks/api/useCharts';
 import type { BulkAccessResponse } from '@/hooks/api/useResourceAccess';
 
 jest.mock('@/hooks/useMultiSelect', () => {

@@ -44,16 +44,23 @@ const stableChartData = {
   },
 };
 
+const mockEmptyQuery: { data: null; error: null; isLoading: boolean } = {
+  data: null,
+  error: null,
+  isLoading: false,
+};
+const mockEmptyData: { data: null } = { data: null };
+
 jest.mock('@/hooks/api/useChart', () => ({
   useChart: jest.fn(),
-  useChartData: () => ({ data: null, error: null, isLoading: false }),
-  useChartDataPreview: () => ({ data: null, error: null, isLoading: false }),
-  useChartDataPreviewTotalRows: () => ({ data: null }),
-  useGeoJSONData: () => ({ data: null, error: null, isLoading: false }),
-  useMapDataOverlay: () => ({ data: null, error: null, isLoading: false }),
-  useRegions: () => ({ data: null }),
-  useChildRegions: () => ({ data: null }),
-  useRegionGeoJSONs: () => ({ data: null }),
+  useChartData: jest.fn(() => mockEmptyQuery),
+  useChartDataPreview: jest.fn(() => mockEmptyQuery),
+  useChartDataPreviewTotalRows: jest.fn(() => mockEmptyData),
+  useGeoJSONData: jest.fn(() => mockEmptyQuery),
+  useMapDataOverlay: jest.fn(() => mockEmptyQuery),
+  useRegions: jest.fn(() => mockEmptyData),
+  useChildRegions: jest.fn(() => mockEmptyData),
+  useRegionGeoJSONs: jest.fn(() => mockEmptyData),
 }));
 
 jest.mock('@/lib/rbac', () => {
