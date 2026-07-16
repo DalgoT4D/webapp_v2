@@ -14,7 +14,14 @@
  * fire from list pages that keep a closed ShareModal mounted).
  */
 
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
 import { AlertTriangle, Mail, User, UsersRound, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -364,9 +371,21 @@ export function useShareStaging({
 
 // ---- The search + staged-rows UI ----
 
+/** Escape layering (ShareModal wires this into DialogContent's
+ * onEscapeKeyDown): Radix listens for Escape on the document in the CAPTURE
+ * phase, so an input-level keydown handler can never intercept it — the
+ * dialog must ask the search box first. Returns true when the dropdown was
+ * open and consumed the Escape (caller must then preventDefault so the
+ * dialog survives, keeping staged rows intact); false lets the dialog close
+ * as usual. Mirrors GroupMemberSearchHandle (group-member-typeahead.tsx). */
+export interface ShareAddPeopleSearchHandle {
+  closeDropdownIfOpen: () => boolean;
+}
+
 interface ShareAddPeopleSearchProps {
   access: ResourceAccessOverview;
   staging: ShareStaging;
+  ref?: React.Ref<ShareAddPeopleSearchHandle>;
 }
 
 const STATUS_NOTES: Partial<Record<StagedEntryStatus, string>> = {
@@ -441,7 +460,7 @@ function buildEmailEntries(
   return entries;
 }
 
-export function ShareAddPeopleSearch({ access, staging }: ShareAddPeopleSearchProps) {
+export function ShareAddPeopleSearch({ access, staging, ref }: ShareAddPeopleSearchProps) {
   const [query, setQuery] = useState('');
   // Drives the dropdown: focusing the EMPTY input browses all groups + org
   // members (discoverability — the user shouldn't have to guess a name).
@@ -452,6 +471,18 @@ export function ShareAddPeopleSearch({ access, staging }: ShareAddPeopleSearchPr
   const { data: groups } = useUserGroups(true);
   const { hasRole } = useRbac();
   const isAdmin = hasRole(ADMIN_ROLES);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      closeDropdownIfOpen: () => {
+        if (!isFocused) return false;
+        setIsFocused(false);
+        return true;
+      },
+    }),
+    [isFocused]
+  );
 
   const grantedEmails = useMemo(
     () =>
@@ -646,7 +677,15 @@ export function ShareAddPeopleSearch({ access, staging }: ShareAddPeopleSearchPr
           type="text"
           placeholder="Type or paste emails…"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsFocused(true); // typing reopens a dropdown closed by Escape
+          }}
+          // The input already has DOM focus after an Escape-close (only our
+          // isFocused flag flipped, not the browser's focus target) — a click
+          // there fires no fresh focus event, so it needs its own explicit
+          // reopen (mirrors GroupMemberSearch's chip-input onClick).
+          onClick={() => setIsFocused(true)}
           onPaste={handlePaste}
           onKeyDown={handleKeyDown}
           disabled={staging.isCommitting}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { copyUrlToClipboard } from '@/lib/clipboard';
 import {
@@ -67,6 +67,7 @@ import {
   ShareAddPeopleSearch,
   useShareStaging,
   type ShareStaging,
+  type ShareAddPeopleSearchHandle,
 } from '@/components/ui/share-modal-staging';
 import {
   PrincipalAvatar,
@@ -179,6 +180,11 @@ export function ShareModal({
     isOpen,
     onCommitted: mutateAccess,
   });
+
+  // Escape layering (mirrors GroupFormDialog/group-member-typeahead): with
+  // the add-people dropdown open, a first Escape must close ONLY the
+  // dropdown — not the whole dialog, which would discard every staged row.
+  const shareSearchRef = useRef<ShareAddPeopleSearchHandle>(null);
 
   // ---- /api/access/requests/ — pending requests decidable on THIS resource ----
   // `incoming` is already filtered server-side to requests the caller can
@@ -357,6 +363,14 @@ export function ShareModal({
           e.preventDefault();
           (e.currentTarget as HTMLElement).focus();
         }}
+        // Escape layering: with the add-people dropdown open, Escape closes
+        // ONLY the dropdown (Radix's document-capture listener fires before
+        // any input handler could, so the interception lives here); a second
+        // Escape — dropdown closed — dismisses the dialog as usual, same
+        // pattern as GroupFormDialog's onEscapeKeyDown.
+        onEscapeKeyDown={(e) => {
+          if (shareSearchRef.current?.closeDropdownIfOpen()) e.preventDefault();
+        }}
       >
         {/* Full-bleed hairline under the title (every RBAC frame shows one,
             independent of what's directly below it — confirmed against
@@ -398,6 +412,7 @@ export function ShareModal({
               access={access}
               canShare={canShare}
               staging={staging}
+              searchRef={shareSearchRef}
               onChanged={mutateAccess}
             />
           )}
@@ -850,6 +865,9 @@ interface PeopleWithAccessSectionProps {
   access: NonNullable<ReturnType<typeof useResourceAccess>['data']>;
   canShare: boolean;
   staging: ShareStaging;
+  /** Forwarded to ShareAddPeopleSearch so the dialog's onEscapeKeyDown can
+   * close the dropdown first — see the Escape-layering note in ShareModal. */
+  searchRef: React.Ref<ShareAddPeopleSearchHandle>;
   onChanged: () => void;
 }
 
@@ -867,6 +885,7 @@ function PeopleWithAccessSection({
   access,
   canShare,
   staging,
+  searchRef,
   onChanged,
 }: PeopleWithAccessSectionProps) {
   const { users: orgUsers } = useUsers();
@@ -1005,7 +1024,7 @@ function PeopleWithAccessSection({
       {/* Unified add flow (Phase C): search people/groups or paste emails,
           entries stage as rows here, the footer SHARE button applies them.
           Only ADDING is staged — the rows below stay live-editing. */}
-      {canShare && <ShareAddPeopleSearch access={access} staging={staging} />}
+      {canShare && <ShareAddPeopleSearch ref={searchRef} access={access} staging={staging} />}
 
       <Label className="text-sm font-medium">People with access</Label>
 

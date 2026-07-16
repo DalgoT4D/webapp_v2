@@ -116,6 +116,7 @@ const mockUpdateSharing = jest.fn();
 
 function renderModal(overrides: Partial<ResourceAccessOverview> = {}) {
   const mutate = jest.fn();
+  const onClose = jest.fn();
   mockUseResourceAccess.mockReturnValue({
     data: { ...baseOverview, ...overrides },
     isLoading: false,
@@ -144,13 +145,13 @@ function renderModal(overrides: Partial<ResourceAccessOverview> = {}) {
       entityLabel="Dashboard"
       entityType="dashboard"
       isOpen
-      onClose={jest.fn()}
+      onClose={onClose}
       getShareStatus={mockGetShareStatus}
       updateSharing={mockUpdateSharing}
     />
   );
 
-  return { mutate };
+  return { mutate, onClose };
 }
 
 function activeGrant(overrides: Partial<AccessGrant> = {}): AccessGrant {
@@ -272,6 +273,67 @@ describe('ShareModal — browse-without-typing (F1)', () => {
 
     await user.click(screen.getByTestId('share-close-btn'));
 
+    expect(screen.queryByTestId('share-search-results')).not.toBeInTheDocument();
+  });
+});
+
+describe('ShareModal — Escape layering (parity with GroupFormDialog)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('Escape closes only the dropdown first; a second Escape closes the dialog (no staged-work loss)', async () => {
+    const user = userEvent.setup();
+    const { onClose } = renderModal();
+
+    await user.click(screen.getByTestId('share-search-input'));
+    expect(screen.getByTestId('share-search-results')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByTestId('share-search-results')).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    await user.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledWith(false);
+  });
+
+  it('staged rows survive the first Escape: typed-and-entered email chip stays after dropdown closes', async () => {
+    const user = userEvent.setup();
+    const { onClose } = renderModal();
+
+    const input = screen.getByTestId('share-search-input');
+    await user.type(input, 'new.person@ngo.org{Enter}');
+    expect(screen.getByTestId('share-staged-row-user-42')).toBeInTheDocument();
+
+    // Refocus the input to reopen the dropdown, then press Escape once.
+    await user.click(input);
+    expect(screen.getByTestId('share-search-results')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByTestId('share-search-results')).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    // The staged chip/row from before the Escape is untouched.
+    expect(screen.getByTestId('share-staged-row-user-42')).toBeInTheDocument();
+  });
+
+  it('typing reopens a dropdown closed by Escape', async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByTestId('share-search-input'));
+    await user.keyboard('{Escape}');
+    expect(screen.queryByTestId('share-search-results')).not.toBeInTheDocument();
+
+    await user.type(screen.getByTestId('share-search-input'), 'new');
+    expect(screen.getByTestId('share-search-results')).toBeInTheDocument();
+  });
+
+  it('outside-click dropdown dismissal keeps working (unaffected by the Escape handler)', async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByTestId('share-search-input'));
+    expect(screen.getByTestId('share-search-results')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('share-close-btn'));
     expect(screen.queryByTestId('share-search-results')).not.toBeInTheDocument();
   });
 });
