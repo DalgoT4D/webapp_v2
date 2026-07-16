@@ -65,6 +65,13 @@ export function RequestAccessScreen({
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // v1.1 M4: some rtypes (charts today — member_sharing=False) reject a
+  // Member's request outright with a plain-language 400 pointing at the path
+  // that DOES work for them ("...request access to the dashboard instead").
+  // That's a real, permanent answer for this viewer, not a transient failure
+  // — surfaced inline instead of a toast so it reads as an answer, not an
+  // error, and can't be missed/dismissed accidentally.
+  const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
 
   const pendingRequest = useMemo(
     () =>
@@ -102,6 +109,14 @@ export function RequestAccessScreen({
         reloadPage();
         return;
       }
+      // A deliberate, permanent block (e.g. a Member requesting a chart) —
+      // render its own plain-language message rather than a generic toast,
+      // which would read as a bug rather than an answer. Any other 400/500
+      // still toasts (unexpected, worth surfacing as a transient failure).
+      if (getApiErrorStatus(error) === 400 && message) {
+        setBlockedMessage(message);
+        return;
+      }
       toastError.api(error, 'send this request');
     } finally {
       setIsSubmitting(false);
@@ -125,6 +140,16 @@ export function RequestAccessScreen({
           <p className="text-sm text-muted-foreground" data-testid="request-access-loading">
             Checking access…
           </p>
+        ) : blockedMessage ? (
+          <div data-testid="request-access-blocked-state" className="space-y-2">
+            <h2 className="text-xl font-semibold">Can&apos;t request access</h2>
+            <p
+              className="text-sm text-muted-foreground"
+              data-testid="request-access-blocked-message"
+            >
+              {blockedMessage}
+            </p>
+          </div>
         ) : showPending ? (
           <div data-testid="request-access-pending-state" className="space-y-2">
             <h2 className="text-xl font-semibold">

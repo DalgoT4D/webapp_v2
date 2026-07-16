@@ -92,6 +92,7 @@ const SHARE_PERMISSION_BY_RTYPE: Record<ShareableResourceType, Permission> = {
   alert: PERMISSIONS.CAN_SHARE_ALERTS,
   metric: PERMISSIONS.CAN_SHARE_METRICS,
   kpi: PERMISSIONS.CAN_SHARE_KPIS,
+  chart: PERMISSIONS.CAN_SHARE_CHARTS,
 };
 
 interface ShareModalProps {

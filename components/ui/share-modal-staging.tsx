@@ -66,13 +66,14 @@ import {
 // this stays the public import path for existing consumers.
 export { EMAIL_REGEX, splitEmailTokens, roleTagLabel, INVITE_ROLE_OPTIONS };
 
-// M5 (v1.1): rtypes where a Member principal/invite is deliberately excluded
-// from this modal's PROACTIVE add-people flow -- mirrors the backend's
-// `sharing_actions.MEMBER_GRANTS_DEFERRED_RTYPES` (metric/kpi today; chart
-// joins this list once its own Milestone lands, on a separate branch).
+// M5/M3a (v1.1): rtypes where a Member principal/invite is deliberately
+// excluded from this modal's PROACTIVE add-people flow -- mirrors the
+// backend's `sharing_actions.MEMBER_GRANTS_DEFERRED_RTYPES` (metric/kpi from
+// M5; chart joins here too -- its registry entry also sets
+// member_sharing=False, see ddpui/core/sharing/shareable_types.py).
 // Members still reach these resources via general access or an approved
 // access request -- only the share modal's typeahead/invite are affected.
-const MEMBER_GRANTS_DEFERRED_RTYPES: ShareableResourceType[] = ['metric', 'kpi'];
+const MEMBER_GRANTS_DEFERRED_RTYPES: ShareableResourceType[] = ['metric', 'kpi', 'chart'];
 
 export function isMemberGrantsDeferred(entityType: ShareableResourceType | null): boolean {
   return entityType !== null && MEMBER_GRANTS_DEFERRED_RTYPES.includes(entityType);
