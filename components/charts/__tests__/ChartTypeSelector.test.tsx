@@ -1,6 +1,6 @@
 /**
  * Tests for ChartTypeSelector component
- * Tests the 6 actual chart types: bar, line, pie, number, map, table
+ * Tests the 7 actual chart types: bar, line, pie, number, map, table, pivot_table
  */
 
 import React from 'react';
@@ -15,17 +15,18 @@ describe('ChartTypeSelector', () => {
     jest.clearAllMocks();
   });
 
-  it('should render all 6 chart types and handle selection correctly', async () => {
+  it('should render all 7 chart types and handle selection correctly', async () => {
     const user = userEvent.setup();
     const { rerender } = render(<ChartTypeSelector onChange={mockOnChange} />);
 
-    // All 6 chart type buttons and heading
+    // All 7 chart type buttons and heading
     expect(screen.getByTitle('Bar Chart')).toBeInTheDocument();
     expect(screen.getByTitle('Line Chart')).toBeInTheDocument();
     expect(screen.getByTitle('Pie Chart')).toBeInTheDocument();
     expect(screen.getByTitle('Big Number')).toBeInTheDocument();
     expect(screen.getByTitle('Map')).toBeInTheDocument();
     expect(screen.getByTitle('Table')).toBeInTheDocument();
+    expect(screen.getByTitle('Pivot Table')).toBeInTheDocument();
     expect(screen.getByText('Chart Type')).toBeInTheDocument();
 
     // Default selection (bar chart)
@@ -60,6 +61,7 @@ describe('ChartTypeSelector', () => {
       { title: 'Big Number', id: 'number' },
       { title: 'Map', id: 'map' },
       { title: 'Table', id: 'table' },
+      { title: 'Pivot Table', id: 'pivot_table' },
     ];
 
     for (const type of chartTypes) {
@@ -67,7 +69,7 @@ describe('ChartTypeSelector', () => {
       await user.click(button);
       expect(mockOnChange).toHaveBeenCalledWith(type.id);
     }
-    expect(mockOnChange).toHaveBeenCalledTimes(6);
+    expect(mockOnChange).toHaveBeenCalledTimes(7);
   });
 
   it('should handle disabled state, show correct descriptions, and have proper layout', async () => {
@@ -102,6 +104,7 @@ describe('ChartTypeSelector', () => {
       { value: 'number', description: 'Display a single key metric prominently' },
       { value: 'map', description: 'Visualize geographic data' },
       { value: 'table', description: 'Display data in rows and columns' },
+      { value: 'pivot_table', description: 'Cross-tabulate data across two dimensions' },
     ];
 
     for (const { value, description } of chartTypeDescriptions) {
@@ -118,7 +121,7 @@ describe('ChartTypeSelector', () => {
 
     // All buttons should contain SVG icons
     const allButtons = screen.getAllByRole('button');
-    expect(allButtons).toHaveLength(6);
+    expect(allButtons).toHaveLength(7);
 
     allButtons.forEach((button) => {
       const svg = button.querySelector('svg');
@@ -128,7 +131,7 @@ describe('ChartTypeSelector', () => {
     // Grid layout
     const gridContainer = container.querySelector('.grid');
     expect(gridContainer).toBeInTheDocument();
-    expect(gridContainer).toHaveClass('grid-cols-6');
+    expect(gridContainer).toHaveClass('grid-cols-7');
   });
 
   it('should handle edge cases and meet accessibility requirements', async () => {
@@ -160,7 +163,7 @@ describe('ChartTypeSelector', () => {
 
     // Accessibility - accessible button roles
     const buttons = screen.getAllByRole('button');
-    expect(buttons).toHaveLength(6);
+    expect(buttons).toHaveLength(7);
 
     // Title attributes for screen readers
     expect(screen.getByTitle('Bar Chart')).toBeInTheDocument();
@@ -169,6 +172,7 @@ describe('ChartTypeSelector', () => {
     expect(screen.getByTitle('Big Number')).toBeInTheDocument();
     expect(screen.getByTitle('Map')).toBeInTheDocument();
     expect(screen.getByTitle('Table')).toBeInTheDocument();
+    expect(screen.getByTitle('Pivot Table')).toBeInTheDocument();
 
     // Keyboard navigation - buttons are keyboard accessible with proper focus styles
     const allButtonsForNav = screen.getAllByRole('button');

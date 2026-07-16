@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import type * as echarts from 'echarts';
 import type { ChartDataPayload } from '@/types/charts';
+import type { PivotTableResponse } from '@/types/pivot-table';
 import { apiPostBinary } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -33,6 +34,10 @@ interface ChartExportDropdownProps {
   tableElement?: HTMLElement | null;
   // Chart data payload for CSV export
   chartDataPayload?: ChartDataPayload | null;
+  // Pivot CSV is generated client-side from the already-fetched cross-tab
+  // response (the backend stream can't represent pivot column dims/subtotals).
+  pivotData?: PivotTableResponse;
+  pivotExtraConfig?: Record<string, unknown>;
   // Public mode props
   isPublicMode?: boolean;
   publicToken?: string;
@@ -54,6 +59,8 @@ export function ChartExportDropdown({
   chartType,
   tableElement,
   chartDataPayload,
+  pivotData,
+  pivotExtraConfig,
   isPublicMode = false,
   publicToken,
   chartId,
@@ -82,6 +89,16 @@ export function ChartExportDropdown({
         format,
         backgroundColor: '#ffffff',
       };
+
+      // Pivot tables generate the cross-tab CSV client-side from the already
+      // rendered response — the backend stream only emits flat table shapes.
+      if (format === 'csv' && chartType === 'pivot_table') {
+        await ChartExporter.exportPivotAsCSV(pivotData, pivotExtraConfig, { filename });
+        trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, { format, chart_type: chartType });
+        toast.success('CSV downloaded successfully');
+        onExportComplete?.();
+        return;
+      }
 
       // Handle CSV export for all chart types using streaming endpoint
       if (format === 'csv') {
@@ -119,8 +136,8 @@ export function ChartExportDropdown({
         toast.success('CSV downloaded successfully', {
           description: `File: ${csvFilename}`,
         });
-      } else if (chartType === 'table') {
-        // Handle table image exports (PNG)
+      } else if (chartType === 'table' || chartType === 'pivot_table') {
+        // Handle table/pivot image exports (PNG)
         if (format === 'png') {
           if (!tableElement) {
             throw new Error('Table element is not available for export');
@@ -183,8 +200,8 @@ export function ChartExportDropdown({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        {chartType === 'table' ? (
-          // Table charts show PNG and CSV export
+        {chartType === 'table' || chartType === 'pivot_table' ? (
+          // Table/pivot charts show PNG and CSV export
           <>
             <DropdownMenuItem
               onClick={() => handleExport('png')}
