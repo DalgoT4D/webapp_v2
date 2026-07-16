@@ -21,7 +21,7 @@ export default function UserGroups({
 }: UserGroupsProps) {
   const { data: groups, isLoading, mutate } = useUserGroups();
 
-  const [renameTarget, setRenameTarget] = useState<UserGroup | null>(null);
+  const [editTarget, setEditTarget] = useState<UserGroup | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserGroup | null>(null);
   const [detailGroupId, setDetailGroupId] = useState<number | null>(null);
 
@@ -33,7 +33,7 @@ export default function UserGroups({
             groups={groups}
             isLoading={isLoading}
             onView={(group) => setDetailGroupId(group.id)}
-            onRename={(group) => setRenameTarget(group)}
+            onEdit={(group) => setEditTarget(group)}
             onDelete={(group) => setDeleteTarget(group)}
             onCreateGroup={() => onShowCreateDialogChange(true)}
           />
@@ -47,12 +47,12 @@ export default function UserGroups({
       />
 
       <GroupFormDialog
-        open={renameTarget !== null}
-        onOpenChange={(open) => !open && setRenameTarget(null)}
-        group={renameTarget}
+        open={editTarget !== null}
+        onOpenChange={(open) => !open && setEditTarget(null)}
+        group={editTarget}
         onSuccess={() => {
           mutate();
-          setRenameTarget(null);
+          setEditTarget(null);
         }}
       />
 

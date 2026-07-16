@@ -39,7 +39,9 @@ interface GroupsTableProps {
   groups: UserGroup[] | undefined;
   isLoading: boolean;
   onView: (group: UserGroup) => void;
-  onRename: (group: UserGroup) => void;
+  /** Opens the unified GroupFormDialog in edit mode (name + members +
+   * Existing Members) — replaces the old rename-only dialog. */
+  onEdit: (group: UserGroup) => void;
   onDelete: (group: UserGroup) => void;
   /** Empty-state CTA opens the create-group dialog, owned by AccessPage. */
   onCreateGroup?: () => void;
@@ -49,7 +51,7 @@ export function GroupsTable({
   groups,
   isLoading,
   onView,
-  onRename,
+  onEdit,
   onDelete,
   onCreateGroup,
 }: GroupsTableProps) {
@@ -242,11 +244,11 @@ export function GroupsTable({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
-                        data-testid={`group-rename-menu-item-${group.id}`}
-                        onClick={() => onRename(group)}
+                        data-testid={`group-edit-menu-item-${group.id}`}
+                        onClick={() => onEdit(group)}
                         className="cursor-pointer"
                       >
-                        <Pencil className="h-4 w-4" /> Rename
+                        <Pencil className="h-4 w-4" /> Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         data-testid={`group-delete-menu-item-${group.id}`}

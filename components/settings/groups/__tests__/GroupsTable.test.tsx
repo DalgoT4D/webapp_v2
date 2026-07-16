@@ -36,7 +36,7 @@ describe('GroupsTable', () => {
         groups={[group]}
         isLoading={false}
         onView={jest.fn()}
-        onRename={jest.fn()}
+        onEdit={jest.fn()}
         onDelete={jest.fn()}
       />
     );
@@ -63,7 +63,7 @@ describe('GroupsTable', () => {
         groups={[group]}
         isLoading={false}
         onView={jest.fn()}
-        onRename={jest.fn()}
+        onEdit={jest.fn()}
         onDelete={jest.fn()}
       />
     );
@@ -81,7 +81,7 @@ describe('GroupsTable', () => {
         groups={[group]}
         isLoading={false}
         onView={jest.fn()}
-        onRename={jest.fn()}
+        onEdit={jest.fn()}
         onDelete={jest.fn()}
       />
     );
@@ -97,7 +97,7 @@ describe('GroupsTable', () => {
         groups={[group]}
         isLoading={false}
         onView={jest.fn()}
-        onRename={jest.fn()}
+        onEdit={jest.fn()}
         onDelete={jest.fn()}
       />
     );
@@ -119,7 +119,7 @@ describe('GroupsTable', () => {
         groups={[group]}
         isLoading={false}
         onView={jest.fn()}
-        onRename={jest.fn()}
+        onEdit={jest.fn()}
         onDelete={jest.fn()}
       />
     );
@@ -134,7 +134,7 @@ describe('GroupsTable', () => {
         groups={[]}
         isLoading={false}
         onView={jest.fn()}
-        onRename={jest.fn()}
+        onEdit={jest.fn()}
         onDelete={jest.fn()}
       />
     );
@@ -153,7 +153,7 @@ describe('GroupsTable', () => {
         groups={[]}
         isLoading={false}
         onView={jest.fn()}
-        onRename={jest.fn()}
+        onEdit={jest.fn()}
         onDelete={jest.fn()}
         onCreateGroup={onCreateGroup}
       />
@@ -172,7 +172,7 @@ describe('GroupsTable', () => {
         groups={[group]}
         isLoading={false}
         onView={onView}
-        onRename={jest.fn()}
+        onEdit={jest.fn()}
         onDelete={jest.fn()}
       />
     );
@@ -181,7 +181,7 @@ describe('GroupsTable', () => {
     expect(onView).toHaveBeenCalledWith(group);
   });
 
-  it('shows rename/delete actions for the group creator', () => {
+  it('shows edit/delete actions for the group creator', () => {
     setRbac({ canManage: true, isAdmin: false });
     const group = createMockGroup({
       created_by: { orguser_id: 5, email: 'asha@ngo.org', name: 'Asha' },
@@ -191,14 +191,14 @@ describe('GroupsTable', () => {
         groups={[group]}
         isLoading={false}
         onView={jest.fn()}
-        onRename={jest.fn()}
+        onEdit={jest.fn()}
         onDelete={jest.fn()}
       />
     );
     expect(screen.getByTestId('group-actions-1')).toBeInTheDocument();
   });
 
-  it('shows rename/delete actions for an Admin even if not the creator', () => {
+  it('shows edit/delete actions for an Admin even if not the creator', () => {
     setRbac({ canManage: true, isAdmin: true });
     const group = createMockGroup({
       created_by: { orguser_id: 99, email: 'someone.else@ngo.org', name: 'Someone' },
@@ -208,14 +208,14 @@ describe('GroupsTable', () => {
         groups={[group]}
         isLoading={false}
         onView={jest.fn()}
-        onRename={jest.fn()}
+        onEdit={jest.fn()}
         onDelete={jest.fn()}
       />
     );
     expect(screen.getByTestId('group-actions-1')).toBeInTheDocument();
   });
 
-  it('hides rename/delete actions for a non-creator, non-admin analyst', () => {
+  it('hides edit/delete actions for a non-creator, non-admin analyst', () => {
     setRbac({ canManage: true, isAdmin: false });
     const group = createMockGroup({
       created_by: { orguser_id: 99, email: 'someone.else@ngo.org', name: 'Someone' },
@@ -225,17 +225,17 @@ describe('GroupsTable', () => {
         groups={[group]}
         isLoading={false}
         onView={jest.fn()}
-        onRename={jest.fn()}
+        onEdit={jest.fn()}
         onDelete={jest.fn()}
       />
     );
     expect(screen.queryByTestId('group-actions-1')).not.toBeInTheDocument();
   });
 
-  it('calls onRename and onDelete from the actions menu', async () => {
+  it('calls onEdit and onDelete from the actions menu', async () => {
     setRbac({ canManage: true, isAdmin: false });
     const user = userEvent.setup();
-    const onRename = jest.fn();
+    const onEdit = jest.fn();
     const onDelete = jest.fn();
     const group = createMockGroup();
     render(
@@ -243,14 +243,14 @@ describe('GroupsTable', () => {
         groups={[group]}
         isLoading={false}
         onView={jest.fn()}
-        onRename={onRename}
+        onEdit={onEdit}
         onDelete={onDelete}
       />
     );
 
     await user.click(screen.getByTestId('group-actions-1'));
-    await user.click(screen.getByTestId('group-rename-menu-item-1'));
-    expect(onRename).toHaveBeenCalledWith(group);
+    await user.click(screen.getByTestId('group-edit-menu-item-1'));
+    expect(onEdit).toHaveBeenCalledWith(group);
 
     await user.click(screen.getByTestId('group-actions-1'));
     await user.click(screen.getByTestId('group-delete-menu-item-1'));
@@ -280,7 +280,7 @@ describe('GroupsTable — column sorting (F5)', () => {
         groups={groups}
         isLoading={false}
         onView={jest.fn()}
-        onRename={jest.fn()}
+        onEdit={jest.fn()}
         onDelete={jest.fn()}
       />
     );
@@ -295,7 +295,7 @@ describe('GroupsTable — column sorting (F5)', () => {
         groups={groups}
         isLoading={false}
         onView={jest.fn()}
-        onRename={jest.fn()}
+        onEdit={jest.fn()}
         onDelete={jest.fn()}
       />
     );
@@ -315,7 +315,7 @@ describe('GroupsTable — column sorting (F5)', () => {
         groups={groups}
         isLoading={false}
         onView={jest.fn()}
-        onRename={jest.fn()}
+        onEdit={jest.fn()}
         onDelete={jest.fn()}
       />
     );

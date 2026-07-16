@@ -6,7 +6,9 @@ import {
   addGroupMember,
   createGroup,
   fetchGroupDetail,
+  removeGroupMember,
   renameGroup,
+  useUserGroup,
   useUserGroups,
 } from '@/hooks/api/useUserGroups';
 import { useUsers } from '@/hooks/api/useUserManagement';
@@ -19,8 +21,10 @@ jest.mock('@/hooks/api/useUserGroups', () => ({
   createGroup: jest.fn(),
   renameGroup: jest.fn(),
   addGroupMember: jest.fn(),
+  removeGroupMember: jest.fn(),
   fetchGroupDetail: jest.fn(),
   useUserGroups: jest.fn(),
+  useUserGroup: jest.fn(),
 }));
 jest.mock('@/hooks/api/useUserManagement', () => ({
   ...jest.requireActual('@/hooks/api/useUserManagement'),
@@ -36,8 +40,10 @@ jest.mock('@/lib/toast', () => ({
 const mockCreateGroup = createGroup as jest.Mock;
 const mockRenameGroup = renameGroup as jest.Mock;
 const mockAddGroupMember = addGroupMember as jest.Mock;
+const mockRemoveGroupMember = removeGroupMember as jest.Mock;
 const mockFetchGroupDetail = fetchGroupDetail as jest.Mock;
 const mockUseUserGroups = useUserGroups as jest.Mock;
+const mockUseUserGroup = useUserGroup as jest.Mock;
 const mockUseUsers = useUsers as jest.Mock;
 const mockUseRbac = useRbac as jest.Mock;
 
@@ -73,6 +79,14 @@ function setUpHooks(rbac: typeof NON_ADMIN_RBAC = NON_ADMIN_RBAC) {
   mockUseUsers.mockReturnValue({ users: ORG_USERS, isLoading: false, mutate: jest.fn() });
   mockUseUserGroups.mockReturnValue({
     data: GROUPS,
+    isLoading: false,
+    isError: undefined,
+    mutate: jest.fn(),
+  });
+  // Create mode never uses this (GroupFormDialog passes a null key), but the
+  // hook is a jest.fn() so it needs SOME default return regardless of args.
+  mockUseUserGroup.mockReturnValue({
+    data: undefined,
     isLoading: false,
     isError: undefined,
     mutate: jest.fn(),
@@ -148,7 +162,7 @@ describe('GroupFormDialog — create mode', () => {
     });
   });
 
-  describe('typeahead', () => {
+  describe('typeahead — chips-in-input staging', () => {
     it('browses org users and groups interleaved alphabetically on focus', async () => {
       const user = userEvent.setup();
       render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
@@ -165,39 +179,39 @@ describe('GroupFormDialog — create mode', () => {
       ]);
     });
 
-    it('stages a user picked from the dropdown with their role tag', async () => {
+    it('stages a user picked from the dropdown as a teal (internal) chip', async () => {
       const user = userEvent.setup();
       render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
 
       await user.click(screen.getByTestId('group-member-search-input'));
       await user.click(screen.getByTestId('group-member-search-user-10'));
 
-      const row = screen.getByTestId('group-member-staged-row-user-10');
-      expect(row).toHaveTextContent('asha@ngo.org');
-      expect(row).toHaveTextContent('Analyst');
+      const chip = screen.getByTestId('group-member-staged-row-user-10');
+      expect(chip).toHaveTextContent('asha@ngo.org');
+      expect(chip).toHaveAttribute('data-chip-variant', 'internal');
     });
 
-    it('stages a group with the "Group" tag, no permission control', async () => {
+    it('stages a group as a teal (internal) chip, no permission control', async () => {
       const user = userEvent.setup();
       render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
 
       await user.click(screen.getByTestId('group-member-search-input'));
       await user.click(screen.getByTestId('group-member-search-group-5'));
 
-      const row = screen.getByTestId('group-member-staged-row-group-5');
-      expect(row).toHaveTextContent('Field staff');
-      expect(row).toHaveTextContent('Group');
+      const chip = screen.getByTestId('group-member-staged-row-group-5');
+      expect(chip).toHaveTextContent('Field staff');
+      expect(chip).toHaveAttribute('data-chip-variant', 'internal');
       expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     });
 
-    it('stages a pasted unknown email as an invite entry; a non-admin sees the locked Member-only copy, no picker', async () => {
+    it('stages a pasted unknown email as an amber (external) chip; a non-admin sees the locked Member-only copy, no picker', async () => {
       render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
 
       pasteIntoSearchInput('new.person@ngo.org');
 
-      const row = screen.getByTestId('group-member-staged-row-email-new.person@ngo.org');
-      expect(row).toHaveTextContent('new.person@ngo.org');
-      expect(row).toHaveTextContent('New');
+      const chip = screen.getByTestId('group-member-staged-row-email-new.person@ngo.org');
+      expect(chip).toHaveTextContent('new.person@ngo.org');
+      expect(chip).toHaveAttribute('data-chip-variant', 'external');
       expect(screen.getByTestId('group-member-invite-role-copy')).toHaveTextContent(
         "new.person@ngo.org isn't on Dalgo yet."
       );
@@ -219,16 +233,15 @@ describe('GroupFormDialog — create mode', () => {
       expect(screen.getByTestId('group-member-invite-role')).toBeInTheDocument();
     });
 
-    it('marks an invalid pasted token inline and keeps it out of the committable set', async () => {
+    it('marks an invalid pasted token as an invalid (not amber) chip and keeps it out of the committable set', async () => {
       const user = userEvent.setup();
       mockCreateGroup.mockResolvedValue(createMockGroup({ id: 1, name: 'Funders' }));
       render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
 
       pasteIntoSearchInput('not-an-email,');
-      expect(screen.getByTestId('group-member-staged-row-email-not-an-email')).toHaveAttribute(
-        'data-status',
-        'invalid'
-      );
+      const chip = screen.getByTestId('group-member-staged-row-email-not-an-email');
+      expect(chip).toHaveAttribute('data-status', 'invalid');
+      expect(chip).toHaveAttribute('data-chip-variant', 'invalid');
 
       await user.type(screen.getByTestId('group-form-name-input'), 'Funders');
       await user.click(screen.getByTestId('group-form-submit-btn'));
@@ -237,7 +250,7 @@ describe('GroupFormDialog — create mode', () => {
       expect(mockAddGroupMember).not.toHaveBeenCalled();
     });
 
-    it('removes a staged row', async () => {
+    it('removes a staged chip via its ✕', async () => {
       const user = userEvent.setup();
       render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
 
@@ -247,6 +260,37 @@ describe('GroupFormDialog — create mode', () => {
 
       await user.click(screen.getByTestId('group-member-staged-remove-user-10'));
       expect(screen.queryByTestId('group-member-staged-row-user-10')).not.toBeInTheDocument();
+    });
+
+    it('removes the last staged chip on Backspace with an empty query', async () => {
+      const user = userEvent.setup();
+      render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
+
+      await user.click(screen.getByTestId('group-member-search-input'));
+      await user.click(screen.getByTestId('group-member-search-user-10'));
+      await user.click(screen.getByTestId('group-member-search-input'));
+      await user.click(screen.getByTestId('group-member-search-group-5'));
+
+      expect(screen.getByTestId('group-member-staged-row-user-10')).toBeInTheDocument();
+      expect(screen.getByTestId('group-member-staged-row-group-5')).toBeInTheDocument();
+
+      // Query is empty (nothing typed since the last pick) — Backspace pops
+      // the most-recently-staged chip (the group), not the user staged first.
+      await user.type(screen.getByTestId('group-member-search-input'), '{Backspace}');
+      expect(screen.queryByTestId('group-member-staged-row-group-5')).not.toBeInTheDocument();
+      expect(screen.getByTestId('group-member-staged-row-user-10')).toBeInTheDocument();
+    });
+
+    it('does not remove a chip on Backspace while the query still has text', async () => {
+      const user = userEvent.setup();
+      render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
+
+      await user.click(screen.getByTestId('group-member-search-input'));
+      await user.click(screen.getByTestId('group-member-search-user-10'));
+      await user.type(screen.getByTestId('group-member-search-input'), 'me');
+      await user.type(screen.getByTestId('group-member-search-input'), '{Backspace}');
+
+      expect(screen.getByTestId('group-member-staged-row-user-10')).toBeInTheDocument();
     });
   });
 
@@ -402,7 +446,7 @@ describe('GroupFormDialog — create mode', () => {
       await waitFor(() => {
         expect(onSuccess).toHaveBeenCalled();
         expect(toastWarning.generic).toHaveBeenCalledWith(
-          "Group created, but couldn't add: asha@ngo.org"
+          "Group created, but couldn't apply: asha@ngo.org"
         );
         expect(toastSuccess.generic).not.toHaveBeenCalledWith('Group created');
       });
@@ -427,7 +471,7 @@ describe('GroupFormDialog — create mode', () => {
         expect(onSuccess).toHaveBeenCalled();
         expect(mockAddGroupMember).not.toHaveBeenCalled();
         expect(toastWarning.generic).toHaveBeenCalledWith(
-          "Group created, but couldn't add: Field staff"
+          "Group created, but couldn't apply: Field staff"
         );
         expect(toastSuccess.generic).not.toHaveBeenCalledWith('Group created');
       });
@@ -435,31 +479,83 @@ describe('GroupFormDialog — create mode', () => {
   });
 });
 
-describe('GroupFormDialog — rename mode', () => {
+describe('GroupFormDialog — edit mode', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setUpHooks();
   });
 
-  it('does not show the member picker in rename mode', () => {
+  function setUpEditDetail(overrides: Parameters<typeof createMockGroupDetail>[0] = {}) {
+    const detail = createMockGroupDetail({ id: 7, name: 'Funders', ...overrides });
+    mockUseUserGroup.mockReturnValue({
+      data: detail,
+      isLoading: false,
+      isError: undefined,
+      mutate: jest.fn(),
+    });
+    return detail;
+  }
+
+  it('shows the member typeahead AND the Existing Members section (replaces the old rename-only dialog)', () => {
+    setUpEditDetail();
     const group = createMockGroup({ id: 7, name: 'Funders' });
     render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} group={group} />);
-    expect(screen.queryByTestId('group-member-search-input')).not.toBeInTheDocument();
+
+    expect(screen.getByTestId('group-member-search-input')).toBeInTheDocument();
+    expect(screen.getByTestId('group-existing-members')).toBeInTheDocument();
+    expect(screen.getByTestId('group-form-submit-btn')).toHaveTextContent('Save changes');
+    expect(screen.getByText('Edit group')).toBeInTheDocument();
   });
 
-  it('pre-fills the current name and renames on submit', async () => {
+  it('pre-fills the current name and loads existing members with role tags', () => {
+    setUpEditDetail();
+    const group = createMockGroup({ id: 7, name: 'Funders' });
+    render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} group={group} />);
+
+    const input = screen.getByTestId('group-form-name-input') as HTMLInputElement;
+    expect(input.value).toBe('Funders');
+
+    // groups-mock-data.ts: member 10 = asha@ngo.org (analyst), 11 = meera@ngo.org (member)
+    expect(screen.getByTestId('group-existing-member-10')).toHaveTextContent('asha@ngo.org');
+    expect(screen.getByTestId('group-existing-member-role-10')).toHaveTextContent('Analyst');
+    expect(screen.getByTestId('group-existing-member-11')).toHaveTextContent('meera@ngo.org');
+    expect(screen.getByTestId('group-existing-member-role-11')).toHaveTextContent('Member');
+  });
+
+  it('shows a pending member with the Mail/"(invite pending)" treatment and no role tag', () => {
+    setUpEditDetail({
+      members: [
+        {
+          id: 20,
+          orguser_id: null,
+          email: null,
+          name: null,
+          pending_email: 'new.person@ngo.org',
+          status: 'pending',
+          role: null,
+        },
+      ],
+    });
+    const group = createMockGroup({ id: 7, name: 'Funders' });
+    render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} group={group} />);
+
+    const row = screen.getByTestId('group-existing-member-20');
+    expect(row).toHaveTextContent('new.person@ngo.org');
+    expect(row).toHaveTextContent('(invite pending)');
+    expect(screen.queryByTestId('group-existing-member-role-20')).not.toBeInTheDocument();
+  });
+
+  it('renames on submit only when the name actually changed', async () => {
     const user = userEvent.setup();
     const onSuccess = jest.fn();
+    setUpEditDetail();
     const group = createMockGroup({ id: 7, name: 'Funders' });
     mockRenameGroup.mockResolvedValue({ ...group, name: 'Major Funders' });
 
     render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={onSuccess} group={group} />);
 
-    const input = screen.getByTestId('group-form-name-input') as HTMLInputElement;
-    expect(input.value).toBe('Funders');
-
-    await user.clear(input);
-    await user.type(input, 'Major Funders');
+    await user.clear(screen.getByTestId('group-form-name-input'));
+    await user.type(screen.getByTestId('group-form-name-input'), 'Major Funders');
     await user.click(screen.getByTestId('group-form-submit-btn'));
 
     await waitFor(() => {
@@ -467,5 +563,140 @@ describe('GroupFormDialog — rename mode', () => {
       expect(onSuccess).toHaveBeenCalled();
       expect(trackEvent).toHaveBeenCalledWith('settings:group_renamed');
     });
+  });
+
+  it('skips the rename call when the name is unchanged (avoids a self-collision)', async () => {
+    const user = userEvent.setup();
+    const onSuccess = jest.fn();
+    setUpEditDetail();
+    const group = createMockGroup({ id: 7, name: 'Funders' });
+
+    render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={onSuccess} group={group} />);
+    await user.click(screen.getByTestId('group-form-submit-btn'));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(mockRenameGroup).not.toHaveBeenCalled();
+  });
+
+  it('shows the backend collision message inline on rename', async () => {
+    const user = userEvent.setup();
+    setUpEditDetail();
+    const group = createMockGroup({ id: 7, name: 'Funders' });
+    mockRenameGroup.mockRejectedValue(
+      new Error("a group named 'Major Funders' already exists in this org")
+    );
+
+    render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} group={group} />);
+    await user.clear(screen.getByTestId('group-form-name-input'));
+    await user.type(screen.getByTestId('group-form-name-input'), 'Major Funders');
+    await user.click(screen.getByTestId('group-form-submit-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('group-form-error')).toHaveTextContent(
+        "a group named 'Major Funders' already exists in this org"
+      );
+    });
+  });
+
+  it('stages a member removal without calling removeGroupMember until Save', async () => {
+    const user = userEvent.setup();
+    setUpEditDetail();
+    const group = createMockGroup({ id: 7, name: 'Funders' });
+
+    render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} group={group} />);
+
+    await user.click(screen.getByTestId('group-existing-member-remove-11'));
+
+    // Hidden from the visible list immediately (the ✕ click's feedback)...
+    expect(screen.queryByTestId('group-existing-member-11')).not.toBeInTheDocument();
+    // ...but nothing hit the backend yet — Cancel would discard this for free.
+    expect(mockRemoveGroupMember).not.toHaveBeenCalled();
+  });
+
+  it('commits a staged removal on Save, tracks analytics, and leaves other members alone', async () => {
+    const user = userEvent.setup();
+    const onSuccess = jest.fn();
+    setUpEditDetail();
+    mockRemoveGroupMember.mockResolvedValue(undefined);
+    const group = createMockGroup({ id: 7, name: 'Funders' });
+
+    render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={onSuccess} group={group} />);
+
+    await user.click(screen.getByTestId('group-existing-member-remove-11'));
+    await user.click(screen.getByTestId('group-form-submit-btn'));
+
+    await waitFor(() => {
+      expect(mockRemoveGroupMember).toHaveBeenCalledWith(7, 11);
+      expect(mockRemoveGroupMember).not.toHaveBeenCalledWith(7, 10);
+      expect(trackEvent).toHaveBeenCalledWith('settings:group_member_removed');
+      expect(onSuccess).toHaveBeenCalled();
+    });
+  });
+
+  it('applies a rename, a new member add, and a staged removal together in one Save', async () => {
+    const user = userEvent.setup();
+    const onSuccess = jest.fn();
+    setUpEditDetail();
+    // ORG_USERS' asha/meera are already existing members of this group (see
+    // groups-mock-data.ts) and so the dropdown correctly disables them — use
+    // a third org user who ISN'T already a member to exercise the "add".
+    mockUseUsers.mockReturnValue({
+      users: [...ORG_USERS, { orguser_id: 12, email: 'ravi@ngo.org', new_role_slug: 'analyst' }],
+      isLoading: false,
+      mutate: jest.fn(),
+    });
+    mockRenameGroup.mockResolvedValue(createMockGroup({ id: 7, name: 'Major Funders' }));
+    mockAddGroupMember.mockResolvedValue({
+      id: 99,
+      orguser_id: 12,
+      email: 'ravi@ngo.org',
+      name: null,
+      pending_email: null,
+      status: 'active',
+      role: 'analyst',
+    });
+    mockRemoveGroupMember.mockResolvedValue(undefined);
+    const group = createMockGroup({ id: 7, name: 'Funders' });
+
+    render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={onSuccess} group={group} />);
+
+    await user.clear(screen.getByTestId('group-form-name-input'));
+    await user.type(screen.getByTestId('group-form-name-input'), 'Major Funders');
+    // Add a brand-new person via the typeahead.
+    await user.click(screen.getByTestId('group-member-search-input'));
+    await user.click(screen.getByTestId('group-member-search-user-12'));
+    // Remove an existing member.
+    await user.click(screen.getByTestId('group-existing-member-remove-10'));
+    await user.click(screen.getByTestId('group-form-submit-btn'));
+
+    await waitFor(() => {
+      expect(mockRenameGroup).toHaveBeenCalledWith(7, { name: 'Major Funders' });
+      expect(mockAddGroupMember).toHaveBeenCalledWith(7, { orguser_id: 12 });
+      expect(mockRemoveGroupMember).toHaveBeenCalledWith(7, 10);
+      expect(onSuccess).toHaveBeenCalled();
+    });
+  });
+
+  it('excludes the group being edited from its own add-members dropdown', async () => {
+    const user = userEvent.setup();
+    setUpEditDetail();
+    // Editing group 5 ("Field staff") itself — it must not offer itself.
+    const group = createMockGroup({ id: 5, name: 'Field staff' });
+    render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} group={group} />);
+
+    await user.click(screen.getByTestId('group-member-search-input'));
+    expect(screen.queryByTestId('group-member-search-group-5')).not.toBeInTheDocument();
+  });
+
+  it('disables an already-existing member in the add-members dropdown instead of offering it again', async () => {
+    const user = userEvent.setup();
+    // Existing member 10 IS asha@ngo.org / orguser 10 (groups-mock-data.ts).
+    setUpEditDetail();
+    const group = createMockGroup({ id: 7, name: 'Funders' });
+    render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} group={group} />);
+
+    await user.click(screen.getByTestId('group-member-search-input'));
+    const row = screen.getByTestId('group-member-search-user-10');
+    expect(row).toBeDisabled();
   });
 });
