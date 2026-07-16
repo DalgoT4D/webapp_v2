@@ -34,7 +34,7 @@
  * staged chip, the standard chip-input convention.
  */
 
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import {
@@ -44,6 +44,9 @@ import {
 } from '@/components/ui/principal-search-shared';
 import {
   buildEmailEntries,
+  duplicateNotice,
+  partitionAgainstStaged,
+  useStagedIdentitySets,
   type GroupMemberStaging,
 } from '@/components/settings/groups/group-member-staging';
 import {
@@ -64,12 +67,23 @@ export interface ExistingMemberRef {
   email?: string;
 }
 
+/** Escape layering (GroupFormDialog wires this into DialogContent's
+ * onEscapeKeyDown): Radix listens for Escape on the document in the CAPTURE
+ * phase, so an input-level keydown handler can never intercept it — the
+ * dialog must ask the typeahead first. Returns true when the dropdown was
+ * open and consumed the Escape (caller must then preventDefault so the
+ * dialog survives); false lets the dialog close as usual. */
+export interface GroupMemberSearchHandle {
+  closeDropdownIfOpen: () => boolean;
+}
+
 interface GroupMemberSearchProps {
   staging: GroupMemberStaging;
   disabled?: boolean;
   existingMemberRefs?: ExistingMemberRef[];
   /** Edit mode only: the group being edited can't be added to itself. */
   excludeGroupId?: number;
+  ref?: React.Ref<GroupMemberSearchHandle>;
 }
 
 export function GroupMemberSearch({
@@ -77,32 +91,38 @@ export function GroupMemberSearch({
   disabled,
   existingMemberRefs,
   excludeGroupId,
+  ref,
 }: GroupMemberSearchProps) {
   const [query, setQuery] = useState('');
+  // Dropdown visibility. Opened by focus/click/typing in the chip input,
+  // closed by outside blur, Escape (via closeDropdownIfOpen), or staging an
+  // email (the intent is complete, and the open browse list would otherwise
+  // sit over the invite-role block and the dialog's footer buttons).
   const [isFocused, setIsFocused] = useState(false);
+  // Inline "already added" hint — replaces the silent dedupe swallow when a
+  // typed/pasted email (or repeat Enter) targets an already-staged principal.
+  const [dupNotice, setDupNotice] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { users: orgUsers } = useUsers();
   const { data: groups } = useUserGroups(true);
   const { hasRole } = useRbac();
   const isAdmin = hasRole(ADMIN_ROLES);
 
-  const stagedKeys = useMemo(
-    () =>
-      new Set([
-        ...staging.staged.map((e) => e.key),
-        ...(existingMemberRefs ?? []).map((e) => e.key),
-      ]),
-    [staging.staged, existingMemberRefs]
+  const { stagedKeys, stagedEmails, existingKeys, existingEmails } = useStagedIdentitySets(
+    staging.staged,
+    existingMemberRefs
   );
-  const stagedEmails = useMemo(
-    () =>
-      new Set(
-        [
-          ...staging.staged.map((e) => e.email),
-          ...(existingMemberRefs ?? []).map((e) => e.email),
-        ].filter(Boolean)
-      ),
-    [staging.staged, existingMemberRefs]
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      closeDropdownIfOpen: () => {
+        if (!isFocused) return false;
+        setIsFocused(false);
+        return true;
+      },
+    }),
+    [isFocused]
   );
 
   const trimmed = query.trim();
@@ -161,6 +181,7 @@ export function GroupMemberSearch({
         },
       ]);
       setQuery('');
+      setDupNotice(null);
     },
     [staging]
   );
@@ -178,16 +199,29 @@ export function GroupMemberSearch({
         },
       ]);
       setQuery('');
+      setDupNotice(null);
     },
     [staging]
   );
 
   const stageEmailTokens = useCallback(
     (tokens: string[]) => {
-      staging.stage(buildEmailEntries(tokens, orgUsers));
+      const { fresh, dupes } = partitionAgainstStaged(
+        buildEmailEntries(tokens, orgUsers),
+        stagedKeys,
+        stagedEmails
+      );
+      if (fresh.length > 0) staging.stage(fresh);
+      // A repeat of an already-staged chip (or an existing member, in edit
+      // mode) gets an inline hint — never a silent swallow, never a dup chip.
+      setDupNotice(dupes.length > 0 ? duplicateNotice(dupes, existingKeys, existingEmails) : null);
       setQuery('');
+      // The address is dealt with — collapse the browse dropdown so it stops
+      // covering the invite-role block and the dialog's Cancel/Create buttons
+      // (typing or clicking the input reopens it).
+      setIsFocused(false);
     },
-    [orgUsers, staging]
+    [orgUsers, staging, stagedKeys, stagedEmails, existingKeys, existingEmails]
   );
 
   const handleContainerBlur = useCallback(
@@ -233,12 +267,33 @@ export function GroupMemberSearch({
       }
       if (combinedMatches.length === 1) {
         const only = combinedMatches[0];
+        const key =
+          only.kind === 'user' ? `user-${only.user.orguser_id}` : `group-${only.group.id}`;
+        const label = only.kind === 'user' ? only.user.email.toLowerCase() : only.group.name;
+        const email = only.kind === 'user' ? label : undefined;
+        // The single match may already be staged (its dropdown row is
+        // disabled, but Enter bypasses the row) — hint instead of silence.
+        if (stagedKeys.has(key) || (email && stagedEmails.has(email))) {
+          setDupNotice(duplicateNotice([{ key, label, email }], existingKeys, existingEmails));
+          return;
+        }
         if (only.kind === 'user')
           stageUser(only.user.orguser_id as number, only.user.email, only.user.new_role_slug);
         else stageGroup(only.group.id, only.group.name);
       }
     },
-    [trimmed, stageEmailTokens, combinedMatches, stageUser, stageGroup, staging]
+    [
+      trimmed,
+      stageEmailTokens,
+      combinedMatches,
+      stageUser,
+      stageGroup,
+      staging,
+      stagedKeys,
+      stagedEmails,
+      existingKeys,
+      existingEmails,
+    ]
   );
 
   const stagedEmailEntries = staging.staged.filter(
@@ -255,7 +310,13 @@ export function GroupMemberSearch({
             added.jpg'), so the box grows and wraps as chips are added. */}
         <div
           data-testid="group-member-chip-input"
-          onClick={() => inputRef.current?.focus()}
+          onClick={() => {
+            inputRef.current?.focus();
+            // Focus alone doesn't refire onFocus when the input already has
+            // it — an explicit click must still reopen an Escape-closed (or
+            // post-staging-collapsed) dropdown.
+            setIsFocused(true);
+          }}
           className={cn(
             'flex min-h-9 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-transparent px-3 py-1.5 shadow-xs transition-[color,box-shadow]',
             'has-[input:focus]:border-ring has-[input:focus]:ring-[3px] has-[input:focus]:ring-ring/50',
@@ -270,7 +331,11 @@ export function GroupMemberSearch({
             type="text"
             placeholder={staging.staged.length === 0 ? 'Type or paste emails…' : ''}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setDupNotice(null); // stale hint must not outlive new typing
+              setIsFocused(true); // typing reopens a closed dropdown
+            }}
             onPaste={handlePaste}
             onKeyDown={handleKeyDown}
             disabled={disabled}
@@ -291,6 +356,12 @@ export function GroupMemberSearch({
           />
         )}
       </div>
+
+      {dupNotice && (
+        <p data-testid="group-member-dup-hint" className="text-xs text-muted-foreground">
+          {dupNotice}
+        </p>
+      )}
 
       {stagedEmailEntries.length > 0 && (
         <InviteRoleBlock

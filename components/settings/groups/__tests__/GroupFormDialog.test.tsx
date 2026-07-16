@@ -294,6 +294,105 @@ describe('GroupFormDialog — create mode', () => {
     });
   });
 
+  describe('typeahead — dropdown dismissal & duplicate guard (2026-07-16 manual-testing bugs)', () => {
+    it('closes the dropdown after staging a typed email with Enter (it must not keep covering the invite-role block and footer)', async () => {
+      const user = userEvent.setup();
+      render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
+
+      await user.click(screen.getByTestId('group-member-search-input'));
+      expect(screen.getByTestId('group-member-search-results')).toBeInTheDocument();
+
+      await user.type(screen.getByTestId('group-member-search-input'), 'new.person@ngo.org{Enter}');
+
+      expect(
+        screen.getByTestId('group-member-staged-row-email-new.person@ngo.org')
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('group-member-search-results')).not.toBeInTheDocument();
+    });
+
+    it('Escape closes only the dropdown first; a second Escape closes the dialog (no staged-work loss)', async () => {
+      const user = userEvent.setup();
+      const onOpenChange = jest.fn();
+      render(<GroupFormDialog open onOpenChange={onOpenChange} onSuccess={jest.fn()} />);
+
+      await user.click(screen.getByTestId('group-member-search-input'));
+      expect(screen.getByTestId('group-member-search-results')).toBeInTheDocument();
+
+      await user.keyboard('{Escape}');
+      expect(screen.queryByTestId('group-member-search-results')).not.toBeInTheDocument();
+      expect(onOpenChange).not.toHaveBeenCalled();
+
+      await user.keyboard('{Escape}');
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+
+    it('typing reopens a dropdown closed by Escape', async () => {
+      const user = userEvent.setup();
+      render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
+
+      await user.click(screen.getByTestId('group-member-search-input'));
+      await user.keyboard('{Escape}');
+      expect(screen.queryByTestId('group-member-search-results')).not.toBeInTheDocument();
+
+      await user.type(screen.getByTestId('group-member-search-input'), 'as');
+      expect(screen.getByTestId('group-member-search-results')).toBeInTheDocument();
+    });
+
+    it('repeat Enter on an already-staged email shows the inline hint, stages no duplicate chip, and the hint clears on new typing', async () => {
+      const user = userEvent.setup();
+      render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
+      const input = screen.getByTestId('group-member-search-input');
+
+      await user.type(input, 'new.person@ngo.org{Enter}');
+      await user.type(input, 'new.person@ngo.org{Enter}');
+
+      expect(screen.getByTestId('group-member-dup-hint')).toHaveTextContent(
+        'new.person@ngo.org is already added'
+      );
+      expect(
+        screen.getAllByTestId('group-member-staged-row-email-new.person@ngo.org')
+      ).toHaveLength(1);
+
+      await user.type(input, 'x');
+      expect(screen.queryByTestId('group-member-dup-hint')).not.toBeInTheDocument();
+    });
+
+    it('disables the "Invite …" dropdown row with an Added tag when that email is already staged', async () => {
+      const user = userEvent.setup();
+      render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
+      const input = screen.getByTestId('group-member-search-input');
+
+      await user.type(input, 'new.person@ngo.org{Enter}');
+      await user.type(input, 'new.person@ngo.org');
+
+      const row = screen.getByTestId('group-member-search-add-email');
+      expect(row).toBeDisabled();
+      expect(row).toHaveTextContent('Added');
+    });
+
+    it('keeps an already-staged user unselectable (row disabled + Added) and Enter on that single match hints instead of silently ignoring', async () => {
+      const user = userEvent.setup();
+      render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} />);
+      const input = screen.getByTestId('group-member-search-input');
+
+      await user.click(input);
+      await user.click(screen.getByTestId('group-member-search-user-10'));
+
+      await user.click(input);
+      const row = screen.getByTestId('group-member-search-user-10');
+      expect(row).toBeDisabled();
+      expect(row).toHaveTextContent('Added');
+
+      // 'asha' matches only orguser 10 — Enter takes the single-match path,
+      // which bypasses the disabled row.
+      await user.type(input, 'asha{Enter}');
+      expect(screen.getByTestId('group-member-dup-hint')).toHaveTextContent(
+        'asha@ngo.org is already added'
+      );
+      expect(screen.getAllByTestId('group-member-staged-row-user-10')).toHaveLength(1);
+    });
+  });
+
   describe('create commits all resolved rows', () => {
     it('creates the group and adds a staged user and a staged email', async () => {
       const user = userEvent.setup();
@@ -686,6 +785,21 @@ describe('GroupFormDialog — edit mode', () => {
 
     await user.click(screen.getByTestId('group-member-search-input'));
     expect(screen.queryByTestId('group-member-search-group-5')).not.toBeInTheDocument();
+  });
+
+  it("typing an existing member's email hints 'already in this group' and stages no re-add chip", async () => {
+    const user = userEvent.setup();
+    // Existing member asha@ngo.org / orguser 10 (groups-mock-data.ts).
+    setUpEditDetail();
+    const group = createMockGroup({ id: 7, name: 'Funders' });
+    render(<GroupFormDialog open onOpenChange={jest.fn()} onSuccess={jest.fn()} group={group} />);
+
+    await user.type(screen.getByTestId('group-member-search-input'), 'asha@ngo.org{Enter}');
+
+    expect(screen.getByTestId('group-member-dup-hint')).toHaveTextContent(
+      'asha@ngo.org is already in this group'
+    );
+    expect(screen.queryByTestId('group-member-staged-row-user-10')).not.toBeInTheDocument();
   });
 
   it('disables an already-existing member in the add-members dropdown instead of offering it again', async () => {

@@ -82,7 +82,10 @@ export function GroupMemberSearchDropdown({
           icon={<Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
           label={`Invite ${emailCandidate}`}
           tag="New"
-          alreadyStaged={false}
+          // An email that's already a staged chip (or an existing member's
+          // address) renders disabled with "Added" — same dup guard as the
+          // user/group rows above, previously missing here.
+          alreadyStaged={stagedEmails.has(emailCandidate)}
           hasAccess={false}
           onPick={() => onPickEmail(emailCandidate)}
         />

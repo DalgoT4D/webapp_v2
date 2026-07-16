@@ -10,7 +10,7 @@
  * calls addGroupMember (see GroupFormDialog.resolveMembers).
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   dedupeStage,
   roleTagLabel,
@@ -81,6 +81,66 @@ export function useGroupMemberStaging(): GroupMemberStaging {
   }, []);
 
   return { staged, stage, remove, reset, inviteRole, setInviteRole };
+}
+
+/** The dup guard's identity sets: keys/emails of everything already picked
+ * this session (staged chips) merged with — in edit mode — the group's
+ * existing members, plus the existing members alone (so hints can say
+ * "already in this group" rather than "already added" when that's the
+ * reason). One memoized place instead of four inline memos in the
+ * typeahead component. */
+export function useStagedIdentitySets(
+  staged: GroupMemberEntry[],
+  existingMemberRefs?: { key: string; email?: string }[]
+) {
+  return useMemo(() => {
+    const existingKeys = new Set((existingMemberRefs ?? []).map((e) => e.key));
+    const existingEmails = new Set((existingMemberRefs ?? []).map((e) => e.email).filter(Boolean));
+    return {
+      stagedKeys: new Set([...staged.map((e) => e.key), ...existingKeys]),
+      stagedEmails: new Set([...staged.map((e) => e.email).filter(Boolean), ...existingEmails]),
+      existingKeys,
+      existingEmails,
+    };
+  }, [staged, existingMemberRefs]);
+}
+
+/** Splits candidate entries into fresh-to-stage vs already-present (an
+ * existing chip, or — in edit mode — an existing group member). `dedupeStage`
+ * alone would swallow the repeat silently; the typeahead uses the `dupes`
+ * bucket to show an inline "already added" hint instead (manual-testing
+ * report: repeat Enter looked like a no-op bug). */
+export function partitionAgainstStaged(
+  entries: GroupMemberEntry[],
+  presentKeys: Set<string>,
+  presentEmails: Set<string | undefined>
+): { fresh: GroupMemberEntry[]; dupes: GroupMemberEntry[] } {
+  const fresh: GroupMemberEntry[] = [];
+  const dupes: GroupMemberEntry[] = [];
+  for (const entry of entries) {
+    if (presentKeys.has(entry.key) || (entry.email && presentEmails.has(entry.email))) {
+      dupes.push(entry);
+    } else {
+      fresh.push(entry);
+    }
+  }
+  return { fresh, dupes };
+}
+
+/** The inline hint for a re-added principal. Distinguishes "already added"
+ * (staged chip in this session) from "already in this group" (edit mode's
+ * existing members) so the message matches what the user can actually see. */
+export function duplicateNotice(
+  dupes: { key: string; label: string; email?: string }[],
+  existingKeys: Set<string>,
+  existingEmails: Set<string | undefined>
+): string {
+  if (dupes.length === 1) {
+    const d = dupes[0];
+    const inGroup = existingKeys.has(d.key) || (d.email ? existingEmails.has(d.email) : false);
+    return inGroup ? `${d.label} is already in this group` : `${d.label} is already added`;
+  }
+  return `Already added: ${dupes.map((d) => d.label).join(', ')}`;
 }
 
 /** Free-typed/pasted tokens → entries: an email matching an org member

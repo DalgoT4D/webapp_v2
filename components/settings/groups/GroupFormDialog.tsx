@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { GroupMemberSearch } from '@/components/settings/groups/group-member-typeahead';
+import {
+  GroupMemberSearch,
+  type GroupMemberSearchHandle,
+} from '@/components/settings/groups/group-member-typeahead';
 import {
   useGroupMemberStaging,
   type GroupMemberEntry,
@@ -125,6 +128,7 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingRemoveIds, setPendingRemoveIds] = useState<Set<number>>(new Set());
   const memberStaging = useGroupMemberStaging();
+  const memberSearchRef = useRef<GroupMemberSearchHandle>(null);
 
   // Edit mode's Existing Members list — only fetched while the dialog is
   // open in edit mode (create mode has no group id yet). Not the row list
@@ -253,7 +257,17 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="group-form-dialog" className="sm:max-w-md">
+      <DialogContent
+        data-testid="group-form-dialog"
+        className="sm:max-w-md"
+        // Escape layering: with the member-typeahead dropdown open, Escape
+        // closes ONLY the dropdown (Radix's document-capture listener fires
+        // before any input handler could, so the interception lives here);
+        // a second Escape — dropdown closed — dismisses the dialog as usual.
+        onEscapeKeyDown={(e) => {
+          if (memberSearchRef.current?.closeDropdownIfOpen()) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit group' : 'Create group'}</DialogTitle>
         </DialogHeader>
@@ -280,6 +294,7 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
         <div className="space-y-2">
           <Label htmlFor="group-member-search-input">Add people, groups, or paste emails</Label>
           <GroupMemberSearch
+            ref={memberSearchRef}
             staging={memberStaging}
             disabled={isSubmitting}
             existingMemberRefs={isEdit ? existingMemberRefs : undefined}
