@@ -1,10 +1,21 @@
 /**
- * ShareModal — Owner row + transfer-ownership (task-12f).
+ * ShareModal — Owner row + transfer-ownership (task-12f; restyled per the
+ * design-alignment task's reconciliation with "Transfer ownership.jpg").
  *
- * The owner row must render for EVERY rtype, including metric/kpi
- * (capabilities.grants === false) — that's why it lives in its own always-
- * rendered section rather than inside PeopleWithAccessSection (which is
- * gated on capabilities.grants).
+ * Two distinct transfer entry points now exist:
+ *  - Grantless rtypes (metric/kpi, capabilities.grants === false): no
+ *    People-with-access list to fold a per-row action into, so they keep the
+ *    original standalone "Transfer ownership" button + "pick any org member"
+ *    combobox (OwnerSection/OwnerTransferBlock) — no design frame covers
+ *    these rtypes at all.
+ *  - Every other rtype (People-with-access list present): the owner row is
+ *    plain text (icon · email · role tag · "Owner", no control at all — see
+ *    share-modal-access.test.tsx for that). Transfer now lives INSIDE a
+ *    non-owner grantee's own permission dropdown as a "Transfer Ownership"
+ *    item (exactly what "Transfer ownership.jpg" shows: "Can View ✓ / Can
+ *    Edit / Transfer Ownership") — picking it targets that specific person
+ *    and jumps straight to the confirm step, skipping the old "pick a
+ *    person" combobox screen entirely (the row already identifies them).
  */
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -36,13 +47,25 @@ const mockUseUsers = useUsers as jest.Mock;
 const mockUseRbac = useRbac as jest.Mock;
 const mockTransferOwnership = transferOwnership as jest.Mock;
 
+// A grants-capable overview needs at least one active user grant — that
+// person's own row is where "Transfer Ownership" now lives.
 const baseOverview: ResourceAccessOverview = {
   resource_type: 'dashboard',
   resource_id: '1',
   capabilities: { general: true, grants: true, public_link: true, requests: true },
   owner: { orguser_id: 1, email: 'asha@ngo.org', name: 'Asha Kumar' },
   general_access: { analyst_level: 'view', member_level: 'none' },
-  grants: [],
+  grants: [
+    {
+      id: 3,
+      principal_type: 'user',
+      principal_id: 42,
+      email: 'priya@ngo.org',
+      name: null,
+      permission: 'view',
+      status: 'active',
+    },
+  ],
   viewer: { effective_permission: 'edit', is_owner: false },
 };
 
@@ -103,28 +126,38 @@ describe('ShareModal — owner row', () => {
     expect(row).toHaveTextContent('Owner');
   });
 
-  it('hides the transfer action for a non-owner, non-admin viewer', () => {
+  it('hides "Transfer Ownership" from a grantee row for a non-owner, non-admin viewer', async () => {
+    const user = userEvent.setup();
     renderModal({ viewer: { effective_permission: 'edit', is_owner: false } });
-    expect(screen.queryByTestId('share-transfer-owner-btn')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('share-grant-permission-3'));
+    expect(screen.queryByRole('option', { name: 'Transfer Ownership' })).not.toBeInTheDocument();
   });
 
-  it('shows the transfer action when the viewer is the owner', () => {
+  it('shows "Transfer Ownership" on a grantee row when the viewer is the owner', async () => {
+    const user = userEvent.setup();
     renderModal({ viewer: { effective_permission: 'edit', is_owner: true } });
-    expect(screen.getByTestId('share-transfer-owner-btn')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('share-grant-permission-3'));
+    expect(screen.getByRole('option', { name: 'Transfer Ownership' })).toBeInTheDocument();
   });
 
-  it('shows the transfer action for a non-owner admin', () => {
+  it('shows "Transfer Ownership" on a grantee row for a non-owner admin', async () => {
+    const user = userEvent.setup();
     renderModal(
       { viewer: { effective_permission: 'edit', is_owner: false } },
       { role: 'admin', hasRole: () => true }
     );
-    expect(screen.getByTestId('share-transfer-owner-btn')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('share-grant-permission-3'));
+    expect(screen.getByRole('option', { name: 'Transfer Ownership' })).toBeInTheDocument();
   });
 
-  it('still renders the owner row and transfer action for grantless rtypes (metric/kpi)', () => {
+  it('still renders the owner row and the standalone transfer action for grantless rtypes (metric/kpi)', () => {
     renderModal({
       resource_type: 'metric',
       capabilities: { general: false, grants: false, public_link: false, requests: false },
+      grants: [],
       viewer: { effective_permission: 'edit', is_owner: true },
     });
     expect(screen.getByTestId('share-owner-row')).toHaveTextContent('Asha Kumar');
@@ -135,10 +168,10 @@ describe('ShareModal — owner row', () => {
   });
 });
 
-describe('ShareModal — transfer ownership flow', () => {
+describe('ShareModal — transfer ownership flow (grants-capable rtype, per-row entry point)', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('walks through pick -> confirm -> POST -> revalidate + toast', async () => {
+  it('walks through Transfer Ownership -> confirm -> POST -> revalidate + toast', async () => {
     const user = userEvent.setup();
     const { mutate } = renderModal({ viewer: { effective_permission: 'edit', is_owner: true } });
     mockTransferOwnership.mockResolvedValue({
@@ -147,10 +180,8 @@ describe('ShareModal — transfer ownership flow', () => {
       name: 'Priya Sharma',
     });
 
-    await user.click(screen.getByTestId('share-transfer-owner-btn'));
-    await user.click(screen.getByTestId('share-transfer-owner-combobox-input'));
-    await user.click(screen.getByTestId('share-transfer-owner-combobox-item-42'));
-    await user.click(screen.getByTestId('share-transfer-owner-next-btn'));
+    await user.click(screen.getByTestId('share-grant-permission-3'));
+    await user.click(screen.getByRole('option', { name: 'Transfer Ownership' }));
 
     // Confirm copy (Phase A / A4, design frame 1184:6198 kept truthful — no
     // "reclaim anytime"): actor IS the owner -> "You keep Edit access"
@@ -177,21 +208,53 @@ describe('ShareModal — transfer ownership flow', () => {
       { role: 'admin', hasRole: () => true }
     );
 
-    await user.click(screen.getByTestId('share-transfer-owner-btn'));
-    await user.click(screen.getByTestId('share-transfer-owner-combobox-input'));
-    await user.click(screen.getByTestId('share-transfer-owner-combobox-item-42'));
-    await user.click(screen.getByTestId('share-transfer-owner-next-btn'));
+    await user.click(screen.getByTestId('share-grant-permission-3'));
+    await user.click(screen.getByRole('option', { name: 'Transfer Ownership' }));
 
     expect(screen.getByTestId('share-transfer-owner-confirm')).toHaveTextContent(
       'Ownership of this dashboard transfers to priya@ngo.org. They can then delete it or transfer it again. Asha Kumar keeps Edit access.'
     );
   });
 
+  it('cancels back out of the confirm step without transferring', async () => {
+    const user = userEvent.setup();
+    renderModal({ viewer: { effective_permission: 'edit', is_owner: true } });
+
+    await user.click(screen.getByTestId('share-grant-permission-3'));
+    await user.click(screen.getByRole('option', { name: 'Transfer Ownership' }));
+    expect(screen.getByTestId('share-transfer-owner-confirm')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('share-transfer-owner-cancel-btn'));
+
+    expect(screen.queryByTestId('share-transfer-owner-confirm')).not.toBeInTheDocument();
+    expect(mockTransferOwnership).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a toast on a 400 (already-owner) error', async () => {
+    const user = userEvent.setup();
+    renderModal({ viewer: { effective_permission: 'edit', is_owner: true } });
+    mockTransferOwnership.mockRejectedValue(new Error('resource is already owned by this user'));
+
+    await user.click(screen.getByTestId('share-grant-permission-3'));
+    await user.click(screen.getByRole('option', { name: 'Transfer Ownership' }));
+    await user.click(screen.getByTestId('share-transfer-owner-confirm-btn'));
+
+    const { toastError } = jest.requireMock('@/lib/toast');
+    await waitFor(() => {
+      expect(toastError.api).toHaveBeenCalled();
+    });
+  });
+});
+
+describe('ShareModal — transfer ownership flow (grantless rtype, standalone combobox)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
   it('uses the human noun map in the confirm copy — a kpi reads "this KPI", not "this kpi"', async () => {
     const user = userEvent.setup();
     renderModal({
       resource_type: 'kpi',
       capabilities: { general: false, grants: false, public_link: false, requests: false },
+      grants: [],
       viewer: { effective_permission: 'edit', is_owner: true },
     });
 
@@ -203,22 +266,5 @@ describe('ShareModal — transfer ownership flow', () => {
     expect(screen.getByTestId('share-transfer-owner-confirm')).toHaveTextContent(
       'Ownership of this KPI transfers to priya@ngo.org. They can then delete it or transfer it again. You keep Edit access.'
     );
-  });
-
-  it('surfaces a toast on a 400 (already-owner) error', async () => {
-    const user = userEvent.setup();
-    renderModal({ viewer: { effective_permission: 'edit', is_owner: true } });
-    mockTransferOwnership.mockRejectedValue(new Error('resource is already owned by this user'));
-
-    await user.click(screen.getByTestId('share-transfer-owner-btn'));
-    await user.click(screen.getByTestId('share-transfer-owner-combobox-input'));
-    await user.click(screen.getByTestId('share-transfer-owner-combobox-item-42'));
-    await user.click(screen.getByTestId('share-transfer-owner-next-btn'));
-    await user.click(screen.getByTestId('share-transfer-owner-confirm-btn'));
-
-    const { toastError } = jest.requireMock('@/lib/toast');
-    await waitFor(() => {
-      expect(toastError.api).toHaveBeenCalled();
-    });
   });
 });

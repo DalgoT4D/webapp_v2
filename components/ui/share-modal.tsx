@@ -13,8 +13,8 @@ import {
   X,
   Loader2,
   Send,
-  UsersRound,
-  Inbox,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -40,6 +40,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -69,6 +70,13 @@ import {
   useShareStaging,
   type ShareStaging,
 } from '@/components/ui/share-modal-staging';
+import {
+  PrincipalAvatar,
+  PermissionSelect,
+  BORDERLESS_PERMISSION_TRIGGER_CLASSES,
+  roleTagLabel,
+} from '@/components/ui/principal-search-shared';
+import { cn } from '@/lib/utils';
 import { ADMIN_ROLES, PERMISSIONS, useRbac, type Permission } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -845,6 +853,14 @@ interface PeopleWithAccessSectionProps {
   onChanged: () => void;
 }
 
+// Sentinel SelectItem value for the "Transfer Ownership" menu item folded
+// into a grantee row's own permission control (design: "Transfer
+// ownership.jpg" — the dropdown reads "Can View ✓ / Can Edit / Transfer
+// Ownership" for a non-owner row). Distinct from the 'view'/'edit'
+// AccessLevel values so onValueChange can branch to the transfer flow
+// instead of a permission PATCH.
+const TRANSFER_OWNERSHIP_VALUE = '__transfer_ownership__';
+
 function PeopleWithAccessSection({
   entityType,
   entityId,
@@ -853,6 +869,46 @@ function PeopleWithAccessSection({
   staging,
   onChanged,
 }: PeopleWithAccessSectionProps) {
+  const { users: orgUsers } = useUsers();
+  const { hasRole } = useRbac();
+  // Mirrors the backend's require_owner_access / can_delete_resource gate:
+  // the literal owner, or an org admin — general-access/grant-derived "edit"
+  // is NOT enough (see task-12 backend report).
+  const canTransfer = access.viewer.is_owner || hasRole(ADMIN_ROLES);
+
+  // Reconciliation note (design-alignment task, item 6): the only frame that
+  // shows a transfer affordance ("Transfer ownership.jpg") puts it INSIDE a
+  // non-owner row's own permission dropdown, not as a standalone button under
+  // the owner (no frame shows that, and item 4 leaves the owner row no
+  // control at all). So for rtypes with a People-with-access list, "Transfer
+  // Ownership" is a menu item on each eligible grantee's Select, targeting
+  // THAT person — see TRANSFER_OWNERSHIP_VALUE above. This trades away the
+  // old combobox's "transfer to any org member" reach for an exact frame
+  // match; transferring to someone not yet granted access now means sharing
+  // with them first. Grantless rtypes (metric/kpi — no frame covers them)
+  // keep the broader OwnerSection/OwnerTransferBlock combobox flow untouched.
+  const [transferTarget, setTransferTarget] = useState<{ orguserId: number; label: string } | null>(
+    null
+  );
+  const [isTransferring, setIsTransferring] = useState(false);
+
+  // Role tags (item 4): joined client-side from the org-users list the modal
+  // already fetches for the typeahead — the grants/owner payload only has an
+  // email/principal_id, not the person's role. A group principal, or a user
+  // that isn't resolvable in that list (e.g. a pending cross-org invite),
+  // gets no tag rather than a guessed one.
+  const roleTagFor = useCallback(
+    (principalId: number | null, email: string | null) => {
+      const match = (orgUsers || []).find(
+        (u) =>
+          (principalId !== null && u.orguser_id === principalId) ||
+          (email !== null && u.email.toLowerCase() === email.toLowerCase())
+      );
+      return match ? roleTagLabel(match.new_role_slug) : undefined;
+    },
+    [orgUsers]
+  );
+
   const handlePermissionChange = useCallback(
     async (grant: AccessGrant, permission: AccessLevel) => {
       // Pending rows have no principal_id yet — re-POST via the email path
@@ -898,6 +954,46 @@ function PeopleWithAccessSection({
     [entityType, entityId, onChanged]
   );
 
+  const handleInitiateTransfer = useCallback((grant: AccessGrant) => {
+    if (grant.principal_id === null) return; // defensive — gated by transferEligible below
+    setTransferTarget({ orguserId: grant.principal_id, label: grant.name || grant.email || '' });
+  }, []);
+
+  const handleCancelTransfer = useCallback(() => setTransferTarget(null), []);
+
+  const handleConfirmTransfer = useCallback(async () => {
+    if (!transferTarget) return;
+    setIsTransferring(true);
+    try {
+      await transferOwnership(entityType, entityId, transferTarget.orguserId);
+      onChanged();
+      setTransferTarget(null);
+      toastSuccess.generic('Ownership transferred');
+      // rtype only — no emails/ids (rules/analytics.md: no PII).
+      trackEvent(ANALYTICS_EVENTS.SHARING_OWNERSHIP_TRANSFERRED, { entity_type: entityType });
+    } catch (error) {
+      toastError.api(error, 'transfer ownership');
+    } finally {
+      setIsTransferring(false);
+    }
+  }, [entityType, entityId, transferTarget, onChanged]);
+
+  const ownerLabel = access.owner ? access.owner.name || access.owner.email : '';
+  const ownerRoleTag = access.owner ? roleTagFor(access.owner.orguser_id, access.owner.email) : undefined;
+
+  // Same plain-language confirm copy as the grantless-rtype combobox flow
+  // (OwnerTransferBlock) — kept truthful about who keeps Edit access after
+  // the transfer (the backend unconditionally keeps the CURRENT owner on an
+  // Edit grant, not the actor).
+  const transferConfirmCopy = transferTarget
+    ? (() => {
+        const sentence = `Ownership of this ${RESOURCE_NOUNS[entityType]} transfers to ${transferTarget.label}. They can then delete it or transfer it again.`;
+        return access.viewer.is_owner
+          ? `${sentence} You keep Edit access.`
+          : `${sentence} ${ownerLabel} keeps Edit access.`;
+      })()
+    : '';
+
   return (
     <Card data-testid="share-people-section">
       <CardContent className="p-4 space-y-4">
@@ -908,109 +1004,189 @@ function PeopleWithAccessSection({
 
         <Label className="text-sm font-medium">People with access</Label>
 
-        <div className="space-y-2">
+        {/* Scrolls internally when the list gets long (design: "resource
+            sharing- scrollable list of people with access" — a scrollbar
+            beside the rows, not a taller modal). The Select/AlertDialog
+            popovers portal out, so clipping here can't cut them off; the
+            transfer confirm panel renders BELOW this container so it can
+            never hide behind the scrollbar. */}
+        <div className="max-h-56 space-y-2 overflow-y-auto">
           {/* Owner is row 1 of this same list (P1) — not a separate bordered
-              card above it. Transfer-ownership affordance travels with it. */}
+              card above it. Plain text "Owner", no pill/border, no control
+              (design: "resource sharing- scrollable list of people with
+              access" / "resource sharing- user added" frames). */}
           {access.owner && (
-            <OwnerTransferBlock
-              entityType={entityType}
-              entityId={entityId}
-              access={access}
-              onChanged={onChanged}
-            />
-          )}
-
-          {access.grants.map((grant) => (
             <div
-              key={grant.id}
-              data-testid={`share-grant-row-${grant.id}`}
+              data-testid="share-owner-row"
               className="flex items-center justify-between gap-2 text-sm"
             >
-              <span className="truncate inline-flex items-center gap-1.5">
-                {grant.principal_type === 'group' && (
-                  <UsersRound className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                )}
-                <span>
-                  {grant.name || grant.email}
-                  {grant.principal_type === 'group' && typeof grant.member_count === 'number' && (
-                    <span className="ml-1.5 text-xs text-muted-foreground">
-                      · {grant.member_count} member{grant.member_count === 1 ? '' : 's'}
+              <span className="flex min-w-0 items-center gap-1.5 truncate">
+                <PrincipalAvatar />
+                <span className="truncate">{ownerLabel}</span>
+                {ownerRoleTag && <Badge variant="secondary">{ownerRoleTag}</Badge>}
+              </span>
+              <span className="flex-shrink-0 text-muted-foreground">Owner</span>
+            </div>
+          )}
+
+          {access.grants.map((grant) => {
+            const roleTag =
+              grant.principal_type === 'user' ? roleTagFor(grant.principal_id, grant.email) : undefined;
+            const transferEligible =
+              canShare &&
+              canTransfer &&
+              grant.principal_type === 'user' &&
+              grant.principal_id !== null &&
+              grant.status === 'active';
+            return (
+              <div
+                key={grant.id}
+                data-testid={`share-grant-row-${grant.id}`}
+                className="flex items-center justify-between gap-2 text-sm"
+              >
+                <span className="truncate inline-flex items-center gap-1.5">
+                  <PrincipalAvatar kind={grant.principal_type === 'group' ? 'group' : 'user'} />
+                  <span>
+                    {grant.name || grant.email}
+                    {grant.principal_type === 'group' && typeof grant.member_count === 'number' && (
+                      <span className="ml-1.5 text-xs text-muted-foreground">
+                        · {grant.member_count} member{grant.member_count === 1 ? '' : 's'}
+                      </span>
+                    )}
+                    {grant.status === 'pending' && (
+                      <span className="ml-2 text-xs text-muted-foreground">(invite pending)</span>
+                    )}
+                  </span>
+                  {roleTag && <Badge variant="secondary">{roleTag}</Badge>}
+                </span>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {canShare && (grant.principal_id !== null || grant.email) ? (
+                    <PermissionSelect
+                      testId={`share-grant-permission-${grant.id}`}
+                      ariaLabel={`Change permission for ${grant.name || grant.email}`}
+                      value={grant.permission}
+                      onValueChange={(value) => {
+                        if (value === TRANSFER_OWNERSHIP_VALUE) {
+                          handleInitiateTransfer(grant);
+                        } else {
+                          handlePermissionChange(grant, value as AccessLevel);
+                        }
+                      }}
+                      extraItems={
+                        transferEligible ? (
+                          <>
+                            <SelectSeparator />
+                            <SelectItem value={TRANSFER_OWNERSHIP_VALUE}>
+                              Transfer Ownership
+                            </SelectItem>
+                          </>
+                        ) : undefined
+                      }
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {LEVEL_LABELS[grant.permission]}
                     </span>
                   )}
-                  {grant.status === 'pending' && (
-                    <span className="ml-2 text-xs text-muted-foreground">(invite pending)</span>
-                  )}
-                </span>
-              </span>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {canShare && (grant.principal_id !== null || grant.email) ? (
-                  <Select
-                    value={grant.permission}
-                    onValueChange={(value) => handlePermissionChange(grant, value as AccessLevel)}
-                  >
-                    <SelectTrigger
-                      data-testid={`share-grant-permission-${grant.id}`}
-                      aria-label={`Change permission for ${grant.name || grant.email}`}
-                      size="sm"
-                      className="w-24"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="view">{LEVEL_LABELS.view}</SelectItem>
-                      <SelectItem value="edit">{LEVEL_LABELS.edit}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <span className="text-xs text-muted-foreground">
-                    {LEVEL_LABELS[grant.permission]}
-                  </span>
-                )}
-                {canShare && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        data-testid={`share-grant-remove-${grant.id}`}
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Remove ${grant.name || grant.email}`}
-                      >
-                        <X className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent data-testid={`share-grant-remove-dialog-${grant.id}`}>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Remove access</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to remove access of &quot;
-                          {grant.name || grant.email}&quot;? This change cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel data-testid={`share-grant-remove-cancel-${grant.id}`}>
-                          Cancel
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                          data-testid={`share-grant-remove-confirm-${grant.id}`}
-                          onClick={() => handleRemove(grant)}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  {canShare && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          data-testid={`share-grant-remove-${grant.id}`}
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Remove ${grant.name || grant.email}`}
                         >
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
+                          <X className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent data-testid={`share-grant-remove-dialog-${grant.id}`}>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Remove access</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to remove access of &quot;
+                            {grant.name || grant.email}&quot;? This change cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel data-testid={`share-grant-remove-cancel-${grant.id}`}>
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            data-testid={`share-grant-remove-confirm-${grant.id}`}
+                            onClick={() => handleRemove(grant)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {access.grants.length === 0 && (
             <p className="text-xs text-muted-foreground">No one else has access yet.</p>
           )}
         </div>
+
+        {transferTarget && (
+          <TransferConfirmPanel
+            copy={transferConfirmCopy}
+            isTransferring={isTransferring}
+            onConfirm={handleConfirmTransfer}
+            onCancel={handleCancelTransfer}
+          />
+        )}
       </CardContent>
     </Card>
+  );
+}
+
+/** The amber confirm step for a per-row "Transfer Ownership" pick — rendered
+ * BELOW the scrollable People list so it can never hide behind its scrollbar. */
+function TransferConfirmPanel({
+  copy,
+  isTransferring,
+  onConfirm,
+  onCancel,
+}: {
+  copy: string;
+  isTransferring: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      data-testid="share-transfer-owner-confirm"
+      className="space-y-3 p-3 bg-orange-50 border border-orange-200 rounded-md"
+    >
+      <p className="text-xs text-orange-800">{copy}</p>
+      <div className="flex gap-2">
+        <Button
+          data-testid="share-transfer-owner-confirm-btn"
+          size="sm"
+          variant="primary"
+          onClick={onConfirm}
+          disabled={isTransferring}
+        >
+          {isTransferring && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          Transfer ownership
+        </Button>
+        <Button
+          data-testid="share-transfer-owner-cancel-btn"
+          size="sm"
+          variant="outline"
+          onClick={onCancel}
+          disabled={isTransferring}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -1243,20 +1419,36 @@ interface PendingRequestsSectionProps {
 }
 
 function PendingRequestsSection({ entityType, requests, onDecided }: PendingRequestsSectionProps) {
+  // Collapsible header (design frames "resource sharing- multiple request"
+  // /"-1"): only shown once there are 2+ requests — a single request just
+  // renders its row directly, nothing to collapse ("request on sharing.jpg").
+  // Defaults to expanded so incoming requests are seen immediately.
+  const [isExpanded, setIsExpanded] = useState(true);
+  const showHeader = requests.length >= 2;
+  const showRows = !showHeader || isExpanded;
+
   return (
-    <Card data-testid="share-requests-section">
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-center gap-3">
-          <Inbox className="h-5 w-5 text-primary" />
-          <Label className="text-sm font-medium">Pending requests</Label>
-        </div>
-        {/* Design frame 1353:14586: collapse-count line once several people are asking */}
-        {requests.length >= 2 && (
-          <p data-testid="share-requests-count-header" className="text-sm text-muted-foreground">
-            {requests.length} users are requesting access
-          </p>
-        )}
-        <div className="space-y-3">
+    <div data-testid="share-requests-section" className="space-y-1">
+      {showHeader && (
+        <button
+          type="button"
+          data-testid="share-requests-count-header"
+          aria-expanded={isExpanded}
+          onClick={() => setIsExpanded((prev) => !prev)}
+          className="flex w-full items-center justify-between rounded-md bg-muted/50 px-3 py-2 text-sm hover:bg-muted"
+        >
+          <span>
+            <strong>{requests.length}</strong> users are requesting access
+          </span>
+          {isExpanded ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
+      )}
+      {showRows && (
+        <div>
           {requests.map((request) => (
             <PendingRequestRow
               key={request.id}
@@ -1266,8 +1458,8 @@ function PendingRequestsSection({ entityType, requests, onDecided }: PendingRequ
             />
           ))}
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }
 
@@ -1321,49 +1513,65 @@ function PendingRequestRow({ entityType, request, onDecided }: PendingRequestRow
     }
   }, [entityType, request.id, onDecided]);
 
+  const requesterLabel = request.requester.name || request.requester.email;
+
   return (
     <div
       data-testid={`share-request-row-${request.id}`}
-      className="space-y-2 text-sm border-b pb-3 last:border-b-0 last:pb-0"
+      className="flex items-center justify-between gap-2 rounded-md px-1 py-2 text-sm"
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate">{request.requester.name || request.requester.email}</span>
-        <span className="text-xs text-muted-foreground flex-shrink-0">
-          Requested {LEVEL_LABELS[request.requested_permission]}
-        </span>
-      </div>
-      {request.note && (
-        <p className="text-xs text-muted-foreground italic truncate" title={request.note}>
-          &ldquo;{request.note}&rdquo;
-        </p>
-      )}
-      <div className="flex items-center gap-2">
-        {permissionOptions.length > 1 ? (
-          <Select
-            value={selectedPermission}
-            onValueChange={(value) => setSelectedPermission(value as AccessLevel)}
-          >
-            <SelectTrigger
-              data-testid={`share-request-permission-${request.id}`}
-              aria-label={`Permission to grant ${request.requester.name || request.requester.email}`}
-              size="sm"
-              className="w-24"
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        <PrincipalAvatar />
+        <span className="min-w-0 truncate">
+          <span className="truncate">{requesterLabel}</span> wants to{' '}
+          {permissionOptions.length > 1 ? (
+            // Inline lowercase "edit ⌄" control (embedded mid-sentence) — the
+            // same borderless chrome as PermissionSelect, but with "view"/
+            // "edit" item text instead of that component's standalone
+            // "View"/"Edit", so it can't reuse the component itself.
+            <Select
+              value={selectedPermission}
+              onValueChange={(value) => setSelectedPermission(value as AccessLevel)}
             >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {permissionOptions.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {LEVEL_LABELS[option]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <span className="text-xs text-muted-foreground w-24">
-            {LEVEL_LABELS[selectedPermission]}
-          </span>
-        )}
+              <SelectTrigger
+                data-testid={`share-request-permission-${request.id}`}
+                aria-label={`Permission to grant ${requesterLabel}`}
+                disabled={isDeciding}
+                className={cn(BORDERLESS_PERMISSION_TRIGGER_CLASSES, 'font-semibold')}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {permissionOptions.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <strong className="font-semibold">{selectedPermission}</strong>
+          )}
+          {request.note && (
+            <span
+              className="ml-2 truncate text-xs italic text-muted-foreground"
+              title={request.note}
+            >
+              &ldquo;{request.note}&rdquo;
+            </span>
+          )}
+        </span>
+      </span>
+      <span className="flex flex-shrink-0 items-center gap-3">
+        <button
+          type="button"
+          data-testid={`share-request-decline-${request.id}`}
+          onClick={handleDecline}
+          disabled={isDeciding}
+          className="text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+        >
+          Deny
+        </button>
         <Button
           data-testid={`share-request-approve-${request.id}`}
           size="sm"
@@ -1373,16 +1581,7 @@ function PendingRequestRow({ entityType, request, onDecided }: PendingRequestRow
         >
           Approve
         </Button>
-        <Button
-          data-testid={`share-request-decline-${request.id}`}
-          size="sm"
-          variant="outline"
-          onClick={handleDecline}
-          disabled={isDeciding}
-        >
-          Decline
-        </Button>
-      </div>
+      </span>
     </div>
   );
 }

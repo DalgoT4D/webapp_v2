@@ -20,6 +20,13 @@ import React from 'react';
 import { Mail, User, UsersRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { InviteRoleSlug } from '@/hooks/api/useResourceAccess';
 
 // ---- Email parsing ----
@@ -109,6 +116,77 @@ export function principalRowIcon(kind: PrincipalEntryKind) {
     return <UsersRound className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />;
   if (kind === 'email') return <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />;
   return <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />;
+}
+
+/** The circular avatar icon design puts on every People-with-access and
+ * pending-request row (design: "resource sharing- scrollable list of people
+ * with access" / "resource sharing- multiple request" frames) — a small
+ * tinted circle with a person (or group) glyph, distinct from the plain
+ * muted-foreground icon `principalRowIcon` renders for the typeahead/staged
+ * rows. */
+export function PrincipalAvatar({ kind = 'user' }: { kind?: PrincipalEntryKind }) {
+  const Icon = kind === 'group' ? UsersRound : User;
+  return (
+    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+      <Icon className="h-3.5 w-3.5 text-primary" />
+    </span>
+  );
+}
+
+// ---- Borderless permission control (design: "View ⌄" / "View ^") ----
+
+// Shared trigger classes for the "View ⌄" / "Edit ⌄" control on staged and
+// granted rows (design frames: "resource sharing New users",
+// "resource sharing- scrollable list of people with access") — replaces the
+// old bordered Select pill with plain text + a chevron that flips to point
+// up while the dropdown is open. Still an accessible Select under the hood;
+// only the trigger's visual chrome changes.
+// Exported so PendingRequestRow (share-modal.tsx) can build its own inline
+// lowercase "wants to edit ⌄" control — it needs different item text ("view"/
+// "edit", mid-sentence) than the standalone "View"/"Edit" control below, so it
+// can't reuse the `PermissionSelect` component itself, only its chrome.
+export const BORDERLESS_PERMISSION_TRIGGER_CLASSES =
+  'h-auto w-auto gap-1 rounded-sm border-none bg-transparent p-0 text-sm font-normal text-foreground shadow-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:[&_svg]:rotate-180';
+
+export interface PermissionSelectProps {
+  testId: string;
+  ariaLabel: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  disabled?: boolean;
+  /** Extra items appended after View/Edit — e.g. ShareModal's grant rows add
+   * a "Transfer Ownership" item + separator here (Transfer ownership.jpg). */
+  extraItems?: React.ReactNode;
+}
+
+/** The borderless View/Edit permission control shared by ShareModal's staged
+ * rows (share-modal-staging.tsx) and granted rows (share-modal.tsx) — kept
+ * here so neither copy-pastes the restyled trigger. */
+export function PermissionSelect({
+  testId,
+  ariaLabel,
+  value,
+  onValueChange,
+  disabled,
+  extraItems,
+}: PermissionSelectProps) {
+  return (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger
+        data-testid={testId}
+        aria-label={ariaLabel}
+        disabled={disabled}
+        className={BORDERLESS_PERMISSION_TRIGGER_CLASSES}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="view">View</SelectItem>
+        <SelectItem value="edit">Edit</SelectItem>
+        {extraItems}
+      </SelectContent>
+    </Select>
+  );
 }
 
 // ---- Dropdown row button ----
