@@ -232,9 +232,7 @@ describe('ShareModal — Pending requests', () => {
     expect(deny).toHaveTextContent('Deny');
     expect(approve).toHaveTextContent('Approve');
     // Deny sits to the left of Approve in DOM order.
-    expect(
-      row.compareDocumentPosition(deny) & Node.DOCUMENT_POSITION_PRECEDING
-    ).toBeFalsy();
+    expect(row.compareDocumentPosition(deny) & Node.DOCUMENT_POSITION_PRECEDING).toBeFalsy();
     expect(deny.compareDocumentPosition(approve) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 

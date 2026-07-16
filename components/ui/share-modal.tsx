@@ -343,7 +343,13 @@ export function ShareModal({
           no way to scroll to them. */}
       <DialogContent
         data-testid="share-modal"
-        className="sm:max-w-md max-h-[85vh] overflow-y-auto"
+        // Widened to match the RBAC design frames (~850px dialog on a
+        // 2000px canvas) — sm:max-w-md clipped the request rows' Approve
+        // buttons, the General-access selects, and forced the request note
+        // to wrap onto ragged lines at 1512px viewports. sm:max-w-3xl
+        // mirrors the existing "wide dialog" convention already used by
+        // AlertWizardModal/SourceForm elsewhere in the app.
+        className="sm:max-w-3xl max-h-[85vh] overflow-y-auto"
         // P1 merged the owner row into PeopleWithAccessSection's list, which
         // sits AFTER the add-people search input in DOM order — Radix's
         // default open-autofocus would otherwise land on that search input
@@ -979,7 +985,9 @@ function PeopleWithAccessSection({
   }, [entityType, entityId, transferTarget, onChanged]);
 
   const ownerLabel = access.owner ? access.owner.name || access.owner.email : '';
-  const ownerRoleTag = access.owner ? roleTagFor(access.owner.orguser_id, access.owner.email) : undefined;
+  const ownerRoleTag = access.owner
+    ? roleTagFor(access.owner.orguser_id, access.owner.email)
+    : undefined;
 
   // Same plain-language confirm copy as the grantless-rtype combobox flow
   // (OwnerTransferBlock) — kept truthful about who keeps Edit access after
@@ -1020,10 +1028,14 @@ function PeopleWithAccessSection({
               data-testid="share-owner-row"
               className="flex items-center justify-between gap-2 text-sm"
             >
-              <span className="flex min-w-0 items-center gap-1.5 truncate">
+              <span className="flex min-w-0 items-center gap-1.5">
                 <PrincipalAvatar />
-                <span className="truncate">{ownerLabel}</span>
-                {ownerRoleTag && <Badge variant="secondary">{ownerRoleTag}</Badge>}
+                <span className="min-w-0 truncate">{ownerLabel}</span>
+                {ownerRoleTag && (
+                  <Badge variant="secondary" className="flex-shrink-0">
+                    {ownerRoleTag}
+                  </Badge>
+                )}
               </span>
               <span className="flex-shrink-0 text-muted-foreground">Owner</span>
             </div>
@@ -1031,7 +1043,9 @@ function PeopleWithAccessSection({
 
           {access.grants.map((grant) => {
             const roleTag =
-              grant.principal_type === 'user' ? roleTagFor(grant.principal_id, grant.email) : undefined;
+              grant.principal_type === 'user'
+                ? roleTagFor(grant.principal_id, grant.email)
+                : undefined;
             const transferEligible =
               canShare &&
               canTransfer &&
@@ -1044,9 +1058,9 @@ function PeopleWithAccessSection({
                 data-testid={`share-grant-row-${grant.id}`}
                 className="flex items-center justify-between gap-2 text-sm"
               >
-                <span className="truncate inline-flex items-center gap-1.5">
+                <span className="flex min-w-0 flex-1 items-center gap-1.5">
                   <PrincipalAvatar kind={grant.principal_type === 'group' ? 'group' : 'user'} />
-                  <span>
+                  <span className="min-w-0 truncate">
                     {grant.name || grant.email}
                     {grant.principal_type === 'group' && typeof grant.member_count === 'number' && (
                       <span className="ml-1.5 text-xs text-muted-foreground">
@@ -1057,7 +1071,11 @@ function PeopleWithAccessSection({
                       <span className="ml-2 text-xs text-muted-foreground">(invite pending)</span>
                     )}
                   </span>
-                  {roleTag && <Badge variant="secondary">{roleTag}</Badge>}
+                  {roleTag && (
+                    <Badge variant="secondary" className="flex-shrink-0">
+                      {roleTag}
+                    </Badge>
+                  )}
                 </span>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   {canShare && (grant.principal_id !== null || grant.email) ? (
@@ -1522,8 +1540,27 @@ function PendingRequestRow({ entityType, request, onDecided }: PendingRequestRow
     >
       <span className="flex min-w-0 flex-1 items-center gap-2">
         <PrincipalAvatar />
-        <span className="min-w-0 truncate">
-          <span className="truncate">{requesterLabel}</span> wants to{' '}
+        {/* A single non-wrapping line (design: "request on sharing" /
+            "resource sharing- multiple request" — email + bold permission
+            together, never split across lines). The requester's name/email
+            keeps min-w-0 + truncate as a defensive backstop for very long
+            values; the note is the one genuinely variable-length piece, so
+            it's the flex-basis-0 "expendable" child — it takes any leftover
+            space when there's room and is the first to shrink toward an
+            ellipsis (or nothing) when there isn't, instead of forcing the
+            whole row onto ragged wrapped lines. */}
+        <span className="flex min-w-0 flex-1 items-center gap-1">
+          {/* Literal space text nodes ARE needed in addition to the flex
+              `gap` above: toHaveTextContent asserts on the concatenated
+              textContent ("wants to view"), which only contains a real
+              space character if one is actually in the DOM — gap is a
+              purely visual layout property and contributes nothing to
+              textContent. Conversely, gap is needed for the visible space
+              because flexbox drops whitespace-only text runs between flex
+              items from layout (they don't generate a rendered box), so
+              the literal spaces alone produce no visual gap. */}
+          <span className="min-w-0 truncate">{requesterLabel}</span>{' '}
+          <span className="flex-shrink-0 text-muted-foreground">wants to</span>{' '}
           {permissionOptions.length > 1 ? (
             // Inline lowercase "edit ⌄" control (embedded mid-sentence) — the
             // same borderless chrome as PermissionSelect, but with "view"/
@@ -1537,7 +1574,7 @@ function PendingRequestRow({ entityType, request, onDecided }: PendingRequestRow
                 data-testid={`share-request-permission-${request.id}`}
                 aria-label={`Permission to grant ${requesterLabel}`}
                 disabled={isDeciding}
-                className={cn(BORDERLESS_PERMISSION_TRIGGER_CLASSES, 'font-semibold')}
+                className={cn(BORDERLESS_PERMISSION_TRIGGER_CLASSES, 'flex-shrink-0 font-semibold')}
               >
                 <SelectValue />
               </SelectTrigger>
@@ -1550,15 +1587,18 @@ function PendingRequestRow({ entityType, request, onDecided }: PendingRequestRow
               </SelectContent>
             </Select>
           ) : (
-            <strong className="font-semibold">{selectedPermission}</strong>
+            <strong className="flex-shrink-0 font-semibold">{selectedPermission}</strong>
           )}
           {request.note && (
-            <span
-              className="ml-2 truncate text-xs italic text-muted-foreground"
-              title={request.note}
-            >
-              &ldquo;{request.note}&rdquo;
-            </span>
+            <>
+              {' '}
+              <span
+                className="min-w-0 flex-1 truncate text-xs italic text-muted-foreground"
+                title={request.note}
+              >
+                &ldquo;{request.note}&rdquo;
+              </span>
+            </>
           )}
         </span>
       </span>

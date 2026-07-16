@@ -253,9 +253,7 @@ export function PeopleTable({ onInviteClick }: PeopleTableProps = {}) {
       }
 
       if (aValue === bValue) return 0;
-      return sortOrder === 'asc'
-        ? aValue.localeCompare(bValue)
-        : bValue.localeCompare(aValue);
+      return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
     });
 
     return sorted;

@@ -149,7 +149,8 @@ export function GroupFormDialog({ open, onOpenChange, group, onSuccess }: GroupF
     () =>
       existingMembers
         .filter(
-          (m) => m.status === 'active' && !pendingRemoveIds.has(m.id) && typeof m.orguser_id === 'number'
+          (m) =>
+            m.status === 'active' && !pendingRemoveIds.has(m.id) && typeof m.orguser_id === 'number'
         )
         .map((m) => ({ key: `user-${m.orguser_id}`, email: m.email?.toLowerCase() })),
     [existingMembers, pendingRemoveIds]

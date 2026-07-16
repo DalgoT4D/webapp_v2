@@ -176,7 +176,7 @@ describe('PeopleTable — per-state action menus', () => {
     expect(screen.getByTestId('delete-invitation-101')).toBeInTheDocument();
   });
 
-  it('disables the kebab for the signed-in user\'s own active row', () => {
+  it("disables the kebab for the signed-in user's own active row", () => {
     render(<PeopleTable />);
 
     expect(screen.queryByTestId('user-actions-admin@ngo.org')).not.toBeInTheDocument();
@@ -194,7 +194,10 @@ describe('PeopleTable — sort over the merged set', () => {
     // Default sort is Email asc; one click flips to desc.
     await userEvent.click(screen.getByTestId('sort-email-button'));
 
-    const emails = screen.getAllByRole('row').slice(1).map((row) => row.textContent);
+    const emails = screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => row.textContent);
     // desc order: zubin, meera, admin
     expect(emails[0]).toContain('zubin@ngo.org');
     expect(emails[2]).toContain('admin@ngo.org');
@@ -284,7 +287,11 @@ describe('PeopleTable — empty state (no other users AND no pending invitations
 
   it('shows "No people yet" when there are no other active users and no pending invitations', () => {
     mockUseUsers.mockReturnValue({ users: [USERS[0]], isLoading: false, mutate: mockMutateUsers });
-    mockUseInvitations.mockReturnValue({ invitations: [], isLoading: false, mutate: mockMutateInvitations });
+    mockUseInvitations.mockReturnValue({
+      invitations: [],
+      isLoading: false,
+      mutate: mockMutateInvitations,
+    });
 
     render(<PeopleTable />);
 
@@ -308,7 +315,11 @@ describe('PeopleTable — empty state (no other users AND no pending invitations
 
   it('does NOT show the empty state when another active user exists, even with no pending invitations', () => {
     mockUseUsers.mockReturnValue({ users: USERS, isLoading: false, mutate: mockMutateUsers });
-    mockUseInvitations.mockReturnValue({ invitations: [], isLoading: false, mutate: mockMutateInvitations });
+    mockUseInvitations.mockReturnValue({
+      invitations: [],
+      isLoading: false,
+      mutate: mockMutateInvitations,
+    });
 
     render(<PeopleTable />);
 
@@ -318,7 +329,11 @@ describe('PeopleTable — empty state (no other users AND no pending invitations
 
   it('calls onInviteClick from the empty-state CTA', async () => {
     mockUseUsers.mockReturnValue({ users: [USERS[0]], isLoading: false, mutate: mockMutateUsers });
-    mockUseInvitations.mockReturnValue({ invitations: [], isLoading: false, mutate: mockMutateInvitations });
+    mockUseInvitations.mockReturnValue({
+      invitations: [],
+      isLoading: false,
+      mutate: mockMutateInvitations,
+    });
     const onInviteClick = jest.fn();
 
     render(<PeopleTable onInviteClick={onInviteClick} />);
