@@ -3,8 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { EmptyWarehouseCard } from '../empty-warehouse-card';
 import * as rbac from '@/lib/rbac';
 
-const mockPush = jest.fn();
-jest.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
 
 const mockRbac = rbac.useRbac as jest.Mock;
@@ -14,17 +12,18 @@ beforeEach(() => {
   mockRbac.mockReturnValue({ hasPermission: () => true });
 });
 
-it('routes to Settings → Warehouse when the setup button is clicked', async () => {
+it('re-opens the warehouse wizard when the setup button is clicked', async () => {
   const user = userEvent.setup();
-  render(<EmptyWarehouseCard />);
+  const onSetUp = jest.fn();
+  render(<EmptyWarehouseCard onSetUp={onSetUp} />);
 
   await user.click(screen.getByTestId('setup-warehouse-btn'));
-  expect(mockPush).toHaveBeenCalledWith('/settings/warehouse');
+  expect(onSetUp).toHaveBeenCalledTimes(1);
 });
 
 it('disables setup and shows a hint when the user cannot create a warehouse', () => {
   mockRbac.mockReturnValue({ hasPermission: () => false });
-  render(<EmptyWarehouseCard />);
+  render(<EmptyWarehouseCard onSetUp={jest.fn()} />);
 
   expect(screen.getByTestId('setup-warehouse-btn')).toBeDisabled();
   expect(screen.getByText(/don't have permission/i)).toBeInTheDocument();

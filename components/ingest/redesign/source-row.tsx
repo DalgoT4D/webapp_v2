@@ -51,8 +51,8 @@ function SourceIdentity({ source }: { source: Source }) {
     <div className="flex items-center gap-3 min-w-0">
       <SourceIcon source={source} />
       <div className="min-w-0 text-left">
-        <p className="font-medium text-lg text-gray-900 truncate">{source.name}</p>
-        <p className="text-sm text-gray-500 truncate">{source.sourceName}</p>
+        <p className="font-medium text-lg text-foreground truncate">{source.name}</p>
+        <p className="text-sm text-muted-foreground truncate">{source.sourceName}</p>
       </div>
     </div>
   );
@@ -83,17 +83,17 @@ function SourceMenu({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 p-0 hover:bg-gray-100"
+          className="h-8 w-8 p-0 hover:bg-muted"
           data-testid={`source-menu-${source.sourceId}`}
         >
-          <MoreVertical className="w-4 h-4 text-gray-600" />
+          <MoreVertical className="w-4 h-4 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
         {canCreateConnection && (
           <DropdownMenuItem
             onClick={() => onAddConnection(source)}
-            className="text-[14px]"
+            className="text-sm"
             data-testid={`add-connection-menu-${source.sourceId}`}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -104,7 +104,7 @@ function SourceMenu({
         {canEditSource && (
           <DropdownMenuItem
             onClick={() => onEditSource(source)}
-            className="text-[14px]"
+            className="text-sm"
             data-testid={`edit-source-${source.sourceId}`}
           >
             <Pencil className="h-4 w-4 mr-2" />
@@ -116,7 +116,7 @@ function SourceMenu({
             {canEditSource && <DropdownMenuSeparator />}
             <DropdownMenuItem
               onClick={() => onDeleteSource(source)}
-              className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
+              className="text-sm text-red-600 focus:text-red-600 focus:bg-red-50"
               data-testid={`delete-source-${source.sourceId}`}
             >
               <Trash2 className="h-4 w-4 mr-2" />
@@ -164,7 +164,7 @@ export function SourceRow({
 
   return (
     <div
-      className="flex items-stretch overflow-hidden rounded-lg bg-white border border-gray-200 transition-colors hover:bg-gray-100 hover:border-primary/40 min-h-[92px]"
+      className="flex items-stretch overflow-hidden rounded-lg bg-background border transition-colors hover:bg-muted hover:border-primary/40 min-h-[92px]"
       data-testid={`source-row-${source.sourceId}`}
     >
       {/* Left column — source identity + actions menu, vertical divider (~30%) */}
@@ -205,7 +205,7 @@ export function SourceRow({
                 to get started.
               </p>
             ) : (
-              <span className="text-sm font-medium text-gray-500">No connections yet</span>
+              <span className="text-sm font-medium text-muted-foreground">No connections yet</span>
             )}
           </div>
         ) : (

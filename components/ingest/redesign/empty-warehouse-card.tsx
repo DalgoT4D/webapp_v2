@@ -1,17 +1,20 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { Database, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
+interface EmptyWarehouseCardProps {
+  /** Re-open the add-source wizard at its warehouse step. */
+  onSetUp: () => void;
+}
+
 /**
- * Step 1 of the progressive reveal: the org has no warehouse. Shows a single
- * explanatory card whose one action routes to Settings → Warehouse, where the
- * warehouse is set up (and later managed).
+ * Shown behind the auto-opened wizard when the org has no warehouse. If the user
+ * closes the wizard, this card stays and its button re-opens it at the warehouse
+ * step (the wizard, not Settings, owns first-time warehouse setup now).
  */
-export function EmptyWarehouseCard() {
-  const router = useRouter();
+export function EmptyWarehouseCard({ onSetUp }: EmptyWarehouseCardProps) {
   const { hasPermission } = useRbac();
   const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_WAREHOUSE);
 
@@ -32,7 +35,7 @@ export function EmptyWarehouseCard() {
         <Button
           variant="primary"
           className="uppercase mt-6"
-          onClick={() => router.push('/settings/warehouse')}
+          onClick={onSetUp}
           disabled={!canCreate}
           data-testid="setup-warehouse-btn"
         >

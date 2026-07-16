@@ -61,7 +61,7 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
             data-testid="source-search-input"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search 200+ sources..."
+            placeholder="Search all sources..."
             className="pl-9"
           />
         </div>
@@ -109,7 +109,7 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
                     isSelected(def!) && 'border-primary ring-1 ring-primary bg-primary/5'
                   )}
                 >
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border bg-white">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border bg-background">
                     <img
                       src={def!.icon || '/icons/connection.svg'}
                       alt=""

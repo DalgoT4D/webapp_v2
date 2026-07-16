@@ -6,12 +6,9 @@ jest.mock('@/lib/rbac', () => ({
   PERMISSIONS: { CAN_CREATE_SOURCE: 'can_create_source' },
 }));
 
-jest.mock('@/components/ingest/sources/wizard/AddSourceWizard', () => ({
-  AddSourceWizard: ({ open }: any) => (open ? <div data-testid="wizard-open" /> : null),
-}));
-
-it('opens the AddSourceWizard when the primary button is clicked', () => {
-  render(<EmptySourceCard onCreated={jest.fn()} />);
+it('calls onAddSource when the primary button is clicked', () => {
+  const onAddSource = jest.fn();
+  render(<EmptySourceCard onAddSource={onAddSource} />);
   fireEvent.click(screen.getByRole('button', { name: /add.*source/i }));
-  expect(screen.getByTestId('wizard-open')).toBeInTheDocument();
+  expect(onAddSource).toHaveBeenCalledTimes(1);
 });

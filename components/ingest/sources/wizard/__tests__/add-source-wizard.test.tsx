@@ -23,6 +23,13 @@ jest.mock('@/components/connections/connection-form-body', () => ({
     <div data-testid="conn-body">source:{presetSourceId}</div>
   ),
 }));
+jest.mock('@/components/ingest/warehouse/warehouse-form-body', () => ({
+  WarehouseFormBody: ({ onSuccess }: any) => (
+    <button data-testid="wh-save" onClick={onSuccess}>
+      save warehouse
+    </button>
+  ),
+}));
 
 it('advances select → configure → connection and passes the created source id', () => {
   render(<AddSourceWizard open onClose={jest.fn()} onComplete={jest.fn()} />);
@@ -31,6 +38,19 @@ it('advances select → configure → connection and passes the created source i
   expect(screen.getByTestId('create')).toBeInTheDocument();
   fireEvent.click(screen.getByTestId('create'));
   expect(screen.getByTestId('conn-body')).toHaveTextContent('source:src-9');
+});
+
+it('with needsWarehouse: starts a 4-step flow on the warehouse step, then advances', () => {
+  render(<AddSourceWizard open needsWarehouse onClose={jest.fn()} onComplete={jest.fn()} />);
+
+  // Step 1 of 4 is the warehouse form.
+  expect(screen.getByTestId('wh-save')).toBeInTheDocument();
+  expect(screen.getByText(/step 1 of 4/i)).toBeInTheDocument();
+
+  // Saving the warehouse advances to the source picker (stays open).
+  fireEvent.click(screen.getByTestId('wh-save'));
+  expect(screen.getByTestId('pick')).toBeInTheDocument();
+  expect(screen.getByText(/step 2 of 4/i)).toBeInTheDocument();
 });
 
 it('refreshes the list (onComplete) when dismissed after the source is created', () => {

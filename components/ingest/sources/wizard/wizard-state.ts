@@ -1,4 +1,6 @@
-export type WizardStep = 'select' | 'configure' | 'connection';
+// 'warehouse' is only present when the org has no warehouse yet — it becomes the
+// wizard's first step, so the flow reads as 4 steps instead of 3.
+export type WizardStep = 'warehouse' | 'select' | 'configure' | 'connection';
 
 export interface TopSource {
   name: string; // must match the Airbyte source-definition name

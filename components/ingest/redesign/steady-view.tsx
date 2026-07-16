@@ -50,7 +50,7 @@ function ColumnInfo({ label, children }: { label: string; children: ReactNode })
     <Tooltip>
       <TooltipTrigger asChild>
         <Info
-          className="h-3.5 w-3.5 flex-shrink-0 cursor-help text-gray-400 hover:text-gray-600"
+          className="h-3.5 w-3.5 flex-shrink-0 cursor-help text-muted-foreground hover:text-foreground"
           aria-label={`About ${label}`}
           data-testid={`column-info-${label.toLowerCase().replace(/\s+/g, '-')}`}
         />
@@ -375,7 +375,7 @@ export function SteadyView() {
       {/* Source groups */}
       <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 mt-2">
         {hasQuery && groups.length === 0 && (
-          <p className="text-base text-gray-400 py-8 text-center">
+          <p className="text-base text-muted-foreground py-8 text-center">
             No sources or connections matching &quot;{searchTerm}&quot;
           </p>
         )}
@@ -385,27 +385,27 @@ export function SteadyView() {
             stays a sibling of the rows body (not inside its overflow-hidden
             wrapper) so `sticky` still resolves against the scroll container. */}
         {groups.length > 0 && (
-          <div className="rounded-lg border bg-gray-50">
+          <div className="rounded-lg border bg-muted/50">
             <TooltipProvider delayDuration={150}>
               <div
-                className="sticky top-0 z-10 flex rounded-t-lg border-b bg-gray-100 py-3 text-sm font-semibold text-gray-700"
+                className="sticky top-0 z-10 flex rounded-t-lg border-b bg-muted py-3 text-sm font-semibold text-muted-foreground"
                 data-testid="ingest-column-labels"
               >
                 <div className="w-[30%] flex-shrink-0 flex items-center gap-1.5 px-4">
                   <button
                     type="button"
                     onClick={handleSortSources}
-                    className="flex items-center gap-2 text-left font-semibold text-gray-700 transition-colors cursor-pointer hover:text-gray-900"
+                    className="flex items-center gap-2 text-left font-semibold text-muted-foreground transition-colors cursor-pointer hover:text-foreground"
                     data-testid="sort-source-details"
                     aria-label="Sort sources"
                   >
                     Source details
                     {sortOption === 'name_asc' ? (
-                      <ArrowUp className="h-4 w-4 text-gray-600" />
+                      <ArrowUp className="h-4 w-4 text-foreground" />
                     ) : sortOption === 'name_desc' ? (
-                      <ArrowDown className="h-4 w-4 text-gray-600" />
+                      <ArrowDown className="h-4 w-4 text-foreground" />
                     ) : (
-                      <ArrowUpDown className="h-4 w-4 text-gray-400" />
+                      <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                     )}
                   </button>
                   <ColumnInfo label="Source">

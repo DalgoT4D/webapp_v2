@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Combobox, highlightText, type ComboboxItem } from '@/components/ui/combobox';
 import { extractSpecDefaults } from '@/components/connectors/utils';
 import type { FieldNode } from '@/components/connectors/types';
@@ -444,9 +445,9 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
             <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-none px-6 py-5">
               {/* Source Name */}
               <div>
-                <label htmlFor="source-name" className="text-[15px] font-medium">
+                <Label htmlFor="source-name">
                   Source Name <span className="text-destructive">*</span>
-                </label>
+                </Label>
                 <Input
                   id="source-name"
                   data-testid="source-name-input"
@@ -460,9 +461,9 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
 
               {/* Source Type Selector */}
               <div>
-                <label htmlFor="source-type" className="text-[15px] font-medium">
+                <Label htmlFor="source-type">
                   Source Type <span className="text-destructive">*</span>
-                </label>
+                </Label>
                 <div className="mt-1.5">
                   <Combobox
                     id="source-type"

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { format, parseISO, isValid } from 'date-fns';
 import { useWatch, type Control, type FieldValues, type UseFormSetValue } from 'react-hook-form';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Label } from '@/components/ui/label';
 import type { FieldNode } from '@/components/connectors/types';
 import { KOBO_START_TIME_SUFFIX } from './constants';
 
@@ -36,9 +37,7 @@ export function StartTimeField({ field, control, setValue, disabled }: StartTime
 
   return (
     <div data-testid="start-time-field">
-      <label htmlFor="kobo-start-time" className="text-sm font-medium">
-        {field.title}
-      </label>
+      <Label htmlFor="kobo-start-time">{field.title}</Label>
       {field.description && (
         <p className="mt-0.5 text-xs text-muted-foreground">{field.description}</p>
       )}

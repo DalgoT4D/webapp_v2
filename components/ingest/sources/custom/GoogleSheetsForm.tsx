@@ -10,6 +10,7 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from '@/components/ui/accordion';
+import { Label } from '@/components/ui/label';
 import type { FieldNode } from '@/components/connectors/types';
 import {
   GSHEETS_KEY_SPREADSHEET,
@@ -104,9 +105,9 @@ export function GoogleSheetsForm({
       {/* Google OAuth button (or static confirmation once connected in create). */}
       {oauth && (
         <div className="space-y-2">
-          <label className="text-sm font-medium">
+          <Label>
             Authentication <span className="text-destructive">*</span>
-          </label>
+          </Label>
           {connected && oauth.lockWhenConnected ? (
             <div
               data-testid="gsheets-oauth-connected"

@@ -5,6 +5,7 @@ import { useWatch } from 'react-hook-form';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { extractSpecDefaults } from '@/components/connectors/utils';
 import { getSourceOAuthConsent, createOAuthSource } from '@/hooks/api/useSources';
 import { openOAuthPopup } from '@/components/connectors/oauth-popup';
@@ -218,9 +219,9 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   // inputs; for generic sources it renders full-width above the spec-driven form.
   const nameField = (
     <div>
-      <label className="text-sm font-medium">
+      <Label>
         Source name <span className="text-destructive">*</span>
-      </label>
+      </Label>
       <Input
         data-testid="wizard-source-name"
         value={name}

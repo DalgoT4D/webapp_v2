@@ -1,23 +1,24 @@
 'use client';
 
-import { useState } from 'react';
 import { Plug, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
-import { AddSourceWizard } from '@/components/ingest/sources/wizard/AddSourceWizard';
 
 interface EmptySourceCardProps {
-  onCreated: () => void;
+  /** Open the add-source wizard. Owned by IngestView (a stable top-level sibling)
+   *  rather than this card, so it survives the NO_SOURCE → STEADY state flip that
+   *  unmounts this card once the first source lands in the cache. */
+  onAddSource: () => void;
 }
 
 /**
  * Step 2 of the progressive reveal: the org has a warehouse but no sources.
- * Shows a single card explaining what a source is, with one action.
+ * Shows a single card explaining what a source is, with one action that opens
+ * the shared wizard.
  */
-export function EmptySourceCard({ onCreated }: EmptySourceCardProps) {
+export function EmptySourceCard({ onAddSource }: EmptySourceCardProps) {
   const { hasPermission } = useRbac();
   const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_SOURCE);
-  const [formOpen, setFormOpen] = useState(false);
 
   return (
     <div
@@ -36,7 +37,7 @@ export function EmptySourceCard({ onCreated }: EmptySourceCardProps) {
         <Button
           variant="primary"
           className="uppercase mt-6"
-          onClick={() => setFormOpen(true)}
+          onClick={onAddSource}
           disabled={!canCreate}
           data-testid="add-first-source-btn"
         >
@@ -49,17 +50,6 @@ export function EmptySourceCard({ onCreated }: EmptySourceCardProps) {
           </p>
         )}
       </div>
-
-      {formOpen && (
-        <AddSourceWizard
-          open={formOpen}
-          onClose={() => setFormOpen(false)}
-          onComplete={() => {
-            setFormOpen(false);
-            onCreated();
-          }}
-        />
-      )}
     </div>
   );
 }

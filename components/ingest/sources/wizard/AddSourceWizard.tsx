@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils';
 import { FormMode } from '@/constants/connections';
 import { ConnectionFormBody } from '@/components/connections/connection-form-body';
+import { WarehouseFormBody } from '@/components/ingest/warehouse/warehouse-form-body';
 import type { SourceDefinition } from '@/types/source';
 import { SelectSourceStep } from './SelectSourceStep';
 import { CreateSourceStep } from './CreateSourceStep';
@@ -19,10 +20,13 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onComplete: () => void;
+  /** No warehouse yet: prepend a warehouse step so the flow is 4 steps (warehouse
+   *  → select → configure → connection) instead of the usual 3. */
+  needsWarehouse?: boolean;
 }
 
-export function AddSourceWizard({ open, onClose, onComplete }: Props) {
-  const [step, setStep] = useState<WizardStep>('select');
+export function AddSourceWizard({ open, onClose, onComplete, needsWarehouse = false }: Props) {
+  const [step, setStep] = useState<WizardStep>(needsWarehouse ? 'warehouse' : 'select');
   const [def, setDef] = useState<SourceDefinition | null>(null);
   const [createdSourceId, setCreatedSourceId] = useState<string | null>(null);
   // Connection step starts compact (just name + "Fetching…") and widens only
@@ -38,13 +42,13 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
   // Reset whenever the dialog is (re)opened, so a prior run doesn't leak in.
   useEffect(() => {
     if (open) {
-      setStep('select');
+      setStep(needsWarehouse ? 'warehouse' : 'select');
       setDef(null);
       setCreatedSourceId(null);
       setConnectionExpanded(false);
       setConnectionHeaderInfo(null);
     }
-  }, [open]);
+  }, [open, needsWarehouse]);
 
   // Dismissing the wizard (top-right X, Esc — i.e. Radix onOpenChange→false).
   // If a source was already created (step 3 reached), the source now exists
@@ -60,28 +64,33 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
     }
   };
 
-  // Wizard progress: the header shows a 3-segment bar + "Step N of 3 · label"
-  // so the modal reads as a stepper rather than three unrelated dialogs.
-  const STEP_ORDER: WizardStep[] = ['select', 'configure', 'connection'];
+  // Wizard progress: the header shows a segmented bar + "Step N of M · label" so
+  // the modal reads as a stepper. The warehouse step is prepended only when the org
+  // has no warehouse yet (4 steps); otherwise it's the usual 3.
+  const STEP_ORDER: WizardStep[] = needsWarehouse
+    ? ['warehouse', 'select', 'configure', 'connection']
+    : ['select', 'configure', 'connection'];
   const STEP_LABELS: Record<WizardStep, string> = {
+    warehouse: 'Set up warehouse',
     select: 'Choose source',
     configure: 'Configure',
     connection: 'Select data',
   };
   const stepIndex = STEP_ORDER.indexOf(step);
 
-  // Step-aware modal header. The configure step names the chosen source; the
-  // helper panel on the right of that step walks the user through each field.
+  // Step-aware modal header. The configure step names the chosen source.
   const header = {
+    warehouse: {
+      title: 'Set up your warehouse',
+      description: 'A warehouse is where all your data lands — set it up once, then add sources.',
+    },
     select: {
       title: 'Choose your data source',
-      description:
-        'Pick the tool you want to bring data from — Dalgo connects to 500+ sources. Start with a popular one below, or search the full catalog.',
+      description: 'Pick a popular source below, or search the full catalog.',
     },
     configure: {
       title: `Configure ${def?.name ?? 'source'}`,
-      description:
-        'Fill in the details on the left. The panel on the right walks you through exactly where to find each one.',
+      description: 'Fill in the details below to connect your source.',
     },
     connection: connectionHeaderInfo
       ? {
@@ -112,12 +121,13 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
               ? connectionExpanded
                 ? '!max-w-[1600px] !w-[96vw] max-h-[85vh]'
                 : '!max-w-[720px] !w-[92vw] max-h-[85vh]'
-              : 'sm:max-w-[720px] min-h-[640px]'
+              : // warehouse + configure: single-column form
+                'sm:max-w-3xl min-h-[640px]'
         )}
         preventOutsideClose
       >
         <DialogHeader className="flex-shrink-0 space-y-2 border-b px-6 pt-6 pb-4 text-left">
-          {/* Stepper eyebrow: segmented progress + "Step N of 3 · label". */}
+          {/* Stepper eyebrow: segmented progress + "Step N of M · label". */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5" aria-hidden="true">
               {STEP_ORDER.map((s, i) => (
@@ -148,6 +158,20 @@ export function AddSourceWizard({ open, onClose, onComplete }: Props) {
         </DialogHeader>
 
         <div className="flex flex-1 min-h-0 flex-col">
+          {step === 'warehouse' && (
+            <WarehouseFormBody
+              submitLabel="Save & Continue"
+              onCancel={handleDismiss}
+              onSuccess={() => {
+                // Warehouse now exists server-side. Advance to the source picker.
+                // The host deliberately does NOT revalidate the warehouse until the
+                // wizard closes — flipping the ingest state mid-flow would swap the
+                // card behind this open dialog and disrupt it.
+                setStep('select');
+              }}
+            />
+          )}
+
           {step === 'select' && (
             <SelectSourceStep
               onClose={onClose}
