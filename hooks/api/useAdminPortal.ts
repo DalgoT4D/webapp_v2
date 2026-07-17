@@ -1,6 +1,6 @@
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
-import { toast } from 'sonner';
+import { toastSuccess, toastError } from '@/lib/toast';
 
 export interface AdminStats {
   total_orgs: number;
@@ -79,10 +79,10 @@ export function useAdminOrgActions() {
   const createOrg = async (data: CreateAdminOrgForm): Promise<AdminOrg> => {
     try {
       const org = (await apiPost('/api/v1/admin/orgs', data)) as AdminOrg;
-      toast.success('Organization created');
+      toastSuccess.generic('Organization created');
       return org;
     } catch (error: any) {
-      toast.error(error.message || 'Failed to create organization');
+      toastError.api(error, 'Failed to create organization');
       throw error;
     }
   };
@@ -90,10 +90,10 @@ export function useAdminOrgActions() {
   const updateOrg = async (orgId: number, data: UpdateAdminOrgForm): Promise<AdminOrg> => {
     try {
       const org = (await apiPut(`/api/v1/admin/orgs/${orgId}`, data)) as AdminOrg;
-      toast.success('Organization updated');
+      toastSuccess.generic('Organization updated');
       return org;
     } catch (error: any) {
-      toast.error(error.message || 'Failed to update organization');
+      toastError.api(error, 'Failed to update organization');
       throw error;
     }
   };
@@ -101,10 +101,10 @@ export function useAdminOrgActions() {
   const deactivateOrg = async (orgId: number): Promise<AdminOrg> => {
     try {
       const org = (await apiPost(`/api/v1/admin/orgs/${orgId}/deactivate`, {})) as AdminOrg;
-      toast.success('Organization deactivated');
+      toastSuccess.generic('Organization deactivated');
       return org;
     } catch (error: any) {
-      toast.error(error.message || 'Failed to deactivate organization');
+      toastError.api(error, 'Failed to deactivate organization');
       throw error;
     }
   };
@@ -112,10 +112,10 @@ export function useAdminOrgActions() {
   const reactivateOrg = async (orgId: number): Promise<AdminOrg> => {
     try {
       const org = (await apiPost(`/api/v1/admin/orgs/${orgId}/reactivate`, {})) as AdminOrg;
-      toast.success('Organization reactivated');
+      toastSuccess.generic('Organization reactivated');
       return org;
     } catch (error: any) {
-      toast.error(error.message || 'Failed to reactivate organization');
+      toastError.api(error, 'Failed to reactivate organization');
       throw error;
     }
   };
@@ -197,9 +197,9 @@ export function useAdminOrgUserActions() {
   const inviteUser = async (orgId: number, data: AdminInviteUserForm): Promise<void> => {
     try {
       await apiPost(`/api/v1/admin/orgs/${orgId}/users/invite`, data);
-      toast.success('Invitation sent');
+      toastSuccess.generic('Invitation sent');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to send invitation');
+      toastError.api(error, 'Failed to send invitation');
       throw error;
     }
   };
@@ -209,9 +209,9 @@ export function useAdminOrgUserActions() {
       await apiPut(`/api/v1/admin/orgs/${orgId}/users/${orgUserId}/role`, {
         role_uuid: roleUuid,
       });
-      toast.success('Role updated');
+      toastSuccess.generic('Role updated');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to update role');
+      toastError.api(error, 'Failed to update role');
       throw error;
     }
   };
@@ -219,9 +219,9 @@ export function useAdminOrgUserActions() {
   const deactivateUser = async (orgId: number, orgUserId: number): Promise<void> => {
     try {
       await apiPost(`/api/v1/admin/orgs/${orgId}/users/${orgUserId}/deactivate`, {});
-      toast.success('User deactivated in this organization');
+      toastSuccess.generic('User deactivated in this organization');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to deactivate user');
+      toastError.api(error, 'Failed to deactivate user');
       throw error;
     }
   };
@@ -229,9 +229,9 @@ export function useAdminOrgUserActions() {
   const reactivateUser = async (orgId: number, orgUserId: number): Promise<void> => {
     try {
       await apiPost(`/api/v1/admin/orgs/${orgId}/users/${orgUserId}/reactivate`, {});
-      toast.success('User reactivated in this organization');
+      toastSuccess.generic('User reactivated in this organization');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to reactivate user');
+      toastError.api(error, 'Failed to reactivate user');
       throw error;
     }
   };
@@ -239,9 +239,9 @@ export function useAdminOrgUserActions() {
   const removeUser = async (orgId: number, orgUserId: number): Promise<void> => {
     try {
       await apiDelete(`/api/v1/admin/orgs/${orgId}/users/${orgUserId}`);
-      toast.success('User removed from organization');
+      toastSuccess.generic('User removed from organization');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to remove user');
+      toastError.api(error, 'Failed to remove user');
       throw error;
     }
   };
@@ -249,9 +249,9 @@ export function useAdminOrgUserActions() {
   const cancelInvitation = async (orgId: number, invitationId: number): Promise<void> => {
     try {
       await apiDelete(`/api/v1/admin/orgs/${orgId}/invitations/${invitationId}`);
-      toast.success('Invitation cancelled');
+      toastSuccess.generic('Invitation cancelled');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to cancel invitation');
+      toastError.api(error, 'Failed to cancel invitation');
       throw error;
     }
   };
