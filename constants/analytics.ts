@@ -47,6 +47,7 @@ export const ANALYTICS_EVENTS = {
   REPORT_VIEWED: 'report:report_viewed',
   REPORT_SHARED: 'report:report_shared',
   REPORT_EXPORTED: 'report:report_exported',
+  REPORT_SUMMARY_GENERATED: 'report:summary_generated',
   REPORT_COMMENT_CREATED: 'report:comment_created',
   REPORT_COMMENT_UPDATED: 'report:comment_updated',
   REPORT_COMMENT_DELETED: 'report:comment_deleted',
@@ -118,6 +119,13 @@ export const ANALYTICS_EVENTS = {
   ALERT_TOGGLED: 'alert:alert_toggled',
   ALERT_SLACK_WEBHOOK_TESTED: 'alert:slack_webhook_tested',
   ALERT_LOGS_VIEWED: 'alert:logs_viewed',
+  // Chat with Data
+  CHAT_SESSION_CREATED: 'chat_with_data:session_created',
+  CHAT_SESSION_RENAMED: 'chat_with_data:session_renamed',
+  CHAT_SESSION_DELETED: 'chat_with_data:session_deleted',
+  CHAT_MESSAGE_SENT: 'chat_with_data:message_sent',
+  CHAT_SQL_VIEWED: 'chat_with_data:sql_viewed',
+  CHAT_DASHBOARD_DRAWER_OPENED: 'chat_with_data:dashboard_drawer_opened',
   // Data quality (Elementary-based)
   DATA_QUALITY_SETUP_COMPLETED: 'data_quality:setup_completed',
   DATA_QUALITY_REPORT_GENERATED: 'data_quality:report_generated',
@@ -183,6 +191,8 @@ export const VALUE_ACTION_EVENTS: ReadonlySet<AnalyticsEvent> = new Set([
   // Alerts — edit / create
   ANALYTICS_EVENTS.ALERT_CREATED,
   ANALYTICS_EVENTS.ALERT_UPDATED,
+  // Chat with Data — asking a question is consuming insight
+  ANALYTICS_EVENTS.CHAT_MESSAGE_SENT,
 ]);
 
 // Stable feature identifiers for the feature:viewed breadth event. One per
@@ -201,6 +211,7 @@ export const FEATURES = {
   METRICS: 'metrics',
   DATA_QUALITY: 'data_quality',
   ALERTS: 'alerts',
+  CHAT_WITH_DATA: 'chat_with_data',
   NOTIFICATIONS: 'notifications',
   SETTINGS_BILLING: 'settings_billing',
   SETTINGS_USER_MANAGEMENT: 'settings_user_management',
@@ -229,6 +240,7 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/metrics', feature: FEATURES.METRICS },
   { prefix: '/data-quality', feature: FEATURES.DATA_QUALITY },
   { prefix: '/alerts', feature: FEATURES.ALERTS },
+  { prefix: '/chat-with-data', feature: FEATURES.CHAT_WITH_DATA },
   { prefix: '/notifications', feature: FEATURES.NOTIFICATIONS },
   { prefix: '/settings/billing', feature: FEATURES.SETTINGS_BILLING },
   { prefix: '/settings/user-management', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
