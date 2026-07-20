@@ -127,6 +127,49 @@ describe('TrialProgressPage', () => {
     expect(mockReplace).toHaveBeenCalledWith('/impact');
   });
 
+  it('shows the manual-login state and clears creds when the auto-login POST rejects', async () => {
+    sessionStorage.setItem(
+      CREDS_STORAGE_KEY,
+      JSON.stringify({ email: 'jane@example.org', password: 'super-secret-1' })
+    );
+    mockApiPost.mockRejectedValueOnce(new Error('network blip'));
+    mockSwrData = {
+      task_id: 'task-123',
+      status: 'completed',
+      progress: [{ step: 8, message: 'Preparing your dashboards', status: 'done' }],
+      org_slug: 'acme',
+    };
+
+    render(<TrialProgressPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('trial-login-cta')).toBeInTheDocument();
+    });
+
+    expect(sessionStorage.getItem(CREDS_STORAGE_KEY)).toBeNull();
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(screen.getByTestId('trial-login-cta')).toHaveAttribute('href', '/login');
+  });
+
+  it('shows the manual-login state when the stashed creds are missing', async () => {
+    // sessionStorage is cleared in beforeEach — nothing stashed.
+    mockSwrData = {
+      task_id: 'task-123',
+      status: 'completed',
+      progress: [{ step: 8, message: 'Preparing your dashboards', status: 'done' }],
+      org_slug: 'acme',
+    };
+
+    render(<TrialProgressPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('trial-login-cta')).toBeInTheDocument();
+    });
+
+    expect(mockApiPost).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
   it('shows the "Something went wrong" message and a retry button on a failed status', () => {
     mockSwrData = {
       task_id: 'task-123',

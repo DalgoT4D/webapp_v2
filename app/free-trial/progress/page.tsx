@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -30,14 +30,24 @@ function deriveCurrentIndex(progress: TrialProgressStep[] | undefined): number {
     return 0;
   }
 
-  const last = progress[progress.length - 1];
-
-  if (typeof last.step === 'number') {
-    return last.step - STEP_TO_INDEX_OFFSET;
+  // Walk backwards from the latest event so a single label that has drifted
+  // out of sync with the frontend↔backend TRIAL_STEP_LABELS contract doesn't
+  // roll the progress bar back to 0 — fall back to the nearest earlier event
+  // that still resolves to a known step.
+  for (let i = progress.length - 1; i >= 0; i -= 1) {
+    const step = progress[i];
+    if (typeof step.step === 'number') {
+      return step.step - STEP_TO_INDEX_OFFSET;
+    }
+    const labelIndex = TRIAL_STEP_LABELS.indexOf(step.message);
+    if (labelIndex >= 0) {
+      return labelIndex;
+    }
   }
 
-  const labelIndex = TRIAL_STEP_LABELS.indexOf(last.message);
-  return labelIndex >= 0 ? labelIndex : 0;
+  // No event in the whole history matched — clamp to the last known step
+  // index instead of resetting to 0.
+  return progress.length - 1;
 }
 
 function CardShell({ children }: { children: React.ReactNode }) {
@@ -57,6 +67,7 @@ function ProgressCard() {
   const searchParams = useSearchParams();
   const taskId = searchParams.get('task_id');
   const loginAttemptedRef = useRef(false);
+  const [manualLoginNeeded, setManualLoginNeeded] = useState(false);
 
   const statusUrl = taskId ? `${TRIAL_STATUS_PATH}/${taskId}` : null;
   const { data } = useSWR<TrialStatusResponse>(statusUrl, {
@@ -80,16 +91,30 @@ function ProgressCard() {
     const autoLogin = async () => {
       const raw = sessionStorage.getItem(TRIAL_CREDS_STORAGE_KEY);
       if (!raw) {
+        // Creds missing — e.g. the tab was reloaded or progress was opened in
+        // a new tab. The clone itself still succeeded, so send the user to a
+        // manual login instead of leaving them stuck with no feedback.
+        setManualLoginNeeded(true);
+        trackEvent(ANALYTICS_EVENTS.TRIAL_MANUAL_LOGIN_REQUIRED);
         return;
       }
       const { email, password } = JSON.parse(raw);
 
-      await apiPost('/api/v2/login/', { username: email, password });
+      try {
+        await apiPost('/api/v2/login/', { username: email, password });
 
-      sessionStorage.removeItem(TRIAL_CREDS_STORAGE_KEY);
-      useAuthStore.getState().setAuthenticated(true);
-      trackEvent(ANALYTICS_EVENTS.TRIAL_CLONE_COMPLETED);
-      router.replace('/impact');
+        sessionStorage.removeItem(TRIAL_CREDS_STORAGE_KEY);
+        useAuthStore.getState().setAuthenticated(true);
+        trackEvent(ANALYTICS_EVENTS.TRIAL_CLONE_COMPLETED);
+        router.replace('/impact');
+      } catch {
+        // Auto-login failed (network/backend blip) — the workspace clone
+        // still succeeded, so don't leave the plaintext password sitting in
+        // sessionStorage or strand the user on a spinner forever.
+        sessionStorage.removeItem(TRIAL_CREDS_STORAGE_KEY);
+        setManualLoginNeeded(true);
+        trackEvent(ANALYTICS_EVENTS.TRIAL_MANUAL_LOGIN_REQUIRED);
+      }
     };
 
     autoLogin();
@@ -142,6 +167,31 @@ function ProgressCard() {
         <Button variant="primary" className="w-full" asChild>
           <Link href="/free-trial" data-testid="trial-progress-retry-button">
             Try again
+          </Link>
+        </Button>
+      </CardShell>
+    );
+  }
+
+  if (manualLoginNeeded) {
+    return (
+      <CardShell>
+        <div className="text-center" data-testid="trial-progress-manual-login">
+          <div className="flex justify-center mb-6">
+            <Image
+              src="/dalgo_logo.svg"
+              alt="Dalgo"
+              width={80}
+              height={90}
+              className="text-primary"
+            />
+          </div>
+          <h1 className="text-2xl font-bold mb-2">🎉 Your workspace is ready!</h1>
+          <p className="text-gray-600">Please log in to get started.</p>
+        </div>
+        <Button variant="primary" className="w-full" asChild>
+          <Link href="/login" data-testid="trial-login-cta">
+            Log in
           </Link>
         </Button>
       </CardShell>

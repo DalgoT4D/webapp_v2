@@ -13,6 +13,9 @@ export const ANALYTICS_EVENTS = {
   TRIAL_ACTIVATED: 'trial:trial_activated',
   TRIAL_CLONE_COMPLETED: 'trial:clone_completed',
   TRIAL_CLONE_FAILED: 'trial:clone_failed',
+  // Clone succeeded but auto-login could not run (login call failed, or the
+  // stashed creds were missing e.g. after a reload) — user must log in manually.
+  TRIAL_MANUAL_LOGIN_REQUIRED: 'trial:manual_login_required',
   // Breadth — every menu / submenu / tab
   FEATURE_VIEWED: 'feature:viewed',
   // Charts (CHART_SAVED is the edit/update event)
