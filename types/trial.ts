@@ -17,6 +17,7 @@ export interface TrialActivateRequest {
 
 export interface TrialActivateResponse {
   task_id: string;
+  email: string;
 }
 
 export interface TrialProgressStep {
