@@ -8,6 +8,11 @@ export const ANALYTICS_EVENTS = {
   ORG_SWITCHED: 'auth:org_switched',
   RBAC_NOTICE_VIEWED: 'onboarding:rbac_notice_viewed',
   RBAC_NOTICE_DISMISSED: 'onboarding:rbac_notice_dismissed',
+  // Free trial onboarding
+  TRIAL_SIGNUP_SUBMITTED: 'trial:signup_submitted',
+  TRIAL_ACTIVATED: 'trial:trial_activated',
+  TRIAL_CLONE_COMPLETED: 'trial:clone_completed',
+  TRIAL_CLONE_FAILED: 'trial:clone_failed',
   // Breadth — every menu / submenu / tab
   FEATURE_VIEWED: 'feature:viewed',
   // Charts (CHART_SAVED is the edit/update event)

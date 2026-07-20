@@ -24,7 +24,8 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     pathname.startsWith('/public/dashboard/') ||
     pathname.startsWith('/share/dashboard/') ||
     pathname.startsWith('/share/report/') ||
-    pathname.startsWith('/invitations/');
+    pathname.startsWith('/invitations/') ||
+    pathname.startsWith('/free-trial');
 
   // Always bypass auth for public dashboard/report routes
   if (
