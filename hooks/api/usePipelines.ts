@@ -64,11 +64,14 @@ export function usePipeline(deploymentId: string | null) {
 /**
  * Fetch all transform tasks
  * @param excludeGit - If true, excludes git tasks (used in pipeline orchestration where git is auto-managed)
+ * @param includeEdr - If true, includes the generate-edr deployment (only used by the pipeline form)
  */
-export function useTransformTasks(excludeGit: boolean = false) {
-  const url = excludeGit
-    ? '/api/prefect/tasks/transform/?exclude_git=true'
-    : '/api/prefect/tasks/transform/';
+export function useTransformTasks(excludeGit: boolean = false, includeEdr: boolean = false) {
+  const params = new URLSearchParams();
+  if (excludeGit) params.set('exclude_git', 'true');
+  if (includeEdr) params.set('include_edr', 'true');
+  const qs = params.toString();
+  const url = qs ? `/api/prefect/tasks/transform/?${qs}` : '/api/prefect/tasks/transform/';
 
   const { data, error, mutate, isLoading } = useSWR<TransformTask[]>(url, apiGet, {
     revalidateOnFocus: false,
