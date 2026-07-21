@@ -4,10 +4,24 @@ export interface ElementarySetupStatusResponse {
   status: ElementarySetupStatus;
 }
 
-export interface ElementaryReportTokenResponse {
-  token: string;
-  created_on_utc: string;
+export interface ElementarySchedule {
+  cron: string;
 }
+
+// Backend returns { report_exists: false } when no EDR run has produced a
+// report in S3 within the lookback window (expected empty state on a
+// freshly-set-up org), and { report_exists: true, token, created_on_utc,
+// schedule } when a report is available. `schedule` is present on both
+// responses (may be null if the EDR deployment isn't set up yet).
+export type ElementaryReportTokenResponse =
+  | { report_exists: false; schedule: ElementarySchedule | null }
+  | {
+      report_exists: true;
+      token: string;
+      created_on_utc: string;
+      created_on_ist?: string;
+      schedule: ElementarySchedule | null;
+    };
 
 export interface ElementaryRefreshResponse {
   flow_run_id: string;
@@ -24,28 +38,34 @@ export interface ElementaryStatus {
   };
 }
 
-export interface TaskProgressResponse {
-  progress: Array<{
-    status: string;
-    message: string;
-  }>;
-}
+// Response from POST /api/dbt/elementary/check
+export type ElementaryCheckResponse =
+  | { status: 'ready' }
+  | ({ status: 'needs_repo_changes' } & ElementaryStatus);
 
-export interface CreateTrackingTablesResponse {
+// Response from POST /api/dbt/elementary/install — celery task handle
+export interface ElementaryInstallResponse {
   task_id: string;
   hashkey: string;
 }
 
-export interface GitPullResponse {
-  success: boolean;
+// Sub-step status emitted by the install_elementary celery task
+export type InstallStepStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface InstallStepProgress {
+  stepIndex: number;
+  step: string;
+  status: InstallStepStatus;
+  message?: string;
 }
 
-export interface ElementaryProfileResponse {
-  status: string;
-}
-
-export interface EdrDeploymentResponse {
-  status: string;
+export interface TaskProgressResponse {
+  progress: Array<{
+    status: string;
+    message?: string;
+    stepIndex?: number;
+    step?: string;
+  }>;
 }
 
 export type ElementaryLockResponse = {
