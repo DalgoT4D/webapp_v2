@@ -162,9 +162,23 @@ function LoginForm() {
             {isSubmitting ? 'Signing in...' : 'Sign In'}
           </Button>
 
-          <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-            <a href="/forgot-password" className="hover:underline">
+          <div className="flex items-center justify-center gap-3 text-center text-sm text-gray-600 dark:text-gray-400">
+            <a
+              href="/forgot-password"
+              className="hover:underline"
+              data-testid="login-forgot-password-link"
+            >
               Forgot password?
+            </a>
+            <span aria-hidden="true" className="text-gray-300 dark:text-gray-600">
+              |
+            </span>
+            <a
+              href="/free-trial"
+              className="text-primary font-medium hover:underline"
+              data-testid="login-free-trial-link"
+            >
+              Start free trial
             </a>
           </div>
         </form>

@@ -8,7 +8,7 @@
  */
 
 import type { AnchorHTMLAttributes, ImgHTMLAttributes, ReactNode } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import type { TrialStatusResponse } from '@/types/trial';
 
 // jest.setup.ts globally mocks '@/lib/api' but only exports apiGet/apiPost/...
@@ -168,6 +168,32 @@ describe('TrialProgressPage', () => {
 
     expect(mockApiPost).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('flips to the timeout fallback (log-in + start-again) after the hard timeout with no terminal status', () => {
+    jest.useFakeTimers();
+    mockSwrData = {
+      task_id: 'task-123',
+      status: 'running',
+      progress: [{ step: 1, message: 'Creating your workspace', status: 'in_progress' }],
+    };
+
+    render(<TrialProgressPage />);
+
+    // spinner while still under the ceiling
+    expect(screen.getByTestId('trial-progress-heading')).toBeInTheDocument();
+
+    // advance past the 300s hard timeout
+    act(() => {
+      jest.advanceTimersByTime(300 * 1000);
+    });
+
+    expect(screen.getByTestId('trial-progress-timeout')).toBeInTheDocument();
+    expect(screen.getByTestId('trial-timeout-login-button')).toHaveAttribute('href', '/login');
+    expect(screen.getByTestId('trial-timeout-retry-button')).toHaveAttribute('href', '/free-trial');
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial:poll_timeout');
+
+    jest.useRealTimers();
   });
 
   it('shows the "Something went wrong" message and a retry button on a failed status', () => {

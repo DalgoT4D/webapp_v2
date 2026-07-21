@@ -32,4 +32,7 @@ export interface TrialStatusResponse {
   progress: TrialProgressStep[];
   status: 'pending' | 'queued' | 'running' | 'completed' | 'failed';
   org_slug?: string;
+  // clone start time (unix seconds), set by the backend at activate. Lets the progress
+  // screen anchor its elapsed clock to a fixed origin so it survives a page refresh.
+  started_at?: number | null;
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { AnimatedBackgroundSimple } from '@/components/ui/animated-background-simple';
 import { apiPublicPost } from '@/lib/api';
+import { hardNavigate } from '@/lib/navigation';
 import { toastError, toastInfo } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -26,7 +27,6 @@ interface ActivateForm {
 }
 
 function ActivateFormCard() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
@@ -57,7 +57,13 @@ function ActivateFormCard() {
         JSON.stringify({ email: res.email, password: data.password })
       );
       trackEvent(ANALYTICS_EVENTS.TRIAL_ACTIVATED);
-      router.push(`/free-trial/progress?task_id=${res.task_id}`);
+      // Full-page navigation (not router.push) so the progress screen mounts on a clean
+      // document load. A client-side transition lands the SWR poller into an already-live
+      // SPA/HMR runtime where dev Fast Refresh events (broadcast to every open tab when any
+      // route compiles on-demand) reset the refreshInterval timer before it can fire — the
+      // screen then updates only on a manual refresh. A full load matches that working path.
+      // The creds stashed in sessionStorage above survive same-origin navigation.
+      hardNavigate(`/free-trial/progress?task_id=${res.task_id}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
       if (message.includes(String(HTTP_STATUS_BAD_REQUEST))) {

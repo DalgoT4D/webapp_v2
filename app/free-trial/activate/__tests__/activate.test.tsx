@@ -29,10 +29,14 @@ jest.mock('@/lib/analytics', () => ({
   trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
 }));
 
-const mockPush = jest.fn();
+// The activate page redirects to the progress screen via a full-page navigation
+// (lib/navigation.hardNavigate → window.location.assign), not router.push — see the page.
+const mockAssign = jest.fn();
+jest.mock('@/lib/navigation', () => ({
+  hardNavigate: (...args: unknown[]) => mockAssign(...args),
+}));
 let mockToken: string | null = 'good-token';
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush }),
   useSearchParams: () => ({ get: (key: string) => (key === 'token' ? mockToken : null) }),
 }));
 
@@ -108,7 +112,7 @@ describe('TrialActivatePage', () => {
       password: 'super-secret-1',
     });
     expect(mockTrackEvent).toHaveBeenCalledWith('trial:trial_activated');
-    expect(mockPush).toHaveBeenCalledWith('/free-trial/progress?task_id=task-123');
+    expect(mockAssign).toHaveBeenCalledWith('/free-trial/progress?task_id=task-123');
   });
 
   it('shows a validation error and makes no API call when passwords do not match', async () => {
@@ -154,6 +158,6 @@ describe('TrialActivatePage', () => {
         'This account already exists or is already being set up.'
       );
     });
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockAssign).not.toHaveBeenCalled();
   });
 });

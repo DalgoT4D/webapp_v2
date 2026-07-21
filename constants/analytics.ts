@@ -16,6 +16,9 @@ export const ANALYTICS_EVENTS = {
   // Clone succeeded but auto-login could not run (login call failed, or the
   // stashed creds were missing e.g. after a reload) — user must log in manually.
   TRIAL_MANUAL_LOGIN_REQUIRED: 'trial:manual_login_required',
+  // Status polling gave up (too many consecutive failures or hard timeout) before
+  // a terminal clone status arrived — screen fell back from the spinner.
+  TRIAL_POLL_TIMEOUT: 'trial:poll_timeout',
   // Breadth — every menu / submenu / tab
   FEATURE_VIEWED: 'feature:viewed',
   // Charts (CHART_SAVED is the edit/update event)
