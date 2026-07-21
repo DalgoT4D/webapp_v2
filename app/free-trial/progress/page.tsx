@@ -16,6 +16,7 @@ import {
   TRIAL_STATUS_POLL_INTERVAL,
   TRIAL_STEP_LABELS,
   TRIAL_CREDS_STORAGE_KEY,
+  TRIAL_ELAPSED_TICK_MS,
 } from '@/constants/trial';
 import { useAuthStore } from '@/stores/authStore';
 import type { TrialStatusResponse, TrialProgressStep } from '@/types/trial';
@@ -79,6 +80,16 @@ function ProgressCard() {
 
   const currentIndex = useMemo(() => deriveCurrentIndex(data?.progress), [data?.progress]);
   const failed = data?.status === 'failed';
+
+  // running "elapsed" clock — ticks every second, freezes once the clone reaches a terminal state
+  const isTerminal = data?.status === 'completed' || data?.status === 'failed';
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  useEffect(() => {
+    if (isTerminal) return undefined;
+    const tick = setInterval(() => setElapsedSeconds((s) => s + 1), TRIAL_ELAPSED_TICK_MS);
+    return () => clearInterval(tick);
+  }, [isTerminal]);
+  const elapsedLabel = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, '0')}`;
 
   // Auto-login once cloning completes — mirrors app/login's onLogin exactly,
   // using the creds the activate page stashed in sessionStorage.
@@ -214,6 +225,9 @@ function ProgressCard() {
           Setting up your Dalgo workspace&hellip;
         </h1>
         <p className="text-gray-600">This usually takes a couple of minutes. Hang tight.</p>
+        <p className="text-sm text-muted-foreground mt-2" data-testid="trial-elapsed">
+          Elapsed: {elapsedLabel}
+        </p>
       </div>
       <CloneProgress steps={TRIAL_STEP_LABELS} currentIndex={currentIndex} failed={failed} />
     </CardShell>

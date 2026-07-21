@@ -2,6 +2,8 @@
 
 // Status polling cadence for the progress screen (ms)
 export const TRIAL_STATUS_POLL_INTERVAL = 2000;
+// tick for the "elapsed" clock on the provisioning screen (1s)
+export const TRIAL_ELAPSED_TICK_MS = 1000;
 
 // Public backend endpoints (unauthenticated — via apiPublicPost/apiPublicGet)
 export const TRIAL_SIGNUP_PATH = '/api/v1/public/trial/signup';
