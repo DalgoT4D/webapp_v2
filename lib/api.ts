@@ -4,6 +4,23 @@ import { useAuthStore } from '@/stores/authStore';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002';
 
+// The admin portal has an independent session (separate admin_access_token cookie).
+// A 401 on an admin API call must refresh via the admin token endpoint and fail over to
+// the admin login — never the normal product's refresh/login.
+const ADMIN_API_PREFIX = '/api/v1/admin';
+
+export function isAdminPath(path: string): boolean {
+  return path.startsWith(ADMIN_API_PREFIX);
+}
+
+export function adminAwareRefreshEndpoint(path: string): string {
+  return isAdminPath(path) ? '/api/v1/admin/token/refresh' : '/api/v2/token/refresh';
+}
+
+export function adminAwareLoginPath(path: string): string {
+  return isAdminPath(path) ? '/admin/login' : '/login';
+}
+
 // Track ongoing refresh request to prevent multiple simultaneous refreshes
 let isRefreshing = false;
 let refreshPromise: Promise<boolean> = Promise.resolve(false);
@@ -15,9 +32,9 @@ function getSelectOrg() {
   return undefined;
 }
 
-async function refreshAccessToken(): Promise<boolean> {
+async function refreshAccessToken(requestPath: string): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v2/token/refresh`, {
+    const response = await fetch(`${API_BASE_URL}${adminAwareRefreshEndpoint(requestPath)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include', // Send cookies with request
@@ -45,30 +62,38 @@ function getHeaders() {
   };
 }
 
-function handleAuthFailure() {
-  if (typeof window !== 'undefined') {
-    // Don't redirect if we're on a public dashboard page
-    const currentPath = window.location.pathname;
-    if (
-      currentPath.startsWith('/share/dashboard/') ||
-      currentPath.startsWith('/public/dashboard/') ||
-      currentPath.startsWith('/share/report/')
-    ) {
-      console.log('[handleAuthFailure] Ignoring auth failure on public page');
-      return;
+function handleAuthFailure(requestPath: string) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  // Don't redirect if we're on a public dashboard page
+  const currentPath = window.location.pathname;
+  if (
+    currentPath.startsWith('/share/dashboard/') ||
+    currentPath.startsWith('/public/dashboard/') ||
+    currentPath.startsWith('/share/report/')
+  ) {
+    console.log('[handleAuthFailure] Ignoring auth failure on public page');
+    return;
+  }
+
+  const loginPath = adminAwareLoginPath(requestPath);
+
+  // Independent admin session: an admin 401 must NOT clear the normal session's store
+  // or selected org — the two sessions are separate. Just send them to the admin login.
+  if (isAdminPath(requestPath)) {
+    if (currentPath !== loginPath) {
+      window.location.href = loginPath;
     }
+    return;
+  }
 
-    // Clear organization selection
-    localStorage.removeItem('selectedOrg');
-
-    // Update auth store
-    const store = useAuthStore.getState();
-    store.logout();
-
-    // Navigate to login page
-    if (window.location.pathname !== '/login') {
-      window.location.href = '/login';
-    }
+  // Normal session failure: clear org selection + auth store, then go to /login.
+  localStorage.removeItem('selectedOrg');
+  useAuthStore.getState().logout();
+  if (currentPath !== loginPath) {
+    window.location.href = loginPath;
   }
 }
 
@@ -94,7 +119,7 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
         // Prevent multiple simultaneous refresh attempts
         if (!isRefreshing) {
           isRefreshing = true;
-          refreshPromise = refreshAccessToken().finally(() => {
+          refreshPromise = refreshAccessToken(path).finally(() => {
             isRefreshing = false;
           });
         }
@@ -109,7 +134,7 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
 
       // Either refresh failed or this is a retry that still got 401
       // In both cases, logout the user
-      handleAuthFailure();
+      handleAuthFailure(path);
       throw new Error('Authentication failed. Please log in again.');
     }
 
