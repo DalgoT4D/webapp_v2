@@ -15,6 +15,9 @@ import {
   FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
+import { getPivotRenderProps } from '@/components/charts/pivot-table/utils';
+import type { PivotTableResponse } from '@/types/pivot-table';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPublicPost } from '@/lib/api';
@@ -326,6 +329,7 @@ export function ChartElementView({
 
   // Determine chart type using effective chart
   const isTableChart = effectiveChart?.chart_type === ChartTypes.TABLE;
+  const isPivotTableChart = effectiveChart?.chart_type === ChartTypes.PIVOT_TABLE;
   const isMapChart = effectiveChart?.chart_type === ChartTypes.MAP;
   const isPieChart = effectiveChart?.chart_type === ChartTypes.PIE;
   const isNumberChart = effectiveChart?.chart_type === ChartTypes.NUMBER;
@@ -1542,7 +1546,8 @@ export function ChartElementView({
     };
 
     try {
-      if (isTableChart && tableRef.current) {
+      // Handle table/pivot chart export
+      if ((isTableChart || isPivotTableChart) && tableRef.current) {
         const filename = generateFilename(
           chartMetadata?.title || frozenChartConfig?.title || `table-${chartId}`,
           'png'
@@ -1573,6 +1578,27 @@ export function ChartElementView({
   // New CSV export function
   const handleDownloadCSV = async () => {
     try {
+      // Pivot tables generate the cross-tab CSV client-side from the already
+      // rendered response — the backend stream only emits flat table shapes.
+      if (isPivotTableChart) {
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+        const sanitizedTitle = (
+          chartMetadata?.title ||
+          frozenChartConfig?.title ||
+          `chart-${chartId}`
+        )
+          .replace(/[^a-z0-9]/gi, '_')
+          .replace(/_+/g, '_')
+          .toLowerCase();
+        await ChartExporter.exportPivotAsCSV(
+          chartData?.data as unknown as PivotTableResponse | undefined,
+          effectiveChart?.extra_config,
+          { filename: `${sanitizedTitle}-${timestamp}` }
+        );
+        toast.success('CSV downloaded successfully');
+        return;
+      }
+
       if (!chartDataPayload) {
         toast.error('Chart data is not available for CSV export');
         console.error('chartDataPayload is null');
@@ -1661,16 +1687,20 @@ export function ChartElementView({
   };
 
   const handleToggleFullscreen = () => {
-    if (!wrapperRef.current) return;
-    toggleFullscreen(wrapperRef.current);
+    // Use wrapper ref for stable fullscreen (prevents exit on drill down)
+    // For tables/pivots, use tableRef; for all charts (including maps), use wrapperRef
+    const targetRef = isTableChart || isPivotTableChart ? tableRef.current : wrapperRef.current;
+    if (!targetRef) return;
+
+    toggleFullscreen(targetRef);
   };
 
   // Handle chart resize when fullscreen state changes
   useEffect(() => {
     // Trigger chart resize after fullscreen change
     const resizeTimer = setTimeout(() => {
-      if (!isTableChart) {
-        // Only resize ECharts instances, not tables
+      if (!isTableChart && !isPivotTableChart) {
+        // Only resize ECharts instances, not tables/pivots
         if (chartInstance.current) {
           chartInstance.current.resize();
         }
@@ -1678,11 +1708,11 @@ export function ChartElementView({
           mapChartInstance.current.resize();
         }
       }
-      // Tables don't need explicit resize - they automatically adjust with CSS flexbox
+      // Tables/pivots don't need explicit resize - they automatically adjust with CSS flexbox
     }, 100);
 
     return () => clearTimeout(resizeTimer);
-  }, [isFullscreen, isTableChart]);
+  }, [isFullscreen, isTableChart, isPivotTableChart]);
 
   if (
     isLoading ||
@@ -1878,7 +1908,20 @@ export function ChartElementView({
       )}
 
       {/* Chart container */}
-      {isTableChart ? (
+      {isPivotTableChart ? (
+        <div ref={tableRef} className="w-full flex-1 h-full overflow-auto p-2">
+          {chartData?.data ? (
+            <PivotTableChart
+              data={chartData.data as unknown as PivotTableResponse}
+              {...getPivotRenderProps(effectiveChart?.extra_config)}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              {isLoading ? <Loader2 className="h-8 w-8 animate-spin" /> : 'No data available'}
+            </div>
+          )}
+        </div>
+      ) : isTableChart ? (
         <div
           ref={tableRef}
           className={cn(

@@ -14,7 +14,16 @@ export enum FlowRunStatus {
   COMPLETED = 'COMPLETED',
   FAILED = 'FAILED',
   CRASHED = 'CRASHED',
+  CANCELLED = 'CANCELLED',
 }
+
+// Terminal states — polling should stop once the flow run reaches one of these
+export const TERMINAL_FLOW_RUN_STATES: string[] = [
+  FlowRunStatus.COMPLETED,
+  FlowRunStatus.FAILED,
+  FlowRunStatus.CRASHED,
+  FlowRunStatus.CANCELLED,
+];
 
 // Prefect flow run state name
 export enum FlowRunStateName {

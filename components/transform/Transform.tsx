@@ -38,7 +38,11 @@ export default function Transform() {
   const hasInitiatedSetup = useRef(false);
 
   const { activeTab, setActiveTab } = useTransformStore();
-  const { data: transformTypeData, isLoading: transformTypeLoading } = useTransformType();
+  const {
+    data: transformTypeData,
+    isLoading: transformTypeLoading,
+    mutate: mutateTransformType,
+  } = useTransformType();
   const { preferences, mutate: mutatePreferences } = useUserPreferences();
 
   useEffect(() => {
@@ -83,6 +87,11 @@ export default function Transform() {
 
       // Hit sync sources api
       await syncSources();
+
+      // Refresh transform_type cache so a later remount reads the real value
+      // ('github') instead of the stale pre-setup value, which would otherwise
+      // re-trigger setup on the next visit.
+      await mutateTransformType();
 
       setWorkspaceSetup(true);
       toastSuccess.generic('Transform workspace setup complete');

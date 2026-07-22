@@ -1,12 +1,12 @@
 'use client';
 
-import { useKPIData } from '@/hooks/api/useKPIs';
 import { KPICard } from '@/components/kpis/kpi-card';
 import type { KPICardData } from '@/components/kpis/kpi-card';
 import type { RAGStatus } from '@/types/kpis';
 import type { CommentStates, CommentIconState } from '@/types/comments';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { computePopChanges } from '@/lib/formatters';
+import { useKPIData } from '@/hooks/api/useKPIs';
 
 interface KPIChartElementProps {
   kpiId: number;
@@ -14,6 +14,9 @@ interface KPIChartElementProps {
   isResizing?: boolean;
   snapshotId?: number;
   dashboardFilters?: Record<string, any>;
+  publicToken?: string;
+  isPublicMode?: boolean;
+  isReportMode?: boolean;
   commentStates?: CommentStates;
   onCommentStateChange?: () => void;
   autoOpenCommentChartId?: string;
@@ -26,19 +29,27 @@ export function KPIChartElement({
   config,
   snapshotId,
   dashboardFilters,
+  publicToken,
+  isPublicMode,
+  isReportMode,
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
   canModerateComments,
 }: KPIChartElementProps) {
-  const { chartData, echartsConfig, isLoading, isError } = useKPIData(kpiId, snapshotId, {
+  const { chartData, echartsConfig, isError, isLoading } = useKPIData(kpiId || null, snapshotId, {
     dashboardFilters,
+    publicToken,
+    isPublicMode,
+    isReportMode,
   });
 
   const ragStatus = chartData?.rag_status as RAGStatus | null;
   const periods = chartData?.periods || [];
 
-  const lastTwo = periods.slice(-2).map((p) => p.value);
+  const lastTwo = periods
+    .slice(-2)
+    .map((p: { period: string; period_date: string | null; value: number | null }) => p.value);
   const popChange = computePopChanges(lastTwo)[1] ?? null;
 
   if (isError) {
