@@ -40,8 +40,6 @@ import {
   Save,
   Loader2,
   Type,
-  Lock,
-  Unlock,
   Check,
   AlertCircle,
   Filter,
@@ -566,7 +564,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [saveError, setSaveError] = useState<string | null>(null);
-    const [isLocked, setIsLocked] = useState(false);
     const [lockToken, setLockToken] = useState<string | null>(null);
     const [lockRefreshInterval, setLockRefreshInterval] = useState<NodeJS.Timeout | null>(null);
 
@@ -872,7 +869,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
       try {
         const response = await apiPost(`/api/dashboards/${dashboardId}/lock/`, {});
-        setIsLocked(true);
         setLockToken(response.lock_token);
 
         // Set up auto-refresh every 60 seconds (half of 2-minute lock duration)
@@ -884,7 +880,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             // If refresh fails, clear interval and update UI
             clearInterval(interval);
             setLockRefreshInterval(null);
-            setIsLocked(false);
             setLockToken(null);
           }
         }, 60000); // 60 seconds
@@ -924,7 +919,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           await apiDelete(`/api/dashboards/${dashboardId}/lock/`);
         }
 
-        setIsLocked(false);
         setLockToken(null);
       } catch (error) {
         console.error('Failed to unlock dashboard:', error);
@@ -1994,14 +1988,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             </div>
 
             {/* Mobile Status Bar */}
-            {(isLocked || saveStatus !== 'idle') && (
+            {saveStatus !== 'idle' && (
               <div className="px-4 pb-2 flex items-center justify-between text-xs">
-                {isLocked && (
-                  <div className="flex items-center gap-1 text-green-600">
-                    <Lock className="w-3 h-3" />
-                    <span>Locked</span>
-                  </div>
-                )}
                 {saveStatus === 'saving' && (
                   <div className="flex items-center gap-1 text-gray-500">
                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -2133,21 +2121,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
               {/* Right zone: status + save/preview */}
               <div className="flex items-center gap-2 flex-1 justify-end">
-                {/* Lock Status */}
-                {isLocked ? (
-                  <div className="flex items-center gap-1 text-sm text-green-600">
-                    <Lock className="w-4 h-4" />
-                    <span className="hidden xl:inline">Locked for editing</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1 text-sm text-yellow-600">
-                    <Unlock className="w-4 h-4" />
-                    <span className="hidden xl:inline">Not locked</span>
-                  </div>
-                )}
-
-                <div className="h-6 w-px bg-gray-300 mx-1" />
-
                 {/* Save Status Indicator */}
                 {saveStatus === 'saving' && (
                   <div className="flex items-center gap-2 text-sm text-gray-500">
