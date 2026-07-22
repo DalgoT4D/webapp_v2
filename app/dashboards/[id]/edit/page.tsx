@@ -25,15 +25,13 @@ export default function EditDashboardPage() {
 
   // Get user permissions
   const { hasPermission } = useRbac();
-  const canEditDashboard = hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS);
+  const canEditByRole = hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS);
 
-  // Don't start the dashboard request without edit permission
-  const {
-    data: dashboard,
-    isLoading,
-    isError,
-    mutate,
-  } = useDashboard(canEditDashboard ? dashboardId : null);
+  // The GET is view-gated server-side; fetch so user_permission can widen
+  // access for per-resource edit grants (v1.2 — e.g. a Member with Edit here)
+  const { data: dashboard, isLoading, isError, mutate } = useDashboard(dashboardId);
+
+  const canEditDashboard = canEditByRole || dashboard?.user_permission === 'edit';
 
   // Check if dashboard is locked by another user
   // Only block access if dashboard is locked AND locked by someone else
@@ -193,8 +191,19 @@ export default function EditDashboardPage() {
     },
   };
 
-  // Check if user has edit permissions — before the loading check, since the
-  // dashboard request never starts (and never resolves) without permission
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Denied only after the dashboard resolves — a per-resource edit grant
+  // (user_permission === 'edit') opens this page even without the role slug
   if (!canEditDashboard) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -210,17 +219,6 @@ export default function EditDashboardPage() {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboards
           </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
     );

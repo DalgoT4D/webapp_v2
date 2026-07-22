@@ -137,6 +137,30 @@ export const ANALYTICS_EVENTS = {
   // Notifications
   NOTIFICATION_PREFERENCES_UPDATED: 'notification:preferences_updated',
   NOTIFICATIONS_ALL_READ: 'notification:all_marked_read',
+  // Resource sharing — every rtype funnels through the same ShareModal, so
+  // event names stay fixed and entity_type rides as a property.
+  SHARING_MODAL_OPENED: 'sharing:modal_opened',
+  SHARING_GRANT_ADDED: 'sharing:grant_added',
+  SHARING_GRANT_REMOVED: 'sharing:grant_removed',
+  SHARING_GENERAL_ACCESS_UPDATED: 'sharing:general_access_updated',
+  SHARING_EMAIL_INVITE_SENT: 'sharing:email_invite_sent',
+  // Bulk share bar. Fired once per bulk apply, on the terminal response —
+  // not an intermediate requires_confirmation response.
+  SHARING_BULK_APPLIED: 'sharing:bulk_applied',
+  // Request-access flow
+  SHARING_ACCESS_REQUESTED: 'sharing:access_requested',
+  SHARING_ACCESS_REQUEST_APPROVED: 'sharing:access_request_approved',
+  SHARING_ACCESS_REQUEST_DECLINED: 'sharing:access_request_declined',
+  // Ownership transfer
+  SHARING_OWNERSHIP_TRANSFERRED: 'sharing:ownership_transferred',
+  // Settings → Access Management (org-wide sharing defaults)
+  SHARING_SETTINGS_UPDATED: 'settings:sharing_settings_updated',
+  // Settings → Groups (resource-sharing audiences)
+  GROUP_CREATED: 'settings:group_created',
+  GROUP_RENAMED: 'settings:group_renamed',
+  GROUP_DELETED: 'settings:group_deleted',
+  GROUP_MEMBER_ADDED: 'settings:group_member_added',
+  GROUP_MEMBER_REMOVED: 'settings:group_member_removed',
 } as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
@@ -203,10 +227,13 @@ export const FEATURES = {
   ALERTS: 'alerts',
   NOTIFICATIONS: 'notifications',
   SETTINGS_BILLING: 'settings_billing',
+  // Fired with { tab: 'users' | 'invitations' } from the People panel's inner tabs.
   SETTINGS_USER_MANAGEMENT: 'settings_user_management',
   SETTINGS_ABOUT: 'settings_about',
   SETTINGS_SUPERSET_USAGE: 'settings_superset_usage',
   SETTINGS_BRANDING: 'settings_branding',
+  // Settings → Access (People | Groups | Roles); fired with { tab } on tab change.
+  SETTINGS_ACCESS: 'settings_access',
 } as const;
 
 export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
@@ -231,7 +258,8 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/alerts', feature: FEATURES.ALERTS },
   { prefix: '/notifications', feature: FEATURES.NOTIFICATIONS },
   { prefix: '/settings/billing', feature: FEATURES.SETTINGS_BILLING },
-  { prefix: '/settings/user-management', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
+  // Old user-management/groups/access-management routes redirect here.
+  { prefix: '/settings/access', feature: FEATURES.SETTINGS_ACCESS },
   { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
   { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
 ];

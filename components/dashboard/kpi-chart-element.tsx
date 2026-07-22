@@ -20,6 +20,8 @@ interface KPIChartElementProps {
   commentStates?: CommentStates;
   onCommentStateChange?: () => void;
   autoOpenCommentChartId?: string;
+  // Resolver-edit on the report — can moderate others' comments.
+  canModerateComments?: boolean;
 }
 
 export function KPIChartElement({
@@ -33,6 +35,7 @@ export function KPIChartElement({
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
+  canModerateComments,
 }: KPIChartElementProps) {
   const { chartData, echartsConfig, isError, isLoading } = useKPIData(kpiId || null, snapshotId, {
     dashboardFilters,
@@ -83,6 +86,7 @@ export function KPIChartElement({
       triggerClassName="h-7 w-7 p-0"
       onStateChange={onCommentStateChange}
       autoOpen={autoOpenCommentChartId === String(kpiId)}
+      canModerate={canModerateComments}
     />
   ) : null;
 

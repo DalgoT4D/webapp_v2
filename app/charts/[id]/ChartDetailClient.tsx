@@ -29,7 +29,20 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type { ChartDataPayload } from '@/types/charts';
 import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
+import { getApiErrorStatus } from '@/lib/utils';
+import { RequestAccessScreen } from '@/components/sharing/request-access-screen';
+import { ShareModal } from '@/components/ui/share-modal';
+import type { ShareStatus } from '@/types/reports';
 import type * as echarts from 'echarts';
+
+// Charts have no public link. getShareStatus/updateSharing are required
+// ShareModal props, but these stubs never back a rendered section.
+async function getChartShareStatus(): Promise<ShareStatus> {
+  return { is_public: false, public_access_count: 0 };
+}
+async function updateChartSharing(): Promise<ShareStatus> {
+  return { is_public: false, public_access_count: 0 };
+}
 
 interface ChartDetailClientProps {
   chartId: number;
@@ -60,6 +73,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const isFromDashboard = searchParams.get('from') === 'dashboard';
   const { hasPermission } = useRbac();
   const canViewCharts = hasPermission(PERMISSIONS.CAN_VIEW_CHARTS);
+  const canShareCharts = hasPermission(PERMISSIONS.CAN_SHARE_CHARTS);
+  // Header share affordance — mirrors the dashboard detail view's ShareModal mount.
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   // Don't start the chart request without view permission; the access-denied
   // return lives below, after all hooks (Rules of Hooks)
   const {
@@ -751,6 +767,12 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     );
   }
 
+  // Resolver denied view access — offer the request-access flow instead of
+  // the generic error state below.
+  if (chartError && getApiErrorStatus(chartError) === 403) {
+    return <RequestAccessScreen rtype="chart" resourceId={chartId} resourceLabel="chart" />;
+  }
+
   if (chartError || !chart) {
     return (
       <div className="container mx-auto p-6">
@@ -792,6 +814,16 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
             )}
           </div>
           <div className="flex gap-2">
+            {canShareCharts && (
+              <Button
+                data-testid="chart-detail-share-button"
+                variant="outline"
+                onClick={() => setShareModalOpen(true)}
+              >
+                <Share2 className="mr-2 h-4 w-4" />
+                Share
+              </Button>
+            )}
             {hasPermission(PERMISSIONS.CAN_EDIT_CHARTS) && (
               <Link
                 data-testid="chart-detail-edit-link"
@@ -983,6 +1015,19 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           </Card>
         </div>
       </div>
+
+      {/* Share Modal — the modal's capability flags already omit the
+          public-link section for charts. */}
+      <ShareModal
+        entityId={chart.id}
+        entityLabel="Chart"
+        resourceName={chart.title}
+        entityType="chart"
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        getShareStatus={getChartShareStatus}
+        updateSharing={updateChartSharing}
+      />
     </div>
   );
 }

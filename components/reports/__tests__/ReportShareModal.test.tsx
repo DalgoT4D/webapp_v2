@@ -63,6 +63,15 @@ describe('ShareModal', () => {
       expect(screen.getByText('Share Report')).toBeInTheDocument();
     });
 
+    it('quotes the resourceName in the title when provided (design: "Share \\"Untitled Dashboard\\"")', () => {
+      mockGetShareStatus.mockResolvedValue(createMockShareStatus());
+
+      renderShareModal({ resourceName: 'Q1 Sales Report' });
+
+      expect(screen.getByText('Share "Q1 Sales Report"')).toBeInTheDocument();
+      expect(screen.queryByText('Share Report')).not.toBeInTheDocument();
+    });
+
     it('does not render modal when isOpen is false', () => {
       mockGetShareStatus.mockResolvedValue(createMockShareStatus());
 
@@ -82,13 +91,14 @@ describe('ShareModal', () => {
       ).toBeInTheDocument();
     });
 
-    it('displays public access section', () => {
+    it('displays public sharing section', () => {
       mockGetShareStatus.mockResolvedValue(createMockShareStatus());
 
       renderShareModal();
 
-      expect(screen.getByText('Public Access')).toBeInTheDocument();
-      expect(screen.getByText(/Anyone with the link can view/)).toBeInTheDocument();
+      // "Public sharing / Anyone with the link can view"
+      expect(screen.getByText('Public sharing')).toBeInTheDocument();
+      expect(screen.getByText('Anyone with the link can view')).toBeInTheDocument();
     });
   });
 

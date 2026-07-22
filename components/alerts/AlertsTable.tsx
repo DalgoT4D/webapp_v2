@@ -11,6 +11,7 @@ import {
   ChevronUp,
   ChevronDown,
   BellRing,
+  Share2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cronToString, localTimezone } from '@/components/pipeline/utils';
@@ -18,6 +19,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import { MAX_BULK_SELECTION } from '@/hooks/useMultiSelect';
 import {
   Table as TableComponent,
   TableBody,
@@ -97,6 +100,19 @@ interface AlertsTableProps {
   onDelete: (a: AlertListItem) => void;
   onToggle: (a: AlertListItem) => void;
   onOpenLog: (a: AlertListItem) => void;
+  /** `?alertId=` deep-link target — highlights the matching row. Only takes
+   * effect if the alert is on the currently loaded page. */
+  highlightAlertId?: string | null;
+  /** Gates both the per-item Share button and the bulk-select checkbox
+   * column. Defaults to false so existing callers keep the old row shape. */
+  canShare?: boolean;
+  onShare?: (a: AlertListItem) => void;
+  /** Bulk-selection state, lifted to the page (owns the selection + bar). */
+  selectedIds?: Set<number>;
+  onToggleSelect?: (id: number) => void;
+  /** Header "select all" checkbox — ids of the currently visible (sorted) rows. */
+  onSelectAllVisible?: (ids: number[]) => void;
+  onDeselectAllVisible?: (ids: number[]) => void;
 }
 
 function sourceHref(a: AlertListItem): string | null {
@@ -142,6 +158,13 @@ export function AlertsTable({
   onDelete,
   onToggle,
   onOpenLog,
+  highlightAlertId,
+  canShare = false,
+  onShare,
+  selectedIds,
+  onToggleSelect,
+  onSelectAllVisible,
+  onDeselectAllVisible,
 }: AlertsTableProps) {
   const [sortBy, setSortBy] = useState<AlertSortKey>('last_fire_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -170,6 +193,21 @@ export function AlertsTable({
       <TableComponent>
         <TableHeader>
           <TableRow className="bg-gray-50">
+            {/* Bulk-select checkbox — gated with the row's Share button */}
+            {canShare && (
+              <TableHead className="w-[3%]">
+                <Checkbox
+                  data-testid="alert-select-all-header"
+                  aria-label="Select all alerts on this page"
+                  checked={visible.length > 0 && visible.every((a) => selectedIds?.has(a.id))}
+                  onCheckedChange={(checked) => {
+                    const ids = visible.map((a) => a.id);
+                    if (checked) onSelectAllVisible?.(ids);
+                    else onDeselectAllVisible?.(ids);
+                  }}
+                />
+              </TableHead>
+            )}
             {/* Name (sort) */}
             <TableHead className="w-[26%]">
               <Button
@@ -278,10 +316,26 @@ export function AlertsTable({
                   key={a.id}
                   className={cn(
                     'hover:bg-gray-50',
-                    !a.is_active && 'text-gray-400 hover:bg-gray-50/60'
+                    !a.is_active && 'text-gray-400 hover:bg-gray-50/60',
+                    highlightAlertId === String(a.id) && 'bg-primary/5 ring-1 ring-primary/20'
                   )}
                   data-testid={`alert-row-${a.id}`}
                 >
+                  {/* Bulk-select checkbox */}
+                  {canShare && (
+                    <TableCell className="py-4">
+                      <Checkbox
+                        data-testid={`alert-select-${a.id}`}
+                        aria-label={`Select ${a.name}`}
+                        checked={selectedIds?.has(a.id) ?? false}
+                        disabled={
+                          !(selectedIds?.has(a.id) ?? false) &&
+                          (selectedIds?.size ?? 0) >= MAX_BULK_SELECTION
+                        }
+                        onCheckedChange={() => onToggleSelect?.(a.id)}
+                      />
+                    </TableCell>
+                  )}
                   {/* Name + subtitle */}
                   <TableCell className="py-4">
                     <div className="flex flex-col">
@@ -369,43 +423,57 @@ export function AlertsTable({
 
                   {/* Actions */}
                   <TableCell className="py-4">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+                    <div className="flex items-center gap-2">
+                      {canShare && (
                         <Button
+                          data-testid={`alert-share-btn-${a.id}`}
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 p-0 hover:bg-gray-100"
+                          aria-label={`Share ${a.name}`}
+                          onClick={() => onShare?.(a)}
                         >
-                          <MoreVertical className="w-4 h-4 text-gray-600" />
+                          <Share2 className="w-4 h-4 text-gray-600" />
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem
-                          onClick={() => onEdit(a)}
-                          disabled={!canEdit}
-                          title={canEdit ? '' : 'You need Edit Alerts permission to edit this.'}
-                        >
-                          <Pencil className="w-4 h-4 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onOpenLog(a)}>
-                          <ListOrdered className="w-4 h-4 mr-2" />
-                          Alert log
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => onDelete(a)}
-                          className="text-destructive focus:text-destructive"
-                          disabled={!canDelete}
-                          title={
-                            canDelete ? '' : 'You need Delete Alerts permission to remove this.'
-                          }
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 p-0 hover:bg-gray-100"
+                          >
+                            <MoreVertical className="w-4 h-4 text-gray-600" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem
+                            onClick={() => onEdit(a)}
+                            disabled={!canEdit}
+                            title={canEdit ? '' : 'You need Edit Alerts permission to edit this.'}
+                          >
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onOpenLog(a)}>
+                            <ListOrdered className="w-4 h-4 mr-2" />
+                            Alert log
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => onDelete(a)}
+                            className="text-destructive focus:text-destructive"
+                            disabled={!canDelete}
+                            title={
+                              canDelete ? '' : 'You need Delete Alerts permission to remove this.'
+                            }
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               );

@@ -16,6 +16,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
+import { toastError } from '@/lib/toast';
+import { EmbedCoverageDialog } from '@/components/sharing/embed-coverage-dialog';
+import type { CoverageDecision } from '@/components/sharing/coverage-confirm-utils';
+import type { ChartCoverageVerdict } from '@/hooks/api/useResourceAccess';
+import {
+  EMPTY_PENDING_COVERAGE,
+  coverage409Message,
+  coverageDismissKey,
+  coveragePayloadFields,
+  mergeCoverageDecision,
+  parseEmbedCoverage409,
+  type PendingCoverage,
+} from './embed-coverage-save';
 import {
   refreshDashboardLock,
   updateDashboardFilter,
@@ -566,6 +579,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [saveError, setSaveError] = useState<string | null>(null);
+
+    // ---- Embed-coverage confirm plumbing ----
+    // Embed-warning decisions accumulate here (a ref: autosave's debounced
+    // closure must read the latest) and ride on the next PUT; cleared once a
+    // save commits. `save409` holds a rejected save's verdicts for the
+    // recovery dialog; `dismissed409Ref` remembers a cancelled prompt so the
+    // autosave loop doesn't reopen the same dialog forever.
+    const pendingCoverageRef = useRef<PendingCoverage>(EMPTY_PENDING_COVERAGE);
+    const [save409, setSave409] = useState<ChartCoverageVerdict[] | null>(null);
+    const dismissed409Ref = useRef<string | null>(null);
     const [isLocked, setIsLocked] = useState(false);
     const [lockToken, setLockToken] = useState<string | null>(null);
     const [lockRefreshInterval, setLockRefreshInterval] = useState<NodeJS.Timeout | null>(null);
@@ -954,6 +977,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             : t
         );
 
+        // Embed-warning decisions ride on the save — only when there is one,
+        // so every existing save path keeps its exact payload shape.
+        const coverageFields = coveragePayloadFields(pendingCoverageRef.current);
+
         // Create safe serializable payload (filters removed - managed independently)
         const payload = {
           title: finalTitle,
@@ -963,10 +990,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           filter_layout: filterLayout,
           tabs: JSON.parse(JSON.stringify(tabsWithLatestCanvas)), // Persist all tabs
           // filters removed - managed via separate API endpoints
+          ...coverageFields,
           ...overrides, // Apply any overrides passed to the function
         };
 
         await apiPut(`/api/dashboards/${dashboardId}/`, payload);
+
+        // The confirmed embed is committed — nothing left to confirm.
+        pendingCoverageRef.current = EMPTY_PENDING_COVERAGE;
+        dismissed409Ref.current = null;
+        setSave409(null);
 
         setSaveStatus('saved');
         // Reset save status after 3 seconds
@@ -974,6 +1007,20 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           setSaveStatus('idle');
         }, 3000);
       } catch (error: any) {
+        // update_dashboard 409s when newly added tiles under-cover the
+        // dashboard's audience and no confirmation was sent — surface it.
+        const coverage409 = parseEmbedCoverage409(error);
+        if (coverage409) {
+          const message = coverage409Message(coverage409);
+          setSaveStatus('error');
+          setSaveError(message);
+          if (dismissed409Ref.current !== coverageDismissKey(coverage409)) {
+            toastError.api(message);
+            setSave409(coverage409);
+          }
+          return; // recovery dialog open (or dismissed) — no auto-reset
+        }
+
         console.error('Failed to save dashboard:', error.message || 'Please try again');
         setSaveStatus('error');
         setSaveError(error.message || 'Failed to save dashboard. Please try again.');
@@ -986,6 +1033,24 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       } finally {
         setIsSaving(false);
       }
+    };
+
+    // YES on the 409 recovery dialog: fold the decision into the pending
+    // confirmation and retry the save immediately.
+    const handleSave409Confirm = (decision: CoverageDecision) => {
+      pendingCoverageRef.current = mergeCoverageDecision(pendingCoverageRef.current, decision);
+      dismissed409Ref.current = null;
+      setSave409(null);
+      saveDashboard();
+    };
+
+    // Cancel: stays unsaved (the header keeps the error); remember the
+    // verdict set so the autosave loop doesn't reopen the same dialog.
+    const handleSave409Cancel = () => {
+      if (save409) {
+        dismissed409Ref.current = coverageDismissKey(save409);
+      }
+      setSave409(null);
     };
 
     // Expose cleanup function to parent component
@@ -1294,7 +1359,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     );
 
     // Add chart component - optimized for speed
-    const handleChartSelected = async (chartId: number) => {
+    const handleChartSelected = async (chartId: number, coverage?: CoverageDecision) => {
+      // The pick went through the embed warning — carry the decision into
+      // the next save, or update_dashboard 409s the new tile.
+      if (coverage) {
+        pendingCoverageRef.current = mergeCoverageDecision(pendingCoverageRef.current, coverage);
+        dismissed409Ref.current = null;
+      }
       try {
         // Only fetch chart metadata (fast ~50ms) - skip data fetch (slow ~2.5s)
         // The chart component will fetch its own data when it renders
@@ -2432,7 +2503,21 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           onClose={() => setShowChartSelector(false)}
           onSelect={handleChartSelected}
           excludedChartIds={getExcludedChartIds()}
+          dashboardId={dashboardId}
+          dashboardTitle={title}
         />
+        {/* Autosave 409 recovery: same warning dialog as the picker, YES
+            re-sends the save with the confirmation. */}
+        {save409 && (
+          <EmbedCoverageDialog
+            open
+            containerName={title}
+            verdicts={save409}
+            isSubmitting={isSaving}
+            onCancel={handleSave409Cancel}
+            onConfirm={handleSave409Confirm}
+          />
+        )}
         <KPISelectorModal
           open={showKPISelector}
           onClose={() => setShowKPISelector(false)}

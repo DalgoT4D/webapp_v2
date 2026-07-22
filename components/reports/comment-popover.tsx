@@ -67,6 +67,9 @@ interface CommentPopoverProps {
   triggerClassName?: string;
   onStateChange?: () => void;
   autoOpen?: boolean;
+  /** Resolver-edit on the report — lets the viewer moderate other people's
+   * comments. Authors always keep self-rights. Defaults to false (author-only). */
+  canModerate?: boolean;
 }
 
 // ---- Mention Dropdown ----
@@ -173,6 +176,7 @@ interface CommentItemProps {
   firstNewRef: React.RefObject<HTMLDivElement | null>;
   isDeleted: boolean;
   mentionableUsers: MentionableUser[];
+  canModerate: boolean;
 }
 
 const CommentItem = memo(function CommentItem({
@@ -184,8 +188,12 @@ const CommentItem = memo(function CommentItem({
   firstNewRef,
   isDeleted,
   mentionableUsers,
+  canModerate,
 }: CommentItemProps) {
   const isAuthor = comment.author_email === currentUserEmail;
+  // Authors keep self-rights; a resolver-edit viewer additionally gets
+  // edit/delete on comments they didn't write.
+  const canManage = isAuthor || canModerate;
   const avatarColor = useMemo(() => getAvatarColor(comment.author_email), [comment.author_email]);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -348,7 +356,7 @@ const CommentItem = memo(function CommentItem({
                     style={{ backgroundColor: 'rgba(0, 137, 123, 0.4)' }}
                   />
                 )}
-                {isAuthor && (
+                {canManage && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -476,6 +484,7 @@ function CommentPopoverInner({
   triggerClassName,
   onStateChange,
   autoOpen = false,
+  canModerate = false,
 }: CommentPopoverProps) {
   const [open, setOpen] = useState(false);
 
@@ -735,6 +744,7 @@ function CommentPopoverInner({
                   firstNewRef={firstNewRef}
                   isDeleted={comment.is_deleted}
                   mentionableUsers={mentionableUsers}
+                  canModerate={canModerate}
                 />
               ))}
               <div ref={bottomRef} />

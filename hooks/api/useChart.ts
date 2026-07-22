@@ -35,8 +35,12 @@ export function useCharts() {
   return useSWR('/api/charts/', chartsFetcher);
 }
 
-export function useChart(id: number | null) {
-  return useSWR(id ? `/api/charts/${id}/` : null, chartFetcher);
+// dashboardId scopes the fetch to a dashboard-tile view — the backend requires
+// it for Members (charts are only visible in dashboard context for that role).
+// Omit it for the chart builder / standalone Charts page (Analyst+ only, unchanged).
+export function useChart(id: number | null, dashboardId?: number | null) {
+  const url = id ? `/api/charts/${id}/${dashboardId ? `?dashboard_id=${dashboardId}` : ''}` : null;
+  return useSWR(url, chartFetcher);
 }
 
 export function useCreateChart() {
@@ -63,27 +67,34 @@ export function useChartData(payload: ChartDataPayload | null) {
   });
 }
 
+// chartId + dashboardId scope the request to a dashboard-tile view — the
+// backend requires both to gate table tiles for Members. Omit them for the
+// chart builder / standalone Charts page live preview.
 export function useChartDataPreview(
   payload: ChartDataPayload | null,
   page: number = 1,
   pageSize: number = 50,
-  dashboardFilters: Record<string, any> = {}
+  dashboardFilters: Record<string, any> = {},
+  chartId?: number,
+  dashboardId?: number
 ) {
   // Create a stable key that includes pagination parameters and dashboard filters
   const filterHash =
     Object.keys(dashboardFilters).length > 0 ? JSON.stringify(dashboardFilters) : '';
   const swrKey = payload
-    ? [`/api/charts/chart-data-preview/`, payload, page, pageSize, filterHash]
+    ? [`/api/charts/chart-data-preview/`, payload, page, pageSize, filterHash, chartId, dashboardId]
     : null;
 
   return useSWR(
     swrKey,
-    async ([url, data, pageNum, limit, filters]: [
+    async ([url, data, pageNum, limit, filters, cId, dId]: [
       string,
       ChartDataPayload,
       number,
       number,
       string,
+      number | undefined,
+      number | undefined,
     ]) => {
       // Send page and limit as query parameters, payload as body
       const queryParams = new URLSearchParams({
@@ -96,34 +107,52 @@ export function useChartDataPreview(
         queryParams.append('dashboard_filters', JSON.stringify(dashboardFilters));
       }
 
+      // Access context — dashboard-tile callers only.
+      if (cId) queryParams.append('chart_id', String(cId));
+      if (dId) queryParams.append('dashboard_id', String(dId));
+
       // Use the centralized API client with query parameters
       return apiPost(`${url}?${queryParams}`, data);
     }
   );
 }
 
-// Chart data preview total rows hook
+// Chart data preview total rows hook — see useChartDataPreview for the
+// chartId/dashboardId access-context contract.
 export function useChartDataPreviewTotalRows(
   payload: ChartDataPayload | null,
-  dashboardFilters: Record<string, any> = {}
+  dashboardFilters: Record<string, any> = {},
+  chartId?: number,
+  dashboardId?: number
 ) {
   // Create a stable key that includes dashboard filters
   const filterHash =
     Object.keys(dashboardFilters).length > 0 ? JSON.stringify(dashboardFilters) : '';
   const swrKey = payload
-    ? ['/api/charts/chart-data-preview/total-rows/', payload, filterHash]
+    ? ['/api/charts/chart-data-preview/total-rows/', payload, filterHash, chartId, dashboardId]
     : null;
 
-  return useSWR(swrKey, ([url, data, filters]: [string, ChartDataPayload, string]) => {
-    // Add dashboard filters as query parameters if present
-    const queryParams = new URLSearchParams();
-    if (filters && Object.keys(dashboardFilters).length > 0) {
-      queryParams.append('dashboard_filters', JSON.stringify(dashboardFilters));
-    }
+  return useSWR(
+    swrKey,
+    ([url, data, filters, cId, dId]: [
+      string,
+      ChartDataPayload,
+      string,
+      number | undefined,
+      number | undefined,
+    ]) => {
+      // Add dashboard filters as query parameters if present
+      const queryParams = new URLSearchParams();
+      if (filters && Object.keys(dashboardFilters).length > 0) {
+        queryParams.append('dashboard_filters', JSON.stringify(dashboardFilters));
+      }
+      if (cId) queryParams.append('chart_id', String(cId));
+      if (dId) queryParams.append('dashboard_id', String(dId));
 
-    // Use the centralized API client with query parameters
-    return apiPost(`${url}${queryParams.toString() ? `?${queryParams}` : ''}`, data);
-  });
+      // Use the centralized API client with query parameters
+      return apiPost(`${url}${queryParams.toString() ? `?${queryParams}` : ''}`, data);
+    }
+  );
 }
 
 // Chart export hook
@@ -402,9 +431,23 @@ export function transformMapDataOverlayPayload(payload: MapDataOverlayRawPayload
   };
 }
 
-// Fetch map data separately (for data overlay on existing GeoJSON)
-export function useMapDataOverlay(payload: MapDataOverlayRawPayload | null) {
+// Fetch map data separately (for data overlay on existing GeoJSON).
+// chartId + dashboardId scope the request to a dashboard-tile view — the
+// backend requires both (as body fields) to gate map tiles. Omit them for
+// the chart builder / standalone Charts page.
+export function useMapDataOverlay(
+  payload: MapDataOverlayRawPayload | null,
+  chartId?: number,
+  dashboardId?: number
+) {
   const transformedPayload = transformMapDataOverlayPayload(payload);
+  const requestPayload = transformedPayload
+    ? {
+        ...transformedPayload,
+        ...(chartId ? { chart_id: chartId } : {}),
+        ...(dashboardId ? { dashboard_id: dashboardId } : {}),
+      }
+    : null;
 
   // Create a simple, stable key similar to regular charts for better filter change detection
   // Use a hash-based approach like regular charts do with query parameters
@@ -416,8 +459,8 @@ export function useMapDataOverlay(payload: MapDataOverlayRawPayload | null) {
       })
     : '';
 
-  const swrKey = transformedPayload
-    ? `/api/charts/map-data-overlay/?payload=${encodeURIComponent(JSON.stringify(transformedPayload))}&filters=${encodeURIComponent(filterHash)}`
+  const swrKey = requestPayload
+    ? `/api/charts/map-data-overlay/?payload=${encodeURIComponent(JSON.stringify(requestPayload))}&filters=${encodeURIComponent(filterHash)}`
     : null;
 
   return useSWR(

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSWRConfig } from 'swr';
 import {
@@ -14,10 +14,12 @@ import {
   BellRing,
   ChevronLeft,
   ChevronRight,
+  Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -37,6 +39,11 @@ import { DocsLink } from '@/components/ui/docs-link';
 import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
+import { ShareModal } from '@/components/ui/share-modal';
+import { BulkShareDialog } from '@/components/sharing/bulk-share-dialog';
+import { useMultiSelect, MAX_BULK_SELECTION } from '@/hooks/useMultiSelect';
+import type { BulkAccessResponse } from '@/hooks/api/useResourceAccess';
+import type { ShareStatus } from '@/types/reports';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
 import { KPIDeleteDialog } from './kpi-delete-dialog';
@@ -51,6 +58,15 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { formatDistanceToNow } from 'date-fns';
 import { computePopChanges } from '@/lib/formatters';
 
+// KPIs have no public link. getShareStatus/updateSharing are required
+// ShareModal props, but these stubs never back a rendered section.
+async function getKpiShareStatus(): Promise<ShareStatus> {
+  return { is_public: false, public_access_count: 0 };
+}
+async function updateKpiSharing(): Promise<ShareStatus> {
+  return { is_public: false, public_access_count: 0 };
+}
+
 // A single KPI card that fetches its own data
 function KPICardWithData({
   kpi,
@@ -58,9 +74,14 @@ function KPICardWithData({
   onEdit,
   onDelete,
   onCreateAlert,
+  onShare,
   canCreateAlert,
   canEditKpis,
   canDeleteKpis,
+  canShareKpis,
+  isSelected,
+  onToggleSelect,
+  isAtSelectionCap,
   statusFilter,
 }: {
   kpi: KPI;
@@ -68,9 +89,14 @@ function KPICardWithData({
   onEdit: () => void;
   onDelete: () => void;
   onCreateAlert?: () => void;
+  onShare?: () => void;
   canCreateAlert?: boolean;
   canEditKpis?: boolean;
   canDeleteKpis?: boolean;
+  canShareKpis?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+  isAtSelectionCap?: boolean;
   statusFilter?: string;
 }) {
   const { chartData, echartsConfig, isLoading } = useKPIData(kpi.id);
@@ -100,7 +126,26 @@ function KPICardWithData({
   };
 
   return (
-    <div className="h-72" data-testid={`kpi-card-${kpi.id}`}>
+    <div className="relative h-72" data-testid={`kpi-card-${kpi.id}`}>
+      {/* Bulk-select checkbox — overlaid top-left; the card grid has no
+          row/column chrome to add a checkbox column to the way list tables
+          do, so it floats over the card corner instead. */}
+      {canShareKpis && (
+        <div
+          className="absolute left-2 top-2 z-10"
+          onClick={(e) => e.stopPropagation()}
+          data-testid={`kpi-select-wrapper-${kpi.id}`}
+        >
+          <Checkbox
+            data-testid={`kpi-select-${kpi.id}`}
+            aria-label={`Select ${kpi.name}`}
+            checked={isSelected ?? false}
+            disabled={!isSelected && Boolean(isAtSelectionCap)}
+            onCheckedChange={() => onToggleSelect?.()}
+            className="bg-white shadow"
+          />
+        </div>
+      )}
       <KPICard
         name={kpi.name}
         subtitle={kpi.program_tags.length > 0 ? kpi.program_tags.join(', ') : undefined}
@@ -119,6 +164,12 @@ function KPICardWithData({
               <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
                 <Pencil className="w-4 h-4 mr-2" />
                 Edit KPI
+              </DropdownMenuItem>
+            )}
+            {canShareKpis && onShare && (
+              <DropdownMenuItem onClick={onShare} className="cursor-pointer">
+                <Share2 className="w-4 h-4 mr-2" />
+                Share KPI
               </DropdownMenuItem>
             )}
             {canCreateAlert && onCreateAlert && (
@@ -162,6 +213,9 @@ export function KPIPageComponent() {
   const [deletingKpi, setDeletingKpi] = useState<KPI | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [alertKpiId, setAlertKpiId] = useState<number | null>(null);
+  // Per-item Share — one shared ShareModal instance for the whole grid.
+  const [sharingKpi, setSharingKpi] = useState<KPI | null>(null);
+  const [bulkShareOpen, setBulkShareOpen] = useState(false);
 
   const { hasPermission } = useRbac();
   // Create/edit/delete affordances are hidden for view-only roles (members) and
@@ -170,6 +224,17 @@ export function KPIPageComponent() {
   const canEditKpis = hasPermission(PERMISSIONS.CAN_EDIT_KPIS);
   const canDeleteKpis = hasPermission(PERMISSIONS.CAN_DELETE_KPIS);
   const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
+  const canShareKpis = hasPermission(PERMISSIONS.CAN_SHARE_KPIS);
+
+  // Bulk selection — persists across pagination/filters, capped via useMultiSelect.
+  const {
+    selectedIds: selectedKpiIds,
+    toggle: toggleKpiSelection,
+    selectPage: selectKpiPage,
+    deselectPage: deselectKpiPage,
+    remove: removeAppliedKpiIds,
+    clear: clearKpiSelection,
+  } = useMultiSelect<number>();
 
   const PAGE_SIZE = 10;
 
@@ -190,6 +255,30 @@ export function KPIPageComponent() {
 
   const { tags: programTags } = useProgramTags();
   const { mutate: globalMutate } = useSWRConfig();
+
+  // Selection persists across pagination/filters, so the bar's count must be
+  // the TRUE cross-page total (selectedKpiIds.size), not a page-local count.
+  const selectedOnPageCount = useMemo(
+    () => kpis.filter((k) => selectedKpiIds.has(k.id)).length,
+    [kpis, selectedKpiIds]
+  );
+  const selectedOffPageCount = selectedKpiIds.size - selectedOnPageCount;
+
+  const bulkShareItems = useMemo(
+    () => Array.from(selectedKpiIds, (id) => ({ rtype: 'kpi' as const, id: String(id) })),
+    [selectedKpiIds]
+  );
+
+  const handleBulkApplied = useCallback(
+    (response: BulkAccessResponse) => {
+      const appliedIds = response.applied
+        .filter((item) => item.rtype === 'kpi')
+        .map((item) => Number(item.id));
+      removeAppliedKpiIds(appliedIds);
+      mutate();
+    },
+    [removeAppliedKpiIds, mutate]
+  );
 
   // Auto-open drawer when ?open={kpiId} is in the URL, then strip the param
   // so a refresh doesn't reopen the drawer after the user has closed it.
@@ -301,6 +390,56 @@ export function KPIPageComponent() {
             </Button>
           )}
         </div>
+
+        {/* Bulk-selection bar — appears once >=1 card is selected */}
+        {canShareKpis && selectedKpiIds.size > 0 && (
+          <div
+            data-testid="kpi-bulk-share-bar"
+            className="mx-6 mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-1 text-sm font-medium text-blue-900">
+              <span>
+                {selectedKpiIds.size} selected
+                {selectedOffPageCount > 0 && ` · ${selectedOffPageCount} on other pages`}
+                {selectedKpiIds.size >= MAX_BULK_SELECTION && ' (maximum 100 reached)'}
+              </span>
+              <span aria-hidden="true" className="px-1 text-blue-300">
+                ·
+              </span>
+              <Button
+                data-testid="kpi-bulk-select-all-btn"
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() => selectKpiPage(kpis.map((k) => k.id))}
+                disabled={kpis.every((k) => selectedKpiIds.has(k.id))}
+              >
+                Select All
+              </Button>
+              <span aria-hidden="true" className="px-1 text-blue-300">
+                ·
+              </span>
+              <Button
+                data-testid="kpi-bulk-clear-btn"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-muted-foreground"
+                onClick={clearKpiSelection}
+              >
+                Clear
+              </Button>
+            </div>
+            <Button
+              data-testid="kpi-bulk-share-btn"
+              variant="primary"
+              size="sm"
+              onClick={() => setBulkShareOpen(true)}
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Share
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -429,9 +568,14 @@ export function KPIPageComponent() {
                     onEdit={() => handleEdit(kpi)}
                     onDelete={() => handleDeleteClick(kpi)}
                     onCreateAlert={() => setAlertKpiId(kpi.id)}
+                    onShare={() => setSharingKpi(kpi)}
                     canCreateAlert={canCreateAlert}
                     canEditKpis={canEditKpis}
                     canDeleteKpis={canDeleteKpis}
+                    canShareKpis={canShareKpis}
+                    isSelected={selectedKpiIds.has(kpi.id)}
+                    onToggleSelect={() => toggleKpiSelection(kpi.id)}
+                    isAtSelectionCap={selectedKpiIds.size >= MAX_BULK_SELECTION}
                     statusFilter={statusFilter || undefined}
                   />
                 ))}
@@ -488,6 +632,34 @@ export function KPIPageComponent() {
         onOpenChange={(o) => !o && setAlertKpiId(null)}
         initial={{ alertType: 'kpi_rag', kpiId: alertKpiId }}
       />
+
+      {/* Per-item Share — the modal's capability flags already omit the
+          public-link section for KPIs. */}
+      {sharingKpi && (
+        <ShareModal
+          entityId={sharingKpi.id}
+          entityLabel="KPI"
+          resourceName={sharingKpi.name}
+          entityType="kpi"
+          isOpen={sharingKpi !== null}
+          onClose={() => setSharingKpi(null)}
+          getShareStatus={getKpiShareStatus}
+          updateSharing={updateKpiSharing}
+        />
+      )}
+
+      {/* Bulk Share Dialog — no public-link action for KPIs. */}
+      {bulkShareOpen && (
+        <BulkShareDialog
+          entityType="kpi"
+          entityLabel="KPIs"
+          items={bulkShareItems}
+          isOpen={bulkShareOpen}
+          onClose={() => setBulkShareOpen(false)}
+          onApplied={handleBulkApplied}
+          allowPublicLink={false}
+        />
+      )}
     </div>
   );
 }

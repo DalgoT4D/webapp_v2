@@ -23,9 +23,9 @@ import {
   ChevronRight,
   Info,
   CreditCard,
-  Users,
   Target,
   Palette,
+  ShieldCheck,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -211,11 +211,14 @@ export const getNavItems = (
           visibleToRoles: ADMIN_ROLES,
         },
         {
-          title: 'User Management',
-          href: '/settings/user-management',
-          icon: Users,
-          isActive: currentPath.startsWith('/settings/user-management'),
-          visibleToRoles: ADMIN_ROLES,
+          title: 'Access',
+          href: '/settings/access',
+          icon: ShieldCheck,
+          isActive: currentPath.startsWith('/settings/access'),
+          // One page with People / Groups / Roles tabs. Analysts enter for
+          // Groups (can_view_user_groups mirrors DATA_SECTION_ROLES); the
+          // admin-only People and Roles tabs are hidden inside the page.
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         {
           title: 'About',

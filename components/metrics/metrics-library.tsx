@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus,
@@ -18,10 +18,12 @@ import {
   Target,
   User,
   BellRing,
+  Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import { DocsLink } from '@/components/ui/docs-link';
 import {
   Table as TableComponent,
@@ -63,12 +65,26 @@ import { MetricFormDialog } from './metric-form-dialog';
 import { ConsumerLinks } from './consumer-links';
 import { KPIForm } from '@/components/kpis/kpi-form';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
+import { ShareModal } from '@/components/ui/share-modal';
+import { BulkShareDialog } from '@/components/sharing/bulk-share-dialog';
+import { useMultiSelect, MAX_BULK_SELECTION } from '@/hooks/useMultiSelect';
+import type { BulkAccessResponse } from '@/hooks/api/useResourceAccess';
+import type { ShareStatus } from '@/types/reports';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
+
+// Metrics have no public link. getShareStatus/updateSharing are required
+// ShareModal props, but these stubs never back a rendered section.
+async function getMetricShareStatus(): Promise<ShareStatus> {
+  return { is_public: false, public_access_count: 0 };
+}
+async function updateMetricSharing(): Promise<ShareStatus> {
+  return { is_public: false, public_access_count: 0 };
+}
 
 export function MetricsLibrary() {
   const searchParams = useSearchParams();
@@ -91,6 +107,8 @@ export function MetricsLibrary() {
   const [kpiPreselectedMetricId, setKpiPreselectedMetricId] = useState<number | undefined>();
   const [alertFormOpen, setAlertFormOpen] = useState(false);
   const [alertPreselectedMetricId, setAlertPreselectedMetricId] = useState<number | null>(null);
+  // One shared ShareModal instance for the whole table.
+  const [sharingMetric, setSharingMetric] = useState<Metric | null>(null);
   const { hasPermission } = useRbac();
   // Create/edit/delete affordances are hidden for view-only roles (members) and
   // shown to roles that hold the matching permission (admins + analysts).
@@ -99,9 +117,21 @@ export function MetricsLibrary() {
   const canDeleteMetrics = hasPermission(PERMISSIONS.CAN_DELETE_METRICS);
   const canCreateKpis = hasPermission(PERMISSIONS.CAN_CREATE_KPIS);
   const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
+  const canShareMetrics = hasPermission(PERMISSIONS.CAN_SHARE_METRICS);
   // Whether the row "Actions" column shows at all — hidden for view-only roles so
   // the table doesn't render an orphaned empty column.
   const canMetricActions = canEditMetrics || canCreateKpis || canCreateAlert || canDeleteMetrics;
+
+  // Bulk selection — persists across pagination, capped via useMultiSelect.
+  const {
+    selectedIds: selectedMetricIds,
+    toggle: toggleMetricSelection,
+    selectPage: selectMetricPage,
+    deselectPage: deselectMetricPage,
+    remove: removeAppliedMetricIds,
+    clear: clearMetricSelection,
+  } = useMultiSelect<number>();
+  const [bulkShareOpen, setBulkShareOpen] = useState(false);
 
   // Strip `?create=true` after consuming it on mount so a refresh doesn't
   // re-open the create form.
@@ -150,6 +180,30 @@ export function MetricsLibrary() {
       setSortOrder('desc');
     }
   };
+
+  // Selection persists across pagination, so the bar's count must be the
+  // TRUE cross-page total (selectedMetricIds.size), not a page-local count.
+  const selectedOnPageCount = useMemo(
+    () => metrics.filter((m) => selectedMetricIds.has(m.id)).length,
+    [metrics, selectedMetricIds]
+  );
+  const selectedOffPageCount = selectedMetricIds.size - selectedOnPageCount;
+
+  const bulkShareItems = useMemo(
+    () => Array.from(selectedMetricIds, (id) => ({ rtype: 'metric' as const, id: String(id) })),
+    [selectedMetricIds]
+  );
+
+  const handleBulkApplied = useCallback(
+    (response: BulkAccessResponse) => {
+      const appliedIds = response.applied
+        .filter((item) => item.rtype === 'metric')
+        .map((item) => Number(item.id));
+      removeAppliedMetricIds(appliedIds);
+      mutate();
+    },
+    [removeAppliedMetricIds, mutate]
+  );
 
   const sortedMetrics = useMemo(() => {
     return [...(metrics || [])].sort((a, b) => {
@@ -293,6 +347,20 @@ export function MetricsLibrary() {
         key={metric.id}
         className={`hover:bg-gray-50 ${highlightMetricId === String(metric.id) ? 'bg-primary/5 ring-1 ring-primary/20' : ''}`}
       >
+        {/* Bulk-select checkbox — gated with the row's Share button */}
+        {canShareMetrics && (
+          <TableCell className="py-4">
+            <Checkbox
+              data-testid={`metric-select-${metric.id}`}
+              aria-label={`Select ${metric.name}`}
+              checked={selectedMetricIds.has(metric.id)}
+              disabled={
+                !selectedMetricIds.has(metric.id) && selectedMetricIds.size >= MAX_BULK_SELECTION
+              }
+              onCheckedChange={() => toggleMetricSelection(metric.id)}
+            />
+          </TableCell>
+        )}
         {/* Name */}
         <TableCell className="py-4">
           <div className="flex flex-col">
@@ -357,59 +425,78 @@ export function MetricsLibrary() {
             : '—'}
         </TableCell>
         {/* Actions — column hidden entirely for view-only roles (e.g. members) */}
-        {canMetricActions && (
+        {(canMetricActions || canShareMetrics) && (
           <TableCell className="py-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
-                  <MoreVertical className="w-4 h-4 text-gray-600" />
+            <div className="flex items-center gap-2">
+              {canShareMetrics && (
+                <Button
+                  data-testid={`metric-share-btn-${metric.id}`}
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                  aria-label={`Share ${metric.name}`}
+                  onClick={() => setSharingMetric(metric)}
+                >
+                  <Share2 className="w-4 h-4 text-gray-600" />
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                {canEditMetrics && (
-                  <DropdownMenuItem onClick={() => handleEdit(metric)} className="cursor-pointer">
-                    <Pencil className="w-4 h-4 mr-2" />
-                    Edit Metric
-                  </DropdownMenuItem>
-                )}
-                {canCreateKpis && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setKpiPreselectedMetricId(metric.id);
-                      setKpiFormOpen(true);
-                    }}
-                    className="cursor-pointer"
-                  >
-                    <Target className="w-4 h-4 mr-2" />
-                    Create KPI
-                  </DropdownMenuItem>
-                )}
-                {canCreateAlert && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setAlertPreselectedMetricId(metric.id);
-                      setAlertFormOpen(true);
-                    }}
-                    className="cursor-pointer"
-                  >
-                    <BellRing className="w-4 h-4 mr-2" />
-                    Create alert
-                  </DropdownMenuItem>
-                )}
-                {canDeleteMetrics && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => handleDeleteClick(metric)}
-                      className="cursor-pointer text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              )}
+              {canMetricActions && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
+                      <MoreVertical className="w-4 h-4 text-gray-600" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    {canEditMetrics && (
+                      <DropdownMenuItem
+                        onClick={() => handleEdit(metric)}
+                        className="cursor-pointer"
+                      >
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Edit Metric
+                      </DropdownMenuItem>
+                    )}
+                    {canCreateKpis && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setKpiPreselectedMetricId(metric.id);
+                          setKpiFormOpen(true);
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <Target className="w-4 h-4 mr-2" />
+                        Create KPI
+                      </DropdownMenuItem>
+                    )}
+                    {canCreateAlert && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setAlertPreselectedMetricId(metric.id);
+                          setAlertFormOpen(true);
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <BellRing className="w-4 h-4 mr-2" />
+                        Create alert
+                      </DropdownMenuItem>
+                    )}
+                    {canDeleteMetrics && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteClick(metric)}
+                          className="cursor-pointer text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </TableCell>
         )}
       </TableRow>
@@ -418,6 +505,23 @@ export function MetricsLibrary() {
 
   const columnHeaders = (
     <TableRow className="bg-gray-50">
+      {/* Bulk-select checkbox */}
+      {canShareMetrics && (
+        <TableHead className="w-[3%]">
+          <Checkbox
+            data-testid="metric-select-all-header"
+            aria-label="Select all metrics on this page"
+            checked={
+              sortedMetrics.length > 0 && sortedMetrics.every((m) => selectedMetricIds.has(m.id))
+            }
+            onCheckedChange={(checked) => {
+              const ids = sortedMetrics.map((m) => m.id);
+              if (checked) selectMetricPage(ids);
+              else deselectMetricPage(ids);
+            }}
+          />
+        </TableHead>
+      )}
       <TableHead className="w-[20%]">
         <div className="flex items-center gap-1">
           <Button
@@ -491,7 +595,9 @@ export function MetricsLibrary() {
           </div>
         </Button>
       </TableHead>
-      {canMetricActions && <TableHead className="w-[5%] font-medium text-base">Actions</TableHead>}
+      {(canMetricActions || canShareMetrics) && (
+        <TableHead className="w-[5%] font-medium text-base">Actions</TableHead>
+      )}
     </TableRow>
   );
 
@@ -543,6 +649,56 @@ export function MetricsLibrary() {
             </Button>
           </div>
         )}
+
+        {/* Bulk-selection bar — appears once >=1 row is selected */}
+        {canShareMetrics && selectedMetricIds.size > 0 && (
+          <div
+            data-testid="metric-bulk-share-bar"
+            className="mx-6 mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-1 text-sm font-medium text-blue-900">
+              <span>
+                {selectedMetricIds.size} selected
+                {selectedOffPageCount > 0 && ` · ${selectedOffPageCount} on other pages`}
+                {selectedMetricIds.size >= MAX_BULK_SELECTION && ' (maximum 100 reached)'}
+              </span>
+              <span aria-hidden="true" className="px-1 text-blue-300">
+                ·
+              </span>
+              <Button
+                data-testid="metric-bulk-select-all-btn"
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() => selectMetricPage(sortedMetrics.map((m) => m.id))}
+                disabled={sortedMetrics.every((m) => selectedMetricIds.has(m.id))}
+              >
+                Select All
+              </Button>
+              <span aria-hidden="true" className="px-1 text-blue-300">
+                ·
+              </span>
+              <Button
+                data-testid="metric-bulk-clear-btn"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-muted-foreground"
+                onClick={clearMetricSelection}
+              >
+                Clear
+              </Button>
+            </div>
+            <Button
+              data-testid="metric-bulk-share-btn"
+              variant="primary"
+              size="sm"
+              onClick={() => setBulkShareOpen(true)}
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Share
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Scrollable Content */}
@@ -556,6 +712,11 @@ export function MetricsLibrary() {
                   <TableBody>
                     {[...Array(6)].map((_, i) => (
                       <TableRow key={i}>
+                        {canShareMetrics && (
+                          <TableCell>
+                            <Skeleton className="h-4 w-4" />
+                          </TableCell>
+                        )}
                         <TableCell className="py-3">
                           <Skeleton className="h-4 w-28" />
                         </TableCell>
@@ -577,7 +738,7 @@ export function MetricsLibrary() {
                         <TableCell>
                           <Skeleton className="h-3 w-12" />
                         </TableCell>
-                        {canMetricActions && (
+                        {(canMetricActions || canShareMetrics) && (
                           <TableCell>
                             <Skeleton className="h-6 w-6" />
                           </TableCell>
@@ -785,6 +946,34 @@ export function MetricsLibrary() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Per-item Share — the modal's capability flags already omit the
+          public-link section for metrics. */}
+      {sharingMetric && (
+        <ShareModal
+          entityId={sharingMetric.id}
+          entityLabel="Metric"
+          resourceName={sharingMetric.name}
+          entityType="metric"
+          isOpen={sharingMetric !== null}
+          onClose={() => setSharingMetric(null)}
+          getShareStatus={getMetricShareStatus}
+          updateSharing={updateMetricSharing}
+        />
+      )}
+
+      {/* Bulk Share Dialog — no public-link action for metrics. */}
+      {bulkShareOpen && (
+        <BulkShareDialog
+          entityType="metric"
+          entityLabel="metrics"
+          items={bulkShareItems}
+          isOpen={bulkShareOpen}
+          onClose={() => setBulkShareOpen(false)}
+          onApplied={handleBulkApplied}
+          allowPublicLink={false}
+        />
+      )}
     </div>
   );
 }

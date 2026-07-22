@@ -164,6 +164,14 @@ export const toastInfo = {
 };
 
 /**
+ * Warning toast for partial-success outcomes — the primary action
+ * succeeded but a secondary step failed for some targets.
+ */
+export const toastWarning = {
+  generic: (message: string) => toast.warning(message),
+};
+
+/**
  * Promise-based toast for async operations
  */
 export const toastPromise = {

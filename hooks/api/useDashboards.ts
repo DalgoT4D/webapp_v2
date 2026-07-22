@@ -3,6 +3,7 @@ import { apiGet, apiPost, apiPut, apiDelete, apiPublicGet } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type { DashboardTab } from '@/types/dashboard';
+import type { RolePermissionLevel } from '@/hooks/api/useResourceAccess';
 
 // API response shape for a tab (same as DashboardTab from types)
 export type DashboardTabData = DashboardTab;
@@ -39,6 +40,17 @@ export interface Dashboard {
   // Public view fields
   org_name?: string;
   org_logo_url?: string;
+  // Viewer-relative sharing metadata — the same dashboard can read
+  // differently per viewer. Null levels mean the resource predates
+  // general-access config or the caller is anonymous.
+  analyst_level?: RolePermissionLevel | null;
+  member_level?: RolePermissionLevel | null;
+  is_owner?: boolean;
+  is_creator?: boolean;
+  // Viewer's per-resource level from the v1.2 pool (detail GET / update PUT
+  // only). "edit" here can exceed what the role slug allows — e.g. a Member
+  // holding an edit grant on this one dashboard.
+  user_permission?: 'view' | 'edit' | null;
 }
 
 export interface DashboardFilter {
@@ -239,9 +251,17 @@ export async function duplicateDashboard(dashboardId: number): Promise<Dashboard
 }
 
 // Dashboard sharing functions
-export async function updateDashboardSharing(dashboardId: number, data: { is_public: boolean }) {
+// `proceed` is the broadening-confirm re-send after the backend answered
+// requires_confirmation on an enable.
+export async function updateDashboardSharing(
+  dashboardId: number,
+  data: { is_public: boolean; proceed?: boolean }
+) {
   const result = await apiPut(`/api/dashboards/${dashboardId}/share/`, data);
-  trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { is_public: data.is_public });
+  // A requires_confirmation response flipped nothing — only count committed toggles.
+  if (!result?.requires_confirmation) {
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { is_public: data.is_public });
+  }
   return result;
 }
 

@@ -118,6 +118,11 @@ echarts.use([
 
 interface ChartElementViewProps {
   chartId: number;
+  // The containing dashboard's id — required for Members to view a chart
+  // (backend gates standalone chart GETs to Analyst+/owner; dashboard-tile
+  // context is the exception). Only meaningful in private, non-report mode;
+  // omit for the chart builder / standalone Charts page.
+  dashboardId?: number;
   dashboardFilters?: Record<string, any>;
   dashboardFilterConfigs?: Array<{
     id: string;
@@ -138,6 +143,7 @@ interface ChartElementViewProps {
   commentStates?: CommentStates; // Comment states array with target_type and chart_id
   onCommentStateChange?: () => void; // Callback when comment state changes
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open
+  canModerateComments?: boolean; // Resolver-edit on the report — can moderate others' comments
   orgLogoUrl?: string | null; // Organization logo URL for fullscreen overlay
 }
 
@@ -155,6 +161,7 @@ interface DrillDownLevel {
 
 export function ChartElementView({
   chartId,
+  dashboardId,
   dashboardFilters = {},
   dashboardFilterConfigs = [],
   viewMode = true,
@@ -167,6 +174,7 @@ export function ChartElementView({
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
+  canModerateComments,
   orgLogoUrl,
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
@@ -220,7 +228,7 @@ export function ChartElementView({
     data: chart,
     isLoading: chartLoading,
     error: chartError,
-  } = useChart(isPublicMode || frozenChartConfig ? null : chartId);
+  } = useChart(isPublicMode || frozenChartConfig ? null : chartId, dashboardId);
 
   // Resolve dashboard filters to complete column information for maps and tables
   const resolvedDashboardFilters = useMemo(() => {
@@ -238,6 +246,11 @@ export function ChartElementView({
   const queryParams = new URLSearchParams();
   if (Object.keys(dashboardFilters).length > 0) {
     queryParams.append('dashboard_filters', JSON.stringify(dashboardFilters));
+  }
+  // dashboard_id is only meaningful (and only sent) for the private, non-public
+  // GET /api/charts/{id}/data/ call below — never leak it onto the public URL.
+  if (!isPublicMode && dashboardId) {
+    queryParams.append('dashboard_id', String(dashboardId));
   }
 
   // Use public API endpoint if in public mode, otherwise use regular API
@@ -288,7 +301,9 @@ export function ChartElementView({
 
   // Private mode metadata (skip in report/frozen mode)
   const { data: chartMetadata, error: metadataError } = useSWR(
-    !isPublicMode && !frozenChartConfig ? `/api/charts/${chartId}` : null,
+    !isPublicMode && !frozenChartConfig
+      ? `/api/charts/${chartId}${dashboardId ? `?dashboard_id=${dashboardId}` : ''}`
+      : null,
     apiGet,
     {
       revalidateOnFocus: false,
@@ -572,13 +587,17 @@ export function ChartElementView({
     !isPublicMode && isTableChart ? chartDataPayload : null,
     tablePage,
     tablePageSize,
-    dashboardFilters
+    dashboardFilters,
+    chartId,
+    dashboardId
   );
 
   // Get total rows for table pagination (private mode, only for table charts)
   const { data: privateTableTotalRows } = useChartDataPreviewTotalRows(
     !isPublicMode && isTableChart ? chartDataPayload : null,
-    dashboardFilters
+    dashboardFilters,
+    chartId,
+    dashboardId
   );
 
   // Get total rows for table pagination (public mode)
@@ -910,7 +929,7 @@ export function ChartElementView({
     error: privateMapError,
     isLoading: privateMapLoading,
     mutate: mutatePrivateMapData,
-  } = useMapDataOverlay(!isPublicMode ? mapDataOverlayPayload : null);
+  } = useMapDataOverlay(!isPublicMode ? mapDataOverlayPayload : null, chartId, dashboardId);
 
   // Use appropriate map data based on mode
   const mapDataOverlay = isPublicMode ? publicMapData : privateMapDataOverlay;
@@ -1610,10 +1629,22 @@ export function ChartElementView({
 
       // Pass dashboard filters as query string so the backend can resolve them
       // against the chart's table (mirrors the chart-data-preview pattern).
-      const csvQueryString =
-        !frozenChartConfig && Object.keys(dashboardFilters).length > 0
-          ? `?dashboard_filters=${encodeURIComponent(JSON.stringify(dashboardFilters))}`
-          : '';
+      // The authed tile export also carries chart_id/dashboard_id — without
+      // that context a Member's dashboard-tile export 403s (bare raw
+      // payloads are Analyst-only). Frozen report configs may no longer
+      // match the live chart, so they keep the bare-payload path.
+      const csvParams = new URLSearchParams();
+      if (!isPublicMode && !frozenChartConfig) {
+        csvParams.append('chart_id', String(chartId));
+        if (dashboardId) {
+          csvParams.append('dashboard_id', String(dashboardId));
+        }
+      }
+      if (!frozenChartConfig && Object.keys(dashboardFilters).length > 0) {
+        csvParams.append('dashboard_filters', JSON.stringify(dashboardFilters));
+      }
+      const csvQuery = csvParams.toString();
+      const csvQueryString = csvQuery ? `?${csvQuery}` : '';
 
       let blob: Blob;
       if (isPublicMode && publicToken) {
@@ -1839,6 +1870,7 @@ export function ChartElementView({
               triggerClassName="h-7 w-7 p-0"
               onStateChange={onCommentStateChange}
               autoOpen={autoOpenCommentChartId === String(chartId)}
+              canModerate={canModerateComments}
             />
           </div>
         )}

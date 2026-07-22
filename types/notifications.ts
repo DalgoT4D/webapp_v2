@@ -1,3 +1,16 @@
+// Structured payload on an access-request notification — lets the
+// Notifications page render inline Approve/Deny. `kind` discriminates from
+// future actionable payloads; unrecognized/absent metadata falls back to
+// plain-text rendering.
+export interface AccessRequestNotificationMetadata {
+  kind: 'access_request';
+  request_id: number;
+  resource_type: ShareableResourceType;
+  resource_name: string;
+  requester_email: string;
+  requested_permission: AccessLevel;
+}
+
 // Core notification interface
 export interface Notification {
   id: number;
@@ -6,6 +19,8 @@ export interface Notification {
   message: string;
   read_status: boolean;
   timestamp: string; // ISO 8601 format from backend
+  // Null/absent for notifications with no action — the row renders as plain text.
+  metadata?: AccessRequestNotificationMetadata | null;
 }
 
 // API response for paginated notifications
@@ -25,10 +40,21 @@ export interface UserPreferences {
   last_visited_transform_tab?: 'ui' | 'github' | null;
 }
 
-// Organization preferences
+// Organization preferences — GET /api/orgpreferences/ returns Discord
+// notification settings and sharing settings in the same envelope.
+import type {
+  AccessLevel,
+  RolePermissionLevel,
+  ShareableResourceType,
+} from '@/hooks/api/useResourceAccess';
+
+// Each role's platform-wide default level is independently settable.
 export interface OrgPreferences {
   enable_discord_notifications: boolean;
   discord_webhook: string;
+  allow_public_sharing: boolean;
+  default_analyst_level: RolePermissionLevel;
+  default_member_level: RolePermissionLevel;
 }
 
 // API response wrappers

@@ -167,6 +167,21 @@ describe('AlertsTable', () => {
     // Standalone shows plain text, no link
     expect(screen.getByText(/Dataset: analytics.events/).closest('a')).toBeNull();
   });
+
+  it('highlights the row matching highlightAlertId (the ?alertId= deep-link target)', () => {
+    const alerts = [makeAlert({ id: 1, name: 'Alpha' }), makeAlert({ id: 2, name: 'Beta' })];
+    render(<AlertsTable {...baseProps} alerts={alerts} highlightAlertId="2" />);
+
+    expect(screen.getByTestId('alert-row-1')).not.toHaveClass('ring-1');
+    expect(screen.getByTestId('alert-row-2')).toHaveClass('ring-1');
+  });
+
+  it('highlights no row when highlightAlertId is absent', () => {
+    const alerts = [makeAlert({ id: 1, name: 'Alpha' })];
+    render(<AlertsTable {...baseProps} alerts={alerts} />);
+
+    expect(screen.getByTestId('alert-row-1')).not.toHaveClass('ring-1');
+  });
 });
 
 describe('AlertsTable permission gating', () => {
@@ -185,6 +200,74 @@ describe('AlertsTable permission gating', () => {
     await user.click(triggers[triggers.length - 1] as HTMLElement);
     const del = await screen.findByText('Delete');
     expect(del.closest('[role="menuitem"]')).toHaveAttribute('aria-disabled', 'true');
+  });
+});
+
+describe('AlertsTable — per-item Share action (task-17f, cross-task gap closure)', () => {
+  it('shows a Share button per row when canShare is true, and calls onShare with the alert', async () => {
+    const user = userEvent.setup();
+    const onShare = jest.fn();
+    const alerts = [makeAlert({ id: 1 })];
+    render(<AlertsTable {...baseProps} alerts={alerts} canShare onShare={onShare} />);
+
+    await user.click(screen.getByTestId('alert-share-btn-1'));
+    expect(onShare).toHaveBeenCalledWith(alerts[0]);
+  });
+
+  it('hides the Share button when canShare is false', () => {
+    const alerts = [makeAlert({ id: 1 })];
+    render(<AlertsTable {...baseProps} alerts={alerts} canShare={false} onShare={jest.fn()} />);
+    expect(screen.queryByTestId('alert-share-btn-1')).not.toBeInTheDocument();
+  });
+});
+
+describe('AlertsTable — bulk selection checkboxes (task-17f)', () => {
+  it('shows a checkbox per row when canShare is true, wired to selectedIds/onToggleSelect', async () => {
+    const user = userEvent.setup();
+    const onToggleSelect = jest.fn();
+    const alerts = [makeAlert({ id: 1 }), makeAlert({ id: 2 })];
+    render(
+      <AlertsTable
+        {...baseProps}
+        alerts={alerts}
+        canShare
+        onShare={jest.fn()}
+        selectedIds={new Set([2])}
+        onToggleSelect={onToggleSelect}
+      />
+    );
+
+    expect(screen.getByTestId('alert-select-1')).not.toBeChecked();
+    expect(screen.getByTestId('alert-select-2')).toBeChecked();
+
+    await user.click(screen.getByTestId('alert-select-1'));
+    expect(onToggleSelect).toHaveBeenCalledWith(1);
+  });
+
+  it('hides checkboxes when canShare is false', () => {
+    const alerts = [makeAlert({ id: 1 })];
+    render(<AlertsTable {...baseProps} alerts={alerts} canShare={false} />);
+    expect(screen.queryByTestId('alert-select-1')).not.toBeInTheDocument();
+  });
+
+  it('disables an unselected checkbox once the selection is at the 100-item cap', () => {
+    const hundredIds = new Set(Array.from({ length: 100 }, (_, i) => i + 1));
+    const alerts = [makeAlert({ id: 1 }), makeAlert({ id: 200 })];
+    render(
+      <AlertsTable
+        {...baseProps}
+        alerts={alerts}
+        canShare
+        onShare={jest.fn()}
+        selectedIds={hundredIds}
+        onToggleSelect={jest.fn()}
+      />
+    );
+
+    // id 1 is selected (in the 100) — stays enabled so it can be deselected.
+    expect(screen.getByTestId('alert-select-1')).not.toBeDisabled();
+    // id 200 is not selected, and the selection is already at cap.
+    expect(screen.getByTestId('alert-select-200')).toBeDisabled();
   });
 });
 

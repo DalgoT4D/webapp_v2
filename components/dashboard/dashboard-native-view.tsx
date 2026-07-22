@@ -242,6 +242,10 @@ interface DashboardNativeViewProps {
   commentStates?: CommentStates; // Comment states array with target_type and chart_id
   onCommentStateChange?: () => void; // Callback to revalidate comment states
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open (from email deep-link)
+  // Resolver-edit on the report this snapshot belongs to — lets the viewer
+  // moderate (edit/delete) OTHER people's comments, not just their own.
+  // Only meaningful alongside snapshotId (report mode).
+  canModerateComments?: boolean;
 }
 
 export function DashboardNativeView({
@@ -263,6 +267,7 @@ export function DashboardNativeView({
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
+  canModerateComments,
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>(() => {
@@ -353,10 +358,10 @@ export function DashboardNativeView({
   // Get user permissions
   const { hasPermission } = useRbac();
 
-  // Check if user can edit - requires can_edit_dashboards permission
+  // Role slug OR a per-resource edit grant (v1.2 pool level on the detail GET)
   const canEdit = useMemo(() => {
     if (isPublicMode || !dashboard || !currentUser) return false;
-    return hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS);
+    return hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS) || dashboard.user_permission === 'edit';
   }, [isPublicMode, dashboard, currentUser, hasPermission]);
 
   // Check if dashboard is locked
@@ -611,6 +616,7 @@ export function DashboardNativeView({
           <div key={componentId} className="h-full">
             <ChartElementView
               chartId={component.config?.chartId}
+              dashboardId={dashboardId}
               dashboardFilters={selectedFilters}
               dashboardFilterConfigs={dashboardFilters}
               viewMode={true}
@@ -627,6 +633,7 @@ export function DashboardNativeView({
               commentStates={isReportMode ? commentStates : undefined}
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+              canModerateComments={isReportMode ? canModerateComments : undefined}
               orgLogoUrl={orgLogoUrl}
             />
           </div>
@@ -680,6 +687,7 @@ export function DashboardNativeView({
               commentStates={isReportMode ? commentStates : undefined}
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+              canModerateComments={isReportMode ? canModerateComments : undefined}
             />
           </div>
         );
@@ -1473,6 +1481,8 @@ export function DashboardNativeView({
         <ShareModal
           entityId={dashboard.id}
           entityLabel="Dashboard"
+          resourceName={dashboard.title}
+          entityType="dashboard"
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}

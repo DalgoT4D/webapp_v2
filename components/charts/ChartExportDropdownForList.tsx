@@ -232,8 +232,9 @@ export function ChartExportDropdownForList({
         },
       };
 
-      // Use the same API endpoint as the working chart detail view
-      const response = await apiPost('/api/charts/chart-data-preview/', {
+      // chart_id routes the warehouse gate through the per-chart resolver
+      // check instead of the bare-payload Analyst-only ladder.
+      const response = await apiPost(`/api/charts/chart-data-preview/?chart_id=${chartId}`, {
         ...chartDataPayload,
         offset: 0,
         limit: 10000,

@@ -119,24 +119,35 @@ export const PERMISSIONS = {
   CAN_CREATE_CHARTS: 'can_create_charts',
   CAN_EDIT_CHARTS: 'can_edit_charts',
   CAN_DELETE_CHARTS: 'can_delete_charts',
+  CAN_SHARE_CHARTS: 'can_share_charts',
 
   // Metrics
   CAN_VIEW_METRICS: 'can_view_metrics',
   CAN_CREATE_METRICS: 'can_create_metrics',
   CAN_EDIT_METRICS: 'can_edit_metrics',
   CAN_DELETE_METRICS: 'can_delete_metrics',
+  CAN_SHARE_METRICS: 'can_share_metrics',
 
   // KPIs
   CAN_VIEW_KPIS: 'can_view_kpis',
   CAN_CREATE_KPIS: 'can_create_kpis',
   CAN_EDIT_KPIS: 'can_edit_kpis',
   CAN_DELETE_KPIS: 'can_delete_kpis',
+  CAN_SHARE_KPIS: 'can_share_kpis',
 
   // Alerts
   CAN_VIEW_ALERTS: 'can_view_alerts',
   CAN_CREATE_ALERTS: 'can_create_alerts',
   CAN_EDIT_ALERTS: 'can_edit_alerts',
   CAN_DELETE_ALERTS: 'can_delete_alerts',
+  CAN_SHARE_ALERTS: 'can_share_alerts',
+
+  // Reports
+  CAN_SHARE_REPORTS: 'can_share_reports',
+
+  // User groups (resource-sharing audiences — Settings → Groups)
+  CAN_VIEW_USER_GROUPS: 'can_view_user_groups',
+  CAN_MANAGE_USER_GROUPS: 'can_manage_user_groups',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

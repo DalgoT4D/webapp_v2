@@ -14,6 +14,7 @@ export interface Invitation {
     name: string;
   };
   invited_on: string;
+  invited_by: string; // email of the OrgUser who sent the invite (org-wide list, not just self-sent)
 }
 
 // Form types

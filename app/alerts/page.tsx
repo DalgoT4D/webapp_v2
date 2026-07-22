@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -24,20 +25,37 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { deleteAlert, toggleAlert, useAlerts } from '@/hooks/api/useAlerts';
+import { useResourceAccess, type BulkAccessResponse } from '@/hooks/api/useResourceAccess';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { CreateAlertTypeModal } from '@/components/alerts/CreateAlertTypeModal';
 import { AlertsTable, AllAlertsEmptyState } from '@/components/alerts/AlertsTable';
 import { AlertLogModal } from '@/components/alerts/AlertLogModal';
+import { RequestAccessScreen } from '@/components/sharing/request-access-screen';
+import { ShareModal } from '@/components/ui/share-modal';
+import { BulkShareDialog } from '@/components/sharing/bulk-share-dialog';
+import { useMultiSelect, MAX_BULK_SELECTION } from '@/hooks/useMultiSelect';
 import { DocsLink } from '@/components/ui/docs-link';
 import type { AlertListItem } from '@/types/alerts';
+import type { ShareStatus } from '@/types/reports';
 import { AlertType } from '@/types/alerts';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { getApiErrorStatus } from '@/lib/utils';
+
+// Alerts have no public link. getShareStatus/updateSharing are required
+// ShareModal props, but these stubs never back a rendered section.
+async function getAlertShareStatus(): Promise<ShareStatus> {
+  return { is_public: false, public_access_count: 0 };
+}
+async function updateAlertSharing(): Promise<ShareStatus> {
+  return { is_public: false, public_access_count: 0 };
+}
 
 export default function AlertsPage() {
   const { hasPermission } = useRbac();
   const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
   const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_ALERTS);
   const canDelete = hasPermission(PERMISSIONS.CAN_DELETE_ALERTS);
+  const canShareAlerts = hasPermission(PERMISSIONS.CAN_SHARE_ALERTS);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -47,6 +65,21 @@ export default function AlertsPage() {
   const [deletingAlert, setDeletingAlert] = useState<AlertListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [logModalAlert, setLogModalAlert] = useState<AlertListItem | null>(null);
+
+  // One shared ShareModal instance for the whole table, matching
+  // dashboard-list-v2.tsx's pattern.
+  const [sharingAlert, setSharingAlert] = useState<AlertListItem | null>(null);
+
+  // Bulk selection — persists across pagination, capped via useMultiSelect.
+  const {
+    selectedIds: selectedAlertIds,
+    toggle: toggleAlertSelection,
+    selectPage: selectAlertPage,
+    deselectPage: deselectAlertPage,
+    remove: removeAppliedAlertIds,
+    clear: clearAlertSelection,
+  } = useMultiSelect<number>();
+  const [bulkShareOpen, setBulkShareOpen] = useState(false);
 
   const {
     data: alerts,
@@ -58,6 +91,43 @@ export default function AlertsPage() {
     page: currentPage,
     pageSize,
   });
+
+  // Selection persists across pagination, so the bar's count must be the
+  // true cross-page total — a page-local denominator would contradict the
+  // visible checkboxes as soon as the user pages away.
+  const selectedOnPageCount = useMemo(
+    () => alerts.filter((a) => selectedAlertIds.has(a.id)).length,
+    [alerts, selectedAlertIds]
+  );
+  const selectedOffPageCount = selectedAlertIds.size - selectedOnPageCount;
+
+  const bulkShareItems = useMemo(
+    () => Array.from(selectedAlertIds, (id) => ({ rtype: 'alert' as const, id: String(id) })),
+    [selectedAlertIds]
+  );
+
+  const handleBulkApplied = useCallback(
+    (response: BulkAccessResponse) => {
+      const appliedIds = response.applied
+        .filter((item) => item.rtype === 'alert')
+        .map((item) => Number(item.id));
+      removeAppliedAlertIds(appliedIds);
+      mutate();
+    },
+    [removeAppliedAlertIds, mutate]
+  );
+
+  // Deep-link (/alerts?alertId={id}): a visible alert just gets highlighted;
+  // one the viewer can't see never appears in the resolver-scoped list, but
+  // its individual access fetch 403s — the seam this checks to offer the
+  // request-access flow.
+  const searchParams = useSearchParams();
+  const alertIdParam = searchParams.get('alertId');
+  const deepLinkedAlertId = alertIdParam ? Number(alertIdParam) : null;
+  const { isError: deepLinkAccessError } = useResourceAccess(
+    deepLinkedAlertId ? 'alert' : null,
+    deepLinkedAlertId
+  );
 
   const handleToggle = async (a: AlertListItem) => {
     try {
@@ -88,6 +158,12 @@ export default function AlertsPage() {
     }
   };
 
+  if (deepLinkedAlertId && getApiErrorStatus(deepLinkAccessError) === 403) {
+    return (
+      <RequestAccessScreen rtype="alert" resourceId={deepLinkedAlertId} resourceLabel="alert" />
+    );
+  }
+
   return (
     <div id="alerts-list-container" className="h-full flex flex-col">
       {/* Fixed Header */}
@@ -111,6 +187,56 @@ export default function AlertsPage() {
             </CreateAlertTypeModal>
           )}
         </div>
+
+        {/* Bulk-selection bar — appears once >=1 row is selected */}
+        {canShareAlerts && selectedAlertIds.size > 0 && (
+          <div
+            data-testid="alert-bulk-share-bar"
+            className="mx-6 mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-1 text-sm font-medium text-blue-900">
+              <span>
+                {selectedAlertIds.size} selected
+                {selectedOffPageCount > 0 && ` · ${selectedOffPageCount} on other pages`}
+                {selectedAlertIds.size >= MAX_BULK_SELECTION && ' (maximum 100 reached)'}
+              </span>
+              <span aria-hidden="true" className="px-1 text-blue-300">
+                ·
+              </span>
+              <Button
+                data-testid="alert-bulk-select-all-btn"
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() => selectAlertPage(alerts.map((a) => a.id))}
+                disabled={alerts.every((a) => selectedAlertIds.has(a.id))}
+              >
+                Select All
+              </Button>
+              <span aria-hidden="true" className="px-1 text-blue-300">
+                ·
+              </span>
+              <Button
+                data-testid="alert-bulk-clear-btn"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-muted-foreground"
+                onClick={clearAlertSelection}
+              >
+                Clear
+              </Button>
+            </div>
+            <Button
+              data-testid="alert-bulk-share-btn"
+              variant="primary"
+              size="sm"
+              onClick={() => setBulkShareOpen(true)}
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Share
+            </Button>
+          </div>
+        )}
       </div>
 
       <div id="alerts-content-wrapper" className="flex-1 overflow-hidden px-6">
@@ -130,6 +256,13 @@ export default function AlertsPage() {
               trackEvent(ANALYTICS_EVENTS.ALERT_LOGS_VIEWED);
               setLogModalAlert(a);
             }}
+            highlightAlertId={alertIdParam}
+            canShare={canShareAlerts}
+            onShare={(a) => setSharingAlert(a)}
+            selectedIds={selectedAlertIds}
+            onToggleSelect={toggleAlertSelection}
+            onSelectAllVisible={selectAlertPage}
+            onDeselectAllVisible={deselectAlertPage}
           />
         </div>
       </div>
@@ -235,6 +368,34 @@ export default function AlertsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Per-item Share — the modal's capability flags already omit the
+          public-link section for alerts. */}
+      {sharingAlert && (
+        <ShareModal
+          entityId={sharingAlert.id}
+          entityLabel="Alert"
+          resourceName={sharingAlert.name}
+          entityType="alert"
+          isOpen={sharingAlert !== null}
+          onClose={() => setSharingAlert(null)}
+          getShareStatus={getAlertShareStatus}
+          updateSharing={updateAlertSharing}
+        />
+      )}
+
+      {/* Bulk Share Dialog — no public-link action for alerts. */}
+      {bulkShareOpen && (
+        <BulkShareDialog
+          entityType="alert"
+          entityLabel="alerts"
+          items={bulkShareItems}
+          isOpen={bulkShareOpen}
+          onClose={() => setBulkShareOpen(false)}
+          onApplied={handleBulkApplied}
+          allowPublicLink={false}
+        />
+      )}
     </div>
   );
 }

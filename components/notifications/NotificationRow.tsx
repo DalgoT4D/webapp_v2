@@ -1,3 +1,5 @@
+import { useCallback, useState } from 'react';
+import { mutate as globalMutate } from 'swr';
 import { formatDistanceToNow } from 'date-fns';
 import { ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,6 +8,14 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import type { Notification } from '@/types/notifications';
 import { MESSAGE_TRUNCATE_LENGTH } from '@/constants/notifications';
 import { cn } from '@/lib/utils';
+import {
+  approveAccessRequest,
+  declineAccessRequest,
+  ACCESS_REQUESTS_KEY,
+} from '@/hooks/api/useAccessRequests';
+import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface NotificationRowProps {
   notification: Notification;
@@ -13,6 +23,17 @@ interface NotificationRowProps {
   isExpanded: boolean;
   onSelect: (id: number, checked: boolean) => void;
   onToggleExpand: (id: number) => void;
+}
+
+// The row's local view of an access-request decision, independent of
+// read/unread. `alreadyResolved` covers both a decision made elsewhere and
+// an expired request — either way, stop offering the buttons.
+type AccessRequestDecisionState = 'idle' | 'deciding' | 'approved' | 'denied' | 'alreadyResolved';
+
+// Matches the backend's two 400 messages verbatim — brittle to a backend
+// copy change; there is no status-lookup endpoint.
+function isAlreadyResolvedError(message: string): boolean {
+  return /already been \w+/i.test(message) || /has expired/i.test(message);
 }
 
 // Helper to render message with clickable links
@@ -54,6 +75,57 @@ export function NotificationRow({
 
   const isRead = notification.read_status;
 
+  const accessRequest =
+    notification.metadata?.kind === 'access_request' ? notification.metadata : null;
+  const [decisionState, setDecisionState] = useState<AccessRequestDecisionState>('idle');
+
+  const handleApprove = useCallback(async () => {
+    if (!accessRequest) return;
+    setDecisionState('deciding');
+    try {
+      // Grants exactly what was requested — the row offers no permission
+      // picker, so the "escalate above the ask" 400 is unreachable here.
+      await approveAccessRequest(accessRequest.request_id);
+      setDecisionState('approved');
+      globalMutate(ACCESS_REQUESTS_KEY);
+      toastSuccess.generic('Access granted');
+      trackEvent(ANALYTICS_EVENTS.SHARING_ACCESS_REQUEST_APPROVED, {
+        entity_type: accessRequest.resource_type,
+        downgraded: false,
+        source: 'notification_row',
+      });
+    } catch (error) {
+      if (error instanceof Error && isAlreadyResolvedError(error.message)) {
+        setDecisionState('alreadyResolved');
+      } else {
+        setDecisionState('idle');
+        toastError.api(error, 'approve this request');
+      }
+    }
+  }, [accessRequest]);
+
+  const handleDeny = useCallback(async () => {
+    if (!accessRequest) return;
+    setDecisionState('deciding');
+    try {
+      await declineAccessRequest(accessRequest.request_id);
+      setDecisionState('denied');
+      globalMutate(ACCESS_REQUESTS_KEY);
+      toastSuccess.generic('Request denied');
+      trackEvent(ANALYTICS_EVENTS.SHARING_ACCESS_REQUEST_DECLINED, {
+        entity_type: accessRequest.resource_type,
+        source: 'notification_row',
+      });
+    } catch (error) {
+      if (error instanceof Error && isAlreadyResolvedError(error.message)) {
+        setDecisionState('alreadyResolved');
+      } else {
+        setDecisionState('idle');
+        toastError.api(error, 'deny this request');
+      }
+    }
+  }, [accessRequest]);
+
   return (
     <TableRow
       data-testid={`notification-row-${notification.id}`}
@@ -74,19 +146,67 @@ export function NotificationRow({
       </TableCell>
 
       <TableCell className="w-full py-4 align-top whitespace-normal">
-        <p
-          className={cn(
-            'leading-relaxed text-base break-words whitespace-normal',
-            isRead ? 'text-gray-500 font-normal' : 'text-gray-800 font-medium'
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <p
+              className={cn(
+                'leading-relaxed text-base break-words whitespace-normal',
+                isRead ? 'text-gray-500 font-normal' : 'text-gray-800 font-medium'
+              )}
+            >
+              {renderMessageWithLinks(displayMessage)}
+            </p>
+            <p className={cn('text-sm mt-2', isRead ? 'text-gray-400' : 'text-gray-600')}>
+              {formatDistanceToNow(new Date(notification.timestamp), {
+                addSuffix: true,
+              })}
+            </p>
+          </div>
+
+          {accessRequest && (
+            <div
+              className="flex flex-shrink-0 items-center gap-2"
+              data-testid={`notification-actions-${notification.id}`}
+            >
+              {decisionState === 'idle' || decisionState === 'deciding' ? (
+                <>
+                  <Button
+                    data-testid={`notification-deny-btn-${notification.id}`}
+                    variant="outline"
+                    size="sm"
+                    disabled={decisionState === 'deciding'}
+                    onClick={handleDeny}
+                  >
+                    DENY
+                  </Button>
+                  <Button
+                    data-testid={`notification-approve-btn-${notification.id}`}
+                    variant="primary"
+                    size="sm"
+                    disabled={decisionState === 'deciding'}
+                    onClick={handleApprove}
+                  >
+                    APPROVE
+                  </Button>
+                </>
+              ) : (
+                <span
+                  data-testid={`notification-decision-${notification.id}`}
+                  className={cn(
+                    'text-sm font-medium',
+                    decisionState === 'approved' && 'text-teal-700',
+                    decisionState === 'denied' && 'text-gray-500',
+                    decisionState === 'alreadyResolved' && 'text-muted-foreground'
+                  )}
+                >
+                  {decisionState === 'approved' && 'Approved'}
+                  {decisionState === 'denied' && 'Denied'}
+                  {decisionState === 'alreadyResolved' && 'Already resolved'}
+                </span>
+              )}
+            </div>
           )}
-        >
-          {renderMessageWithLinks(displayMessage)}
-        </p>
-        <p className={cn('text-sm mt-2', isRead ? 'text-gray-400' : 'text-gray-600')}>
-          {formatDistanceToNow(new Date(notification.timestamp), {
-            addSuffix: true,
-          })}
-        </p>
+        </div>
       </TableCell>
 
       <TableCell className="w-16 text-center align-top py-4">

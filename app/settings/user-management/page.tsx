@@ -1,10 +1,6 @@
-import UserManagement from '@/components/settings/user-management/UserManagement';
-import { ADMIN_ROLES, RoleGuard } from '@/lib/rbac';
+import { redirect } from 'next/navigation';
 
+// Legacy route — user management now lives on Settings → Access (People tab).
 export default function UserManagementPage() {
-  return (
-    <RoleGuard roles={ADMIN_ROLES}>
-      <UserManagement />
-    </RoleGuard>
-  );
+  redirect('/settings/access?tab=people');
 }

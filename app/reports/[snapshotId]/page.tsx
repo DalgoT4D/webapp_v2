@@ -6,18 +6,36 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Calendar, Download, LayoutGrid, Loader2, Pencil, User } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calendar,
+  Download,
+  LayoutGrid,
+  Loader2,
+  Pencil,
+  Share2,
+  User,
+} from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
-import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
+import {
+  useSnapshotView,
+  updateSnapshot,
+  getReportSharingStatus,
+  updateReportSharing,
+  shareReportViaEmail,
+} from '@/hooks/api/useReports';
 import { useCommentStates } from '@/hooks/api/useComments';
+import { useResourceAccess } from '@/hooks/api/useResourceAccess';
 import { usePdfDownload } from '@/hooks/usePdfDownload';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
-import { ReportShareMenu } from '@/components/reports/report-share-menu';
+import { ShareModal } from '@/components/ui/share-modal';
 import { CommentPopover } from '@/components/reports/comment-popover';
+import { RequestAccessScreen } from '@/components/sharing/request-access-screen';
 import { formatDateShort } from '@/components/reports/utils';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { getApiErrorStatus } from '@/lib/utils';
 
 export default function SnapshotViewerPage() {
   const params = useParams();
@@ -36,9 +54,16 @@ export default function SnapshotViewerPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
   const [isEditingSummary, setIsEditingSummary] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const { hasPermission } = useRbac();
   const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS);
-  const canShare = hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS);
+  const canShare = hasPermission(PERMISSIONS.CAN_SHARE_REPORTS);
+
+  // Resolver-level permission on this specific report — distinct from the
+  // role-level `canEdit` above. Comment moderation is gated on this, not
+  // the static role slug.
+  const { data: reportAccess } = useResourceAccess(isValidId ? 'report' : null, parsedId);
+  const canModerateComments = reportAccess?.viewer.effective_permission === 'edit';
 
   // Fire REPORT_VIEWED once per mount when the report has successfully loaded
   const reportViewedTracked = useRef(false);
@@ -109,6 +134,10 @@ export default function SnapshotViewerPage() {
         <Skeleton className="h-[600px] w-full" />
       </div>
     );
+  }
+
+  if (isError && getApiErrorStatus(isError) === 403) {
+    return <RequestAccessScreen rtype="report" resourceId={parsedId} resourceLabel="report" />;
   }
 
   if (isError || !viewData) {
@@ -194,7 +223,15 @@ export default function SnapshotViewerPage() {
               )}
             </Button>
             {canShare && (
-              <ReportShareMenu snapshotId={parsedId} reportTitle={report_metadata.title} />
+              <Button
+                data-testid="report-share-btn"
+                variant="outline"
+                size="sm"
+                aria-label="Share report"
+                onClick={() => setShareModalOpen(true)}
+              >
+                <Share2 className="w-4 h-4" />
+              </Button>
             )}
           </div>
         </div>
@@ -211,24 +248,26 @@ export default function SnapshotViewerPage() {
           snapshotId={parsedId}
           commentStates={commentStates}
           onCommentStateChange={handleCommentStateChange}
+          canModerateComments={canModerateComments}
           autoOpenCommentChartId={
             commentTarget === 'chart' && commentChartId ? commentChartId : undefined
           }
           topRightContent={
             <div className="flex-shrink-0 px-6 pt-4 pb-2">
               <div className="border rounded-lg p-5 bg-background relative">
-                {canEdit && (
-                  <div className="absolute top-3 right-3 flex items-center gap-1">
-                    <CommentPopover
-                      snapshotId={parsedId}
-                      targetType="summary"
-                      state={
-                        commentStates?.find((s) => s.target_type === 'summary')?.state ?? 'none'
-                      }
-                      triggerClassName="h-8 w-8"
-                      onStateChange={handleCommentStateChange}
-                      autoOpen={commentTarget === 'summary'}
-                    />
+                <div className="absolute top-3 right-3 flex items-center gap-1">
+                  {/* Any viewer can comment — deliberately not gated on
+                      canEdit, which would block Members from the thread. */}
+                  <CommentPopover
+                    snapshotId={parsedId}
+                    targetType="summary"
+                    state={commentStates?.find((s) => s.target_type === 'summary')?.state ?? 'none'}
+                    triggerClassName="h-8 w-8"
+                    onStateChange={handleCommentStateChange}
+                    autoOpen={commentTarget === 'summary'}
+                    canModerate={canModerateComments}
+                  />
+                  {canEdit && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -247,8 +286,8 @@ export default function SnapshotViewerPage() {
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
-                  </div>
-                )}
+                  )}
+                </div>
                 <div className="flex items-baseline gap-2 mb-2">
                   <h2 className="text-lg font-semibold">Executive Summary</h2>
                   {report_metadata.last_modified_by && (
@@ -301,6 +340,18 @@ export default function SnapshotViewerPage() {
           }
         />
       </div>
+
+      <ShareModal
+        entityId={parsedId}
+        entityLabel="Report"
+        resourceName={report_metadata.title}
+        entityType="report"
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        getShareStatus={getReportSharingStatus}
+        updateSharing={updateReportSharing}
+        onShareViaEmail={(data) => shareReportViaEmail(parsedId, data)}
+      />
     </div>
   );
 }

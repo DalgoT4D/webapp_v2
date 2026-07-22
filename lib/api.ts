@@ -187,7 +187,15 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
         }
       }
 
-      throw new Error(errorMessage);
+      // Attach the HTTP status and parsed body to the thrown Error so
+      // callers can branch on codes (e.g. 403 → request-access screen) or
+      // act on typed payloads (e.g. a 409's confirmation body). Read via
+      // getApiErrorStatus()/getApiErrorBody() in lib/utils.ts. Purely
+      // additive — existing callers only ever read `.message`.
+      const apiError = new Error(errorMessage) as Error & { status?: number; body?: unknown };
+      apiError.status = response.status;
+      apiError.body = data;
+      throw apiError;
     }
 
     return data;

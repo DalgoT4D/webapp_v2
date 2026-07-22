@@ -67,13 +67,32 @@ describe('getNavItems', () => {
     expect(items.find((i) => i.title === 'Data')?.hide).toBeFalsy();
   });
 
-  it('hides Billing and User Management for analyst role', () => {
+  it('hides Billing but shows Access for analyst role', () => {
     const items = getNavItems('/', false, () => false, undefined, ROLES.ANALYST);
     const settings = items.find((i) => i.title === 'Settings');
     const billing = settings?.children?.find((c) => c.title === 'Billing');
-    const userMgmt = settings?.children?.find((c) => c.title === 'User Management');
+    const access = settings?.children?.find((c) => c.title === 'Access');
     expect(billing?.hide).toBe(true);
-    expect(userMgmt?.hide).toBe(true);
+    // Analysts can open Settings → Access for the Groups tab (DATA_SECTION_ROLES)
+    expect(access?.hide).toBeFalsy();
+  });
+
+  it('hides Access for the member role', () => {
+    const items = getNavItems('/', false, () => false, undefined, ROLES.MEMBER);
+    const settings = items.find((i) => i.title === 'Settings');
+    const access = settings?.children?.find((c) => c.title === 'Access');
+    expect(access?.hide).toBe(true);
+  });
+
+  it('has a single Access entry instead of the three legacy settings links', () => {
+    const items = getNavItems('/', false, () => false, undefined, ROLES.ADMIN);
+    const settings = items.find((i) => i.title === 'Settings');
+    const titles = settings?.children?.map((c) => c.title) ?? [];
+    expect(titles).toContain('Access');
+    expect(titles).not.toContain('User Management');
+    expect(titles).not.toContain('Groups');
+    expect(titles).not.toContain('Access Management');
+    expect(settings?.children?.find((c) => c.title === 'Access')?.href).toBe('/settings/access');
   });
 
   it('shows all items for the admin role', () => {
@@ -84,11 +103,11 @@ describe('getNavItems', () => {
     expect(settings?.children?.find((c) => c.title === 'Billing')?.hide).toBeFalsy();
   });
 
-  it('shows Data, Billing, and User Management for super-admin', () => {
+  it('shows Data, Billing, and Access for super-admin', () => {
     const items = getNavItems('/', false, () => false, undefined, ROLES.SUPER_ADMIN);
     expect(items.find((i) => i.title === 'Data')?.hide).toBeFalsy();
     const settings = items.find((i) => i.title === 'Settings');
     expect(settings?.children?.find((c) => c.title === 'Billing')?.hide).toBeFalsy();
-    expect(settings?.children?.find((c) => c.title === 'User Management')?.hide).toBeFalsy();
+    expect(settings?.children?.find((c) => c.title === 'Access')?.hide).toBeFalsy();
   });
 });

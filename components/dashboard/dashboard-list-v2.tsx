@@ -84,6 +84,8 @@ import {
   Filter,
   X,
   Calendar as CalendarIcon,
+  Shield,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -97,15 +99,23 @@ import {
   updateDashboardSharing,
 } from '@/hooks/api/useDashboards';
 import { ShareModal } from '@/components/ui/share-modal';
+import { BulkShareDialog } from '@/components/sharing/bulk-share-dialog';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
+import { useMultiSelect, MAX_BULK_SELECTION } from '@/hooks/useMultiSelect';
+import type { BulkAccessResponse } from '@/hooks/api/useResourceAccess';
 import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
 import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
+import {
+  audienceBadgeTitle,
+  isSharedWithViewer,
+  deriveGeneralAccessBadge,
+} from './dashboard-list-utils';
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => any>(
@@ -134,6 +144,8 @@ export function DashboardListV2() {
   const [favorites, setFavorites] = useState<Set<number>>(new Set());
 
   // Column filter states
+  // "Show only shared" filters on is_owner/is_creator — see
+  // isSharedWithViewer in dashboard-list-utils.ts.
   const [nameFilters, setNameFilters] = useState({
     text: '',
     showFavorites: false,
@@ -160,6 +172,16 @@ export function DashboardListV2() {
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [selectedDashboard, setSelectedDashboard] = useState<any>(null);
+  // Bulk selection — persists across pagination, capped via useMultiSelect.
+  const {
+    selectedIds: selectedDashboardIds,
+    toggle: toggleDashboardSelection,
+    selectPage: selectDashboardPage,
+    deselectPage: deselectDashboardPage,
+    remove: removeAppliedDashboardIds,
+    clear: clearDashboardSelection,
+  } = useMultiSelect<number>();
+  const [bulkShareOpen, setBulkShareOpen] = useState(false);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -268,7 +290,7 @@ export function DashboardListV2() {
         return false;
       }
 
-      if (nameFilters.showShared && !dashboard.is_public) {
+      if (nameFilters.showShared && !isSharedWithViewer(dashboard)) {
         return false;
       }
 
@@ -410,6 +432,23 @@ export function DashboardListV2() {
   const paginatedRegularDashboards =
     apiTotalPages > 1 ? regularDashboards : regularDashboards.slice(startIndex, endIndex);
 
+  // All rows currently rendered in the table (pinned + this page of regular)
+  // — what "Select all" selects, matching the current-page-only semantics
+  // of the pagination controls below.
+  const visibleDashboardIds = useMemo(
+    () => [...pinnedDashboards, ...paginatedRegularDashboards].map((d) => d.id),
+    [pinnedDashboards, paginatedRegularDashboards]
+  );
+
+  // Selection persists across pagination, so the bar's count must be the
+  // true cross-page total — a page-local denominator would contradict the
+  // visible checkboxes as soon as the user pages away.
+  const selectedOnPageCount = useMemo(
+    () => visibleDashboardIds.filter((id) => selectedDashboardIds.has(id)).length,
+    [visibleDashboardIds, selectedDashboardIds]
+  );
+  const selectedOffPageCount = selectedDashboardIds.size - selectedOnPageCount;
+
   // Calculate pagination values (use API values if available, otherwise client-side for regular dashboards only)
   const total = apiTotal || regularDashboards.length;
   const totalPages =
@@ -482,6 +521,30 @@ export function DashboardListV2() {
   const handleDashboardUpdate = useCallback(() => {
     mutate(); // Refresh the dashboard list
   }, [mutate]);
+
+  // Deselect only the ids the server actually applied; skipped/pending ids
+  // stay selected so the user can see which ones need attention. Always
+  // revalidate — applied changes are real even mid confirm round-trip.
+  const handleBulkApplied = useCallback(
+    (response: BulkAccessResponse) => {
+      const appliedIds = response.applied
+        .filter((item) => item.rtype === 'dashboard')
+        .map((item) => Number(item.id));
+      removeAppliedDashboardIds(appliedIds);
+      mutate();
+    },
+    [removeAppliedDashboardIds, mutate]
+  );
+
+  const handleBulkShareClose = useCallback(() => setBulkShareOpen(false), []);
+
+  const bulkShareItems = useMemo(
+    () =>
+      Array.from(selectedDashboardIds, (id) => ({ rtype: 'dashboard' as const, id: String(id) })),
+    [selectedDashboardIds]
+  );
+
+  const canShareDashboards = hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS);
 
   // Landing page handlers
   const handleSetPersonalLanding = useCallback(
@@ -623,13 +686,14 @@ export function DashboardListV2() {
           <div className="flex items-center space-x-2">
             <Checkbox
               id="shared"
+              data-testid="dashboard-shared-filter-checkbox"
               checked={nameFilters.showShared}
               onCheckedChange={(checked) =>
                 setNameFilters((prev) => ({ ...prev, showShared: checked as boolean }))
               }
             />
             <Label htmlFor="shared" className="text-sm cursor-pointer">
-              Show only shared
+              Show only shared with me
             </Label>
           </div>
         </div>
@@ -790,13 +854,42 @@ export function DashboardListV2() {
     const isLockedByOther =
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
     const isFavorited = favorites.has(dashboard.id);
+    // deriveGeneralAccessBadge collapses {analyst_level, member_level} down
+    // to the single badge this row shows.
+    const generalAccessBadge = deriveGeneralAccessBadge(
+      dashboard.analyst_level,
+      dashboard.member_level
+    );
+    const audienceBadgeLabel =
+      generalAccessBadge?.kind !== 'private' ? generalAccessBadge?.label : undefined;
+    const isPrivate = generalAccessBadge?.kind === 'private';
+    const isSharedWithMe = isSharedWithViewer(dashboard);
 
     const getNavigationUrl = () => {
       return hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? `/dashboards/${dashboard.id}` : '#';
     };
 
+    const isDashboardSelected = selectedDashboardIds.has(dashboard.id);
+
     return (
-      <TableRow key={dashboard.id} className="hover:bg-gray-50">
+      <TableRow key={dashboard.id} className="group hover:bg-gray-50">
+        {/* Bulk-select checkbox, gated with the row's Share button. No
+            permanent column — shows on hover or when already selected. */}
+        {canShareDashboards && (
+          <TableCell className="py-4">
+            <Checkbox
+              data-testid={`dashboard-select-${dashboard.id}`}
+              aria-label={`Select ${dashboard.title || dashboard.dashboard_title}`}
+              checked={isDashboardSelected}
+              disabled={!isDashboardSelected && selectedDashboardIds.size >= MAX_BULK_SELECTION}
+              onCheckedChange={() => toggleDashboardSelection(dashboard.id)}
+              className={cn(
+                'transition-opacity',
+                isDashboardSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              )}
+            />
+          </TableCell>
+        )}
         {/* Name Column with Star */}
         <TableCell className="py-4">
           <div className="flex items-center gap-3">
@@ -822,8 +915,48 @@ export function DashboardListV2() {
               >
                 {dashboard.title || dashboard.dashboard_title}
               </Link>
-              {(isPersonalLanding || isOrgDefault || isLocked) && (
+              {(isPersonalLanding ||
+                isOrgDefault ||
+                isLocked ||
+                isPrivate ||
+                audienceBadgeLabel ||
+                isSharedWithMe) && (
                 <div className="flex items-center gap-2 mt-1">
+                  {isPrivate ? (
+                    <Badge
+                      variant="outline"
+                      className="text-sm bg-gray-100 text-gray-700 border-gray-300"
+                      data-testid={`dashboard-badge-private-${dashboard.id}`}
+                    >
+                      <Lock className="w-3 h-3 mr-1" />
+                      Private
+                    </Badge>
+                  ) : (
+                    audienceBadgeLabel && (
+                      <Badge
+                        variant="outline"
+                        className="text-sm bg-blue-50 text-blue-700 border-blue-200"
+                        data-testid={`dashboard-badge-audience-${dashboard.id}`}
+                        title={
+                          generalAccessBadge?.tooltip ??
+                          audienceBadgeTitle(audienceBadgeLabel, generalAccessBadge?.level)
+                        }
+                      >
+                        <Shield className="w-3 h-3 mr-1" />
+                        {audienceBadgeLabel}
+                      </Badge>
+                    )
+                  )}
+                  {isSharedWithMe && (
+                    <Badge
+                      variant="outline"
+                      className="text-sm bg-purple-50 text-purple-700 border-purple-200"
+                      data-testid={`dashboard-badge-shared-${dashboard.id}`}
+                    >
+                      <Users className="w-3 h-3 mr-1" />
+                      Shared with you
+                    </Badge>
+                  )}
                   {isPersonalLanding && (
                     <Badge
                       variant="default"
@@ -1633,6 +1766,51 @@ export function DashboardListV2() {
           )}
         </div>
 
+        {/* Bulk-selection bar — appears once at least one row is selected. */}
+        {canShareDashboards && selectedDashboardIds.size > 0 && (
+          <div
+            data-testid="dashboard-bulk-share-bar"
+            className="mx-6 mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3 text-sm font-medium text-blue-900">
+              <button
+                type="button"
+                data-testid="dashboard-bulk-clear-btn"
+                aria-label="Clear selection"
+                className="text-blue-900 hover:text-blue-700"
+                onClick={clearDashboardSelection}
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <span>
+                {selectedDashboardIds.size} selected
+                {selectedOffPageCount > 0 && ` · ${selectedOffPageCount} on other pages`}
+                {selectedDashboardIds.size >= MAX_BULK_SELECTION && ' (maximum 100 reached)'}
+              </span>
+            </div>
+            <div className="flex items-center gap-4">
+              <Button
+                data-testid="dashboard-bulk-select-all-btn"
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() => selectDashboardPage(visibleDashboardIds)}
+                disabled={visibleDashboardIds.every((id) => selectedDashboardIds.has(id))}
+              >
+                Select All
+              </Button>
+              <Button
+                data-testid="dashboard-bulk-share-btn"
+                variant="primary"
+                size="sm"
+                onClick={() => setBulkShareOpen(true)}
+              >
+                SHARE
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Filter Summary - Only shows when filters are active to save space */}
         {getActiveFilterCount() > 0 && (
           <div id="dashboard-filters-section" className="flex items-center gap-2 px-6 pb-0">
@@ -1764,6 +1942,23 @@ export function DashboardListV2() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gray-50">
+                        {canShareDashboards && (
+                          <TableHead className="w-[3%]">
+                            <Checkbox
+                              data-testid="dashboard-bulk-select-all-header"
+                              aria-label="Select all dashboards on this page"
+                              checked={
+                                visibleDashboardIds.length > 0 &&
+                                visibleDashboardIds.every((id) => selectedDashboardIds.has(id))
+                              }
+                              onCheckedChange={(checked) =>
+                                checked
+                                  ? selectDashboardPage(visibleDashboardIds)
+                                  : deselectDashboardPage(visibleDashboardIds)
+                              }
+                            />
+                          </TableHead>
+                        )}
                         <TableHead className="w-[40%]">
                           <div className="flex items-center gap-2">
                             <Button
@@ -1784,6 +1979,7 @@ export function DashboardListV2() {
                             >
                               <PopoverTrigger asChild>
                                 <Button
+                                  data-testid="dashboard-name-filter-trigger"
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6 p-0 hover:bg-gray-100"
@@ -2023,6 +2219,8 @@ export function DashboardListV2() {
         <ShareModal
           entityId={selectedDashboard.id}
           entityLabel="Dashboard"
+          resourceName={selectedDashboard.title || selectedDashboard.dashboard_title}
+          entityType="dashboard"
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
@@ -2032,6 +2230,19 @@ export function DashboardListV2() {
           }}
           getShareStatus={getDashboardSharingStatus}
           updateSharing={updateDashboardSharing}
+        />
+      )}
+
+      {/* Bulk Share Dialog */}
+      {bulkShareOpen && (
+        <BulkShareDialog
+          entityType="dashboard"
+          entityLabel="dashboards"
+          items={bulkShareItems}
+          isOpen={bulkShareOpen}
+          onClose={handleBulkShareClose}
+          onApplied={handleBulkApplied}
+          allowPublicLink
         />
       )}
     </div>

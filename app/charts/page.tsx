@@ -24,6 +24,7 @@ import {
   Filter,
   Star,
   User,
+  Share2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
@@ -33,6 +34,11 @@ import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
 import { ChartExportDropdownForList } from '@/components/charts/ChartExportDropdownForList';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { ShareModal } from '@/components/ui/share-modal';
+import { BulkShareDialog } from '@/components/sharing/bulk-share-dialog';
+import { useMultiSelect, MAX_BULK_SELECTION } from '@/hooks/useMultiSelect';
+import type { BulkAccessResponse } from '@/hooks/api/useResourceAccess';
+import type { ShareStatus } from '@/types/reports';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -80,6 +86,15 @@ const chartIcons = {
   table: Table,
 };
 
+// Charts have no public link. getShareStatus/updateSharing are required
+// ShareModal props, but these stubs never back a rendered section.
+async function getChartShareStatus(): Promise<ShareStatus> {
+  return { is_public: false, public_access_count: 0 };
+}
+async function updateChartSharing(): Promise<ShareStatus> {
+  return { is_public: false, public_access_count: 0 };
+}
+
 export default function ChartsPage() {
   const [sortBy, setSortBy] = useState<'title' | 'updated_at' | 'chart_type' | 'data_source'>(
     'updated_at'
@@ -112,13 +127,29 @@ export default function ChartsPage() {
   const [dataSourceSearch, setDataSourceSearch] = useState('');
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
-  // Multi-select state
+  // Multi-select state (bulk delete — pre-existing)
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedCharts, setSelectedCharts] = useState<Set<number>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  // One shared ShareModal instance for the whole table.
+  const [sharingChart, setSharingChart] = useState<Chart | null>(null);
+
+  // Share selection — deliberately separate from the pre-existing
+  // bulk-delete selection above; persists across pagination, capped via
+  // useMultiSelect.
+  const {
+    selectedIds: selectedShareChartIds,
+    toggle: toggleShareChartSelection,
+    selectPage: selectShareChartPage,
+    deselectPage: deselectShareChartPage,
+    remove: removeAppliedShareChartIds,
+    clear: clearShareChartSelection,
+  } = useMultiSelect<number>();
+  const [bulkShareOpen, setBulkShareOpen] = useState(false);
 
   const {
     data: allCharts,
@@ -135,6 +166,7 @@ export default function ChartsPage() {
 
   // Get user permissions
   const { hasPermission } = useRbac();
+  const canShareCharts = hasPermission(PERMISSIONS.CAN_SHARE_CHARTS);
 
   // If API doesn't support pagination, implement client-side filtering and sorting
   const charts = allCharts || [];
@@ -506,6 +538,41 @@ export default function ChartsPage() {
     exitSelectionMode,
   ]);
 
+  // Share handlers.
+  const handleShareChart = useCallback((chart: Chart) => {
+    setSharingChart(chart);
+  }, []);
+
+  const handleShareModalClose = useCallback(() => {
+    setSharingChart(null);
+  }, []);
+
+  // Selection persists across pagination, so the bar's count must be the
+  // TRUE cross-page total (selectedShareChartIds.size), not a page-local count.
+  const selectedShareOnPageCount = useMemo(
+    () => filteredAndSortedCharts.filter((c) => selectedShareChartIds.has(c.id)).length,
+    [filteredAndSortedCharts, selectedShareChartIds]
+  );
+  const selectedShareOffPageCount = selectedShareChartIds.size - selectedShareOnPageCount;
+
+  const bulkShareItems = useMemo(
+    () => Array.from(selectedShareChartIds, (id) => ({ rtype: 'chart' as const, id: String(id) })),
+    [selectedShareChartIds]
+  );
+
+  // Deselect only the ids the server actually applied — skipped/pending-
+  // confirmation ids stay selected so the user can see which need attention.
+  const handleBulkShareApplied = useCallback(
+    (response: BulkAccessResponse) => {
+      const appliedIds = response.applied
+        .filter((item) => item.rtype === 'chart')
+        .map((item) => Number(item.id));
+      removeAppliedShareChartIds(appliedIds);
+      mutate();
+    },
+    [removeAppliedShareChartIds, mutate]
+  );
+
   // Render sort icon for table headers
   const renderSortIcon = (column: 'title' | 'updated_at' | 'chart_type' | 'data_source') => {
     if (sortBy !== column) {
@@ -799,6 +866,21 @@ export default function ChartsPage() {
 
     return (
       <TableRow key={chart.id} className="hover:bg-gray-50">
+        {/* Bulk-select checkbox — gated with the row's Share button */}
+        {canShareCharts && (
+          <TableCell className="py-4">
+            <Checkbox
+              data-testid={`chart-select-${chart.id}`}
+              aria-label={`Select ${chart.title}`}
+              checked={selectedShareChartIds.has(chart.id)}
+              disabled={
+                !selectedShareChartIds.has(chart.id) &&
+                selectedShareChartIds.size >= MAX_BULK_SELECTION
+              }
+              onCheckedChange={() => toggleShareChartSelection(chart.id)}
+            />
+          </TableCell>
+        )}
         {/* Name Column with Star */}
         <TableCell className="py-4">
           <div className="flex items-center gap-3">
@@ -884,6 +966,18 @@ export default function ChartsPage() {
                   <Edit className="w-4 h-4 text-gray-600" />
                 </Button>
               </Link>
+            )}
+            {canShareCharts && (
+              <Button
+                data-testid={`chart-share-btn-${chart.id}`}
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+                aria-label={`Share ${chart.title}`}
+                onClick={() => handleShareChart(chart)}
+              >
+                <Share2 className="w-4 h-4 text-gray-600" />
+              </Button>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1072,6 +1166,57 @@ export default function ChartsPage() {
           </div>
         )}
 
+        {/* Bulk-share bar — appears once at least one row is selected. */}
+        {canShareCharts && selectedShareChartIds.size > 0 && (
+          <div
+            id="charts-bulk-share-bar"
+            data-testid="chart-bulk-share-bar"
+            className="mx-6 mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-1 text-sm font-medium text-blue-900">
+              <span>
+                {selectedShareChartIds.size} selected
+                {selectedShareOffPageCount > 0 && ` · ${selectedShareOffPageCount} on other pages`}
+                {selectedShareChartIds.size >= MAX_BULK_SELECTION && ' (maximum 100 reached)'}
+              </span>
+              <span aria-hidden="true" className="px-1 text-blue-300">
+                ·
+              </span>
+              <Button
+                data-testid="chart-bulk-select-all-btn"
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() => selectShareChartPage(filteredAndSortedCharts.map((c) => c.id))}
+                disabled={filteredAndSortedCharts.every((c) => selectedShareChartIds.has(c.id))}
+              >
+                Select All
+              </Button>
+              <span aria-hidden="true" className="px-1 text-blue-300">
+                ·
+              </span>
+              <Button
+                data-testid="chart-bulk-clear-btn"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-muted-foreground"
+                onClick={clearShareChartSelection}
+              >
+                Clear
+              </Button>
+            </div>
+            <Button
+              data-testid="chart-bulk-share-btn"
+              variant="primary"
+              size="sm"
+              onClick={() => setBulkShareOpen(true)}
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Share
+            </Button>
+          </div>
+        )}
+
         {/* Filter Summary - Only shows when filters are active to save space */}
         {getActiveFilterCount() > 0 && (
           <div id="charts-filters-section" className="flex items-center gap-2 px-6 pb-0">
@@ -1100,6 +1245,11 @@ export default function ChartsPage() {
                 <TableComponent>
                   <TableHeader>
                     <TableRow className="bg-gray-50">
+                      {canShareCharts && (
+                        <TableHead className="w-[3%]">
+                          <Skeleton className="h-4 w-4" />
+                        </TableHead>
+                      )}
                       <TableHead className="w-[30%]">
                         <div className="flex items-center gap-2">
                           <Skeleton className="h-4 w-16" />
@@ -1135,6 +1285,11 @@ export default function ChartsPage() {
                   <TableBody>
                     {[...Array(8)].map((_, i) => (
                       <TableRow key={i}>
+                        {canShareCharts && (
+                          <TableCell className="py-4">
+                            <Skeleton className="h-4 w-4" />
+                          </TableCell>
+                        )}
                         <TableCell className="py-4">
                           <div className="flex items-center gap-3">
                             <Skeleton className="h-8 w-8 rounded" />
@@ -1176,6 +1331,24 @@ export default function ChartsPage() {
                 <TableComponent>
                   <TableHeader>
                     <TableRow className="bg-gray-50">
+                      {/* Bulk-select checkbox */}
+                      {canShareCharts && (
+                        <TableHead className="w-[3%]">
+                          <Checkbox
+                            data-testid="chart-select-all-header"
+                            aria-label="Select all charts on this page"
+                            checked={
+                              filteredAndSortedCharts.length > 0 &&
+                              filteredAndSortedCharts.every((c) => selectedShareChartIds.has(c.id))
+                            }
+                            onCheckedChange={(checked) => {
+                              const ids = filteredAndSortedCharts.map((c) => c.id);
+                              if (checked) selectShareChartPage(ids);
+                              else deselectShareChartPage(ids);
+                            }}
+                          />
+                        </TableHead>
+                      )}
                       <TableHead className="w-[30%]">
                         <div className="flex items-center gap-2">
                           <Button
@@ -1420,6 +1593,34 @@ export default function ChartsPage() {
         </div>
       </div>
       <DialogComponent />
+
+      {/* Per-item Share — the modal's capability flags already omit the
+          public-link section for charts. */}
+      {sharingChart && (
+        <ShareModal
+          entityId={sharingChart.id}
+          entityLabel="Chart"
+          resourceName={sharingChart.title}
+          entityType="chart"
+          isOpen={sharingChart !== null}
+          onClose={handleShareModalClose}
+          getShareStatus={getChartShareStatus}
+          updateSharing={updateChartSharing}
+        />
+      )}
+
+      {/* Bulk Share Dialog — no public-link action for charts. */}
+      {bulkShareOpen && (
+        <BulkShareDialog
+          entityType="chart"
+          entityLabel="charts"
+          items={bulkShareItems}
+          isOpen={bulkShareOpen}
+          onClose={() => setBulkShareOpen(false)}
+          onApplied={handleBulkShareApplied}
+          allowPublicLink={false}
+        />
+      )}
     </div>
   );
 }
