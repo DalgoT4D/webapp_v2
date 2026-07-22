@@ -32,6 +32,55 @@ import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useUnreadCount } from '@/hooks/api/useNotifications';
 import { CreateOrgDialog } from '@/components/settings/organizations/CreateOrgDialog';
 import { OrgBrand } from '@/components/ui/org-brand';
+import { FREE_TRIAL_PLAN_NAME, trialDaysRemaining } from '@/constants/trial';
+
+/**
+ * Free-trial countdown badge. Renders only for free-trial orgs; shows whole days left,
+ * "Last day today" on the final day. Computed entirely from data already in the auth store
+ * (org.created_at + subscription_plan from currentuserv2) — no extra request. The trial length
+ * lives in a frontend constant (TRIAL_PERIOD_DAYS).
+ */
+// Color tiers by days left: <=2 red, <=5 orange, otherwise brand teal.
+const TRIAL_TONES = {
+  red: {
+    box: 'bg-red-100 dark:bg-red-900/30',
+    dot: 'bg-red-500 animate-pulse',
+    text: 'text-red-700 dark:text-red-400',
+  },
+  orange: {
+    box: 'bg-orange-100 dark:bg-orange-900/30',
+    dot: 'bg-orange-500',
+    text: 'text-orange-700 dark:text-orange-400',
+  },
+  teal: {
+    box: 'bg-primary/10',
+    dot: 'bg-primary',
+    text: 'text-primary',
+  },
+} as const;
+
+function TrialBadge() {
+  const { getCurrentOrgUser } = useAuthStore();
+  const orgUser = getCurrentOrgUser();
+  const createdAt = orgUser?.org?.created_at;
+  if (orgUser?.subscription_plan !== FREE_TRIAL_PLAN_NAME || !createdAt) {
+    return null;
+  }
+
+  const days = trialDaysRemaining(createdAt);
+  const label = days <= 0 ? 'Last day today' : `${days} day${days === 1 ? '' : 's'} remaining`;
+  const tone = days <= 2 ? TRIAL_TONES.red : days <= 5 ? TRIAL_TONES.orange : TRIAL_TONES.teal;
+
+  return (
+    <div
+      className={`hidden md:flex items-center gap-2 px-3 py-1 rounded-full ${tone.box}`}
+      data-testid="trial-days-badge"
+    >
+      <div className={`h-2 w-2 rounded-full ${tone.dot}`}></div>
+      <span className={`text-sm font-medium ${tone.text}`}>Free Trial · {label}</span>
+    </div>
+  );
+}
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -156,6 +205,9 @@ export function Header({
 
       {/* Right side actions */}
       <div className="flex items-center gap-6">
+        {/* Free-trial countdown — left of the bell, trial orgs only */}
+        {!isOrgSwitching && <TrialBadge />}
+
         {/* Notifications Bell */}
         <Button
           variant="ghost"

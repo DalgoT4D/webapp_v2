@@ -1,18 +1,25 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { AnimatedBackgroundSimple } from '@/components/ui/animated-background-simple';
 import { apiPublicPost } from '@/lib/api';
 import { toastError, toastInfo } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { TRIAL_SIGNUP_PATH } from '@/constants/trial';
+import { TRIAL_SIGNUP_PATH, TRIAL_ROLE_OPTIONS } from '@/constants/trial';
 import type { TrialSignupRequest } from '@/types/trial';
 
 // Backend returns 409 when an account with this email already exists.
@@ -24,6 +31,7 @@ export default function FreeTrialPage() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<TrialSignupRequest>();
 
@@ -110,7 +118,7 @@ export default function FreeTrialPage() {
           )}
 
           <div>
-            <Label htmlFor="email">Business Email*</Label>
+            <Label htmlFor="email">Email*</Label>
             <Input
               id="email"
               type="email"
@@ -147,13 +155,24 @@ export default function FreeTrialPage() {
 
           <div>
             <Label htmlFor="role">Your Role*</Label>
-            <Input
-              id="role"
-              type="text"
-              placeholder="eg. Program Manager"
-              data-testid="trial-signup-role-input"
-              {...register('role', { required: 'Role is required' })}
-              className="mt-1"
+            <Controller
+              name="role"
+              control={control}
+              rules={{ required: 'Role is required' }}
+              render={({ field }) => (
+                <Select value={field.value || ''} onValueChange={field.onChange}>
+                  <SelectTrigger id="role" className="mt-1" data-testid="trial-signup-role-input">
+                    <SelectValue placeholder="Select your role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TRIAL_ROLE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             />
             {errors.role && <p className="text-red-600 text-sm mt-1">{errors.role.message}</p>}
           </div>

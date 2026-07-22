@@ -8,14 +8,17 @@
  */
 
 import type { AnchorHTMLAttributes, ImgHTMLAttributes, ReactNode } from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { TrialStatusResponse } from '@/types/trial';
 
 // jest.setup.ts globally mocks '@/lib/api' but only exports apiGet/apiPost/...
-// Override locally so we control apiPost's resolution for the auto-login call.
+// Override locally so we control apiPost's resolution for the auto-login call and
+// apiPublicPost's resolution for the "Try again" retry call.
 const mockApiPost = jest.fn();
+const mockApiPublicPost = jest.fn();
 jest.mock('@/lib/api', () => ({
   apiPost: (...args: unknown[]) => mockApiPost(...args),
+  apiPublicPost: (...args: unknown[]) => mockApiPublicPost(...args),
 }));
 
 const mockTrackEvent = jest.fn();
@@ -38,9 +41,10 @@ jest.mock('next/navigation', () => ({
 // Mock the 'swr' package directly (per plan) — the page polls with
 // `useSWR` from 'swr', not the '@/lib/swr' provider wrapper.
 let mockSwrData: TrialStatusResponse | undefined;
+const mockMutate = jest.fn();
 jest.mock('swr', () => ({
   __esModule: true,
-  default: () => ({ data: mockSwrData }),
+  default: () => ({ data: mockSwrData, mutate: mockMutate }),
 }));
 
 jest.mock('next/link', () => {
@@ -183,14 +187,15 @@ describe('TrialProgressPage', () => {
     // spinner while still under the ceiling
     expect(screen.getByTestId('trial-progress-heading')).toBeInTheDocument();
 
-    // advance past the 300s hard timeout
+    // advance past the 420s hard timeout (sits above the backend's ~360s teardown deadline)
     act(() => {
-      jest.advanceTimersByTime(300 * 1000);
+      jest.advanceTimersByTime(420 * 1000);
     });
 
     expect(screen.getByTestId('trial-progress-timeout')).toBeInTheDocument();
     expect(screen.getByTestId('trial-timeout-login-button')).toHaveAttribute('href', '/login');
-    expect(screen.getByTestId('trial-timeout-retry-button')).toHaveAttribute('href', '/free-trial');
+    // "Start again" is now a retry button (POSTs /retry), not a link to /free-trial
+    expect(screen.getByTestId('trial-timeout-retry-button').tagName).toBe('BUTTON');
     expect(mockTrackEvent).toHaveBeenCalledWith('trial:poll_timeout');
 
     jest.useRealTimers();
@@ -208,10 +213,48 @@ describe('TrialProgressPage', () => {
     expect(screen.getByTestId('trial-progress-failed')).toHaveTextContent(
       'Something went wrong setting up your workspace'
     );
-    expect(screen.getByTestId('trial-progress-retry-button')).toHaveAttribute(
-      'href',
-      '/free-trial'
-    );
+    // the retry button is now a real button, not a link — it re-runs the clone in place
+    expect(screen.getByTestId('trial-progress-retry-button').tagName).toBe('BUTTON');
     expect(mockTrackEvent).toHaveBeenCalledWith('trial:clone_failed');
+  });
+
+  it('re-enqueues the clone under the same task_id when "Try again" is clicked', async () => {
+    mockApiPublicPost.mockResolvedValueOnce({ task_id: 'task-123', email: 'jane@example.org' });
+    mockSwrData = {
+      task_id: 'task-123',
+      status: 'failed',
+      progress: [{ step: 3, message: 'Copying your data', status: 'failed' }],
+    };
+
+    render(<TrialProgressPage />);
+
+    fireEvent.click(screen.getByTestId('trial-progress-retry-button'));
+
+    await waitFor(() => {
+      expect(mockApiPublicPost).toHaveBeenCalledWith('/api/v1/public/trial/retry/task-123', {});
+    });
+    // revalidate so polling resumes from the fresh status (SWR halted its interval on "failed")
+    await waitFor(() => {
+      expect(mockMutate).toHaveBeenCalled();
+    });
+    // stays on the progress screen — no full-restart navigation
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a full restart when the retry request fails', async () => {
+    mockApiPublicPost.mockRejectedValueOnce(new Error('Public API error: 409'));
+    mockSwrData = {
+      task_id: 'task-123',
+      status: 'failed',
+      progress: [{ step: 3, message: 'Copying your data', status: 'failed' }],
+    };
+
+    render(<TrialProgressPage />);
+
+    fireEvent.click(screen.getByTestId('trial-progress-retry-button'));
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/free-trial');
+    });
   });
 });

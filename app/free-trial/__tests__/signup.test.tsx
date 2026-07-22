@@ -7,6 +7,7 @@
 
 import type { AnchorHTMLAttributes, ImgHTMLAttributes, ReactNode } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 // jest.setup.ts globally mocks '@/lib/api' but only exports apiGet/apiPost/...
 // (no apiPublicPost). Override it locally for this page, which uses the
@@ -61,20 +62,22 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
+// Role is a Radix Select whose displayed option labels differ from the stored slug value
+// (e.g. "Program Manager" → "program_manager"); pass the visible label to pick, assert the slug.
 async function fillAndSubmit(
   email = 'jane@example.org',
   orgName = 'Acme Foundation',
-  role = 'Program Manager'
+  roleLabel = 'Program Manager'
 ) {
+  const user = userEvent.setup();
   fireEvent.change(screen.getByTestId('trial-signup-email-input'), {
     target: { value: email },
   });
   fireEvent.change(screen.getByTestId('trial-signup-org-name-input'), {
     target: { value: orgName },
   });
-  fireEvent.change(screen.getByTestId('trial-signup-role-input'), {
-    target: { value: role },
-  });
+  await user.click(screen.getByTestId('trial-signup-role-input'));
+  await user.click(await screen.findByRole('option', { name: roleLabel }));
   fireEvent.click(screen.getByTestId('trial-signup-submit-button'));
 }
 
@@ -98,7 +101,7 @@ describe('FreeTrialPage', () => {
       expect(mockApiPublicPost).toHaveBeenCalledWith('/api/v1/public/trial/signup', {
         email: 'jane@example.org',
         org_name: 'Acme Foundation',
-        role: 'Program Manager',
+        role: 'program_manager',
       });
     });
   });

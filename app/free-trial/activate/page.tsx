@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -32,6 +33,8 @@ function ActivateFormCard() {
 
   const [invalidToken, setInvalidToken] = useState(false);
   const [accountConflict, setAccountConflict] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const {
     register,
@@ -149,21 +152,33 @@ function ActivateFormCard() {
 
           <div>
             <Label htmlFor="password">Password*</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Enter a password"
-              data-testid="trial-activate-password-input"
-              {...register('password', {
-                required: 'Password is required',
-                minLength: {
-                  value: 8,
-                  message: 'Password must be at least 8 characters',
-                },
-              })}
-              className="mt-1"
-            />
+            <div className="relative mt-1">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder="Enter a password"
+                data-testid="trial-activate-password-input"
+                {...register('password', {
+                  required: 'Password is required',
+                  minLength: {
+                    value: 8,
+                    message: 'Password must be at least 8 characters',
+                  },
+                })}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                data-testid="trial-activate-password-toggle"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
             {errors.password && (
               <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>
             )}
@@ -171,18 +186,30 @@ function ActivateFormCard() {
 
           <div>
             <Label htmlFor="confirmPassword">Confirm password*</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Confirm your password"
-              data-testid="trial-activate-confirm-password-input"
-              {...register('confirmPassword', {
-                required: 'Please confirm your password',
-                validate: (value) => value === watch('password') || 'Passwords do not match',
-              })}
-              className="mt-1"
-            />
+            <div className="relative mt-1">
+              <Input
+                id="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder="Confirm your password"
+                data-testid="trial-activate-confirm-password-input"
+                {...register('confirmPassword', {
+                  required: 'Please confirm your password',
+                  validate: (value) => value === watch('password') || 'Passwords do not match',
+                })}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                data-testid="trial-activate-confirm-password-toggle"
+              >
+                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
             {errors.confirmPassword && (
               <p className="text-red-600 text-sm mt-1">{errors.confirmPassword.message}</p>
             )}

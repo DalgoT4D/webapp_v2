@@ -7,22 +7,28 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { AnimatedBackgroundSimple } from '@/components/ui/animated-background-simple';
 import { CloneProgress } from '@/app/free-trial/_components/CloneProgress';
-import { apiPost } from '@/lib/api';
+import { apiPost, apiPublicPost } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
   TRIAL_STEP_LABELS,
+  BACKEND_STEP_TO_DISPLAY_INDEX,
   TRIAL_CREDS_STORAGE_KEY,
   TRIAL_ELAPSED_TICK_MS,
   TRIAL_MAX_CONSECUTIVE_POLL_FAILURES,
   TRIAL_HARD_TIMEOUT_SECONDS,
+  TRIAL_RETRY_PATH,
 } from '@/constants/trial';
 import { useAuthStore } from '@/stores/authStore';
 import { useTrialStatus } from '@/hooks/api/useTrialStatus';
 import type { TrialProgressStep } from '@/types/trial';
 
-// 1-based `step` from the backend → 0-based index into TRIAL_STEP_LABELS.
-const STEP_TO_INDEX_OFFSET = 1;
+// Collapse the backend's 1-based `step` (1-8) → 0-based index into the 7-item TRIAL_STEP_LABELS.
+// The backend still emits step 3 ("Copying your data"); the map folds it into "Setting up
+// warehouse" (display index 1) so it never shows as its own row. See constants/trial.ts.
+function backendStepToDisplayIndex(step: number): number | null {
+  return BACKEND_STEP_TO_DISPLAY_INDEX[step] ?? null;
+}
 
 // Fall back to matching the last progress event's message text against the
 // known step labels when the backend doesn't send a numeric `step`.
@@ -32,13 +38,16 @@ function deriveCurrentIndex(progress: TrialProgressStep[] | undefined): number {
   }
 
   // Walk backwards from the latest event so a single label that has drifted
-  // out of sync with the frontend↔backend TRIAL_STEP_LABELS contract doesn't
-  // roll the progress bar back to 0 — fall back to the nearest earlier event
-  // that still resolves to a known step.
+  // out of sync with the frontend↔backend contract doesn't roll the progress
+  // bar back to 0 — fall back to the nearest earlier event that still resolves
+  // to a known step.
   for (let i = progress.length - 1; i >= 0; i -= 1) {
     const step = progress[i];
     if (typeof step.step === 'number') {
-      return step.step - STEP_TO_INDEX_OFFSET;
+      const displayIndex = backendStepToDisplayIndex(step.step);
+      if (displayIndex !== null) {
+        return displayIndex;
+      }
     }
     const labelIndex = TRIAL_STEP_LABELS.indexOf(step.message);
     if (labelIndex >= 0) {
@@ -48,7 +57,7 @@ function deriveCurrentIndex(progress: TrialProgressStep[] | undefined): number {
 
   // No event in the whole history matched — clamp to the last known step
   // index instead of resetting to 0.
-  return progress.length - 1;
+  return TRIAL_STEP_LABELS.length - 1;
 }
 
 // Elapsed clock lives in its OWN component so its per-second re-render stays isolated
@@ -101,17 +110,43 @@ function ProgressCard() {
   // Either one flips the screen off the infinite spinner onto the fallback card.
   const [pollFailures, setPollFailures] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   // Give up when the backend is unreachable for a sustained stretch, or when we
   // blow past the hard timeout without a terminal status. Once we give up we null
   // the SWR key so polling stops (data keeps its last value).
   const pollGaveUp = pollFailures >= TRIAL_MAX_CONSECUTIVE_POLL_FAILURES || timedOut;
 
-  const { data } = useTrialStatus(taskId, {
+  const { data, mutate } = useTrialStatus(taskId, {
     enabled: !pollGaveUp,
     onSuccess: () => setPollFailures(0),
     onError: () => setPollFailures((n) => n + 1),
   });
+
+  // "Try again" re-runs the clone under the SAME task_id — the backend kept the person
+  // (email/password/verified) when it tore the failed attempt down, so no re-signup. On a
+  // failed status SWR has already halted its interval (refreshInterval returns 0), so after the
+  // re-enqueue we must clear the give-up state (re-enables the SWR key) and revalidate to pull
+  // the fresh "queued"/"running" status and resume polling.
+  const handleRetry = async () => {
+    if (!taskId || retrying) return;
+    setRetrying(true);
+    try {
+      await apiPublicPost(`${TRIAL_RETRY_PATH}/${taskId}`, {});
+      loginAttemptedRef.current = false; // let a subsequent completion auto-login again
+      pollTimeoutTrackedRef.current = false;
+      setManualLoginNeeded(false);
+      setPollFailures(0);
+      setTimedOut(false);
+      await mutate();
+    } catch {
+      // retry endpoint unreachable, or refused (409 — the workspace already completed, or a
+      // clone is still running). Fall back to a clean full restart from the signup screen.
+      router.replace('/free-trial');
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const currentIndex = useMemo(() => deriveCurrentIndex(data?.progress), [data?.progress]);
   const failed = data?.status === 'failed';
@@ -220,10 +255,14 @@ function ProgressCard() {
             Please try again — if the problem continues, reach out to our support team.
           </p>
         </div>
-        <Button variant="primary" className="w-full" asChild>
-          <Link href="/free-trial" data-testid="trial-progress-retry-button">
-            Try again
-          </Link>
+        <Button
+          variant="primary"
+          className="w-full"
+          onClick={handleRetry}
+          disabled={retrying}
+          data-testid="trial-progress-retry-button"
+        >
+          {retrying ? 'Starting…' : 'Try again'}
         </Button>
       </CardShell>
     );
@@ -279,10 +318,14 @@ function ProgressCard() {
               Log in
             </Link>
           </Button>
-          <Button variant="outline" className="w-full" asChild>
-            <Link href="/free-trial" data-testid="trial-timeout-retry-button">
-              Start again
-            </Link>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={handleRetry}
+            disabled={retrying}
+            data-testid="trial-timeout-retry-button"
+          >
+            {retrying ? 'Starting…' : 'Start again'}
           </Button>
         </div>
       </CardShell>
