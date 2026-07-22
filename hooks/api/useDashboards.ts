@@ -47,6 +47,10 @@ export interface Dashboard {
   member_level?: RolePermissionLevel | null;
   is_owner?: boolean;
   is_creator?: boolean;
+  // Viewer's per-resource level from the v1.2 pool (detail GET / update PUT
+  // only). "edit" here can exceed what the role slug allows — e.g. a Member
+  // holding an edit grant on this one dashboard.
+  user_permission?: 'view' | 'edit' | null;
 }
 
 export interface DashboardFilter {
