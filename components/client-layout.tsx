@@ -23,6 +23,9 @@ export function ClientLayout({ children }: ClientLayoutProps) {
   const pathname = usePathname();
   const isPublicRoute =
     publicRoutes.includes(pathname) ||
+    // the admin portal's own sign-in — public, so it is NOT wrapped in AuthGuard/AdminGuard
+    // (which would bounce an unauthenticated visitor away before they could sign in)
+    pathname === '/admin/login' ||
     pathname.startsWith('/public/dashboard/') ||
     pathname.startsWith('/share/dashboard/') ||
     pathname.startsWith('/share/report/') ||
