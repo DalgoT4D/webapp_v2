@@ -28,10 +28,12 @@ const HTTP_STATUS_CONFLICT = 409;
 export default function FreeTrialPage() {
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
   const [accountExists, setAccountExists] = useState(false);
+  const [resending, setResending] = useState(false);
   const {
     register,
     handleSubmit,
     control,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<TrialSignupRequest>();
 
@@ -48,6 +50,23 @@ export default function FreeTrialPage() {
       } else {
         toastError.api(error, 'Could not start your trial. Please try again.');
       }
+    }
+  };
+
+  // Re-POST the same signup payload — the backend treats a repeat signup for an unverified
+  // email as "send a fresh link" (its account-exists check keys on OrgUser, which only exists
+  // once a clone has run), so no separate resend endpoint is needed. A previously-sent link
+  // stays valid too; whichever the user clicks first wins.
+  const handleResend = async () => {
+    if (resending) return;
+    setResending(true);
+    try {
+      await apiPublicPost(TRIAL_SIGNUP_PATH, getValues());
+      toastInfo.generic(`Verification link re-sent to ${submittedEmail}.`);
+    } catch (error) {
+      toastError.api(error, 'Could not resend the link. Please try again.');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -75,8 +94,31 @@ export default function FreeTrialPage() {
                 your password and create your workspace.
               </p>
             </div>
-            <div className="text-center pt-4">
-              <Link href="/login" className="text-primary hover:underline font-medium">
+            <div className="text-center pt-2 space-y-3">
+              <p className="text-sm text-gray-600">
+                Didn&apos;t get the email? Check your spam folder, or{' '}
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resending}
+                  className="text-primary hover:underline font-medium disabled:opacity-50"
+                  data-testid="trial-resend-link"
+                >
+                  {resending ? 'resending…' : 'resend the link'}
+                </button>
+              </p>
+              <p className="text-sm text-gray-600">
+                Wrong email?{' '}
+                <button
+                  type="button"
+                  onClick={() => setSubmittedEmail(null)}
+                  className="text-primary hover:underline font-medium"
+                  data-testid="trial-change-email"
+                >
+                  Start over
+                </button>
+              </p>
+              <Link href="/login" className="block text-primary hover:underline font-medium pt-1">
                 Already have an account? Log in
               </Link>
             </div>

@@ -148,3 +148,37 @@ describe('FreeTrialPage', () => {
     });
   });
 });
+
+describe('FreeTrialPage — check-your-email screen actions', () => {
+  it('re-sends the verification link with the same payload from the confirmation screen', async () => {
+    mockApiPublicPost.mockResolvedValue({ status: 'ok' });
+    render(<FreeTrialPage />);
+    await fillAndSubmit('jane@example.org');
+    await screen.findByTestId('trial-signup-confirmation');
+
+    fireEvent.click(screen.getByTestId('trial-resend-link'));
+
+    await waitFor(() => {
+      expect(mockApiPublicPost).toHaveBeenCalledTimes(2);
+    });
+    // same endpoint + same email as the original submit
+    expect(mockApiPublicPost.mock.calls[1][0]).toBe('/api/v1/public/trial/signup');
+    expect(mockApiPublicPost.mock.calls[1][1]).toMatchObject({ email: 'jane@example.org' });
+    expect(mockToastInfoGeneric).toHaveBeenCalledWith(
+      'Verification link re-sent to jane@example.org.'
+    );
+  });
+
+  it('returns to the signup form via "Start over" so a wrong email can be corrected', async () => {
+    mockApiPublicPost.mockResolvedValueOnce({ status: 'ok' });
+    render(<FreeTrialPage />);
+    await fillAndSubmit('wrong@example.org');
+    await screen.findByTestId('trial-signup-confirmation');
+
+    fireEvent.click(screen.getByTestId('trial-change-email'));
+
+    // back on the form
+    expect(await screen.findByTestId('trial-signup-submit-button')).toBeInTheDocument();
+    expect(screen.queryByTestId('trial-signup-confirmation')).not.toBeInTheDocument();
+  });
+});
