@@ -103,6 +103,23 @@ describe('TrialProgressPage', () => {
     expect(screen.getByTestId('trial-step-2')).toHaveAttribute('data-state', 'pending');
   });
 
+  it('shows the FIRST step (not all-done) when the history has only a "queued" marker', () => {
+    // A freshly enqueued or just-retried clone has progress=[{queued}] — no numeric step and
+    // no label match. The old fallback clamped to the LAST index, rendering every step as
+    // completed plus a spinning "Finalizing" on a clone that had not even started.
+    mockSwrData = {
+      task_id: 'task-123',
+      status: 'queued',
+      progress: [{ message: 'queued', status: 'queued' }],
+    };
+
+    render(<TrialProgressPage />);
+
+    expect(screen.getByTestId('trial-step-0')).toHaveAttribute('data-state', 'in-progress');
+    expect(screen.getByTestId('trial-step-1')).toHaveAttribute('data-state', 'pending');
+    expect(screen.getByTestId('trial-step-6')).toHaveAttribute('data-state', 'pending');
+  });
+
   it('auto-logs in on a completed status using stashed creds and redirects to /impact', async () => {
     sessionStorage.setItem(
       CREDS_STORAGE_KEY,
@@ -112,7 +129,7 @@ describe('TrialProgressPage', () => {
     mockSwrData = {
       task_id: 'task-123',
       status: 'completed',
-      progress: [{ step: 8, message: 'Preparing your dashboards', status: 'done' }],
+      progress: [{ step: 7, message: 'Preparing your dashboards', status: 'done' }],
       org_slug: 'acme',
     };
 
@@ -140,7 +157,7 @@ describe('TrialProgressPage', () => {
     mockSwrData = {
       task_id: 'task-123',
       status: 'completed',
-      progress: [{ step: 8, message: 'Preparing your dashboards', status: 'done' }],
+      progress: [{ step: 7, message: 'Preparing your dashboards', status: 'done' }],
       org_slug: 'acme',
     };
 
@@ -160,7 +177,7 @@ describe('TrialProgressPage', () => {
     mockSwrData = {
       task_id: 'task-123',
       status: 'completed',
-      progress: [{ step: 8, message: 'Preparing your dashboards', status: 'done' }],
+      progress: [{ step: 7, message: 'Preparing your dashboards', status: 'done' }],
       org_slug: 'acme',
     };
 
@@ -205,7 +222,7 @@ describe('TrialProgressPage', () => {
     mockSwrData = {
       task_id: 'task-123',
       status: 'failed',
-      progress: [{ step: 3, message: 'Copying your data', status: 'failed' }],
+      progress: [{ step: 3, message: 'Connecting your sources', status: 'failed' }],
     };
 
     render(<TrialProgressPage />);
@@ -223,7 +240,7 @@ describe('TrialProgressPage', () => {
     mockSwrData = {
       task_id: 'task-123',
       status: 'failed',
-      progress: [{ step: 3, message: 'Copying your data', status: 'failed' }],
+      progress: [{ step: 3, message: 'Connecting your sources', status: 'failed' }],
     };
 
     render(<TrialProgressPage />);
@@ -246,7 +263,7 @@ describe('TrialProgressPage', () => {
     mockSwrData = {
       task_id: 'task-123',
       status: 'failed',
-      progress: [{ step: 3, message: 'Copying your data', status: 'failed' }],
+      progress: [{ step: 3, message: 'Connecting your sources', status: 'failed' }],
     };
 
     render(<TrialProgressPage />);

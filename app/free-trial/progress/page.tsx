@@ -23,9 +23,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTrialStatus } from '@/hooks/api/useTrialStatus';
 import type { TrialProgressStep } from '@/types/trial';
 
-// Collapse the backend's 1-based `step` (1-8) → 0-based index into the 7-item TRIAL_STEP_LABELS.
-// The backend still emits step 3 ("Copying your data"); the map folds it into "Setting up
-// warehouse" (display index 1) so it never shows as its own row. See constants/trial.ts.
+// Map the backend's 1-based `step` (1-7) → 0-based index into the 7-item TRIAL_STEP_LABELS.
+// See constants/trial.ts.
 function backendStepToDisplayIndex(step: number): number | null {
   return BACKEND_STEP_TO_DISPLAY_INDEX[step] ?? null;
 }
@@ -55,9 +54,13 @@ function deriveCurrentIndex(progress: TrialProgressStep[] | undefined): number {
     }
   }
 
-  // No event in the whole history matched — clamp to the last known step
-  // index instead of resetting to 0.
-  return TRIAL_STEP_LABELS.length - 1;
+  // No event in the whole history matched — the history holds only non-step events
+  // (the "queued" marker right after a signup/retry, or a terminal marker). Start at the
+  // FIRST step: returning the last index here rendered every step as already-completed
+  // ("all ticks + Finalizing") on a freshly queued or just-retried clone. Mid-run label
+  // drift is already handled by the backwards walk above (an earlier numeric-step event
+  // will match before we ever reach this fallback).
+  return 0;
 }
 
 // Elapsed clock lives in its OWN component so its per-second re-render stays isolated

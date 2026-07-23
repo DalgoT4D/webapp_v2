@@ -274,7 +274,7 @@ export function AlertWizardModal({
       messageTemplate: editAlert.message_template,
       recipients: editAlert.recipients.map<RecipientIn>((r) =>
         r.type === 'orguser'
-          ? { type: 'orguser', orguser_id: r.orguser_id || 0 }
+          ? { type: 'orguser', orguser_id: r.orguser_id || 0, orguser_name: r.orguser_name }
           : { type: 'external', email: r.email || '' }
       ),
     });

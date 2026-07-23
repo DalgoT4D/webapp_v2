@@ -60,10 +60,9 @@ export const TRIAL_ROLE_OPTIONS = [
   { value: 'field_worker', label: 'Field worker' },
 ] as const;
 
-// Labels shown on the progress screen. The BACKEND still emits 8 numbered steps (1-8, see
-// clone_service.STEP_LABELS) — this display list intentionally has only 7 entries: the backend's
-// step 3 ("Copying your data") is folded into "Setting up warehouse" and never shown on its own.
-// The backend→display collapse lives in BACKEND_STEP_TO_DISPLAY_INDEX below.
+// Labels shown on the progress screen. The backend emits 7 numbered steps (1-7, see
+// clone_service.STEP_LABELS) — the warehouse data copy happens server-side inside step 2
+// ("Setting up warehouse"), so the lists map 1:1.
 export const TRIAL_STEP_LABELS = [
   'Creating workspace',
   'Setting up warehouse',
@@ -75,10 +74,8 @@ export const TRIAL_STEP_LABELS = [
 ];
 
 // Maps the backend's 1-based step number → 0-based index into TRIAL_STEP_LABELS. Index 0 is a
-// placeholder (backend steps are 1-based). Backend steps 2 AND 3 both map to display index 1
-// ("Setting up warehouse") so the hidden "Copying your data" step doesn't get its own row and
-// doesn't shift the remaining steps. Everything after collapses down by one.
-export const BACKEND_STEP_TO_DISPLAY_INDEX = [0, 0, 1, 1, 2, 3, 4, 5, 6];
+// placeholder (backend steps are 1-based).
+export const BACKEND_STEP_TO_DISPLAY_INDEX = [0, 0, 1, 2, 3, 4, 5, 6];
 
 // sessionStorage key bridging the activate page's credentials to the
 // progress page's auto-login (cleared immediately after login)
