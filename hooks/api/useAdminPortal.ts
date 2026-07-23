@@ -29,6 +29,33 @@ export interface UpdateAdminOrgForm {
   base_plan?: string;
 }
 
+export interface AdminSession {
+  email: string;
+  is_platform_admin: boolean;
+}
+
+/**
+ * Identity for the admin portal's independent session, read by AdminGuard.
+ *
+ * Reachable only with the admin_access_token cookie, so a missing or expired
+ * admin session comes back as an error with no data — which the guard treats the
+ * same as "not an admin". isPlatformAdmin is therefore false until proven true.
+ */
+export function useAdminSession() {
+  const { data, error, isLoading, mutate } = useSWR<AdminSession>(
+    '/api/v1/admin/currentuser',
+    apiGet
+  );
+
+  return {
+    session: data,
+    isPlatformAdmin: data ? Boolean(data.is_platform_admin) : false,
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
 /**
  * Fetch platform-wide counts for the admin dashboard.
  *
