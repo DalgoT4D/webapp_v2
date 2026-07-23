@@ -21,6 +21,7 @@ export type Role = (typeof ROLES)[keyof typeof ROLES];
 // Member is never listed; they only see view-only pages that gate via permissions.
 export const ADMIN_ROLES: Role[] = [ROLES.SUPER_ADMIN, ROLES.ADMIN];
 export const DATA_SECTION_ROLES: Role[] = [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.ANALYST];
+export const ACCESS_PAGE_ROLES: Role[] = [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.ANALYST];
 
 // ============================================================================
 // Permissions — mirrors DDP_backend/seed/002_permissions.json (85 slugs)
@@ -95,6 +96,11 @@ export const PERMISSIONS = {
   CAN_EDIT_INVITATION: 'can_edit_invitation',
   CAN_DELETE_INVITATION: 'can_delete_invitation',
   CAN_RESEND_EMAIL_VERIFICATION: 'can_resend_email_verification',
+  CAN_VIEW_USER_GROUPS: 'can_view_user_groups',
+  CAN_CREATE_USER_GROUP: 'can_create_user_group',
+  CAN_EDIT_USER_GROUP: 'can_edit_user_group',
+  CAN_DELETE_USER_GROUP: 'can_delete_user_group',
+  CAN_MANAGE_ACCESS_DEFAULTS: 'can_manage_access_defaults',
 
   // Org-level settings
   CAN_VIEW_USAGE_DASHBOARD: 'can_view_usage_dashboard',
