@@ -48,6 +48,10 @@ export const ANALYTICS_EVENTS = {
   USER_INVITED: 'settings:user_invited',
   // Notifications
   NOTIFICATION_PREFERENCES_UPDATED: 'notification:preferences_updated',
+  // Admin portal — a separate, higher-privilege surface with its own session,
+  // so its sign-in is tracked apart from auth:user_logged_in.
+  ADMIN_LOGGED_IN: 'admin:admin_logged_in',
+  ADMIN_LOGIN_FAILED: 'admin:admin_login_failed',
 } as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
@@ -73,6 +77,9 @@ export const FEATURES = {
   SETTINGS_USER_MANAGEMENT: 'settings_user_management',
   SETTINGS_ABOUT: 'settings_about',
   SETTINGS_SUPERSET_USAGE: 'settings_superset_usage',
+  ADMIN_LOGIN: 'admin_login',
+  ADMIN_PORTAL: 'admin_portal',
+  ADMIN_ORGANIZATIONS: 'admin_organizations',
 } as const;
 
 export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
@@ -99,6 +106,10 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/settings/billing', feature: FEATURES.SETTINGS_BILLING },
   { prefix: '/settings/user-management', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
   { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
+  // more specific first: /admin/login is the public sign-in, not the portal itself
+  { prefix: '/admin/login', feature: FEATURES.ADMIN_LOGIN },
+  { prefix: '/admin/organizations', feature: FEATURES.ADMIN_ORGANIZATIONS },
+  { prefix: '/admin', feature: FEATURES.ADMIN_PORTAL },
 ];
 
 export function featureForPathname(pathname: string): Feature | null {

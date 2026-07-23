@@ -7,11 +7,28 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { apiPost } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { Eye, EyeOff, Shield } from 'lucide-react';
 
 interface AdminLoginForm {
   username: string;
   password: string;
+}
+
+/**
+ * Collapse a sign-in error into a fixed, non-identifying category for analytics.
+ * The backend answers 403 "not a platform admin" for a real user who lacks the
+ * flag, and 401 "invalid credentials" for a bad password — worth telling apart,
+ * since the first means someone is knocking on a door they can see.
+ */
+function failureReason(message: string): 'not_platform_admin' | 'invalid_credentials' | 'error' {
+  const normalized = message.toLowerCase();
+  if (normalized.includes('platform admin')) return 'not_platform_admin';
+  if (normalized.includes('credential') || normalized.includes('password')) {
+    return 'invalid_credentials';
+  }
+  return 'error';
 }
 
 /**
@@ -36,10 +53,15 @@ export default function AdminLoginPage() {
         username: data.username,
         password: data.password,
       });
+      trackEvent(ANALYTICS_EVENTS.ADMIN_LOGGED_IN);
       // The admin_access_token cookie is set by the server; AdminGuard will admit us.
       router.replace('/admin');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Sign in failed';
+      // A refused admin sign-in is worth a signal of its own — this is a
+      // higher-privilege surface. Send a coarse reason only: never the raw
+      // message (it could echo input) and never the email.
+      trackEvent(ANALYTICS_EVENTS.ADMIN_LOGIN_FAILED, { reason: failureReason(message) });
       setError('root', { message });
     }
   };
