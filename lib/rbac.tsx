@@ -125,6 +125,7 @@ export const PERMISSIONS = {
   CAN_CREATE_CHARTS: 'can_create_charts',
   CAN_EDIT_CHARTS: 'can_edit_charts',
   CAN_DELETE_CHARTS: 'can_delete_charts',
+  CAN_SHARE_CHARTS: 'can_share_charts',
 
   // Metrics
   CAN_VIEW_METRICS: 'can_view_metrics',

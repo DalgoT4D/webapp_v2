@@ -19,11 +19,12 @@ import { MapPreview } from '@/components/charts/map/MapPreview';
 import type { PivotTableResponse } from '@/types/pivot-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Edit, Lock, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit, Lock, Loader2, Share2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
+import { ShareModal } from '@/components/ui/share-modal';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -465,6 +466,16 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   // Chart refs for export
   const [chartElement, setChartElement] = useState<HTMLElement | null>(null);
   const [chartInstance, setChartInstance] = useState<echarts.ECharts | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+
+  // Handle share (mirrors dashboard-native-view)
+  const handleShare = () => {
+    setShareModalOpen(true);
+  };
+
+  const handleShareModalClose = () => {
+    setShareModalOpen(false);
+  };
   const chartContentRef = useRef<HTMLDivElement>(null);
 
   // Update chart element ref when content is rendered
@@ -803,6 +814,16 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                 </Button>
               </Link>
             )}
+            {hasPermission(PERMISSIONS.CAN_SHARE_CHARTS) && (
+              <Button
+                data-testid="chart-detail-share-button"
+                variant="outline"
+                size="sm"
+                onClick={handleShare}
+              >
+                <Share2 className="w-4 h-4" />
+              </Button>
+            )}
             <ChartExportDropdown
               chartTitle={chart.title}
               chartElement={chartElement}
@@ -983,6 +1004,17 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           </Card>
         </div>
       </div>
+
+      {/* Share Modal */}
+      {chart && (
+        <ShareModal
+          rtype="chart"
+          entityId={chart.id}
+          entityLabel={chart.title || 'Chart'}
+          isOpen={shareModalOpen}
+          onClose={handleShareModalClose}
+        />
+      )}
     </div>
   );
 }
