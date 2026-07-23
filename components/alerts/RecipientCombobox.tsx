@@ -37,7 +37,7 @@ export function RecipientCombobox({ value, onChange }: RecipientComboboxProps) {
 
   const labelFor = (r: RecipientIn): string => {
     if (r.type === 'external') return r.email || '';
-    return `User #${r.orguser_id}`;
+    return r.orguser_name || `User #${r.orguser_id}`;
   };
 
   const commitDraft = (): boolean => {

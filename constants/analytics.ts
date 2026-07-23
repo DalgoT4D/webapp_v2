@@ -8,6 +8,17 @@ export const ANALYTICS_EVENTS = {
   ORG_SWITCHED: 'auth:org_switched',
   RBAC_NOTICE_VIEWED: 'onboarding:rbac_notice_viewed',
   RBAC_NOTICE_DISMISSED: 'onboarding:rbac_notice_dismissed',
+  // Free trial onboarding
+  TRIAL_SIGNUP_SUBMITTED: 'trial:signup_submitted',
+  TRIAL_ACTIVATED: 'trial:trial_activated',
+  TRIAL_CLONE_COMPLETED: 'trial:clone_completed',
+  TRIAL_CLONE_FAILED: 'trial:clone_failed',
+  // Clone succeeded but auto-login could not run (login call failed, or the
+  // stashed creds were missing e.g. after a reload) — user must log in manually.
+  TRIAL_MANUAL_LOGIN_REQUIRED: 'trial:manual_login_required',
+  // Status polling gave up (too many consecutive failures or hard timeout) before
+  // a terminal clone status arrived — screen fell back from the spinner.
+  TRIAL_POLL_TIMEOUT: 'trial:poll_timeout',
   // Breadth — every menu / submenu / tab
   FEATURE_VIEWED: 'feature:viewed',
   // Charts (CHART_SAVED is the edit/update event)
