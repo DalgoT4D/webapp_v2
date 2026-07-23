@@ -1471,8 +1471,9 @@ export function DashboardNativeView({
       {/* Share Modal */}
       {dashboard && !isPublicMode && (
         <ShareModal
+          rtype="dashboard"
           entityId={dashboard.id}
-          entityLabel="Dashboard"
+          entityLabel={dashboard.title || 'Dashboard'}
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}

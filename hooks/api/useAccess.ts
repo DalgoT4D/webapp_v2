@@ -8,6 +8,7 @@ import type {
   CreateGroupPayload,
   AddMembersPayload,
 } from '@/types/user-groups';
+import type { ShareRow, AddGrantsPayload, UpdateGrantPayload, AccessLevel } from '@/types/access';
 
 export function usePeople() {
   const { data, error, isLoading, mutate } = useSWR<PersonRow[]>(
@@ -117,6 +118,51 @@ export interface AccessDefaults {
   default_analyst_level: 'view' | 'edit' | 'no_access';
   default_member_level: 'view' | 'edit' | 'no_access';
   allow_public_sharing: boolean;
+}
+
+export function useResourceGrants(rtype: string | null, resourceId: number | string | null) {
+  const key = rtype && resourceId != null ? `/api/access/${rtype}/${resourceId}/grants` : null;
+  const { data, error, isLoading, mutate } = useSWR<ShareRow[]>(key, apiGet);
+  return { shares: data, isLoading, error, mutate };
+}
+
+export function useResourceGrantActions(rtype: string, resourceId: number | string) {
+  const base = `/api/access/${rtype}/${resourceId}/grants`;
+
+  const addGrants = async (payload: AddGrantsPayload): Promise<ShareRow[]> => {
+    try {
+      const res = (await (apiPost as any)(base, payload)) as ShareRow[];
+      toast.success('Sharing updated');
+      return res;
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to update sharing');
+      throw error;
+    }
+  };
+
+  const updateGrant = async (shareId: number, accessLevel: AccessLevel): Promise<ShareRow[]> => {
+    try {
+      const res = (await apiPatch(`${base}/${shareId}`, {
+        access_level: accessLevel,
+      } satisfies UpdateGrantPayload)) as ShareRow[];
+      return res;
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to change access level');
+      throw error;
+    }
+  };
+
+  const removeGrant = async (shareId: number): Promise<ShareRow[]> => {
+    try {
+      const res = (await apiDelete(`${base}/${shareId}`)) as ShareRow[];
+      return res;
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to remove access');
+      throw error;
+    }
+  };
+
+  return { addGrants, updateGrant, removeGrant };
 }
 
 export async function updateAccessDefaults(payload: AccessDefaults) {
