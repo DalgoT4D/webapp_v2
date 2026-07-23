@@ -24,12 +24,14 @@ import {
   Filter,
   Star,
   User,
+  Share2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
 import type { ChartCreate } from '@/types/charts';
 import { useDeleteChart, useBulkDeleteCharts, useCreateChart } from '@/hooks/api/useChart';
 import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
+import { ShareModal } from '@/components/ui/share-modal';
 import { ChartExportDropdownForList } from '@/components/charts/ChartExportDropdownForList';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
@@ -119,6 +121,9 @@ export default function ChartsPage() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  // Share modal state
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareChart, setShareChart] = useState<Chart | null>(null);
 
   const {
     data: allCharts,
@@ -446,6 +451,16 @@ export default function ChartsPage() {
 
   const deselectAllCharts = useCallback(() => {
     setSelectedCharts(new Set());
+  }, []);
+
+  const handleShareChart = useCallback((chart: Chart) => {
+    setShareChart(chart);
+    setShareModalOpen(true);
+  }, []);
+
+  const handleShareModalClose = useCallback(() => {
+    setShareModalOpen(false);
+    setShareChart(null);
   }, []);
 
   // Bulk delete function
@@ -884,6 +899,16 @@ export default function ChartsPage() {
                   <Edit className="w-4 h-4 text-gray-600" />
                 </Button>
               </Link>
+            )}
+            {hasPermission(PERMISSIONS.CAN_SHARE_CHARTS) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+                onClick={() => handleShareChart(chart)}
+              >
+                <Share2 className="w-4 h-4 text-gray-600" />
+              </Button>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1420,6 +1445,17 @@ export default function ChartsPage() {
         </div>
       </div>
       <DialogComponent />
+
+      {/* Share Modal */}
+      {shareChart && (
+        <ShareModal
+          rtype="chart"
+          entityId={shareChart.id}
+          entityLabel={shareChart.title || 'Chart'}
+          isOpen={shareModalOpen}
+          onClose={handleShareModalClose}
+        />
+      )}
     </div>
   );
 }

@@ -16,6 +16,17 @@ export interface Invitation {
   invited_on: string;
 }
 
+export interface PersonRow {
+  email: string;
+  role_slug: string;
+  role_name: string;
+  status: 'active' | 'pending';
+  created_by_email: string | null;
+  orguser_id: number | null;
+  invitation_id: number | null;
+  created_at: string | null;
+}
+
 // Form types
 export interface InviteUserForm {
   invited_email: string;

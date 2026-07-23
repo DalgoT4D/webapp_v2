@@ -74,6 +74,7 @@ export function ReportShareMenu({ snapshotId, reportTitle }: ReportShareMenuProp
 
       <ShareViaLinkDialog
         snapshotId={snapshotId}
+        reportTitle={reportTitle}
         isOpen={linkDialogOpen}
         onClose={() => setLinkDialogOpen(false)}
       />

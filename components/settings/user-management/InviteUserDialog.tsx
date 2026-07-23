@@ -26,9 +26,10 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 interface InviteUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }
 
-export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) {
+export function InviteUserDialog({ open, onOpenChange, onSuccess }: InviteUserDialogProps) {
   const { roles } = useRoles();
   const { inviteUser } = useInvitationActions();
   const { mutate } = useInvitations();
@@ -67,6 +68,7 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
         invited_role_uuid: roleUuid,
       });
       await mutate();
+      onSuccess?.();
       const invitedRole = roles?.find((role) => role.uuid === roleUuid);
       trackEvent(ANALYTICS_EVENTS.USER_INVITED, { role: invitedRole?.slug ?? roleUuid });
       setIsSubmitting(false);

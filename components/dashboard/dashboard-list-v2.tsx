@@ -2021,8 +2021,9 @@ export function DashboardListV2() {
       {/* Share Modal */}
       {selectedDashboard && (
         <ShareModal
+          rtype="dashboard"
           entityId={selectedDashboard.id}
-          entityLabel="Dashboard"
+          entityLabel={selectedDashboard.title || 'Dashboard'}
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}

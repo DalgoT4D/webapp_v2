@@ -29,6 +29,9 @@ export interface UserPreferences {
 export interface OrgPreferences {
   enable_discord_notifications: boolean;
   discord_webhook: string;
+  default_analyst_level: 'view' | 'edit' | 'no_access';
+  default_member_level: 'view' | 'edit' | 'no_access';
+  allow_public_sharing: boolean;
 }
 
 // API response wrappers

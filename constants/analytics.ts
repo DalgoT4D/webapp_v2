@@ -231,7 +231,7 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/alerts', feature: FEATURES.ALERTS },
   { prefix: '/notifications', feature: FEATURES.NOTIFICATIONS },
   { prefix: '/settings/billing', feature: FEATURES.SETTINGS_BILLING },
-  { prefix: '/settings/user-management', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
+  { prefix: '/settings/access', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
   { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
   { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
 ];
