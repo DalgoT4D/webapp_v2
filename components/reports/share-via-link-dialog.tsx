@@ -5,15 +5,22 @@ import { getReportSharingStatus, updateReportSharing } from '@/hooks/api/useRepo
 
 interface ShareViaLinkDialogProps {
   snapshotId: number;
+  reportTitle?: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function ShareViaLinkDialog({ snapshotId, isOpen, onClose }: ShareViaLinkDialogProps) {
+export function ShareViaLinkDialog({
+  snapshotId,
+  reportTitle,
+  isOpen,
+  onClose,
+}: ShareViaLinkDialogProps) {
   return (
     <ShareModal
+      rtype="report"
       entityId={snapshotId}
-      entityLabel="Report"
+      entityLabel={reportTitle || 'Report'}
       isOpen={isOpen}
       onClose={onClose}
       getShareStatus={getReportSharingStatus}
