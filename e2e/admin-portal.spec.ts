@@ -21,14 +21,15 @@ test.describe('Admin Portal access control', () => {
       page.getByRole('button', { name: 'Sign In' }).click(),
     ]);
 
-    // The Admin Portal nav link must not be visible to a non-admin.
-    await expect(page.getByRole('link', { name: 'Admin Portal' })).toHaveCount(0);
-
-    // Try to reach the admin portal directly by URL — AdminGuard must bounce us.
+    // Try to reach the admin portal directly by URL. The admin portal runs an independent
+    // session, so a normal product login grants nothing here — AdminGuard must bounce us to
+    // the admin sign-in page (not to the normal app's /login).
     await page.goto('/admin');
-    await expect(page).not.toHaveURL(/\/admin/, { timeout: 15000 });
+    await expect(page).toHaveURL(/\/admin\/login$/, { timeout: 15000 });
 
-    // The admin shell (its "Admin Portal" sidebar heading) must never render.
-    await expect(page.getByText('Admin Portal')).toHaveCount(0);
+    // The admin shell must never render. Assert on a sidebar item unique to the shell —
+    // "Admin Portal" alone is not a valid marker, since the sign-in page uses it as its heading.
+    await expect(page.getByRole('link', { name: 'Organizations' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Back to Dalgo' })).toHaveCount(0);
   });
 });

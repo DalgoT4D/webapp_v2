@@ -25,7 +25,6 @@ import {
   CreditCard,
   Users,
   Target,
-  Shield,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -36,7 +35,6 @@ import OrchestrateIcon from '@/assets/icons/orchestrate';
 import { Header } from './header';
 import { useAuthStore } from '@/stores/authStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { TransformTypeEnum as TransformType, useTransformType } from '@/hooks/api/useTransform';
 import Image from 'next/image';
 
@@ -94,8 +92,7 @@ export const getNavItems = (
   currentPath: string,
   hasSupersetSetup: boolean = false,
   isFeatureFlagEnabled: (flag: FeatureFlagKeys) => boolean,
-  transformType?: string,
-  isPlatformAdmin: boolean = false
+  transformType?: string
 ): NavItemType[] => {
   // Build dashboard children based on feature flags AND Superset setup
   const dashboardChildren: NavItemType[] = [];
@@ -226,13 +223,6 @@ export const getNavItems = (
             ]
           : []),
       ],
-    },
-    {
-      title: 'Admin Portal',
-      href: '/admin',
-      icon: Shield,
-      isActive: currentPath.startsWith('/admin'),
-      hide: !isPlatformAdmin,
     },
   ];
 
@@ -492,15 +482,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const { currentOrg } = useAuthStore();
   const { isFeatureFlagEnabled } = useFeatureFlags();
   const { transformType } = useTransformType();
-  const { isPlatformAdmin } = useUserPermissions();
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
-  const navItems = getNavItems(
-    pathname,
-    hasSupersetSetup,
-    isFeatureFlagEnabled,
-    transformType,
-    isPlatformAdmin
-  );
+  const navItems = getNavItems(pathname, hasSupersetSetup, isFeatureFlagEnabled, transformType);
 
   // Auto-open a parent's submenu when the current path enters its subtree. Never auto-closes.
   useEffect(() => {
