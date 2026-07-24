@@ -55,6 +55,14 @@ export function useBulkDeleteCharts() {
   return useSWRMutation('/api/charts/', bulkDeleteCharts);
 }
 
+export async function favoriteChart(id: number) {
+  return apiPost(`/api/charts/${id}/favorite/`, {});
+}
+
+export async function unfavoriteChart(id: number) {
+  return apiDelete(`/api/charts/${id}/favorite/`);
+}
+
 export function useChartData(payload: ChartDataPayload | null) {
   return useSWR(payload ? ['/api/charts/chart-data/', payload] : null, chartDataFetcher, {
     revalidateOnFocus: false,
