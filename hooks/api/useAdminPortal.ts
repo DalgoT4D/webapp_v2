@@ -35,11 +35,12 @@ export interface AdminSession {
 }
 
 /**
- * Identity for the admin portal's independent session, read by AdminGuard.
+ * Identity for the admin portal, read by AdminGuard.
  *
- * Reachable only with the admin_access_token cookie, so a missing or expired
- * admin session comes back as an error with no data — which the guard treats the
- * same as "not an admin". isPlatformAdmin is therefore false until proven true.
+ * Uses the shared session cookie; the route is gated by @platform_admin_required, so a
+ * signed-out visitor (401) and a signed-in non-admin (403) both come back as an error
+ * with no data — which the guard treats the same as "not an admin". isPlatformAdmin is
+ * therefore false until proven true.
  */
 export function useAdminSession() {
   const { data, error, isLoading, mutate } = useSWR<AdminSession>(

@@ -22,12 +22,12 @@ function AdminGuardLoading() {
  * guard on every /api/v1/admin/* route. Its job here is to keep a non-admin from
  * ever *seeing* the admin shell.
  *
- * Identity comes from useAdminSession (/api/v1/admin/currentuser), which is reachable
- * only with the independent admin_access_token cookie. So a missing/expired admin
- * session (401 -> error, no data) is treated the same as "not an admin": send them to
- * the admin sign-in. While it is still resolving we show a loading state — we must
- * never flash the admin sidebar to someone who may not be an admin (access-control edge
- * case, not cosmetic).
+ * Identity comes from useAdminSession (/api/v1/admin/currentuser). That route uses the
+ * SHARED session cookie and is gated by @platform_admin_required, so it answers 401 when
+ * signed out and 403 for a signed-in non-admin — both arrive here as "error, no data"
+ * and are treated identically: send them to the admin sign-in. While it is still
+ * resolving we show a loading state — we must never flash the admin sidebar to someone
+ * who may not be an admin (access-control edge case, not cosmetic).
  */
 export function AdminGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();

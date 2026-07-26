@@ -16,11 +16,14 @@ interface AdminLoginForm {
   password: string;
 }
 
+const NOT_PLATFORM_ADMIN_MESSAGE = 'This account is not a Dalgo platform admin.';
+
 /**
  * Collapse a sign-in error into a fixed, non-identifying category for analytics.
- * The backend answers 403 "not a platform admin" for a real user who lacks the
- * flag, and 401 "invalid credentials" for a bad password — worth telling apart,
- * since the first means someone is knocking on a door they can see.
+ * The shared login does not know about platform admins, so "not a platform admin" is now
+ * decided HERE from is_platform_admin in the response — the backend only reports bad
+ * credentials (401). Still worth telling the two apart: the first means someone with a
+ * real account is knocking on a door they can see.
  */
 function failureReason(message: string): 'not_platform_admin' | 'invalid_credentials' | 'error' {
   const normalized = message.toLowerCase();
@@ -32,10 +35,18 @@ function failureReason(message: string): 'not_platform_admin' | 'invalid_credent
 }
 
 /**
- * Admin portal sign-in — an independent session, separate from the normal product login.
- * It calls the admin login endpoint, which issues the admin_access_token cookie only for a
- * platform admin; a non-admin is refused here (403) and shown the error. This page is
- * public in client-layout (not wrapped in AuthGuard/AdminGuard).
+ * Admin portal sign-in.
+ *
+ * Uses the SHARED product login (POST /api/v2/login/) — there is no separate admin
+ * session. That endpoint authenticates anyone with valid credentials, so being a
+ * platform admin is checked here, from is_platform_admin in the response body: a
+ * non-admin is shown an error and NOT navigated into /admin (the backend would refuse
+ * them anyway — @platform_admin_required gates every admin route).
+ *
+ * The form always renders, even if a valid session cookie already exists. Signing in
+ * again simply re-issues the same cookies, which is harmless.
+ *
+ * This page is public in client-layout (not wrapped in AuthGuard/AdminGuard).
  */
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -49,12 +60,19 @@ export default function AdminLoginPage() {
 
   const onLogin = async (data: AdminLoginForm) => {
     try {
-      await apiPost('/api/v1/admin/login/', {
+      const session = (await apiPost('/api/v2/login/', {
         username: data.username,
         password: data.password,
-      });
+      })) as { is_platform_admin?: boolean };
+
+      // The shared login admits any valid account, so the platform-admin check is ours.
+      // Refuse here rather than navigating and letting AdminGuard bounce them back.
+      if (!session?.is_platform_admin) {
+        throw new Error(NOT_PLATFORM_ADMIN_MESSAGE);
+      }
+
       trackEvent(ANALYTICS_EVENTS.ADMIN_LOGGED_IN);
-      // The admin_access_token cookie is set by the server; AdminGuard will admit us.
+      // The session cookies are set by the server; AdminGuard will admit us.
       router.replace('/admin');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Sign in failed';

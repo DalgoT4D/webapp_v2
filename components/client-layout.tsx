@@ -56,11 +56,12 @@ export function ClientLayout({ children }: ClientLayoutProps) {
   }
 
   // Admin portal - gated by AdminGuard alone, its own sidebar shell.
-  // Deliberately NOT wrapped in AuthGuard: the admin portal runs an independent session
-  // (admin_access_token). AuthGuard checks the normal product session via /api/currentuserv2
-  // and pushes to /login when it is absent, which would bounce an admin who signed in at
-  // /admin/login straight into the normal app's post-login flow. AdminGuard is the gate here —
-  // it resolves identity from /api/v1/admin/currentuser and sends non-admins to /admin/login.
+  // Deliberately NOT wrapped in AuthGuard, even though the session is now shared with the
+  // normal product: AuthGuard pushes to /login when /api/currentuserv2 comes back empty,
+  // which would bounce an admin who signed in at /admin/login into the normal app's
+  // post-login flow. AdminGuard is the right gate here — it resolves identity from
+  // /api/v1/admin/currentuser (@platform_admin_required) and sends non-admins to
+  // /admin/login.
   if (pathname.startsWith('/admin')) {
     return (
       <div id="client-layout-admin-route">

@@ -4,17 +4,15 @@ import { useAuthStore } from '@/stores/authStore';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002';
 
-// The admin portal has an independent session (separate admin_access_token cookie).
-// A 401 on an admin API call must refresh via the admin token endpoint and fail over to
-// the admin login — never the normal product's refresh/login.
+// The admin portal shares the normal session cookie — it signs in through
+// POST /api/v2/login/ and every admin route is gated by @platform_admin_required. So a
+// 401 refreshes through the SAME token endpoint as everything else. What stays
+// admin-aware is only where we send the user when auth is unrecoverable: an admin route
+// must land on /admin/login, not the product login.
 const ADMIN_API_PREFIX = '/api/v1/admin';
 
 export function isAdminPath(path: string): boolean {
   return path.startsWith(ADMIN_API_PREFIX);
-}
-
-export function adminAwareRefreshEndpoint(path: string): string {
-  return isAdminPath(path) ? '/api/v1/admin/token/refresh' : '/api/v2/token/refresh';
 }
 
 export function adminAwareLoginPath(path: string): string {
@@ -32,9 +30,9 @@ function getSelectOrg() {
   return undefined;
 }
 
-async function refreshAccessToken(requestPath: string): Promise<boolean> {
+async function refreshAccessToken(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}${adminAwareRefreshEndpoint(requestPath)}`, {
+    const response = await fetch(`${API_BASE_URL}/api/v2/token/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include', // Send cookies with request
@@ -78,18 +76,11 @@ function handleAuthFailure(requestPath: string) {
     return;
   }
 
+  // One shared session now, so an admin 401 means the SAME session is gone: clear org
+  // selection + auth store exactly as for any other route. Only the destination differs
+  // — an admin route sends them to /admin/login rather than the product login.
   const loginPath = adminAwareLoginPath(requestPath);
 
-  // Independent admin session: an admin 401 must NOT clear the normal session's store
-  // or selected org — the two sessions are separate. Just send them to the admin login.
-  if (isAdminPath(requestPath)) {
-    if (currentPath !== loginPath) {
-      window.location.href = loginPath;
-    }
-    return;
-  }
-
-  // Normal session failure: clear org selection + auth store, then go to /login.
   localStorage.removeItem('selectedOrg');
   useAuthStore.getState().logout();
   if (currentPath !== loginPath) {
@@ -119,7 +110,7 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
         // Prevent multiple simultaneous refresh attempts
         if (!isRefreshing) {
           isRefreshing = true;
-          refreshPromise = refreshAccessToken(path).finally(() => {
+          refreshPromise = refreshAccessToken().finally(() => {
             isRefreshing = false;
           });
         }

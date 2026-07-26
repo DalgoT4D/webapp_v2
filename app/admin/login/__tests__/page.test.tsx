@@ -20,8 +20,8 @@ describe('AdminLoginPage', () => {
     jest.clearAllMocks();
   });
 
-  it('signs in via the admin login endpoint and redirects to /admin', async () => {
-    mockApiPost.mockResolvedValueOnce({ success: 1 });
+  it('signs in via the shared v2 login endpoint and redirects to /admin', async () => {
+    mockApiPost.mockResolvedValueOnce({ email: 'admin@dalgo.org', is_platform_admin: true });
     render(<AdminLoginPage />);
 
     fireEvent.change(screen.getByTestId('admin-login-username'), {
@@ -33,7 +33,7 @@ describe('AdminLoginPage', () => {
     fireEvent.click(screen.getByTestId('admin-login-submit'));
 
     await waitFor(() =>
-      expect(mockApiPost).toHaveBeenCalledWith('/api/v1/admin/login/', {
+      expect(mockApiPost).toHaveBeenCalledWith('/api/v2/login/', {
         username: 'admin@dalgo.org',
         password: 'Secret@123',
       })
@@ -41,8 +41,9 @@ describe('AdminLoginPage', () => {
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/admin'));
   });
 
-  it('shows an error when sign-in is refused', async () => {
-    mockApiPost.mockRejectedValueOnce(new Error('not a platform admin'));
+  it('refuses a valid non-platform-admin sign-in and does not navigate', async () => {
+    // v2 login SUCCEEDS for a non-admin — the page must refuse on is_platform_admin
+    mockApiPost.mockResolvedValueOnce({ email: 'ops@dalgo.org', is_platform_admin: false });
     render(<AdminLoginPage />);
 
     fireEvent.change(screen.getByTestId('admin-login-username'), {
@@ -54,13 +55,13 @@ describe('AdminLoginPage', () => {
     fireEvent.click(screen.getByTestId('admin-login-submit'));
 
     expect(await screen.findByTestId('admin-login-error')).toHaveTextContent(
-      'not a platform admin'
+      'not a Dalgo platform admin'
     );
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('tracks a successful admin sign-in', async () => {
-    mockApiPost.mockResolvedValueOnce({ success: 1 });
+    mockApiPost.mockResolvedValueOnce({ email: 'admin@dalgo.org', is_platform_admin: true });
     render(<AdminLoginPage />);
 
     fireEvent.change(screen.getByTestId('admin-login-username'), {
@@ -77,7 +78,7 @@ describe('AdminLoginPage', () => {
   });
 
   it('tracks a refused sign-in with a coarse reason and no PII', async () => {
-    mockApiPost.mockRejectedValueOnce(new Error('not a platform admin'));
+    mockApiPost.mockResolvedValueOnce({ email: 'ops@dalgo.org', is_platform_admin: false });
     render(<AdminLoginPage />);
 
     fireEvent.change(screen.getByTestId('admin-login-username'), {
