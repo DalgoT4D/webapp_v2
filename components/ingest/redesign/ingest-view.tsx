@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { Loader2, Plus } from 'lucide-react';
 import { DocsLink } from '@/components/ui/docs-link';
 import { Button } from '@/components/ui/button';
 import { EmptyWarehouseCard } from '@/components/ingest/redesign/empty-warehouse-card';
 import { EmptySourceCard } from '@/components/ingest/redesign/empty-source-card';
-import { WarehouseChip } from '@/components/ingest/redesign/warehouse-chip';
 import { SteadyView } from '@/components/ingest/redesign/steady-view';
 import { selectIngestState } from '@/components/ingest/redesign/state';
 import { AddSourceWizard } from '@/components/ingest/sources/wizard/AddSourceWizard';
@@ -14,6 +14,29 @@ import { useWarehouse } from '@/hooks/api/useWarehouse';
 import { useSources } from '@/hooks/api/useSources';
 import { useConnectionsList } from '@/hooks/api/useConnections';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import type { Warehouse } from '@/types/warehouse';
+
+/**
+ * Compact top-right chip showing the org's single warehouse. It links out to the
+ * warehouse's home in Settings (Settings → Warehouse), where it can be viewed,
+ * edited, or deleted — the warehouse is org infrastructure, not an ingest concern.
+ */
+function WarehouseChip({ warehouse }: { warehouse: Warehouse }) {
+  return (
+    <Link
+      href="/settings/warehouse"
+      className="group inline-flex items-center gap-1.5 text-sm leading-none cursor-pointer"
+      data-testid="warehouse-chip"
+    >
+      <span className="text-muted-foreground group-hover:underline">
+        Warehouse (<span className="capitalize">{warehouse.wtype}</span>):
+      </span>
+      <span className="font-medium text-foreground max-w-[12rem] truncate group-hover:underline">
+        {warehouse.name}
+      </span>
+    </Link>
+  );
+}
 
 /**
  * The Ingest page: progressive-reveal (warehouse → source → connection) with

@@ -17,10 +17,10 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import type { SourceDefinition } from '@/types/source';
 import { SourceConfigFields } from '@/components/ingest/sources/SourceConfigFields';
 import {
-  SOURCE_NAME_GOOGLE_SHEETS,
   GSHEETS_KEY_SERVICE_INFO,
   GSHEETS_SERVICE_AUTH_TYPE,
 } from '@/components/ingest/sources/custom/constants';
+import { isGoogleSheetsSource } from '@/components/ingest/sources/custom/registry';
 import type { CustomSourceOAuth } from '@/components/ingest/sources/custom/types';
 
 interface Props {
@@ -35,7 +35,7 @@ interface Props {
 export function CreateSourceStep({ def, onCreated, onBack, onCancel }: Props) {
   // Google Sheets and KoboToolbox get a hand-tailored form; every other
   // source falls back to the generic spec-driven form with no panel.
-  const isGoogleSheets = def.name === SOURCE_NAME_GOOGLE_SHEETS;
+  const isGoogleSheets = isGoogleSheetsSource(def.name);
 
   // Shared spec + react-hook-form plumbing (also used by the edit-source dialog).
   const { parsedSpec, specLoading, control, setValue, reset, trigger, buildConfig, custom } =

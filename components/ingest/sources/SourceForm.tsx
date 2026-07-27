@@ -23,7 +23,6 @@ import {
   updateSource,
   getSourceOAuthConsent,
   createOAuthSource,
-  GOOGLE_SHEETS_SOURCE_DEFINITION_ID,
 } from '@/hooks/api/useSources';
 import { openOAuthPopup } from '@/components/connectors/oauth-popup';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
@@ -90,18 +89,16 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   // pressing it reveals what's missing, rather than a silently disabled button).
   const [nameError, setNameError] = useState<string | null>(null);
 
-  const isGoogleSheets = selectedDefId === GOOGLE_SHEETS_SOURCE_DEFINITION_ID;
-
   // An existing Google-Sheets source already authed via OAuth: its stored credentials
   // use the Client (OAuth) discriminator. Such a source is already connected — editing
   // it should NOT force a fresh login; re-auth is optional.
   const isConnected = useMemo(() => {
-    if (!isGoogleSheets) return false;
+    if (!isGoogleSheetsCustom) return false;
     const creds = source?.connectionConfiguration?.credentials as
       | { auth_type?: string }
       | undefined;
     return creds?.auth_type === 'Client';
-  }, [isGoogleSheets, source]);
+  }, [isGoogleSheetsCustom, source]);
 
   // Load the source being edited
   useEffect(() => {
@@ -226,7 +223,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       // it, edits can't be broken down by connector in PostHog.
       trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED, {
         source_type: selectedName,
-        ...(isGoogleSheets ? { auth_mode: 'service_account' } : {}),
+        ...(isGoogleSheetsCustom ? { auth_mode: 'service_account' } : {}),
       });
       toastSuccess.updated('Source');
       onSuccess();
@@ -235,7 +232,15 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     } finally {
       setLoading(false);
     }
-  }, [buildConfig, sourceId, sourceName, selectedDefId, selectedName, isGoogleSheets, onSuccess]);
+  }, [
+    buildConfig,
+    sourceId,
+    sourceName,
+    selectedDefId,
+    selectedName,
+    isGoogleSheetsCustom,
+    onSuccess,
+  ]);
 
   // Process WebSocket responses
   useEffect(() => {

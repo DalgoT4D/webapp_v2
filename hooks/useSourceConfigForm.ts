@@ -6,8 +6,7 @@ import { useSourceSpec } from '@/hooks/api/useSources';
 import { parseAirbyteSpec } from '@/components/connectors/spec-parser';
 import { cleanFormValues } from '@/components/connectors/utils';
 import type { ParsedSpec } from '@/components/connectors/types';
-import { getCustomSource } from '@/components/ingest/sources/custom/registry';
-import { SOURCE_NAME_GOOGLE_SHEETS } from '@/components/ingest/sources/custom/constants';
+import { getCustomSource, isGoogleSheetsSource } from '@/components/ingest/sources/custom/registry';
 
 interface UseSourceConfigFormArgs {
   /** Selected source-definition id — drives the spec fetch; null before a pick. */
@@ -40,7 +39,7 @@ export function useSourceConfigForm({ sourceDefId, sourceName }: UseSourceConfig
   );
 
   const custom = getCustomSource(sourceName);
-  const isGoogleSheetsCustom = sourceName === SOURCE_NAME_GOOGLE_SHEETS;
+  const isGoogleSheetsCustom = isGoogleSheetsSource(sourceName);
 
   // Cleaned form values to send on save/connect. Value-driven: keeps whatever the
   // form wrote (service-account creds, or the OAuth discriminator) while coercing

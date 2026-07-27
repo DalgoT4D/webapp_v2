@@ -13,12 +13,14 @@ import {
 import { Label } from '@/components/ui/label';
 import type { FieldNode } from '@/components/connectors/types';
 import {
+  GSHEETS_KEY_CREDENTIALS,
+  GSHEETS_AUTH_DISCRIMINATOR,
   GSHEETS_KEY_SPREADSHEET,
-  GSHEETS_KEY_NAMES_CONVERSION,
   GSHEETS_KEY_SERVICE_INFO,
   GSHEETS_OAUTH_AUTH_TYPE,
   GSHEETS_SERVICE_AUTH_TYPE,
 } from './constants';
+import { partitionFields } from './partition-fields';
 import type { CustomSourceFormProps } from './types';
 
 /** Google's multi-colour "G" mark, inlined (no external asset). */
@@ -45,15 +47,21 @@ export function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
-function findByKey(fields: FieldNode[], key: string): FieldNode | undefined {
-  return fields.find((f) => f.path[f.path.length - 1] === key);
+function keyOf(field: FieldNode): string {
+  return field.path[field.path.length - 1];
 }
 
 /**
- * Google Sheets custom form. Primary shows only the spreadsheet link + a Google
- * OAuth button. Advanced holds the SQL-conversion toggle and the service-account
- * JSON. The raw OAuth credential fields are never rendered — the popup fills them
- * server-side. OAuth wins over service: connecting clears any service JSON.
+ * Google Sheets custom form. Primary shows the spreadsheet link + a Google OAuth
+ * button; Advanced holds everything else, including the service-account JSON. The
+ * raw OAuth credential fields are never rendered — the popup fills them server-side.
+ * OAuth wins over service: connecting clears any service JSON.
+ *
+ * Spec-driven like the Kobo form: every field the connector spec sends is rendered
+ * somewhere (primary if the spec marks it required, Advanced otherwise), so a field
+ * added in a future Google Sheets connector version shows up without a code change.
+ * The only field held back is the `credentials` oneOf, which the sign-in button and
+ * the service-account field below stand in for.
  */
 export function GoogleSheetsForm({
   parsedSpec,
@@ -62,12 +70,29 @@ export function GoogleSheetsForm({
   disabled,
   oauth,
 }: CustomSourceFormProps) {
-  const spreadsheetField = findByKey(parsedSpec.fields, GSHEETS_KEY_SPREADSHEET);
-  const namesConversionField = findByKey(parsedSpec.fields, GSHEETS_KEY_NAMES_CONVERSION);
+  // Matched on the discriminator first (the spec's own shape) and on the well-known key
+  // as a fallback, so a renamed discriminator still can't leak raw client_id/secret
+  // inputs into the form.
   const credentialsField = useMemo(
-    () => parsedSpec.fields.find((f) => f.type === 'oneOf' && f.constKey === 'auth_type') ?? null,
+    () =>
+      parsedSpec.fields.find(
+        (f) =>
+          (f.type === 'oneOf' && f.constKey === GSHEETS_AUTH_DISCRIMINATOR) ||
+          keyOf(f) === GSHEETS_KEY_CREDENTIALS
+      ) ?? null,
     [parsedSpec]
   );
+
+  const { primary, advanced } = useMemo(
+    () =>
+      partitionFields(parsedSpec.fields, {
+        // The spreadsheet link leads the form even if a future spec drops its required flag.
+        pinned: [GSHEETS_KEY_SPREADSHEET],
+        exclude: credentialsField ? [keyOf(credentialsField)] : [],
+      }),
+    [parsedSpec, credentialsField]
+  );
+
   const serviceField = credentialsField?.oneOfSubFields?.find(
     (f) =>
       f.parentValue === GSHEETS_SERVICE_AUTH_TYPE &&
@@ -100,7 +125,7 @@ export function GoogleSheetsForm({
 
   return (
     <div className="space-y-4" data-testid="google-sheets-form">
-      {spreadsheetField && renderField(spreadsheetField, control, setValue, disabled)}
+      {primary.map((field) => renderField(field, control, setValue, disabled))}
 
       {/* Google OAuth button (or static confirmation once connected in create). */}
       {oauth && (
@@ -149,7 +174,7 @@ export function GoogleSheetsForm({
         </div>
       )}
 
-      {(namesConversionField || serviceField) && (
+      {(advanced.length > 0 || serviceField) && (
         <Accordion type="single" collapsible data-testid="gsheets-advanced">
           <AccordionItem value="advanced" className="border-none">
             <AccordionTrigger
@@ -159,8 +184,7 @@ export function GoogleSheetsForm({
               Advanced options
             </AccordionTrigger>
             <AccordionContent className="space-y-4">
-              {namesConversionField &&
-                renderField(namesConversionField, control, setValue, disabled)}
+              {advanced.map((field) => renderField(field, control, setValue, disabled))}
               {serviceField && (
                 <div
                   className={connected ? 'opacity-60' : undefined}

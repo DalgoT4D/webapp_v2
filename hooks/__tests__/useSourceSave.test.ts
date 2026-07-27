@@ -12,7 +12,6 @@ jest.mock('@/hooks/api/useSources', () => ({
   createSource: jest.fn().mockResolvedValue({ sourceId: 'src-1' }),
   getSourceOAuthConsent: jest.fn().mockResolvedValue({ authUrl: 'https://accounts.google.com/x' }),
   createOAuthSource: jest.fn().mockResolvedValue({ sourceId: 'src-oauth' }),
-  GOOGLE_SHEETS_SOURCE_DEFINITION_ID: 'gs',
 }));
 jest.mock('@/components/connectors/oauth-popup', () => ({
   openOAuthPopup: jest.fn().mockResolvedValue({ ref: 'ref-abc' }),

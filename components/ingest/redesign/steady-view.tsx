@@ -27,10 +27,21 @@ import { PendingActions } from '@/components/connections/pending-actions';
 import { SchemaChangeForm } from '@/components/connections/schema-change-form';
 import { SourceForm } from '@/components/ingest/sources/SourceForm';
 import { SourceRow } from '@/components/ingest/redesign/source-row';
-import { INGEST_LIST_MIN_WIDTH_CLASS } from '@/components/ingest/redesign/constants';
 import { groupConnectionsBySource } from '@/components/ingest/redesign/utils';
 import type { Connection, ClearStreamData } from '@/types/connections';
 import type { Source } from '@/types/source';
+
+/**
+ * Minimum rendered width of the source-grouped connection list.
+ *
+ * Below this the four columns (source details 30%, then connection name 45% /
+ * last sync 35% / actions 20% of the remainder) squash until the connection
+ * name and the sync status collide and the three action buttons wrap. Instead
+ * of squashing, the list scrolls horizontally on narrow screens. The sticky
+ * header row and the source rows share this value so their columns stay
+ * aligned while scrolling.
+ */
+const INGEST_LIST_MIN_WIDTH_CLASS = 'min-w-[960px]';
 
 // Source-list sort. Clicking the "Source details" header cycles through these in
 // order: created_desc (default, newest first) → name_asc → name_desc → back.

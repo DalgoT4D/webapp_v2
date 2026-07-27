@@ -84,11 +84,12 @@ export async function deleteSource(sourceId: string): Promise<void> {
 
 // ============ Google OAuth (Sign in with Google) ============
 
-/** Google Sheets source-definition id — the connector that supports "Sign in with Google" */
-export const GOOGLE_SHEETS_SOURCE_DEFINITION_ID = '71607ba1-c0ac-4799-8049-7f4b90dd50f7';
-
 /** Start the OAuth flow (Variant A): Dalgo builds the Google consent URL and returns it.
- * The state nonce stays server-side; the browser only opens the URL. */
+ * The backend resolves `sourceDefId` to the connector NAME against this org's own Airbyte
+ * workspace and looks the OAuth provider up by that name — definition ids differ per
+ * workspace and connector version, so never compare them against a hardcoded id here
+ * (use the definition's name, see `custom/constants.ts`). The state nonce stays
+ * server-side; the browser only opens the URL. */
 export async function getSourceOAuthConsent(sourceDefId: string): Promise<SourceOAuthConsent> {
   return apiPost('/api/airbyte/sources/oauth/consent/', { sourceDefId });
 }

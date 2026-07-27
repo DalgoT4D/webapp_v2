@@ -77,6 +77,29 @@ describe('IngestView progressive reveal', () => {
     expect(screen.getByTestId('wizard-open')).toBeInTheDocument();
   });
 
+  it('renders the warehouse chip as a link to Settings → Warehouse with name and type', () => {
+    mockWarehouse.mockReturnValue({
+      data: { name: 'hobbit_pantry_1', wtype: 'postgres' },
+      isLoading: false,
+      mutate: jest.fn(),
+    });
+    mockSources.mockReturnValue({
+      data: [{ sourceId: 's1' }],
+      isLoading: false,
+      mutate: jest.fn(),
+    });
+    renderView();
+
+    const chip = screen.getByTestId('warehouse-chip');
+    // It navigates (anchor), not a dialog trigger.
+    expect(chip.tagName).toBe('A');
+    expect(chip).toHaveAttribute('href', '/settings/warehouse');
+    expect(chip).toHaveTextContent('Warehouse');
+    expect(screen.getByText('hobbit_pantry_1')).toBeInTheDocument();
+    expect(screen.getByText('postgres')).toBeInTheDocument(); // uppercased via CSS
+    expect(screen.queryByTestId('warehouse-panel-dialog')).not.toBeInTheDocument();
+  });
+
   it('hides New Source when there is no warehouse', () => {
     mockWarehouse.mockReturnValue({ data: undefined, isLoading: false, mutate: jest.fn() });
     mockSources.mockReturnValue({ data: [], isLoading: false, mutate: jest.fn() });
