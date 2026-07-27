@@ -889,7 +889,7 @@ export function DashboardListV2() {
         {/* Actions Column */}
         <TableCell className="py-4">
           <div className="flex items-center gap-2">
-            {hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS) && (
+            {dashboard.my_access === 'edit' && (
               <Link href={`/dashboards/${dashboard.id}/edit`}>
                 <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
                   <Edit className="w-4 h-4 text-gray-600" />
@@ -1082,7 +1082,7 @@ export function DashboardListV2() {
             </TooltipProvider>
 
             {/* Edit Button */}
-            {hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS) && (
+            {dashboard.my_access === 'edit' && (
               <Link href={`/dashboards/${dashboard.id}/edit`}>
                 <Button
                   variant="outline"
@@ -1417,7 +1417,7 @@ export function DashboardListV2() {
 
             {/* Action Buttons - Edit and Share as icon-only buttons */}
             <div className="flex items-center gap-2 ml-4">
-              {hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS) && (
+              {dashboard.my_access === 'edit' && (
                 <Link href={`/dashboards/${dashboard.id}/edit`}>
                   <Button
                     variant="outline"
