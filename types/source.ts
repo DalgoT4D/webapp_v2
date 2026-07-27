@@ -43,7 +43,8 @@ export interface CreateOAuthSourcePayload {
   sourceDefId: string;
   name: string;
   config: Record<string, unknown>;
-  ref: string;
+  /** opaque handle the backend minted for the stashed refresh_token */
+  refresh_token_ref: string;
   sourceId?: string;
 }
 

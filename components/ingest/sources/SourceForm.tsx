@@ -352,7 +352,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
         sourceDefId: selectedDefId!,
         name: sourceName,
         config: buildConfig(),
-        ref: editOauthRef!,
+        refresh_token_ref: editOauthRef!,
         ...(sourceId ? { sourceId } : {}),
       });
       trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED, {

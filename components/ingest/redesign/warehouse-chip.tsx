@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { Database } from 'lucide-react';
 import type { Warehouse } from '@/types/warehouse';
 
 interface WarehouseChipProps {
@@ -20,7 +19,6 @@ export function WarehouseChip({ warehouse }: WarehouseChipProps) {
       className="group inline-flex items-center gap-1.5 text-sm leading-none cursor-pointer"
       data-testid="warehouse-chip"
     >
-      <Database className="h-4 w-4 text-primary flex-shrink-0" />
       <span className="text-muted-foreground group-hover:underline">
         Warehouse (<span className="capitalize">{warehouse.wtype}</span>):
       </span>

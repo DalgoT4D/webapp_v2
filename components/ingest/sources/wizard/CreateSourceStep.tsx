@@ -132,7 +132,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
         sourceDefId: def.sourceDefinitionId,
         name,
         config: buildConfig(),
-        ref: oauthRef,
+        refresh_token_ref: oauthRef,
       });
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
       trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, {

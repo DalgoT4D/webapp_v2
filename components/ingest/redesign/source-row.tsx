@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ConnectionRow } from '@/components/connections/connection-row';
 import type { SourceGroupProps } from '@/components/ingest/redesign/utils';
 import type { Source } from '@/types/source';
@@ -50,10 +51,22 @@ function SourceIdentity({ source }: { source: Source }) {
   return (
     <div className="flex items-center gap-3 min-w-0">
       <SourceIcon source={source} />
-      <div className="min-w-0 text-left">
-        <p className="font-medium text-lg text-foreground truncate">{source.name}</p>
-        <p className="text-sm text-muted-foreground truncate">{source.sourceName}</p>
-      </div>
+      {/* Both lines truncate in the fixed-width source column, so the tooltip
+          carries the untruncated name + connector type. */}
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="min-w-0 text-left">
+              <p className="font-medium text-lg text-foreground truncate">{source.name}</p>
+              <p className="text-sm text-muted-foreground truncate">{source.sourceName}</p>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="font-medium">{source.name}</p>
+            <p className="text-xs opacity-80">{source.sourceName}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 }

@@ -30,7 +30,8 @@ export function ConnectionHelpPanel({
     >
       <h3 className="text-lg font-semibold">What these options mean</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        A quick guide to the choices on the left. Click any underlined label to jump here.
+        A quick guide to the terms in the table on the left. Click any column heading or field label
+        to jump to its explanation.
       </p>
       <div className="mt-4 space-y-3">
         {concepts.map((concept) => {

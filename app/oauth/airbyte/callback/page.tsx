@@ -19,7 +19,9 @@ function AirbyteOAuthCallbackContent() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    const ref = searchParams.get('ref') ?? undefined;
+    // the backend redirect carries `refresh_token_ref` — the same name the create/update
+    // source endpoints take in their payloads
+    const ref = searchParams.get('refresh_token_ref') ?? undefined;
     const error = searchParams.get('error') ?? undefined;
 
     try {

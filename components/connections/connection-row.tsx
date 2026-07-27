@@ -91,9 +91,11 @@ export const ConnectionRow = memo(function ConnectionRow({
   }, [onSync, setTempSyncState]);
   return (
     <TableRow className="hover:bg-gray-50/50" data-testid={`connection-row-${conn.connectionId}`}>
-      {/* Connection name with icon */}
-      <TableCell className="py-4">
-        <div className="flex items-center gap-3">
+      {/* Connection name with icon. The name truncates inside the cell (min-w-0
+          on the flex row is what lets the child actually shrink) so a long name
+          can't bleed into the next column; the full name is in the tooltip. */}
+      <TableCell className="py-4 overflow-hidden">
+        <div className="flex items-center gap-3 min-w-0">
           <ConnectionIcon
             className="h-10 w-10 rounded-lg flex-shrink-0"
             bgColor={
@@ -104,12 +106,19 @@ export const ConnectionRow = memo(function ConnectionRow({
                   : ICON_COLOR_DEFAULT
             }
           />
-          <span
-            className="font-medium text-lg text-gray-900"
-            data-testid={`connection-name-${conn.connectionId}`}
-          >
-            {conn.name}
-          </span>
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="min-w-0 truncate font-medium text-lg text-gray-900"
+                  data-testid={`connection-name-${conn.connectionId}`}
+                >
+                  {conn.name}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{conn.name}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </TableCell>
 
@@ -169,7 +178,7 @@ export const ConnectionRow = memo(function ConnectionRow({
       )}
 
       {/* Last sync status */}
-      <TableCell className="py-4">
+      <TableCell className="py-4 overflow-hidden">
         <SyncStatusCell conn={conn} syncingIds={syncingIds} />
       </TableCell>
 

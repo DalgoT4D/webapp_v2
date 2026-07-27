@@ -8,8 +8,7 @@ export type ConnectionConceptId =
   | 'dest-mode'
   | 'cursor'
   | 'primary-key'
-  | 'schema'
-  | 'normalize';
+  | 'schema';
 
 export interface ConnectionConcept {
   id: ConnectionConceptId;
@@ -29,8 +28,6 @@ interface HelpOptions {
   supportsIncremental?: boolean;
   // Source offers Append + Dedup (adds the primary-key concept + dedup copy).
   allowsDedup?: boolean;
-  // Spreadsheet-style source: data is already flat, so normalize is not relevant.
-  isFlatSource?: boolean;
 }
 
 /**
@@ -41,12 +38,7 @@ interface HelpOptions {
  * Airbyte sources, and by tests).
  */
 export function getConnectionHelp(opts: HelpOptions = {}): ConnectionConcept[] {
-  const {
-    streamNoun = 'Streams',
-    supportsIncremental = true,
-    allowsDedup = true,
-    isFlatSource = false,
-  } = opts;
+  const { streamNoun = 'Streams', supportsIncremental = true, allowsDedup = true } = opts;
 
   const nounSingular = streamNoun.replace(/s$/i, '').toLowerCase();
   const nounPlural = streamNoun.toLowerCase();
@@ -124,16 +116,9 @@ export function getConnectionHelp(opts: HelpOptions = {}): ConnectionConcept[] {
     impact: 'Keeps freshly ingested data separate from your cleaned, transformed models.',
   });
 
-  // Schema + Normalize fields always render in the form, so both cards are always
-  // present — the copy itself tells flat-source users they can leave Normalize off.
-  cards.push({
-    id: 'normalize',
-    title: 'Normalize after sync',
-    body: 'Flattens nested data from the source into plain, typed columns after each run.',
-    impact: isFlatSource
-      ? 'Not needed for a flat source like a spreadsheet — the data is already in columns. Leave it off.'
-      : 'Helpful for sources that send nested records, like Kobo. Leave it off if the source is already flat.',
-  });
+  // The "Normalize data after sync" toggle in Advanced options deliberately has
+  // no help card — it is a low-level Airbyte detail that the panel's audience
+  // does not need explained.
 
   return cards;
 }

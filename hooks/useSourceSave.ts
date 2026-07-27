@@ -115,7 +115,7 @@ export function useSourceSave({
           sourceDefId,
           name,
           config,
-          ref,
+          refresh_token_ref: ref,
         });
         toastSuccess.generic('Source created');
         onSaved(sourceId);

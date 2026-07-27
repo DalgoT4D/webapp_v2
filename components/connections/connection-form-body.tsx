@@ -4,7 +4,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { ReadyState } from 'react-use-websocket';
-import { ChevronDown, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -154,7 +154,6 @@ export function ConnectionFormBody({
         streamNoun: connectionView?.streamNoun,
         supportsIncremental: connectionView ? connectionView.supportsIncremental : true,
         allowsDedup: connectionView ? allowsDedup(connectionView.allowedDestModes) : true,
-        isFlatSource: connectionView ? !connectionView.supportsIncremental : false,
       }),
     [connectionView]
   );
@@ -422,51 +421,50 @@ export function ConnectionFormBody({
     </div>
   );
 
-  // Normalize toggle — same sharing rationale as destinationSchemaField.
+  // Normalize toggle — same sharing rationale as destinationSchemaField. Unlike
+  // the other advanced fields it has no help-panel card, so the label is a plain
+  // label rather than a concept trigger.
   const normalizeToggleField = (
     <div className="flex items-center justify-between">
-      <button
-        type="button"
-        onClick={() => setActiveConcept('normalize')}
-        className="cursor-pointer text-base font-medium decoration-dotted underline-offset-2 hover:underline"
-      >
+      <label htmlFor="normalize-toggle" className="text-base font-medium">
         Normalize data after sync
-      </button>
+      </label>
       <Switch
+        id="normalize-toggle"
         checked={normalize}
         onCheckedChange={setNormalize}
-        onFocus={() => setActiveConcept('normalize')}
         disabled={disabled || isSaving}
         data-testid="normalize-toggle"
       />
     </div>
   );
 
-  // Advanced-options section (Destination Schema + Normalize behind a chevron),
+  // Advanced-options section (Destination Schema + Normalize behind a switch),
   // shared by every connection. Rendered below the stream picker so the primary
   // flow reads source → name → streams, with rarely-touched settings last.
   const advancedOptionsSection = (
     <div>
-      <button
-        type="button"
-        data-testid="advanced-options-toggle"
-        aria-expanded={advancedOptionsOpen}
-        onClick={() => {
-          const next = !advancedOptionsOpen;
-          setAdvancedOptionsOpen(next);
-          if (next) {
-            trackEvent(ANALYTICS_EVENTS.CONNECTION_ADVANCED_OPTIONS_EXPANDED, {
-              source_type: sourceDefName,
-            });
-          }
-        }}
-        className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground"
-      >
-        Advanced options
-        <ChevronDown
-          className={cn('h-4 w-4 transition-transform', advancedOptionsOpen && 'rotate-180')}
+      <div className="flex items-center gap-2.5">
+        <Switch
+          id="advanced-options"
+          data-testid="advanced-options-toggle"
+          checked={advancedOptionsOpen}
+          onCheckedChange={(next) => {
+            setAdvancedOptionsOpen(next);
+            if (next) {
+              trackEvent(ANALYTICS_EVENTS.CONNECTION_ADVANCED_OPTIONS_EXPANDED, {
+                source_type: sourceDefName,
+              });
+            }
+          }}
         />
-      </button>
+        <label
+          htmlFor="advanced-options"
+          className="cursor-pointer text-sm font-medium text-muted-foreground"
+        >
+          Advanced options
+        </label>
+      </div>
       {advancedOptionsOpen && (
         <div className="mt-3 space-y-6">
           {destinationSchemaField}

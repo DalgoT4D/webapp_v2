@@ -30,21 +30,21 @@ describe('useSources Google OAuth mutations', () => {
   });
 
   describe('createOAuthSource', () => {
-    it('POSTs name + config + ref and returns the saved source id', async () => {
+    it('POSTs name + config + refresh_token_ref and returns the saved source id', async () => {
       (apiPost as jest.Mock).mockResolvedValue({ sourceId: 'new-src-id' });
 
       const result = await createOAuthSource({
         sourceDefId: 'gsheets-def-id',
         name: 'my sheet',
         config: { spreadsheet_id: 'https://sheet' },
-        ref: 'ref-abc',
+        refresh_token_ref: 'ref-abc',
       });
 
       expect(apiPost).toHaveBeenCalledWith('/api/airbyte/sources/oauth/create/', {
         sourceDefId: 'gsheets-def-id',
         name: 'my sheet',
         config: { spreadsheet_id: 'https://sheet' },
-        ref: 'ref-abc',
+        refresh_token_ref: 'ref-abc',
       });
       expect(result).toEqual({ sourceId: 'new-src-id' });
     });

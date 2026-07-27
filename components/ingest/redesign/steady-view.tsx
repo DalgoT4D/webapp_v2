@@ -28,6 +28,7 @@ import { PendingActions } from '@/components/connections/pending-actions';
 import { SchemaChangeForm } from '@/components/connections/schema-change-form';
 import { SourceForm } from '@/components/ingest/sources/SourceForm';
 import { SourceRow } from '@/components/ingest/redesign/source-row';
+import { INGEST_LIST_MIN_WIDTH_CLASS } from '@/components/ingest/redesign/constants';
 import { groupConnectionsBySource } from '@/components/ingest/redesign/utils';
 import type { Connection, ClearStreamData } from '@/types/connections';
 import type { Source } from '@/types/source';
@@ -372,8 +373,11 @@ export function SteadyView() {
         <PendingActions connections={connections} onSuccess={() => mutateConnections()} />
       </div>
 
-      {/* Source groups */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 mt-2">
+      {/* Source groups. The page itself never scrolls — the bordered list box
+          below is the only scroll container (both axes). It sizes to its content
+          and shrinks (min-h-0, no flex-1) so a short list stays short instead of
+          stretching to fill the page. */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-6 pb-6 mt-2">
         {hasQuery && groups.length === 0 && (
           <p className="text-base text-muted-foreground py-8 text-center">
             No sources or connections matching &quot;{searchTerm}&quot;
@@ -383,132 +387,135 @@ export function SteadyView() {
         {/* One continuous table: a sticky grey header row followed by flush,
             hairline-divided source rows — no per-row cards or gaps. The header
             stays a sibling of the rows body (not inside its overflow-hidden
-            wrapper) so `sticky` still resolves against the scroll container. */}
+            wrapper) so `sticky` still resolves against the scroll container —
+            which is this box, so the header pins while the rows scroll under it. */}
         {groups.length > 0 && (
-          <div className="rounded-lg border bg-muted/50">
-            <TooltipProvider delayDuration={150}>
-              <div
-                className="sticky top-0 z-10 flex rounded-t-lg border-b bg-muted py-3 text-sm font-semibold text-muted-foreground"
-                data-testid="ingest-column-labels"
-              >
-                <div className="w-[30%] flex-shrink-0 flex items-center gap-1.5 px-4">
-                  <button
-                    type="button"
-                    onClick={handleSortSources}
-                    className="flex items-center gap-2 text-left font-semibold text-muted-foreground transition-colors cursor-pointer hover:text-foreground"
-                    data-testid="sort-source-details"
-                    aria-label="Sort sources"
-                  >
-                    Source details
-                    {sortOption === 'name_asc' ? (
-                      <ArrowUp className="h-4 w-4 text-foreground" />
-                    ) : sortOption === 'name_desc' ? (
-                      <ArrowDown className="h-4 w-4 text-foreground" />
-                    ) : (
-                      <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </button>
-                  <ColumnInfo label="Source">
-                    <p>
-                      A <strong>source</strong> is where your data comes from — like Google Sheets
-                      or KoboToolbox.
-                    </p>
-                    <p className="mt-1.5">
-                      To pull data in, add a <strong>connection</strong>: open the ⋮ menu on a
-                      source and choose <em>Add connection</em>. One source can have several
-                      connections.
-                    </p>
-                  </ColumnInfo>
+          <div className="min-h-0 overflow-auto rounded-lg border bg-muted/50">
+            <div className={INGEST_LIST_MIN_WIDTH_CLASS}>
+              <TooltipProvider delayDuration={150}>
+                <div
+                  className="sticky top-0 z-10 flex rounded-t-lg border-b bg-muted py-3 text-sm font-semibold text-muted-foreground"
+                  data-testid="ingest-column-labels"
+                >
+                  <div className="w-[30%] flex-shrink-0 flex items-center gap-1.5 px-4">
+                    <button
+                      type="button"
+                      onClick={handleSortSources}
+                      className="flex items-center gap-2 text-left font-semibold text-muted-foreground transition-colors cursor-pointer hover:text-foreground"
+                      data-testid="sort-source-details"
+                      aria-label="Sort sources"
+                    >
+                      Source details
+                      {sortOption === 'name_asc' ? (
+                        <ArrowUp className="h-4 w-4 text-foreground" />
+                      ) : sortOption === 'name_desc' ? (
+                        <ArrowDown className="h-4 w-4 text-foreground" />
+                      ) : (
+                        <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </button>
+                    <ColumnInfo label="Source">
+                      <p>
+                        A <strong>source</strong> is where your data comes from — like Google Sheets
+                        or KoboToolbox.
+                      </p>
+                      <p className="mt-1.5">
+                        To pull data in, add a <strong>connection</strong>: open the ⋮ menu on a
+                        source and choose <em>Add connection</em>. One source can have several
+                        connections.
+                      </p>
+                    </ColumnInfo>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <table className="table-fixed w-full">
+                      <colgroup>
+                        <col style={{ width: '45%' }} />
+                        <col style={{ width: '35%' }} />
+                        <col style={{ width: '20%' }} />
+                      </colgroup>
+                      <tbody>
+                        <tr>
+                          <td className="px-2">
+                            <span className="inline-flex items-center gap-1.5">
+                              Connections
+                              <ColumnInfo label="Connections">
+                                <p>
+                                  A <strong>connection</strong> links a source to your warehouse and
+                                  decides what gets copied over — which sheets, tables or forms. One
+                                  source can have several connections.
+                                </p>
+                              </ColumnInfo>
+                            </span>
+                          </td>
+                          <td className="px-2">
+                            <span className="inline-flex items-center gap-1.5">
+                              Last sync
+                              <ColumnInfo label="Last sync">
+                                <p>
+                                  A <strong>sync</strong> is one run that copies the latest data
+                                  from the source into your warehouse. This shows when it last ran
+                                  and whether it worked.
+                                </p>
+                              </ColumnInfo>
+                            </span>
+                          </td>
+                          <td className="px-2 text-right">
+                            <span className="inline-flex items-center gap-1.5">
+                              Actions
+                              <ColumnInfo label="Actions">
+                                <p>What you can do with a connection:</p>
+                                <ul className="mt-1 list-disc space-y-1 pl-4">
+                                  <li>
+                                    <strong>View history</strong> — see past sync runs.
+                                  </li>
+                                  <li>
+                                    <strong>Sync now</strong> — pull the latest data right away.
+                                  </li>
+                                  <li>
+                                    <strong>Clear</strong> — remove the data already copied into the
+                                    warehouse (the connection stays).
+                                  </li>
+                                  <li>
+                                    <strong>Refresh schema</strong> — check the source for new or
+                                    changed columns, tables or forms.
+                                  </li>
+                                </ul>
+                              </ColumnInfo>
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <table className="table-fixed w-full">
-                    <colgroup>
-                      <col style={{ width: '45%' }} />
-                      <col style={{ width: '35%' }} />
-                      <col style={{ width: '20%' }} />
-                    </colgroup>
-                    <tbody>
-                      <tr>
-                        <td className="px-2">
-                          <span className="inline-flex items-center gap-1.5">
-                            Connections
-                            <ColumnInfo label="Connections">
-                              <p>
-                                A <strong>connection</strong> links a source to your warehouse and
-                                decides what gets copied over — which sheets, tables or forms. One
-                                source can have several connections.
-                              </p>
-                            </ColumnInfo>
-                          </span>
-                        </td>
-                        <td className="px-2">
-                          <span className="inline-flex items-center gap-1.5">
-                            Last sync
-                            <ColumnInfo label="Last sync">
-                              <p>
-                                A <strong>sync</strong> is one run that copies the latest data from
-                                the source into your warehouse. This shows when it last ran and
-                                whether it worked.
-                              </p>
-                            </ColumnInfo>
-                          </span>
-                        </td>
-                        <td className="px-2 text-right">
-                          <span className="inline-flex items-center gap-1.5">
-                            Actions
-                            <ColumnInfo label="Actions">
-                              <p>What you can do with a connection:</p>
-                              <ul className="mt-1 list-disc space-y-1 pl-4">
-                                <li>
-                                  <strong>View history</strong> — see past sync runs.
-                                </li>
-                                <li>
-                                  <strong>Sync now</strong> — pull the latest data right away.
-                                </li>
-                                <li>
-                                  <strong>Clear</strong> — remove the data already copied into the
-                                  warehouse (the connection stays).
-                                </li>
-                                <li>
-                                  <strong>Refresh schema</strong> — check the source for new or
-                                  changed columns, tables or forms.
-                                </li>
-                              </ul>
-                            </ColumnInfo>
-                          </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </TooltipProvider>
+              </TooltipProvider>
 
-            <div className="flex flex-col gap-2 rounded-b-lg p-2">
-              {groups.map((group) => (
-                <SourceRow
-                  key={group.source.sourceId}
-                  group={group}
-                  syncingIds={syncingIds}
-                  canSync={canSync}
-                  canEditConnection={canEditConnection}
-                  canDeleteConnection={canDeleteConnection}
-                  canReset={canReset}
-                  onSync={handleSync}
-                  onCancelSync={handleCancelSync}
-                  onEditConnection={handleEditConnection}
-                  onDeleteConnection={handleDeleteConnection}
-                  onViewHistory={handleViewHistory}
-                  onClearStreams={handleClearStreams}
-                  onRefreshSchema={handleRefreshSchema}
-                  canCreateConnection={canCreateConnection}
-                  canEditSource={canEditSource}
-                  canDeleteSource={canDeleteSource}
-                  onAddConnection={handleAddConnectionForSource}
-                  onEditSource={handleEditSource}
-                  onDeleteSource={handleDeleteSource}
-                />
-              ))}
+              <div className="flex flex-col gap-2 rounded-b-lg p-2">
+                {groups.map((group) => (
+                  <SourceRow
+                    key={group.source.sourceId}
+                    group={group}
+                    syncingIds={syncingIds}
+                    canSync={canSync}
+                    canEditConnection={canEditConnection}
+                    canDeleteConnection={canDeleteConnection}
+                    canReset={canReset}
+                    onSync={handleSync}
+                    onCancelSync={handleCancelSync}
+                    onEditConnection={handleEditConnection}
+                    onDeleteConnection={handleDeleteConnection}
+                    onViewHistory={handleViewHistory}
+                    onClearStreams={handleClearStreams}
+                    onRefreshSchema={handleRefreshSchema}
+                    canCreateConnection={canCreateConnection}
+                    canEditSource={canEditSource}
+                    canDeleteSource={canDeleteSource}
+                    onAddConnection={handleAddConnectionForSource}
+                    onEditSource={handleEditSource}
+                    onDeleteSource={handleDeleteSource}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         )}

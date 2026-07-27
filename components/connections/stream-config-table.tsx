@@ -150,19 +150,18 @@ export function StreamConfigTable({
             ? `Select your ${streamNoun.toLowerCase()} (${selectedCount}/${streams.length} selected)`
             : `Streams (${selectedCount}/${streams.length} selected)`}
         </h3>
-        <button
-          type="button"
-          onClick={onToggleAdvanced}
-          className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted"
-          data-testid="advanced-streams-toggle"
-          aria-expanded={advancedOpen}
-        >
+        <div className="flex items-center gap-2.5 rounded-md border px-2.5 py-1.5 text-sm font-medium text-muted-foreground">
           <SlidersHorizontal className="h-3.5 w-3.5" />
-          {isCustom ? `Advanced per-${nounSingular} settings` : 'Advanced per-stream settings'}
-          <ChevronDown
-            className={cn('h-3.5 w-3.5 transition-transform', advancedOpen && 'rotate-180')}
+          <label htmlFor="advanced-streams" className="cursor-pointer">
+            {isCustom ? `Advanced per-${nounSingular} settings` : 'Advanced per-stream settings'}
+          </label>
+          <Switch
+            id="advanced-streams"
+            data-testid="advanced-streams-toggle"
+            checked={advancedOpen}
+            onCheckedChange={() => onToggleAdvanced()}
           />
-        </button>
+        </div>
       </div>
       {helpText && <p className="mt-1 mb-3 text-sm text-muted-foreground">{helpText}</p>}
       {!helpText && <div className="mb-3" />}
