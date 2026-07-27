@@ -363,13 +363,15 @@ export function WarehouseFormBody({
         >
           Cancel
         </Button>
-        {/* Stays clickable so pressing it surfaces the inline required-field errors
-            (onSubmit validates and blocks) — only disabled while a request is in flight. */}
+        {/* Stays clickable while fields are empty so pressing it surfaces the inline
+            required-field errors (onSubmit validates and blocks). Disabled only for states
+            where a click genuinely can't do anything: a request in flight, or a chosen
+            destination type whose spec is still loading. */}
         <Button
           type="submit"
           variant="primary"
           className="uppercase"
-          disabled={loading}
+          disabled={loading || specLoading}
           data-testid="save-warehouse-btn"
         >
           {loading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}

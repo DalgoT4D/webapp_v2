@@ -12,9 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Combobox } from '@/components/ui/combobox';
-import type { ComboboxItem } from '@/components/ui/combobox';
-import { cn } from '@/lib/utils';
+import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { SyncMode, DestinationSyncMode } from '@/constants/connections';
 import type { SourceStream } from '@/types/connections';
 import type { ConnectionConceptId } from './constants';

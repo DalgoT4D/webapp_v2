@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import type { ReactNode } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect, type ReactNode } from 'react';
 import { Search, ArrowUp, ArrowDown, ArrowUpDown, Info } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -105,12 +104,10 @@ export function SteadyView() {
   const [clearDeploymentId, setClearDeploymentId] = useState<string | null>(null);
   const [schemaRefreshConnectionId, setSchemaRefreshConnectionId] = useState<string | null>(null);
 
-  // Source dialog state
-  // sourceFormOpen/sourceEditId drive SourceForm, which now only handles editing
-  // an existing source. Creating a new source goes through the guided
-  // AddSourceWizard, which the page header (IngestView) owns.
-  const [sourceFormOpen, setSourceFormOpen] = useState(false);
-  const [sourceEditId, setSourceEditId] = useState<string | undefined>(undefined);
+  // Source dialog state: the id of the source being edited, or null when closed.
+  // SourceForm only edits an existing source — creating one goes through the
+  // guided AddSourceWizard, which the page header (IngestView) owns.
+  const [sourceEditId, setSourceEditId] = useState<string | null>(null);
 
   const pollTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -319,7 +316,6 @@ export function SteadyView() {
 
   const handleEditSource = useCallback((source: Source) => {
     setSourceEditId(source.sourceId);
-    setSourceFormOpen(true);
   }, []);
 
   const handleDeleteSource = useCallback(
@@ -346,8 +342,7 @@ export function SteadyView() {
   );
 
   const handleSourceFormSuccess = useCallback(() => {
-    setSourceFormOpen(false);
-    setSourceEditId(undefined);
+    setSourceEditId(null);
     mutateSources();
   }, [mutateSources]);
 
@@ -572,14 +567,11 @@ export function SteadyView() {
         />
       )}
 
-      {sourceFormOpen && (
+      {sourceEditId && (
         <SourceForm
-          open={sourceFormOpen}
+          open
           sourceId={sourceEditId}
-          onClose={() => {
-            setSourceFormOpen(false);
-            setSourceEditId(undefined);
-          }}
+          onClose={() => setSourceEditId(null)}
           onSuccess={handleSourceFormSuccess}
         />
       )}

@@ -1,7 +1,6 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Loader2 } from 'lucide-react';
 import type { Control, FieldValues, UseFormSetValue } from 'react-hook-form';
 import { ConnectorConfigForm } from '@/components/connectors/ConnectorConfigForm';
 import type { ParsedSpec } from '@/components/connectors/types';
@@ -10,7 +9,6 @@ import type { CustomSourceOAuth } from '@/components/ingest/sources/custom/types
 
 interface SourceConfigFieldsProps {
   parsedSpec: ParsedSpec | null;
-  specLoading: boolean;
   /** Non-null when the source has a hand-tailored form. */
   custom: CustomSource | null;
   control: Control<FieldValues>;
@@ -29,18 +27,18 @@ interface SourceConfigFieldsProps {
 }
 
 /**
- * The shared "configure a source" body: a spec-loading indicator, then either the
- * custom (Google Sheets / KoboToolbox) form OR the generic spec-driven form,
- * followed by connection-test error logs.
+ * The shared "configure a source" body: either the custom (Google Sheets /
+ * KoboToolbox) form OR the generic spec-driven form, followed by connection-test
+ * error logs.
  *
  * Rendered by both the add-source wizard's create step and the edit-source dialog.
- * The source-name field, source-type picker, footer buttons, and save/OAuth
- * orchestration deliberately stay with each host — they genuinely diverge (fixed
- * source vs combobox picker; two-phase vs one-shot Google OAuth).
+ * Both hosts hold their own full-panel loader until the spec resolves, so this
+ * component is only ever rendered with a spec in hand. The source-name field,
+ * footer buttons, and save/OAuth orchestration stay with each host — they
+ * genuinely diverge (fixed source vs locked type; two-phase vs one-shot OAuth).
  */
 export function SourceConfigFields({
   parsedSpec,
-  specLoading,
   custom,
   control,
   setValue,
@@ -53,16 +51,9 @@ export function SourceConfigFields({
 }: SourceConfigFieldsProps) {
   return (
     <>
-      {specLoading && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading configuration...
-        </div>
-      )}
-
       {/* Custom sources (Google Sheets, KoboToolbox) render a tailored form; every
           other source keeps the generic spec-driven form. */}
-      {!specLoading && parsedSpec && custom ? (
+      {parsedSpec && custom ? (
         <div className="space-y-5">
           {nameField}
           <custom.Form
@@ -74,7 +65,7 @@ export function SourceConfigFields({
             oauth={oauth}
           />
         </div>
-      ) : !specLoading && parsedSpec ? (
+      ) : parsedSpec ? (
         <ConnectorConfigForm
           parsedSpec={parsedSpec}
           control={control}

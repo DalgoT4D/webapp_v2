@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -13,8 +13,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Combobox, highlightText, type ComboboxItem } from '@/components/ui/combobox';
-import { extractSpecDefaults } from '@/components/connectors/utils';
 import type { FieldNode } from '@/components/connectors/types';
 import type { CustomSourceOAuth } from '@/components/ingest/sources/custom/types';
 import { SourceConfigFields } from '@/components/ingest/sources/SourceConfigFields';
@@ -29,7 +27,6 @@ import {
 } from '@/hooks/api/useSources';
 import { openOAuthPopup } from '@/components/connectors/oauth-popup';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
-import { useSourceSave } from '@/hooks/useSourceSave';
 import { useSourceConfigForm } from '@/hooks/useSourceConfigForm';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -45,20 +42,26 @@ interface SourceFormProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  sourceId?: string;
+  /** Required: this dialog only edits an existing source. Creation goes through
+   *  the add-source wizard (AddSourceWizard). */
+  sourceId: string;
 }
 
+/**
+ * Edit-source dialog. Creation lives entirely in the add-source wizard, so this
+ * component has no create path — it always loads an existing source, locks the
+ * source type, and updates.
+ */
 export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormProps) {
-  const isEdit = !!sourceId;
-
   const { data: definitions } = useSourceDefinitions();
-  const { data: source } = useSource(open && sourceId ? sourceId : null);
+  const { data: source } = useSource(open ? sourceId : null);
 
   const [selectedDefId, setSelectedDefId] = useState<string | null>(null);
 
   // Google Sheets and KoboToolbox get a hand-tailored form; other sources
   // keep the generic spec-driven form. Resolved by the definition's name.
-  const selectedName = definitions.find((d) => d.sourceDefinitionId === selectedDefId)?.name ?? '';
+  const selectedDef = definitions.find((d) => d.sourceDefinitionId === selectedDefId);
+  const selectedName = selectedDef?.name ?? '';
 
   // Shared spec + react-hook-form plumbing (also used by the add-source wizard).
   const {
@@ -73,67 +76,44 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     isGoogleSheetsCustom,
   } = useSourceConfigForm({ sourceDefId: selectedDefId, sourceName: selectedName });
 
-  // Edit mode (update an existing source) keeps its own WS-check + save state — the
-  // shared useSourceSave hook below only covers the create path (source-add wizard's
-  // step 2 reuses it for creation only, never editing).
-  const [editLoading, setEditLoading] = useState(false);
-  const [editSetupLogs, setEditSetupLogs] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [setupLogs, setSetupLogs] = useState<string[]>([]);
   const [sourceName, setSourceName] = useState('');
 
-  // Google OAuth: the credentials never reach the browser. In edit mode "Re-authenticate"
-  // only runs consent + popup and stashes the redeemed ref here; the actual update happens
-  // when the user clicks "Save Changes And Test" (mirrors the create wizard's two phases).
-  const [editOauthConnecting, setEditOauthConnecting] = useState(false);
-  const [editOauthRef, setEditOauthRef] = useState<string | null>(null);
+  // Google OAuth: the credentials never reach the browser. "Re-authenticate" only runs
+  // consent + popup and stashes the redeemed ref here; the actual update happens when
+  // the user clicks "Save Changes And Test".
+  const [oauthConnecting, setOauthConnecting] = useState(false);
+  const [oauthRef, setOauthRef] = useState<string | null>(null);
   // Inline required-field errors, surfaced on submit (same pattern as the
   // add-source wizard and the connection form: the button stays clickable and
   // pressing it reveals what's missing, rather than a silently disabled button).
   const [nameError, setNameError] = useState<string | null>(null);
-  const [typeError, setTypeError] = useState<string | null>(null);
-  // useSourceSave owns its own setupLogs but has no external reset — this flag lets us
-  // hide a stale failure banner the instant the create dialog reopens or the source
-  // type changes, without waiting for the next save/connect attempt to clear it.
-  const [createLogsDismissed, setCreateLogsDismissed] = useState(false);
 
   const isGoogleSheets = selectedDefId === GOOGLE_SHEETS_SOURCE_DEFINITION_ID;
 
   // An existing Google-Sheets source already authed via OAuth: its stored credentials
   // use the Client (OAuth) discriminator. Such a source is already connected — editing
   // it should NOT force a fresh login; re-auth is optional.
-  const alreadyOAuthConnected = useMemo(() => {
-    if (!isEdit || !isGoogleSheets) return false;
+  const isConnected = useMemo(() => {
+    if (!isGoogleSheets) return false;
     const creds = source?.connectionConfiguration?.credentials as
       | { auth_type?: string }
       | undefined;
     return creds?.auth_type === 'Client';
-  }, [isEdit, isGoogleSheets, source]);
-  // an existing source stored with OAuth credentials
-  const isConnected = alreadyOAuthConnected;
+  }, [isGoogleSheets, source]);
 
-  // Build combobox items from definitions, sorted alphabetically
-  const sourceDefItems = useMemo<ComboboxItem[]>(
-    () =>
-      [...definitions]
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((def) => ({
-          value: def.sourceDefinitionId,
-          label: def.dockerImageTag ? `${def.name} (${def.dockerImageTag})` : def.name,
-          icon: def.icon,
-        })),
-    [definitions]
-  );
-
-  // Load source data in edit mode
+  // Load the source being edited
   useEffect(() => {
-    if (open && isEdit && source) {
+    if (open && source) {
       setSelectedDefId(source.sourceDefinitionId);
       setSourceName(source.name);
     }
-  }, [open, isEdit, source]);
+  }, [open, source]);
 
-  // Populate form values when spec + source are ready in edit mode
+  // Populate form values once spec + source are both ready
   useEffect(() => {
-    if (parsedSpec && isEdit && source?.connectionConfiguration) {
+    if (parsedSpec && source?.connectionConfiguration) {
       const config = structuredClone(source.connectionConfiguration);
 
       // The API often omits const discriminator keys (e.g. auth_type, tunnel_method).
@@ -197,65 +177,17 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       inferDiscriminators(parsedSpec.fields, config);
       reset(config);
     }
-  }, [parsedSpec, isEdit, source, reset]);
+  }, [parsedSpec, source, reset]);
 
-  // Reset form when dialog opens in create mode
-  useEffect(() => {
-    if (open && !isEdit) {
-      setSelectedDefId(null);
-      setCreateLogsDismissed(true);
-      setSourceName('');
-      setNameError(null);
-      setTypeError(null);
-      reset({});
-    }
-  }, [open, isEdit, reset]);
-
-  // Populate spec defaults when spec loads in create mode
-  useEffect(() => {
-    if (parsedSpec && !isEdit) {
-      reset(extractSpecDefaults(parsedSpec));
-    }
-  }, [parsedSpec, isEdit, reset]);
-
-  // Tracks which create-path flow (WS test-then-save vs OAuth connect) is in flight so
-  // the shared onSaved callback below fires the right analytics events.
-  const pendingCreateKindRef = useRef<'ws' | 'oauth' | null>(null);
-
-  // Shared source-create logic (WS check_connection → createSource, and the Google
-  // OAuth connect flow) — same hook the source-add wizard's step 2 reuses. Edit mode
-  // never calls into this; it keeps its own updateSource path below.
-  const sourceSave = useSourceSave({
-    sourceDefId: selectedDefId,
-    getConfig: buildConfig,
-    onSaved: () => {
-      if (pendingCreateKindRef.current === 'oauth') {
-        trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
-        trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, {
-          source_type: 'Google Sheets',
-          auth_mode: 'oauth',
-        });
-      } else {
-        trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, {
-          source_type: definitions?.find((d) => d.sourceDefinitionId === selectedDefId)?.name,
-          ...(isGoogleSheets ? { auth_mode: 'service_account' } : {}),
-        });
-      }
-      onSuccess();
-    },
+  // WebSocket for the connection check — connects once a submit sets `loading`.
+  const { sendOrQueue, lastMessage } = useBackendWebSocket(SOURCE_CHECK_WS_PATH, {
+    enabled: loading,
+    onLoadingChange: setLoading,
   });
 
-  // WebSocket for connection check in edit mode — connects when editLoading (submit
-  // triggered). The create path's WS check lives inside useSourceSave.
-  const { sendOrQueue: editSendOrQueue, lastMessage: editLastMessage } = useBackendWebSocket(
-    SOURCE_CHECK_WS_PATH,
-    { enabled: editLoading, onLoadingChange: setEditLoading }
-  );
-
-  // "Authenticate" (create) / "Re-authenticate" (edit): get a consent URL and run the
-  // popup. In edit mode this only stashes the redeemed ref — the source is not saved
-  // until the footer "Save Changes And Test". The OAuth credentials never reach the
-  // browser. Create mode keeps its own two-phase flow inside useSourceSave.
+  // "Re-authenticate": get a consent URL and run the popup. This only stashes the
+  // redeemed ref — the source is not saved until the footer "Save Changes And Test".
+  // The OAuth credentials never reach the browser.
   const handleConnectGoogle = useCallback(async () => {
     if (!selectedDefId) return;
     // Same inline treatment as submit — a missing name is a form error, not a toast.
@@ -264,39 +196,31 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       return;
     }
 
-    if (!isEdit) {
-      pendingCreateKindRef.current = 'oauth';
-      setCreateLogsDismissed(false);
-      trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_STARTED, { source_type: 'Google Sheets' });
-      await sourceSave.connectGoogle(sourceName);
-      return;
-    }
-
-    setEditOauthConnecting(true);
+    setOauthConnecting(true);
     try {
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_STARTED, { source_type: 'Google Sheets' });
       const { authUrl } = await getSourceOAuthConsent(selectedDefId);
       const { ref } = await openOAuthPopup(authUrl);
-      setEditOauthRef(ref);
+      setOauthRef(ref);
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
       toastSuccess.generic('Authorized with Google — click Save Changes And Test to apply');
     } catch (error) {
       toastError.api(error instanceof Error ? error.message : 'Google sign-in failed');
     } finally {
-      setEditOauthConnecting(false);
+      setOauthConnecting(false);
     }
-  }, [selectedDefId, sourceName, isEdit, sourceSave]);
+  }, [selectedDefId, sourceName]);
 
-  // Handle WebSocket response for edit mode — v1 pattern: test succeeded → auto-save
+  // WS check succeeded → persist the update (v1 pattern: test, then auto-save).
   const handleSaveSource = useCallback(async () => {
     const config = buildConfig();
 
     try {
-      await updateSource(sourceId!, {
+      await updateSource(sourceId, {
         name: sourceName,
         sourceDefId: selectedDefId!,
         config,
-        sourceId: sourceId!,
+        sourceId,
       });
       // source_type rides along on every update, same as SOURCE_CREATED — without
       // it, edits can't be broken down by connector in PostHog.
@@ -309,21 +233,21 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     } catch (error) {
       toastError.save(error, 'source');
     } finally {
-      setEditLoading(false);
+      setLoading(false);
     }
   }, [buildConfig, sourceId, sourceName, selectedDefId, selectedName, isGoogleSheets, onSuccess]);
 
-  // Process WebSocket responses in edit mode
+  // Process WebSocket responses
   useEffect(() => {
-    if (!editLastMessage) return;
+    if (!lastMessage) return;
 
     try {
-      const response = JSON.parse(editLastMessage.data);
+      const response = JSON.parse(lastMessage.data);
 
       // WebSocket call itself failed
       if (response.status !== 'success') {
         toastError.api(response.message || 'Connection test failed');
-        setEditLoading(false);
+        setLoading(false);
         return;
       }
 
@@ -332,50 +256,38 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
         handleSaveSource();
       } else {
         // Connection test failed — show logs
-        setEditSetupLogs(response.data?.logs || []);
+        setSetupLogs(response.data?.logs || []);
         toastError.api('Connection test failed');
-        setEditLoading(false);
+        setLoading(false);
       }
     } catch {
       toastError.api('Invalid response from server');
-      setEditLoading(false);
+      setLoading(false);
     }
-  }, [editLastMessage, handleSaveSource]);
+  }, [lastMessage, handleSaveSource]);
 
-  const handleSourceDefChange = useCallback(
-    (defId: string) => {
-      setSelectedDefId(defId);
-      setTypeError(null);
-      reset({});
-      setEditSetupLogs([]);
-      setCreateLogsDismissed(true);
-    },
-    [reset]
-  );
-
-  // Required-field check for the two host-owned fields (the spec-driven fields
-  // self-report via react-hook-form). Sets the inline errors and returns validity.
+  // Required-field check for the host-owned name field (the spec-driven fields
+  // self-report via react-hook-form; the source type is locked in edit mode).
+  // Sets the inline error and returns validity.
   const validateHostFields = useCallback(() => {
     const nameOk = !!sourceName.trim();
-    const typeOk = !!selectedDefId;
     setNameError(nameOk ? null : 'Source name is required');
-    setTypeError(typeOk ? null : 'Source type is required');
-    return nameOk && typeOk;
-  }, [sourceName, selectedDefId]);
+    return nameOk;
+  }, [sourceName]);
 
-  // Edit + a fresh OAuth ref: redeem it into an update. The refresh_token lives only in
+  // A fresh OAuth ref: redeem it into an update. The refresh_token lives only in
   // the server-side ref, so there's no client-side WS check here — the backend's
   // update_source runs Airbyte's connection check itself.
   const handleUpdateOAuthSource = useCallback(async () => {
-    setEditSetupLogs([]);
-    setEditLoading(true);
+    setSetupLogs([]);
+    setLoading(true);
     try {
       await createOAuthSource({
         sourceDefId: selectedDefId!,
         name: sourceName,
         config: buildConfig(),
-        refresh_token_ref: editOauthRef!,
-        ...(sourceId ? { sourceId } : {}),
+        refresh_token_ref: oauthRef!,
+        sourceId,
       });
       trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED, {
         source_type: 'Google Sheets',
@@ -386,65 +298,45 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     } catch (error) {
       toastError.save(error, 'source');
     } finally {
-      setEditLoading(false);
+      setLoading(false);
     }
-  }, [selectedDefId, sourceName, buildConfig, editOauthRef, sourceId, onSuccess]);
+  }, [selectedDefId, sourceName, buildConfig, oauthRef, sourceId, onSuccess]);
 
-  // Single submit: edit mode with a fresh OAuth ref redeems it; otherwise edit tests over
-  // WS then updates; create mode delegates to the shared useSourceSave hook (WS test →
-  // createSource).
+  // Single submit: a fresh OAuth ref is redeemed directly; otherwise the config is
+  // tested over the WebSocket and saved on success.
   const onSubmit = useCallback(() => {
     if (!validateHostFields()) return;
-    // A definition is picked but its spec is still in flight — nothing to build a
-    // config from yet, so swallow the submit rather than sending a partial payload.
+    // The spec is still in flight — nothing to build a config from yet, so swallow
+    // the submit rather than sending a partial payload.
     if (!parsedSpec) return;
 
-    if (isEdit) {
-      if (editOauthRef) {
-        handleUpdateOAuthSource();
-        return;
-      }
-      const config = buildConfig();
-      setEditSetupLogs([]);
-      setEditLoading(true);
-      editSendOrQueue({
-        name: sourceName,
-        sourceDefId: selectedDefId,
-        config,
-        ...(sourceId ? { sourceId } : {}),
-      });
+    if (oauthRef) {
+      handleUpdateOAuthSource();
       return;
     }
 
-    pendingCreateKindRef.current = 'ws';
-    setCreateLogsDismissed(false);
-    sourceSave.save(sourceName);
+    const config = buildConfig();
+    setSetupLogs([]);
+    setLoading(true);
+    sendOrQueue({ name: sourceName, sourceDefId: selectedDefId, config, sourceId });
   }, [
     validateHostFields,
     parsedSpec,
     sourceName,
     selectedDefId,
-    isEdit,
-    editOauthRef,
+    oauthRef,
     handleUpdateOAuthSource,
     buildConfig,
     sourceId,
-    editSendOrQueue,
-    sourceSave,
+    sendOrQueue,
   ]);
 
   // react-hook-form blocks onSubmit when a spec-driven field fails its own rules —
-  // those fields render their own inline errors, but the host-owned name/type
-  // fields would stay silent, so validate them on the invalid path too.
+  // those fields render their own inline errors, but the host-owned name field
+  // would stay silent, so validate it on the invalid path too.
   const onInvalid = useCallback(() => {
     validateHostFields();
   }, [validateHostFields]);
-
-  // Unified display values — edit mode uses its own local state; create mode reads
-  // from the shared hook (setupLogs additionally gated by createLogsDismissed, see above).
-  const loading = isEdit ? editLoading : sourceSave.loading;
-  const oauthConnecting = isEdit ? editOauthConnecting : sourceSave.oauthConnecting;
-  const setupLogs = isEdit ? editSetupLogs : createLogsDismissed ? [] : sourceSave.setupLogs;
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -455,17 +347,15 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
         {/* Header typography matches the add-source wizard and the connection
             dialog: 2xl bold title + base-size description. */}
         <DialogHeader className="flex-shrink-0 space-y-2 border-b px-6 pt-6 pb-4 text-left">
-          <DialogTitle className="text-2xl font-bold">
-            {isEdit ? 'Edit Source' : 'Add Source'}
-          </DialogTitle>
+          <DialogTitle className="text-2xl font-bold">Edit Source</DialogTitle>
           <DialogDescription className="text-base">
-            {isEdit ? 'Update your source connection settings.' : 'Configure a new data source.'}
+            Update your source connection settings.
           </DialogDescription>
         </DialogHeader>
 
-        {/* Edit mode: hold a single loader until the source AND its config spec
-            are ready, so we never flash an empty form then a populated one. */}
-        {isEdit && (!source || !selectedDefId || specLoading) ? (
+        {/* Hold a single loader until the source AND its config spec are ready, so
+            we never flash an empty form then a populated one. */}
+        {!source || !selectedDefId || specLoading ? (
           <div
             data-testid="source-form-loading"
             className="flex flex-1 flex-col items-center justify-center gap-3 py-24 text-sm text-muted-foreground"
@@ -505,66 +395,43 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
                 )}
               </div>
 
-              {/* Source Type Selector */}
+              {/* Source type — fixed for an existing source, shown read-only so the
+                  user can still see what they are editing. */}
               <div>
-                {/* Combobox renders its input as `${id}-input`, so the label must
-                    target that, not the wrapper id. */}
-                <Label htmlFor="source-type-input" className="text-base">
-                  Source type <span className="text-destructive">*</span>
-                </Label>
-                <div className="mt-1.5">
-                  <Combobox
-                    id="source-type"
-                    items={sourceDefItems}
-                    value={selectedDefId ?? ''}
-                    onValueChange={handleSourceDefChange}
-                    placeholder="Select source type"
-                    searchPlaceholder="Search sources..."
-                    emptyMessage="No sources found."
-                    disabled={isEdit || loading}
-                    renderItem={(item, _isSelected, searchQuery) => (
-                      <div className="flex items-center gap-2">
-                        <img
-                          src={(item.icon as string) || '/icons/connection.svg'}
-                          alt=""
-                          className="h-4 w-4 flex-shrink-0"
-                          loading="lazy"
-                          onError={(e) => {
-                            e.currentTarget.src = '/icons/connection.svg';
-                          }}
-                        />
-                        <span className="text-sm">{highlightText(item.label, searchQuery)}</span>
-                      </div>
-                    )}
+                <Label className="text-base">Source type</Label>
+                <div
+                  className="mt-1.5 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-base"
+                  data-testid="source-type-display"
+                >
+                  <img
+                    src={selectedDef?.icon || '/icons/connection.svg'}
+                    alt=""
+                    className="h-4 w-4 flex-shrink-0"
+                    onError={(e) => {
+                      e.currentTarget.src = '/icons/connection.svg';
+                    }}
                   />
+                  <span>{selectedName || '—'}</span>
                 </div>
-                {typeError && (
-                  <p className="text-xs text-destructive mt-1" data-testid="source-type-error">
-                    {typeError}
-                  </p>
-                )}
               </div>
 
-              {/* Config body — spec-loading, custom/generic form, and
-                connection-test logs. Shared with the add-source wizard. */}
+              {/* Config body — custom/generic form and connection-test logs.
+                Shared with the add-source wizard. */}
               <SourceConfigFields
                 parsedSpec={parsedSpec}
-                specLoading={specLoading}
                 custom={custom}
                 control={control}
                 setValue={setValue}
                 disabled={loading}
-                mode={isEdit ? 'edit' : 'create'}
+                mode="edit"
                 oauth={
                   isGoogleSheetsCustom
                     ? ({
-                        connected: isConnected || !!editOauthRef,
+                        connected: isConnected || !!oauthRef,
                         busy: oauthConnecting,
-                        buttonLabel: isEdit
-                          ? editOauthRef
-                            ? 'Re-authenticated with Google'
-                            : 'Re-authenticate with Google'
-                          : 'Sign in with Google to authorize Dalgo',
+                        buttonLabel: oauthRef
+                          ? 'Re-authenticated with Google'
+                          : 'Re-authenticate with Google',
                         lockWhenConnected: false,
                         onClick: handleConnectGoogle,
                       } satisfies CustomSourceOAuth)
@@ -588,13 +455,15 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
               </Button>
               {/* Test-and-save handles the service-account (and every non-Google) path. The
                 Google OAuth button inside the form is the alternative create/re-auth action.
-                Stays clickable so pressing it surfaces the inline required-field errors
-                (onSubmit validates and blocks) — only disabled while a request is in flight. */}
+                Stays clickable while fields are empty so pressing it surfaces the inline
+                required-field errors (onSubmit validates and blocks). Disabled only for
+                states where a click genuinely can't do anything: a request in flight, or a
+                chosen source whose spec is still loading (nothing to validate or submit). */}
               <Button
                 type="submit"
                 variant="primary"
                 className="uppercase"
-                disabled={loading}
+                disabled={loading || specLoading}
                 data-testid="source-save-btn"
               >
                 {loading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}

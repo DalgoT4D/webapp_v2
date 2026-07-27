@@ -27,9 +27,12 @@ interface Props {
   def: SourceDefinition;
   onCreated: (sourceId: string) => void;
   onBack: () => void;
+  /** Abandons the whole wizard. Kept separate from onBack so this step offers both
+   *  actions, the way the alerts wizard does on its middle steps. */
+  onCancel: () => void;
 }
 
-export function CreateSourceStep({ def, onCreated, onBack }: Props) {
+export function CreateSourceStep({ def, onCreated, onBack, onCancel }: Props) {
   // Google Sheets and KoboToolbox get a hand-tailored form; every other
   // source falls back to the generic spec-driven form with no panel.
   const isGoogleSheets = def.name === SOURCE_NAME_GOOGLE_SHEETS;
@@ -262,7 +265,6 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
 
             <SourceConfigFields
               parsedSpec={parsedSpec}
-              specLoading={specLoading}
               custom={custom}
               control={control}
               setValue={setValue}
@@ -291,6 +293,15 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
       </div>
 
       <div className="flex flex-shrink-0 justify-end gap-2 border-t px-6 py-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={busy}
+          data-testid="wizard-cancel-btn"
+        >
+          Cancel
+        </Button>
         <Button
           type="button"
           variant="outline"

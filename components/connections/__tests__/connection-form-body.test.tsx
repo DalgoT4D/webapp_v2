@@ -155,21 +155,6 @@ describe('ConnectionFormBody', () => {
     await user.click(screen.getByRole('button', { name: /cancel/i }));
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
-
-  it('renders a custom footerSlot instead of the default footer buttons', () => {
-    render(
-      <ConnectionFormBody
-        mode={FormMode.CREATE}
-        presetSourceId="src-1"
-        onSuccess={jest.fn()}
-        onCancel={jest.fn()}
-        footerSlot={<div data-testid="wizard-footer">Wizard footer</div>}
-      />
-    );
-
-    expect(screen.getByTestId('wizard-footer')).toBeInTheDocument();
-    expect(screen.queryByTestId('save-connection-btn')).not.toBeInTheDocument();
-  });
 });
 
 describe('ConnectionFormBody split help + custom view', () => {

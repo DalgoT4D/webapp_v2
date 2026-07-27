@@ -181,12 +181,6 @@ export function AddSourceWizard({ open, onClose, onComplete, needsWarehouse = fa
           {step === 'select' && (
             <SelectSourceStep
               onClose={onClose}
-              // No onBack: the only step that can precede this one is the warehouse
-              // step, and reaching here means the warehouse was already created
-              // server-side. Re-entering that step would present an empty create
-              // form and a second submit would attempt a duplicate warehouse — so
-              // the button stays "Cancel" until the warehouse step can be re-entered
-              // in edit mode.
               onSelect={(d) => {
                 setDef(d);
                 setStep('configure');
@@ -199,6 +193,7 @@ export function AddSourceWizard({ open, onClose, onComplete, needsWarehouse = fa
               key={def.sourceDefinitionId}
               def={def}
               onBack={() => setStep('select')}
+              onCancel={onClose}
               onCreated={(sourceId) => {
                 setCreatedSourceId(sourceId);
                 setStep('connection');

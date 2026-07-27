@@ -12,13 +12,9 @@ import { TOP_SOURCES, MAX_TOP_CARDS } from './wizard-state';
 interface Props {
   onSelect: (def: SourceDefinition) => void;
   onClose: () => void;
-  /** Set only when a step precedes this one (the warehouse step, shown when the
-   *  org has no warehouse yet). Present → the secondary button reads "Back" and
-   *  returns to that step; absent → it reads "Cancel" and closes the wizard. */
-  onBack?: () => void;
 }
 
-export function SelectSourceStep({ onSelect, onClose, onBack }: Props) {
+export function SelectSourceStep({ onSelect, onClose }: Props) {
   const { data: definitions } = useSourceDefinitions();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<SourceDefinition | null>(null);
@@ -135,13 +131,11 @@ export function SelectSourceStep({ onSelect, onClose, onBack }: Props) {
       </div>
 
       <div className="flex flex-shrink-0 justify-end gap-2 border-t px-6 py-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onBack ?? onClose}
-          data-testid="wizard-back-btn"
-        >
-          {onBack ? 'Back' : 'Cancel'}
+        {/* No Back: the only step that can precede this one is the warehouse step,
+            and reaching here means the warehouse was already created server-side,
+            so that step can't be re-entered as a create form. */}
+        <Button type="button" variant="outline" onClick={onClose} data-testid="wizard-cancel-btn">
+          Cancel
         </Button>
         <Button
           type="button"

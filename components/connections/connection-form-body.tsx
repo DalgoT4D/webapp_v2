@@ -10,8 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Combobox, highlightText } from '@/components/ui/combobox';
-import type { ComboboxItem } from '@/components/ui/combobox';
+import { Combobox, highlightText, type ComboboxItem } from '@/components/ui/combobox';
 import { useSources } from '@/hooks/api/useSources';
 import {
   useConnection,
@@ -46,9 +45,6 @@ export interface ConnectionFormBodyProps {
   lockedSourceId?: string;
   onSuccess: () => void;
   onCancel: () => void;
-  // Optional custom footer (e.g. the wizard's own Back/Done buttons). Falls
-  // back to the default Cancel/Create-Update footer when not provided.
-  footerSlot?: React.ReactNode;
   // Fired when the form gains/loses its second (help) column — i.e. once streams
   // are discovered. Lets a host (the wizard) widen its modal only after the
   // streams table needs the room.
@@ -72,7 +68,6 @@ export function ConnectionFormBody({
   lockedSourceId,
   onSuccess,
   onCancel,
-  footerSlot,
   onExpandedChange,
   onHeaderInfoChange,
 }: ConnectionFormBodyProps) {
@@ -688,30 +683,28 @@ export function ConnectionFormBody({
           </Button>
         </DialogFooter>
       ) : (
-        (footerSlot ?? (
-          <DialogFooter className="flex-shrink-0 gap-2 border-t px-6 py-4">
-            <Button
-              variant="outline"
-              onClick={onCancel}
-              disabled={isSaving}
-              data-testid="connection-cancel-btn"
-            >
-              Cancel
-            </Button>
-            {/* Stays clickable so pressing it surfaces inline required-field errors
-                (handleSave validates and blocks). Only disabled while saving. */}
-            <Button
-              variant="primary"
-              className="uppercase"
-              onClick={handleSave}
-              disabled={isSaving}
-              data-testid="save-connection-btn"
-            >
-              {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-              {isCreate ? 'Create' : 'Update'}
-            </Button>
-          </DialogFooter>
-        ))
+        <DialogFooter className="flex-shrink-0 gap-2 border-t px-6 py-4">
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            disabled={isSaving}
+            data-testid="connection-cancel-btn"
+          >
+            Cancel
+          </Button>
+          {/* Stays clickable so pressing it surfaces inline required-field errors
+              (handleSave validates and blocks). Only disabled while saving. */}
+          <Button
+            variant="primary"
+            className="uppercase"
+            onClick={handleSave}
+            disabled={isSaving}
+            data-testid="save-connection-btn"
+          >
+            {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+            {isCreate ? 'Create' : 'Update'}
+          </Button>
+        </DialogFooter>
       )}
     </>
   );
