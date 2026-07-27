@@ -85,6 +85,11 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   // when the user clicks "Save Changes And Test" (mirrors the create wizard's two phases).
   const [editOauthConnecting, setEditOauthConnecting] = useState(false);
   const [editOauthRef, setEditOauthRef] = useState<string | null>(null);
+  // Inline required-field errors, surfaced on submit (same pattern as the
+  // add-source wizard and the connection form: the button stays clickable and
+  // pressing it reveals what's missing, rather than a silently disabled button).
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [typeError, setTypeError] = useState<string | null>(null);
   // useSourceSave owns its own setupLogs but has no external reset — this flag lets us
   // hide a stale failure banner the instant the create dialog reopens or the source
   // type changes, without waiting for the next save/connect attempt to clear it.
@@ -200,6 +205,8 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       setSelectedDefId(null);
       setCreateLogsDismissed(true);
       setSourceName('');
+      setNameError(null);
+      setTypeError(null);
       reset({});
     }
   }, [open, isEdit, reset]);
@@ -251,8 +258,9 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   // browser. Create mode keeps its own two-phase flow inside useSourceSave.
   const handleConnectGoogle = useCallback(async () => {
     if (!selectedDefId) return;
+    // Same inline treatment as submit — a missing name is a form error, not a toast.
     if (!sourceName.trim()) {
-      toastError.api('Enter a source name first');
+      setNameError('Source name is required');
       return;
     }
 
@@ -290,7 +298,10 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
         config,
         sourceId: sourceId!,
       });
+      // source_type rides along on every update, same as SOURCE_CREATED — without
+      // it, edits can't be broken down by connector in PostHog.
       trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED, {
+        source_type: selectedName,
         ...(isGoogleSheets ? { auth_mode: 'service_account' } : {}),
       });
       toastSuccess.updated('Source');
@@ -300,7 +311,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     } finally {
       setEditLoading(false);
     }
-  }, [buildConfig, sourceId, sourceName, selectedDefId, onSuccess]);
+  }, [buildConfig, sourceId, sourceName, selectedDefId, selectedName, isGoogleSheets, onSuccess]);
 
   // Process WebSocket responses in edit mode
   useEffect(() => {
@@ -334,12 +345,23 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   const handleSourceDefChange = useCallback(
     (defId: string) => {
       setSelectedDefId(defId);
+      setTypeError(null);
       reset({});
       setEditSetupLogs([]);
       setCreateLogsDismissed(true);
     },
     [reset]
   );
+
+  // Required-field check for the two host-owned fields (the spec-driven fields
+  // self-report via react-hook-form). Sets the inline errors and returns validity.
+  const validateHostFields = useCallback(() => {
+    const nameOk = !!sourceName.trim();
+    const typeOk = !!selectedDefId;
+    setNameError(nameOk ? null : 'Source name is required');
+    setTypeError(typeOk ? null : 'Source type is required');
+    return nameOk && typeOk;
+  }, [sourceName, selectedDefId]);
 
   // Edit + a fresh OAuth ref: redeem it into an update. The refresh_token lives only in
   // the server-side ref, so there's no client-side WS check here — the backend's
@@ -372,7 +394,10 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   // WS then updates; create mode delegates to the shared useSourceSave hook (WS test →
   // createSource).
   const onSubmit = useCallback(() => {
-    if (!sourceName.trim() || !selectedDefId) return;
+    if (!validateHostFields()) return;
+    // A definition is picked but its spec is still in flight — nothing to build a
+    // config from yet, so swallow the submit rather than sending a partial payload.
+    if (!parsedSpec) return;
 
     if (isEdit) {
       if (editOauthRef) {
@@ -395,6 +420,8 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     setCreateLogsDismissed(false);
     sourceSave.save(sourceName);
   }, [
+    validateHostFields,
+    parsedSpec,
     sourceName,
     selectedDefId,
     isEdit,
@@ -405,6 +432,13 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     editSendOrQueue,
     sourceSave,
   ]);
+
+  // react-hook-form blocks onSubmit when a spec-driven field fails its own rules —
+  // those fields render their own inline errors, but the host-owned name/type
+  // fields would stay silent, so validate them on the invalid path too.
+  const onInvalid = useCallback(() => {
+    validateHostFields();
+  }, [validateHostFields]);
 
   // Unified display values — edit mode uses its own local state; create mode reads
   // from the shared hook (setupLogs additionally gated by createLogsDismissed, see above).
@@ -418,9 +452,13 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
         className={cn('max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden', 'sm:max-w-3xl')}
         preventOutsideClose
       >
-        <DialogHeader className="flex-shrink-0 border-b px-6 pt-6 pb-4 text-left">
-          <DialogTitle>{isEdit ? 'Edit Source' : 'Add Source'}</DialogTitle>
-          <DialogDescription>
+        {/* Header typography matches the add-source wizard and the connection
+            dialog: 2xl bold title + base-size description. */}
+        <DialogHeader className="flex-shrink-0 space-y-2 border-b px-6 pt-6 pb-4 text-left">
+          <DialogTitle className="text-2xl font-bold">
+            {isEdit ? 'Edit Source' : 'Add Source'}
+          </DialogTitle>
+          <DialogDescription className="text-base">
             {isEdit ? 'Update your source connection settings.' : 'Configure a new data source.'}
           </DialogDescription>
         </DialogHeader>
@@ -437,7 +475,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
           </div>
         ) : (
           <form
-            onSubmit={handleSubmit(onSubmit)}
+            onSubmit={handleSubmit(onSubmit, onInvalid)}
             className="flex min-h-0 flex-1 flex-col"
             data-testid="source-form"
           >
@@ -445,24 +483,34 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
             <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-none px-6 py-5">
               {/* Source Name */}
               <div>
-                <Label htmlFor="source-name">
-                  Source Name <span className="text-destructive">*</span>
+                <Label htmlFor="source-name" className="text-base">
+                  Source name <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="source-name"
                   data-testid="source-name-input"
                   value={sourceName}
-                  onChange={(e) => setSourceName(e.target.value)}
+                  onChange={(e) => {
+                    setSourceName(e.target.value);
+                    if (nameError) setNameError(null);
+                  }}
                   placeholder="Enter source name"
                   disabled={loading}
-                  className="mt-1.5"
+                  className={cn('mt-1.5', nameError && 'border-destructive')}
                 />
+                {nameError && (
+                  <p className="text-xs text-destructive mt-1" data-testid="source-name-error">
+                    {nameError}
+                  </p>
+                )}
               </div>
 
               {/* Source Type Selector */}
               <div>
-                <Label htmlFor="source-type">
-                  Source Type <span className="text-destructive">*</span>
+                {/* Combobox renders its input as `${id}-input`, so the label must
+                    target that, not the wrapper id. */}
+                <Label htmlFor="source-type-input" className="text-base">
+                  Source type <span className="text-destructive">*</span>
                 </Label>
                 <div className="mt-1.5">
                   <Combobox
@@ -490,6 +538,11 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
                     )}
                   />
                 </div>
+                {typeError && (
+                  <p className="text-xs text-destructive mt-1" data-testid="source-type-error">
+                    {typeError}
+                  </p>
+                )}
               </div>
 
               {/* Config body — spec-loading, custom/generic form, and
@@ -534,12 +587,14 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
                 Cancel
               </Button>
               {/* Test-and-save handles the service-account (and every non-Google) path. The
-                Google OAuth button inside the form is the alternative create/re-auth action. */}
+                Google OAuth button inside the form is the alternative create/re-auth action.
+                Stays clickable so pressing it surfaces the inline required-field errors
+                (onSubmit validates and blocks) — only disabled while a request is in flight. */}
               <Button
                 type="submit"
                 variant="primary"
                 className="uppercase"
-                disabled={loading || !selectedDefId || !sourceName.trim() || !parsedSpec}
+                disabled={loading}
                 data-testid="source-save-btn"
               >
                 {loading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}

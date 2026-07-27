@@ -96,13 +96,27 @@ describe('SourceForm', () => {
     expect(screen.queryByTestId('source-form')).not.toBeInTheDocument();
   });
 
-  it('renders create mode with correct title and disabled save button', async () => {
+  // The save button stays clickable on an empty form: pressing it is what reveals
+  // the inline required-field errors, rather than a silently disabled button.
+  it('renders create mode with correct title and an enabled save button', async () => {
     render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
 
     await waitFor(() => {
       expect(screen.getByText('Add Source')).toBeInTheDocument();
-      expect(screen.getByTestId('source-save-btn')).toBeDisabled();
+      expect(screen.getByTestId('source-save-btn')).toBeEnabled();
     });
+  });
+
+  it('surfaces inline required-field errors when saving an empty create form', async () => {
+    const user = userEvent.setup();
+    render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
+
+    await user.click(await screen.findByTestId('source-save-btn'));
+
+    expect(await screen.findByTestId('source-name-error')).toHaveTextContent(
+      'Source name is required'
+    );
+    expect(screen.getByTestId('source-type-error')).toHaveTextContent('Source type is required');
   });
 
   it('renders edit mode with correct title, pre-filled name, and disabled source type selector', async () => {

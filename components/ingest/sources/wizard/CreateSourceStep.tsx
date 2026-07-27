@@ -219,10 +219,11 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   // inputs; for generic sources it renders full-width above the spec-driven form.
   const nameField = (
     <div>
-      <Label>
+      <Label htmlFor="wizard-source-name" className="text-base">
         Source name <span className="text-destructive">*</span>
       </Label>
       <Input
+        id="wizard-source-name"
         data-testid="wizard-source-name"
         value={name}
         onChange={(e) => {
@@ -244,36 +245,49 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   return (
     <div className="flex flex-1 min-h-0 flex-col" data-testid="create-source-step">
       <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
-        <div className="space-y-5">
-          {!custom && nameField}
+        {/* Hold a single full-panel loader until the config spec is ready, so the
+            step never flashes a bare name field then a populated form — same
+            treatment the edit-source dialog gives its initial load. */}
+        {specLoading ? (
+          <div
+            data-testid="create-source-step-loading"
+            className="flex flex-col items-center justify-center gap-3 py-24 text-sm text-muted-foreground"
+          >
+            <Loader2 className="h-7 w-7 animate-spin text-primary" />
+            Loading configuration…
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {!custom && nameField}
 
-          <SourceConfigFields
-            parsedSpec={parsedSpec}
-            specLoading={specLoading}
-            custom={custom}
-            control={control}
-            setValue={setValue}
-            disabled={busy}
-            mode="create"
-            nameField={custom ? nameField : undefined}
-            oauth={
-              isGoogleSheets
-                ? ({
-                    connected: !!oauthRef,
-                    busy: authorizing,
-                    buttonLabel: oauthRef
-                      ? 'Authenticated with Google'
-                      : 'Sign in with Google to authorize Dalgo',
-                    lockWhenConnected: true,
-                    onClick: handleAuthorizeGoogle,
-                    error: authError ?? undefined,
-                  } satisfies CustomSourceOAuth)
-                : undefined
-            }
-            setupLogs={setupLogs}
-            logsTestId="wizard-setup-logs"
-          />
-        </div>
+            <SourceConfigFields
+              parsedSpec={parsedSpec}
+              specLoading={specLoading}
+              custom={custom}
+              control={control}
+              setValue={setValue}
+              disabled={busy}
+              mode="create"
+              nameField={custom ? nameField : undefined}
+              oauth={
+                isGoogleSheets
+                  ? ({
+                      connected: !!oauthRef,
+                      busy: authorizing,
+                      buttonLabel: oauthRef
+                        ? 'Authenticated with Google'
+                        : 'Sign in with Google to authorize Dalgo',
+                      lockWhenConnected: true,
+                      onClick: handleAuthorizeGoogle,
+                      error: authError ?? undefined,
+                    } satisfies CustomSourceOAuth)
+                  : undefined
+              }
+              setupLogs={setupLogs}
+              logsTestId="wizard-setup-logs"
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex flex-shrink-0 justify-end gap-2 border-t px-6 py-4">
@@ -293,6 +307,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
           <Button
             type="button"
             variant="primary"
+            className="uppercase"
             data-testid="wizard-next-btn"
             disabled={creatingGoogle}
             onClick={handleNext}
@@ -304,6 +319,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
           <Button
             type="button"
             variant="primary"
+            className="uppercase"
             data-testid="wizard-next-btn"
             disabled={loading || !parsedSpec}
             onClick={handleNext}

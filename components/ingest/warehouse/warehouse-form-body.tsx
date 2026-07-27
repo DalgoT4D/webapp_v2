@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Combobox, highlightText, type ComboboxItem } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { parseAirbyteSpec } from '@/components/connectors/spec-parser';
 import { ConnectorConfigForm } from '@/components/connectors/ConnectorConfigForm';
@@ -71,7 +72,10 @@ export function WarehouseFormBody({
     [definitions]
   );
   const [warehouseName, setWarehouseName] = useState(warehouse?.name ?? '');
+  // Inline required-field errors, surfaced on submit (same pattern as the
+  // add-source wizard, the source dialog and the connection form).
   const [nameError, setNameError] = useState('');
+  const [typeError, setTypeError] = useState('');
   const [loading, setLoading] = useState(false);
   const [setupLogs, setSetupLogs] = useState<string[]>([]);
 
@@ -182,12 +186,23 @@ export function WarehouseFormBody({
     }
   }, [lastMessage, handleSaveWarehouse]);
 
+  // Required-field check for the two host-owned fields (the spec-driven fields
+  // self-report via react-hook-form). Sets the inline errors and returns validity.
+  // The destination type is fixed in edit mode, so it is only required on create.
+  const validateHostFields = useCallback(() => {
+    const nameOk = !!warehouseName.trim();
+    const typeOk = isEditing || !!selectedDefId;
+    setNameError(nameOk ? '' : 'Name is required');
+    setTypeError(typeOk ? '' : 'Destination type is required');
+    return nameOk && typeOk;
+  }, [warehouseName, isEditing, selectedDefId]);
+
   // Single submit: store payload in ref, set loading → WS connects → sends on open
   const onSubmit = useCallback(() => {
-    if (!warehouseName.trim()) {
-      setNameError('Name is required');
-      return;
-    }
+    if (!validateHostFields()) return;
+    // A type is picked but its spec is still in flight — nothing to build a config
+    // from yet, so swallow the submit rather than sending a partial payload.
+    if (!parsedSpec) return;
 
     const formValues = getValues();
     const config = parsedSpec ? cleanFormValues(formValues, parsedSpec.fields) : formValues;
@@ -200,7 +215,23 @@ export function WarehouseFormBody({
       destinationDefId: isEditing ? undefined : selectedDefId,
       destinationId: isEditing ? warehouse?.destinationId : undefined,
     });
-  }, [warehouseName, getValues, parsedSpec, isEditing, selectedDefId, warehouse, sendOrQueue]);
+  }, [
+    validateHostFields,
+    warehouseName,
+    getValues,
+    parsedSpec,
+    isEditing,
+    selectedDefId,
+    warehouse,
+    sendOrQueue,
+  ]);
+
+  // react-hook-form blocks onSubmit when a spec-driven field fails its own rules —
+  // those fields render their own inline errors, but the host-owned name/type
+  // fields would stay silent, so validate them on the invalid path too.
+  const onInvalid = useCallback(() => {
+    validateHostFields();
+  }, [validateHostFields]);
 
   // Gate on actual data presence, not loading flag (avoids SWR false→true→false blip)
   const showForm = isEditing ? !!parsedSpec : true;
@@ -217,7 +248,7 @@ export function WarehouseFormBody({
 
   return (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={handleSubmit(onSubmit, onInvalid)}
       className="flex flex-col min-h-0 flex-1"
       data-testid="warehouse-form"
     >
@@ -226,9 +257,9 @@ export function WarehouseFormBody({
         {/* Warehouse name + destination type in one block */}
         <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
           <div>
-            <label htmlFor="warehouse-name" className="text-[15px] font-medium">
+            <Label htmlFor="warehouse-name" className="text-base">
               Name <span className="text-destructive">*</span>
-            </label>
+            </Label>
             <Input
               id="warehouse-name"
               data-testid="warehouse-name-input"
@@ -244,15 +275,20 @@ export function WarehouseFormBody({
           </div>
 
           <div>
-            <label htmlFor="warehouse-type" className="text-[15px] font-medium">
+            {/* Combobox renders its input as `${id}-input`, so the label must
+                target that, not the wrapper id. */}
+            <Label htmlFor="warehouse-type-input" className="text-base">
               Select destination type <span className="text-destructive">*</span>
-            </label>
+            </Label>
             <div className="mt-1.5">
               <Combobox
                 id="warehouse-type"
                 items={warehouseDefItems}
                 value={selectedDefId ?? ''}
-                onValueChange={(val) => setSelectedDefId(val)}
+                onValueChange={(val) => {
+                  setSelectedDefId(val);
+                  if (typeError) setTypeError('');
+                }}
                 placeholder="Select warehouse type"
                 searchPlaceholder="Search warehouses..."
                 emptyMessage="No warehouses found."
@@ -273,6 +309,11 @@ export function WarehouseFormBody({
                 )}
               />
             </div>
+            {typeError && (
+              <p className="text-xs text-destructive mt-1" data-testid="warehouse-type-error">
+                {typeError}
+              </p>
+            )}
           </div>
         </div>
 
@@ -322,11 +363,13 @@ export function WarehouseFormBody({
         >
           Cancel
         </Button>
+        {/* Stays clickable so pressing it surfaces the inline required-field errors
+            (onSubmit validates and blocks) — only disabled while a request is in flight. */}
         <Button
           type="submit"
           variant="primary"
           className="uppercase"
-          disabled={!parsedSpec || loading}
+          disabled={loading}
           data-testid="save-warehouse-btn"
         >
           {loading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}

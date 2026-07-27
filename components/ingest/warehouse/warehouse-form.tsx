@@ -37,9 +37,13 @@ export function WarehouseForm({
         className="sm:max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden"
         preventOutsideClose
       >
-        <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
-          <DialogTitle>{isEditing ? 'Edit Warehouse' : 'Set Up Warehouse'}</DialogTitle>
-          <DialogDescription>
+        {/* Header typography matches the add-source wizard, the source dialog and
+            the connection dialog: 2xl bold title + base-size description. */}
+        <DialogHeader className="flex-shrink-0 space-y-2 px-6 pt-6 pb-4 border-b text-left">
+          <DialogTitle className="text-2xl font-bold">
+            {isEditing ? 'Edit Warehouse' : 'Set Up Warehouse'}
+          </DialogTitle>
+          <DialogDescription className="text-base">
             {isEditing
               ? 'Update your warehouse connection settings.'
               : 'Configure your data warehouse destination.'}

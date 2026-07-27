@@ -7,6 +7,7 @@ import { ReadyState } from 'react-use-websocket';
 import { Loader2 } from 'lucide-react';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Combobox, highlightText } from '@/components/ui/combobox';
@@ -523,9 +524,9 @@ export function ConnectionFormBody({
 
               {/* Connection name */}
               <div>
-                <label htmlFor="conn-name" className="text-base font-medium">
-                  Connection Name <span className="text-destructive">*</span>
-                </label>
+                <Label htmlFor="conn-name" className="text-base">
+                  Connection name <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="conn-name"
                   data-testid="connection-name-input"
@@ -545,9 +546,9 @@ export function ConnectionFormBody({
               {/* Source selection (create, no preset) or read-only display (preset / edit / view) */}
               {isCreate && !presetSourceId ? (
                 <div>
-                  <label htmlFor="source-select-input" className="text-base font-medium">
+                  <Label htmlFor="source-select-input" className="text-base">
                     Source <span className="text-destructive">*</span>
-                  </label>
+                  </Label>
                   <div className="mt-1.5">
                     <Combobox
                       id="source-select"
@@ -585,7 +586,7 @@ export function ConnectionFormBody({
                 </div>
               ) : readOnlySource && !connectionView ? (
                 <div>
-                  <label className="text-base font-medium">Source</label>
+                  <Label className="text-base">Source</Label>
                   <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-md border bg-muted/50 text-base">
                     <img
                       src={sourceIcon}
@@ -617,7 +618,7 @@ export function ConnectionFormBody({
             <div className="flex flex-col gap-6">
               {/* Schema discovery loading */}
               {isDiscovering && (
-                <div className="flex items-center gap-2 text-base text-muted-foreground py-4 justify-center">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {connectionView?.streamNoun
                     ? `Fetching ${connectionView.streamNoun.toLowerCase()}...`
@@ -677,10 +678,24 @@ export function ConnectionFormBody({
         </div>
       </div>
 
-      {!isView &&
+      {/* View mode is read-only, so it gets a single Close button instead of the
+          Cancel/Save pair — without it the dialog offered no footer action at all
+          and could only be dismissed via the header X. */}
+      {isView ? (
+        <DialogFooter className="flex-shrink-0 gap-2 border-t px-6 py-4">
+          <Button variant="outline" onClick={onCancel} data-testid="connection-close-btn">
+            Close
+          </Button>
+        </DialogFooter>
+      ) : (
         (footerSlot ?? (
           <DialogFooter className="flex-shrink-0 gap-2 border-t px-6 py-4">
-            <Button variant="outline" onClick={onCancel} disabled={isSaving}>
+            <Button
+              variant="outline"
+              onClick={onCancel}
+              disabled={isSaving}
+              data-testid="connection-cancel-btn"
+            >
               Cancel
             </Button>
             {/* Stays clickable so pressing it surfaces inline required-field errors
@@ -696,7 +711,8 @@ export function ConnectionFormBody({
               {isCreate ? 'Create' : 'Update'}
             </Button>
           </DialogFooter>
-        ))}
+        ))
+      )}
     </>
   );
 }
