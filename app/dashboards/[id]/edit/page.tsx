@@ -24,12 +24,12 @@ export default function EditDashboardPage() {
 
   // Fetch the dashboard. A viewer (member with view access) can load it — the
   // backend returns 404 if they can't even view. Whether they may *edit* is
-  // gated below on the per-resource `my_access`, not on a role permission.
+  // gated below on the per-resource `access_level`, not on a role permission.
   const { data: dashboard, isLoading, isError, mutate } = useDashboard(dashboardId);
 
   // Can this user EDIT this specific dashboard? Per-resource access from the API
   // (grants + org floor + ownership). Undefined until the dashboard loads.
-  const canEditDashboard = dashboard?.my_access === 'edit';
+  const canEditDashboard = dashboard?.access_level === 'edit';
 
   // Check if dashboard is locked by another user
   // Only block access if dashboard is locked AND locked by someone else

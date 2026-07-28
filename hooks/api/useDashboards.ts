@@ -30,7 +30,7 @@ export interface Dashboard {
   // The requestor's own access level on this dashboard ("view" | "edit"),
   // computed per-request from grants + org floor + ownership. Drives whether
   // edit affordances show. Optional: absent from public views / legacy responses.
-  my_access?: 'view' | 'edit';
+  access_level?: 'view' | 'edit';
   // Sharing fields
   is_public: boolean;
   public_share_token?: string;

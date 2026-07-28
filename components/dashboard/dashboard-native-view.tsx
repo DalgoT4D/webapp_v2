@@ -354,11 +354,11 @@ export function DashboardNativeView({
   const { hasPermission } = useRbac();
 
   // Can this user edit THIS dashboard? Per-resource access (grants + org floor
-  // + ownership), surfaced by the API as `my_access`. Not the role permission —
-  // a member granted edit has my_access === "edit" but no role edit slug.
+  // + ownership), surfaced by the API as `access_level`. Not the role permission —
+  // a member granted edit has access_level === "edit" but no role edit slug.
   const canEdit = useMemo(() => {
     if (isPublicMode || !dashboard || !currentUser) return false;
-    return dashboard.my_access === 'edit';
+    return dashboard.access_level === 'edit';
   }, [isPublicMode, dashboard, currentUser]);
 
   // Check if dashboard is locked
