@@ -1,0 +1,112 @@
+/* Themed driver.js popover for the Dalgo guided walkthrough.
+   Scoped to .dalgo-tour so it never affects any other driver.js usage. */
+
+.dalgo-tour.driver-popover {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow:
+    0 10px 25px -5px rgba(17, 24, 39, 0.25),
+    0 8px 10px -6px rgba(17, 24, 39, 0.2);
+  max-width: 340px;
+  padding: 0;
+  font-family: var(--font-anek-latin), system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+/* teal accent bar across the top */
+.dalgo-tour.driver-popover::before {
+  content: '';
+  display: block;
+  height: 5px;
+  width: 100%;
+  background: linear-gradient(90deg, #00897b, #00b3a0);
+}
+
+.dalgo-tour .driver-popover-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  padding: 14px 18px 0 18px;
+  line-height: 1.3;
+}
+
+.dalgo-tour .driver-popover-description {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #4b5563;
+  padding: 6px 18px 4px 18px;
+}
+
+/* progress dots injected into the description via HTML */
+.dalgo-tour .dalgo-tour-progress {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 14px;
+}
+.dalgo-tour .dalgo-tour-progress span {
+  height: 6px;
+  width: 6px;
+  border-radius: 9999px;
+  background: #e5e7eb;
+  transition: all 0.3s ease;
+}
+.dalgo-tour .dalgo-tour-progress span.is-active {
+  width: 18px;
+  background: #00897b;
+}
+
+.dalgo-tour .driver-popover-footer {
+  padding: 12px 18px 16px 18px;
+  gap: 8px;
+}
+
+.dalgo-tour .driver-popover-progress-text {
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* buttons */
+.dalgo-tour .driver-popover-footer button {
+  border-radius: 0.5rem;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  text-shadow: none;
+  transition: all 0.15s ease;
+}
+
+.dalgo-tour .driver-popover-prev-btn {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  color: #4b5563;
+}
+.dalgo-tour .driver-popover-prev-btn:hover {
+  background: #f9fafb;
+}
+
+.dalgo-tour .driver-popover-next-btn {
+  background: #00897b;
+  border: 1px solid #00897b;
+  color: #ffffff;
+}
+.dalgo-tour .driver-popover-next-btn:hover {
+  background: #00766a;
+  border-color: #00766a;
+}
+
+.dalgo-tour .driver-popover-close-btn {
+  color: #9ca3af;
+  transition: color 0.15s ease;
+}
+.dalgo-tour .driver-popover-close-btn:hover {
+  color: #4b5563;
+}
+
+/* the spotlight cutout */
+.driver-active .driver-overlay,
+.driver-overlay {
+  /* color is set via driverjs config (overlayColor) */
+}
