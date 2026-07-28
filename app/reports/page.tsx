@@ -35,7 +35,6 @@ import {
   MoreVertical,
   Plus,
   Trash2,
-  User,
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
@@ -44,6 +43,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -490,7 +490,9 @@ export default function ReportsPage() {
 
                       {/* Created by column with sort + filter */}
                       <TableHead className="w-[20%]">
-                        <div className="flex items-center gap-2">
+                        <div className="flex w-full items-center justify-center gap-2">
+                          {/* invisible spacer balances the trailing filter button so the label centers */}
+                          <span className="w-6 shrink-0" aria-hidden="true" />
                           <Button
                             variant="ghost"
                             className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
@@ -585,17 +587,8 @@ export default function ReportsPage() {
                           <TableCell className="py-4 text-base text-gray-700">
                             {snapshot.dashboard_title || '—'}
                           </TableCell>
-                          <TableCell className="py-4">
-                            {snapshot.created_by && (
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-                                  <User className="w-3 h-3 text-gray-600" />
-                                </div>
-                                <span className="text-base text-gray-700">
-                                  {snapshot.created_by}
-                                </span>
-                              </div>
-                            )}
+                          <TableCell className="py-4 text-center">
+                            {snapshot.created_by && <UserAvatar email={snapshot.created_by} />}
                           </TableCell>
                           <TableCell className="py-4 text-base text-gray-600">
                             {formatCreatedOn(snapshot.created_at)}

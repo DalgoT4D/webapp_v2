@@ -105,6 +105,7 @@ function KPICardWithData({
         name={kpi.name}
         subtitle={kpi.program_tags.length > 0 ? kpi.program_tags.join(', ') : undefined}
         data={cardData}
+        createdBy={kpi.created_by}
         onClick={onClick}
         className="h-full"
         showDownload={false}

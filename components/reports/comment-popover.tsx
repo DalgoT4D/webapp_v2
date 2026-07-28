@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,13 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { CommentIcon } from './comment-icon';
-import {
-  formatCommentTime,
-  getAvatarColor,
-  getInitials,
-  parseCommentMentions,
-  extractMentionedEmails,
-} from './utils';
+import { formatCommentTime, parseCommentMentions, extractMentionedEmails } from './utils';
 import { toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -126,14 +120,7 @@ const MentionDropdown = memo(function MentionDropdown({
           }}
           onMouseEnter={() => onHighlightChange(idx)}
         >
-          <Avatar className="h-7 w-7 text-xs flex-shrink-0">
-            <AvatarFallback
-              style={{ backgroundColor: getAvatarColor(user.email) }}
-              className="text-white"
-            >
-              {getInitials(user.email)}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar email={user.email} showTooltip={false} className="h-7 w-7" />
           <span className="truncate">{user.email}</span>
         </button>
       ))}
@@ -186,7 +173,6 @@ const CommentItem = memo(function CommentItem({
   mentionableUsers,
 }: CommentItemProps) {
   const isAuthor = comment.author_email === currentUserEmail;
-  const avatarColor = useMemo(() => getAvatarColor(comment.author_email), [comment.author_email]);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -286,14 +272,7 @@ const CommentItem = memo(function CommentItem({
     return (
       <div data-testid={`comment-${comment.id}-deleted`} className="group px-3 py-2 rounded-md">
         <div className="flex items-start gap-2">
-          <Avatar className="h-7 w-7 text-xs flex-shrink-0 mt-0.5">
-            <AvatarFallback
-              style={{ backgroundColor: avatarColor }}
-              className="text-white font-medium"
-            >
-              {getInitials(comment.author_email)}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar email={comment.author_email} showTooltip={false} className="h-7 w-7 mt-0.5" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium truncate">{comment.author_email}</span>
@@ -318,14 +297,7 @@ const CommentItem = memo(function CommentItem({
       className="group px-3 py-2 rounded-md"
     >
       <div className="flex items-start gap-2">
-        <Avatar className="h-7 w-7 text-xs flex-shrink-0 mt-0.5">
-          <AvatarFallback
-            style={{ backgroundColor: avatarColor }}
-            className="text-white font-medium"
-          >
-            {getInitials(comment.author_email)}
-          </AvatarFallback>
-        </Avatar>
+        <UserAvatar email={comment.author_email} showTooltip={false} className="h-7 w-7 mt-0.5" />
         <div className="flex-1 min-w-0">
           {!isEditing ? (
             <>

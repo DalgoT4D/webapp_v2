@@ -18,6 +18,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { formatKPIValue } from '@/lib/formatters';
 import type { KPICustomizations } from '@/types/kpis';
 import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import type { RAGStatus } from '@/types/kpis';
 import { formatDistanceToNow, format as formatDate, parseISO, isValid } from 'date-fns';
 
@@ -122,6 +123,8 @@ interface KPICardProps {
   downloadInMenu?: boolean;
   /** When true, shows a fullscreen toggle button (used on dashboards) */
   showFullscreen?: boolean;
+  /** Creator email — when set, shows an avatar (email-on-hover) at the footer's bottom-right. */
+  createdBy?: string;
 }
 
 export function KPICard({
@@ -136,6 +139,7 @@ export function KPICard({
   showDownload = true,
   downloadInMenu,
   showFullscreen,
+  createdBy,
 }: KPICardProps) {
   const {
     currentValue,
@@ -339,7 +343,7 @@ export function KPICard({
 
       {/* Footer */}
       <div className="mx-4 border-t" />
-      <div className="px-4 py-1.5">
+      <div className="px-4 py-1.5 flex items-center justify-between gap-2">
         {isLoading ? (
           <Skeleton className="h-3 w-32" />
         ) : (
@@ -347,6 +351,7 @@ export function KPICard({
             {dataLastDate ? `Data as of ${dataLastDate}` : 'Data not yet available'}
           </span>
         )}
+        {createdBy && <UserAvatar email={createdBy} className="h-5 w-5" />}
       </div>
     </div>
   );
