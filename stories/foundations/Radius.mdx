@@ -1,0 +1,29 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Foundations/Radius" />
+
+# Border Radius
+
+Base token `--radius: 0.625rem` in `app/globals.css`; the rest derive from it.
+
+<div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginTop: 16 }}>
+  {[
+    { name: 'sm', token: 'var(--radius-sm)' },
+    { name: 'md', token: 'var(--radius-md)' },
+    { name: 'lg', token: 'var(--radius-lg)' },
+    { name: 'xl', token: 'var(--radius-xl)' },
+  ].map((r) => (
+    <div key={r.name} style={{ textAlign: 'center' }}>
+      <div
+        style={{
+          width: 96,
+          height: 96,
+          background: 'var(--primary)',
+          borderRadius: r.token,
+        }}
+      />
+      <div style={{ fontSize: 12, marginTop: 8, fontWeight: 600 }}>{r.name}</div>
+      <code style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>{r.token}</code>
+    </div>
+  ))}
+</div>

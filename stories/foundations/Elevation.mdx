@@ -1,0 +1,46 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Foundations/Elevation" />
+
+# Elevation / Shadow
+
+The intended scale is Tailwind's shadow utilities. Use these for cards, popovers,
+dropdowns, and modals — one consistent depth language.
+
+<div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', marginTop: 24, padding: 16 }}>
+  {['shadow-xs', 'shadow-sm', 'shadow', 'shadow-md', 'shadow-lg', 'shadow-xl', 'shadow-2xl'].map(
+    (cls) => (
+      <div key={cls} style={{ textAlign: 'center' }}>
+        <div
+          className={cls}
+          style={{
+            width: 96,
+            height: 96,
+            background: 'var(--card)',
+            borderRadius: 'var(--radius-lg)',
+          }}
+        />
+        <code style={{ fontSize: 11, marginTop: 8, display: 'block' }}>{cls}</code>
+      </div>
+    )
+  )}
+</div>
+
+---
+
+## ⚠️ Drift — ad-hoc box-shadows in `globals.css`
+
+The app doesn't actually use the scale consistently. `app/globals.css` hardcodes
+**at least 10 different one-off shadows**, several tinted with raw hex/rgba:
+
+| Line | Shadow | Problem |
+|---|---|---|
+| `globals.css:62` | `0 8px 32px rgba(15,148,124,0.15)` | teal-tinted, bespoke |
+| `globals.css:88` | `0 2px 8px rgba(59,130,246,0.25)` | blue-tinted `!important` |
+| `globals.css:207` | `0 1px 4px rgba(59,130,246,0.15)` | blue-tinted |
+| `globals.css:213` | `0 4px 16px rgba(59,130,246,0.2)` | blue-tinted |
+| `globals.css:803,987,1000` | `rgba(0,0,0,0.08–0.1)` / blue | mixed |
+
+**Fix:** define `--shadow-sm/md/lg` tokens (or use the Tailwind scale above) and
+delete the bespoke ones. Same drift pattern as colors — multiple values for one
+concept. See [Foundations/Drift](?path=/docs/foundations-drift--docs).

@@ -1,0 +1,106 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+import { Swatch, SwatchGrid } from './Swatch';
+import { CHART_TYPE_COLORS } from '../../constants/chart-types';
+
+<Meta title="Foundations/Colors" />
+
+# Colors
+
+Dalgo's color comes from **three independent sources today**. This page renders all
+three together so drift is visible at a glance. Flip the **Theme** toolbar (top) to
+check light vs dark.
+
+---
+
+## 1. Semantic theme tokens — `app/globals.css`
+
+The real source of truth for UI. CSS variables, re-themeable, dark-mode aware.
+These resolve live, so they change with the Theme toolbar.
+
+<SwatchGrid>
+  <Swatch name="primary" cssVar="--primary" />
+  <Swatch name="primary-foreground" cssVar="--primary-foreground" />
+  <Swatch name="secondary" cssVar="--secondary" />
+  <Swatch name="background" cssVar="--background" />
+  <Swatch name="foreground" cssVar="--foreground" />
+  <Swatch name="card" cssVar="--card" />
+  <Swatch name="muted" cssVar="--muted" />
+  <Swatch name="muted-foreground" cssVar="--muted-foreground" />
+  <Swatch name="accent" cssVar="--accent" />
+  <Swatch name="border" cssVar="--border" />
+  <Swatch name="destructive" cssVar="--destructive" />
+  <Swatch name="failed" cssVar="--failed" />
+  <Swatch name="warning" cssVar="--warning" />
+  <Swatch name="selection" cssVar="--selection" />
+  <Swatch name="cta-hover" cssVar="--cta-hover" />
+</SwatchGrid>
+
+### Chart tokens (also CSS vars, but unused by the JS palette below)
+
+<SwatchGrid>
+  <Swatch name="chart-1" cssVar="--chart-1" />
+  <Swatch name="chart-2" cssVar="--chart-2" />
+  <Swatch name="chart-3" cssVar="--chart-3" />
+  <Swatch name="chart-4" cssVar="--chart-4" />
+  <Swatch name="chart-5" cssVar="--chart-5" />
+  <Swatch name="chart-bar" cssVar="--chart-bar" />
+  <Swatch name="chart-pie" cssVar="--chart-pie" />
+  <Swatch name="chart-line" cssVar="--chart-line" />
+  <Swatch name="chart-number" cssVar="--chart-number" />
+  <Swatch name="chart-map" cssVar="--chart-map" />
+  <Swatch name="chart-table" cssVar="--chart-table" />
+</SwatchGrid>
+
+---
+
+## 2. Chart-type palette — `constants/chart-types.ts`
+
+Hardcoded hex (Tailwind 500 series). **Ignores the `--chart-*` tokens above.**
+Used by the chart-type picker / badges.
+
+<SwatchGrid>
+  {Object.entries(CHART_TYPE_COLORS).map(([type, c]) => (
+    <Swatch key={type} name={type} value={c.color} />
+  ))}
+</SwatchGrid>
+
+---
+
+## 3. Avatar palette — `components/reports/utils.ts`
+
+Hardcoded hex (Google/Material). A **third** system, unrelated to the two above.
+
+> ⚠️ `AVATAR_COLORS` is not exported, so the list below is **mirrored by hand**
+> from `components/reports/utils.ts`. That duplication is itself a symptom of the
+> centralization gap.
+
+<SwatchGrid>
+  <Swatch name="blue" value="#4285F4" />
+  <Swatch name="green" value="#34A853" />
+  <Swatch name="red" value="#EA4335" />
+  <Swatch name="yellow" value="#FBBC04" />
+  <Swatch name="pink" value="#E91E63" />
+  <Swatch name="purple" value="#9C27B0" />
+  <Swatch name="deep-orange" value="#FF5722" />
+  <Swatch name="cyan" value="#00BCD4" />
+  <Swatch name="brown" value="#795548" />
+  <Swatch name="blue-grey" value="#607D8B" />
+</SwatchGrid>
+
+---
+
+## ⚠️ Drift watch — "blue" in each system
+
+The same conceptual color, three different hex values. This is the bug from the
+original screenshot, made visible:
+
+<SwatchGrid>
+  <Swatch name="brand --primary" cssVar="--primary" />
+  <Swatch name="chart bar" value={CHART_TYPE_COLORS.bar.color} />
+  <Swatch name="avatar blue" value="#4285F4" />
+</SwatchGrid>
+
+**Fix (separate work):** collapse these into one source — a `tokens.json` built by
+Terrazzo/Style Dictionary into both `globals.css` and a shared `palette.ts` that
+`chart-types.ts` and `reports/utils.ts` import. Storybook makes the drift visible;
+a single source makes it impossible.

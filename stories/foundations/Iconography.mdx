@@ -1,0 +1,65 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+import {
+  Loader2, Plus, Trash2, X, Info, ChevronDown, ArrowLeft, Eye, AlertCircle, Search,
+  Lock, Clock, BarChart3, RefreshCw, Download, ChevronRight, Table, Pencil, FileText,
+  EyeOff, ExternalLink, ChevronLeft, MoreVertical, GripVertical, Database, ChevronUp,
+  Check, ArrowUp, AlertTriangle, Share2, PieChart, MapPin, LineChart, Filter, FileImage,
+  Copy, CheckCircle2, Calendar, ArrowDown, Settings, Send, Save, RotateCcw, Map, Mail,
+} from 'lucide-react';
+
+<Meta title="Foundations/Iconography" />
+
+# Iconography
+
+Dalgo uses **`lucide-react`** for all icons (imported in 185 files). Default size
+`size-4` (16px) inside buttons; `w-6 h-6` for feature cards. Color follows the
+text color (`currentColor`) — don't hardcode icon colors.
+
+The set below is the **most-used icons in the app** (by import frequency), so reach
+for one of these before adding a new glyph.
+
+export const ICONS = [
+  ['Loader2', Loader2], ['Plus', Plus], ['Trash2', Trash2], ['X', X], ['Info', Info],
+  ['ChevronDown', ChevronDown], ['ChevronUp', ChevronUp], ['ChevronLeft', ChevronLeft],
+  ['ChevronRight', ChevronRight], ['ArrowLeft', ArrowLeft], ['ArrowUp', ArrowUp],
+  ['ArrowDown', ArrowDown], ['Eye', Eye], ['EyeOff', EyeOff], ['AlertCircle', AlertCircle],
+  ['AlertTriangle', AlertTriangle], ['CheckCircle2', CheckCircle2], ['Check', Check],
+  ['Search', Search], ['Filter', Filter], ['Lock', Lock], ['Clock', Clock],
+  ['Calendar', Calendar], ['RefreshCw', RefreshCw], ['RotateCcw', RotateCcw],
+  ['Download', Download], ['FileImage', FileImage], ['FileText', FileText],
+  ['Copy', Copy], ['Pencil', Pencil], ['Save', Save], ['Send', Send], ['Mail', Mail],
+  ['Share2', Share2], ['ExternalLink', ExternalLink], ['Settings', Settings],
+  ['MoreVertical', MoreVertical], ['GripVertical', GripVertical], ['Database', Database],
+  ['Table', Table], ['BarChart3', BarChart3], ['LineChart', LineChart],
+  ['PieChart', PieChart], ['Map', Map], ['MapPin', MapPin],
+];
+
+<div
+  style={{
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))',
+    gap: 12,
+    marginTop: 16,
+  }}
+>
+  {ICONS.map(([name, Icon]) => (
+    <div
+      key={name}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 8,
+        padding: 12,
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-md)',
+      }}
+    >
+      <Icon style={{ width: 24, height: 24, color: 'var(--foreground)' }} />
+      <code style={{ fontSize: 10, textAlign: 'center' }}>{name}</code>
+    </div>
+  ))}
+</div>
+
+> Full set: [lucide.dev/icons](https://lucide.dev/icons). Import named, e.g.
+> `import { Plus } from 'lucide-react'`.
