@@ -3,16 +3,18 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { AnimatedBackgroundSimple } from '@/components/ui/animated-background-simple';
+import { TrialSplitCard } from '@/app/free-trial/_components/TrialSplitCard';
+import { TrialNoticeCard } from '@/app/free-trial/_components/TrialNoticeCard';
+import { TrialMarketingPanel } from '@/app/free-trial/_components/TrialMarketingPanel';
+import { TrialBrandHeader } from '@/app/free-trial/_components/TrialBrandHeader';
 import { CloneProgress } from '@/app/free-trial/_components/CloneProgress';
+import { TRIAL_MARKETING_PANELS, TRIAL_SUPPORT_EMAIL } from '@/app/free-trial/_lib/constants';
 import { apiPost, apiPublicPost } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
   TRIAL_STEP_LABELS,
-  BACKEND_STEP_TO_DISPLAY_INDEX,
   TRIAL_CREDS_STORAGE_KEY,
   TRIAL_ELAPSED_TICK_MS,
   TRIAL_MAX_CONSECUTIVE_POLL_FAILURES,
@@ -21,47 +23,7 @@ import {
 } from '@/constants/trial';
 import { useAuthStore } from '@/stores/authStore';
 import { useTrialStatus } from '@/hooks/api/useTrialStatus';
-import type { TrialProgressStep } from '@/types/trial';
-
-// Map the backend's 1-based `step` (1-7) → 0-based index into the 7-item TRIAL_STEP_LABELS.
-// See constants/trial.ts.
-function backendStepToDisplayIndex(step: number): number | null {
-  return BACKEND_STEP_TO_DISPLAY_INDEX[step] ?? null;
-}
-
-// Fall back to matching the last progress event's message text against the
-// known step labels when the backend doesn't send a numeric `step`.
-function deriveCurrentIndex(progress: TrialProgressStep[] | undefined): number {
-  if (!progress || progress.length === 0) {
-    return 0;
-  }
-
-  // Walk backwards from the latest event so a single label that has drifted
-  // out of sync with the frontend↔backend contract doesn't roll the progress
-  // bar back to 0 — fall back to the nearest earlier event that still resolves
-  // to a known step.
-  for (let i = progress.length - 1; i >= 0; i -= 1) {
-    const step = progress[i];
-    if (typeof step.step === 'number') {
-      const displayIndex = backendStepToDisplayIndex(step.step);
-      if (displayIndex !== null) {
-        return displayIndex;
-      }
-    }
-    const labelIndex = TRIAL_STEP_LABELS.indexOf(step.message);
-    if (labelIndex >= 0) {
-      return labelIndex;
-    }
-  }
-
-  // No event in the whole history matched — the history holds only non-step events
-  // (the "queued" marker right after a signup/retry, or a terminal marker). Start at the
-  // FIRST step: returning the last index here rendered every step as already-completed
-  // ("all ticks + Finalizing") on a freshly queued or just-retried clone. Mid-run label
-  // drift is already handled by the backwards walk above (an earlier numeric-step event
-  // will match before we ever reach this fallback).
-  return 0;
-}
+import { deriveCurrentIndex } from '@/app/free-trial/_lib/utils';
 
 // Elapsed clock lives in its OWN component so its per-second re-render stays isolated
 // here and does NOT re-render ProgressCard. ProgressCard hosts the SWR poller, and a
@@ -87,18 +49,6 @@ function ElapsedClock({ startedAt, frozen }: { startedAt: number | null; frozen:
     <p className="text-sm text-muted-foreground mt-2" data-testid="trial-elapsed">
       Elapsed: {label}
     </p>
-  );
-}
-
-function CardShell({ children }: { children: React.ReactNode }) {
-  return (
-    <AnimatedBackgroundSimple>
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="w-full max-w-sm space-y-6 rounded-lg bg-white/95 backdrop-blur-sm p-8 shadow-lg border border-white/20">
-          {children}
-        </div>
-      </div>
-    </AnimatedBackgroundSimple>
   );
 }
 
@@ -131,11 +81,14 @@ function ProgressCard() {
   // failed status SWR has already halted its interval (refreshInterval returns 0), so after the
   // re-enqueue we must clear the give-up state (re-enables the SWR key) and revalidate to pull
   // the fresh "queued"/"running" status and resume polling.
-  const handleRetry = async () => {
+  const handleRetry = async (from: 'failed' | 'timeout') => {
     if (!taskId || retrying) return;
     setRetrying(true);
     try {
       await apiPublicPost(`${TRIAL_RETRY_PATH}/${taskId}`, {});
+      // Long-running async work, so this is a *_triggered event fired once the
+      // re-enqueue is accepted — not a success/failure outcome.
+      trackEvent(ANALYTICS_EVENTS.TRIAL_RETRY_TRIGGERED, { from });
       loginAttemptedRef.current = false; // let a subsequent completion auto-login again
       pollTimeoutTrackedRef.current = false;
       setManualLoginNeeded(false);
@@ -222,139 +175,114 @@ function ProgressCard() {
 
   if (!taskId) {
     return (
-      <CardShell>
-        <div className="text-center" data-testid="trial-progress-missing-task">
-          <h1 className="text-2xl font-bold mb-2">Missing setup task</h1>
-          <p className="text-gray-600">
-            We could not find a workspace setup in progress. Please start a new trial.
-          </p>
-        </div>
-        <div className="text-center pt-4">
-          <Link href="/free-trial" className="text-primary hover:underline font-medium">
-            Start a new trial
-          </Link>
-        </div>
-      </CardShell>
+      <TrialNoticeCard
+        testId="trial-progress-missing-task"
+        title="Missing setup task"
+        description="We could not find a workspace setup in progress. Please start a new trial."
+      >
+        <Button variant="primary" className="w-full" asChild>
+          <Link href="/free-trial">Start a new trial</Link>
+        </Button>
+      </TrialNoticeCard>
     );
   }
 
+  // Figma frame 2453:3089.
   if (failed) {
     return (
-      <CardShell>
-        <div className="text-center" data-testid="trial-progress-failed">
-          <div className="flex justify-center mb-6">
-            <Image
-              src="/dalgo_logo.svg"
-              alt="Dalgo"
-              width={80}
-              height={90}
-              className="text-primary"
-            />
+      <TrialSplitCard
+        testId="trial-progress-failed"
+        aside={<TrialMarketingPanel panel={TRIAL_MARKETING_PANELS.provisioning} />}
+      >
+        <div className="space-y-8">
+          <TrialBrandHeader
+            title="Workspace setup interrupted"
+            subtitle="We hit a technical snag while provisioning your workspace. Your details are saved, but we need to restart this final step."
+          />
+          <div className="space-y-4">
+            <Button
+              variant="primary"
+              className="w-full"
+              onClick={() => handleRetry('failed')}
+              disabled={retrying}
+              data-testid="trial-progress-retry-button"
+            >
+              {retrying ? 'Starting…' : 'Retry setup'}
+            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              <a
+                href={`mailto:${TRIAL_SUPPORT_EMAIL}`}
+                className="font-medium text-primary underline hover:no-underline"
+                data-testid="trial-contact-support"
+              >
+                Contact support
+              </a>
+            </p>
           </div>
-          <h1 className="text-2xl font-bold mb-2">
-            Something went wrong setting up your workspace
-          </h1>
-          <p className="text-gray-600">
-            Please try again — if the problem continues, reach out to our support team.
-          </p>
         </div>
-        <Button
-          variant="primary"
-          className="w-full"
-          onClick={handleRetry}
-          disabled={retrying}
-          data-testid="trial-progress-retry-button"
-        >
-          {retrying ? 'Starting…' : 'Try again'}
-        </Button>
-      </CardShell>
+      </TrialSplitCard>
     );
   }
 
   if (manualLoginNeeded) {
     return (
-      <CardShell>
-        <div className="text-center" data-testid="trial-progress-manual-login">
-          <div className="flex justify-center mb-6">
-            <Image
-              src="/dalgo_logo.svg"
-              alt="Dalgo"
-              width={80}
-              height={90}
-              className="text-primary"
-            />
-          </div>
-          <h1 className="text-2xl font-bold mb-2">🎉 Your workspace is ready!</h1>
-          <p className="text-gray-600">Please log in to get started.</p>
-        </div>
+      <TrialNoticeCard
+        testId="trial-progress-manual-login"
+        title="🎉 Your workspace is ready!"
+        description="Please log in to get started."
+      >
         <Button variant="primary" className="w-full" asChild>
           <Link href="/login" data-testid="trial-login-cta">
             Log in
           </Link>
         </Button>
-      </CardShell>
+      </TrialNoticeCard>
     );
   }
 
   if (pollGaveUp) {
     return (
-      <CardShell>
-        <div className="text-center" data-testid="trial-progress-timeout">
-          <div className="flex justify-center mb-6">
-            <Image
-              src="/dalgo_logo.svg"
-              alt="Dalgo"
-              width={80}
-              height={90}
-              className="text-primary"
-            />
-          </div>
-          <h1 className="text-2xl font-bold mb-2">This is taking longer than expected</h1>
-          <p className="text-gray-600">
-            Your workspace may still be finishing in the background. Try logging in — if it&apos;s
-            not ready yet, start again in a moment.
-          </p>
-        </div>
-        <div className="space-y-3">
-          <Button variant="primary" className="w-full" asChild>
-            <Link href="/login" data-testid="trial-timeout-login-button">
-              Log in
-            </Link>
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleRetry}
-            disabled={retrying}
-            data-testid="trial-timeout-retry-button"
-          >
-            {retrying ? 'Starting…' : 'Start again'}
-          </Button>
-        </div>
-      </CardShell>
+      <TrialNoticeCard
+        testId="trial-progress-timeout"
+        title="This is taking longer than expected"
+        description="Your workspace may still be finishing in the background. Try logging in — if it's not ready yet, start again in a moment."
+      >
+        <Button variant="primary" className="w-full" asChild>
+          <Link href="/login" data-testid="trial-timeout-login-button">
+            Log in
+          </Link>
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => handleRetry('timeout')}
+          disabled={retrying}
+          data-testid="trial-timeout-retry-button"
+        >
+          {retrying ? 'Starting…' : 'Start again'}
+        </Button>
+      </TrialNoticeCard>
     );
   }
 
+  // Figma frame 2452:416. ElapsedClock stays a SIBLING of CloneProgress, never a
+  // wrapper — it re-renders every second, and re-rendering this card's hooks resets
+  // the SWR poller's interval before it can fire (see the notes above).
   return (
-    <CardShell>
-      <div className="text-center">
-        <div className="flex justify-center mb-6">
-          <Image
-            src="/dalgo_logo.svg"
-            alt="Dalgo"
-            width={80}
-            height={90}
-            className="text-primary"
-          />
-        </div>
-        <h1 className="text-2xl font-bold mb-2" data-testid="trial-progress-heading">
-          Setting up your Dalgo workspace&hellip;
-        </h1>
-        <p className="text-gray-600">This usually takes a couple of minutes. Hang tight.</p>
+    <TrialSplitCard
+      testId="trial-progress-card"
+      aside={<TrialMarketingPanel panel={TRIAL_MARKETING_PANELS.provisioning} />}
+    >
+      <div className="space-y-8">
+        <TrialBrandHeader
+          title="Creating workspace"
+          subtitle="This usually takes 1 to 2 minutes."
+          testId="trial-progress-heading"
+        />
         <ElapsedClock startedAt={data?.started_at ?? null} frozen={isTerminal || pollGaveUp} />
+        <CloneProgress steps={TRIAL_STEP_LABELS} currentIndex={currentIndex} failed={failed} />
       </div>
-      <CloneProgress steps={TRIAL_STEP_LABELS} currentIndex={currentIndex} failed={failed} />
-    </CardShell>
+    </TrialSplitCard>
   );
 }
 
@@ -362,14 +290,10 @@ export default function TrialProgressPage() {
   return (
     <Suspense
       fallback={
-        <AnimatedBackgroundSimple>
-          <div className="flex min-h-screen items-center justify-center">
-            <div className="text-center" data-testid="trial-progress-loading">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-lg font-medium">Loading...</p>
-            </div>
-          </div>
-        </AnimatedBackgroundSimple>
+        <div className="text-center" data-testid="trial-progress-loading">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-lg font-medium">Loading...</p>
+        </div>
       }
     >
       <ProgressCard />

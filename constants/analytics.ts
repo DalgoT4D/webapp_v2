@@ -10,7 +10,12 @@ export const ANALYTICS_EVENTS = {
   RBAC_NOTICE_DISMISSED: 'onboarding:rbac_notice_dismissed',
   // Free trial onboarding
   TRIAL_SIGNUP_SUBMITTED: 'trial:signup_submitted',
+  // Verification link re-sent from the check-your-email card (re-POSTs signup).
+  TRIAL_LINK_RESENT: 'trial:link_resent',
   TRIAL_ACTIVATED: 'trial:trial_activated',
+  // A failed clone was re-enqueued. Carries { from: 'failed' | 'timeout' } — which
+  // fallback card the user retried from.
+  TRIAL_RETRY_TRIGGERED: 'trial:retry_triggered',
   TRIAL_CLONE_COMPLETED: 'trial:clone_completed',
   TRIAL_CLONE_FAILED: 'trial:clone_failed',
   // Clone succeeded but auto-login could not run (login call failed, or the
@@ -218,6 +223,12 @@ export const FEATURES = {
   SETTINGS_ABOUT: 'settings_about',
   SETTINGS_SUPERSET_USAGE: 'settings_superset_usage',
   SETTINGS_BRANDING: 'settings_branding',
+  // Pre-auth free-trial screens. Three separate features (not one `free_trial`)
+  // because useFeatureTracking dedupes on the FEATURE, not the pathname — a single
+  // id would make the three screens indistinguishable and destroy the funnel.
+  FREE_TRIAL_SIGNUP: 'free_trial_signup',
+  FREE_TRIAL_ACTIVATE: 'free_trial_activate',
+  FREE_TRIAL_PROGRESS: 'free_trial_progress',
 } as const;
 
 export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
@@ -245,6 +256,9 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/settings/user-management', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
   { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
   { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
+  { prefix: '/free-trial/activate', feature: FEATURES.FREE_TRIAL_ACTIVATE },
+  { prefix: '/free-trial/progress', feature: FEATURES.FREE_TRIAL_PROGRESS },
+  { prefix: '/free-trial', feature: FEATURES.FREE_TRIAL_SIGNUP },
 ];
 
 export function featureForPathname(pathname: string): Feature | null {

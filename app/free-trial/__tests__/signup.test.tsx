@@ -25,8 +25,21 @@ jest.mock('@/lib/toast', () => ({
 }));
 
 const mockTrackEvent = jest.fn();
+const mockTrackFeatureView = jest.fn();
 jest.mock('@/lib/analytics', () => ({
   trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+  trackFeatureView: (...args: unknown[]) => mockTrackFeatureView(...args),
+}));
+
+// The shared trial shell components render inside the App Router. Stub the router
+// hooks so any component reaching for them doesn't blow up with
+// "invariant expected app router to be mounted".
+const mockPush = jest.fn();
+const mockReplace = jest.fn();
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
+  usePathname: () => '/free-trial',
+  useSearchParams: () => ({ get: () => null }),
 }));
 
 jest.mock('next/link', () => {
@@ -45,7 +58,14 @@ jest.mock('next/link', () => {
 });
 
 jest.mock('next/image', () => {
-  function MockImage(props: ImgHTMLAttributes<HTMLImageElement>) {
+  // `priority` is consumed by the real next/image and never reaches the DOM. Strip it
+  // here too, otherwise React logs "Received `true` for a non-boolean attribute" and
+  // buries any genuine warning this suite might surface.
+  function MockImage({
+    priority,
+    ...props
+  }: ImgHTMLAttributes<HTMLImageElement> & { priority?: boolean }) {
+    void priority;
     // eslint-disable-next-line @next/next/no-img-element -- test stub, not the real app
     return <img alt="" {...props} />;
   }
@@ -60,6 +80,10 @@ import FreeTrialPage from '@/app/free-trial/page';
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // jsdom gives each test FILE a fresh storage, not each test — clear explicitly so
+  // nothing written by one test leaks into the next.
+  localStorage.clear();
+  sessionStorage.clear();
 });
 
 // Role is a Radix Select whose displayed option labels differ from the stored slug value
@@ -113,7 +137,8 @@ describe('FreeTrialPage', () => {
     await fillAndSubmit('jane@example.org');
 
     const confirmation = await screen.findByTestId('trial-signup-confirmation');
-    expect(confirmation).toHaveTextContent('Check your email');
+    // Heading copy comes from Figma frame 2452:256 ("Verify your email").
+    expect(confirmation).toHaveTextContent('Verify your email');
     expect(confirmation).toHaveTextContent('jane@example.org');
     expect(mockTrackEvent).toHaveBeenCalledWith('trial:signup_submitted');
   });
@@ -167,6 +192,8 @@ describe('FreeTrialPage — check-your-email screen actions', () => {
     expect(mockToastInfoGeneric).toHaveBeenCalledWith(
       'Verification link re-sent to jane@example.org.'
     );
+    // Resend calls an API, so analytics.md requires it be instrumented.
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial:link_resent');
   });
 
   it('returns to the signup form via "Start over" so a wrong email can be corrected', async () => {

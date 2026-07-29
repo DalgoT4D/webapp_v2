@@ -4,12 +4,14 @@ import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { AnimatedBackgroundSimple } from '@/components/ui/animated-background-simple';
+import { TrialCenteredCard } from '@/app/free-trial/_components/TrialCenteredCard';
+import { TrialNoticeCard } from '@/app/free-trial/_components/TrialNoticeCard';
+import { TrialBrandHeader } from '@/app/free-trial/_components/TrialBrandHeader';
+import { TrialField } from '@/app/free-trial/_components/TrialField';
+import { validateTrialPassword } from '@/app/free-trial/_lib/utils';
 import { apiPublicPost } from '@/lib/api';
 import { hardNavigate } from '@/lib/navigation';
 import { toastError, toastInfo } from '@/lib/toast';
@@ -81,90 +83,64 @@ function ActivateFormCard() {
     }
   };
 
+  // Figma frame 2453:3070. Note the design's "Resend email" button is shipped as a link
+  // back to signup: a dead token yields no email, and POST /trial/signup needs email +
+  // org_name + role, none of which are in scope here. See the plan's design questions.
   if (!token || invalidToken) {
     return (
-      <AnimatedBackgroundSimple>
-        <div className="flex min-h-screen items-center justify-center">
-          <div
-            className="w-full max-w-sm space-y-6 rounded-lg bg-white/95 backdrop-blur-sm p-8 shadow-lg border border-white/20"
-            data-testid="trial-activate-invalid-token"
-          >
-            <div className="text-center">
-              <div className="flex justify-center mb-6">
-                <Image
-                  src="/dalgo_logo.svg"
-                  alt="Dalgo"
-                  width={80}
-                  height={90}
-                  className="text-primary"
-                />
-              </div>
-              <h1 className="text-2xl font-bold mb-2">Invalid or expired link</h1>
-              <p className="text-gray-600">
-                This activation link is invalid or has expired. Please request a new one.
-              </p>
-            </div>
-            <div className="text-center pt-4">
-              <Link
-                href="/free-trial"
-                className="text-primary hover:underline font-medium"
-                data-testid="trial-activate-request-new-link"
-              >
-                Request a new link
-              </Link>
-            </div>
-          </div>
-        </div>
-      </AnimatedBackgroundSimple>
+      <TrialNoticeCard
+        testId="trial-activate-invalid-token"
+        title="This link has expired"
+        description="For security, verification links time out after 24 hours. We can send a fresh one straight to your inbox."
+      >
+        <Button variant="primary" className="w-full" asChild>
+          <Link href="/free-trial" data-testid="trial-activate-request-new-link">
+            Get a new link
+          </Link>
+        </Button>
+        <p className="text-center text-xs text-muted-foreground">
+          <Link href="/login" className="font-medium text-primary underline hover:no-underline">
+            Back to log in
+          </Link>
+        </p>
+      </TrialNoticeCard>
     );
   }
 
   return (
-    <AnimatedBackgroundSimple>
-      <div className="flex min-h-screen items-center justify-center">
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="w-full max-w-sm space-y-6 rounded-lg bg-white/95 backdrop-blur-sm p-8 shadow-lg border border-white/20"
-        >
-          <div className="text-center">
-            <div className="flex justify-center mb-6">
-              <Image
-                src="/dalgo_logo.svg"
-                alt="Dalgo"
-                width={80}
-                height={90}
-                className="text-primary"
-              />
-            </div>
-            <h1 className="text-2xl font-bold mb-2">Set your password</h1>
-            <p className="text-gray-600">Choose a password to finish setting up your workspace</p>
+    <TrialCenteredCard testId="trial-activate-card">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <TrialBrandHeader
+          title="Welcome to Dalgo"
+          subtitle="Set up your password to finish setting up your workspace"
+        />
+
+        {accountConflict && (
+          <div className="rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+            This account already exists or is already being set up.{' '}
+            <Link href="/login" className="font-medium underline">
+              Log in
+            </Link>{' '}
+            instead.
           </div>
+        )}
 
-          {accountConflict && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 px-4 py-3 rounded text-sm">
-              This account already exists or is already being set up.{' '}
-              <Link href="/login" className="underline font-medium">
-                Log in
-              </Link>{' '}
-              instead.
-            </div>
-          )}
-
-          <div>
-            <Label htmlFor="password">Password*</Label>
-            <div className="relative mt-1">
+        <div className="space-y-5">
+          <TrialField id="password" label="Password*" error={errors.password?.message}>
+            <div className="relative">
               <Input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="new-password"
                 placeholder="Enter a password"
+                aria-invalid={!!errors.password}
                 data-testid="trial-activate-password-input"
                 {...register('password', {
                   required: 'Password is required',
-                  minLength: {
-                    value: 8,
-                    message: 'Password must be at least 8 characters',
-                  },
+                  // Mirrors the three Django validators that actually run server-side, so a
+                  // weak password is caught here rather than coming back as a 400 that is
+                  // indistinguishable from an expired link.
+                  validate: (value) => validateTrialPassword(value) ?? true,
                 })}
               />
               <Button
@@ -179,19 +155,20 @@ function ActivateFormCard() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
             </div>
-            {errors.password && (
-              <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>
-            )}
-          </div>
+          </TrialField>
 
-          <div>
-            <Label htmlFor="confirmPassword">Confirm password*</Label>
-            <div className="relative mt-1">
+          <TrialField
+            id="confirmPassword"
+            label="Confirm Password*"
+            error={errors.confirmPassword?.message}
+          >
+            <div className="relative">
               <Input
                 id="confirmPassword"
                 type={showConfirmPassword ? 'text' : 'password'}
                 autoComplete="new-password"
                 placeholder="Confirm your password"
+                aria-invalid={!!errors.confirmPassword}
                 data-testid="trial-activate-confirm-password-input"
                 {...register('confirmPassword', {
                   required: 'Please confirm your password',
@@ -210,30 +187,27 @@ function ActivateFormCard() {
                 {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
             </div>
-            {errors.confirmPassword && (
-              <p className="text-red-600 text-sm mt-1">{errors.confirmPassword.message}</p>
-            )}
-          </div>
+          </TrialField>
+        </div>
 
-          <Button
-            type="submit"
-            variant="primary"
-            className="w-full"
-            disabled={isSubmitting}
-            data-testid="trial-activate-submit-button"
-          >
-            {isSubmitting ? 'Setting password...' : 'Set password & continue'}
-          </Button>
+        <Button
+          type="submit"
+          variant="default"
+          className="w-full"
+          disabled={isSubmitting}
+          data-testid="trial-activate-submit-button"
+        >
+          {isSubmitting ? 'Setting password…' : 'Continue'}
+        </Button>
 
-          <div className="text-center text-sm">
-            Already have an account?{' '}
-            <Link href="/login" className="text-primary hover:underline font-medium">
-              Log in
-            </Link>
-          </div>
-        </form>
-      </div>
-    </AnimatedBackgroundSimple>
+        <p className="text-center text-xs text-muted-foreground">
+          Already have an account ?{' '}
+          <Link href="/login" className="font-medium text-primary underline hover:no-underline">
+            log in
+          </Link>
+        </p>
+      </form>
+    </TrialCenteredCard>
   );
 }
 
@@ -241,14 +215,10 @@ export default function TrialActivatePage() {
   return (
     <Suspense
       fallback={
-        <AnimatedBackgroundSimple>
-          <div className="flex min-h-screen items-center justify-center">
-            <div className="text-center" data-testid="trial-activate-loading">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-lg font-medium">Loading...</p>
-            </div>
-          </div>
-        </AnimatedBackgroundSimple>
+        <div className="text-center" data-testid="trial-activate-loading">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-lg font-medium">Loading...</p>
+        </div>
       }
     >
       <ActivateFormCard />

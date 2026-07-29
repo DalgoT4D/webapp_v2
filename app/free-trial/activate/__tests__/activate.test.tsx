@@ -25,8 +25,10 @@ jest.mock('@/lib/toast', () => ({
 }));
 
 const mockTrackEvent = jest.fn();
+const mockTrackFeatureView = jest.fn();
 jest.mock('@/lib/analytics', () => ({
   trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+  trackFeatureView: (...args: unknown[]) => mockTrackFeatureView(...args),
 }));
 
 // The activate page redirects to the progress screen via a full-page navigation
@@ -35,9 +37,15 @@ const mockAssign = jest.fn();
 jest.mock('@/lib/navigation', () => ({
   hardNavigate: (...args: unknown[]) => mockAssign(...args),
 }));
-let mockToken: string | null = 'good-token';
+// Serve arbitrary search-param keys (not just `token`) and expose the router, so the
+// shared trial shell components can reach for either without blowing up.
+let mockSearchParams: Record<string, string | null> = { token: 'good-token' };
+const mockPush = jest.fn();
+const mockReplace = jest.fn();
 jest.mock('next/navigation', () => ({
-  useSearchParams: () => ({ get: (key: string) => (key === 'token' ? mockToken : null) }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
+  usePathname: () => '/free-trial/activate',
+  useSearchParams: () => ({ get: (key: string) => mockSearchParams[key] ?? null }),
 }));
 
 jest.mock('next/link', () => {
@@ -71,8 +79,9 @@ import TrialActivatePage from '@/app/free-trial/activate/page';
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockToken = 'good-token';
+  mockSearchParams = { token: 'good-token' };
   sessionStorage.clear();
+  localStorage.clear();
 });
 
 async function fillAndSubmit(password = 'super-secret-1', confirmPassword = password) {
@@ -125,7 +134,7 @@ describe('TrialActivatePage', () => {
   });
 
   it('shows an invalid-link error state when the token is missing from the URL', () => {
-    mockToken = null;
+    mockSearchParams = { token: null };
     render(<TrialActivatePage />);
 
     expect(screen.getByTestId('trial-activate-invalid-token')).toBeInTheDocument();

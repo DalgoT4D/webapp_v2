@@ -22,8 +22,10 @@ jest.mock('@/lib/api', () => ({
 }));
 
 const mockTrackEvent = jest.fn();
+const mockTrackFeatureView = jest.fn();
 jest.mock('@/lib/analytics', () => ({
   trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+  trackFeatureView: (...args: unknown[]) => mockTrackFeatureView(...args),
 }));
 
 const mockSetAuthenticated = jest.fn();
@@ -63,7 +65,14 @@ jest.mock('next/link', () => {
 });
 
 jest.mock('next/image', () => {
-  function MockImage(props: ImgHTMLAttributes<HTMLImageElement>) {
+  // `priority` is consumed by the real next/image and never reaches the DOM. Strip it
+  // here too, otherwise React logs "Received `false` for a non-boolean attribute" and
+  // buries any genuine warning this suite might surface.
+  function MockImage({
+    priority,
+    ...props
+  }: ImgHTMLAttributes<HTMLImageElement> & { priority?: boolean }) {
+    void priority;
     // eslint-disable-next-line @next/next/no-img-element -- test stub, not the real app
     return <img alt="" {...props} />;
   }
@@ -83,6 +92,14 @@ beforeEach(() => {
   mockTaskId = 'task-123';
   mockSwrData = undefined;
   sessionStorage.clear();
+  localStorage.clear();
+});
+
+// The hard-timeout test installs fake timers mid-file. Restoring inside that test only
+// covers its happy path — a thrown assertion would leak fake timers into every test
+// after it, so restore unconditionally here instead.
+afterEach(() => {
+  jest.useRealTimers();
 });
 
 describe('TrialProgressPage', () => {
@@ -218,7 +235,7 @@ describe('TrialProgressPage', () => {
     jest.useRealTimers();
   });
 
-  it('shows the "Something went wrong" message and a retry button on a failed status', () => {
+  it('shows the setup-interrupted message, a retry button and support link on a failed status', () => {
     mockSwrData = {
       task_id: 'task-123',
       status: 'failed',
@@ -227,11 +244,16 @@ describe('TrialProgressPage', () => {
 
     render(<TrialProgressPage />);
 
+    // Copy comes from Figma frame 2453:3089.
     expect(screen.getByTestId('trial-progress-failed')).toHaveTextContent(
-      'Something went wrong setting up your workspace'
+      'Workspace setup interrupted'
     );
     // the retry button is now a real button, not a link — it re-runs the clone in place
     expect(screen.getByTestId('trial-progress-retry-button').tagName).toBe('BUTTON');
+    expect(screen.getByTestId('trial-contact-support')).toHaveAttribute(
+      'href',
+      'mailto:support@dalgo.org'
+    );
     expect(mockTrackEvent).toHaveBeenCalledWith('trial:clone_failed');
   });
 
