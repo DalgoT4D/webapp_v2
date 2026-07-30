@@ -8,7 +8,11 @@
 export type WalkthroughStage =
   | 'fork2'
   | 'kpi_intro'
-  | 'kpi_fields'
+  | 'kpi_metric'
+  | 'kpi_target'
+  | 'kpi_direction'
+  | 'kpi_time_column'
+  | 'kpi_type'
   | 'dashboard_intro'
   | 'builder_add_kpi'
   | 'builder_add_chart'
@@ -19,7 +23,11 @@ export type WalkthroughStage =
 export const WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   'fork2',
   'kpi_intro',
-  'kpi_fields',
+  'kpi_metric',
+  'kpi_target',
+  'kpi_direction',
+  'kpi_time_column',
+  'kpi_type',
   'dashboard_intro',
   'builder_add_kpi',
   'builder_add_chart',

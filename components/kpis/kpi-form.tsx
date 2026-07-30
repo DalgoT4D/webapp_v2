@@ -27,6 +27,7 @@ import { useTableColumns } from '@/hooks/api/useWarehouse';
 import { createKPI, updateKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import type { KPI, KPICreate, KPIUpdate, KPIExtraConfig } from '@/types/kpis';
 import { DIRECTION_OPTIONS, TIME_GRAIN_OPTIONS, METRIC_TYPE_TAG_OPTIONS } from '@/types/kpis';
 import type { NumberFormat } from '@/lib/formatters';
@@ -195,6 +196,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
   const greenThreshold = watch('green_threshold_pct');
   const amberThreshold = watch('amber_threshold_pct');
   const metricTypeTag = watch('metric_type_tag');
+  const targetValueField = register('target_value', { required: 'Target value is required' });
 
   const { data: metrics, mutate: mutateMetrics } = useMetrics({ pageSize: 50 });
   const { tags: existingTags } = useProgramTags();
@@ -267,6 +269,17 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
       setValue('time_dimension_column', '');
       setValue('time_grain', 'monthly');
     }
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'kpi_metric') {
+      walkthrough.advanceTo('kpi_target');
+    }
+  };
+
+  const handleTargetValueBlur = () => {
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'kpi_target') {
+      walkthrough.advanceTo('kpi_direction');
+    }
   };
 
   const handleContinue = () => {
@@ -276,6 +289,17 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
     }
     setSaveError(null);
     setStep(2);
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'kpi_direction') {
+      walkthrough.advanceTo('kpi_time_column');
+    }
+  };
+
+  const handleTimeColumnChange = () => {
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'kpi_time_column') {
+      walkthrough.advanceTo('kpi_type');
+    }
   };
 
   const onSubmit = async (data: KPIFormData) => {
@@ -416,7 +440,11 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
             </Label>
             <Input
               type="number"
-              {...register('target_value', { required: 'Target value is required' })}
+              {...targetValueField}
+              onBlur={(e) => {
+                targetValueField.onBlur(e);
+                handleTargetValueBlur();
+              }}
               placeholder="What is the desired value of this indicator"
             />
             {errors.target_value && (
@@ -559,7 +587,10 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                         <Select
                           disabled={isEdit}
                           value={field.value || '__none__'}
-                          onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}
+                          onValueChange={(v) => {
+                            field.onChange(v === '__none__' ? '' : v);
+                            handleTimeColumnChange();
+                          }}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select column" />

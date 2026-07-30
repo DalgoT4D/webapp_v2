@@ -226,7 +226,7 @@ export function KPIPageComponent() {
     mutate();
     globalMutate('/api/kpis/program-tags/');
     const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active && walkthrough.stage === 'kpi_fields') {
+    if (walkthrough.active && walkthrough.stage === 'kpi_type') {
       toastSuccess.generic('🎉 Your First KPI is live');
       walkthrough.advanceTo('dashboard_intro');
     }
@@ -237,7 +237,7 @@ export function KPIPageComponent() {
     setFormOpen(true);
     const walkthrough = useInsightWalkthroughStore.getState();
     if (walkthrough.active && walkthrough.stage === 'kpi_intro') {
-      walkthrough.advanceTo('kpi_fields');
+      walkthrough.advanceTo('kpi_metric');
     }
   };
 
