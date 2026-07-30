@@ -7,9 +7,12 @@
    above the dim overlay (it sits at z-index 10000) so it's guaranteed to read as
    highlighted even if the cutout math is ever slightly off, with a thin ring rather than a
    heavy border since this now spotlights the whole main content area, not a small sidebar
-   row. Scoped under `.driver-active` (the body class driver.js sets while a tour is
-   running), matching its own convention, so this never leaks outside an active tour. */
-.driver-active .driver-active-element {
+   row. Scoped to ProductTour's own synthetic spotlight element specifically (not the
+   generic `.driver-active-element` class) — that class is shared by every driver.js
+   instance using this stylesheet, including InsightWalkthroughCoachmark, which highlights
+   real form fields/buttons directly and must NOT get this ring (Figma shows those with no
+   border, just the popover pointing at them). */
+#dalgo-tour-content-spotlight.driver-active-element {
   position: relative;
   z-index: 10001;
   box-shadow: 0 0 0 2px var(--primary);
