@@ -21,7 +21,7 @@ import 'driver.js/dist/driver.css';
 import './tour.css';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { TOUR_STEPS, TOUR_CONTENT_SELECTOR, markTourSeen } from './tour-constants';
+import { TOUR_STEPS, TOUR_CONTENT_SELECTOR, markTourSeen, type TourStep } from './tour-constants';
 
 export interface ProductTourHandle {
   startTour: () => void;
@@ -76,18 +76,96 @@ function waitForPathname(route: string, timeout = 4000): Promise<void> {
   });
 }
 
+/**
+ * Resolve once `contentEl` has no loading-skeleton rows left (or after `timeout` ms).
+ *
+ * `spotlightRowOnly` steps measure the page's actual first N rows the instant we navigate to
+ * them — but the page's own data fetch (SWR) may still be in flight at that exact moment, in
+ * which case the only `<tr>`/grid-card elements in the DOM are loading skeletons (shorter than
+ * real rows), producing an undersized spotlight that never corrects itself once the real data
+ * arrives (nothing re-triggers positioning on a data load, only on resize). All loading states
+ * in this app use the shared `Skeleton` component (`data-slot="skeleton"`), so its absence is a
+ * reliable "real content is in" signal regardless of the page's own row shape.
+ */
+function waitForRealRows(contentEl: Element, timeout = 3000): Promise<void> {
+  return new Promise((resolve) => {
+    if (!contentEl.querySelector('[data-slot="skeleton"]')) return resolve();
+    const start = Date.now();
+    const tick = () => {
+      if (!contentEl.querySelector('[data-slot="skeleton"]') || Date.now() - start > timeout) {
+        return resolve();
+      }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
 // Fallback band height, used only when a step isn't spotlightFull and no first row could be
 // measured (e.g. an empty-state page with no rows/cards yet).
 const SPOTLIGHT_HEIGHT_PX = 340;
 const SPOTLIGHT_ELEMENT_ID = 'dalgo-tour-content-spotlight';
 // Gap between the sidebar nav item and the popover anchored beside it.
 const POPOVER_SIDEBAR_GAP_PX = 16;
+// Minimum gap kept between the popover's bottom edge and the spotlight box, so a spotlight
+// that sits close to the sidebar item's vertical position (e.g. spotlightRowOnly steps) never
+// gets covered by the popover.
+const POPOVER_SPOTLIGHT_GAP_PX = 16;
+// Never let the popover render fully off the top of the viewport when it gets pushed up to
+// clear the spotlight.
+const POPOVER_VIEWPORT_MARGIN_PX = 12;
+// Caps how far the popover can be pushed above the sidebar link's own top to avoid the
+// spotlight. Fully clearing a tall spotlight/popover pair (e.g. Dashboards' 4-row box) could
+// need a shift bigger than the gap to the PREVIOUS sidebar item — past that, the arrow (which
+// points at wherever the popover ends up, clamped to its own bounds) reads as pointing at that
+// other item instead. A little overlap with the spotlight is preferred over that.
+const POPOVER_MAX_PUSH_UP_PX = 72;
+// Tooltip triangle dimensions, matching the Figma spec (17.5px point length, 14px tall).
+const ARROW_WIDTH_PX = 17.5;
+const ARROW_HEIGHT_PX = 14;
+const ARROW_ELEMENT_ID = 'dalgo-tour-sidebar-arrow';
 
-function progressDotsHtml(index: number, total: number): string {
+/**
+ * Custom triangle pointing at the sidebar nav item, appended inside the popover wrapper.
+ * Built and positioned entirely via inline styles rather than driver.js's own
+ * `.driver-popover-arrow` element/CSS classes — that element's visibility and side depend on
+ * driver.js's internal auto-positioning, which doesn't know about our manual repositioning of
+ * the popover, and ended up hidden/misplaced as a result.
+ */
+function getOrCreateSidebarArrow(wrapper: HTMLElement): HTMLElement {
+  let arrow = document.getElementById(ARROW_ELEMENT_ID);
+  if (!arrow) {
+    arrow = document.createElement('div');
+    arrow.id = ARROW_ELEMENT_ID;
+    arrow.style.position = 'absolute';
+    arrow.style.left = `${-ARROW_WIDTH_PX}px`;
+    arrow.style.width = '0';
+    arrow.style.height = '0';
+    arrow.style.borderTop = `${ARROW_HEIGHT_PX / 2}px solid transparent`;
+    arrow.style.borderBottom = `${ARROW_HEIGHT_PX / 2}px solid transparent`;
+    arrow.style.borderRight = `${ARROW_WIDTH_PX}px solid var(--card)`;
+    arrow.style.pointerEvents = 'none';
+  }
+  if (arrow.parentElement !== wrapper) wrapper.appendChild(arrow);
+  return arrow;
+}
+
+/**
+ * Builds the popover's whole header block — progress dots + "N of total" counter, then the
+ * step title below it. Rendered into driver.js's `title` slot (not `description`) since that's
+ * the only slot above the content, and the Figma spec puts the progress row above the title.
+ */
+function popoverHeaderHtml(index: number, total: number, title: string): string {
   const dots = Array.from({ length: total })
     .map((_, i) => `<span class="${i <= index ? 'is-active' : ''}"></span>`)
     .join('');
-  return `<div class="dalgo-tour-progress">${dots}</div>`;
+  return (
+    `<div class="dalgo-tour-progress-row">` +
+    `<div class="dalgo-tour-progress">${dots}</div>` +
+    `<span class="dalgo-tour-progress-count">${index + 1} of ${total}</span>` +
+    `</div>` +
+    `<div class="dalgo-tour-title-text">${title}</div>`
+  );
 }
 
 /**
@@ -111,32 +189,57 @@ function getOrCreateSpotlightElement(): HTMLElement {
 
 /**
  * Every list page wraps its real content (below the fixed title/filter header) in a
- * `.overflow-y-auto` scroll container (see rules/components.md's page layout pattern), which
- * is narrower than the full-bleed `#main-layout-main-content` — inset by the page's own side
- * padding. Capping the spotlight's width to it (instead of the raw content element) keeps the
- * highlight flush with the visible card/table instead of overshooting into the page gutter.
- * Falls back to the full content rect if no such wrapper is found (or it's hidden, e.g. an
- * inactive tab panel).
+ * `.overflow-y-auto` scroll container (see rules/components.md's page layout pattern), itself
+ * inset from the full-bleed `#main-layout-main-content` by the page's own side padding —
+ * that padding div is what we want the spotlight's right edge to align with, since the
+ * header's action button (e.g. "CREATE KPI") sits at that same padding, not the page's raw
+ * edge. Reading the WRAPPER's own rect isn't quite right though: some pages nest an extra
+ * bordered card between the padding div and `.overflow-y-auto` (e.g. KPI's
+ * `p-6 > border-rounded-card p-5 > overflow-y-auto`), making the wrapper itself narrower than
+ * the padding div by that card's own inner padding. Going up to its parent lands on the
+ * padding div either way — directly, or via the full-width card — giving a consistent small
+ * gap that matches the header instead of undershooting past the button or overshooting into
+ * the gutter. Falls back to the full content rect if no such wrapper is found (or it's
+ * hidden, e.g. an inactive tab panel).
  */
 function getVisibleContentWidth(contentEl: Element, contentRect: DOMRect): number {
   const wrapper = Array.from(contentEl.querySelectorAll<HTMLElement>('.overflow-y-auto')).find(
     (el) => el.offsetWidth > 0 && el.offsetHeight > 0
   );
-  if (!wrapper) return contentRect.width;
-  const wrapperRect = wrapper.getBoundingClientRect();
-  return Math.max(0, wrapperRect.right - contentRect.left);
+  const boundary = wrapper?.parentElement ?? wrapper;
+  if (!boundary) return contentRect.width;
+  const boundaryRect = boundary.getBoundingClientRect();
+  return Math.max(0, boundaryRect.right - contentRect.left);
 }
 
 /**
- * Finds the bottom edge of the page's first row of content, so the spotlight band can end
- * exactly there instead of at a fixed height that cuts through it on pages with a taller
- * header (or leaves a gap on pages with a shorter one). Handles the two row shapes used
- * across the tour's pages: table rows, and CSS-grid card rows (e.g. KPI's card grid) — for
- * the latter, only cards sharing the first row's top offset count, since a grid can wrap.
+ * Finds the page's first `rowCount` rows of content — their own bounds, not the whole content
+ * area's. Used two ways: `spotlightRowOnly` steps spotlight exactly this rect; other steps
+ * only take its `bottom` (band height ends there, but the band still starts/spans the full
+ * content area, so header/filters stay included) — those always pass `rowCount: 1`, preserving
+ * the original single-row band behavior. Handles the two row shapes across the tour's pages:
+ * table rows (union of the first `rowCount` `<tbody> <tr>`s — header row is excluded since it's
+ * outside `<tbody>`; rect is already full table width), and CSS-grid card rows (e.g. KPI's card
+ * grid) — rect spans the grid's own width, but only the first `rowCount` distinct row-offsets'
+ * worth of cards, since a grid can wrap to further rows.
  */
-function getFirstRowBottom(contentEl: Element): number | null {
-  const firstTableRow = contentEl.querySelector('tbody tr');
-  if (firstTableRow) return firstTableRow.getBoundingClientRect().bottom;
+function getFirstRowsRect(contentEl: Element, rowCount: number): DOMRect | null {
+  const tableRows = Array.from(contentEl.querySelectorAll<HTMLElement>('tbody tr')).slice(
+    0,
+    rowCount
+  );
+  if (tableRows.length > 0) {
+    const lastRow = tableRows[tableRows.length - 1];
+    // The table's own scrollable ancestor may not yet have the last row fully in view (e.g.
+    // rowCount=4 asks for more rows than fit before a scroll) — its rect would still measure
+    // correctly, but the row's actual pixels would be clipped by that ancestor's overflow,
+    // making the spotlight look "cut off" even though it's sized right. `scroll-behavior` is
+    // forced to `auto` app-wide (globals.css), so this is instant, not an animated jump.
+    lastRow.scrollIntoView({ block: 'nearest' });
+    const first = tableRows[0].getBoundingClientRect();
+    const last = lastRow.getBoundingClientRect();
+    return new DOMRect(first.left, first.top, first.width, last.bottom - first.top);
+  }
 
   const gridCandidates = contentEl.querySelectorAll<HTMLElement>('[class*="grid"]');
   const grid = Array.from(gridCandidates).find(
@@ -144,33 +247,91 @@ function getFirstRowBottom(contentEl: Element): number | null {
   );
   if (!grid) return null;
 
-  const rowRects = Array.from(grid.children)
+  const cardRects = Array.from(grid.children)
     .map((child) => child.getBoundingClientRect())
     .filter((r) => r.height > 0);
-  if (!rowRects.length) return null;
-  const firstRowTop = Math.min(...rowRects.map((r) => r.top));
-  const firstRowBottoms = rowRects
-    .filter((r) => Math.abs(r.top - firstRowTop) < 1)
-    .map((r) => r.bottom);
-  return Math.max(...firstRowBottoms);
+  if (!cardRects.length) return null;
+  const rowTops = Array.from(new Set(cardRects.map((r) => Math.round(r.top))))
+    .sort((a, b) => a - b)
+    .slice(0, rowCount);
+  const includedRects = cardRects.filter((r) => rowTops.includes(Math.round(r.top)));
+  const top = Math.min(...includedRects.map((r) => r.top));
+  const bottom = Math.max(...includedRects.map((r) => r.bottom));
+  const gridRect = grid.getBoundingClientRect();
+  return new DOMRect(gridRect.left, top, gridRect.width, bottom - top);
 }
 
 function positionSpotlightElement(
   el: HTMLElement,
   contentEl: Element,
-  spotlightFull: boolean
+  spotlightFull: boolean,
+  spotlightRowOnly: boolean,
+  spotlightRowCount: number
 ): void {
   const rect = contentEl.getBoundingClientRect();
+  const rowRect = spotlightFull
+    ? null
+    : getFirstRowsRect(contentEl, spotlightRowOnly ? spotlightRowCount : 1);
+
+  if (spotlightRowOnly && rowRect) {
+    el.style.top = `${rowRect.top}px`;
+    el.style.left = `${rowRect.left}px`;
+    el.style.width = `${rowRect.width}px`;
+    el.style.height = `${rowRect.height}px`;
+    return;
+  }
+
   const width = getVisibleContentWidth(contentEl, rect);
-  const rowBottom = spotlightFull ? null : getFirstRowBottom(contentEl);
   const height = spotlightFull
     ? rect.height
-    : Math.min(rowBottom ? rowBottom - rect.top : SPOTLIGHT_HEIGHT_PX, rect.height);
+    : Math.min(rowRect ? rowRect.bottom - rect.top : SPOTLIGHT_HEIGHT_PX, rect.height);
 
   el.style.top = `${rect.top}px`;
   el.style.left = `${rect.left}px`;
   el.style.width = `${width}px`;
   el.style.height = `${height}px`;
+}
+
+/**
+ * Pins the popover beside the CURRENT step's sidebar nav item instead of wherever driver.js's
+ * own side/align auto-positioning would put it (which targets the synthetic spotlight band,
+ * not the sidebar). Needs re-applying any time driver.js repositions the popover on its own —
+ * not just on the initial `onPopoverRender` — otherwise a later reposition (e.g. its own
+ * window-resize handler, or our own `refresh()` call) snaps it back to the default slot.
+ */
+function anchorPopoverToSidebar(popover: PopoverDOM, step: TourStep): void {
+  const sidebarEl = document.querySelector(`a[href="${step.route}"]`);
+  if (!sidebarEl) return;
+  const sidebarRect = sidebarEl.getBoundingClientRect();
+  const popoverRect = popover.wrapper.getBoundingClientRect();
+
+  // Naively, the popover's top would match the sidebar link's top — but for a
+  // spotlightRowOnly step (or any step where the row sits close to the sidebar item's own
+  // height), that overlaps the spotlight box sitting just below it. Clamp so the popover's
+  // bottom always stays above the spotlight, pushing the whole popover up instead.
+  const spotlightRect = document.getElementById(SPOTLIGHT_ELEMENT_ID)?.getBoundingClientRect();
+  let top = sidebarRect.top;
+  if (spotlightRect) {
+    const clearedTop = spotlightRect.top - POPOVER_SPOTLIGHT_GAP_PX - popoverRect.height;
+    top = Math.min(top, Math.max(clearedTop, sidebarRect.top - POPOVER_MAX_PUSH_UP_PX));
+  }
+  top = Math.max(POPOVER_VIEWPORT_MARGIN_PX, top);
+
+  popover.wrapper.style.top = `${top}px`;
+  popover.wrapper.style.left = `${sidebarRect.right + POPOVER_SIDEBAR_GAP_PX}px`;
+  popover.wrapper.style.right = 'auto';
+  popover.wrapper.style.bottom = 'auto';
+
+  // driver.js's own arrow relies on it resolving a side/position that matches where WE end up
+  // putting the popover — it doesn't, since we override position after the fact, so hide it
+  // and draw our own via a plain inline-styled div instead. Fully self-contained (no shared
+  // CSS classes with driver.js, no dependency on which side it internally resolved to), so
+  // there's nothing else that can silently hide or reposition it.
+  popover.arrow.style.display = 'none';
+  const arrow = getOrCreateSidebarArrow(popover.wrapper);
+  const arrowCenter = sidebarRect.top + sidebarRect.height / 2 - top - ARROW_HEIGHT_PX / 2;
+  const maxArrowTop = popoverRect.height - ARROW_HEIGHT_PX - POPOVER_VIEWPORT_MARGIN_PX;
+  arrow.style.top = `${Math.min(Math.max(arrowCenter, POPOVER_VIEWPORT_MARGIN_PX), maxArrowTop)}px`;
 }
 
 export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(function ProductTour(
@@ -240,14 +401,25 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
           return;
         }
 
+        if (step.spotlightRowOnly) {
+          await waitForRealRows(contentEl);
+          if (!activeRef.current) return;
+        }
+
         const spotlightEl = getOrCreateSpotlightElement();
-        positionSpotlightElement(spotlightEl, contentEl, step.spotlightFull ?? false);
+        positionSpotlightElement(
+          spotlightEl,
+          contentEl,
+          step.spotlightFull ?? false,
+          step.spotlightRowOnly ?? false,
+          step.spotlightRowCount ?? 1
+        );
 
         driverRef.current?.highlight({
           element: spotlightEl,
           popover: {
-            title: step.title,
-            description: `<div>${step.content}</div>${progressDotsHtml(index, TOUR_STEPS.length)}`,
+            title: popoverHeaderHtml(index, TOUR_STEPS.length, step.title),
+            description: `<div>${step.content}</div>`,
             side: 'right',
             align: 'start',
             showButtons: ['next', 'close'],
@@ -312,22 +484,12 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
         popover.footerButtons.insertBefore(popover.closeButton, popover.footerButtons.firstChild);
 
         // The popover's target is the synthetic spotlight band (for the stage cutout), but
-        // the popover itself must sit beside the SIDEBAR item, not the content. Recompute
-        // its position from the current step's actual sidebar link. Deferred a frame:
-        // driver.js calls its own auto-positioning function right after this hook returns,
-        // which would otherwise clobber a same-tick override.
-        const step = TOUR_STEPS[stepIndexRef.current];
-        const sidebarEl = document.querySelector(`a[href="${step.route}"]`);
-        if (sidebarEl) {
-          requestAnimationFrame(() => {
-            const rect = sidebarEl.getBoundingClientRect();
-            popover.wrapper.style.top = `${rect.top}px`;
-            popover.wrapper.style.left = `${rect.right + POPOVER_SIDEBAR_GAP_PX}px`;
-            popover.wrapper.style.right = 'auto';
-            popover.wrapper.style.bottom = 'auto';
-            popover.arrow.style.display = 'none';
-          });
-        }
+        // the popover itself must sit beside the SIDEBAR item, not the content. Deferred a
+        // frame: driver.js calls its own auto-positioning function right after this hook
+        // returns, which would otherwise clobber a same-tick override.
+        requestAnimationFrame(() =>
+          anchorPopoverToSidebar(popover, TOUR_STEPS[stepIndexRef.current])
+        );
       },
       onDestroyed: () => {
         const completed = stepIndexRef.current === TOUR_STEPS.length - 1;
@@ -357,6 +519,44 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
     return () => {
       driverRef.current?.destroy();
       document.getElementById(SPOTLIGHT_ELEMENT_ID)?.remove();
+    };
+  }, []);
+
+  // Keep the spotlight (and popover) locked to the real content on zoom/window resize. The
+  // synthetic spotlight element is `position: fixed` with plain inline px — it doesn't
+  // reflow on its own, so without this it visually drifts off the actual card/table as soon
+  // as the viewport changes size. `driver.refresh()` re-reads the (now-repositioned)
+  // element's rect to redraw the overlay cutout — but it also resets the popover to driver.js's
+  // own default side/align position (targeting the spotlight band, not the sidebar), so the
+  // sidebar-anchor override has to be re-applied straight after, same as `onPopoverRender`.
+  useEffect(() => {
+    const reposition = () => {
+      if (!activeRef.current) return;
+      const step = TOUR_STEPS[stepIndexRef.current];
+      const contentEl = document.querySelector(TOUR_CONTENT_SELECTOR);
+      if (!step || !contentEl) return;
+      positionSpotlightElement(
+        getOrCreateSpotlightElement(),
+        contentEl,
+        step.spotlightFull ?? false,
+        step.spotlightRowOnly ?? false,
+        step.spotlightRowCount ?? 1
+      );
+      driverRef.current?.refresh();
+      const popover = driverRef.current?.getState('popover') as PopoverDOM | undefined;
+      if (popover) requestAnimationFrame(() => anchorPopoverToSidebar(popover, step));
+    };
+    let frame: number | null = null;
+    const onResize = () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(reposition);
+    };
+    window.addEventListener('resize', onResize);
+    window.visualViewport?.addEventListener('resize', onResize);
+    return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      window.removeEventListener('resize', onResize);
+      window.visualViewport?.removeEventListener('resize', onResize);
     };
   }, []);
 

@@ -18,6 +18,15 @@ export interface TourStep {
    * like Transform where the thing being called out (the workflow diagram) isn't at the top.
    */
   spotlightFull?: boolean;
+  /**
+   * Spotlight ONLY the first row(s)/card(s) themselves — excludes the header, filters, and
+   * search bar above them (unlike the default band, which starts at the content area's top and
+   * so includes them). Opt-in per step since most steps' Figma frames DO include the filter row
+   * in the spotlight; KPI's and Charts' do not.
+   */
+  spotlightRowOnly?: boolean;
+  /** How many rows/cards to include when `spotlightRowOnly` is set. Defaults to 1. */
+  spotlightRowCount?: number;
 }
 
 export const TOUR_TOTAL_STEPS = 9;
@@ -34,42 +43,55 @@ export const TOUR_STEPS: TourStep[] = [
     title: 'KPI',
     content: "Set your programme targets and see what's on- or off-track at a glance.",
     ctaLabel: 'Start Tour',
+    spotlightRowOnly: true,
   },
   {
     route: '/charts',
     title: 'Charts',
     content:
       'Turn any table into bar, line, pie or map charts in a couple of clicks — no code, no data engineer.',
+    spotlightRowOnly: true,
+    spotlightRowCount: 4,
   },
   {
     route: '/dashboards',
     title: 'Dashboards',
     content:
       'Pin your charts into one shareable view your whole team can open — the story behind your numbers.',
+    spotlightRowOnly: true,
+    spotlightRowCount: 4,
   },
   {
     route: '/reports',
     title: 'Reports',
     content:
       'Package your dashboards into funder-ready reports you can generate and share on a schedule.',
+    spotlightRowOnly: true,
+    spotlightRowCount: 4,
   },
   {
     route: '/alerts',
     title: 'Alerts',
     content:
       'Get notified the moment a metric crosses a threshold you care about — before it becomes a problem.',
+    spotlightRowOnly: true,
+    spotlightRowCount: 4,
   },
   {
     route: '/metrics',
     title: 'Metrics',
     content:
       'Define the key numbers you care about — like people reached or funds spent — and track each one over time.',
+    spotlightRowOnly: true,
+    spotlightRowCount: 4,
   },
   {
     route: '/orchestrate',
     title: 'Orchestrate',
     content:
       'Put your syncs and transforms on autopilot — schedule them once and Dalgo keeps your data fresh automatically.',
+    spotlightRowOnly: true,
+    spotlightRowCount: 4,
   },
   {
     route: '/transform',
