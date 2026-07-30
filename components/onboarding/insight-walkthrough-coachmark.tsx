@@ -43,7 +43,9 @@ interface StageConfig {
 
 // Stages driven purely by route change (no manual advanceTo call needed elsewhere) map here
 // to the NEXT stage they unlock once that route is reached.
-const ROUTE_ADVANCES: Partial<Record<WalkthroughStage, WalkthroughStage>> = {};
+const ROUTE_ADVANCES: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
+  dashboard_intro: 'builder_add_kpi',
+};
 
 // Populated incrementally across the feature's tasks.
 const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
@@ -53,6 +55,13 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Track your targets',
     description:
       'A KPI turns a metric into a goal, set a target and Dalgo flags it green or red so you always know where you stand.',
+  },
+  dashboard_intro: {
+    route: '/dashboards',
+    selector: '#dashboard-create-button',
+    title: 'Create a dashboard',
+    description:
+      'Pin your KPI and charts into a dashboard and share it with your team — click Create dashboard.',
   },
 };
 
