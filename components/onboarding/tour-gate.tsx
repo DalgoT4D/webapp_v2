@@ -1,0 +1,77 @@
+'use client';
+
+/**
+ * Mounts the guided-tour feature globally (see main-layout.tsx, alongside
+ * RbacNoticeCarousel) and decides IF any of it renders: only for a trial-plan org's
+ * users. Gating is localStorage-only for v1 (no new backend field — decided with
+ * Himanshu), keyed per org slug so a shared browser across two trial orgs doesn't
+ * cross-suppress the tour.
+ */
+import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { useAuthStore } from '@/stores/authStore';
+import { FREE_TRIAL_PLAN_NAME } from '@/constants/trial';
+import { ProductTour, type ProductTourHandle } from './product-tour';
+import { TourIntentModal } from './tour-intent-modal';
+import { GettingStartedWidget } from './getting-started-widget';
+import { hasSeenTour } from './tour-constants';
+
+const IMPACT_PATH = '/impact';
+
+export function TourGate() {
+  const pathname = usePathname();
+  const orgUsers = useAuthStore((s) => s.orgUsers);
+  const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
+  const orgUser = orgUsers.find((ou) => ou.org.slug === selectedOrgSlug) ?? null;
+
+  const tourRef = useRef<ProductTourHandle>(null);
+  const hasOpenedModalRef = useRef(false);
+  const [intentModalOpen, setIntentModalOpen] = useState(false);
+  const [seen, setSeen] = useState(false);
+  // ?tour=preview bypasses the trial-plan gate — lets us QA the tour/widget on any
+  // account without a real trial-plan org. Debug-only; not linked from anywhere in the UI.
+  // Read directly from window.location rather than useSearchParams() so this component
+  // doesn't force a Suspense boundary requirement onto every authenticated page.
+  const [forcePreview, setForcePreview] = useState(false);
+  useEffect(() => {
+    setForcePreview(new URLSearchParams(window.location.search).get('tour') === 'preview');
+  }, [pathname]);
+
+  const isTrialOrg = forcePreview || orgUser?.subscription_plan === FREE_TRIAL_PLAN_NAME;
+  const orgSlug = orgUser?.org.slug ?? null;
+
+  // Single effect: reading localStorage and deciding whether to auto-open the modal must
+  // happen atomically. Splitting these into two effects raced on mount — the auto-open
+  // effect could still see the stale initial `seen=false` on the same commit that the
+  // seen-flag effect was busy updating, flashing the modal open for an already-seen org.
+  useEffect(() => {
+    if (!orgSlug) return;
+    const nowSeen = hasSeenTour(orgSlug);
+    setSeen(nowSeen);
+    if (!isTrialOrg || nowSeen || pathname !== IMPACT_PATH || hasOpenedModalRef.current) return;
+    hasOpenedModalRef.current = true;
+    setIntentModalOpen(true);
+  }, [isTrialOrg, orgSlug, pathname]);
+
+  if (!isTrialOrg || !orgSlug) return null;
+
+  const startTour = () => {
+    tourRef.current?.startTour();
+  };
+
+  return (
+    <>
+      <ProductTour ref={tourRef} orgSlug={orgSlug} onTourEnd={() => setSeen(true)} />
+      {pathname === IMPACT_PATH && (
+        <>
+          <TourIntentModal
+            open={intentModalOpen}
+            onOpenChange={setIntentModalOpen}
+            onStartTour={startTour}
+          />
+          <GettingStartedWidget hasSeenTour={seen} onStartTour={startTour} />
+        </>
+      )}
+    </>
+  );
+}

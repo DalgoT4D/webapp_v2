@@ -40,6 +40,7 @@ import { TransformTypeEnum as TransformType, useTransformType } from '@/hooks/ap
 import Image from 'next/image';
 import { ADMIN_ROLES, DATA_SECTION_ROLES, Role, useRbac } from '@/lib/rbac';
 import { RbacNoticeCarousel } from '@/components/onboarding/rbac-notice-carousel';
+import { TourGate } from '@/components/onboarding/tour-gate';
 
 // Define types for navigation items
 export interface NavItemType {
@@ -726,6 +727,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
       {/* One-time RBAC v2 migration notice — shows once per user, on any page */}
       <RbacNoticeCarousel />
+      <TourGate />
     </div>
   );
 }

@@ -8,6 +8,17 @@ export const ANALYTICS_EVENTS = {
   ORG_SWITCHED: 'auth:org_switched',
   RBAC_NOTICE_VIEWED: 'onboarding:rbac_notice_viewed',
   RBAC_NOTICE_DISMISSED: 'onboarding:rbac_notice_dismissed',
+  // Guided product tour (driver.js) for trial-plan orgs — see components/onboarding/tour-gate.tsx
+  TOUR_INTENT_MODAL_VIEWED: 'onboarding:tour_intent_modal_viewed',
+  // Carries { choice: 'tour' | 'insight' | 'pipeline' | 'close' } — which option was picked.
+  TOUR_INTENT_MODAL_DISMISSED: 'onboarding:tour_intent_modal_dismissed',
+  TOUR_STARTED: 'onboarding:tour_started',
+  // Carries { step, title } — 1-based step number.
+  TOUR_STEP_VIEWED: 'onboarding:tour_step_viewed',
+  // Carries { step } — the step the user was on when they clicked Skip.
+  TOUR_SKIPPED: 'onboarding:tour_skipped',
+  TOUR_COMPLETED: 'onboarding:tour_completed',
+  GETTING_STARTED_TOUR_LINK_CLICKED: 'onboarding:getting_started_tour_link_clicked',
   // Free trial onboarding
   TRIAL_SIGNUP_SUBMITTED: 'trial:signup_submitted',
   // Verification link re-sent from the check-your-email card (re-POSTs signup).
