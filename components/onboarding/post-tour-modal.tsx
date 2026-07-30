@@ -15,6 +15,8 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 interface PostTourModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Fires instead of navigating when the user picks "Build your first insight". */
+  onSelectInsight: () => void;
 }
 
 interface PostTourOption {
@@ -42,12 +44,16 @@ const POST_TOUR_OPTIONS: PostTourOption[] = [
   },
 ];
 
-export function PostTourModal({ open, onOpenChange }: PostTourModalProps) {
+export function PostTourModal({ open, onOpenChange, onSelectInsight }: PostTourModalProps) {
   const router = useRouter();
 
   const handleSelect = (option: PostTourOption) => {
     trackEvent(ANALYTICS_EVENTS.POST_TOUR_MODAL_DISMISSED, { choice: option.id });
     onOpenChange(false);
+    if (option.id === 'insight') {
+      onSelectInsight();
+      return;
+    }
     router.push(option.href);
   };
 

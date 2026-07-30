@@ -35,6 +35,8 @@ interface ProductTourProps {
   orgSlug: string;
   /** Fires once the tour ends, however it ended (completed, skipped, or closed). */
   onTourEnd?: (reason: 'completed' | 'skipped') => void;
+  /** Fires when the post-tour modal's "Build your first insight" option is picked. */
+  onInsightPathChosen: () => void;
 }
 
 /** Resolve when `selector` is in the DOM, or after `timeout` ms (returns the el or null). */
@@ -339,7 +341,7 @@ function anchorPopoverToSidebar(popover: PopoverDOM, step: TourStep): void {
 }
 
 export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(function ProductTour(
-  { orgSlug, onTourEnd },
+  { orgSlug, onTourEnd, onInsightPathChosen },
   ref
 ) {
   const router = useRouter();
@@ -603,5 +605,11 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
     };
   }, []);
 
-  return <PostTourModal open={showPostTourModal} onOpenChange={setShowPostTourModal} />;
+  return (
+    <PostTourModal
+      open={showPostTourModal}
+      onOpenChange={setShowPostTourModal}
+      onSelectInsight={onInsightPathChosen}
+    />
+  );
 });

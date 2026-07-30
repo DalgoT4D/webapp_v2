@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { FREE_TRIAL_PLAN_NAME } from '@/constants/trial';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { ProductTour, type ProductTourHandle } from './product-tour';
 import { TourIntentModal } from './tour-intent-modal';
 import { GettingStartedWidget } from './getting-started-widget';
@@ -53,6 +54,13 @@ export function TourGate() {
     setIntentModalOpen(true);
   }, [isTrialOrg, orgSlug, pathname]);
 
+  // Resume the insight walkthrough (see insight-walkthrough-coachmark.tsx) if the user
+  // refreshed or navigated away mid-flow — a no-op if it was never started or already finished.
+  useEffect(() => {
+    if (!orgSlug) return;
+    useInsightWalkthroughStore.getState().resume(orgSlug);
+  }, [orgSlug]);
+
   if (!isTrialOrg || !orgSlug) return null;
 
   const startTour = () => {
@@ -61,7 +69,12 @@ export function TourGate() {
 
   return (
     <>
-      <ProductTour ref={tourRef} orgSlug={orgSlug} onTourEnd={() => setSeen(true)} />
+      <ProductTour
+        ref={tourRef}
+        orgSlug={orgSlug}
+        onTourEnd={() => setSeen(true)}
+        onInsightPathChosen={() => useInsightWalkthroughStore.getState().start(orgSlug)}
+      />
       {pathname === IMPACT_PATH && (
         <>
           <TourIntentModal
