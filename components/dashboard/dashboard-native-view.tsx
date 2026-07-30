@@ -71,6 +71,8 @@ import {
   type DashboardFilterConfig,
 } from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
+import { toastSuccess } from '@/lib/toast';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { ShareModal } from '@/components/ui/share-modal';
 import { getDashboardSharingStatus, updateDashboardSharing } from '@/hooks/api/useDashboards';
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
@@ -516,6 +518,12 @@ export function DashboardNativeView({
   // Handle dashboard update after sharing changes
   const handleDashboardUpdate = () => {
     mutate(); // Refresh the dashboard data
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'share') {
+      toastSuccess.generic('🎉 Congratulations! Your First Dashboard is created and shared');
+      walkthrough.finish();
+      router.push('/dashboards');
+    }
   };
 
   // Handle refresh

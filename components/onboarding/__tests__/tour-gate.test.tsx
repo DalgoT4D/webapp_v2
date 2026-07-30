@@ -21,6 +21,7 @@ jest.mock('../product-tour', () => ({
 let mockPathname = '/impact';
 jest.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
+  useRouter: () => ({ push: jest.fn(), prefetch: jest.fn() }),
 }));
 
 jest.mock('@/stores/authStore', () => ({ useAuthStore: jest.fn() }));

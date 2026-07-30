@@ -81,6 +81,18 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Save your dashboard',
     description: 'Looks good. Save it so your team can open it.',
   },
+  builder_preview: {
+    route: '/dashboards/create',
+    selector: '[data-testid="dashboard-preview-btn"]',
+    title: 'Preview it first',
+    description: 'Saved! Take a quick look the way your team will see it.',
+  },
+  share: {
+    route: null, // resolved dynamically to /dashboards/{id} — matched by pathname regex below
+    selector: '[data-testid="dashboard-share-btn"]',
+    title: 'Share your dashboard',
+    description: 'Send it to your team so everyone sees the same numbers — click the Share icon.',
+  },
 };
 
 export function InsightWalkthroughCoachmark(): null {
@@ -294,6 +306,11 @@ export function InsightWalkthroughCoachmark(): null {
     const next = ROUTE_ADVANCES[stage];
     if (next && STAGE_CONFIG[next]?.route === pathname) {
       useInsightWalkthroughStore.getState().advanceTo(next);
+    }
+    // 'share' has no fixed route (it's /dashboards/{id}, a dynamic id) so it can't go through
+    // the ROUTE_ADVANCES map's plain equality check above.
+    if (stage === 'builder_preview' && /^\/dashboards\/\d+$/.test(pathname)) {
+      useInsightWalkthroughStore.getState().advanceTo('share');
     }
   }, [active, stage, pathname]);
 

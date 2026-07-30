@@ -60,7 +60,7 @@ export function ResponsiveDashboardActions({
             <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
           </Button>
         )} */}
-        <Button variant="outline" size="sm" onClick={onShare}>
+        <Button variant="outline" size="sm" onClick={onShare} data-testid="dashboard-share-btn">
           <Share2 className="w-4 h-4" />
         </Button>
         {canEdit && (
