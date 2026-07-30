@@ -36,6 +36,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DocsLink } from '@/components/ui/docs-link';
 import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
@@ -81,7 +82,7 @@ function KPICardWithData({
   // Hide card if status filter is active and doesn't match
   if (statusFilter && !isLoading && ragStatus !== statusFilter) return null;
 
-  const lastTwo = periods.slice(-2).map((p) => p.value);
+  const lastTwo = periods.slice(-2).map((p: { value: number | null }) => p.value);
   const popChange = computePopChanges(lastTwo)[1] ?? null;
 
   const cardData: KPICardData = {
@@ -224,11 +225,20 @@ export function KPIPageComponent() {
     setCurrentPage(1);
     mutate();
     globalMutate('/api/kpis/program-tags/');
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'kpi_fields') {
+      toastSuccess.generic('🎉 Your First KPI is live');
+      walkthrough.advanceTo('dashboard_intro');
+    }
   }, [mutate, globalMutate]);
 
   const handleCreate = () => {
     setEditingKpi(null);
     setFormOpen(true);
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'kpi_intro') {
+      walkthrough.advanceTo('kpi_fields');
+    }
   };
 
   const handleCardClick = (kpi: KPI) => {

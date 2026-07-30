@@ -376,7 +376,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
             </div>
           )}
 
-          <div className="space-y-1">
+          <div className="space-y-1" data-testid="kpi-form-metric-field">
             <Label>
               Select metric <span className="text-destructive">*</span>
             </Label>
@@ -410,7 +410,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           </div>
 
           {/* Target + Direction */}
-          <div className="space-y-1">
+          <div className="space-y-1" data-testid="kpi-form-target-field">
             <Label>
               Target Value <span className="text-destructive">*</span>
             </Label>
@@ -424,7 +424,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
             )}
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1" data-testid="kpi-form-direction-field">
             <Label>
               Direction <span className="text-destructive">*</span>
             </Label>
@@ -547,7 +547,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                 </p>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                  <div className="space-y-1" data-testid="kpi-form-time-column-field">
                     <Label className="text-sm">
                       Time Column <span className="text-destructive">*</span>
                     </Label>
@@ -628,7 +628,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2" data-testid="kpi-form-type-field">
                 <Label>KPI Type</Label>
                 <Controller
                   control={control}

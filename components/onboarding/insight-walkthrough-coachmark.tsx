@@ -124,6 +124,87 @@ export function InsightWalkthroughCoachmark(): null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, stage]);
 
+  // kpi_fields: 5-step mini-sequence inside the already-open KPIForm dialog. Uses driver.js's
+  // built-in multi-step `steps` array (with Next/Previous) rather than one-highlight-at-a-time
+  // like the other stages — these are informational field callouts inside a single dialog the
+  // user is actively filling out, not gated on a real action per field.
+  useEffect(() => {
+    let cancelled = false;
+
+    if (active && stage === 'kpi_fields') {
+      (async () => {
+        const metricEl = await waitForElement('[data-testid="kpi-form-metric-field"]');
+        if (cancelled || !metricEl) return;
+
+        const d = driver({
+          popoverClass: 'dalgo-tour',
+          overlayColor: '#000000',
+          overlayOpacity: 0.55,
+          stagePadding: 6,
+          stageRadius: 10,
+          allowClose: true,
+          showButtons: ['next', 'close'],
+          steps: [
+            {
+              element: '[data-testid="kpi-form-metric-field"]',
+              popover: {
+                title: 'Pick a metric',
+                description:
+                  'The measure this KPI tracks, for example a count of beneficiaries. Choose the suggested one to get started.',
+              },
+            },
+            {
+              element: '[data-testid="kpi-form-target-field"]',
+              popover: {
+                title: 'Target value',
+                description:
+                  'The number you’re aiming for. Dalgo marks the KPI green once you reach it and red when you fall short.',
+              },
+            },
+            {
+              element: '[data-testid="kpi-form-direction-field"]',
+              popover: {
+                title: 'Direction',
+                description:
+                  'Tell Dalgo whether a higher or lower value counts as on-track, so it knows which way to flag.',
+              },
+            },
+            {
+              element: '[data-testid="kpi-form-time-column-field"]',
+              popover: {
+                title: 'Time column',
+                description:
+                  'The date column Dalgo trends this KPI over — paired with a grain like Monthly so the number moves over time.',
+              },
+            },
+            {
+              element: '[data-testid="kpi-form-type-field"]',
+              popover: {
+                title: 'KPI type',
+                description:
+                  'A simple way to classify what this measures along the results chain — input, output, outcome or impact. It just organises your KPIs, so pick whichever fits.',
+              },
+            },
+          ],
+          onCloseClick: () => {
+            useInsightWalkthroughStore.getState().skip();
+            d.destroy();
+          },
+          onDestroyed: () => {
+            driverRef.current = null;
+          },
+        });
+        driverRef.current = d;
+        d.drive();
+      })();
+    }
+
+    return () => {
+      cancelled = true;
+      driverRef.current?.destroy();
+    };
+  }, [active, stage]);
+
   // All other single-highlight stages: generic highlight+skip against STAGE_CONFIG, keyed by
   // route+selector.
   useEffect(() => {
