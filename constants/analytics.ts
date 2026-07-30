@@ -19,6 +19,10 @@ export const ANALYTICS_EVENTS = {
   TOUR_SKIPPED: 'onboarding:tour_skipped',
   TOUR_COMPLETED: 'onboarding:tour_completed',
   GETTING_STARTED_TOUR_LINK_CLICKED: 'onboarding:getting_started_tour_link_clicked',
+  // Shown only when the tour is finished via its last step's "Finish Tour" button — not on Skip.
+  POST_TOUR_MODAL_VIEWED: 'onboarding:post_tour_modal_viewed',
+  // Carries { choice: 'insight' | 'pipeline' | 'close' } — which option was picked.
+  POST_TOUR_MODAL_DISMISSED: 'onboarding:post_tour_modal_dismissed',
   // Free trial onboarding
   TRIAL_SIGNUP_SUBMITTED: 'trial:signup_submitted',
   // Verification link re-sent from the check-your-email card (re-POSTs signup).

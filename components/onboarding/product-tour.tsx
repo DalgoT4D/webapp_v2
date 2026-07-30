@@ -11,10 +11,13 @@
  * position onto the sidebar link via `onPopoverRender`.
  *
  * Exposes `startTour()` via ref so the intent modal / getting-started widget (siblings,
- * not descendants) can trigger it without a context provider — this component owns no
- * visible React output, everything renders through driver.js's own DOM.
+ * not descendants) can trigger it without a context provider — the tour itself renders
+ * through driver.js's own DOM, not React. The post-tour modal (shown on a real "Finish Tour"
+ * completion) IS real React output though, and is owned directly here rather than lifted to
+ * a parent via a callback — this is the same component that knows definitively whether the
+ * user completed the last step, so there's no cross-component state to fall out of sync.
  */
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { driver, type Driver, type PopoverDOM } from 'driver.js';
 import 'driver.js/dist/driver.css';
@@ -22,6 +25,7 @@ import './tour.css';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { TOUR_STEPS, TOUR_CONTENT_SELECTOR, markTourSeen, type TourStep } from './tour-constants';
+import { PostTourModal } from './post-tour-modal';
 
 export interface ProductTourHandle {
   startTour: () => void;
@@ -30,7 +34,7 @@ export interface ProductTourHandle {
 interface ProductTourProps {
   orgSlug: string;
   /** Fires once the tour ends, however it ended (completed, skipped, or closed). */
-  onTourEnd?: () => void;
+  onTourEnd?: (reason: 'completed' | 'skipped') => void;
 }
 
 /** Resolve when `selector` is in the DOM, or after `timeout` ms (returns the el or null). */
@@ -343,10 +347,21 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
   const driverRef = useRef<Driver | null>(null);
   const stepIndexRef = useRef(0);
   const activeRef = useRef(false);
+  const [showPostTourModal, setShowPostTourModal] = useState(false);
   // Guards against the pathname-triggered re-anchor effect below firing a second,
   // redundant renderStep for the same index while the first one is still awaiting
   // waitForElement (e.g. right after router.push, before the new page has painted).
   const renderingIndexRef = useRef<number | null>(null);
+
+  // Deferred a tick: this is called from driver.js's native button click handler, outside
+  // React's own synthetic event system. Opening the Dialog synchronously here mounts it (and
+  // its "click outside to close" listener) WHILE the same click event is still bubbling to
+  // `document` — Radix's own listener then sees that same event as an outside click and
+  // immediately closes the dialog it just opened, before it's ever visible. Waiting for the
+  // current event to fully finish first avoids that.
+  const openPostTourModal = useCallback(() => {
+    setTimeout(() => setShowPostTourModal(true), 0);
+  }, []);
 
   const finish = useCallback(
     (reason: 'completed' | 'skipped') => {
@@ -356,7 +371,7 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
         { step: stepIndexRef.current + 1 }
       );
       document.getElementById(SPOTLIGHT_ELEMENT_ID)?.remove();
-      onTourEnd?.();
+      onTourEnd?.(reason);
     },
     [orgSlug, onTourEnd]
   );
@@ -394,6 +409,9 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
           // feature (e.g. Reports gated by role or Superset setup). Skip it instead of
           // leaving the previous step's popover hanging on screen forever.
           if (isLast) {
+            activeRef.current = false;
+            finish('completed');
+            openPostTourModal();
             driverRef.current?.destroy();
           } else {
             void renderStep(index + 1);
@@ -437,6 +455,17 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
                 btn.style.opacity = '0.6';
               }
               if (isLast) {
+                // Call finish() directly rather than relying on driver.js's onDestroyed hook
+                // to detect completion — that hook only fires if driver's OWN internal
+                // "active element/step" state happens to be set by the time destroy() runs,
+                // which depends on an animation-completion timer outside our control.
+                // showPostTourModal is local state owned by this same component, not threaded
+                // through a parent callback, so there's no cross-component state to fall out
+                // of sync — openPostTourModal() (deferred, see its own comment) guarantees the
+                // modal actually shows on a real completion.
+                activeRef.current = false;
+                finish('completed');
+                openPostTourModal();
                 driverRef.current?.destroy();
               } else {
                 void renderStep(index + 1);
@@ -458,7 +487,7 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
         if (renderingIndexRef.current === index) renderingIndexRef.current = null;
       }
     },
-    [router]
+    [router, finish, openPostTourModal]
   );
 
   const startTour = useCallback(() => {
@@ -491,11 +520,25 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
           anchorPopoverToSidebar(popover, TOUR_STEPS[stepIndexRef.current])
         );
       },
+      onCloseClick: () => {
+        // Handle the "Skip" click ourselves rather than falling through to driver.js's
+        // default close behavior — that behavior only calls `onDestroyed` if its OWN
+        // internal `__activeElement`/`__activeStep` state happens to already be set, which
+        // depends on an animation-completion timer we don't control. Calling `finish`
+        // directly here guarantees it always fires.
+        activeRef.current = false;
+        finish('skipped');
+        driverRef.current?.destroy();
+      },
       onDestroyed: () => {
-        const completed = stepIndexRef.current === TOUR_STEPS.length - 1;
+        // Safety net only, for exits we haven't explicitly handled (Escape key, overlay
+        // click) — both `onNextClick`'s isLast branch and `onCloseClick` above already call
+        // `finish` themselves and set `activeRef.current = false` first, so this is a no-op
+        // for those paths (avoids double-firing analytics/localStorage for the same exit).
+        const wasActive = activeRef.current;
         activeRef.current = false;
         driverRef.current = null;
-        finish(completed ? 'completed' : 'skipped');
+        if (wasActive) finish('skipped');
       },
     });
     trackEvent(ANALYTICS_EVENTS.TOUR_STARTED);
@@ -560,5 +603,5 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
     };
   }, []);
 
-  return null;
+  return <PostTourModal open={showPostTourModal} onOpenChange={setShowPostTourModal} />;
 });

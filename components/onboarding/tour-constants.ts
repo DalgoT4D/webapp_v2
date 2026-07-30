@@ -105,7 +105,9 @@ export const TOUR_STEPS: TourStep[] = [
     title: 'Ingest',
     content:
       "That's the tour. When you're ready, connect your own sources — Google Sheets, field tools — and build a pipeline.",
-    ctaLabel: 'Connect Your Data',
+    ctaLabel: 'Finish Tour',
+    spotlightRowOnly: true,
+    spotlightRowCount: 4,
   },
 ];
 
