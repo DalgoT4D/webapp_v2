@@ -17,6 +17,7 @@ import { TourIntentModal } from './tour-intent-modal';
 import { GettingStartedWidget } from './getting-started-widget';
 import { InsightWalkthroughCoachmark } from './insight-walkthrough-coachmark';
 import { hasSeenTour } from './tour-constants';
+import { hasFinishedWalkthrough } from './insight-walkthrough-constants';
 
 const IMPACT_PATH = '/impact';
 
@@ -84,7 +85,11 @@ export function TourGate() {
             onOpenChange={setIntentModalOpen}
             onStartTour={startTour}
           />
-          <GettingStartedWidget hasSeenTour={seen} onStartTour={startTour} />
+          <GettingStartedWidget
+            hasSeenTour={seen}
+            hasBuiltFirstInsight={hasFinishedWalkthrough(orgSlug)}
+            onStartTour={startTour}
+          />
         </>
       )}
     </>
