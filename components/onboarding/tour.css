@@ -129,3 +129,38 @@
 .dalgo-tour-next-btn:hover {
   opacity: 0.9;
 }
+
+/* Fork2's popover has 3 custom actions instead of the default Next/Skip pair. */
+.dalgo-tour-fork2-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.dalgo-tour-fork2-primary,
+.dalgo-tour-fork2-secondary {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+.dalgo-tour-fork2-primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+}
+.dalgo-tour-fork2-secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--foreground);
+}
+.dalgo-tour-fork2-skip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  text-align: center;
+  cursor: pointer;
+  text-decoration: underline;
+}

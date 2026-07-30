@@ -15,6 +15,7 @@ import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { ProductTour, type ProductTourHandle } from './product-tour';
 import { TourIntentModal } from './tour-intent-modal';
 import { GettingStartedWidget } from './getting-started-widget';
+import { InsightWalkthroughCoachmark } from './insight-walkthrough-coachmark';
 import { hasSeenTour } from './tour-constants';
 
 const IMPACT_PATH = '/impact';
@@ -75,6 +76,7 @@ export function TourGate() {
         onTourEnd={() => setSeen(true)}
         onInsightPathChosen={() => useInsightWalkthroughStore.getState().start(orgSlug)}
       />
+      <InsightWalkthroughCoachmark />
       {pathname === IMPACT_PATH && (
         <>
           <TourIntentModal
