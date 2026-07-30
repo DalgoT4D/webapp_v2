@@ -23,6 +23,13 @@ export const ANALYTICS_EVENTS = {
   POST_TOUR_MODAL_VIEWED: 'onboarding:post_tour_modal_viewed',
   // Carries { choice: 'insight' | 'pipeline' | 'close' } — which option was picked.
   POST_TOUR_MODAL_DISMISSED: 'onboarding:post_tour_modal_dismissed',
+  // Sample-data insight walkthrough (Fork2 -> KPI created -> dashboard shared)
+  INSIGHT_WALKTHROUGH_STARTED: 'onboarding:insight_walkthrough_started',
+  // Carries { stage } — the stage that was just shown.
+  INSIGHT_WALKTHROUGH_STEP_VIEWED: 'onboarding:insight_walkthrough_step_viewed',
+  INSIGHT_WALKTHROUGH_COMPLETED: 'onboarding:insight_walkthrough_completed',
+  // Carries { stage } — the stage the user was on when they skipped.
+  INSIGHT_WALKTHROUGH_SKIPPED: 'onboarding:insight_walkthrough_skipped',
   // Free trial onboarding
   TRIAL_SIGNUP_SUBMITTED: 'trial:signup_submitted',
   // Verification link re-sent from the check-your-email card (re-POSTs signup).
