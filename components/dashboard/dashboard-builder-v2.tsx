@@ -70,6 +70,7 @@ import { getDefaultTabsConfig } from './tabs/tab-utils';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 
 // Grid layout constants
 const ROW_HEIGHT = 20;
@@ -1357,6 +1358,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
         // Smart scroll to show the newly added component if needed
         scrollToComponentIfNeeded(newComponent.id);
+
+        const walkthrough = useInsightWalkthroughStore.getState();
+        if (walkthrough.active && walkthrough.stage === 'builder_add_chart') {
+          walkthrough.advanceTo('builder_save');
+        }
       } catch (error) {
         console.error('Failed to add chart');
       }
@@ -1400,6 +1406,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       trackEvent(ANALYTICS_EVENTS.DASHBOARD_KPI_ADDED);
       dashboardAnimation.animateComponent(newComponent.id, 500);
       scrollToComponentIfNeeded(newComponent.id);
+
+      const walkthrough = useInsightWalkthroughStore.getState();
+      if (walkthrough.active && walkthrough.stage === 'builder_add_kpi') {
+        walkthrough.advanceTo('builder_add_chart');
+      }
     };
 
     // Add text component
@@ -2110,7 +2121,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   Add Chart
                 </Button>
 
-                <Button onClick={() => setShowKPISelector(true)} size="sm" variant="outline">
+                <Button
+                  onClick={() => setShowKPISelector(true)}
+                  size="sm"
+                  variant="outline"
+                  data-testid="add-kpi-btn"
+                >
                   <Target className="w-4 h-4 mr-2" />
                   Add KPI
                 </Button>
@@ -2251,12 +2267,17 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 </Popover> */}
 
                 <Button
-                  onClick={() => {
+                  onClick={async () => {
                     // Fire only on explicit user save (not the autosave/title-blur/resize paths).
                     trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED);
-                    saveDashboard();
+                    await saveDashboard();
+                    const walkthrough = useInsightWalkthroughStore.getState();
+                    if (walkthrough.active && walkthrough.stage === 'builder_save') {
+                      walkthrough.advanceTo('builder_preview');
+                    }
                   }}
                   size="sm"
+                  data-testid="dashboard-save-btn"
                 >
                   <Save className="w-4 h-4 mr-2" />
                   <span className="hidden lg:inline">Save</span>
@@ -2264,7 +2285,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
                 {/* Preview button */}
                 {onPreview && (
-                  <Button size="sm" variant="outline" onClick={onPreview} disabled={isNavigating}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={onPreview}
+                    disabled={isNavigating}
+                    data-testid="dashboard-preview-btn"
+                  >
                     {isNavigating ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     ) : (

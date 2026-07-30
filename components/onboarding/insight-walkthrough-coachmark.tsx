@@ -63,6 +63,24 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description:
       'Pin your KPI and charts into a dashboard and share it with your team — click Create dashboard.',
   },
+  builder_add_kpi: {
+    route: '/dashboards/create',
+    selector: '[data-testid="add-kpi-btn"]',
+    title: 'Add your KPI',
+    description: 'Click Add KPI and pick the KPI you just built to drop it onto the canvas.',
+  },
+  builder_add_chart: {
+    route: '/dashboards/create',
+    selector: '[data-testid="add-chart-btn"]',
+    title: 'Add a Chart',
+    description: 'Click Add chart and drop a sample chart next to it.',
+  },
+  builder_save: {
+    route: '/dashboards/create',
+    selector: '[data-testid="dashboard-save-btn"]',
+    title: 'Save your dashboard',
+    description: 'Looks good. Save it so your team can open it.',
+  },
 };
 
 export function InsightWalkthroughCoachmark(): null {
