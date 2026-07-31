@@ -14,9 +14,13 @@ interface InsightWalkthroughState {
   active: boolean;
   orgSlug: string | null;
   stage: WalkthroughStage | null;
+  /** True while a plain interaction (e.g. a picker modal) is covering the spotlighted
+   * target — the coachmark hides rather than darkening content it doesn't own. */
+  suppressCoachmark: boolean;
   start: (orgSlug: string) => void;
   resume: (orgSlug: string) => void;
   advanceTo: (stage: WalkthroughStage) => void;
+  setSuppressCoachmark: (suppressed: boolean) => void;
   skip: () => void;
   finish: () => void;
 }
@@ -25,6 +29,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   active: false,
   orgSlug: null,
   stage: null,
+  suppressCoachmark: false,
 
   start: (orgSlug) => {
     saveWalkthroughStage(orgSlug, 'fork2');
@@ -46,6 +51,8 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
     trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_STEP_VIEWED, { stage });
     set({ stage });
   },
+
+  setSuppressCoachmark: (suppressed) => set({ suppressCoachmark: suppressed }),
 
   skip: () => {
     const { orgSlug, stage } = get();

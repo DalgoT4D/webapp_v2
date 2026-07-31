@@ -409,12 +409,15 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit KPI' : 'Create KPI'}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="space-y-4 py-2 flex-1 min-h-0 overflow-y-auto"
+        >
           {/* ── Section 1: Metric + Target + Direction ──────────────── */}
 
           {/* Metric selector */}

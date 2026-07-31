@@ -285,6 +285,13 @@ export function DashboardNativeView({
   );
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
   const [shareModalOpen, setShareModalOpen] = useState(false);
+
+  // Share dialog is a plain interaction with no coachmark of its own (per design) — hide the
+  // walkthrough spotlight while it's open so its overlay doesn't darken it (same pattern as the
+  // KPI/chart picker modals in dashboard-builder-v2).
+  useEffect(() => {
+    useInsightWalkthroughStore.getState().setSuppressCoachmark(shareModalOpen);
+  }, [shareModalOpen]);
   const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
   // Filters panel collapse state
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
@@ -978,6 +985,7 @@ export function DashboardNativeView({
                   isRefreshing={isRefreshing}
                   dashboardTitle={dashboard?.title}
                   className="justify-end"
+                  suppressShareTestId
                 />
               </div>
             )}

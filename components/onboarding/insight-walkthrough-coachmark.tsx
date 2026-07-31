@@ -50,11 +50,23 @@ interface StageConfig {
    * already dims the page behind it, so no extra overlay is needed for these.
    */
   dimOverlay?: boolean;
+  /** Close-button label. Defaults to 'Skip'; Figma calls this one 'Later' on the dashboard nudge. */
+  closeLabel?: string;
+  /**
+   * Popover placement relative to the target. Defaults to 'right'/'start', which suits
+   * sidebar-anchored targets (open canvas to their right). Toolbar buttons mid-row aren't near
+   * a viewport edge, so driver.js's own edge-avoidance clamps a 'right' popover toward the
+   * viewport's right edge instead of the button — visually disconnecting the two. Those stages
+   * override to 'bottom', where there's always open canvas below a top toolbar.
+   */
+  side?: 'top' | 'bottom' | 'left' | 'right';
+  align?: 'start' | 'center' | 'end';
 }
 
 // Stages driven purely by route change (no manual advanceTo call needed elsewhere) map here
 // to the NEXT stage they unlock once that route is reached.
 const ROUTE_ADVANCES: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
+  dashboard_nudge: 'dashboard_intro',
   dashboard_intro: 'builder_add_kpi',
 };
 
@@ -121,42 +133,73 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description: 'Click Create KPI to save it.',
     dimOverlay: false,
   },
+  dashboard_nudge: {
+    route: '/kpis',
+    selector: 'a[href="/dashboards"]',
+    title: 'Add it to a dashboard',
+    description:
+      'Your KPI is live 🎉 Pin it onto a dashboard with a chart so your team sees the full picture.',
+    closeLabel: 'Later',
+    dimOverlay: false,
+  },
   dashboard_intro: {
     route: '/dashboards',
     selector: '#dashboard-create-button',
     title: 'Create a dashboard',
     description:
       'Pin your KPI and charts into a dashboard and share it with your team — click Create dashboard.',
+    dimOverlay: false,
   },
   builder_add_kpi: {
     route: '/dashboards/create',
     selector: '[data-testid="add-kpi-btn"]',
     title: 'Add your KPI',
     description: 'Click Add KPI and pick the KPI you just built to drop it onto the canvas.',
+    dimOverlay: false,
+    side: 'bottom',
   },
   builder_add_chart: {
     route: '/dashboards/create',
     selector: '[data-testid="add-chart-btn"]',
     title: 'Add a Chart',
     description: 'Click Add chart and drop a sample chart next to it.',
+    dimOverlay: false,
+    side: 'bottom',
+  },
+  builder_resize: {
+    route: '/dashboards/create',
+    // Newest tile has no stable id to key a static selector on (grid items are created with
+    // `chart-${Date.now()}`) — react-grid-layout always appends new widgets last in DOM order
+    // (grid model: new items land at bottomY, nothing else reorders), so the last `.react-grid-item`
+    // is reliably the one just added.
+    selector: '.react-grid-item:last-of-type',
+    title: 'Resize and move your tiles',
+    description:
+      'Drag a corner to resize, or grab a tile to move it around — now make your dashboard look nice.',
+    dimOverlay: false,
   },
   builder_save: {
     route: '/dashboards/create',
     selector: '[data-testid="dashboard-save-btn"]',
     title: 'Save your dashboard',
     description: 'Looks good. Save it so your team can open it.',
+    dimOverlay: false,
+    side: 'bottom',
   },
   builder_preview: {
     route: '/dashboards/create',
     selector: '[data-testid="dashboard-preview-btn"]',
     title: 'Preview it first',
     description: 'Saved! Take a quick look the way your team will see it.',
+    dimOverlay: false,
+    side: 'bottom',
   },
   share: {
     route: null, // resolved dynamically to /dashboards/{id} — matched by pathname regex below
     selector: '[data-testid="dashboard-share-btn"]',
     title: 'Share your dashboard',
     description: 'Send it to your team so everyone sees the same numbers — click the Share icon.',
+    dimOverlay: false,
   },
 };
 
@@ -165,6 +208,7 @@ export function InsightWalkthroughCoachmark(): null {
   const pathname = usePathname();
   const active = useInsightWalkthroughStore((s) => s.active);
   const stage = useInsightWalkthroughStore((s) => s.stage);
+  const suppressCoachmark = useInsightWalkthroughStore((s) => s.suppressCoachmark);
   const driverRef = useRef<Driver | null>(null);
 
   // Fork2: a one-off custom coachmark (3 actions, not a generic highlight+skip), rendered
@@ -242,7 +286,8 @@ export function InsightWalkthroughCoachmark(): null {
   // route+selector.
   useEffect(() => {
     let cancelled = false;
-    const config = active && stage && stage !== 'fork2' ? STAGE_CONFIG[stage] : undefined;
+    const config =
+      active && stage && stage !== 'fork2' && !suppressCoachmark ? STAGE_CONFIG[stage] : undefined;
 
     if (config) {
       (async () => {
@@ -261,7 +306,8 @@ export function InsightWalkthroughCoachmark(): null {
           allowClose: true,
           showButtons: ['close'],
           onPopoverRender: (popover) => {
-            popover.closeButton.textContent = 'Skip';
+            const closeLabel = config.closeLabel ?? 'Skip';
+            popover.closeButton.textContent = closeLabel;
             popover.closeButton.setAttribute('aria-label', 'Skip walkthrough');
             popover.closeButton.classList.add('dalgo-tour-skip-btn');
           },
@@ -279,8 +325,8 @@ export function InsightWalkthroughCoachmark(): null {
           popover: {
             title: config.title,
             description: config.description,
-            side: 'right',
-            align: 'start',
+            side: config.side ?? 'right',
+            align: config.align ?? 'start',
           },
         });
       })();
@@ -290,7 +336,7 @@ export function InsightWalkthroughCoachmark(): null {
       cancelled = true;
       driverRef.current?.destroy();
     };
-  }, [active, stage, pathname]);
+  }, [active, stage, pathname, suppressCoachmark]);
 
   // Route-driven advances: reaching a mapped route auto-advances to the stage it unlocks.
   useEffect(() => {

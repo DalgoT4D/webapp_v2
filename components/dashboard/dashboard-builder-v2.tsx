@@ -556,6 +556,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Component state
     const [showChartSelector, setShowChartSelector] = useState(false);
     const [showKPISelector, setShowKPISelector] = useState(false);
+
+    // The picker modals are plain interactions with no coachmark of their own (per design) —
+    // hide the walkthrough spotlight while either is open so its overlay doesn't darken it.
+    useEffect(() => {
+      useInsightWalkthroughStore
+        .getState()
+        .setSuppressCoachmark(showChartSelector || showKPISelector);
+    }, [showChartSelector, showKPISelector]);
     // Fetch all charts
     const { data: chartsData, isLoading: chartsLoading } = useCharts
       ? useCharts()
@@ -1252,6 +1260,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           const next = applyItemConstraints(layout);
           setState((prev) => ({ ...prev, layout: next }));
         }
+
+        const walkthrough = useInsightWalkthroughStore.getState();
+        if (walkthrough.active && walkthrough.stage === 'builder_resize') {
+          walkthrough.advanceTo('builder_save');
+        }
       },
       [setState, stopAutoscroll, applyItemConstraints]
     );
@@ -1289,6 +1302,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         if (!isUndoRedoOperationRef.current) {
           const next = applyItemConstraints(layout);
           setState((prev) => ({ ...prev, layout: next }));
+        }
+
+        const walkthrough = useInsightWalkthroughStore.getState();
+        if (walkthrough.active && walkthrough.stage === 'builder_resize') {
+          walkthrough.advanceTo('builder_save');
         }
       },
       [setState, applyItemConstraints]
@@ -1361,7 +1379,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
         const walkthrough = useInsightWalkthroughStore.getState();
         if (walkthrough.active && walkthrough.stage === 'builder_add_chart') {
-          walkthrough.advanceTo('builder_save');
+          walkthrough.advanceTo('builder_resize');
         }
       } catch (error) {
         console.error('Failed to add chart');
@@ -2272,7 +2290,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED);
                     await saveDashboard();
                     const walkthrough = useInsightWalkthroughStore.getState();
-                    if (walkthrough.active && walkthrough.stage === 'builder_save') {
+                    if (
+                      walkthrough.active &&
+                      (walkthrough.stage === 'builder_save' ||
+                        walkthrough.stage === 'builder_resize')
+                    ) {
                       walkthrough.advanceTo('builder_preview');
                     }
                   }}

@@ -34,6 +34,10 @@ interface ResponsiveDashboardActionsProps {
   isRefreshing?: boolean;
   dashboardTitle?: string;
   className?: string;
+  /** This component mounts twice in dashboard-native-view.tsx (one CSS-hidden per breakpoint,
+   * both resolving `isDesktop` the same way since they share the same hook) — set true on the
+   * CSS-hidden instance so `data-testid="dashboard-share-btn"` stays unique in the DOM. */
+  suppressShareTestId?: boolean;
 }
 
 export function ResponsiveDashboardActions({
@@ -46,6 +50,7 @@ export function ResponsiveDashboardActions({
   isRefreshing = false,
   dashboardTitle = 'this dashboard',
   className,
+  suppressShareTestId = false,
 }: ResponsiveDashboardActionsProps) {
   const responsive = useResponsiveLayout();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -60,7 +65,12 @@ export function ResponsiveDashboardActions({
             <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
           </Button>
         )} */}
-        <Button variant="outline" size="sm" onClick={onShare} data-testid="dashboard-share-btn">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onShare}
+          data-testid={suppressShareTestId ? undefined : 'dashboard-share-btn'}
+        >
           <Share2 className="w-4 h-4" />
         </Button>
         {canEdit && (

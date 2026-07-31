@@ -234,7 +234,7 @@ export function KPIPageComponent() {
       (walkthrough.stage === 'kpi_type' || walkthrough.stage === 'kpi_submit')
     ) {
       toastSuccess.generic('🎉 Your First KPI is live');
-      walkthrough.advanceTo('dashboard_intro');
+      walkthrough.advanceTo('dashboard_nudge');
     }
   }, [mutate, globalMutate]);
 
