@@ -291,7 +291,11 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
     setStep(2);
     const walkthrough = useInsightWalkthroughStore.getState();
     if (walkthrough.active && walkthrough.stage === 'kpi_direction') {
-      walkthrough.advanceTo('kpi_time_column');
+      // The selected metric may have no date/timestamp columns — the Time Column field
+      // doesn't render at all then (replaced by a "no date columns found" message), so
+      // there's nothing for the kpi_time_column stage to highlight. Skip straight to
+      // kpi_type instead of getting stuck waiting for a field that will never appear.
+      walkthrough.advanceTo(dateColumns.length === 0 ? 'kpi_type' : 'kpi_time_column');
     }
   };
 
