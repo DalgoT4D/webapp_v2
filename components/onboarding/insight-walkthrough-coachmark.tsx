@@ -91,6 +91,13 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
       'Tell Dalgo whether a higher or lower value counts as on-track, so it knows which way to flag.',
     dimOverlay: false,
   },
+  kpi_continue: {
+    route: '/kpis',
+    selector: '[data-testid="kpi-form-continue-btn"]',
+    title: 'Keep going',
+    description: 'Click Continue to set the rest of the KPI details.',
+    dimOverlay: false,
+  },
   kpi_time_column: {
     route: '/kpis',
     selector: '[data-testid="kpi-form-time-column-field"]',
@@ -105,6 +112,13 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'KPI type',
     description:
       'A simple way to classify what this measures along the results chain — input, output, outcome or impact. It just organises your KPIs, so pick whichever fits.',
+    dimOverlay: false,
+  },
+  kpi_submit: {
+    route: '/kpis',
+    selector: '[data-testid="kpi-form-submit-btn"]',
+    title: 'Create your KPI',
+    description: 'Click Create KPI to save it.',
     dimOverlay: false,
   },
   dashboard_intro: {

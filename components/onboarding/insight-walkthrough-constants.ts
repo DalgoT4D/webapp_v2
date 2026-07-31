@@ -11,8 +11,10 @@ export type WalkthroughStage =
   | 'kpi_metric'
   | 'kpi_target'
   | 'kpi_direction'
+  | 'kpi_continue'
   | 'kpi_time_column'
   | 'kpi_type'
+  | 'kpi_submit'
   | 'dashboard_intro'
   | 'builder_add_kpi'
   | 'builder_add_chart'
@@ -26,8 +28,10 @@ export const WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   'kpi_metric',
   'kpi_target',
   'kpi_direction',
+  'kpi_continue',
   'kpi_time_column',
   'kpi_type',
+  'kpi_submit',
   'dashboard_intro',
   'builder_add_kpi',
   'builder_add_chart',

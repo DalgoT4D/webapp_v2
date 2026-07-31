@@ -226,7 +226,13 @@ export function KPIPageComponent() {
     mutate();
     globalMutate('/api/kpis/program-tags/');
     const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active && walkthrough.stage === 'kpi_type') {
+    // Accepts either pre-state, same reasoning as handleContinue in kpi-form.tsx: KPI Type
+    // is optional, so a user who never picks one (stage stays kpi_type) must still complete
+    // the walkthrough correctly when they click Create KPI.
+    if (
+      walkthrough.active &&
+      (walkthrough.stage === 'kpi_type' || walkthrough.stage === 'kpi_submit')
+    ) {
       toastSuccess.generic('🎉 Your First KPI is live');
       walkthrough.advanceTo('dashboard_intro');
     }

@@ -310,7 +310,14 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
     setSaveError(null);
     setStep(2);
     const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active && walkthrough.stage === 'kpi_direction') {
+    // Accepts either pre-state: kpi_continue if the user interacted with Direction (saw the
+    // "click Continue" pointer), or kpi_direction directly if they clicked Continue without
+    // touching Direction (its default value is fine to keep) — Continue must always progress
+    // the walkthrough correctly either way, not just when every prior micro-step fired.
+    if (
+      walkthrough.active &&
+      (walkthrough.stage === 'kpi_direction' || walkthrough.stage === 'kpi_continue')
+    ) {
       // The selected metric may have no date/timestamp columns — the Time Column field
       // doesn't render at all then (replaced by a "no date columns found" message), so
       // there's nothing for the kpi_time_column stage to highlight. Skip straight to
@@ -484,6 +491,10 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                     } else {
                       setValue('green_threshold_pct', '50');
                       setValue('amber_threshold_pct', '80');
+                    }
+                    const walkthrough = useInsightWalkthroughStore.getState();
+                    if (walkthrough.active && walkthrough.stage === 'kpi_direction') {
+                      walkthrough.advanceTo('kpi_continue');
                     }
                   }}
                 >
@@ -680,7 +691,13 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                         <button
                           type="button"
                           key={opt.value}
-                          onClick={() => field.onChange(field.value === opt.value ? '' : opt.value)}
+                          onClick={() => {
+                            field.onChange(field.value === opt.value ? '' : opt.value);
+                            const walkthrough = useInsightWalkthroughStore.getState();
+                            if (walkthrough.active && walkthrough.stage === 'kpi_type') {
+                              walkthrough.advanceTo('kpi_submit');
+                            }
+                          }}
                           className={cn(
                             'flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-medium uppercase transition-colors',
                             field.value === opt.value
@@ -773,11 +790,21 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
             CANCEL
           </Button>
           {step < 2 ? (
-            <Button type="button" onClick={handleContinue} disabled={!metricId}>
+            <Button
+              type="button"
+              onClick={handleContinue}
+              disabled={!metricId}
+              data-testid="kpi-form-continue-btn"
+            >
               Continue
             </Button>
           ) : (
-            <Button type="button" onClick={handleSubmit(onSubmit)} disabled={saving}>
+            <Button
+              type="button"
+              onClick={handleSubmit(onSubmit)}
+              disabled={saving}
+              data-testid="kpi-form-submit-btn"
+            >
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {isEdit ? 'Save KPI' : 'Create KPI'}
             </Button>
