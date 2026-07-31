@@ -196,7 +196,22 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
   const greenThreshold = watch('green_threshold_pct');
   const amberThreshold = watch('amber_threshold_pct');
   const metricTypeTag = watch('metric_type_tag');
+  const timeDimensionColumn = watch('time_dimension_column');
   const targetValueField = register('target_value', { required: 'Target value is required' });
+
+  // Watch-based rather than only reacting to the Select's onValueChange: if the table has
+  // exactly one date column, Radix's Select never fires onValueChange for re-selecting a
+  // value that's already current — the walkthrough would otherwise wait forever for a
+  // "change" that can't happen. Firing off the watched value itself (present on mount too,
+  // not just on future changes) advances correctly whether the user actively picked it or
+  // it was already set.
+  useEffect(() => {
+    if (!timeDimensionColumn) return;
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'kpi_time_column') {
+      walkthrough.advanceTo('kpi_type');
+    }
+  }, [timeDimensionColumn]);
 
   const { data: metrics, mutate: mutateMetrics } = useMetrics({ pageSize: 50 });
   const { tags: existingTags } = useProgramTags();
@@ -296,13 +311,6 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
       // there's nothing for the kpi_time_column stage to highlight. Skip straight to
       // kpi_type instead of getting stuck waiting for a field that will never appear.
       walkthrough.advanceTo(dateColumns.length === 0 ? 'kpi_type' : 'kpi_time_column');
-    }
-  };
-
-  const handleTimeColumnChange = () => {
-    const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active && walkthrough.stage === 'kpi_time_column') {
-      walkthrough.advanceTo('kpi_type');
     }
   };
 
@@ -591,10 +599,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
                         <Select
                           disabled={isEdit}
                           value={field.value || '__none__'}
-                          onValueChange={(v) => {
-                            field.onChange(v === '__none__' ? '' : v);
-                            handleTimeColumnChange();
-                          }}
+                          onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select column" />
