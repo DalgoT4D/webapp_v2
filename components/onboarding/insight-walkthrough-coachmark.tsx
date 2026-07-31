@@ -39,6 +39,17 @@ interface StageConfig {
   selector: string;
   title: string;
   description: string;
+  /**
+   * Whether to dim the rest of the screen behind the target (driver.js's own overlay+cutout).
+   * Defaults to true for page-level targets (sidebar items, toolbar buttons) — matches Figma's
+   * dimmed-background coachmarks there. Stages whose target lives INSIDE an already-open
+   * Radix Dialog (the 5 KPIForm field stages) set this to false: driver.js's full-viewport
+   * overlay sits above the dialog's own content, so dimming would darken the REST of the same
+   * dialog (other fields, Cancel/Continue) around a small cutout hole for just the one field —
+   * not a Figma-matching "spotlight", just a broken-looking modal. The Dialog's own backdrop
+   * already dims the page behind it, so no extra overlay is needed for these.
+   */
+  dimOverlay?: boolean;
 }
 
 // Stages driven purely by route change (no manual advanceTo call needed elsewhere) map here
@@ -62,6 +73,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Pick a metric',
     description:
       'The measure this KPI tracks, for example a count of beneficiaries. Choose the suggested one to get started.',
+    dimOverlay: false,
   },
   kpi_target: {
     route: '/kpis',
@@ -69,6 +81,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Target value',
     description:
       'The number you’re aiming for. Dalgo marks the KPI green once you reach it and red when you fall short.',
+    dimOverlay: false,
   },
   kpi_direction: {
     route: '/kpis',
@@ -76,6 +89,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Direction',
     description:
       'Tell Dalgo whether a higher or lower value counts as on-track, so it knows which way to flag.',
+    dimOverlay: false,
   },
   kpi_time_column: {
     route: '/kpis',
@@ -83,6 +97,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Time column',
     description:
       'The date column Dalgo trends this KPI over — paired with a grain like Monthly so the number moves over time.',
+    dimOverlay: false,
   },
   kpi_type: {
     route: '/kpis',
@@ -90,6 +105,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'KPI type',
     description:
       'A simple way to classify what this measures along the results chain — input, output, outcome or impact. It just organises your KPIs, so pick whichever fits.',
+    dimOverlay: false,
   },
   dashboard_intro: {
     route: '/dashboards',
@@ -221,10 +237,11 @@ export function InsightWalkthroughCoachmark(): null {
         const el = await waitForElement(config.selector);
         if (cancelled || !el) return;
 
+        const dimOverlay = config.dimOverlay !== false;
         const d = driver({
           popoverClass: 'dalgo-tour',
           overlayColor: '#000000',
-          overlayOpacity: 0.55,
+          overlayOpacity: dimOverlay ? 0.55 : 0,
           stagePadding: 6,
           stageRadius: 10,
           allowClose: true,
@@ -248,7 +265,7 @@ export function InsightWalkthroughCoachmark(): null {
           popover: {
             title: config.title,
             description: config.description,
-            side: 'bottom',
+            side: 'right',
             align: 'start',
           },
         });
