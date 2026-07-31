@@ -213,6 +213,18 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
     }
   }, [timeDimensionColumn]);
 
+  // Same watch-based reasoning as the time column effect above — waiting for onBlur
+  // requires the user to lose focus on the field first, which they may not do right away
+  // (e.g. typing a value then reaching for the mouse instead of tabbing away). Reacting to
+  // the value itself advances the moment they've actually entered something.
+  useEffect(() => {
+    if (!targetValue) return;
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'kpi_target') {
+      walkthrough.advanceTo('kpi_direction');
+    }
+  }, [targetValue]);
+
   const { data: metrics, mutate: mutateMetrics } = useMetrics({ pageSize: 50 });
   const { tags: existingTags } = useProgramTags();
 
@@ -287,13 +299,6 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
     const walkthrough = useInsightWalkthroughStore.getState();
     if (walkthrough.active && walkthrough.stage === 'kpi_metric') {
       walkthrough.advanceTo('kpi_target');
-    }
-  };
-
-  const handleTargetValueBlur = () => {
-    const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active && walkthrough.stage === 'kpi_target') {
-      walkthrough.advanceTo('kpi_direction');
     }
   };
 
@@ -453,10 +458,6 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
             <Input
               type="number"
               {...targetValueField}
-              onBlur={(e) => {
-                targetValueField.onBlur(e);
-                handleTargetValueBlur();
-              }}
               placeholder="What is the desired value of this indicator"
             />
             {errors.target_value && (
