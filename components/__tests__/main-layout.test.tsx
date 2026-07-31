@@ -67,13 +67,37 @@ describe('getNavItems', () => {
     expect(items.find((i) => i.title === 'Data')?.hide).toBeFalsy();
   });
 
-  it('hides Billing and User Management for analyst role', () => {
+  it('hides User Management for analyst role', () => {
     const items = getNavItems('/', false, () => false, undefined, ROLES.ANALYST);
     const settings = items.find((i) => i.title === 'Settings');
-    const billing = settings?.children?.find((c) => c.title === 'Billing');
     const userMgmt = settings?.children?.find((c) => c.title === 'User Management');
-    expect(billing?.hide).toBe(true);
     expect(userMgmt?.hide).toBe(true);
+  });
+
+  it('shows the Settings → Warehouse item for data roles but hides it for member', () => {
+    for (const role of [ROLES.ANALYST, ROLES.ADMIN, ROLES.SUPER_ADMIN]) {
+      const settings = getNavItems('/', false, () => false, undefined, role).find(
+        (i) => i.title === 'Settings'
+      );
+      const warehouse = settings?.children?.find((c) => c.title === 'Warehouse');
+      expect(warehouse?.href).toBe('/settings/warehouse');
+      expect(warehouse?.hide).toBeFalsy();
+    }
+    const memberSettings = getNavItems('/', false, () => false, undefined, ROLES.MEMBER).find(
+      (i) => i.title === 'Settings'
+    );
+    expect(memberSettings?.children?.find((c) => c.title === 'Warehouse')?.hide).toBe(true);
+  });
+
+  it('marks the Warehouse item active on /settings/warehouse', () => {
+    const settings = getNavItems(
+      '/settings/warehouse',
+      false,
+      () => false,
+      undefined,
+      ROLES.ADMIN
+    ).find((i) => i.title === 'Settings');
+    expect(settings?.children?.find((c) => c.title === 'Warehouse')?.isActive).toBe(true);
   });
 
   it('shows all items for the admin role', () => {
@@ -81,14 +105,13 @@ describe('getNavItems', () => {
     expect(items.find((i) => i.title === 'Impact')?.hide).toBeFalsy();
     expect(items.find((i) => i.title === 'Data')?.hide).toBeFalsy();
     const settings = items.find((i) => i.title === 'Settings');
-    expect(settings?.children?.find((c) => c.title === 'Billing')?.hide).toBeFalsy();
+    expect(settings?.children?.find((c) => c.title === 'User Management')?.hide).toBeFalsy();
   });
 
-  it('shows Data, Billing, and User Management for super-admin', () => {
+  it('shows Data and User Management for super-admin', () => {
     const items = getNavItems('/', false, () => false, undefined, ROLES.SUPER_ADMIN);
     expect(items.find((i) => i.title === 'Data')?.hide).toBeFalsy();
     const settings = items.find((i) => i.title === 'Settings');
-    expect(settings?.children?.find((c) => c.title === 'Billing')?.hide).toBeFalsy();
     expect(settings?.children?.find((c) => c.title === 'User Management')?.hide).toBeFalsy();
   });
 });
