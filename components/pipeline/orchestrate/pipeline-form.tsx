@@ -298,6 +298,11 @@ function PipelineFormContent({
           has_schedule: Boolean(cronExpression) && cronExpression !== 'manual',
         });
         toastSuccess.created('Pipeline');
+
+        if (useInsightWalkthroughStore.getState().stage === 'pipeline_create_it') {
+          toastSuccess.generic('🎉 Your pipeline is live and running');
+          useInsightWalkthroughStore.getState().finish();
+        }
       }
 
       router.push('/orchestrate');
