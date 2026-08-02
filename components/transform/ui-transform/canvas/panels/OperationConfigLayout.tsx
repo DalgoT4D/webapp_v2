@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useSWRConfig } from 'swr';
 import { useTransformStore, useSelectedNode, useCanvasAction } from '@/stores/transformStore';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { CANVAS_GRAPH_KEY } from '@/hooks/api/useCanvasGraph';
 import { OperationList } from './OperationList';
 import { CreateTableOrAddFunction } from './CreateTableOrAddFunction';
@@ -142,6 +143,10 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
       setSelectedOp(operation);
       setFormMode(OperationFormAction.CREATE);
       setPanelState(OperationPanelState.OP_FORM);
+
+      if (useInsightWalkthroughStore.getState().stage === 'pipeline_pick_function') {
+        useInsightWalkthroughStore.getState().advanceTo('pipeline_drop_columns');
+      }
     },
     [cleanupDummyNodes, createDummyNode]
   );
