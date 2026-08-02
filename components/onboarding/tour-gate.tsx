@@ -19,7 +19,12 @@ import { TourIntentModal } from './tour-intent-modal';
 import { GettingStartedWidget } from './getting-started-widget';
 import { InsightWalkthroughCoachmark } from './insight-walkthrough-coachmark';
 import { hasSeenTour } from './tour-constants';
-import { hasFinishedWalkthrough, getStoredPath } from './insight-walkthrough-constants';
+import {
+  hasFinishedWalkthrough,
+  getStoredPath,
+  hasConnectedRealData,
+  markConnectedRealData,
+} from './insight-walkthrough-constants';
 
 const IMPACT_PATH = '/impact';
 
@@ -65,19 +70,29 @@ export function TourGate() {
     useInsightWalkthroughStore.getState().resume(orgSlug);
   }, [orgSlug]);
 
-  // Own-data walkthrough's sync checkpoint: the wait for a first sync can outlive the
-  // browser session, so this can't rely on an in-memory callback from the ingest wizard.
-  // useConnectionsList() already fetches fresh data on every mount (plus smart-polls
-  // while any connection is locked/running) — reuse it rather than adding new polling.
+  // Own-data / automate-pipeline walkthrough's sync checkpoint: the wait for a first sync
+  // can outlive the browser session, so this can't rely on an in-memory callback from the
+  // ingest wizard. useConnectionsList() already fetches fresh data on every mount (plus
+  // smart-polls while any connection is locked/running) — reuse it rather than adding new
+  // polling.
   const { data: connections } = useConnectionsList();
   useEffect(() => {
+    if (!orgSlug) return;
     const { active, stage, trackedConnectionId } = useInsightWalkthroughStore.getState();
-    if (!active || stage !== 'own_data_ingest' || !trackedConnectionId) return;
+    if (!active || !trackedConnectionId) return;
     const conn = connections.find((c) => c.connectionId === trackedConnectionId);
-    if (conn?.lastRun?.status === SyncStatus.SUCCESS) {
+    if (conn?.lastRun?.status !== SyncStatus.SUCCESS) return;
+
+    // Fires for EITHER fork, independent of stage/finish — see hasConnectedRealData's
+    // doc comment for why this is decoupled from path+hasFinishedWalkthrough.
+    markConnectedRealData(orgSlug);
+
+    if (stage === 'own_data_ingest') {
       useInsightWalkthroughStore.getState().advanceTo('own_data_charts_intro');
+    } else if (stage === 'pipeline_ingest') {
+      useInsightWalkthroughStore.getState().advanceTo('pipeline_transform_intro');
     }
-  }, [connections]);
+  }, [connections, orgSlug]);
 
   if (!isTrialOrg || !orgSlug) return null;
 
@@ -92,6 +107,9 @@ export function TourGate() {
         orgSlug={orgSlug}
         onTourEnd={() => setSeen(true)}
         onInsightPathChosen={() => useInsightWalkthroughStore.getState().start(orgSlug)}
+        onPipelinePathChosen={() =>
+          useInsightWalkthroughStore.getState().startAutomatePipeline(orgSlug)
+        }
       />
       <InsightWalkthroughCoachmark />
       {pathname === IMPACT_PATH && (
@@ -104,8 +122,9 @@ export function TourGate() {
           <GettingStartedWidget
             hasSeenTour={seen}
             hasBuiltFirstInsight={hasFinishedWalkthrough(orgSlug)}
-            hasConnectedOwnData={
-              getStoredPath(orgSlug) === 'own_data' && hasFinishedWalkthrough(orgSlug)
+            hasConnectedOwnData={hasConnectedRealData(orgSlug)}
+            hasAutomatedPipeline={
+              getStoredPath(orgSlug) === 'automate_pipeline' && hasFinishedWalkthrough(orgSlug)
             }
             onStartTour={startTour}
           />

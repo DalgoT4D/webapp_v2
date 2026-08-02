@@ -17,6 +17,8 @@ interface PostTourModalProps {
   onOpenChange: (open: boolean) => void;
   /** Fires instead of navigating when the user picks "Build your first insight". */
   onSelectInsight: () => void;
+  /** Fires instead of navigating when the user picks "Automate Pipeline". */
+  onSelectPipeline: () => void;
 }
 
 interface PostTourOption {
@@ -40,11 +42,16 @@ const POST_TOUR_OPTIONS: PostTourOption[] = [
     icon: Workflow,
     label: 'Automate Pipeline',
     description: 'Transform your table and schedule them',
-    href: '/transform',
+    href: '/ingest',
   },
 ];
 
-export function PostTourModal({ open, onOpenChange, onSelectInsight }: PostTourModalProps) {
+export function PostTourModal({
+  open,
+  onOpenChange,
+  onSelectInsight,
+  onSelectPipeline,
+}: PostTourModalProps) {
   const router = useRouter();
 
   const handleSelect = (option: PostTourOption) => {
@@ -54,6 +61,7 @@ export function PostTourModal({ open, onOpenChange, onSelectInsight }: PostTourM
       onSelectInsight();
       return;
     }
+    onSelectPipeline();
     router.push(option.href);
   };
 
