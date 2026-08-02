@@ -6,6 +6,7 @@
 import { useState, useCallback } from 'react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { OperationFormAction } from '@/constants/transform';
 import type {
   OperationFormProps,
@@ -91,6 +92,10 @@ export function useOperationForm<T extends OperationSlug>({
 
         toastSuccess.generic(successMessage);
         continueOperationChain(createdNodeUuid);
+
+        if (useInsightWalkthroughStore.getState().stage === 'pipeline_drop_columns') {
+          useInsightWalkthroughStore.getState().advanceTo('pipeline_save_table');
+        }
       } catch (error) {
         console.error(`Failed to save ${operation.slug} operation:`, error);
         toastError.save(error, 'operation');

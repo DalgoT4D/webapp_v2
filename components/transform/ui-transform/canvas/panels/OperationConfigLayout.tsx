@@ -258,6 +258,10 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
     setSelectedOp({ slug: 'create-table', label: 'Create Table' });
     setFormMode(OperationFormAction.CREATE);
     setPanelState(OperationPanelState.OP_FORM);
+
+    if (useInsightWalkthroughStore.getState().stage === 'pipeline_save_table') {
+      useInsightWalkthroughStore.getState().advanceTo('pipeline_name_table');
+    }
   }, []);
 
   // User chose to add another function
