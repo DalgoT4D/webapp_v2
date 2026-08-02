@@ -211,9 +211,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   own_data_charts_intro: {
     route: null, // shown wherever the user is when the tracked connection's sync is detected
     selector: 'a[href="/charts"]',
-    title: "Your data's in",
+    title: 'Your data’s in',
     description:
-      "Data is synced and clean. Let's create charts from your own data — same builder you saw with the sample.",
+      'Data is synced and clean. Let’s create charts from your own data — same builder you saw with the sample.',
     closeLabel: 'Later',
   },
   own_data_chart_create: {
@@ -259,16 +259,16 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   pipeline_transform_intro: {
     route: null, // shown wherever the user is when the tracked connection's sync is detected
     selector: 'a[href="/transform"]',
-    title: "Your data's in - now shape it",
+    title: 'Your data’s in — now shape it',
     description:
-      "Raw tables aren't a pipeline yet. Head to Transform to combine them into one clean, chart-ready dataset.",
+      'Raw tables aren’t a pipeline yet. Head to Transform to combine them into one clean, chart-ready dataset.',
   },
   pipeline_workflow_intro: {
     route: '/transform',
     selector: '[data-testid="edit-workflow-btn"]',
     title: 'Open the workflow editor',
     description:
-      "This is where you shape your raw tables. Click Edit Workflow and we'll walk you through just two steps.",
+      'This is where you shape your raw tables. Click Edit Workflow and we’ll walk you through just two steps.',
   },
   pipeline_pick_table: {
     route: '/transform/canvas',
@@ -297,7 +297,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="create-table-btn"]',
     title: 'Save it as a table',
     description:
-      'Turn this cleaned result into a new table your charts can use - click Create a table.',
+      'Turn this cleaned result into a new table your charts can use — click Create a table.',
     dimOverlay: false,
   },
   pipeline_name_table: {
@@ -305,7 +305,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="save-table-btn"]',
     title: 'Name your table',
     description:
-      "We've pre-filled the intermediate schema. Looks good - hit Save and it builds automatically.",
+      'We’ve pre-filled the intermediate schema. Looks good — hit Save and it builds automatically.',
     dimOverlay: false,
   },
   pipeline_table_built: {
@@ -313,7 +313,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="publish-button"]',
     title: 'Your table is built',
     description:
-      "You've got a final, chart-ready dataset. Publish it, then make it repeatable with a pipeline.",
+      'You’ve got a final, chart-ready dataset. Publish it, then make it repeatable with a pipeline.',
     dimOverlay: false,
   },
   pipeline_orchestrate_intro: {
@@ -321,14 +321,14 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="create-pipeline-btn"]',
     title: 'Make it repeatable',
     description:
-      'One last step - wrap your ingest + transform into a pipeline so it runs on its own, every day.',
+      'One last step — wrap your ingest + transform into a pipeline so it runs on its own, every day.',
   },
   pipeline_add_connection: {
     route: '/orchestrate/create',
     selector: '[data-testid="connections-container"]',
     title: 'Add a connection',
     description:
-      'Open Connections and pick your source - this is the data the pipeline pulls in on every run.',
+      'Open Connections and pick your source — this is the data the pipeline pulls in on every run.',
     dimOverlay: false,
   },
   pipeline_run_transform: {
@@ -352,7 +352,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="submit-btn"]',
     title: 'Create it',
     description:
-      "That's everything - a connection, your transform and a daily schedule. Click Create Pipeline to set it running.",
+      'That’s everything — a connection, your transform and a daily schedule. Click Create Pipeline to set it running.',
     dimOverlay: false,
   },
 };
