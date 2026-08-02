@@ -5,8 +5,8 @@
  * Figma: "take tour" frames showing the widget before/after the tour is seen.
  *
  * "Sample data ready" is always true post-clone. "Take a quick tour" is tied to the
- * tour-seen flag. "Build your first insight" and "Connect your own data" are both tied
- * to the insight walkthrough's completion flag, disambiguated by which fork the user
+ * tour-seen flag. "Connect your own data", "Automate data pipeline", and "Build your first insight"
+ * are all tied to the insight walkthrough's completion flag, disambiguated by which fork the user
  * took (components/onboarding/insight-walkthrough-constants.ts's `path`).
  */
 import { useState } from 'react';
@@ -20,6 +20,7 @@ interface GettingStartedWidgetProps {
   hasSeenTour: boolean;
   hasBuiltFirstInsight: boolean;
   hasConnectedOwnData: boolean;
+  hasAutomatedPipeline: boolean;
   onStartTour: () => void;
 }
 
@@ -36,6 +37,7 @@ export function GettingStartedWidget({
   hasSeenTour,
   hasBuiltFirstInsight,
   hasConnectedOwnData,
+  hasAutomatedPipeline,
   onStartTour,
 }: GettingStartedWidgetProps) {
   const [dismissed, setDismissed] = useState(false);
@@ -52,15 +54,8 @@ export function GettingStartedWidget({
         {
           key: 'sample-data',
           label: 'Sample data ready',
-          description: 'We’ve pre-loaded a standard NGO dataset.',
+          description: "We've pre-loaded a standard NGO dataset.",
           checked: true,
-        },
-        {
-          key: 'build-insight',
-          label: 'Build your first insight',
-          description: 'Turn the sample data into a chart and dashboard you can share.',
-          checked: hasBuiltFirstInsight,
-          href: '/charts',
         },
         {
           key: 'connect-data',
@@ -69,12 +64,26 @@ export function GettingStartedWidget({
           checked: hasConnectedOwnData,
           href: '/ingest',
         },
+        {
+          key: 'automate-pipeline',
+          label: 'Automate data pipeline',
+          description: 'Transform your data and schedule them to run on their own.',
+          checked: hasAutomatedPipeline,
+          href: '/transform',
+        },
+        {
+          key: 'build-insight',
+          label: 'Build your first insight',
+          description: 'Turn the sample data into a chart and dashboard you can share.',
+          checked: hasBuiltFirstInsight,
+          href: '/charts',
+        },
       ]
     : [
         {
           key: 'sample-data',
           label: 'Sample data ready',
-          description: 'We’ve pre-loaded a standard NGO dataset.',
+          description: "We've pre-loaded a standard NGO dataset.",
           checked: true,
         },
         {

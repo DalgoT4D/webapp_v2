@@ -18,6 +18,7 @@ describe('GettingStartedWidget', () => {
         hasSeenTour={false}
         hasBuiltFirstInsight={false}
         hasConnectedOwnData={false}
+        hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
       />
     );
@@ -36,6 +37,7 @@ describe('GettingStartedWidget', () => {
         hasSeenTour={true}
         hasBuiltFirstInsight={false}
         hasConnectedOwnData={false}
+        hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
       />
     );
@@ -52,6 +54,7 @@ describe('GettingStartedWidget', () => {
         hasSeenTour={true}
         hasBuiltFirstInsight={false}
         hasConnectedOwnData={false}
+        hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
       />
     );
@@ -74,6 +77,7 @@ describe('GettingStartedWidget', () => {
         hasSeenTour={false}
         hasBuiltFirstInsight={false}
         hasConnectedOwnData={false}
+        hasAutomatedPipeline={false}
         onStartTour={onStartTour}
       />
     );
@@ -92,6 +96,7 @@ describe('GettingStartedWidget', () => {
         hasSeenTour={false}
         hasBuiltFirstInsight={false}
         hasConnectedOwnData={false}
+        hasAutomatedPipeline={false}
         onStartTour={onStartTour}
       />
     );
@@ -107,6 +112,7 @@ describe('GettingStartedWidget', () => {
         hasSeenTour={true}
         hasBuiltFirstInsight={true}
         hasConnectedOwnData={false}
+        hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
       />
     );
@@ -120,6 +126,7 @@ describe('GettingStartedWidget', () => {
         hasSeenTour={true}
         hasBuiltFirstInsight={false}
         hasConnectedOwnData={true}
+        hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
       />
     );
@@ -134,6 +141,7 @@ describe('GettingStartedWidget', () => {
         hasSeenTour={false}
         hasBuiltFirstInsight={false}
         hasConnectedOwnData={false}
+        hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
       />
     );
@@ -141,5 +149,56 @@ describe('GettingStartedWidget', () => {
     await user.click(screen.getByTestId('getting-started-widget-dismiss'));
 
     expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+  });
+
+  it('shows "Automate data pipeline" item after the tour, in order after connect-data', () => {
+    render(
+      <GettingStartedWidget
+        hasSeenTour={true}
+        hasBuiltFirstInsight={false}
+        hasConnectedOwnData={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+      />
+    );
+
+    const items = screen.getAllByTestId(/getting-started-widget-item-/);
+    const keys = items.map((el) => el.getAttribute('data-testid'));
+    expect(keys).toEqual([
+      'getting-started-widget-item-sample-data',
+      'getting-started-widget-item-connect-data',
+      'getting-started-widget-item-automate-pipeline',
+      'getting-started-widget-item-build-insight',
+    ]);
+  });
+
+  it('shows "Automate data pipeline" as checked when hasAutomatedPipeline is true', () => {
+    render(
+      <GettingStartedWidget
+        hasSeenTour={true}
+        hasBuiltFirstInsight={false}
+        hasConnectedOwnData={false}
+        hasAutomatedPipeline={true}
+        onStartTour={jest.fn()}
+      />
+    );
+    const item = screen.getByTestId('getting-started-widget-item-automate-pipeline');
+    expect(item.querySelector('svg')).toHaveClass('text-primary');
+  });
+
+  it('"Automate data pipeline" links to /transform', () => {
+    render(
+      <GettingStartedWidget
+        hasSeenTour={true}
+        hasBuiltFirstInsight={false}
+        hasConnectedOwnData={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+      />
+    );
+    expect(screen.getByTestId('getting-started-widget-item-automate-pipeline')).toHaveAttribute(
+      'href',
+      '/transform'
+    );
   });
 });

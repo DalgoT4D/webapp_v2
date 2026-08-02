@@ -138,4 +138,16 @@ describe('TourGate', () => {
 
     expect(mockStartTour).toHaveBeenCalledTimes(1);
   });
+
+  it('shows "Automate data pipeline" as checked when that path finished', () => {
+    localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+    localStorage.setItem('dalgo_insight_walkthrough_path_trial-org', 'automate_pipeline');
+    localStorage.setItem('dalgo_insight_walkthrough_done_trial-org', '1');
+    setupAuthStore(buildOrgUser());
+    renderGate();
+
+    const item = screen.getByTestId('getting-started-widget-item-automate-pipeline');
+    expect(item).toBeInTheDocument();
+    expect(item.querySelector('svg')).toHaveClass('text-primary');
+  });
 });
