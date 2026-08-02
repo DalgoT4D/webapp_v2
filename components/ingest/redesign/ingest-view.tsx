@@ -14,6 +14,7 @@ import { useWarehouse } from '@/hooks/api/useWarehouse';
 import { useSources } from '@/hooks/api/useSources';
 import { useConnectionsList } from '@/hooks/api/useConnections';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import type { Warehouse } from '@/types/warehouse';
 
 /**
@@ -77,6 +78,14 @@ export function IngestView() {
       setWizardOpen(true);
     }
   }, [state, canCreateWarehouse]);
+
+  // The "Connect your data" coachmark (automate-pipeline walkthrough) points at the New
+  // Source button — hide it once the wizard itself is open, same pattern as the KPI/chart
+  // selector modals in dashboard-builder-v2.tsx, so the coachmark doesn't sit awkwardly
+  // behind the wizard's own dialog overlay.
+  useEffect(() => {
+    useInsightWalkthroughStore.getState().setSuppressCoachmark(wizardOpen);
+  }, [wizardOpen]);
 
   const openWarehouseWizard = () => {
     setWizardNeedsWarehouse(true);

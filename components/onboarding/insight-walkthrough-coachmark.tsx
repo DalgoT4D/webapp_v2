@@ -254,8 +254,17 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     dimOverlay: false,
     side: 'bottom',
   },
-  // pipeline_ingest has no entry — silent wait stage, same treatment as own_data_ingest
-  // (see tour-gate.tsx's sync-detection effect).
+  // Unlike own_data_ingest (silent — that fork's Fork2 bubble already set expectations
+  // right before landing here), automate-pipeline has no preceding bubble at all, so
+  // landing on a bare Ingest page with zero feedback read as broken. This nudge closes
+  // that gap; the wizard itself still explains its own steps once opened (no per-step
+  // coachmarks inside it, same as own_data_ingest).
+  pipeline_ingest: {
+    route: '/ingest',
+    selector: '[data-testid="new-source-btn"]',
+    title: 'Connect your data',
+    description: 'Add a real source here — once it syncs, we’ll walk you through the rest.',
+  },
   pipeline_transform_intro: {
     route: null, // shown wherever the user is when the tracked connection's sync is detected
     selector: 'a[href="/transform"]',
