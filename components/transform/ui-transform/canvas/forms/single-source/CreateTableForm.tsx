@@ -10,6 +10,7 @@ import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
 import { Loader2 } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useTransformStore } from '@/stores/transformStore';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { apiGet, apiPost } from '@/lib/api';
 import type { SelectedNodeData } from '@/types/transform';
 import { CanvasActionEnum } from '@/constants/transform';
@@ -202,6 +203,10 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
       requestFullLayout();
       // Refresh canvas
       triggerRefresh();
+
+      if (useInsightWalkthroughStore.getState().stage === 'pipeline_name_table') {
+        useInsightWalkthroughStore.getState().advanceTo('pipeline_table_built');
+      }
 
       // Close panel
       clearAndClosePanel?.();
