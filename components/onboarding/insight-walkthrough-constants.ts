@@ -36,10 +36,24 @@ export type WalkthroughStage =
   | 'own_data_dashboard_nudge'
   | 'own_data_builder_add_chart'
   | 'own_data_builder_add_kpi'
-  // Automate-pipeline fork — see startAutomatePipeline in insightWalkthroughStore.ts.
-  // pipeline_ingest has no coachmark (like own_data_ingest) since the ingest wizard
-  // explains itself, and is resumed via the same sync-success check as own_data_ingest.
-  | 'pipeline_ingest';
+  // Automate-pipeline fork (PostTourModal's "Automate Pipeline" option). No fork2 step —
+  // single linear path: Ingest -> Transform (one clean table) -> Orchestrate (scheduled
+  // pipeline). pipeline_ingest has no coachmark, same silent-wait treatment as
+  // own_data_ingest, resumed via the tracked connection's sync status (see tour-gate.tsx).
+  | 'pipeline_ingest'
+  | 'pipeline_transform_intro'
+  | 'pipeline_workflow_intro'
+  | 'pipeline_pick_table'
+  | 'pipeline_pick_function'
+  | 'pipeline_drop_columns'
+  | 'pipeline_save_table'
+  | 'pipeline_name_table'
+  | 'pipeline_table_built'
+  | 'pipeline_orchestrate_intro'
+  | 'pipeline_add_connection'
+  | 'pipeline_run_transform'
+  | 'pipeline_set_schedule'
+  | 'pipeline_create_it';
 
 export const WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   'fork2',
@@ -78,6 +92,26 @@ export const OWN_DATA_WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   'builder_save',
   'builder_preview',
   'share',
+];
+
+// The automate-pipeline path's own linear order — kept separate from
+// WALKTHROUGH_STAGE_ORDER/OWN_DATA_WALKTHROUGH_STAGE_ORDER since it diverges at the
+// very first step (no fork2 — PostTourModal routes straight here).
+export const AUTOMATE_PIPELINE_STAGE_ORDER: WalkthroughStage[] = [
+  'pipeline_ingest',
+  'pipeline_transform_intro',
+  'pipeline_workflow_intro',
+  'pipeline_pick_table',
+  'pipeline_pick_function',
+  'pipeline_drop_columns',
+  'pipeline_save_table',
+  'pipeline_name_table',
+  'pipeline_table_built',
+  'pipeline_orchestrate_intro',
+  'pipeline_add_connection',
+  'pipeline_run_transform',
+  'pipeline_set_schedule',
+  'pipeline_create_it',
 ];
 
 const STAGE_STORAGE_PREFIX = 'dalgo_insight_walkthrough_stage_';
@@ -171,5 +205,29 @@ export function clearTrackedConnection(orgSlug: string): void {
     localStorage.removeItem(`${CONNECTION_STORAGE_PREFIX}${orgSlug}`);
   } catch {
     // no-op
+  }
+}
+
+const CONNECTED_REAL_DATA_STORAGE_PREFIX = 'dalgo_insight_walkthrough_connected_';
+
+// Set the moment the fork's tracked connection syncs successfully, regardless of which
+// fork (own_data or automate_pipeline) is running and regardless of whether that fork
+// later finishes or is skipped. Decoupled from `path`/hasFinishedWalkthrough on purpose —
+// Figma's automate-pipeline widget screenshot shows "Connect your own data" checked right
+// after ingest completes, well before the rest of that flow finishes. Never cleared by
+// skip()/finish() — like `path`, the getting-started widget reads it long-term.
+export function markConnectedRealData(orgSlug: string): void {
+  try {
+    localStorage.setItem(`${CONNECTED_REAL_DATA_STORAGE_PREFIX}${orgSlug}`, '1');
+  } catch {
+    // no-op
+  }
+}
+
+export function hasConnectedRealData(orgSlug: string): boolean {
+  try {
+    return localStorage.getItem(`${CONNECTED_REAL_DATA_STORAGE_PREFIX}${orgSlug}`) === '1';
+  } catch {
+    return false;
   }
 }
