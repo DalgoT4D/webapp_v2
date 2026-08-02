@@ -235,8 +235,11 @@ export function ChartElementView({
   const previousFilterHash = useRef<string>(filterHash);
 
   // Build query params with filters
+  // Skip dashboard_filters when viewing a frozen snapshot/report — frozen filters
+  // have their own ID space and the backend cannot resolve dashboard filter IDs
+  // against them (causes "Dashboard filter -53 not found in definitions" warnings).
   const queryParams = new URLSearchParams();
-  if (Object.keys(dashboardFilters).length > 0) {
+  if (!frozenChartConfig && Object.keys(dashboardFilters).length > 0) {
     queryParams.append('dashboard_filters', JSON.stringify(dashboardFilters));
   }
 
