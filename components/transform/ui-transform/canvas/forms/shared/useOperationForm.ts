@@ -93,7 +93,10 @@ export function useOperationForm<T extends OperationSlug>({
         toastSuccess.generic(successMessage);
         continueOperationChain(createdNodeUuid);
 
-        if (useInsightWalkthroughStore.getState().stage === 'pipeline_drop_columns') {
+        if (
+          operation.slug === 'dropcolumns' &&
+          useInsightWalkthroughStore.getState().stage === 'pipeline_drop_columns'
+        ) {
           useInsightWalkthroughStore.getState().advanceTo('pipeline_save_table');
         }
       } catch (error) {
