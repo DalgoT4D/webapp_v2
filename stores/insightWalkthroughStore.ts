@@ -11,21 +11,22 @@ import {
   hasFinishedWalkthrough,
   getStoredPath,
   savePath,
-  getStoredOwnDataConnection,
-  saveOwnDataConnection,
-  clearOwnDataConnection,
+  getStoredTrackedConnection,
+  saveTrackedConnection,
+  clearTrackedConnection,
 } from '@/components/onboarding/insight-walkthrough-constants';
 
 interface InsightWalkthroughState {
   active: boolean;
   orgSlug: string | null;
   stage: WalkthroughStage | null;
-  /** Which fork the user took at fork2 — null until they choose. Unlike `stage`,
-   * survives skip()/finish() so the getting-started widget can read it afterward. */
+  /** Which fork the user took — null until they choose. Unlike `stage`, survives
+   * skip()/finish() so the getting-started widget can read it afterward. */
   path: WalkthroughPath | null;
-  /** Connection created during the own-data fork, tracked so a later page load can
-   * check whether THIS connection (not just any connection in the org) has synced. */
-  ownDataConnectionId: string | null;
+  /** Connection created during the own-data or automate-pipeline fork, tracked so a
+   * later page load can check whether THIS connection (not just any connection in the
+   * org) has synced. Only one fork is ever active at a time, so one field covers both. */
+  trackedConnectionId: string | null;
   /** True while a plain interaction (e.g. a picker modal) is covering the spotlighted
    * target — the coachmark hides rather than darkening content it doesn't own. */
   suppressCoachmark: boolean;
@@ -34,7 +35,8 @@ interface InsightWalkthroughState {
   advanceTo: (stage: WalkthroughStage) => void;
   chooseSample: () => void;
   chooseOwnData: () => void;
-  trackOwnDataConnection: (connectionId: string) => void;
+  startAutomatePipeline: (orgSlug: string) => void;
+  trackConnection: (connectionId: string) => void;
   setSuppressCoachmark: (suppressed: boolean) => void;
   skip: () => void;
   finish: () => void;
@@ -45,13 +47,13 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   orgSlug: null,
   stage: null,
   path: null,
-  ownDataConnectionId: null,
+  trackedConnectionId: null,
   suppressCoachmark: false,
 
   start: (orgSlug) => {
     saveWalkthroughStage(orgSlug, 'fork2');
     trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_STARTED);
-    set({ active: true, orgSlug, stage: 'fork2', path: null, ownDataConnectionId: null });
+    set({ active: true, orgSlug, stage: 'fork2', path: null, trackedConnectionId: null });
   },
 
   resume: (orgSlug) => {
@@ -63,7 +65,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
       orgSlug,
       stage,
       path: getStoredPath(orgSlug),
-      ownDataConnectionId: getStoredOwnDataConnection(orgSlug),
+      trackedConnectionId: getStoredTrackedConnection(orgSlug),
     });
   },
 
@@ -75,10 +77,6 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
     set({ stage });
   },
 
-  // Persists path 'sample' even though nothing downstream reads it for the sample
-  // path itself — overwrites any stale 'own_data' left by a prior abandoned attempt,
-  // which would otherwise mis-check "Connect your own data" in the getting-started
-  // widget once this (sample) walkthrough completes.
   chooseSample: () => {
     const orgSlug = get().orgSlug;
     if (!orgSlug) return;
@@ -97,11 +95,26 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
     set({ path: 'own_data', stage: 'own_data_ingest' });
   },
 
-  trackOwnDataConnection: (connectionId) => {
+  // No fork2 screen for this path — PostTourModal navigates straight to /ingest itself,
+  // this action just flips the store state before that navigation happens.
+  startAutomatePipeline: (orgSlug) => {
+    savePath(orgSlug, 'automate_pipeline');
+    saveWalkthroughStage(orgSlug, 'pipeline_ingest');
+    trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_STARTED, { path: 'automate_pipeline' });
+    set({
+      active: true,
+      orgSlug,
+      stage: 'pipeline_ingest',
+      path: 'automate_pipeline',
+      trackedConnectionId: null,
+    });
+  },
+
+  trackConnection: (connectionId) => {
     const orgSlug = get().orgSlug;
     if (!orgSlug) return;
-    saveOwnDataConnection(orgSlug, connectionId);
-    set({ ownDataConnectionId: connectionId });
+    saveTrackedConnection(orgSlug, connectionId);
+    set({ trackedConnectionId: connectionId });
   },
 
   setSuppressCoachmark: (suppressed) => set({ suppressCoachmark: suppressed }),
@@ -110,20 +123,20 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
     const { orgSlug, stage } = get();
     if (orgSlug) {
       clearWalkthroughState(orgSlug);
-      clearOwnDataConnection(orgSlug);
+      clearTrackedConnection(orgSlug);
       trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_SKIPPED, { stage });
     }
-    set({ active: false, orgSlug: null, stage: null, ownDataConnectionId: null });
+    set({ active: false, orgSlug: null, stage: null, trackedConnectionId: null });
   },
 
   finish: () => {
     const orgSlug = get().orgSlug;
     if (orgSlug) {
       clearWalkthroughState(orgSlug);
-      clearOwnDataConnection(orgSlug);
+      clearTrackedConnection(orgSlug);
       markWalkthroughDone(orgSlug);
       trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_COMPLETED);
     }
-    set({ active: false, orgSlug: null, stage: null, ownDataConnectionId: null });
+    set({ active: false, orgSlug: null, stage: null, trackedConnectionId: null });
   },
 }));

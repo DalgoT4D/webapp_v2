@@ -3,7 +3,7 @@ import {
   getStoredWalkthroughStage,
   hasFinishedWalkthrough,
   getStoredPath,
-  getStoredOwnDataConnection,
+  getStoredTrackedConnection,
 } from '../insight-walkthrough-constants';
 
 describe('insightWalkthroughStore', () => {
@@ -80,12 +80,12 @@ describe('insightWalkthroughStore', () => {
     expect(getStoredPath('org-a')).toBe('sample');
   });
 
-  it('trackOwnDataConnection() persists the connection id', () => {
+  it('trackConnection() persists the connection id', () => {
     useInsightWalkthroughStore.getState().start('org-a');
     useInsightWalkthroughStore.getState().chooseOwnData();
-    useInsightWalkthroughStore.getState().trackOwnDataConnection('conn-123');
-    expect(useInsightWalkthroughStore.getState().ownDataConnectionId).toBe('conn-123');
-    expect(getStoredOwnDataConnection('org-a')).toBe('conn-123');
+    useInsightWalkthroughStore.getState().trackConnection('conn-123');
+    expect(useInsightWalkthroughStore.getState().trackedConnectionId).toBe('conn-123');
+    expect(getStoredTrackedConnection('org-a')).toBe('conn-123');
   });
 
   it('path survives finish(), unlike stage — getting-started widget reads it after completion', () => {
@@ -97,23 +97,33 @@ describe('insightWalkthroughStore', () => {
     expect(getStoredWalkthroughStage('org-a')).toBeNull();
   });
 
-  it('finish() clears the tracked own-data connection', () => {
+  it('finish() clears the tracked connection', () => {
     useInsightWalkthroughStore.getState().start('org-a');
     useInsightWalkthroughStore.getState().chooseOwnData();
-    useInsightWalkthroughStore.getState().trackOwnDataConnection('conn-123');
+    useInsightWalkthroughStore.getState().trackConnection('conn-123');
     useInsightWalkthroughStore.getState().finish();
-    expect(getStoredOwnDataConnection('org-a')).toBeNull();
-    expect(useInsightWalkthroughStore.getState().ownDataConnectionId).toBeNull();
+    expect(getStoredTrackedConnection('org-a')).toBeNull();
+    expect(useInsightWalkthroughStore.getState().trackedConnectionId).toBeNull();
   });
 
-  it('resume() restores path + ownDataConnectionId from storage', () => {
+  it('resume() restores path + trackedConnectionId from storage', () => {
     useInsightWalkthroughStore.getState().start('org-a');
     useInsightWalkthroughStore.getState().chooseOwnData();
-    useInsightWalkthroughStore.getState().trackOwnDataConnection('conn-123');
+    useInsightWalkthroughStore.getState().trackConnection('conn-123');
     useInsightWalkthroughStore.setState({ active: false, orgSlug: null, stage: null });
     useInsightWalkthroughStore.getState().resume('org-a');
     const state = useInsightWalkthroughStore.getState();
     expect(state.path).toBe('own_data');
-    expect(state.ownDataConnectionId).toBe('conn-123');
+    expect(state.trackedConnectionId).toBe('conn-123');
+  });
+
+  it('startAutomatePipeline() sets path + stage and persists both, with no fork2 step', () => {
+    useInsightWalkthroughStore.getState().startAutomatePipeline('org-a');
+    const state = useInsightWalkthroughStore.getState();
+    expect(state.active).toBe(true);
+    expect(state.path).toBe('automate_pipeline');
+    expect(state.stage).toBe('pipeline_ingest');
+    expect(getStoredPath('org-a')).toBe('automate_pipeline');
+    expect(getStoredWalkthroughStage('org-a')).toBe('pipeline_ingest');
   });
 });

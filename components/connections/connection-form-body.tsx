@@ -336,8 +336,11 @@ export function ConnectionFormBody({
         // (possibly a new session, if the first sync outlasts the tab) can tell once
         // THIS connection — not just any connection in the org — has synced.
         const walkthrough = useInsightWalkthroughStore.getState();
-        if (walkthrough.active && walkthrough.path === 'own_data') {
-          walkthrough.trackOwnDataConnection(created.connectionId);
+        if (
+          walkthrough.active &&
+          (walkthrough.path === 'own_data' || walkthrough.path === 'automate_pipeline')
+        ) {
+          walkthrough.trackConnection(created.connectionId);
         }
 
         // Kick off the first sync automatically so a freshly created connection

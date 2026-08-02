@@ -35,7 +35,11 @@ export type WalkthroughStage =
   | 'own_data_chart_save'
   | 'own_data_dashboard_nudge'
   | 'own_data_builder_add_chart'
-  | 'own_data_builder_add_kpi';
+  | 'own_data_builder_add_kpi'
+  // Automate-pipeline fork — see startAutomatePipeline in insightWalkthroughStore.ts.
+  // pipeline_ingest has no coachmark (like own_data_ingest) since the ingest wizard
+  // explains itself, and is resumed via the same sync-success check as own_data_ingest.
+  | 'pipeline_ingest';
 
 export const WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   'fork2',
@@ -81,7 +85,7 @@ const DONE_STORAGE_PREFIX = 'dalgo_insight_walkthrough_done_';
 const PATH_STORAGE_PREFIX = 'dalgo_insight_walkthrough_path_';
 const CONNECTION_STORAGE_PREFIX = 'dalgo_insight_walkthrough_conn_';
 
-export type WalkthroughPath = 'sample' | 'own_data';
+export type WalkthroughPath = 'sample' | 'own_data' | 'automate_pipeline';
 
 export function getStoredWalkthroughStage(orgSlug: string): WalkthroughStage | null {
   try {
@@ -143,10 +147,10 @@ export function savePath(orgSlug: string, path: WalkthroughPath): void {
   }
 }
 
-// Tracks the specific connection created during the own-data fork, so a later page
-// load (possibly a new session, if the user left before the first sync finished)
-// can tell whether THIS connection has synced — not just any connection in the org.
-export function getStoredOwnDataConnection(orgSlug: string): string | null {
+// Tracks the specific connection created during the own-data or automate-pipeline fork,
+// so a later page load (possibly a new session, if the user left before the first sync
+// finished) can tell whether THIS connection has synced — not just any connection in the org.
+export function getStoredTrackedConnection(orgSlug: string): string | null {
   try {
     return localStorage.getItem(`${CONNECTION_STORAGE_PREFIX}${orgSlug}`);
   } catch {
@@ -154,7 +158,7 @@ export function getStoredOwnDataConnection(orgSlug: string): string | null {
   }
 }
 
-export function saveOwnDataConnection(orgSlug: string, connectionId: string): void {
+export function saveTrackedConnection(orgSlug: string, connectionId: string): void {
   try {
     localStorage.setItem(`${CONNECTION_STORAGE_PREFIX}${orgSlug}`, connectionId);
   } catch {
@@ -162,7 +166,7 @@ export function saveOwnDataConnection(orgSlug: string, connectionId: string): vo
   }
 }
 
-export function clearOwnDataConnection(orgSlug: string): void {
+export function clearTrackedConnection(orgSlug: string): void {
   try {
     localStorage.removeItem(`${CONNECTION_STORAGE_PREFIX}${orgSlug}`);
   } catch {

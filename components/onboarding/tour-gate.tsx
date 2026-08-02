@@ -71,9 +71,9 @@ export function TourGate() {
   // while any connection is locked/running) — reuse it rather than adding new polling.
   const { data: connections } = useConnectionsList();
   useEffect(() => {
-    const { active, stage, ownDataConnectionId } = useInsightWalkthroughStore.getState();
-    if (!active || stage !== 'own_data_ingest' || !ownDataConnectionId) return;
-    const conn = connections.find((c) => c.connectionId === ownDataConnectionId);
+    const { active, stage, trackedConnectionId } = useInsightWalkthroughStore.getState();
+    if (!active || stage !== 'own_data_ingest' || !trackedConnectionId) return;
+    const conn = connections.find((c) => c.connectionId === trackedConnectionId);
     if (conn?.lastRun?.status === SyncStatus.SUCCESS) {
       useInsightWalkthroughStore.getState().advanceTo('own_data_charts_intro');
     }
