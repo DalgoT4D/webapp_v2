@@ -30,6 +30,7 @@ import {
   OperationFormAction,
   OperationPanelState,
   CanvasActionEnum,
+  DROP_COLUMNS_OP,
 } from '@/constants/transform';
 import { cn } from '@/lib/utils';
 import { useDummyNodeManager } from '../layout/hooks/useDummyNodeManager';
@@ -144,7 +145,10 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
       setFormMode(OperationFormAction.CREATE);
       setPanelState(OperationPanelState.OP_FORM);
 
-      if (useInsightWalkthroughStore.getState().stage === 'pipeline_pick_function') {
+      if (
+        operation.slug === DROP_COLUMNS_OP &&
+        useInsightWalkthroughStore.getState().stage === 'pipeline_pick_function'
+      ) {
         useInsightWalkthroughStore.getState().advanceTo('pipeline_drop_columns');
       }
     },

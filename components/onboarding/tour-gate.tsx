@@ -121,7 +121,9 @@ export function TourGate() {
           />
           <GettingStartedWidget
             hasSeenTour={seen}
-            hasBuiltFirstInsight={hasFinishedWalkthrough(orgSlug)}
+            hasBuiltFirstInsight={
+              hasFinishedWalkthrough(orgSlug) && getStoredPath(orgSlug) !== 'automate_pipeline'
+            }
             hasConnectedOwnData={hasConnectedRealData(orgSlug)}
             hasAutomatedPipeline={
               getStoredPath(orgSlug) === 'automate_pipeline' && hasFinishedWalkthrough(orgSlug)

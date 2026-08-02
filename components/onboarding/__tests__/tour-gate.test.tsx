@@ -150,4 +150,32 @@ describe('TourGate', () => {
     expect(item).toBeInTheDocument();
     expect(item.querySelector('svg')).toHaveClass('text-primary');
   });
+
+  it('does NOT show "Build your first insight" as checked when only the automate-pipeline path finished', () => {
+    localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+    localStorage.setItem('dalgo_insight_walkthrough_path_trial-org', 'automate_pipeline');
+    localStorage.setItem('dalgo_insight_walkthrough_done_trial-org', '1');
+    setupAuthStore(buildOrgUser());
+    renderGate();
+
+    // Automating a pipeline finished the walkthrough, but built no chart/dashboard —
+    // "Build your first insight" must stay unchecked (regression guard for the
+    // cross-fork false positive: hasFinishedWalkthrough is a single global flag
+    // shared by all 3 forks, so it must be paired with a path check).
+    const item = screen.getByTestId('getting-started-widget-item-build-insight');
+    expect(item).toBeInTheDocument();
+    expect(item.querySelector('svg')).toHaveClass('text-muted-foreground');
+  });
+
+  it('shows "Build your first insight" as checked when the sample path finished', () => {
+    localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+    localStorage.setItem('dalgo_insight_walkthrough_path_trial-org', 'sample');
+    localStorage.setItem('dalgo_insight_walkthrough_done_trial-org', '1');
+    setupAuthStore(buildOrgUser());
+    renderGate();
+
+    const item = screen.getByTestId('getting-started-widget-item-build-insight');
+    expect(item).toBeInTheDocument();
+    expect(item.querySelector('svg')).toHaveClass('text-primary');
+  });
 });
