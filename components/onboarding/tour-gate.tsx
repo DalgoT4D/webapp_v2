@@ -12,12 +12,14 @@ import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { FREE_TRIAL_PLAN_NAME } from '@/constants/trial';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { useConnectionsList } from '@/hooks/api/useConnections';
+import { SyncStatus } from '@/constants/connections';
 import { ProductTour, type ProductTourHandle } from './product-tour';
 import { TourIntentModal } from './tour-intent-modal';
 import { GettingStartedWidget } from './getting-started-widget';
 import { InsightWalkthroughCoachmark } from './insight-walkthrough-coachmark';
 import { hasSeenTour } from './tour-constants';
-import { hasFinishedWalkthrough } from './insight-walkthrough-constants';
+import { hasFinishedWalkthrough, getStoredPath } from './insight-walkthrough-constants';
 
 const IMPACT_PATH = '/impact';
 
@@ -63,6 +65,20 @@ export function TourGate() {
     useInsightWalkthroughStore.getState().resume(orgSlug);
   }, [orgSlug]);
 
+  // Own-data walkthrough's sync checkpoint: the wait for a first sync can outlive the
+  // browser session, so this can't rely on an in-memory callback from the ingest wizard.
+  // useConnectionsList() already fetches fresh data on every mount (plus smart-polls
+  // while any connection is locked/running) — reuse it rather than adding new polling.
+  const { data: connections } = useConnectionsList();
+  useEffect(() => {
+    const { active, stage, ownDataConnectionId } = useInsightWalkthroughStore.getState();
+    if (!active || stage !== 'own_data_ingest' || !ownDataConnectionId) return;
+    const conn = connections.find((c) => c.connectionId === ownDataConnectionId);
+    if (conn?.lastRun?.status === SyncStatus.SUCCESS) {
+      useInsightWalkthroughStore.getState().advanceTo('own_data_charts_intro');
+    }
+  }, [connections]);
+
   if (!isTrialOrg || !orgSlug) return null;
 
   const startTour = () => {
@@ -88,6 +104,9 @@ export function TourGate() {
           <GettingStartedWidget
             hasSeenTour={seen}
             hasBuiltFirstInsight={hasFinishedWalkthrough(orgSlug)}
+            hasConnectedOwnData={
+              getStoredPath(orgSlug) === 'own_data' && hasFinishedWalkthrough(orgSlug)
+            }
             onStartTour={startTour}
           />
         </>

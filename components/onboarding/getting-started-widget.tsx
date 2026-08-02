@@ -5,10 +5,9 @@
  * Figma: "take tour" frames showing the widget before/after the tour is seen.
  *
  * "Sample data ready" is always true post-clone. "Take a quick tour" is tied to the
- * tour-seen flag. "Build your first insight" is tied to the insight walkthrough's own
- * completion flag (components/onboarding/insight-walkthrough-constants.ts) now that a
- * precise walkthrough-completed signal exists. "Connect your own data" remains a plain
- * link with no completion signal (its own walkthrough doesn't exist yet).
+ * tour-seen flag. "Build your first insight" and "Connect your own data" are both tied
+ * to the insight walkthrough's completion flag, disambiguated by which fork the user
+ * took (components/onboarding/insight-walkthrough-constants.ts's `path`).
  */
 import { useState } from 'react';
 import Link from 'next/link';
@@ -20,6 +19,7 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 interface GettingStartedWidgetProps {
   hasSeenTour: boolean;
   hasBuiltFirstInsight: boolean;
+  hasConnectedOwnData: boolean;
   onStartTour: () => void;
 }
 
@@ -35,6 +35,7 @@ interface ChecklistItem {
 export function GettingStartedWidget({
   hasSeenTour,
   hasBuiltFirstInsight,
+  hasConnectedOwnData,
   onStartTour,
 }: GettingStartedWidgetProps) {
   const [dismissed, setDismissed] = useState(false);
@@ -65,7 +66,7 @@ export function GettingStartedWidget({
           key: 'connect-data',
           label: 'Connect your own data',
           description: 'Bring in your sources and keep them updating automatically.',
-          checked: false,
+          checked: hasConnectedOwnData,
           href: '/ingest',
         },
       ]

@@ -1380,6 +1380,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         const walkthrough = useInsightWalkthroughStore.getState();
         if (walkthrough.active && walkthrough.stage === 'builder_add_chart') {
           walkthrough.advanceTo('builder_resize');
+        } else if (walkthrough.active && walkthrough.stage === 'own_data_builder_add_chart') {
+          // Own-data path adds chart-then-KPI (opposite of the sample path) — next is
+          // the KPI-add stage, not resize.
+          walkthrough.advanceTo('own_data_builder_add_kpi');
         }
       } catch (error) {
         console.error('Failed to add chart');
@@ -1428,6 +1432,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       const walkthrough = useInsightWalkthroughStore.getState();
       if (walkthrough.active && walkthrough.stage === 'builder_add_kpi') {
         walkthrough.advanceTo('builder_add_chart');
+      } else if (walkthrough.active && walkthrough.stage === 'own_data_builder_add_kpi') {
+        // Own-data path already added its chart first — next is resize, converging
+        // back into the shared tail (resize → save → preview → share).
+        walkthrough.advanceTo('builder_resize');
       }
     };
 

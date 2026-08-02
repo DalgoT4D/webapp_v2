@@ -18,7 +18,7 @@ import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import type { WalkthroughStage } from './insight-walkthrough-constants';
 
 /** Resolve when `selector` is in the DOM, or after `timeout` ms (returns the el or null). */
-function waitForElement(selector: string, timeout = 6000): Promise<Element | null> {
+function waitForElement(selector: string, timeout = 30000): Promise<Element | null> {
   return new Promise((resolve) => {
     const existing = document.querySelector(selector);
     if (existing) return resolve(existing);
@@ -67,7 +67,8 @@ interface StageConfig {
 // to the NEXT stage they unlock once that route is reached.
 const ROUTE_ADVANCES: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
   dashboard_nudge: 'dashboard_intro',
-  dashboard_intro: 'builder_add_kpi',
+  own_data_charts_intro: 'own_data_chart_create',
+  own_data_dashboard_nudge: 'dashboard_intro',
 };
 
 // Populated incrementally across the feature's tasks.
@@ -201,6 +202,54 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description: 'Send it to your team so everyone sees the same numbers — click the Share icon.',
     dimOverlay: false,
   },
+  // own_data_ingest has no entry here — it's a silent wait stage (see tour-gate.tsx's
+  // sync-detection effect), not a coachmark.
+  own_data_charts_intro: {
+    route: null, // shown wherever the user is when the tracked connection's sync is detected
+    selector: 'a[href="/charts"]',
+    title: "Your data's in",
+    description:
+      "Data is synced and clean. Let's create charts from your own data — same builder you saw with the sample.",
+    closeLabel: 'Later',
+  },
+  own_data_chart_create: {
+    route: '/charts',
+    selector: '[data-testid="charts-create-btn"]',
+    title: 'Start here',
+    description: 'Create a chart from one of your tables — it only takes a couple of clicks.',
+  },
+  own_data_chart_save: {
+    route: null, // resolved dynamically to /charts/{id}/edit — matched by pathname regex below
+    selector: '[data-testid="chart-edit-save-button"]',
+    title: 'Looks good — save it',
+    description: 'Save this chart to reuse it on a dashboard your team can open.',
+    dimOverlay: false,
+  },
+  own_data_dashboard_nudge: {
+    route: '/charts',
+    selector: 'a[href="/dashboards"]',
+    title: 'Add it to a dashboard',
+    description:
+      'Your chart is live 🎉 Pin it onto a dashboard so your team sees the full picture.',
+    closeLabel: 'Later',
+    dimOverlay: false,
+  },
+  own_data_builder_add_chart: {
+    route: '/dashboards/create',
+    selector: '[data-testid="add-chart-btn"]',
+    title: 'Add a Chart',
+    description: 'Click Add chart and drop a sample chart next to it.',
+    dimOverlay: false,
+    side: 'bottom',
+  },
+  own_data_builder_add_kpi: {
+    route: '/dashboards/create',
+    selector: '[data-testid="add-kpi-btn"]',
+    title: 'Add your KPI',
+    description: 'Click Add KPI and pick one to drop it onto the canvas.',
+    dimOverlay: false,
+    side: 'bottom',
+  },
 };
 
 export function InsightWalkthroughCoachmark(): null {
@@ -248,12 +297,12 @@ export function InsightWalkthroughCoachmark(): null {
               .querySelector('[data-action="sample"]')
               ?.addEventListener('click', () => {
                 d.destroy();
-                useInsightWalkthroughStore.getState().advanceTo('kpi_intro');
+                useInsightWalkthroughStore.getState().chooseSample();
                 router.push('/kpis');
               });
             popover.wrapper.querySelector('[data-action="own"]')?.addEventListener('click', () => {
               d.destroy();
-              useInsightWalkthroughStore.getState().skip();
+              useInsightWalkthroughStore.getState().chooseOwnData();
               router.push('/ingest');
             });
             popover.wrapper.querySelector('[data-action="skip"]')?.addEventListener('click', () => {
@@ -293,6 +342,11 @@ export function InsightWalkthroughCoachmark(): null {
       (async () => {
         if (config.route && window.location.pathname !== config.route) return;
         if (stage === 'share' && !/^\/dashboards\/\d+$/.test(window.location.pathname)) return;
+        if (
+          stage === 'own_data_chart_save' &&
+          !/^\/charts\/\d+\/edit$/.test(window.location.pathname)
+        )
+          return;
         const el = await waitForElement(config.selector);
         if (cancelled || !el) return;
 
@@ -341,14 +395,29 @@ export function InsightWalkthroughCoachmark(): null {
   // Route-driven advances: reaching a mapped route auto-advances to the stage it unlocks.
   useEffect(() => {
     if (!active || !stage) return;
+    const walkthrough = useInsightWalkthroughStore.getState();
+
+    // dashboard_intro is shared by both forks but unlocks a different next stage
+    // depending which one the user took (own-data adds chart-then-KPI; sample adds
+    // KPI-then-chart) — can't go through the flat ROUTE_ADVANCES map for this one.
+    if (stage === 'dashboard_intro' && pathname === '/dashboards/create') {
+      walkthrough.advanceTo(
+        walkthrough.path === 'own_data' ? 'own_data_builder_add_chart' : 'builder_add_kpi'
+      );
+      return;
+    }
+
     const next = ROUTE_ADVANCES[stage];
     if (next && STAGE_CONFIG[next]?.route === pathname) {
-      useInsightWalkthroughStore.getState().advanceTo(next);
+      walkthrough.advanceTo(next);
     }
-    // 'share' has no fixed route (it's /dashboards/{id}, a dynamic id) so it can't go through
-    // the ROUTE_ADVANCES map's plain equality check above.
+    // These stages resolve to a dynamic route (id unknown ahead of time) so they can't
+    // go through the ROUTE_ADVANCES map's plain equality check above.
     if (stage === 'builder_preview' && /^\/dashboards\/\d+$/.test(pathname)) {
-      useInsightWalkthroughStore.getState().advanceTo('share');
+      walkthrough.advanceTo('share');
+    }
+    if (stage === 'own_data_chart_create' && /^\/charts\/\d+\/edit$/.test(pathname)) {
+      walkthrough.advanceTo('own_data_chart_save');
     }
   }, [active, stage, pathname]);
 

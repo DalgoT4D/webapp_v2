@@ -18,6 +18,7 @@ import {
   updateConnection,
   triggerSync,
 } from '@/hooks/api/useConnections';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { SyncMode, DestinationSyncMode, FormMode } from '@/constants/connections';
 import { toastSuccess, toastError } from '@/lib/toast';
@@ -330,6 +331,14 @@ export function ConnectionFormBody({
         });
         trackEvent(ANALYTICS_EVENTS.CONNECTION_CREATED, { source_type: sourceType });
         toastSuccess.created('Connection');
+
+        // Own-data walkthrough checkpoint: track this connection so a later page load
+        // (possibly a new session, if the first sync outlasts the tab) can tell once
+        // THIS connection — not just any connection in the org — has synced.
+        const walkthrough = useInsightWalkthroughStore.getState();
+        if (walkthrough.active && walkthrough.path === 'own_data') {
+          walkthrough.trackOwnDataConnection(created.connectionId);
+        }
 
         // Kick off the first sync automatically so a freshly created connection
         // starts pulling data without a separate manual step. A sync failure

@@ -17,6 +17,7 @@ describe('GettingStartedWidget', () => {
       <GettingStartedWidget
         hasSeenTour={false}
         hasBuiltFirstInsight={false}
+        hasConnectedOwnData={false}
         onStartTour={jest.fn()}
       />
     );
@@ -34,6 +35,7 @@ describe('GettingStartedWidget', () => {
       <GettingStartedWidget
         hasSeenTour={true}
         hasBuiltFirstInsight={false}
+        hasConnectedOwnData={false}
         onStartTour={jest.fn()}
       />
     );
@@ -49,6 +51,7 @@ describe('GettingStartedWidget', () => {
       <GettingStartedWidget
         hasSeenTour={true}
         hasBuiltFirstInsight={false}
+        hasConnectedOwnData={false}
         onStartTour={jest.fn()}
       />
     );
@@ -70,6 +73,7 @@ describe('GettingStartedWidget', () => {
       <GettingStartedWidget
         hasSeenTour={false}
         hasBuiltFirstInsight={false}
+        hasConnectedOwnData={false}
         onStartTour={onStartTour}
       />
     );
@@ -87,6 +91,7 @@ describe('GettingStartedWidget', () => {
       <GettingStartedWidget
         hasSeenTour={false}
         hasBuiltFirstInsight={false}
+        hasConnectedOwnData={false}
         onStartTour={onStartTour}
       />
     );
@@ -101,10 +106,24 @@ describe('GettingStartedWidget', () => {
       <GettingStartedWidget
         hasSeenTour={true}
         hasBuiltFirstInsight={true}
+        hasConnectedOwnData={false}
         onStartTour={jest.fn()}
       />
     );
     const item = screen.getByTestId('getting-started-widget-item-build-insight');
+    expect(item.querySelector('svg')).toHaveClass('text-primary'); // CheckCircle2, not the muted Circle
+  });
+
+  it('shows "Connect your own data" as checked when hasConnectedOwnData is true', () => {
+    render(
+      <GettingStartedWidget
+        hasSeenTour={true}
+        hasBuiltFirstInsight={false}
+        hasConnectedOwnData={true}
+        onStartTour={jest.fn()}
+      />
+    );
+    const item = screen.getByTestId('getting-started-widget-item-connect-data');
     expect(item.querySelector('svg')).toHaveClass('text-primary'); // CheckCircle2, not the muted Circle
   });
 
@@ -114,6 +133,7 @@ describe('GettingStartedWidget', () => {
       <GettingStartedWidget
         hasSeenTour={false}
         hasBuiltFirstInsight={false}
+        hasConnectedOwnData={false}
         onStartTour={jest.fn()}
       />
     );
