@@ -42,6 +42,7 @@ import {
 import { WEEKDAYS, SCHEDULE_OPTIONS } from '@/constants/pipeline';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 
 interface PipelineFormProps {
   deploymentId?: string;
@@ -214,6 +215,10 @@ function PipelineFormContent({
       } else {
         setValue('tasks', []);
       }
+
+      if (checked && useInsightWalkthroughStore.getState().stage === 'pipeline_run_transform') {
+        useInsightWalkthroughStore.getState().advanceTo('pipeline_set_schedule');
+      }
     },
     [setValue, tasks]
   );
@@ -383,6 +388,13 @@ function PipelineFormContent({
                         })
                         .filter(Boolean) as ConnectionOption[];
                       field.onChange(newConnections);
+
+                      if (
+                        newConnections.length > 0 &&
+                        useInsightWalkthroughStore.getState().stage === 'pipeline_add_connection'
+                      ) {
+                        useInsightWalkthroughStore.getState().advanceTo('pipeline_run_transform');
+                      }
                     }}
                     placeholder="Select your connections"
                     searchPlaceholder="Search connections..."
@@ -447,6 +459,13 @@ function PipelineFormContent({
                     onValueChange={(value) => {
                       const option = scheduleItems.find((s) => s.value === value);
                       field.onChange(option ? { id: option.value, label: option.label } : null);
+
+                      if (
+                        option &&
+                        useInsightWalkthroughStore.getState().stage === 'pipeline_set_schedule'
+                      ) {
+                        useInsightWalkthroughStore.getState().advanceTo('pipeline_create_it');
+                      }
                     }}
                     placeholder="Select schedule"
                     id="cron"
