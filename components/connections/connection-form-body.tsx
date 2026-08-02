@@ -332,9 +332,9 @@ export function ConnectionFormBody({
         trackEvent(ANALYTICS_EVENTS.CONNECTION_CREATED, { source_type: sourceType });
         toastSuccess.created('Connection');
 
-        // Own-data walkthrough checkpoint: track this connection so a later page load
-        // (possibly a new session, if the first sync outlasts the tab) can tell once
-        // THIS connection — not just any connection in the org — has synced.
+        // Own-data / automate-pipeline walkthrough checkpoint: track this connection so
+        // a later page load (possibly a new session, if the first sync outlasts the tab)
+        // can tell once THIS connection — not just any connection in the org — has synced.
         const walkthrough = useInsightWalkthroughStore.getState();
         if (
           walkthrough.active &&
