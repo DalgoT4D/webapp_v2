@@ -69,6 +69,10 @@ const ROUTE_ADVANCES: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
   dashboard_nudge: 'dashboard_intro',
   own_data_charts_intro: 'own_data_chart_create',
   own_data_dashboard_nudge: 'dashboard_intro',
+  pipeline_transform_intro: 'pipeline_workflow_intro',
+  pipeline_workflow_intro: 'pipeline_pick_table',
+  pipeline_table_built: 'pipeline_orchestrate_intro',
+  pipeline_orchestrate_intro: 'pipeline_add_connection',
 };
 
 // Populated incrementally across the feature's tasks.
@@ -249,6 +253,107 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description: 'Click Add KPI and pick one to drop it onto the canvas.',
     dimOverlay: false,
     side: 'bottom',
+  },
+  // pipeline_ingest has no entry — silent wait stage, same treatment as own_data_ingest
+  // (see tour-gate.tsx's sync-detection effect).
+  pipeline_transform_intro: {
+    route: null, // shown wherever the user is when the tracked connection's sync is detected
+    selector: 'a[href="/transform"]',
+    title: "Your data's in - now shape it",
+    description:
+      "Raw tables aren't a pipeline yet. Head to Transform to combine them into one clean, chart-ready dataset.",
+  },
+  pipeline_workflow_intro: {
+    route: '/transform',
+    selector: '[data-testid="edit-workflow-btn"]',
+    title: 'Open the workflow editor',
+    description:
+      "This is where you shape your raw tables. Click Edit Workflow and we'll walk you through just two steps.",
+  },
+  pipeline_pick_table: {
+    route: '/transform/canvas',
+    selector: '[data-testid^="add-to-canvas-"]',
+    title: 'Start with a table',
+    description:
+      'You already have data here. To build a new one, find your table on the left and click the + beside it.',
+  },
+  pipeline_pick_function: {
+    route: '/transform/canvas',
+    selector: '[data-testid="operation-list"]',
+    title: 'Pick a function',
+    description:
+      'We are focusing on Drop, Arithmetic and Filter. Click Drop to remove the columns you do not need.',
+    dimOverlay: false,
+  },
+  pipeline_drop_columns: {
+    route: '/transform/canvas',
+    selector: '[data-testid="drop-column-list"]',
+    title: 'Drop the clutter',
+    description: 'Tick the fields you do not report on, then click Save.',
+    dimOverlay: false,
+  },
+  pipeline_save_table: {
+    route: '/transform/canvas',
+    selector: '[data-testid="create-table-btn"]',
+    title: 'Save it as a table',
+    description:
+      'Turn this cleaned result into a new table your charts can use - click Create a table.',
+    dimOverlay: false,
+  },
+  pipeline_name_table: {
+    route: '/transform/canvas',
+    selector: '[data-testid="save-table-btn"]',
+    title: 'Name your table',
+    description:
+      "We've pre-filled the intermediate schema. Looks good - hit Save and it builds automatically.",
+    dimOverlay: false,
+  },
+  pipeline_table_built: {
+    route: '/transform/canvas',
+    selector: '[data-testid="publish-button"]',
+    title: 'Your table is built',
+    description:
+      "You've got a final, chart-ready dataset. Publish it, then make it repeatable with a pipeline.",
+    dimOverlay: false,
+  },
+  pipeline_orchestrate_intro: {
+    route: '/orchestrate',
+    selector: '[data-testid="create-pipeline-btn"]',
+    title: 'Make it repeatable',
+    description:
+      'One last step - wrap your ingest + transform into a pipeline so it runs on its own, every day.',
+  },
+  pipeline_add_connection: {
+    route: '/orchestrate/create',
+    selector: '[data-testid="connections-container"]',
+    title: 'Add a connection',
+    description:
+      'Open Connections and pick your source - this is the data the pipeline pulls in on every run.',
+    dimOverlay: false,
+  },
+  pipeline_run_transform: {
+    route: '/orchestrate/create',
+    selector: '[data-testid="run-transform-tasks-checkbox"]',
+    title: 'Run all the tasks',
+    description:
+      'Tick Run transform tasks so each daily run does ingest and your transform together.',
+    dimOverlay: false,
+  },
+  pipeline_set_schedule: {
+    route: '/orchestrate/create',
+    selector: '[data-testid="cron-container"]',
+    title: 'Set a schedule',
+    description:
+      'Open Frequency and choose, so your pipeline refreshes the data on its own every morning.',
+    dimOverlay: false,
+  },
+  pipeline_create_it: {
+    route: '/orchestrate/create',
+    selector: '[data-testid="submit-btn"]',
+    title: 'Create it',
+    description:
+      "That's everything - a connection, your transform and a daily schedule. Click Create Pipeline to set it running.",
+    dimOverlay: false,
   },
 };
 
