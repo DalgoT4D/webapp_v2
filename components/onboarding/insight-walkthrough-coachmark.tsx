@@ -372,6 +372,7 @@ export function InsightWalkthroughCoachmark(): null {
   const active = useInsightWalkthroughStore((s) => s.active);
   const stage = useInsightWalkthroughStore((s) => s.stage);
   const suppressCoachmark = useInsightWalkthroughStore((s) => s.suppressCoachmark);
+  const trackedConnectionId = useInsightWalkthroughStore((s) => s.trackedConnectionId);
   const driverRef = useRef<Driver | null>(null);
 
   // Fork2: a one-off custom coachmark (3 actions, not a generic highlight+skip), rendered
@@ -449,8 +450,16 @@ export function InsightWalkthroughCoachmark(): null {
   // route+selector.
   useEffect(() => {
     let cancelled = false;
+    // pipeline_ingest's "Connect your data" nudge only makes sense before the user has
+    // actually created a connection — once trackedConnectionId is set, they're mid-sync
+    // (possibly for minutes), and re-showing "add a source" would be actively misleading.
+    // Fall back to fully silent (same as own_data_ingest) until the sync-detection effect
+    // in tour-gate.tsx advances the stage.
+    const isWaitingOnTrackedConnection = stage === 'pipeline_ingest' && trackedConnectionId;
     const config =
-      active && stage && stage !== 'fork2' && !suppressCoachmark ? STAGE_CONFIG[stage] : undefined;
+      active && stage && stage !== 'fork2' && !suppressCoachmark && !isWaitingOnTrackedConnection
+        ? STAGE_CONFIG[stage]
+        : undefined;
 
     if (config) {
       (async () => {
@@ -504,7 +513,7 @@ export function InsightWalkthroughCoachmark(): null {
       cancelled = true;
       driverRef.current?.destroy();
     };
-  }, [active, stage, pathname, suppressCoachmark]);
+  }, [active, stage, pathname, suppressCoachmark, trackedConnectionId]);
 
   // Route-driven advances: reaching a mapped route auto-advances to the stage it unlocks.
   useEffect(() => {
