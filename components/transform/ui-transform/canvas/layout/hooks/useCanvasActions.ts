@@ -14,6 +14,7 @@ import { apiGet } from '@/lib/api';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { CANVAS_CONSTANTS } from '@/constants/transform';
 import { TaskProgressStatus } from '@/constants/pipeline';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 
 interface UseCanvasActionsParams {
   isPreview: boolean;
@@ -177,6 +178,14 @@ export function useCanvasActions({ isPreview, runWorkflow }: UseCanvasActionsPar
             await runWorkflow(runData);
             // Refresh canvas after workflow completes
             await mutate(CANVAS_GRAPH_KEY);
+
+            // Walkthrough: only claim the table is built once the run actually
+            // finished, not the instant Save was clicked (CreateTableForm dispatches
+            // this action fire-and-forget — runWorkflow above is what awaits the
+            // real 2s-poll completion).
+            if (useInsightWalkthroughStore.getState().stage === 'pipeline_name_table') {
+              useInsightWalkthroughStore.getState().advanceTo('pipeline_table_built');
+            }
           } catch (error: unknown) {
             const message = error instanceof Error ? error.message : 'Failed to run workflow';
             toastError.api(message);

@@ -44,6 +44,7 @@ export type WalkthroughStage =
   | 'pipeline_transform_intro'
   | 'pipeline_workflow_intro'
   | 'pipeline_pick_table'
+  | 'pipeline_select_node'
   | 'pipeline_pick_function'
   | 'pipeline_drop_columns'
   | 'pipeline_save_table'
@@ -102,6 +103,7 @@ export const AUTOMATE_PIPELINE_STAGE_ORDER: WalkthroughStage[] = [
   'pipeline_transform_intro',
   'pipeline_workflow_intro',
   'pipeline_pick_table',
+  'pipeline_select_node',
   'pipeline_pick_function',
   'pipeline_drop_columns',
   'pipeline_save_table',

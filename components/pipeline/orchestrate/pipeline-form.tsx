@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSWRConfig } from 'swr';
 import { useForm, Controller } from 'react-hook-form';
@@ -181,6 +181,31 @@ function PipelineFormContent({
   });
 
   const scheduleSelected = watch('cron');
+  const cronDaysOfWeek = watch('cronDaysOfWeek');
+  const cronTimeOfDay = watch('cronTimeOfDay');
+
+  // Create Pipeline only lights up once the chosen frequency's required fields
+  // are actually filled — manual needs nothing extra, daily needs a time, weekly
+  // needs both days and a time.
+  const isScheduleComplete = useMemo(() => {
+    const freq = scheduleSelected?.id;
+    if (!freq) return false;
+    if (freq === 'manual') return true;
+    if (freq === 'daily') return Boolean(cronTimeOfDay);
+    if (freq === 'weekly') return cronDaysOfWeek.length > 0 && Boolean(cronTimeOfDay);
+    return false;
+  }, [scheduleSelected, cronDaysOfWeek, cronTimeOfDay]);
+
+  // Walkthrough: only point at Create Pipeline once it's actually clickable —
+  // picking a frequency alone isn't enough for daily/weekly.
+  useEffect(() => {
+    if (
+      isScheduleComplete &&
+      useInsightWalkthroughStore.getState().stage === 'pipeline_set_schedule'
+    ) {
+      useInsightWalkthroughStore.getState().advanceTo('pipeline_create_it');
+    }
+  }, [isScheduleComplete]);
 
   // Connection options for combobox
   const connectionItems: ComboboxItem[] = useMemo(() => {
@@ -324,7 +349,12 @@ function PipelineFormContent({
           <Button type="button" variant="outline" onClick={handleCancel} data-testid="cancel-btn">
             Cancel
           </Button>
-          <Button type="submit" variant="primary" disabled={submitting} data-testid="submit-btn">
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={submitting || !isScheduleComplete}
+            data-testid="submit-btn"
+          >
             {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isEditMode ? 'Save Changes' : 'Create Pipeline'}
           </Button>
@@ -464,13 +494,6 @@ function PipelineFormContent({
                     onValueChange={(value) => {
                       const option = scheduleItems.find((s) => s.value === value);
                       field.onChange(option ? { id: option.value, label: option.label } : null);
-
-                      if (
-                        option &&
-                        useInsightWalkthroughStore.getState().stage === 'pipeline_set_schedule'
-                      ) {
-                        useInsightWalkthroughStore.getState().advanceTo('pipeline_create_it');
-                      }
                     }}
                     placeholder="Select schedule"
                     id="cron"

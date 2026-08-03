@@ -9,7 +9,7 @@
  * component only owns rendering the right highlight for the CURRENT stage and reacting to
  * route changes for stages whose advance signal is simply "the user navigated onward".
  */
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { driver, type Driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
@@ -36,7 +36,13 @@ function waitForElement(selector: string, timeout = 30000): Promise<Element | nu
 interface StageConfig {
   /** Route this stage's target lives on, or null if it doesn't require navigation. */
   route: string | null;
-  selector: string;
+  /**
+   * Most targets are a static data-testid string. A few (e.g. a just-created canvas
+   * node, whose DOM id isn't known ahead of time) resolve from transient store state
+   * instead — pass a function returning the selector, or null while it isn't available
+   * yet (the stage is skipped rather than highlighting nothing).
+   */
+  selector: string | (() => string | null);
   title: string;
   description: string;
   /**
@@ -281,14 +287,35 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   pipeline_pick_table: {
     route: '/transform/canvas',
-    selector: '[data-testid^="add-to-canvas-"]',
+    // Whole tree panel (not just one table's + button): react-arborist virtualizes
+    // rows, so a single row's rect can be unreliable right as it mounts. The panel
+    // itself (search bar at the top) is always present and stable to measure, and
+    // keeping it as the highlighted element means every + button inside stays
+    // clickable (driver.js's overlay only lets clicks through its highlighted area).
+    selector: '[data-testid="project-tree-panel"]',
     title: 'Start with a table',
     description:
-      'You already have data here. To build a new one, find your table on the left and click the + beside it.',
+      'Your tables are listed here — find one and click the + beside it to start building.',
+    dimOverlay: false,
+  },
+  pipeline_select_node: {
+    route: '/transform/canvas',
+    // Resolved from the store, not a static string: the node's DOM id (its canvas
+    // node uuid) doesn't exist until useSourceTreeActions creates it.
+    selector: () => {
+      const id = useInsightWalkthroughStore.getState().targetNodeId;
+      return id ? `[data-testid="source-model-node-${id}"]` : null;
+    },
+    title: 'Open it up',
+    description: 'Click this table to start building — a functions panel opens on the right.',
+    dimOverlay: false,
   },
   pipeline_pick_function: {
     route: '/transform/canvas',
-    selector: '[data-testid="operation-list"]',
+    // Whole panel, not just the "Functions" heading: the heading alone doesn't
+    // cover the operation rows below it, and driver.js blocks clicks outside
+    // whatever element it highlights.
+    selector: '[data-testid="operation-config-layout"]',
     title: 'Pick a function',
     description:
       'We are focusing on Drop, Arithmetic and Filter. Click Drop to remove the columns you do not need.',
@@ -296,7 +323,8 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   pipeline_drop_columns: {
     route: '/transform/canvas',
-    selector: '[data-testid="drop-column-list"]',
+    // Whole form (checkboxes + Save), not just the column list — same reason as above.
+    selector: '[data-testid="drop-operation-form"]',
     title: 'Drop the clutter',
     description: 'Tick the fields you do not report on, then click Save.',
     dimOverlay: false,
@@ -311,10 +339,12 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   pipeline_name_table: {
     route: '/transform/canvas',
-    selector: '[data-testid="save-table-btn"]',
+    // Whole form (name + schema + folder + Save) — schema/folder are already
+    // pre-filled (intermediate / root), no separate steps needed for those.
+    selector: '[data-testid="create-table-form"]',
     title: 'Name your table',
     description:
-      'We’ve pre-filled the intermediate schema. Looks good — hit Save and it builds automatically.',
+      'Give it a clear name — like customer_summary. Schema and folder are pre-filled (intermediate / root) — hit Save and it builds automatically.',
     dimOverlay: false,
   },
   pipeline_table_built: {
@@ -374,6 +404,25 @@ export function InsightWalkthroughCoachmark(): null {
   const suppressCoachmark = useInsightWalkthroughStore((s) => s.suppressCoachmark);
   const trackedConnectionId = useInsightWalkthroughStore((s) => s.trackedConnectionId);
   const driverRef = useRef<Driver | null>(null);
+  const trackingFrameRef = useRef<number>(0);
+
+  // Keeps a highlight glued to its target while layout is still moving under it —
+  // a sidebar collapsing, a canvas pan/zoom settling, dagre re-laying nodes out —
+  // none of which fire the window 'resize' event driver.js listens for on its own.
+  // Also self-destroys the moment the target leaves the DOM (e.g. a panel closes
+  // after Save), instead of leaving a stale popover pointing at nothing until the
+  // stage variable itself gets around to changing.
+  const trackTarget = useCallback((d: Driver, el: Element) => {
+    const tick = () => {
+      if (!document.body.contains(el)) {
+        d.destroy();
+        return;
+      }
+      d.refresh();
+      trackingFrameRef.current = requestAnimationFrame(tick);
+    };
+    trackingFrameRef.current = requestAnimationFrame(tick);
+  }, []);
 
   // Fork2: a one-off custom coachmark (3 actions, not a generic highlight+skip), rendered
   // manually rather than through STAGE_CONFIG/renderStage below.
@@ -470,7 +519,10 @@ export function InsightWalkthroughCoachmark(): null {
           !/^\/charts\/\d+\/edit$/.test(window.location.pathname)
         )
           return;
-        const el = await waitForElement(config.selector);
+        const resolvedSelector =
+          typeof config.selector === 'function' ? config.selector() : config.selector;
+        if (!resolvedSelector) return;
+        const el = await waitForElement(resolvedSelector);
         if (cancelled || !el) return;
 
         const dimOverlay = config.dimOverlay !== false;
@@ -506,14 +558,16 @@ export function InsightWalkthroughCoachmark(): null {
             align: config.align ?? 'start',
           },
         });
+        trackTarget(d, el);
       })();
     }
 
     return () => {
+      cancelAnimationFrame(trackingFrameRef.current);
       cancelled = true;
       driverRef.current?.destroy();
     };
-  }, [active, stage, pathname, suppressCoachmark, trackedConnectionId]);
+  }, [active, stage, pathname, suppressCoachmark, trackedConnectionId, trackTarget]);
 
   // Route-driven advances: reaching a mapped route auto-advances to the stage it unlocks.
   useEffect(() => {
@@ -546,6 +600,7 @@ export function InsightWalkthroughCoachmark(): null {
 
   useEffect(() => {
     return () => {
+      cancelAnimationFrame(trackingFrameRef.current);
       driverRef.current?.destroy();
     };
   }, []);

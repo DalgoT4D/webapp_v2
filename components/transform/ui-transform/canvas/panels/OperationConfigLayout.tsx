@@ -380,7 +380,9 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
                 <ChevronLeft className="h-5 w-5" />
               </Button>
             )}
-            <h2 className="font-semibold text-lg">{getHeaderTitle()}</h2>
+            <h2 className="font-semibold text-lg" data-testid="functions-panel-title">
+              {getHeaderTitle()}
+            </h2>
             {panelState === OperationPanelState.OP_FORM && selectedOp?.infoToolTip && (
               <TooltipProvider>
                 <Tooltip>

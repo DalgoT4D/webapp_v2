@@ -30,9 +30,15 @@ interface InsightWalkthroughState {
   /** True while a plain interaction (e.g. a picker modal) is covering the spotlighted
    * target — the coachmark hides rather than darkening content it doesn't own. */
   suppressCoachmark: boolean;
+  /** The canvas node id 'pipeline_select_node' should highlight — set right before
+   * advancing to that stage, since the node's DOM id isn't known until it's created.
+   * Transient (not persisted): a page reload mid-walkthrough just re-highlights nothing
+   * until the user acts again. */
+  targetNodeId: string | null;
   start: (orgSlug: string) => void;
   resume: (orgSlug: string) => void;
   advanceTo: (stage: WalkthroughStage) => void;
+  setTargetNodeId: (nodeId: string | null) => void;
   chooseSample: () => void;
   chooseOwnData: () => void;
   startAutomatePipeline: (orgSlug: string) => void;
@@ -49,6 +55,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   path: null,
   trackedConnectionId: null,
   suppressCoachmark: false,
+  targetNodeId: null,
 
   start: (orgSlug) => {
     saveWalkthroughStage(orgSlug, 'fork2');
@@ -118,6 +125,8 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   },
 
   setSuppressCoachmark: (suppressed) => set({ suppressCoachmark: suppressed }),
+
+  setTargetNodeId: (nodeId) => set({ targetNodeId: nodeId }),
 
   skip: () => {
     const { orgSlug, stage } = get();

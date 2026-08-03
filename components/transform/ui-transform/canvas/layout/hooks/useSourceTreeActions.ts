@@ -110,7 +110,10 @@ export function useSourceTreeActions({ isPreview }: UseSourceTreeActionsParams) 
         focusAndSelectCanvasNode(newNode.uuid, newNode.node_type, newNode);
 
         if (useInsightWalkthroughStore.getState().stage === 'pipeline_pick_table') {
-          useInsightWalkthroughStore.getState().advanceTo('pipeline_pick_function');
+          // Panel doesn't auto-open on add — the node still needs a real click (see
+          // DbtSourceModelNode.tsx) to dispatch OPEN_OPCONFIG_PANEL. Point at that node.
+          useInsightWalkthroughStore.getState().setTargetNodeId(newNode.uuid);
+          useInsightWalkthroughStore.getState().advanceTo('pipeline_select_node');
         }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : `Failed to add ${table} to canvas`;
