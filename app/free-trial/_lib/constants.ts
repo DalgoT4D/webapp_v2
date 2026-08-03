@@ -23,9 +23,7 @@ export const TRIAL_PANEL_DOT_COUNT = 3;
 // site rather than drilled through props so TrialSplitCard stays content-agnostic.
 export const TRIAL_MARKETING_PANELS = {
   signup: {
-    // TODO: placeholder. Swap for the Figma export of node 2452:222 (the Dashboards
-    // screenshot) once design hands over the asset — ideally WebP alongside the PNG.
-    imageSrc: '/branding/bar_chart_preview.png',
+    imageSrc: '/branding/trial-signup-preview.png',
     imageAlt: 'A preview of Dalgo charts built from sample programme data',
     headline: 'Turn your programme data into proof of impact.',
     subline:

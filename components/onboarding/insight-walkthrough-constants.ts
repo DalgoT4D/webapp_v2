@@ -97,7 +97,10 @@ export const OWN_DATA_WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
 
 // The automate-pipeline path's own linear order — kept separate from
 // WALKTHROUGH_STAGE_ORDER/OWN_DATA_WALKTHROUGH_STAGE_ORDER since it diverges at the
-// very first step (no fork2 — PostTourModal routes straight here).
+// very first step (no fork2 — PostTourModal routes straight here). Once the pipeline is
+// created, it converges into the own-data fork's chart/dashboard tail (same builder,
+// same "chart first" convergence at dashboard_intro) rather than ending the walkthrough —
+// automating a pipeline gets you clean data, not an insight built from it.
 export const AUTOMATE_PIPELINE_STAGE_ORDER: WalkthroughStage[] = [
   'pipeline_ingest',
   'pipeline_transform_intro',
@@ -114,6 +117,17 @@ export const AUTOMATE_PIPELINE_STAGE_ORDER: WalkthroughStage[] = [
   'pipeline_run_transform',
   'pipeline_set_schedule',
   'pipeline_create_it',
+  'own_data_charts_intro',
+  'own_data_chart_create',
+  'own_data_chart_save',
+  'own_data_dashboard_nudge',
+  'dashboard_intro',
+  'own_data_builder_add_chart',
+  'own_data_builder_add_kpi',
+  'builder_resize',
+  'builder_save',
+  'builder_preview',
+  'share',
 ];
 
 const STAGE_STORAGE_PREFIX = 'dalgo_insight_walkthrough_stage_';
@@ -229,6 +243,28 @@ export function markConnectedRealData(orgSlug: string): void {
 export function hasConnectedRealData(orgSlug: string): boolean {
   try {
     return localStorage.getItem(`${CONNECTED_REAL_DATA_STORAGE_PREFIX}${orgSlug}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+const PIPELINE_CREATED_STORAGE_PREFIX = 'dalgo_insight_walkthrough_pipeline_created_';
+
+// Set the moment "Create Pipeline" succeeds — independent of hasFinishedWalkthrough, which
+// now only fires once the automate-pipeline fork's chart/dashboard/share tail also completes
+// (see AUTOMATE_PIPELINE_STAGE_ORDER). The getting-started widget's "Automate data pipeline"
+// item needs to check in right away, not wait for the rest of the walkthrough.
+export function markPipelineCreated(orgSlug: string): void {
+  try {
+    localStorage.setItem(`${PIPELINE_CREATED_STORAGE_PREFIX}${orgSlug}`, '1');
+  } catch {
+    // no-op
+  }
+}
+
+export function hasPipelineCreated(orgSlug: string): boolean {
+  try {
+    return localStorage.getItem(`${PIPELINE_CREATED_STORAGE_PREFIX}${orgSlug}`) === '1';
   } catch {
     return false;
   }

@@ -21,9 +21,9 @@ import { InsightWalkthroughCoachmark } from './insight-walkthrough-coachmark';
 import { hasSeenTour } from './tour-constants';
 import {
   hasFinishedWalkthrough,
-  getStoredPath,
   hasConnectedRealData,
   markConnectedRealData,
+  hasPipelineCreated,
 } from './insight-walkthrough-constants';
 
 const IMPACT_PATH = '/impact';
@@ -121,13 +121,9 @@ export function TourGate() {
           />
           <GettingStartedWidget
             hasSeenTour={seen}
-            hasBuiltFirstInsight={
-              hasFinishedWalkthrough(orgSlug) && getStoredPath(orgSlug) !== 'automate_pipeline'
-            }
+            hasBuiltFirstInsight={hasFinishedWalkthrough(orgSlug)}
             hasConnectedOwnData={hasConnectedRealData(orgSlug)}
-            hasAutomatedPipeline={
-              getStoredPath(orgSlug) === 'automate_pipeline' && hasFinishedWalkthrough(orgSlug)
-            }
+            hasAutomatedPipeline={hasPipelineCreated(orgSlug)}
             onStartTour={startTour}
           />
         </>

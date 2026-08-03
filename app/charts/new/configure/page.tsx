@@ -46,6 +46,7 @@ import {
 } from '@/lib/chart-payload-utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -976,6 +977,13 @@ function ConfigureChartPageContent() {
       // Reset unsaved changes state after successful save
       setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');
+
+      const walkthrough = useInsightWalkthroughStore.getState();
+      if (walkthrough.active && walkthrough.stage === 'own_data_chart_save') {
+        toastSuccess.generic('🎉 Congratulations! Your First Chart is live');
+        walkthrough.advanceTo('own_data_dashboard_nudge');
+      }
+
       if (isFromDashboard) {
         // Use replace so back button from chart detail goes to dashboard
         router.replace(`/charts/${result.id}?from=dashboard`);
@@ -1069,6 +1077,7 @@ function ConfigureChartPageContent() {
 
           <div className="flex items-center gap-4">
             <Button
+              data-testid="chart-edit-save-button"
               onClick={handleSave}
               variant="primary"
               disabled={!isFormValid() || isMutating}

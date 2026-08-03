@@ -154,7 +154,7 @@ export default function FreeTrialPage() {
       aside={<TrialMarketingPanel panel={TRIAL_MARKETING_PANELS.signup} priority />}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <TrialBrandHeader title="Create your account" />
+        <TrialBrandHeader title="Create your account" logoGapClassName="mb-[62px]" />
 
         {accountExists && (
           <div className="rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">

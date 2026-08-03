@@ -74,6 +74,7 @@ interface StageConfig {
 const ROUTE_ADVANCES: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
   dashboard_nudge: 'dashboard_intro',
   own_data_charts_intro: 'own_data_chart_create',
+  own_data_chart_create: 'own_data_chart_save',
   own_data_dashboard_nudge: 'dashboard_intro',
   pipeline_transform_intro: 'pipeline_workflow_intro',
   pipeline_workflow_intro: 'pipeline_pick_table',
@@ -158,7 +159,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '#dashboard-create-button',
     title: 'Create a dashboard',
     description:
-      'Pin your KPI and charts into a dashboard and share it with your team — click Create dashboard.',
+      'Build a unified view of all the insights that are important to you. Add KPIs, charts, text, and filters.',
     dimOverlay: false,
   },
   builder_add_kpi: {
@@ -229,7 +230,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description: 'Create a chart from one of your tables — it only takes a couple of clicks.',
   },
   own_data_chart_save: {
-    route: null, // resolved dynamically to /charts/{id}/edit — matched by pathname regex below
+    route: '/charts/new/configure',
     selector: '[data-testid="chart-edit-save-button"]',
     title: 'Looks good — save it',
     description: 'Save this chart to reuse it on a dashboard your team can open.',
@@ -238,9 +239,8 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   own_data_dashboard_nudge: {
     route: '/charts',
     selector: 'a[href="/dashboards"]',
-    title: 'Add it to a dashboard',
-    description:
-      'Your chart is live 🎉 Pin it onto a dashboard so your team sees the full picture.',
+    title: 'Build your first dashboard',
+    description: 'Now add your KPI and a few charts to a dashboard and share it!',
     closeLabel: 'Later',
     dimOverlay: false,
   },
@@ -256,7 +256,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     route: '/dashboards/create',
     selector: '[data-testid="add-kpi-btn"]',
     title: 'Add your KPI',
-    description: 'Click Add KPI and pick one to drop it onto the canvas.',
+    description: 'Click Add KPI and pick the KPI you just built to drop it onto the canvas.',
     dimOverlay: false,
     side: 'bottom',
   },
@@ -514,11 +514,6 @@ export function InsightWalkthroughCoachmark(): null {
       (async () => {
         if (config.route && window.location.pathname !== config.route) return;
         if (stage === 'share' && !/^\/dashboards\/\d+$/.test(window.location.pathname)) return;
-        if (
-          stage === 'own_data_chart_save' &&
-          !/^\/charts\/\d+\/edit$/.test(window.location.pathname)
-        )
-          return;
         const resolvedSelector =
           typeof config.selector === 'function' ? config.selector() : config.selector;
         if (!resolvedSelector) return;
@@ -574,12 +569,15 @@ export function InsightWalkthroughCoachmark(): null {
     if (!active || !stage) return;
     const walkthrough = useInsightWalkthroughStore.getState();
 
-    // dashboard_intro is shared by both forks but unlocks a different next stage
-    // depending which one the user took (own-data adds chart-then-KPI; sample adds
+    // dashboard_intro is shared by all 3 forks but unlocks a different next stage
+    // depending which one the user took (own-data and automate-pipeline both add
+    // chart-then-KPI, since a chart already exists by this point; sample adds
     // KPI-then-chart) — can't go through the flat ROUTE_ADVANCES map for this one.
     if (stage === 'dashboard_intro' && pathname === '/dashboards/create') {
       walkthrough.advanceTo(
-        walkthrough.path === 'own_data' ? 'own_data_builder_add_chart' : 'builder_add_kpi'
+        walkthrough.path === 'own_data' || walkthrough.path === 'automate_pipeline'
+          ? 'own_data_builder_add_chart'
+          : 'builder_add_kpi'
       );
       return;
     }
@@ -588,13 +586,10 @@ export function InsightWalkthroughCoachmark(): null {
     if (next && STAGE_CONFIG[next]?.route === pathname) {
       walkthrough.advanceTo(next);
     }
-    // These stages resolve to a dynamic route (id unknown ahead of time) so they can't
-    // go through the ROUTE_ADVANCES map's plain equality check above.
+    // Resolves to a dynamic route (id unknown ahead of time) so it can't go through the
+    // ROUTE_ADVANCES map's plain equality check above.
     if (stage === 'builder_preview' && /^\/dashboards\/\d+$/.test(pathname)) {
       walkthrough.advanceTo('share');
-    }
-    if (stage === 'own_data_chart_create' && /^\/charts\/\d+\/edit$/.test(pathname)) {
-      walkthrough.advanceTo('own_data_chart_save');
     }
   }, [active, stage, pathname]);
 

@@ -25,12 +25,12 @@ export function TrialSplitCard({ children, aside, testId }: TrialSplitCardProps)
   return (
     <div
       data-testid={testId}
-      // 592px left pane / 1179px card width, corner radius, and drop shadow all
-      // mirror the Figma card (frame 2452:181). Tailwind can't read TS constants,
-      // so the numbers are inlined here rather than declared elsewhere.
-      className="flex w-full max-w-[1179px] overflow-hidden rounded-[20px] bg-white shadow-[0px_20px_60px_0px_rgba(15,23,41,0.12)]"
+      // 592px/711px left pane, 62px padding, 1179px card width, corner radius, and
+      // drop shadow all mirror the Figma card (frame 2452:181). Tailwind can't read
+      // TS constants, so the numbers are inlined here rather than declared elsewhere.
+      className="flex w-full max-w-[1179px] overflow-hidden rounded-[20px] bg-white shadow-[0px_20px_60px_0px_rgba(15,23,41,0.12)] lg:h-[711px]"
     >
-      <div className="w-full shrink-0 p-8 sm:p-12 lg:w-[592px]">{children}</div>
+      <div className="w-full shrink-0 p-8 sm:p-12 lg:w-[592px] lg:p-[62px]">{children}</div>
       {aside ? <div className="hidden lg:block lg:flex-1">{aside}</div> : null}
     </div>
   );

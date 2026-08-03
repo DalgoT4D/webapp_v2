@@ -13,6 +13,9 @@ interface TrialBrandHeaderProps {
   align?: 'left' | 'center';
   /** Lands on the heading itself, for screens whose tests key off it. */
   testId?: string;
+  /** Gap below the logo. Defaults to the 32px used by every screen except the
+   *  signup card, whose Figma frame (2452:184) spaces it 62px instead. */
+  logoGapClassName?: string;
 }
 
 export function TrialBrandHeader({
@@ -20,12 +23,13 @@ export function TrialBrandHeader({
   subtitle,
   align = 'left',
   testId,
+  logoGapClassName = 'mb-8',
 }: TrialBrandHeaderProps) {
   const centered = align === 'center';
 
   return (
     <div className={cn(centered && 'text-center')}>
-      <div className={cn('mb-8 flex', centered ? 'justify-center' : 'justify-start')}>
+      <div className={cn(logoGapClassName, 'flex', centered ? 'justify-center' : 'justify-start')}>
         <Image src="/dalgo_logo.svg" alt="Dalgo" width={80} height={90} className="text-primary" />
       </div>
       <h1 className="text-2xl font-bold text-foreground" data-testid={testId}>

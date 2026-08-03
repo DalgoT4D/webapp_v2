@@ -139,32 +139,35 @@ describe('TourGate', () => {
     expect(mockStartTour).toHaveBeenCalledTimes(1);
   });
 
-  it('shows "Automate data pipeline" as checked when that path finished', () => {
+  it('shows "Automate data pipeline" as checked the moment the pipeline is created, before the walkthrough finishes', () => {
     localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
-    localStorage.setItem('dalgo_insight_walkthrough_path_trial-org', 'automate_pipeline');
-    localStorage.setItem('dalgo_insight_walkthrough_done_trial-org', '1');
+    localStorage.setItem('dalgo_insight_walkthrough_pipeline_created_trial-org', '1');
     setupAuthStore(buildOrgUser());
     renderGate();
 
-    const item = screen.getByTestId('getting-started-widget-item-automate-pipeline');
-    expect(item).toBeInTheDocument();
-    expect(item.querySelector('svg')).toHaveClass('text-primary');
+    // hasAutomatedPipeline is its own milestone flag, independent of hasFinishedWalkthrough —
+    // the automate-pipeline fork keeps going into chart/dashboard/share after this point
+    // (see AUTOMATE_PIPELINE_STAGE_ORDER), so this must check in without waiting for that.
+    const pipelineItem = screen.getByTestId('getting-started-widget-item-automate-pipeline');
+    expect(pipelineItem.querySelector('svg')).toHaveClass('text-primary');
+
+    const insightItem = screen.getByTestId('getting-started-widget-item-build-insight');
+    expect(insightItem.querySelector('svg')).toHaveClass('text-muted-foreground');
   });
 
-  it('does NOT show "Build your first insight" as checked when only the automate-pipeline path finished', () => {
+  it('shows "Build your first insight" as checked once the automate-pipeline fork finishes its chart/dashboard/share tail', () => {
     localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+    localStorage.setItem('dalgo_insight_walkthrough_pipeline_created_trial-org', '1');
     localStorage.setItem('dalgo_insight_walkthrough_path_trial-org', 'automate_pipeline');
     localStorage.setItem('dalgo_insight_walkthrough_done_trial-org', '1');
     setupAuthStore(buildOrgUser());
     renderGate();
 
-    // Automating a pipeline finished the walkthrough, but built no chart/dashboard —
-    // "Build your first insight" must stay unchecked (regression guard for the
-    // cross-fork false positive: hasFinishedWalkthrough is a single global flag
-    // shared by all 3 forks, so it must be paired with a path check).
+    // hasFinishedWalkthrough now only fires once the automate-pipeline fork's continuation
+    // (chart → dashboard → share) completes, so it's no longer paired with a path exclusion —
+    // it reflects a real built insight for every fork, including this one.
     const item = screen.getByTestId('getting-started-widget-item-build-insight');
-    expect(item).toBeInTheDocument();
-    expect(item.querySelector('svg')).toHaveClass('text-muted-foreground');
+    expect(item.querySelector('svg')).toHaveClass('text-primary');
   });
 
   it('shows "Build your first insight" as checked when the sample path finished', () => {

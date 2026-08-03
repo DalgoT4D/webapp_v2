@@ -23,13 +23,48 @@ const DOT_INDEXES = Array.from({ length: TRIAL_PANEL_DOT_COUNT }, (_, i) => i);
 export function TrialMarketingPanel({ panel, priority = false }: TrialMarketingPanelProps) {
   const isTop = panel.textPosition === 'top';
 
+  // Figma frame 2452:217 ("intro") positions the headline (node 2452:223) and the
+  // bordered screenshot (node 2850:1047) with absolute coordinates on a canvas wider
+  // than the visible pane — the image is meant to bleed past the right edge and get
+  // clipped by TrialSplitCard's overflow-hidden card. Pixel values are inlined straight
+  // from that frame, same convention as TrialSplitCard's own "numbers baked in" comment.
+  if (isTop) {
+    return (
+      <div
+        data-testid="trial-marketing-panel"
+        className="relative h-full overflow-hidden bg-gradient-to-br from-[#d5f0e6] via-[#c5e9da] to-[#b8e6d4]"
+      >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-24 -top-32 h-[420px] w-[420px] rounded-full bg-white/40 blur-3xl"
+        />
+        <div className="absolute left-[69px] top-[90px] flex w-[477px] flex-col items-start gap-4">
+          {panel.headline ? (
+            <h2 className="text-xl font-bold text-[#0f2b45]">{panel.headline}</h2>
+          ) : null}
+          <p className="text-sm font-medium leading-[1.5] text-[#036057]">{panel.subline}</p>
+        </div>
+        <div className="absolute left-[69px] top-[240px] h-[592px] w-[1039px] overflow-hidden rounded-[20px] border-8 border-black shadow-2xl">
+          <Image
+            src={panel.imageSrc}
+            alt={panel.imageAlt}
+            fill
+            sizes="1039px"
+            priority={priority}
+            className="object-cover object-top"
+          />
+        </div>
+      </div>
+    );
+  }
+
   const image = (
-    <div className={cn('relative flex flex-1 items-center justify-center', isTop && 'mt-8')}>
+    <div className="relative flex flex-1 items-center justify-center">
       <Image
         src={panel.imageSrc}
         alt={panel.imageAlt}
-        width={640}
-        height={420}
+        width={1052}
+        height={958}
         sizes="587px"
         priority={priority}
         className="w-full max-w-[520px] rounded-lg border-4 border-black shadow-2xl"
@@ -38,7 +73,7 @@ export function TrialMarketingPanel({ panel, priority = false }: TrialMarketingP
   );
 
   const text = (
-    <div className={cn('relative', isTop ? 'text-left' : 'mt-8 text-center')}>
+    <div className="relative mt-8 text-center">
       {panel.headline ? (
         <h2 className="text-xl font-bold text-[#0f2b45]">{panel.headline}</h2>
       ) : null}
@@ -48,7 +83,7 @@ export function TrialMarketingPanel({ panel, priority = false }: TrialMarketingP
 
       {panel.activeDot !== null ? (
         <div
-          className={cn('mt-6 flex gap-1', isTop ? 'justify-start' : 'justify-center')}
+          className="mt-6 flex justify-center gap-1"
           role="presentation"
           data-testid="trial-panel-dots"
         >
@@ -69,28 +104,15 @@ export function TrialMarketingPanel({ panel, priority = false }: TrialMarketingP
   return (
     <div
       data-testid="trial-marketing-panel"
-      className={cn(
-        'relative flex h-full overflow-hidden bg-gradient-to-br from-[#e8f7f2] via-[#d5f0e6] to-[#b8e6d4] p-10',
-        isTop ? 'flex-col' : 'flex-col justify-between'
-      )}
+      className="relative flex h-full flex-col justify-between overflow-hidden bg-gradient-to-br from-[#e8f7f2] via-[#d5f0e6] to-[#b8e6d4] p-10"
     >
       {/* Decorative wash echoing the Figma ellipses. aria-hidden — purely visual. */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -right-24 -top-32 h-[420px] w-[420px] rounded-full bg-white/40 blur-3xl"
       />
-
-      {isTop ? (
-        <>
-          {text}
-          {image}
-        </>
-      ) : (
-        <>
-          {image}
-          {text}
-        </>
-      )}
+      {image}
+      {text}
     </div>
   );
 }

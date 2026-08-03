@@ -5,9 +5,11 @@
  * Figma: "take tour" frames showing the widget before/after the tour is seen.
  *
  * "Sample data ready" is always true post-clone. "Take a quick tour" is tied to the
- * tour-seen flag. "Connect your own data", "Automate data pipeline", and "Build your first insight"
- * are all tied to the insight walkthrough's completion flag, disambiguated by which fork the user
- * took (components/onboarding/insight-walkthrough-constants.ts's `path`).
+ * tour-seen flag. The other 3 are independent milestone flags (own-data sync, pipeline
+ * created, walkthrough finished) rather than one shared flag — a user can hit "Automate
+ * data pipeline" well before "Build your first insight" finishes, since the pipeline fork
+ * continues into the same chart/dashboard/share tail afterward (see
+ * components/onboarding/insight-walkthrough-constants.ts's AUTOMATE_PIPELINE_STAGE_ORDER).
  */
 import { useState } from 'react';
 import Link from 'next/link';

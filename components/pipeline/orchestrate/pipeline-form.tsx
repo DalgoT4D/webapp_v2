@@ -43,6 +43,7 @@ import { WEEKDAYS, SCHEDULE_OPTIONS } from '@/constants/pipeline';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { markPipelineCreated } from '@/components/onboarding/insight-walkthrough-constants';
 
 interface PipelineFormProps {
   deploymentId?: string;
@@ -324,9 +325,16 @@ function PipelineFormContent({
         });
         toastSuccess.created('Pipeline');
 
-        if (useInsightWalkthroughStore.getState().stage === 'pipeline_create_it') {
+        const walkthrough = useInsightWalkthroughStore.getState();
+        if (walkthrough.stage === 'pipeline_create_it' && walkthrough.orgSlug) {
           toastSuccess.generic('🎉 Your pipeline is live and running');
-          useInsightWalkthroughStore.getState().finish();
+          // Independent of the walkthrough's own finish() — a pipeline running is a
+          // milestone on its own, not the end of the walkthrough. It now continues into
+          // the same chart/dashboard/share tail the own-data fork uses (see
+          // AUTOMATE_PIPELINE_STAGE_ORDER) — automating a pipeline gets you clean data,
+          // not an insight built from it.
+          markPipelineCreated(walkthrough.orgSlug);
+          walkthrough.advanceTo('own_data_charts_intro');
         }
       }
 

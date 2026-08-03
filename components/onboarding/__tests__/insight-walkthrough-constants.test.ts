@@ -8,6 +8,8 @@ import {
   hasFinishedWalkthrough,
   markConnectedRealData,
   hasConnectedRealData,
+  markPipelineCreated,
+  hasPipelineCreated,
 } from '../insight-walkthrough-constants';
 
 describe('insight-walkthrough-constants', () => {
@@ -48,11 +50,10 @@ describe('insight-walkthrough-constants', () => {
     expect(WALKTHROUGH_STAGE_ORDER[WALKTHROUGH_STAGE_ORDER.length - 1]).toBe('share');
   });
 
-  it('orders pipeline_ingest first and pipeline_create_it last in the automate-pipeline path', () => {
+  it('orders pipeline_ingest first, converging into the own-data tail so it ends at share', () => {
     expect(AUTOMATE_PIPELINE_STAGE_ORDER[0]).toBe('pipeline_ingest');
-    expect(AUTOMATE_PIPELINE_STAGE_ORDER[AUTOMATE_PIPELINE_STAGE_ORDER.length - 1]).toBe(
-      'pipeline_create_it'
-    );
+    expect(AUTOMATE_PIPELINE_STAGE_ORDER).toContain('pipeline_create_it');
+    expect(AUTOMATE_PIPELINE_STAGE_ORDER[AUTOMATE_PIPELINE_STAGE_ORDER.length - 1]).toBe('share');
   });
 
   it('hasConnectedRealData is false until markConnectedRealData is called, and persists per org', () => {
@@ -60,5 +61,12 @@ describe('insight-walkthrough-constants', () => {
     markConnectedRealData('org-a');
     expect(hasConnectedRealData('org-a')).toBe(true);
     expect(hasConnectedRealData('org-b')).toBe(false);
+  });
+
+  it('hasPipelineCreated is false until markPipelineCreated is called, and persists per org', () => {
+    expect(hasPipelineCreated('org-a')).toBe(false);
+    markPipelineCreated('org-a');
+    expect(hasPipelineCreated('org-a')).toBe(true);
+    expect(hasPipelineCreated('org-b')).toBe(false);
   });
 });
