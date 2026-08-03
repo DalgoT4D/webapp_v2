@@ -116,7 +116,7 @@ describe('TourGate', () => {
     expect(screen.queryByTestId('getting-started-widget-item-take-tour')).not.toBeInTheDocument();
   });
 
-  it('starts the driver.js tour when the intent modal\'s "Take a Product tour" option is picked', async () => {
+  it('starts the driver.js tour when the intent modal\'s "Explore the platform" option is picked', async () => {
     const user = userEvent.setup();
     setupAuthStore(buildOrgUser());
     renderGate();
