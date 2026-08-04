@@ -253,6 +253,7 @@ export const FEATURES = {
   // id would make the three screens indistinguishable and destroy the funnel.
   FREE_TRIAL_SIGNUP: 'free_trial_signup',
   FREE_TRIAL_ACTIVATE: 'free_trial_activate',
+  FREE_TRIAL_CONSENT: 'free_trial_consent',
   FREE_TRIAL_PROGRESS: 'free_trial_progress',
 } as const;
 
@@ -282,6 +283,7 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
   { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
   { prefix: '/free-trial/activate', feature: FEATURES.FREE_TRIAL_ACTIVATE },
+  { prefix: '/free-trial/consent', feature: FEATURES.FREE_TRIAL_CONSENT },
   { prefix: '/free-trial/progress', feature: FEATURES.FREE_TRIAL_PROGRESS },
   { prefix: '/free-trial', feature: FEATURES.FREE_TRIAL_SIGNUP },
 ];

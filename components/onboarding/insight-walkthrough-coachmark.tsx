@@ -448,6 +448,10 @@ export function InsightWalkthroughCoachmark(): null {
             // injected here, not passed to highlight()). Restore visibility explicitly.
             popover.title.style.display = 'block';
             popover.description.style.display = 'block';
+            popover.title.insertAdjacentHTML(
+              'beforebegin',
+              '<img src="/branding/tour-fork2-preview.svg" alt="A bar chart preview" class="dalgo-tour-fork2-image" />'
+            );
             popover.title.textContent = 'Build your first insight';
             popover.description.innerHTML =
               'How do you want to build it — with our ready-made sample data, or by connecting your own?' +
@@ -483,8 +487,14 @@ export function InsightWalkthroughCoachmark(): null {
         // present on the step — omitting it entirely (as opposed to an empty object) skips
         // popover creation altogether, leaving just the highlight ring with no content. This
         // step's actual title/description/buttons are injected via onPopoverRender above, so
-        // an empty object here is enough to make driver.js build the DOM to inject into.
-        d.highlight({ element: sidebarEl as HTMLElement, popover: {} });
+        // side/align plus an empty object otherwise is enough to make driver.js build the DOM
+        // to inject into. side:'right'/align:'start' matches every other sidebar-anchored stage
+        // in this file (STAGE_CONFIG's own default) — without it driver.js auto-picks a
+        // placement (here, below the target), which also visibly animates into position.
+        d.highlight({
+          element: sidebarEl as HTMLElement,
+          popover: { side: 'right', align: 'start' },
+        });
       })();
     }
 

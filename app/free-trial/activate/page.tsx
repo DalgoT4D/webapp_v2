@@ -12,17 +12,8 @@ import { TrialNoticeCard } from '@/app/free-trial/_components/TrialNoticeCard';
 import { TrialBrandHeader } from '@/app/free-trial/_components/TrialBrandHeader';
 import { TrialField } from '@/app/free-trial/_components/TrialField';
 import { validateTrialPassword } from '@/app/free-trial/_lib/utils';
-import { apiPublicPost } from '@/lib/api';
 import { hardNavigate } from '@/lib/navigation';
-import { toastError, toastInfo } from '@/lib/toast';
-import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { TRIAL_ACTIVATE_PATH, TRIAL_CREDS_STORAGE_KEY } from '@/constants/trial';
-import type { TrialActivateResponse } from '@/types/trial';
-
-// Backend response codes handled specially on activate.
-const HTTP_STATUS_BAD_REQUEST = 400;
-const HTTP_STATUS_CONFLICT = 409;
+import { TRIAL_PENDING_ACTIVATION_KEY } from '@/constants/trial';
 
 interface ActivateForm {
   password: string;
@@ -34,7 +25,6 @@ function ActivateFormCard() {
   const token = searchParams.get('token');
 
   const [invalidToken, setInvalidToken] = useState(false);
-  const [accountConflict, setAccountConflict] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -45,42 +35,22 @@ function ActivateFormCard() {
     formState: { errors, isSubmitting },
   } = useForm<ActivateForm>();
 
+  // Account creation itself (the activate API call) happens on the consent screen's
+  // "Accept and Continue" — this step only collects the password and hands token +
+  // password forward via sessionStorage.
   const onSubmit = async (data: ActivateForm) => {
     if (!token) {
       setInvalidToken(true);
       return;
     }
 
-    try {
-      const res: TrialActivateResponse = await apiPublicPost(TRIAL_ACTIVATE_PATH, {
-        token,
-        password: data.password,
-      });
-      // Stash creds for the auto-login on the progress screen (cleared after login).
-      sessionStorage.setItem(
-        TRIAL_CREDS_STORAGE_KEY,
-        JSON.stringify({ email: res.email, password: data.password })
-      );
-      trackEvent(ANALYTICS_EVENTS.TRIAL_ACTIVATED);
-      // Full-page navigation (not router.push) so the progress screen mounts on a clean
-      // document load. A client-side transition lands the SWR poller into an already-live
-      // SPA/HMR runtime where dev Fast Refresh events (broadcast to every open tab when any
-      // route compiles on-demand) reset the refreshInterval timer before it can fire — the
-      // screen then updates only on a manual refresh. A full load matches that working path.
-      // The creds stashed in sessionStorage above survive same-origin navigation.
-      hardNavigate(`/free-trial/progress?task_id=${res.task_id}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '';
-      if (message.includes(String(HTTP_STATUS_BAD_REQUEST))) {
-        setInvalidToken(true);
-        toastError.api(error, 'This link is invalid or has expired.');
-      } else if (message.includes(String(HTTP_STATUS_CONFLICT))) {
-        setAccountConflict(true);
-        toastInfo.generic('This account already exists or is already being set up.');
-      } else {
-        toastError.api(error, 'Could not set your password. Please try again.');
-      }
-    }
+    sessionStorage.setItem(
+      TRIAL_PENDING_ACTIVATION_KEY,
+      JSON.stringify({ token, password: data.password })
+    );
+    // Full-page navigation (not router.push) — see the note in the progress page's
+    // rationale for hardNavigate; kept consistent across the whole free-trial flow.
+    hardNavigate('/free-trial/consent');
   };
 
   // Figma frame 2453:3070. Note the design's "Resend email" button is shipped as a link
@@ -114,16 +84,6 @@ function ActivateFormCard() {
           title="Welcome to Dalgo"
           subtitle="Set up your password to finish setting up your workspace"
         />
-
-        {accountConflict && (
-          <div className="rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
-            This account already exists or is already being set up.{' '}
-            <Link href="/login" className="font-medium underline">
-              Log in
-            </Link>{' '}
-            instead.
-          </div>
-        )}
 
         <div className="space-y-5">
           <TrialField id="password" label="Password*" error={errors.password?.message}>

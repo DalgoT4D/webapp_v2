@@ -80,3 +80,8 @@ export const BACKEND_STEP_TO_DISPLAY_INDEX = [0, 0, 1, 2, 3, 4, 5, 6];
 // sessionStorage key bridging the activate page's credentials to the
 // progress page's auto-login (cleared immediately after login)
 export const TRIAL_CREDS_STORAGE_KEY = 'dalgo_trial_creds';
+
+// sessionStorage key bridging the activate page's token + password to the consent
+// page, which is where the activate API call (account creation) actually fires.
+// Cleared once that call succeeds.
+export const TRIAL_PENDING_ACTIVATION_KEY = 'dalgo_trial_pending_activation';
