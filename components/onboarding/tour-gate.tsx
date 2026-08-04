@@ -21,7 +21,6 @@ import { InsightWalkthroughCoachmark } from './insight-walkthrough-coachmark';
 import { hasSeenTour } from './tour-constants';
 import {
   hasFinishedWalkthrough,
-  hasConnectedRealData,
   markConnectedRealData,
   hasPipelineCreated,
 } from './insight-walkthrough-constants';
@@ -37,7 +36,6 @@ export function TourGate() {
   const tourRef = useRef<ProductTourHandle>(null);
   const hasOpenedModalRef = useRef(false);
   const [intentModalOpen, setIntentModalOpen] = useState(false);
-  const [seen, setSeen] = useState(false);
   // ?tour=preview bypasses the trial-plan gate — lets us QA the tour/widget on any
   // account without a real trial-plan org. Debug-only; not linked from anywhere in the UI.
   // Read directly from window.location rather than useSearchParams() so this component
@@ -50,14 +48,9 @@ export function TourGate() {
   const isTrialOrg = forcePreview || orgUser?.subscription_plan === FREE_TRIAL_PLAN_NAME;
   const orgSlug = orgUser?.org.slug ?? null;
 
-  // Single effect: reading localStorage and deciding whether to auto-open the modal must
-  // happen atomically. Splitting these into two effects raced on mount — the auto-open
-  // effect could still see the stale initial `seen=false` on the same commit that the
-  // seen-flag effect was busy updating, flashing the modal open for an already-seen org.
   useEffect(() => {
     if (!orgSlug) return;
     const nowSeen = hasSeenTour(orgSlug);
-    setSeen(nowSeen);
     if (!isTrialOrg || nowSeen || pathname !== IMPACT_PATH || hasOpenedModalRef.current) return;
     hasOpenedModalRef.current = true;
     setIntentModalOpen(true);
@@ -105,7 +98,6 @@ export function TourGate() {
       <ProductTour
         ref={tourRef}
         orgSlug={orgSlug}
-        onTourEnd={() => setSeen(true)}
         onInsightPathChosen={() => useInsightWalkthroughStore.getState().start(orgSlug)}
         onPipelinePathChosen={() =>
           useInsightWalkthroughStore.getState().startAutomatePipeline(orgSlug)
@@ -120,9 +112,8 @@ export function TourGate() {
             onStartTour={startTour}
           />
           <GettingStartedWidget
-            hasSeenTour={seen}
+            orgSlug={orgSlug}
             hasBuiltFirstInsight={hasFinishedWalkthrough(orgSlug)}
-            hasConnectedOwnData={hasConnectedRealData(orgSlug)}
             hasAutomatedPipeline={hasPipelineCreated(orgSlug)}
             onStartTour={startTour}
           />

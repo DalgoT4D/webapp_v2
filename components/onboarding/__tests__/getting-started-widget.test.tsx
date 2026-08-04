@@ -1,82 +1,211 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { GettingStartedWidget } from '../getting-started-widget';
+import {
+  savePath,
+  markConnectedRealData,
+  markChartCreated,
+  markTransformPublished,
+  markPipelineCreated,
+} from '../insight-walkthrough-constants';
 
 const trackEvent = jest.fn();
 jest.mock('@/lib/analytics', () => ({
   trackEvent: (...args: unknown[]) => trackEvent(...args),
 }));
 
+const ORG_SLUG = 'test-org';
+
 describe('GettingStartedWidget', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    localStorage.clear();
   });
 
-  it('shows the pre-tour checklist: sample data checked, tour item present, no "connect your own data"', () => {
+  it('shows the full panel by default (nothing in localStorage yet), pill always present too', () => {
     render(
       <GettingStartedWidget
-        hasSeenTour={false}
+        orgSlug={ORG_SLUG}
         hasBuiltFirstInsight={false}
-        hasConnectedOwnData={false}
         hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
       />
     );
 
-    expect(screen.getByTestId('getting-started-widget-item-sample-data')).toBeInTheDocument();
-    expect(screen.getByTestId('getting-started-widget-item-take-tour')).toBeInTheDocument();
-    expect(screen.getByTestId('getting-started-widget-item-build-insight')).toBeInTheDocument();
-    expect(
-      screen.queryByTestId('getting-started-widget-item-connect-data')
-    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument();
   });
 
-  it('shows the post-tour checklist: "take a quick tour" replaced by "connect your own data"', () => {
+  it('minimizing hides the panel but keeps the pill visible', async () => {
+    const user = userEvent.setup();
     render(
       <GettingStartedWidget
-        hasSeenTour={true}
+        orgSlug={ORG_SLUG}
         hasBuiltFirstInsight={false}
-        hasConnectedOwnData={false}
         hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
       />
     );
 
-    expect(screen.getByTestId('getting-started-widget-item-sample-data')).toBeInTheDocument();
-    expect(screen.getByTestId('getting-started-widget-item-build-insight')).toBeInTheDocument();
-    expect(screen.getByTestId('getting-started-widget-item-connect-data')).toBeInTheDocument();
-    expect(screen.queryByTestId('getting-started-widget-item-take-tour')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('getting-started-widget-minimize'));
+
+    expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument();
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
   });
 
-  it('the "connect your own data" item links to /ingest, "build your first insight" links to /charts', () => {
+  it('clicking the pill re-expands the panel', async () => {
+    const user = userEvent.setup();
     render(
       <GettingStartedWidget
-        hasSeenTour={true}
+        orgSlug={ORG_SLUG}
         hasBuiltFirstInsight={false}
-        hasConnectedOwnData={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+      />
+    );
+    await user.click(screen.getByTestId('getting-started-widget-minimize'));
+
+    await user.click(screen.getByTestId('getting-started-widget-pill'));
+
+    expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
+  });
+
+  it('persists the minimized state per org across remounts', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <GettingStartedWidget
+        orgSlug={ORG_SLUG}
+        hasBuiltFirstInsight={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+      />
+    );
+    await user.click(screen.getByTestId('getting-started-widget-minimize'));
+    unmount();
+
+    render(
+      <GettingStartedWidget
+        orgSlug={ORG_SLUG}
+        hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
       />
     );
 
-    expect(screen.getByTestId('getting-started-widget-item-connect-data')).toHaveAttribute(
-      'href',
-      '/ingest'
+    expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument();
+  });
+
+  it("a different org is unaffected by another org's minimized state", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <GettingStartedWidget
+        orgSlug={ORG_SLUG}
+        hasBuiltFirstInsight={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+      />
     );
+    await user.click(screen.getByTestId('getting-started-widget-minimize'));
+    unmount();
+
+    render(
+      <GettingStartedWidget
+        orgSlug="other-org"
+        hasBuiltFirstInsight={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
+  });
+
+  it('shows exactly the two checklist items, in order, plus the video placeholder', () => {
+    render(
+      <GettingStartedWidget
+        orgSlug={ORG_SLUG}
+        hasBuiltFirstInsight={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('getting-started-widget-video-placeholder')).toBeInTheDocument();
+    const items = screen.getAllByTestId(/getting-started-widget-item-/);
+    expect(items.map((el) => el.getAttribute('data-testid'))).toEqual([
+      'getting-started-widget-item-build-insight',
+      'getting-started-widget-item-automate-pipeline',
+    ]);
+  });
+
+  it('"Build your first insight" links to /charts, "Setup an automated data pipeline" links to /pipeline', () => {
+    render(
+      <GettingStartedWidget
+        orgSlug={ORG_SLUG}
+        hasBuiltFirstInsight={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+      />
+    );
+
     expect(screen.getByTestId('getting-started-widget-item-build-insight')).toHaveAttribute(
       'href',
       '/charts'
     );
+    expect(screen.getByTestId('getting-started-widget-item-automate-pipeline')).toHaveAttribute(
+      'href',
+      '/pipeline'
+    );
   });
 
-  it('calls onStartTour and tracks analytics when the top "take a 2 min tour" link is clicked', async () => {
+  it('"Build your first insight" resumes an in-progress own-data flow at its exact next step', async () => {
+    savePath(ORG_SLUG, 'own_data');
+    markConnectedRealData(ORG_SLUG);
+    // Connected but chart not yet created — next step is create_chart (/charts/new).
+    render(
+      <GettingStartedWidget
+        orgSlug={ORG_SLUG}
+        hasBuiltFirstInsight={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+      />
+    );
+
+    expect(await screen.findByTestId('getting-started-widget-item-build-insight')).toHaveAttribute(
+      'href',
+      '/charts/new'
+    );
+  });
+
+  it('"Setup an automated data pipeline" resumes an in-progress pipeline flow, converging into the chart step', async () => {
+    savePath(ORG_SLUG, 'automate_pipeline');
+    markConnectedRealData(ORG_SLUG);
+    markTransformPublished(ORG_SLUG);
+    markPipelineCreated(ORG_SLUG);
+    markChartCreated(ORG_SLUG);
+    // ingest/transform/orchestrate/chart all done, no dashboard checkpoints yet — next is
+    // create_dashboard.
+    render(
+      <GettingStartedWidget
+        orgSlug={ORG_SLUG}
+        hasBuiltFirstInsight={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+      />
+    );
+
+    expect(
+      await screen.findByTestId('getting-started-widget-item-automate-pipeline')
+    ).toHaveAttribute('href', '/dashboards');
+  });
+
+  it('calls onStartTour and tracks analytics when the "take a 2 min tour" link is clicked', async () => {
     const user = userEvent.setup();
     const onStartTour = jest.fn();
     render(
       <GettingStartedWidget
-        hasSeenTour={false}
+        orgSlug={ORG_SLUG}
         hasBuiltFirstInsight={false}
-        hasConnectedOwnData={false}
         hasAutomatedPipeline={false}
         onStartTour={onStartTour}
       />
@@ -88,117 +217,31 @@ describe('GettingStartedWidget', () => {
     expect(trackEvent).toHaveBeenCalledWith('onboarding:getting_started_tour_link_clicked');
   });
 
-  it('calls onStartTour when the "Take a quick tour" checklist item is clicked', async () => {
-    const user = userEvent.setup();
-    const onStartTour = jest.fn();
-    render(
-      <GettingStartedWidget
-        hasSeenTour={false}
-        hasBuiltFirstInsight={false}
-        hasConnectedOwnData={false}
-        hasAutomatedPipeline={false}
-        onStartTour={onStartTour}
-      />
-    );
-
-    await user.click(screen.getByTestId('getting-started-widget-item-take-tour'));
-
-    expect(onStartTour).toHaveBeenCalledTimes(1);
-  });
-
   it('shows "Build your first insight" as checked when hasBuiltFirstInsight is true', () => {
     render(
       <GettingStartedWidget
-        hasSeenTour={true}
+        orgSlug={ORG_SLUG}
         hasBuiltFirstInsight={true}
-        hasConnectedOwnData={false}
         hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
       />
     );
+
     const item = screen.getByTestId('getting-started-widget-item-build-insight');
     expect(item.querySelector('svg')).toHaveClass('text-primary'); // CheckCircle2, not the muted Circle
   });
 
-  it('shows "Connect your own data" as checked when hasConnectedOwnData is true', () => {
+  it('shows "Setup an automated data pipeline" as checked when hasAutomatedPipeline is true', () => {
     render(
       <GettingStartedWidget
-        hasSeenTour={true}
+        orgSlug={ORG_SLUG}
         hasBuiltFirstInsight={false}
-        hasConnectedOwnData={true}
-        hasAutomatedPipeline={false}
-        onStartTour={jest.fn()}
-      />
-    );
-    const item = screen.getByTestId('getting-started-widget-item-connect-data');
-    expect(item.querySelector('svg')).toHaveClass('text-primary'); // CheckCircle2, not the muted Circle
-  });
-
-  it('hides the widget entirely when dismissed', async () => {
-    const user = userEvent.setup();
-    render(
-      <GettingStartedWidget
-        hasSeenTour={false}
-        hasBuiltFirstInsight={false}
-        hasConnectedOwnData={false}
-        hasAutomatedPipeline={false}
-        onStartTour={jest.fn()}
-      />
-    );
-
-    await user.click(screen.getByTestId('getting-started-widget-dismiss'));
-
-    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
-  });
-
-  it('shows "Automate data pipeline" item after the tour, in order after connect-data', () => {
-    render(
-      <GettingStartedWidget
-        hasSeenTour={true}
-        hasBuiltFirstInsight={false}
-        hasConnectedOwnData={false}
-        hasAutomatedPipeline={false}
-        onStartTour={jest.fn()}
-      />
-    );
-
-    const items = screen.getAllByTestId(/getting-started-widget-item-/);
-    const keys = items.map((el) => el.getAttribute('data-testid'));
-    expect(keys).toEqual([
-      'getting-started-widget-item-sample-data',
-      'getting-started-widget-item-connect-data',
-      'getting-started-widget-item-automate-pipeline',
-      'getting-started-widget-item-build-insight',
-    ]);
-  });
-
-  it('shows "Automate data pipeline" as checked when hasAutomatedPipeline is true', () => {
-    render(
-      <GettingStartedWidget
-        hasSeenTour={true}
-        hasBuiltFirstInsight={false}
-        hasConnectedOwnData={false}
         hasAutomatedPipeline={true}
         onStartTour={jest.fn()}
       />
     );
+
     const item = screen.getByTestId('getting-started-widget-item-automate-pipeline');
     expect(item.querySelector('svg')).toHaveClass('text-primary');
-  });
-
-  it('"Automate data pipeline" links to /transform', () => {
-    render(
-      <GettingStartedWidget
-        hasSeenTour={true}
-        hasBuiltFirstInsight={false}
-        hasConnectedOwnData={false}
-        hasAutomatedPipeline={false}
-        onStartTour={jest.fn()}
-      />
-    );
-    expect(screen.getByTestId('getting-started-widget-item-automate-pipeline')).toHaveAttribute(
-      'href',
-      '/transform'
-    );
   });
 });

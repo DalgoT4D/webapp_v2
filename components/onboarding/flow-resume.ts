@@ -34,6 +34,17 @@ export interface FlowResumeStep {
   label: string;
 }
 
+// Where each resume step actually continues the flow — used by GettingStartedWidget to
+// route a checklist click to the exact spot a user left off, instead of a generic page.
+export const FLOW_RESUME_ROUTES: Record<FlowResumeStep['id'], string> = {
+  ingest_data: '/ingest',
+  create_chart: '/charts/new',
+  transform_data: '/transform',
+  orchestrate_pipeline: '/pipeline',
+  create_kpi: '/kpis?create=true',
+  create_dashboard: '/dashboards',
+};
+
 function dashboardGroupDone(orgSlug: string, requireChart: boolean): boolean {
   const chartDone = !requireChart || hasChartAddedToDashboard(orgSlug);
   return chartDone && hasKpiAddedToDashboard(orgSlug) && hasDashboardShared(orgSlug);

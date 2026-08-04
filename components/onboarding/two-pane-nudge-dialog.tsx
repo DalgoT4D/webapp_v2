@@ -1,9 +1,10 @@
 'use client';
 
 /**
- * Shared shell for the trial's "welcome back" / lifecycle nudge modals — left pane is
- * copy + CTA, right pane is a static illustration. Used by FlowResumeNudgeModal and
- * TrialDayNudgeModal; extracted here since both are the same shape with different copy.
+ * Shell for the trial's lifecycle nudge modals — left pane is copy + CTA, right pane is
+ * a static illustration. Used by TrialDayNudgeModal; kept as its own component so a
+ * future second nudge of the same shape (the flow-resume popup used to be one) doesn't
+ * duplicate this markup.
  */
 import type { ReactNode } from 'react';
 import Image from 'next/image';

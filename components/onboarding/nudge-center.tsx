@@ -2,14 +2,12 @@
 
 /**
  * Single decision point for which trial nudge (if any) is shown — mounted once in
- * header.tsx, app-wide, not gated to any one page. Two candidates can independently want
- * to fire on the same load (e.g. day 7 lands while a flow is also mid-progress); this
- * picks at most one so they never stack. The day-7/day-13 lifecycle nudge wins — it's
- * time-boxed to a single day, whereas the flow-resume nudge nags every session anyway
- * and will simply show up next time.
- *
- * The flags themselves stay in localStorage (read inside each modal); this component
- * only computes which localStorage-backed candidate takes priority right now.
+ * header.tsx, app-wide, not gated to any one page. Currently just the day-7/day-13
+ * lifecycle nudge; the flow-resume popup was removed (per Himanshu — resuming a
+ * mid-progress flow now happens via the "Get Started" widget's checklist instead, which
+ * reads the same localStorage-backed flow-resume logic). Kept as its own component
+ * (rather than inlining TrialDayNudgeModal directly in header.tsx) so a second nudge
+ * candidate can slot back in here later without touching header.tsx again.
  */
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
@@ -19,14 +17,11 @@ import {
   trialDaysRemaining,
   hasTrialDayNudgeDismissed,
 } from '@/constants/trial';
-import { useFlowResumeStep } from './flow-resume';
 import { TrialDayNudgeModal } from './trial-day-nudge-modal';
-import { FlowResumeNudgeModal } from './flow-resume-nudge-modal';
 
 export function NudgeCenter() {
   const getCurrentOrgUser = useAuthStore((s) => s.getCurrentOrgUser);
   const orgUser = getCurrentOrgUser();
-  const resumeStep = useFlowResumeStep();
 
   const orgSlug =
     orgUser?.subscription_plan === FREE_TRIAL_PLAN_NAME ? (orgUser.org?.slug ?? null) : null;
@@ -48,6 +43,5 @@ export function NudgeCenter() {
   }, [orgSlug, createdAt]);
 
   if (dayNudgeEligible) return <TrialDayNudgeModal />;
-  if (resumeStep) return <FlowResumeNudgeModal />;
   return null;
 }
