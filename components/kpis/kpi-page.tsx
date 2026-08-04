@@ -37,6 +37,8 @@ import { DocsLink } from '@/components/ui/docs-link';
 import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { useAuthStore } from '@/stores/authStore';
+import { markKpiCreated } from '@/components/onboarding/insight-walkthrough-constants';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
@@ -150,6 +152,9 @@ function KPICardWithData({
 export function KPIPageComponent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const orgUsers = useAuthStore((s) => s.orgUsers);
+  const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
+  const orgSlug = orgUsers.find((ou) => ou.org.slug === selectedOrgSlug)?.org.slug ?? null;
   const [search, setSearch] = useState('');
   const [metricTypeFilter, setMetricTypeFilter] = useState('');
   const [programTagFilter, setProgramTagFilter] = useState('');
@@ -225,6 +230,9 @@ export function KPIPageComponent() {
     setCurrentPage(1);
     mutate();
     globalMutate('/api/kpis/program-tags/');
+    // Resume-nudge milestone — set regardless of whether a coachmark session is active,
+    // so a returning user's progress is accurate (see flow-resume.ts).
+    if (orgSlug) markKpiCreated(orgSlug);
     const walkthrough = useInsightWalkthroughStore.getState();
     // Accepts either pre-state, same reasoning as handleContinue in kpi-form.tsx: KPI Type
     // is optional, so a user who never picks one (stage stays kpi_type) must still complete
@@ -236,7 +244,7 @@ export function KPIPageComponent() {
       toastSuccess.generic('🎉 Your First KPI is live');
       walkthrough.advanceTo('dashboard_nudge');
     }
-  }, [mutate, globalMutate]);
+  }, [mutate, globalMutate, orgSlug]);
 
   const handleCreate = () => {
     setEditingKpi(null);

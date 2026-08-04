@@ -47,6 +47,8 @@ import {
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { useAuthStore } from '@/stores/authStore';
+import { markChartCreated } from '@/components/onboarding/insight-walkthrough-constants';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -139,6 +141,9 @@ function ConfigureChartPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { trigger: createChart, isMutating } = useCreateChart();
+  const orgUsers = useAuthStore((s) => s.orgUsers);
+  const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
+  const orgSlug = orgUsers.find((ou) => ou.org.slug === selectedOrgSlug)?.org.slug ?? null;
 
   // ✅ ADD: Drill-up and drill-home handlers for create mode
   const handleDrillUp = useCallback((targetLevel: number) => {
@@ -977,6 +982,9 @@ function ConfigureChartPageContent() {
       // Reset unsaved changes state after successful save
       setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');
+
+      // Resume-nudge milestone — set regardless of an active coachmark session.
+      if (orgSlug) markChartCreated(orgSlug);
 
       const walkthrough = useInsightWalkthroughStore.getState();
       if (walkthrough.active && walkthrough.stage === 'own_data_chart_save') {

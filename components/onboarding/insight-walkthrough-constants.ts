@@ -269,3 +269,114 @@ export function hasPipelineCreated(orgSlug: string): boolean {
     return false;
   }
 }
+
+// --- Flow resume-nudge milestones ---
+// Unlike `stage` (which only advances while a coachmark session is actively on that exact
+// stage), these are set unconditionally on the real user action, regardless of whether the
+// walkthrough is currently active. That's what lets a returning user (new session, tour not
+// running) get an accurate "resume here" nudge computed from actual progress — see
+// flow-resume.ts, which reads these to compute the next step per flow.
+const KPI_CREATED_STORAGE_PREFIX = 'dalgo_insight_walkthrough_kpi_created_';
+const CHART_CREATED_STORAGE_PREFIX = 'dalgo_insight_walkthrough_chart_created_';
+const CHART_IN_DASHBOARD_STORAGE_PREFIX = 'dalgo_insight_walkthrough_chart_in_dash_';
+const KPI_IN_DASHBOARD_STORAGE_PREFIX = 'dalgo_insight_walkthrough_kpi_in_dash_';
+const DASHBOARD_SHARED_STORAGE_PREFIX = 'dalgo_insight_walkthrough_shared_';
+const TRANSFORM_PUBLISHED_STORAGE_PREFIX = 'dalgo_insight_walkthrough_transform_published_';
+
+export function markKpiCreated(orgSlug: string): void {
+  try {
+    localStorage.setItem(`${KPI_CREATED_STORAGE_PREFIX}${orgSlug}`, '1');
+  } catch {
+    // no-op
+  }
+}
+
+export function hasKpiCreated(orgSlug: string): boolean {
+  try {
+    return localStorage.getItem(`${KPI_CREATED_STORAGE_PREFIX}${orgSlug}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function markChartCreated(orgSlug: string): void {
+  try {
+    localStorage.setItem(`${CHART_CREATED_STORAGE_PREFIX}${orgSlug}`, '1');
+  } catch {
+    // no-op
+  }
+}
+
+export function hasChartCreated(orgSlug: string): boolean {
+  try {
+    return localStorage.getItem(`${CHART_CREATED_STORAGE_PREFIX}${orgSlug}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function markChartAddedToDashboard(orgSlug: string): void {
+  try {
+    localStorage.setItem(`${CHART_IN_DASHBOARD_STORAGE_PREFIX}${orgSlug}`, '1');
+  } catch {
+    // no-op
+  }
+}
+
+export function hasChartAddedToDashboard(orgSlug: string): boolean {
+  try {
+    return localStorage.getItem(`${CHART_IN_DASHBOARD_STORAGE_PREFIX}${orgSlug}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function markKpiAddedToDashboard(orgSlug: string): void {
+  try {
+    localStorage.setItem(`${KPI_IN_DASHBOARD_STORAGE_PREFIX}${orgSlug}`, '1');
+  } catch {
+    // no-op
+  }
+}
+
+export function hasKpiAddedToDashboard(orgSlug: string): boolean {
+  try {
+    return localStorage.getItem(`${KPI_IN_DASHBOARD_STORAGE_PREFIX}${orgSlug}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function markDashboardShared(orgSlug: string): void {
+  try {
+    localStorage.setItem(`${DASHBOARD_SHARED_STORAGE_PREFIX}${orgSlug}`, '1');
+  } catch {
+    // no-op
+  }
+}
+
+export function hasDashboardShared(orgSlug: string): boolean {
+  try {
+    return localStorage.getItem(`${DASHBOARD_SHARED_STORAGE_PREFIX}${orgSlug}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+// Set once a dbt workflow has been created, run, AND published — publish is the last of the
+// three, so its success handler is the single point that marks this (see PublishModal.tsx).
+export function markTransformPublished(orgSlug: string): void {
+  try {
+    localStorage.setItem(`${TRANSFORM_PUBLISHED_STORAGE_PREFIX}${orgSlug}`, '1');
+  } catch {
+    // no-op
+  }
+}
+
+export function hasTransformPublished(orgSlug: string): boolean {
+  try {
+    return localStorage.getItem(`${TRANSFORM_PUBLISHED_STORAGE_PREFIX}${orgSlug}`) === '1';
+  } catch {
+    return false;
+  }
+}

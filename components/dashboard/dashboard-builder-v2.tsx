@@ -71,6 +71,11 @@ import type { DashboardFilter } from '@/hooks/api/useDashboards';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { useAuthStore } from '@/stores/authStore';
+import {
+  markChartAddedToDashboard,
+  markKpiAddedToDashboard,
+} from '@/components/onboarding/insight-walkthrough-constants';
 
 // Grid layout constants
 const ROW_HEIGHT = 20;
@@ -366,6 +371,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     ref
   ) {
     const router = useRouter();
+    const orgUsers = useAuthStore((s) => s.orgUsers);
+    const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
+    const orgSlug = orgUsers.find((ou) => ou.org.slug === selectedOrgSlug)?.org.slug ?? null;
 
     // Canvas is always driven by tab content — layout and components live inside tabs only.
     // If tabs exist, load the first tab's canvas. Otherwise start empty (new dashboard).
@@ -1371,6 +1379,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
         trackEvent(ANALYTICS_EVENTS.DASHBOARD_CHART_ADDED, { chart_type: chartType });
 
+        // Resume-nudge milestone — set regardless of an active coachmark session.
+        if (orgSlug) markChartAddedToDashboard(orgSlug);
+
         // Animate component entrance
         dashboardAnimation.animateComponent(newComponent.id, 500);
 
@@ -1426,6 +1437,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       });
 
       trackEvent(ANALYTICS_EVENTS.DASHBOARD_KPI_ADDED);
+      // Resume-nudge milestone — set regardless of an active coachmark session.
+      if (orgSlug) markKpiAddedToDashboard(orgSlug);
       dashboardAnimation.animateComponent(newComponent.id, 500);
       scrollToComponentIfNeeded(newComponent.id);
 

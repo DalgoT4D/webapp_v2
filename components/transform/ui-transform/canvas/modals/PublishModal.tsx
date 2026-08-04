@@ -18,6 +18,8 @@ import { apiGet, apiPost } from '@/lib/api';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useAuthStore } from '@/stores/authStore';
+import { markTransformPublished } from '@/components/onboarding/insight-walkthrough-constants';
 
 interface PublishModalProps {
   open: boolean;
@@ -32,6 +34,9 @@ interface GitStatusSummary {
 }
 
 export default function PublishModal({ open, onClose, onPublishSuccess }: PublishModalProps) {
+  const orgUsers = useAuthStore((s) => s.orgUsers);
+  const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
+  const orgSlug = orgUsers.find((ou) => ou.org.slug === selectedOrgSlug)?.org.slug ?? null;
   const [commitMessage, setCommitMessage] = useState('');
   const [gitStatus, setGitStatus] = useState<GitStatusSummary | null>(null);
   const [loading, setLoading] = useState(false);
@@ -83,6 +88,8 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
       if (response.success) {
         trackEvent(ANALYTICS_EVENTS.TRANSFORM_CHANGES_PUBLISHED);
         toastSuccess.published('Changes');
+        // Resume-nudge milestone — transformation counts done once published.
+        if (orgSlug) markTransformPublished(orgSlug);
         onPublishSuccess?.();
         onClose();
       } else {

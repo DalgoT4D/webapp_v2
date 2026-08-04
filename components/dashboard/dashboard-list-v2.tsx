@@ -101,6 +101,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
+import { markDashboardShared } from '@/components/onboarding/insight-walkthrough-constants';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
 import useSWR, { mutate as swrMutate } from 'swr';
@@ -482,6 +483,18 @@ export function DashboardListV2() {
   const handleDashboardUpdate = useCallback(() => {
     mutate(); // Refresh the dashboard list
   }, [mutate]);
+
+  // Wraps updateDashboardSharing (passed to ShareModal, a components/ui/ component we don't
+  // modify) so the resume-nudge "shared" milestone is set on the actual is_public=true action,
+  // without adding onboarding logic to the shared modal itself.
+  const handleUpdateDashboardSharing = useCallback(
+    async (id: number, data: { is_public: boolean }) => {
+      const result = await updateDashboardSharing(id, data);
+      if (data.is_public && selectedOrgSlug) markDashboardShared(selectedOrgSlug);
+      return result;
+    },
+    [selectedOrgSlug]
+  );
 
   // Landing page handlers
   const handleSetPersonalLanding = useCallback(
@@ -2031,7 +2044,7 @@ export function DashboardListV2() {
             public_access_count: selectedDashboard.public_access_count,
           }}
           getShareStatus={getDashboardSharingStatus}
-          updateSharing={updateDashboardSharing}
+          updateSharing={handleUpdateDashboardSharing}
         />
       )}
     </div>
