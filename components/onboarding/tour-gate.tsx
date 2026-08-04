@@ -18,7 +18,6 @@ import { ProductTour, type ProductTourHandle } from './product-tour';
 import { TourIntentModal } from './tour-intent-modal';
 import { GettingStartedWidget } from './getting-started-widget';
 import { InsightWalkthroughCoachmark } from './insight-walkthrough-coachmark';
-import { FlowResumeNudgeModal } from './flow-resume-nudge-modal';
 import { hasSeenTour } from './tour-constants';
 import {
   hasFinishedWalkthrough,
@@ -127,7 +126,6 @@ export function TourGate() {
             hasAutomatedPipeline={hasPipelineCreated(orgSlug)}
             onStartTour={startTour}
           />
-          <FlowResumeNudgeModal />
         </>
       )}
     </>

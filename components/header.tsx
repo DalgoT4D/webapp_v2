@@ -33,6 +33,7 @@ import { useUnreadCount } from '@/hooks/api/useNotifications';
 import { CreateOrgDialog } from '@/components/settings/organizations/CreateOrgDialog';
 import { OrgBrand } from '@/components/ui/org-brand';
 import { FREE_TRIAL_PLAN_NAME, trialDaysRemaining } from '@/constants/trial';
+import { NudgeCenter } from '@/components/onboarding/nudge-center';
 
 /**
  * Free-trial countdown badge. Renders only for free-trial orgs; shows whole days left,
@@ -354,6 +355,9 @@ export function Header({
 
       {/* Create Organization Dialog */}
       <CreateOrgDialog open={showCreateOrgDialog} onOpenChange={setShowCreateOrgDialog} />
+
+      {/* Single decision point for which trial nudge (if any) shows — app-wide */}
+      <NudgeCenter />
     </div>
   );
 }

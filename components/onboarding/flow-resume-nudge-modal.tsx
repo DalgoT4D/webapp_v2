@@ -2,22 +2,25 @@
 
 /**
  * "Welcome back" nudge for a trial user returning mid-flow (build-insights or
- * automate-pipeline — not the product tour, which has its own re-entry). Shown on every
- * /impact load while a flow is incomplete, per Himanshu: this is meant to nag, not to be
- * seen once and forgotten. Dismissing (X or the CTA) only suppresses it for the rest of
- * the current browser session — sessionStorage, not localStorage — so navigating back to
- * /impact later in the same session doesn't reopen it, but the next real return does.
+ * automate-pipeline — not the product tour, which has its own re-entry). Shown app-wide
+ * (mounted via NudgeCenter in header.tsx) while a flow is incomplete, per Himanshu: this
+ * is meant to nag, not to be seen once and forgotten. Dismissing (X or the CTA) only
+ * suppresses it for the rest of the current browser session — sessionStorage, not
+ * localStorage — so coming back later in the same session doesn't reopen it, but the
+ * next real return does.
+ *
+ * NudgeCenter is responsible for only mounting this when the day-7/day-13 lifecycle
+ * nudge isn't also due — this component doesn't need to know about that itself.
  */
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/authStore';
 import { trialDaysRemaining } from '@/constants/trial';
 import { useFlowResumeStep, type FlowResumeStep } from './flow-resume';
+import { TwoPaneNudgeDialog } from './two-pane-nudge-dialog';
 
 const DISMISSED_STORAGE_PREFIX = 'dalgo_flow_resume_nudge_dismissed_';
+const ILLUSTRATION_SRC = '/branding/flow-resume-illustration.jpg';
 
 const STEP_COPY: Record<
   FlowResumeStep['id'],
@@ -78,7 +81,8 @@ export function FlowResumeNudgeModal() {
 
   if (!resumeStep || !orgSlug || dismissed) return null;
 
-  const days = orgUser?.org?.created_at ? trialDaysRemaining(orgUser.org.created_at) : null;
+  const createdAt = orgUser?.org?.created_at ?? null;
+  const days = createdAt ? trialDaysRemaining(createdAt) : null;
   const copy = STEP_COPY[resumeStep.id];
 
   const dismiss = () => {
@@ -92,46 +96,24 @@ export function FlowResumeNudgeModal() {
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && dismiss()}>
-      <DialogContent
-        className="max-w-3xl gap-0 overflow-hidden p-0 sm:max-w-3xl"
-        data-testid="flow-resume-nudge-modal"
-      >
-        <div className="grid sm:grid-cols-2">
-          <div className="flex flex-col gap-6 p-10">
-            <DialogTitle className="text-2xl leading-tight font-bold">{copy.title}</DialogTitle>
-            <p className="text-muted-foreground text-base">
-              {copy.body}
-              {days !== null && (
-                <>
-                  {' '}
-                  You have {days} day{days === 1 ? '' : 's'} left on your trial.
-                </>
-              )}
-            </p>
-            <Button
-              variant="primary"
-              className="w-fit"
-              onClick={handleContinue}
-              data-testid="flow-resume-nudge-cta"
-            >
-              {copy.cta}
-            </Button>
-            <div className="bg-muted rounded-lg p-4">
-              <p className="text-sm font-medium">Need help structuring your programme data?</p>
-              <p className="text-muted-foreground mt-1 text-sm">Contact us at Book a call</p>
-            </div>
-          </div>
-          <div className="relative hidden bg-[#d5f0e6] sm:block">
-            <Image
-              src="/branding/flow-resume-illustration.jpg"
-              alt=""
-              fill
-              className="object-contain"
-            />
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <TwoPaneNudgeDialog
+      onOpenChange={(open) => !open && dismiss()}
+      title={copy.title}
+      body={
+        <>
+          {copy.body}
+          {days !== null && (
+            <>
+              {' '}
+              You have {days} day{days === 1 ? '' : 's'} left on your trial.
+            </>
+          )}
+        </>
+      }
+      ctaLabel={copy.cta}
+      onCta={handleContinue}
+      imageSrc={ILLUSTRATION_SRC}
+      testId="flow-resume-nudge-modal"
+    />
   );
 }

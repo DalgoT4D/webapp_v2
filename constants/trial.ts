@@ -85,3 +85,24 @@ export const TRIAL_CREDS_STORAGE_KEY = 'dalgo_trial_creds';
 // page, which is where the activate API call (account creation) actually fires.
 // Cleared once that call succeeds.
 export const TRIAL_PENDING_ACTIVATION_KEY = 'dalgo_trial_pending_activation';
+
+const TRIAL_DAY_NUDGE_DISMISSED_PREFIX = 'dalgo_trial_day_nudge_dismissed_';
+
+// Permanent (localStorage, not sessionStorage) dismiss for the day-7 / day-13 trial
+// lifecycle nudges (TrialDayNudgeModal) — once closed, never shown again for that org,
+// unlike the flow-resume nudge's per-session suppression.
+export function markTrialDayNudgeDismissed(orgSlug: string, day: number): void {
+  try {
+    localStorage.setItem(`${TRIAL_DAY_NUDGE_DISMISSED_PREFIX}${day}_${orgSlug}`, '1');
+  } catch {
+    // no-op
+  }
+}
+
+export function hasTrialDayNudgeDismissed(orgSlug: string, day: number): boolean {
+  try {
+    return localStorage.getItem(`${TRIAL_DAY_NUDGE_DISMISSED_PREFIX}${day}_${orgSlug}`) === '1';
+  } catch {
+    return false;
+  }
+}
