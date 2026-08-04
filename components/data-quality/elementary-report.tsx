@@ -15,11 +15,13 @@ import {
   refreshElementaryReport,
   checkElementaryLock,
 } from '@/hooks/api/useElementaryStatus';
+import { cronToString, localTimezone } from '@/components/pipeline/utils';
 
 export function ElementaryReport() {
   const [loading, setLoading] = useState(true);
   const [elementaryToken, setElementaryToken] = useState('');
   const [generatedAt, setGeneratedAt] = useState('');
+  const [scheduleCron, setScheduleCron] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const lockIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
@@ -38,9 +40,16 @@ export function ElementaryReport() {
   const fetchReportToken = useCallback(async () => {
     try {
       const response = await fetchElementaryReport();
-      if (response.token) {
+      // Backend returns `report_exists: false` when no EDR run has produced a
+      // report within the lookback window — that's a normal empty state, not
+      // an error. The "No report available" UI below handles it.
+      if (response.report_exists) {
         setElementaryToken(response.token);
         setGeneratedAt(formatDistanceToNow(new Date(response.created_on_utc), { addSuffix: true }));
+      }
+      // Schedule is present on both response shapes (or null if EDR isn't set up).
+      if (response.schedule) {
+        setScheduleCron(response.schedule.cron);
       }
     } catch (err: unknown) {
       toastError.api(err, 'Failed to fetch report');
@@ -117,14 +126,22 @@ export function ElementaryReport() {
     <div id="elementary-report" className="flex flex-col h-full" data-testid="elementary-report">
       {/* Header bar */}
       <div className="flex items-center justify-between px-1 py-2">
-        <div>
+        <div className="flex flex-col gap-1">
           {elementaryToken && (
-            <p className="text-lg font-semibold" data-testid="last-generated">
-              Last generated: <span className="font-normal">{generatedAt}</span>
+            <p className="text-base font-semibold text-gray-900" data-testid="last-generated">
+              Last generated: <span className="font-normal text-gray-700">{generatedAt}</span>
+            </p>
+          )}
+          {scheduleCron && (
+            <p className="text-sm text-gray-500" data-testid="report-schedule">
+              Reports run:{' '}
+              <span className="font-medium text-gray-700">{cronToString(scheduleCron)}</span>{' '}
+              <span>({localTimezone()})</span>
             </p>
           )}
         </div>
         <Button
+          variant="primary"
           onClick={handleRegenerate}
           disabled={isGenerating || !canRegenerate}
           data-testid="regenerate-report-btn"
@@ -153,9 +170,12 @@ export function ElementaryReport() {
             data-testid="elementary-iframe"
           />
         ) : (
-          <p className="text-lg text-muted-foreground" data-testid="no-report-message">
-            No report available. Please click on the button above to generate if you believe a
-            report should be available.
+          <p
+            className="text-base text-gray-500 text-center max-w-md"
+            data-testid="no-report-message"
+          >
+            No report available yet. Click the button above to generate one if you believe a report
+            should be available.
           </p>
         )}
       </div>
