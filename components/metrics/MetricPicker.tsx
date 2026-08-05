@@ -12,6 +12,7 @@ interface MetricPickerProps {
   disabled?: boolean;
   placeholder?: string;
   pageSize?: number;
+  hideCreateLink?: boolean;
 }
 
 export function MetricPicker({
@@ -20,6 +21,7 @@ export function MetricPicker({
   disabled,
   placeholder = 'Search from your Metrics Library',
   pageSize = 100,
+  hideCreateLink = false,
 }: MetricPickerProps) {
   const { data: metrics, isLoading } = useMetrics({ pageSize });
 
@@ -64,7 +66,7 @@ export function MetricPicker({
         );
       }}
       footer={
-        isLoading ? undefined : (
+        isLoading || hideCreateLink ? undefined : (
           <a
             href="/metrics?create=true"
             target="_blank"
