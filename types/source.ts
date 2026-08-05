@@ -41,6 +41,8 @@ export interface SourceOAuthConsent {
  * sourceId is set) the source — no credentials or tokens reach the browser. */
 export interface CreateOAuthSourcePayload {
   sourceDefId: string;
+  /** source-definition NAME (e.g. "Google Sheets") — the OAuth registry key */
+  sourceName: string;
   name: string;
   config: Record<string, unknown>;
   /** opaque handle the backend minted for the stashed refresh_token */

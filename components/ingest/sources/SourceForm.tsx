@@ -196,7 +196,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     setOauthConnecting(true);
     try {
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_STARTED, { source_type: 'Google Sheets' });
-      const { authUrl } = await getSourceOAuthConsent(selectedDefId);
+      const { authUrl } = await getSourceOAuthConsent(selectedDefId, selectedName);
       const { ref } = await openOAuthPopup(authUrl);
       setOauthRef(ref);
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
@@ -206,7 +206,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     } finally {
       setOauthConnecting(false);
     }
-  }, [selectedDefId, sourceName]);
+  }, [selectedDefId, selectedName, sourceName]);
 
   // WS check succeeded → persist the update (v1 pattern: test, then auto-save).
   const handleSaveSource = useCallback(async () => {
@@ -289,6 +289,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     try {
       await createOAuthSource({
         sourceDefId: selectedDefId!,
+        sourceName: selectedName,
         name: sourceName,
         config: buildConfig(),
         refresh_token_ref: oauthRef!,
@@ -305,7 +306,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     } finally {
       setLoading(false);
     }
-  }, [selectedDefId, sourceName, buildConfig, oauthRef, sourceId, onSuccess]);
+  }, [selectedDefId, selectedName, sourceName, buildConfig, oauthRef, sourceId, onSuccess]);
 
   // Single submit: a fresh OAuth ref is redeemed directly; otherwise the config is
   // tested over the WebSocket and saved on success.

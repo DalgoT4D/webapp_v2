@@ -40,7 +40,12 @@ beforeEach(() => {
 it('connectGoogle runs consent → popup(ref) → createOAuthSource and reports the new source id', async () => {
   const onSaved = jest.fn();
   const { result } = renderHook(() =>
-    useSourceSave({ sourceDefId: 'gs', getConfig: () => ({ x: 1 }), onSaved })
+    useSourceSave({
+      sourceDefId: 'gs',
+      sourceDefName: 'Google Sheets',
+      getConfig: () => ({ x: 1 }),
+      onSaved,
+    })
   );
   await act(async () => {
     await result.current.connectGoogle('My Sheet');
@@ -52,7 +57,7 @@ it('save() success: WS check succeeds → createSource is called and onSaved fir
   const onSaved = jest.fn();
   const getConfig = () => ({ host: 'db.example', port: 5432 });
   const { result, rerender } = renderHook(() =>
-    useSourceSave({ sourceDefId: 'pg-def', getConfig, onSaved })
+    useSourceSave({ sourceDefId: 'pg-def', sourceDefName: 'Postgres', getConfig, onSaved })
   );
 
   act(() => {
@@ -88,7 +93,12 @@ it('save() success: WS check succeeds → createSource is called and onSaved fir
 it('save() failure: WS check fails → createSource is NOT called, setupLogs populated, loading ends false', async () => {
   const onSaved = jest.fn();
   const { result, rerender } = renderHook(() =>
-    useSourceSave({ sourceDefId: 'pg-def', getConfig: () => ({ x: 1 }), onSaved })
+    useSourceSave({
+      sourceDefId: 'pg-def',
+      sourceDefName: 'Postgres',
+      getConfig: () => ({ x: 1 }),
+      onSaved,
+    })
   );
 
   act(() => {

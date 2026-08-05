@@ -15,6 +15,9 @@ const AIRBYTE_CHECK_SUCCEEDED = 'succeeded';
 interface UseSourceSaveArgs {
   /** Selected source-definition id, or null before the user picks a source type */
   sourceDefId: string | null;
+  /** Selected source-definition NAME (e.g. "Google Sheets") — only needed for the
+   *  Google OAuth connect flow, the OAuth registry's lookup key */
+  sourceDefName: string;
   /** Returns the cleaned connector config to send on save/connect */
   getConfig: () => Record<string, unknown>;
   /** Called with the newly created source's id once the save/connect flow succeeds */
@@ -38,6 +41,7 @@ interface UseSourceSave {
  */
 export function useSourceSave({
   sourceDefId,
+  sourceDefName,
   getConfig,
   onSaved,
 }: UseSourceSaveArgs): UseSourceSave {
@@ -109,10 +113,11 @@ export function useSourceSave({
       setOauthConnecting(true);
       try {
         const config = getConfig();
-        const { authUrl } = await getSourceOAuthConsent(sourceDefId);
+        const { authUrl } = await getSourceOAuthConsent(sourceDefId, sourceDefName);
         const { ref } = await openOAuthPopup(authUrl);
         const { sourceId } = await createOAuthSource({
           sourceDefId,
+          sourceName: sourceDefName,
           name,
           config,
           refresh_token_ref: ref,
@@ -126,7 +131,7 @@ export function useSourceSave({
         setOauthConnecting(false);
       }
     },
-    [sourceDefId, getConfig, onSaved]
+    [sourceDefId, sourceDefName, getConfig, onSaved]
   );
 
   return { save, connectGoogle, loading, oauthConnecting, setupLogs };
