@@ -112,6 +112,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
 
   const [step, setStep] = useState<Step>(1);
   const [saving, setSaving] = useState(false);
+  const [continuing, setContinuing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
 
@@ -127,6 +128,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
     watch,
     setValue,
     reset,
+    trigger,
     handleSubmit,
     formState: { errors },
   } = useForm<KPIFormData>({
@@ -154,7 +156,9 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
   const { data: metrics, mutate: mutateMetrics } = useMetrics({ pageSize: 50 });
   const { tags: existingTags } = useProgramTags();
 
-  const selectedMetric = metrics.find((m) => m.id === metricId) ?? inlineCreatedMetric ?? undefined;
+  const selectedMetric =
+    metrics.find((m) => m.id === metricId) ??
+    (inlineCreatedMetric?.id === metricId ? inlineCreatedMetric : undefined);
 
   const { data: tableColumns } = useTableColumns(
     selectedMetric?.schema_name || null,
@@ -227,14 +231,33 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
     }
   };
 
-  const handleStep1Continue = async () => {
-    setStepError(null);
-    const ok = await metricStepRef.current?.handleContinue();
-    if (ok) {
-      setStep(2);
-    } else if (!metricId) {
-      setStepError('Please select or create a metric');
+  // Track each step as it becomes visible (fires on open too, since step resets on open)
+  useEffect(() => {
+    if (open) {
+      trackEvent(ANALYTICS_EVENTS.KPI_WIZARD_STEP_VIEWED, { step });
     }
+  }, [step, open, isEdit]);
+
+  const handleStep1Continue = async () => {
+    if (continuing) return;
+    setStepError(null);
+    setContinuing(true);
+    try {
+      const ok = await metricStepRef.current?.handleContinue();
+      if (ok) {
+        setStep(2);
+      } else if (!metricId) {
+        setStepError('Please select a metric, or complete the new metric form');
+      }
+    } finally {
+      setContinuing(false);
+    }
+  };
+
+  const handleStep2Continue = async () => {
+    setStepError(null);
+    const ok = await trigger(['name', 'target_value', 'direction', 'time_dimension_column']);
+    if (ok) setStep(3);
   };
 
   const handleDirectionChange = (direction: string) => {
@@ -321,7 +344,13 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
 
         <StepIndicator step={step} />
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (step === 3) handleSubmit(onSubmit)(e);
+          }}
+          className="space-y-4 py-2"
+        >
           {step === 1 && (
             <KpiMetricStep
               ref={metricStepRef}
@@ -372,12 +401,13 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
 
           {/* Continue / Submit */}
           {step === 1 && (
-            <Button type="button" onClick={handleStep1Continue}>
+            <Button type="button" onClick={handleStep1Continue} disabled={continuing}>
+              {continuing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Continue
             </Button>
           )}
           {step === 2 && (
-            <Button type="button" onClick={() => setStep(3)}>
+            <Button type="button" onClick={handleStep2Continue}>
               Continue
             </Button>
           )}

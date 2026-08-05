@@ -24,6 +24,8 @@ import { useTableColumns } from '@/hooks/api/useWarehouse';
 import { createMetric, validateMetric } from '@/hooks/api/useMetrics';
 import type { Metric, MetricPayload } from '@/types/metrics';
 import { AGGREGATION_OPTIONS } from '@/types/metrics';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 const NUMERIC_TYPES = [
   'integer',
@@ -192,9 +194,9 @@ export const KpiMetricStep = forwardRef<KpiMetricStepHandle, KpiMetricStepProps>
               return false;
             }
             setValidationState('valid');
-          } catch (err: any) {
+          } catch (err: unknown) {
             setValidationState('error');
-            setValidationError(err.message || 'Validation failed');
+            setValidationError(err instanceof Error ? err.message : 'Validation failed');
             return false;
           }
         }
@@ -204,6 +206,7 @@ export const KpiMetricStep = forwardRef<KpiMetricStepHandle, KpiMetricStepProps>
         setCreateError(null);
         try {
           const newMetric = await createMetric(payload);
+          trackEvent(ANALYTICS_EVENTS.METRIC_CREATED, { mode: data.mode });
           // Invalidate all /api/metrics/ SWR cache keys (MetricPicker uses a
           // different pageSize than the parent, so a targeted mutate won't reach it).
           globalMutate((key) => typeof key === 'string' && key.startsWith('/api/metrics/'));
@@ -211,8 +214,8 @@ export const KpiMetricStep = forwardRef<KpiMetricStepHandle, KpiMetricStepProps>
           onInlineMetricCreated(newMetric);
           onMetricSelected(newMetric.id, newMetric.name);
           return true;
-        } catch (err: any) {
-          setCreateError(err.message || 'Failed to create metric');
+        } catch (err: unknown) {
+          setCreateError(err instanceof Error ? err.message : 'Failed to create metric');
           return false;
         } finally {
           setCreating(false);
@@ -370,6 +373,13 @@ export const KpiMetricStep = forwardRef<KpiMetricStepHandle, KpiMetricStepProps>
                         <Controller
                           control={control}
                           name="column"
+                          rules={{
+                            validate: (val) =>
+                              field.value !== 'simple' ||
+                              aggregation === 'count' ||
+                              (val ?? '') !== '' ||
+                              'Column is required',
+                          }}
                           render={({ field: colField }) => (
                             <Combobox
                               items={columnItems}
@@ -403,6 +413,9 @@ export const KpiMetricStep = forwardRef<KpiMetricStepHandle, KpiMetricStepProps>
                             />
                           )}
                         />
+                        {errors.column && (
+                          <p className="text-xs text-destructive">{errors.column.message}</p>
+                        )}
                       </div>
                     </div>
                   </TabsContent>

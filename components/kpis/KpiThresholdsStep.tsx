@@ -124,9 +124,17 @@ export function KpiThresholdsStep({
   const greenThreshold = watch('green_threshold_pct');
   const amberThreshold = watch('amber_threshold_pct');
 
-  const targetNum = targetValue ? parseFloat(targetValue) : null;
-  const greenVal = targetNum ? (targetNum * parseFloat(greenThreshold)) / 100 : null;
-  const amberVal = targetNum ? (targetNum * parseFloat(amberThreshold)) / 100 : null;
+  const toFinite = (v: string): number | null => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const targetNum = toFinite(targetValue);
+  const greenNum = toFinite(greenThreshold);
+  const amberNum = toFinite(amberThreshold);
+  const greenVal = targetNum !== null && greenNum !== null ? (targetNum * greenNum) / 100 : null;
+  const amberVal = targetNum !== null && amberNum !== null ? (targetNum * amberNum) / 100 : null;
+
+  const thresholdRules = {};
 
   return (
     <div className="space-y-4">
@@ -144,9 +152,16 @@ export function KpiThresholdsStep({
                 <span className="text-sm text-muted-foreground">
                   {direction === 'increase' ? '≥' : '≤'}
                 </span>
-                <Input type="number" {...register('green_threshold_pct')} className="w-16 h-8" />
+                <Input
+                  type="number"
+                  {...register('green_threshold_pct', thresholdRules)}
+                  className="w-16 h-8"
+                />
                 <span className="text-sm text-muted-foreground">%</span>
               </div>
+              {errors.green_threshold_pct && (
+                <p className="text-xs text-destructive">{errors.green_threshold_pct.message}</p>
+              )}
               {greenVal !== null && (
                 <p className="text-xs text-muted-foreground">
                   {direction === 'increase' ? '≥' : '≤'} {greenVal.toLocaleString()}
@@ -159,9 +174,16 @@ export function KpiThresholdsStep({
                 <Label className="text-sm">Needs Attention</Label>
               </div>
               <div className="flex items-center gap-1">
-                <Input type="number" {...register('amber_threshold_pct')} className="w-16 h-8" />
+                <Input
+                  type="number"
+                  {...register('amber_threshold_pct', thresholdRules)}
+                  className="w-16 h-8"
+                />
                 <span className="text-sm text-muted-foreground">%</span>
               </div>
+              {errors.amber_threshold_pct && (
+                <p className="text-xs text-destructive">{errors.amber_threshold_pct.message}</p>
+              )}
               {amberVal !== null && (
                 <p className="text-xs text-muted-foreground">{amberVal.toLocaleString()}</p>
               )}
