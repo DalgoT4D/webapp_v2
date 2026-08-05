@@ -44,20 +44,19 @@ describe('isGoogleSheetsSource', () => {
 });
 
 describe('getCustomSource connectionView', () => {
-  it('gives Google Sheets a full-refresh-only, Sheets config', () => {
+  it('gives Google Sheets a full-refresh-only, Tables config', () => {
     const cv = getCustomSource(SOURCE_NAME_GOOGLE_SHEETS)?.connectionView;
     expect(cv).toMatchObject({
-      streamNoun: 'Sheets',
+      streamNoun: 'Tables',
       supportsIncremental: false,
       allowedDestModes: [DestinationSyncMode.OVERWRITE, DestinationSyncMode.APPEND],
     });
-    expect(cv?.streamHelp).toBeTruthy();
   });
 
-  it('gives KoboToolbox a Forms config with incremental + all dest modes', () => {
+  it('gives KoboToolbox a Tables config with incremental + all dest modes', () => {
     const cv = getCustomSource(SOURCE_NAME_KOBOTOOLBOX)?.connectionView;
     expect(cv).toMatchObject({
-      streamNoun: 'Forms',
+      streamNoun: 'Tables',
       supportsIncremental: true,
       allowedDestModes: [
         DestinationSyncMode.OVERWRITE,
@@ -65,7 +64,6 @@ describe('getCustomSource connectionView', () => {
         DestinationSyncMode.APPEND_DEDUP,
       ],
     });
-    expect(cv?.streamHelp).toBeTruthy();
   });
 
   it('returns null for an unknown source', () => {

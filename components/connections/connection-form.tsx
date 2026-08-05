@@ -39,10 +39,10 @@ export function ConnectionForm({
   // Stay compact until streams are discovered (same as the wizard), then widen
   // to fit the streams table alongside the help panel.
   const [expanded, setExpanded] = useState(false);
-  // The body reports the active source name (every source) + an optional stream
-  // noun (custom sources only) so the header reads the same as the wizard's
-  // connection step: a source-named title, and for custom sources a "select which
-  // <forms/sheets> to sync" line. Null → generic fallback copy.
+  // The body reports the active source name (every source) + the stream noun
+  // ("tables") so the header reads the same as the wizard's connection step: a
+  // source-named title and a "select which tables to sync" line. Null (before
+  // a source resolves) → generic fallback copy.
   const [headerInfo, setHeaderInfo] = useState<{
     sourceName: string;
     streamNoun?: string;

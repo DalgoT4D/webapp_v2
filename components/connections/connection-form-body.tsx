@@ -51,9 +51,7 @@ export interface ConnectionFormBodyProps {
   onExpandedChange?: (expanded: boolean) => void;
   // Fired once the active source resolves, so the host can name the source in the
   // modal header (and, in the wizard, show "<source> created successfully") for
-  // every source — generic and custom alike. `streamNoun` is set only for custom
-  // sources (Sheets/Kobo), which relabel their streams; generic sources omit it
-  // and the host falls back to neutral copy. Null until a source resolves.
+  // every source — generic and custom alike. Null until a source resolves.
   onHeaderInfoChange?: (info: { sourceName: string; streamNoun?: string } | null) => void;
 }
 
@@ -147,7 +145,6 @@ export function ConnectionFormBody({
   const helpConcepts = React.useMemo(
     () =>
       getConnectionHelp({
-        streamNoun: connectionView?.streamNoun,
         supportsIncremental: connectionView ? connectionView.supportsIncremental : true,
         allowsDedup: connectionView ? allowsDedup(connectionView.allowedDestModes) : true,
       }),
@@ -285,11 +282,7 @@ export function ConnectionFormBody({
     if (!name.trim()) next.name = 'Connection name is required';
     if (isCreate && !presetSourceId && !selectedSourceId) next.source = 'Source is required';
     if (!hasSelectedStreams) {
-      // Use the friendly noun for custom sources: "one sheet" / "one form".
-      const noun = connectionView
-        ? connectionView.streamNoun.replace(/s$/i, '').toLowerCase()
-        : 'stream';
-      next.streams = `Select at least one ${noun}`;
+      next.streams = 'Select at least one table';
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -483,18 +476,15 @@ export function ConnectionFormBody({
 
   // Report the source name up to the host (create/edit/view) for every source, so
   // the dialog/wizard header names it — and the wizard shows "<source> created
-  // successfully" in the heading instead of a body banner. `streamNoun` rides
-  // along only for custom sources (Sheets/Kobo relabel their streams); generic
-  // sources omit it and the host uses neutral copy.
+  // successfully" in the heading instead of a body banner. `streamNoun` always
+  // reads "Tables" now, for every source.
   const headerSourceName =
     readOnlySource?.name || readOnlySource?.sourceName || sourceDefName || null;
   useEffect(() => {
     onHeaderInfoChange?.(
-      headerSourceName
-        ? { sourceName: headerSourceName, streamNoun: connectionView?.streamNoun }
-        : null
+      headerSourceName ? { sourceName: headerSourceName, streamNoun: 'Tables' } : null
     );
-  }, [connectionView, headerSourceName, onHeaderInfoChange]);
+  }, [headerSourceName, onHeaderInfoChange]);
 
   return (
     <>
@@ -509,7 +499,7 @@ export function ConnectionFormBody({
         >
           {/* The whole left column is the single scroll container: the streams
               table grows to its natural height instead of scrolling internally,
-              so users scroll the full side to reach every stream/sheet/form. */}
+              so users scroll the full side to reach every table. */}
           <div className="flex min-h-0 flex-col gap-6 overflow-y-auto pr-1">
             <div className="flex-shrink-0 space-y-6">
               {/* Source identity + "created successfully" now live in the
@@ -609,15 +599,13 @@ export function ConnectionFormBody({
 
             {/* Streams region grows to its natural height; the whole left column
                 owns the scroll, so users scroll the full side to see every
-                stream/sheet/form. */}
+                table. */}
             <div className="flex flex-col gap-6">
               {/* Schema discovery loading */}
               {isDiscovering && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {connectionView?.streamNoun
-                    ? `Fetching ${connectionView.streamNoun.toLowerCase()}...`
-                    : 'Discovering schema...'}
+                  Fetching tables...
                 </div>
               )}
 
@@ -648,7 +636,6 @@ export function ConnectionFormBody({
                   onConceptFocus={setActiveConcept}
                   advancedOpen={advancedStreamsOpen}
                   onToggleAdvanced={() => setAdvancedStreamsOpen((o) => !o)}
-                  helpText={connectionView?.streamHelp}
                 />
               )}
 

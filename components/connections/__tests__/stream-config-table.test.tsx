@@ -118,17 +118,15 @@ describe('StreamConfigTable progressive disclosure', () => {
     expect(onConceptFocus).toHaveBeenCalledWith('cursor');
   });
 
-  it('renders the friendly help text and "Select your" heading for custom sources', () => {
+  it('renders the "Select your" heading using the given streamNoun', () => {
     render(
       <StreamConfigTable
         {...baseProps}
         streamNoun="Sheets"
-        helpText="All sheets are synced by default."
         advancedOpen={false}
         onToggleAdvanced={jest.fn()}
       />
     );
-    expect(screen.getByText('All sheets are synced by default.')).toBeInTheDocument();
     expect(screen.getByText(/Select your sheets/)).toBeInTheDocument();
   });
 });

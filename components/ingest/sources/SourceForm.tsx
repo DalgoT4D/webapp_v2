@@ -22,7 +22,7 @@ import {
   useSource,
   updateSource,
   getSourceOAuthConsent,
-  createOAuthSource,
+  updateOAuthSource,
 } from '@/hooks/api/useSources';
 import { openOAuthPopup } from '@/components/connectors/oauth-popup';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
@@ -53,7 +53,11 @@ interface SourceFormProps {
  */
 export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormProps) {
   const { data: definitions } = useSourceDefinitions();
-  const { data: source } = useSource(open ? sourceId : null);
+  // mutate() re-fetches this specific source (a separate SWR key from the list
+  // useSources() revalidates on close) — without it, reopening this dialog right
+  // after a save serves the stale pre-save response until some later revalidation
+  // catches up, e.g. showing a just-removed service-account key one more time.
+  const { data: source, mutate: mutateSource } = useSource(open ? sourceId : null);
 
   const [selectedDefId, setSelectedDefId] = useState<string | null>(null);
 
@@ -226,6 +230,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
         ...(isGoogleSheetsCustom ? { auth_mode: 'service_account' } : {}),
       });
       toastSuccess.updated('Source');
+      mutateSource();
       onSuccess();
     } catch (error) {
       toastError.save(error, 'source');
@@ -239,6 +244,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     selectedDefId,
     selectedName,
     isGoogleSheetsCustom,
+    mutateSource,
     onSuccess,
   ]);
 
@@ -287,26 +293,35 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     setSetupLogs([]);
     setLoading(true);
     try {
-      await createOAuthSource({
+      await updateOAuthSource(sourceId, {
         sourceDefId: selectedDefId!,
         sourceName: selectedName,
         name: sourceName,
         config: buildConfig(),
         refresh_token_ref: oauthRef!,
-        sourceId,
       });
       trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED, {
         source_type: 'Google Sheets',
         auth_mode: 'oauth',
       });
       toastSuccess.updated('Source');
+      mutateSource();
       onSuccess();
     } catch (error) {
       toastError.save(error, 'source');
     } finally {
       setLoading(false);
     }
-  }, [selectedDefId, selectedName, sourceName, buildConfig, oauthRef, sourceId, onSuccess]);
+  }, [
+    selectedDefId,
+    selectedName,
+    sourceName,
+    buildConfig,
+    oauthRef,
+    sourceId,
+    mutateSource,
+    onSuccess,
+  ]);
 
   // Single submit: a fresh OAuth ref is redeemed directly; otherwise the config is
   // tested over the WebSocket and saved on success.
@@ -435,9 +450,16 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
                     ? ({
                         connected: isConnected || !!oauthRef,
                         busy: oauthConnecting,
+                        // "Re-" only makes sense once this source has actually used OAuth
+                        // before (isConnected, from stored auth_type === 'Client'); a
+                        // service-account-only source has never authenticated this way.
                         buttonLabel: oauthRef
-                          ? 'Re-authenticated with Google'
-                          : 'Re-authenticate with Google',
+                          ? isConnected
+                            ? 'Re-authenticated with Google'
+                            : 'Authenticated with Google'
+                          : isConnected
+                            ? 'Re-authenticate with Google'
+                            : 'Authenticate with Google',
                         lockWhenConnected: false,
                         onClick: handleConnectGoogle,
                       } satisfies CustomSourceOAuth)

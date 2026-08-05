@@ -45,7 +45,7 @@ interface StreamConfigTableProps {
   onUpdateStreamPrimaryKey: (streamName: string, primaryKey: string[]) => void;
   onToggleStreamExpand: (streamName: string) => void;
   onToggleColumn: (streamName: string, columnName: string) => void;
-  // Label used for the stream noun in headings/columns (e.g. "Form", "Sheet").
+  // Label used for the stream noun in headings/columns. Defaults to "Tables".
   streamNoun?: string;
   // Hide the Incremental column entirely (some sources never support it).
   showIncremental?: boolean;
@@ -56,8 +56,6 @@ interface StreamConfigTableProps {
   // Shared advanced-settings expand bar state, owned by the parent form.
   advancedOpen: boolean;
   onToggleAdvanced: () => void;
-  // Friendly blurb shown under the heading (custom sources only).
-  helpText?: string;
 }
 
 export function StreamConfigTable({
@@ -79,7 +77,7 @@ export function StreamConfigTable({
   onUpdateStreamPrimaryKey,
   onToggleStreamExpand,
   onToggleColumn,
-  streamNoun = 'Stream',
+  streamNoun = 'Tables',
   showIncremental = true,
   allowedDestModes = [
     DestinationSyncMode.OVERWRITE,
@@ -89,14 +87,12 @@ export function StreamConfigTable({
   onConceptFocus,
   advancedOpen,
   onToggleAdvanced,
-  helpText,
 }: StreamConfigTableProps) {
   const showIncrementalColumn = advancedOpen && showIncremental;
   // Cursor field + primary key are incremental-only; hide them for sources that
   // don't support incremental (e.g. Google Sheets keeps only Sync + Destination).
   const showCursorPkColumns = advancedOpen && showIncremental;
-  const isCustom = streamNoun !== 'Stream';
-  // Singular, lowercased noun for inline copy: "Stream"→"stream", "Sheets"→"sheet".
+  // Singular, lowercased noun for inline copy: "Tables"→"table".
   const nounSingular = streamNoun.replace(/s$/i, '').toLowerCase();
   const selectedCount = streams.filter((s) => s.selected).length;
 
@@ -144,14 +140,12 @@ export function StreamConfigTable({
       {/* Header with stream count + shared advanced toggle */}
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold">
-          {isCustom
-            ? `Select your ${streamNoun.toLowerCase()} (${selectedCount}/${streams.length} selected)`
-            : `Streams (${selectedCount}/${streams.length} selected)`}
+          {`Select your ${streamNoun.toLowerCase()} (${selectedCount}/${streams.length} selected)`}
         </h3>
         <div className="flex items-center gap-2.5 rounded-md border px-2.5 py-1.5 text-sm font-medium text-muted-foreground">
           <SlidersHorizontal className="h-3.5 w-3.5" />
           <label htmlFor="advanced-streams" className="cursor-pointer">
-            {isCustom ? `Advanced per-${nounSingular} settings` : 'Advanced per-stream settings'}
+            {`Advanced per-${nounSingular} settings`}
           </label>
           <Switch
             id="advanced-streams"
@@ -161,8 +155,7 @@ export function StreamConfigTable({
           />
         </div>
       </div>
-      {helpText && <p className="mt-1 mb-3 text-sm text-muted-foreground">{helpText}</p>}
-      {!helpText && <div className="mb-3" />}
+      <div className="mb-3" />
 
       {/* Table grows to its natural height; the parent left column owns the
           scroll (overflow-y-auto), so the whole side scrolls as one and the

@@ -7,6 +7,7 @@ import type {
   UpdateSourcePayload,
   SourceOAuthConsent,
   CreateOAuthSourcePayload,
+  UpdateOAuthSourcePayload,
   CreateOAuthSourceResponse,
 } from '@/types/source';
 import type { ConnectionSpecification } from '@/components/connectors/types';
@@ -57,12 +58,12 @@ export function useSourceSpec(sourceDefId: string | null) {
 
 /** Single source details for editing */
 export function useSource(sourceId: string | null) {
-  const { data, error, isLoading } = useSWR<Source>(
+  const { data, error, isLoading, mutate } = useSWR<Source>(
     sourceId ? `${'/api/airbyte/sources'}/${sourceId}` : null,
     apiGet,
     { revalidateOnFocus: false }
   );
-  return { data, isLoading, isError: error };
+  return { data, isLoading, isError: error, mutate };
 }
 
 // ============ Mutation Functions ============
@@ -97,11 +98,21 @@ export async function getSourceOAuthConsent(
   return apiPost('/api/airbyte/sources/oauth/consent/', { sourceDefId, sourceName });
 }
 
-/** Create (or update) the source from a redeemed OAuth `ref`: the backend redeems the ref,
- * injects the credentials server-side, and creates/updates the source. Returns the saved
- * source's id — no credentials or tokens are returned to the browser. */
+/** Create a NEW source from a redeemed OAuth `ref`: the backend redeems the ref, injects
+ * the credentials server-side, and creates the source. Returns the saved source's id —
+ * no credentials or tokens are returned to the browser. To re-authenticate an EXISTING
+ * source, use `updateOAuthSource` instead — this always creates a new one. */
 export async function createOAuthSource(
   payload: CreateOAuthSourcePayload
 ): Promise<CreateOAuthSourceResponse> {
   return apiPost('/api/airbyte/sources/oauth/create/', payload);
+}
+
+/** Re-authenticate an EXISTING source from a redeemed OAuth `ref`: same as create, but
+ * updates the source named by `sourceId` in place instead of creating a new one. */
+export async function updateOAuthSource(
+  sourceId: string,
+  payload: UpdateOAuthSourcePayload
+): Promise<CreateOAuthSourceResponse> {
+  return apiPut(`/api/airbyte/sources/oauth/${sourceId}`, payload);
 }

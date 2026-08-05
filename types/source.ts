@@ -35,10 +35,12 @@ export interface SourceOAuthConsent {
   authUrl: string;
 }
 
-/** Payload to create (or update) the source from a redeemed OAuth `ref`. The backend
- * has already exchanged the code and stashed the refresh token server-side under `ref`;
- * here it redeems the ref, injects the credentials, and creates (or updates, when
- * sourceId is set) the source — no credentials or tokens reach the browser. */
+/** Payload to create a NEW source from a redeemed OAuth `ref`. The backend has already
+ * exchanged the code and stashed the refresh token server-side under `ref`; here it
+ * redeems the ref, injects the credentials, and creates the source — no credentials or
+ * tokens reach the browser. To re-authenticate an EXISTING source, use
+ * `UpdateOAuthSourcePayload` + `updateOAuthSource` instead — the create endpoint always
+ * creates a new source and has no sourceId field. */
 export interface CreateOAuthSourcePayload {
   sourceDefId: string;
   /** source-definition NAME (e.g. "Google Sheets") — the OAuth registry key */
@@ -47,8 +49,10 @@ export interface CreateOAuthSourcePayload {
   config: Record<string, unknown>;
   /** opaque handle the backend minted for the stashed refresh_token */
   refresh_token_ref: string;
-  sourceId?: string;
 }
+
+/** Same shape as create, minus sourceId — that goes in the URL (PUT /sources/oauth/{id}). */
+export type UpdateOAuthSourcePayload = CreateOAuthSourcePayload;
 
 /** Response from creating the OAuth source: the saved source's id */
 export interface CreateOAuthSourceResponse {
