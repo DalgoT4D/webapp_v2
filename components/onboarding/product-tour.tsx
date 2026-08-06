@@ -26,6 +26,7 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { TOUR_STEPS, TOUR_CONTENT_SELECTOR, markTourSeen, type TourStep } from './tour-constants';
 import { PostTourModal } from './post-tour-modal';
+import { saveTrialWalkthroughFlow } from '@/hooks/api/useTrialWalkthrough';
 
 export interface ProductTourHandle {
   startTour: () => void;
@@ -39,6 +40,12 @@ interface ProductTourProps {
   onInsightPathChosen: () => void;
   /** Fires when the post-tour modal's "Automate Pipeline" option is picked. */
   onPipelinePathChosen: () => void;
+  /**
+   * False once BOTH post-tour flows (insights, automate-pipeline) are already decided —
+   * the modal would have nothing left to offer, so it's suppressed. The tour itself stays
+   * freely re-runnable; only this follow-up prompt stops appearing.
+   */
+  canOfferPostTourChoice?: boolean;
 }
 
 /** Resolve when `selector` is in the DOM, or after `timeout` ms (returns the el or null). */
@@ -85,24 +92,45 @@ function waitForPathname(route: string, timeout = 4000): Promise<void> {
 }
 
 /**
- * Resolve once `contentEl` has no loading-skeleton rows left (or after `timeout` ms).
- *
- * `spotlightRowOnly` steps measure the page's actual first N rows the instant we navigate to
- * them — but the page's own data fetch (SWR) may still be in flight at that exact moment, in
- * which case the only `<tr>`/grid-card elements in the DOM are loading skeletons (shorter than
- * real rows), producing an undersized spotlight that never corrects itself once the real data
- * arrives (nothing re-triggers positioning on a data load, only on resize). All loading states
- * in this app use the shared `Skeleton` component (`data-slot="skeleton"`), so its absence is a
- * reliable "real content is in" signal regardless of the page's own row shape.
+ * Cheap "are this page's rows on screen yet" check, mirroring the shapes getFirstRowsRect
+ * measures. Deliberately does no measuring or scrolling of its own — it runs once per frame
+ * inside waitForRealRows, where a scrollIntoView side-effect would fight the user.
  */
-function waitForRealRows(contentEl: Element, timeout = 3000): Promise<void> {
+function hasSpotlightRows(contentEl: Element, rowSelector?: string): boolean {
+  if (rowSelector && contentEl.querySelector(rowSelector)) return true;
+  if (contentEl.querySelector('tbody tr')) return true;
+  return Array.from(contentEl.querySelectorAll<HTMLElement>('[class*="grid"]')).some(
+    (el) => el.children.length > 1 && getComputedStyle(el).display === 'grid'
+  );
+}
+
+/**
+ * Resolve once `contentEl` actually has real rows to measure (or after `timeout` ms).
+ *
+ * `spotlightRowOnly` steps measure the page's first N rows the instant we navigate to them —
+ * but the page's own data fetch (SWR) is often still in flight at that moment. Two distinct
+ * ways that bites, both handled here:
+ *
+ *  - Skeleton rows are already in the DOM: they're shorter than real rows, so the spotlight
+ *    comes out undersized. Waiting for `[data-slot="skeleton"]` to clear covers this.
+ *  - NO rows are in the DOM at all yet, because the page renders a spinner (or any other
+ *    non-Skeleton loader) while loading — e.g. Ingest, whose LOADING state is a bare
+ *    `<Loader2>`. The skeleton check passes instantly there, getFirstRowsRect finds nothing,
+ *    and the spotlight silently falls back to the fixed band measured from the content top,
+ *    swallowing the page header. Waiting for the rows themselves covers this.
+ *
+ * Either way nothing re-triggers positioning once data lands (only a resize does), so the
+ * wait has to happen up front.
+ */
+function waitForRealRows(contentEl: Element, rowSelector?: string, timeout = 3000): Promise<void> {
   return new Promise((resolve) => {
-    if (!contentEl.querySelector('[data-slot="skeleton"]')) return resolve();
+    const ready = () =>
+      !contentEl.querySelector('[data-slot="skeleton"]') &&
+      hasSpotlightRows(contentEl, rowSelector);
+    if (ready()) return resolve();
     const start = Date.now();
     const tick = () => {
-      if (!contentEl.querySelector('[data-slot="skeleton"]') || Date.now() - start > timeout) {
-        return resolve();
-      }
+      if (ready() || Date.now() - start > timeout) return resolve();
       requestAnimationFrame(tick);
     };
     tick();
@@ -231,23 +259,41 @@ function getVisibleContentWidth(contentEl: Element, contentRect: DOMRect): numbe
  * grid) — rect spans the grid's own width, but only the first `rowCount` distinct row-offsets'
  * worth of cards, since a grid can wrap to further rows.
  */
-function getFirstRowsRect(contentEl: Element, rowCount: number): DOMRect | null {
+function unionRowsRect(rows: HTMLElement[]): DOMRect {
+  const lastRow = rows[rows.length - 1];
+  // The list's own scrollable ancestor may not yet have the last row fully in view (e.g.
+  // rowCount=4 asks for more rows than fit before a scroll) — its rect would still measure
+  // correctly, but the row's actual pixels would be clipped by that ancestor's overflow,
+  // making the spotlight look "cut off" even though it's sized right. `scroll-behavior` is
+  // forced to `auto` app-wide (globals.css), so this is instant, not an animated jump.
+  lastRow.scrollIntoView({ block: 'nearest' });
+  const first = rows[0].getBoundingClientRect();
+  const last = lastRow.getBoundingClientRect();
+  return new DOMRect(first.left, first.top, first.width, last.bottom - first.top);
+}
+
+function getFirstRowsRect(
+  contentEl: Element,
+  rowCount: number,
+  rowSelector?: string
+): DOMRect | null {
+  // An explicit per-step selector wins over the shape heuristics below — needed for pages
+  // whose rows are neither table rows nor grid cards (Ingest's flex list), and for pages
+  // where the heuristics would match the WRONG rows (Ingest again: every source row embeds
+  // its own connections <table>, so `tbody tr` would find those nested rows instead).
+  if (rowSelector) {
+    const rows = Array.from(contentEl.querySelectorAll<HTMLElement>(rowSelector)).slice(
+      0,
+      rowCount
+    );
+    if (rows.length > 0) return unionRowsRect(rows);
+  }
+
   const tableRows = Array.from(contentEl.querySelectorAll<HTMLElement>('tbody tr')).slice(
     0,
     rowCount
   );
-  if (tableRows.length > 0) {
-    const lastRow = tableRows[tableRows.length - 1];
-    // The table's own scrollable ancestor may not yet have the last row fully in view (e.g.
-    // rowCount=4 asks for more rows than fit before a scroll) — its rect would still measure
-    // correctly, but the row's actual pixels would be clipped by that ancestor's overflow,
-    // making the spotlight look "cut off" even though it's sized right. `scroll-behavior` is
-    // forced to `auto` app-wide (globals.css), so this is instant, not an animated jump.
-    lastRow.scrollIntoView({ block: 'nearest' });
-    const first = tableRows[0].getBoundingClientRect();
-    const last = lastRow.getBoundingClientRect();
-    return new DOMRect(first.left, first.top, first.width, last.bottom - first.top);
-  }
+  if (tableRows.length > 0) return unionRowsRect(tableRows);
 
   const gridCandidates = contentEl.querySelectorAll<HTMLElement>('[class*="grid"]');
   const grid = Array.from(gridCandidates).find(
@@ -274,12 +320,13 @@ function positionSpotlightElement(
   contentEl: Element,
   spotlightFull: boolean,
   spotlightRowOnly: boolean,
-  spotlightRowCount: number
+  spotlightRowCount: number,
+  rowSelector?: string
 ): void {
   const rect = contentEl.getBoundingClientRect();
   const rowRect = spotlightFull
     ? null
-    : getFirstRowsRect(contentEl, spotlightRowOnly ? spotlightRowCount : 1);
+    : getFirstRowsRect(contentEl, spotlightRowOnly ? spotlightRowCount : 1, rowSelector);
 
   if (spotlightRowOnly && rowRect) {
     el.style.top = `${rowRect.top}px`;
@@ -343,7 +390,7 @@ function anchorPopoverToSidebar(popover: PopoverDOM, step: TourStep): void {
 }
 
 export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(function ProductTour(
-  { orgSlug, onTourEnd, onInsightPathChosen, onPipelinePathChosen },
+  { orgSlug, onTourEnd, onInsightPathChosen, onPipelinePathChosen, canOfferPostTourChoice = true },
   ref
 ) {
   const router = useRouter();
@@ -357,6 +404,14 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
   // waitForElement (e.g. right after router.push, before the new page has painted).
   const renderingIndexRef = useRef<number | null>(null);
 
+  // Read through a ref so openPostTourModal below can stay referentially stable — it's
+  // captured in renderStep's closure, and re-creating that chain on every prop change would
+  // churn the whole step-render pipeline mid-tour.
+  const canOfferPostTourChoiceRef = useRef(canOfferPostTourChoice);
+  useEffect(() => {
+    canOfferPostTourChoiceRef.current = canOfferPostTourChoice;
+  }, [canOfferPostTourChoice]);
+
   // Deferred a tick: this is called from driver.js's native button click handler, outside
   // React's own synthetic event system. Opening the Dialog synchronously here mounts it (and
   // its "click outside to close" listener) WHILE the same click event is still bubbling to
@@ -364,6 +419,9 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
   // immediately closes the dialog it just opened, before it's ever visible. Waiting for the
   // current event to fully finish first avoids that.
   const openPostTourModal = useCallback(() => {
+    // Both post-tour flows already decided — a repeat run of the tour ends silently rather
+    // than re-offering choices the user has been through.
+    if (!canOfferPostTourChoiceRef.current) return;
     setTimeout(() => setShowPostTourModal(true), 0);
   }, []);
 
@@ -374,6 +432,7 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
         reason === 'completed' ? ANALYTICS_EVENTS.TOUR_COMPLETED : ANALYTICS_EVENTS.TOUR_SKIPPED,
         { step: stepIndexRef.current + 1 }
       );
+      void saveTrialWalkthroughFlow('product_tour', reason);
       document.getElementById(SPOTLIGHT_ELEMENT_ID)?.remove();
       onTourEnd?.(reason);
     },
@@ -424,7 +483,7 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
         }
 
         if (step.spotlightRowOnly) {
-          await waitForRealRows(contentEl);
+          await waitForRealRows(contentEl, step.rowSelector);
           if (!activeRef.current) return;
         }
 
@@ -434,7 +493,8 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
           contentEl,
           step.spotlightFull ?? false,
           step.spotlightRowOnly ?? false,
-          step.spotlightRowCount ?? 1
+          step.spotlightRowCount ?? 1,
+          step.rowSelector
         );
 
         driverRef.current?.highlight({
@@ -507,14 +567,14 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
       allowClose: true,
       disableActiveInteraction: true,
       onPopoverRender: (popover: PopoverDOM) => {
-        // Re-skin driver.js's default "close" (X) button as the Figma "Skip" text link,
-        // and move it next to the primary button so the footer matches the design
-        // (Skip on the left, primary CTA on the right) instead of a top-right X.
-        popover.closeButton.textContent = 'Skip';
+        // Close is a top-right "✕" (driver.js's own default position, which the CSS keeps
+        // rather than overriding), and the primary CTA sits at the footer's left. Clicking
+        // ✕ runs the same path as any other exit — finish('skipped') — so it records the
+        // skip on the backend, not just locally.
+        popover.closeButton.textContent = '✕';
         popover.closeButton.setAttribute('aria-label', 'Skip tour');
-        popover.closeButton.classList.add('dalgo-tour-skip-btn');
+        popover.closeButton.classList.add('dalgo-tour-close-btn');
         popover.nextButton.classList.add('dalgo-tour-next-btn');
-        popover.footerButtons.insertBefore(popover.closeButton, popover.footerButtons.firstChild);
 
         // The popover's target is the synthetic spotlight band (for the stage cutout), but
         // the popover itself must sit beside the SIDEBAR item, not the content. Deferred a

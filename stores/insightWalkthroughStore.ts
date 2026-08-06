@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
+  saveTrialWalkthroughFlow,
+  type TrialWalkthroughFlow,
+} from '@/hooks/api/useTrialWalkthrough';
+import {
   type WalkthroughStage,
   type WalkthroughPath,
   getStoredWalkthroughStage,
@@ -46,6 +50,16 @@ interface InsightWalkthroughState {
   setSuppressCoachmark: (suppressed: boolean) => void;
   skip: () => void;
   finish: () => void;
+}
+
+/**
+ * Which backend flow this walkthrough counts as. Only 'automate_pipeline' is its own flow;
+ * both insight forks (sample / own_data) — and a skip at fork2 before either was picked
+ * (path still null) — record against 'insights'. The chosen fork itself stays in
+ * localStorage: the backend only needs to know which of the three walkthroughs was run.
+ */
+function backendFlowFor(path: WalkthroughPath | null): TrialWalkthroughFlow {
+  return path === 'automate_pipeline' ? 'automate_pipeline' : 'insights';
 }
 
 export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, get) => ({
@@ -129,22 +143,24 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   setTargetNodeId: (nodeId) => set({ targetNodeId: nodeId }),
 
   skip: () => {
-    const { orgSlug, stage } = get();
+    const { orgSlug, stage, path } = get();
     if (orgSlug) {
       clearWalkthroughState(orgSlug);
       clearTrackedConnection(orgSlug);
       trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_SKIPPED, { stage });
+      void saveTrialWalkthroughFlow(backendFlowFor(path), 'skipped');
     }
     set({ active: false, orgSlug: null, stage: null, trackedConnectionId: null });
   },
 
   finish: () => {
-    const orgSlug = get().orgSlug;
+    const { orgSlug, path } = get();
     if (orgSlug) {
       clearWalkthroughState(orgSlug);
       clearTrackedConnection(orgSlug);
       markWalkthroughDone(orgSlug);
       trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_COMPLETED);
+      void saveTrialWalkthroughFlow(backendFlowFor(path), 'completed');
     }
     set({ active: false, orgSlug: null, stage: null, trackedConnectionId: null });
   },

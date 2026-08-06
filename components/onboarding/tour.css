@@ -26,7 +26,11 @@
     0 8px 10px -6px rgba(17, 24, 39, 0.2);
   max-width: 320px;
   padding: 16px 18px;
-  font-family: var(--font-anek-latin), system-ui, -apple-system, sans-serif;
+  font-family:
+    var(--font-anek-latin),
+    system-ui,
+    -apple-system,
+    sans-serif;
   border: 1px solid var(--border);
 }
 
@@ -52,6 +56,8 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 14px;
+  /* Keeps the "N of total" counter clear of the absolutely-positioned top-right ✕. */
+  padding-right: 22px;
 }
 .dalgo-tour-progress {
   display: flex;
@@ -78,30 +84,34 @@
   line-height: 1.3;
 }
 
-/* Footer row: "Skip" text link + primary CTA button, replacing driver.js's default footer. */
+/* Footer row: single primary CTA, left-aligned (the close affordance is the top-right ✕,
+   not a footer link). driver.js's own rules right-align this, hence the explicit overrides. */
 .dalgo-tour .driver-popover-footer {
   margin-top: 14px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
 }
 .dalgo-tour .driver-popover-navigation-btns {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  justify-content: space-between;
+  justify-content: flex-start;
 }
 .dalgo-tour .driver-popover-progress-text {
   display: none;
 }
 
+/* Inline text close ("Skip" / "Later" / "Not yet") — used by the INSIGHT WALKTHROUGH
+   coachmarks (insight-walkthrough-coachmark.tsx), not the product tour, which uses the ✕
+   below. Kept because those steps rely on a worded dismissal ("Later" reads differently
+   from a bare ✕ on a nudge).
+
+   driver.js's own .driver-popover-close-btn rule is `position: absolute; top: 0; right: 0`.
+   Overriding back to static is what makes it flow inline at the popover's bottom instead of
+   pinning to the corner. */
 .dalgo-tour-skip-btn {
-  /* driver.js's own .driver-popover-close-btn rule is `position: absolute; top: 0; right:
-     0` (the default top-right "X"). We move this button into the footer next to the CTA
-     via JS (onPopoverRender), but that only changes its DOM parent — position: absolute
-     makes it ignore that and stay pinned to the popover's top-right corner regardless.
-     Override back to static so it actually flows inline in the footer, matching Figma. */
   position: static;
   top: auto;
   right: auto;
@@ -117,7 +127,33 @@
   text-decoration: underline;
 }
 
-.dalgo-tour-next-btn {
+/* Top-right ✕ — the PRODUCT TOUR's dismissal. driver.js already absolutely positions
+   .driver-popover-close-btn at the popover's top-right corner, so this only restyles it,
+   inset to match the popover's own padding. The progress row reserves space for it. */
+.dalgo-tour .dalgo-tour-close-btn {
+  top: 12px;
+  right: 14px;
+  width: auto;
+  height: auto;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.dalgo-tour .dalgo-tour-close-btn:hover,
+.dalgo-tour .dalgo-tour-close-btn:focus {
+  color: var(--foreground);
+}
+
+/* Specificity note: driver.js ships `.driver-popover-footer-btn:hover { background-color:
+   #f7f7f7 }`, which ties with a bare `.dalgo-tour-next-btn:hover` (both 0-2-0) and can win
+   on source order — that's what turned the CTA into white-on-near-white on hover. Qualifying
+   with the `.dalgo-tour` ancestor (0-3-0) settles it, and the hover state restates its own
+   background rather than relying only on opacity so nothing can bleed through. */
+.dalgo-tour .dalgo-tour-next-btn {
   background: var(--primary);
   color: white;
   border: none;
@@ -129,7 +165,10 @@
   letter-spacing: 0.02em;
   cursor: pointer;
 }
-.dalgo-tour-next-btn:hover {
+.dalgo-tour .dalgo-tour-next-btn:hover,
+.dalgo-tour .dalgo-tour-next-btn:focus {
+  background: var(--primary);
+  color: white;
   opacity: 0.9;
 }
 

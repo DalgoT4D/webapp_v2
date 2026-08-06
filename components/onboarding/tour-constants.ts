@@ -27,6 +27,12 @@ export interface TourStep {
   spotlightRowOnly?: boolean;
   /** How many rows/cards to include when `spotlightRowOnly` is set. Defaults to 1. */
   spotlightRowCount?: number;
+  /**
+   * Explicit selector for this page's row elements, overriding the default shape detection
+   * (table rows, then grid cards). Only needed where those heuristics don't fit — see the
+   * Ingest step below.
+   */
+  rowSelector?: string;
 }
 
 export const TOUR_TOTAL_STEPS = 9;
@@ -108,6 +114,11 @@ export const TOUR_STEPS: TourStep[] = [
     ctaLabel: 'Finish Tour',
     spotlightRowOnly: true,
     spotlightRowCount: 4,
+    // Ingest's source list is a flex column of divs, not a table or card grid, so neither
+    // default shape matches. It also nests a connections <table> inside each source row —
+    // without this selector the table heuristic would spotlight those inner connection rows
+    // rather than the sources themselves.
+    rowSelector: '[data-testid^="source-row-"]',
   },
 ];
 

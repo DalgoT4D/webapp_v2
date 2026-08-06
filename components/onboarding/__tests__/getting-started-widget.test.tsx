@@ -22,10 +22,12 @@ describe('GettingStartedWidget', () => {
     localStorage.clear();
   });
 
-  it('shows the full panel by default (nothing in localStorage yet), pill always present too', () => {
+  it('opens the panel when defaultOpen is set (the /impact case), pill always present too', () => {
     render(
       <GettingStartedWidget
         orgSlug={ORG_SLUG}
+        defaultOpen
+        walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
@@ -36,11 +38,63 @@ describe('GettingStartedWidget', () => {
     expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument();
   });
 
+  it('stays collapsed to just the pill when defaultOpen is false (any page but /impact)', () => {
+    render(
+      <GettingStartedWidget
+        orgSlug={ORG_SLUG}
+        defaultOpen={false}
+        walkthroughActive={false}
+        hasBuiltFirstInsight={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument();
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+  });
+
+  it('stays minimized for the duration of a walkthrough, even on the auto-open page', () => {
+    render(
+      <GettingStartedWidget
+        orgSlug={ORG_SLUG}
+        defaultOpen
+        walkthroughActive
+        hasBuiltFirstInsight={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument();
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+  });
+
+  it('collapses an open panel the moment a walkthrough starts, and restores it when it ends', () => {
+    const props = {
+      orgSlug: ORG_SLUG,
+      defaultOpen: true,
+      hasBuiltFirstInsight: false,
+      hasAutomatedPipeline: false,
+      onStartTour: jest.fn(),
+    };
+    const { rerender } = render(<GettingStartedWidget {...props} walkthroughActive={false} />);
+    expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
+
+    rerender(<GettingStartedWidget {...props} walkthroughActive />);
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+
+    rerender(<GettingStartedWidget {...props} walkthroughActive={false} />);
+    expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
+  });
+
   it('minimizing hides the panel but keeps the pill visible', async () => {
     const user = userEvent.setup();
     render(
       <GettingStartedWidget
         orgSlug={ORG_SLUG}
+        defaultOpen
+        walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
@@ -58,6 +112,8 @@ describe('GettingStartedWidget', () => {
     render(
       <GettingStartedWidget
         orgSlug={ORG_SLUG}
+        defaultOpen
+        walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
@@ -70,52 +126,24 @@ describe('GettingStartedWidget', () => {
     expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
   });
 
-  it('persists the minimized state per org across remounts', async () => {
+  it('re-opens on returning to the auto-open page, discarding the last visit’s minimize', async () => {
     const user = userEvent.setup();
-    const { unmount } = render(
-      <GettingStartedWidget
-        orgSlug={ORG_SLUG}
-        hasBuiltFirstInsight={false}
-        hasAutomatedPipeline={false}
-        onStartTour={jest.fn()}
-      />
-    );
+    const props = {
+      orgSlug: ORG_SLUG,
+      defaultOpen: true,
+      walkthroughActive: false,
+      hasBuiltFirstInsight: false,
+      hasAutomatedPipeline: false,
+      onStartTour: jest.fn(),
+    };
+    const { unmount } = render(<GettingStartedWidget {...props} />);
     await user.click(screen.getByTestId('getting-started-widget-minimize'));
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
     unmount();
 
-    render(
-      <GettingStartedWidget
-        orgSlug={ORG_SLUG}
-        hasBuiltFirstInsight={false}
-        hasAutomatedPipeline={false}
-        onStartTour={jest.fn()}
-      />
-    );
-
-    expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument();
-  });
-
-  it("a different org is unaffected by another org's minimized state", async () => {
-    const user = userEvent.setup();
-    const { unmount } = render(
-      <GettingStartedWidget
-        orgSlug={ORG_SLUG}
-        hasBuiltFirstInsight={false}
-        hasAutomatedPipeline={false}
-        onStartTour={jest.fn()}
-      />
-    );
-    await user.click(screen.getByTestId('getting-started-widget-minimize'));
-    unmount();
-
-    render(
-      <GettingStartedWidget
-        orgSlug="other-org"
-        hasBuiltFirstInsight={false}
-        hasAutomatedPipeline={false}
-        onStartTour={jest.fn()}
-      />
-    );
+    // Arriving again (remount) re-derives from defaultOpen rather than restoring the
+    // previous visit's minimize — minimizing is a within-visit action, not a preference.
+    render(<GettingStartedWidget {...props} />);
 
     expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
   });
@@ -124,6 +152,8 @@ describe('GettingStartedWidget', () => {
     render(
       <GettingStartedWidget
         orgSlug={ORG_SLUG}
+        defaultOpen
+        walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
@@ -142,6 +172,8 @@ describe('GettingStartedWidget', () => {
     render(
       <GettingStartedWidget
         orgSlug={ORG_SLUG}
+        defaultOpen
+        walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
@@ -165,6 +197,8 @@ describe('GettingStartedWidget', () => {
     render(
       <GettingStartedWidget
         orgSlug={ORG_SLUG}
+        defaultOpen
+        walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
@@ -188,6 +222,8 @@ describe('GettingStartedWidget', () => {
     render(
       <GettingStartedWidget
         orgSlug={ORG_SLUG}
+        defaultOpen
+        walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
@@ -205,6 +241,8 @@ describe('GettingStartedWidget', () => {
     render(
       <GettingStartedWidget
         orgSlug={ORG_SLUG}
+        defaultOpen
+        walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
         onStartTour={onStartTour}
@@ -221,6 +259,8 @@ describe('GettingStartedWidget', () => {
     render(
       <GettingStartedWidget
         orgSlug={ORG_SLUG}
+        defaultOpen
+        walkthroughActive={false}
         hasBuiltFirstInsight={true}
         hasAutomatedPipeline={false}
         onStartTour={jest.fn()}
@@ -235,6 +275,8 @@ describe('GettingStartedWidget', () => {
     render(
       <GettingStartedWidget
         orgSlug={ORG_SLUG}
+        defaultOpen
+        walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={true}
         onStartTour={jest.fn()}

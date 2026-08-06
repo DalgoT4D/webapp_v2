@@ -1,10 +1,15 @@
 'use client';
 
 /**
- * "Welcome to Dalgo" getting-started panel — floating card, bottom-right of /impact.
+ * "Welcome to Dalgo" getting-started panel — floating card, bottom-right of every page.
  * The "Get Started" pill is always rendered; the full panel additionally shows above it
- * unless minimized. State is per-org (localStorage) so it stays minimized across reloads
- * until reopened via the pill — there's no separate dismiss.
+ * unless minimized.
+ *
+ * Open/closed is derived from where you are, not persisted: arriving on the landing page
+ * (`defaultOpen`) always opens it — minimizing is a within-visit action, so coming back
+ * re-opens it — and every other page starts minimized. A running walkthrough
+ * (`walkthroughActive`) overrides both and keeps it out of the way until the flow ends,
+ * though the pill stays available to reopen it manually.
  */
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -16,6 +21,14 @@ import { getFlowResumeStep, FLOW_RESUME_ROUTES } from './flow-resume';
 
 interface GettingStartedWidgetProps {
   orgSlug: string;
+  /**
+   * Whether landing here opens the panel. True on /impact (where the checklist is the point)
+   * and false elsewhere, where the pill alone is enough and an auto-opening panel would cover
+   * the page's own content.
+   */
+  defaultOpen: boolean;
+  /** A guided walkthrough is mid-flow — keep the panel out of the way until it finishes. */
+  walkthroughActive: boolean;
   hasBuiltFirstInsight: boolean;
   hasAutomatedPipeline: boolean;
   onStartTour: () => void;
@@ -29,16 +42,17 @@ interface ChecklistItem {
   href: string;
 }
 
-const MINIMIZED_STORAGE_PREFIX = 'dalgo_getting_started_minimized_';
-
 export function GettingStartedWidget({
   orgSlug,
+  defaultOpen,
+  walkthroughActive,
   hasBuiltFirstInsight,
   hasAutomatedPipeline,
   onStartTour,
 }: GettingStartedWidgetProps) {
-  // Starts true (collapsed) so the full panel never flashes open before this effect
-  // reads localStorage — a browser-only API, unavailable during server render.
+  // Starts true (collapsed) so the full panel never flashes open before the effect below
+  // settles it — the resume hrefs it also computes read localStorage, unavailable on the
+  // server.
   const [minimized, setMinimized] = useState(true);
   // Default hrefs for a flow never started (or already finished) — corrected below to the
   // exact spot a user left off, per Himanshu: clicking a checklist item should resume the
@@ -48,7 +62,10 @@ export function GettingStartedWidget({
   const [automatePipelineHref, setAutomatePipelineHref] = useState('/pipeline');
 
   useEffect(() => {
-    setMinimized(localStorage.getItem(`${MINIMIZED_STORAGE_PREFIX}${orgSlug}`) === '1');
+    // Re-derived on arrival (and whenever a walkthrough starts or ends) rather than
+    // persisted: returning to /impact re-opens the panel even if it was minimized last
+    // visit, and a running flow keeps it minimized wherever the user goes.
+    setMinimized(walkthroughActive || !defaultOpen);
 
     const path = getStoredPath(orgSlug);
     if (path === 'sample' || path === 'own_data') {
@@ -58,12 +75,7 @@ export function GettingStartedWidget({
       const step = getFlowResumeStep(orgSlug, path);
       if (step) setAutomatePipelineHref(FLOW_RESUME_ROUTES[step.id]);
     }
-  }, [orgSlug]);
-
-  const setMinimizedPersisted = (value: boolean) => {
-    localStorage.setItem(`${MINIMIZED_STORAGE_PREFIX}${orgSlug}`, value ? '1' : '0');
-    setMinimized(value);
-  };
+  }, [orgSlug, defaultOpen, walkthroughActive]);
 
   const handleStartTour = () => {
     trackEvent(ANALYTICS_EVENTS.GETTING_STARTED_TOUR_LINK_CLICKED);
@@ -94,7 +106,7 @@ export function GettingStartedWidget({
       <button
         type="button"
         data-testid="getting-started-widget-pill"
-        onClick={() => setMinimizedPersisted(false)}
+        onClick={() => setMinimized(false)}
         className="fixed right-6 bottom-6 z-40 flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-white shadow-xl hover:opacity-90"
       >
         <Rocket className="h-4 w-4" />
@@ -117,7 +129,7 @@ export function GettingStartedWidget({
               type="button"
               aria-label="Minimize"
               data-testid="getting-started-widget-minimize"
-              onClick={() => setMinimizedPersisted(true)}
+              onClick={() => setMinimized(true)}
               className="text-muted-foreground hover:text-foreground"
             >
               <Minus className="h-5 w-5" />
