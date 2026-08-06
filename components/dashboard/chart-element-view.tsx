@@ -63,7 +63,11 @@ import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename, BrandingOptions } from '@/lib/chart-export';
 import { apiPostBinary } from '@/lib/api';
-import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
+import {
+  mergeTableColumnFormatting,
+  resolveTableColumnOrder,
+  sanitizeMetricsForApi,
+} from '@/lib/chart-payload-utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -434,7 +438,7 @@ export function ChartElementView({
                 return [drillDownDimensions[0]]; // Only first dimension
               })(),
             }),
-            metrics: effectiveChart.extra_config?.metrics,
+            metrics: sanitizeMetricsForApi(effectiveChart.extra_config?.metrics),
             geographic_column: effectiveChart.extra_config?.geographic_column,
             value_column: effectiveChart.extra_config?.value_column,
             selected_geojson_id: effectiveChart.extra_config?.selected_geojson_id,

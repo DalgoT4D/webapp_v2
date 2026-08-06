@@ -40,6 +40,7 @@ import {
   getApiCustomizations,
   mergeTableColumnFormatting,
   resolveTableColumnOrder,
+  sanitizeMetricsForApi,
 } from '@/lib/chart-payload-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -557,7 +558,8 @@ function EditChartPageContent() {
                 table_columns: formData.table_columns,
               }),
             // Include metrics for multiple metrics support
-            ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
+            ...(formData.metrics &&
+              formData.metrics.length > 0 && { metrics: sanitizeMetricsForApi(formData.metrics) }),
             // Pivot table top-level fields — the /chart-data/ pipeline reads these off
             // the payload root (not extra_config).
             ...(formData.chart_type === 'pivot_table' &&
@@ -1303,7 +1305,8 @@ function EditChartPageContent() {
         // Include table_columns for table charts
         table_columns: formData.table_columns,
         // Include metrics for multiple metrics support
-        ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
+        ...(formData.metrics &&
+          formData.metrics.length > 0 && { metrics: sanitizeMetricsForApi(formData.metrics) }),
         // ✅ FIX: Include dimensions and dimension_columns for table charts
         ...(formData.chart_type === ChartTypes.TABLE && {
           // Always include dimensions array (even if empty) to ensure structure is consistent

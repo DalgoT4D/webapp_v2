@@ -43,6 +43,7 @@ import type {
 } from '@/types/charts';
 import { debounce } from 'lodash';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
+import { sanitizeMetricsForApi } from '@/lib/chart-payload-utils';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -179,7 +180,7 @@ export function ChartBuilder({
           aggregate_func: formData.aggregate_function,
           extra_dimension: formData.extra_dimension_column,
           // Multiple metrics for bar/line charts
-          metrics: formData.metrics,
+          metrics: sanitizeMetricsForApi(formData.metrics),
           // Map-specific fields - also populate dimension_col for map charts
           geographic_column: formData.geographic_column,
           value_column: formData.value_column,
@@ -626,7 +627,7 @@ export function ChartBuilder({
         aggregate_function: formData.aggregate_function,
         extra_dimension_column: formData.extra_dimension_column,
         // Multiple metrics for bar/line charts
-        metrics: formData.metrics,
+        metrics: sanitizeMetricsForApi(formData.metrics),
         // Map-specific fields - maintain backward compatibility
         geographic_column: formData.geographic_column,
         value_column: formData.value_column,

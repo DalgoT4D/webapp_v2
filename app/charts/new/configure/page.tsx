@@ -43,6 +43,7 @@ import {
   getApiCustomizations,
   mergeTableColumnFormatting,
   resolveTableColumnOrder,
+  sanitizeMetricsForApi,
 } from '@/lib/chart-payload-utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -349,7 +350,7 @@ function ConfigureChartPageContent() {
               extra_dimension: formData.extra_dimension_column,
             }),
             // Multiple metrics for bar/line charts
-            ...(formData.metrics && { metrics: formData.metrics }),
+            ...(formData.metrics && { metrics: sanitizeMetricsForApi(formData.metrics) }),
             // Pivot table top-level fields — the /chart-data/ pipeline reads these off
             // the payload root (not extra_config).
             ...(formData.chart_type === 'pivot_table' &&
@@ -940,7 +941,8 @@ function ConfigureChartPageContent() {
         sort: formData.sort,
         time_grain: formData.time_grain,
         // Include metrics for multiple metrics support
-        ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
+        ...(formData.metrics &&
+          formData.metrics.length > 0 && { metrics: sanitizeMetricsForApi(formData.metrics) }),
         // ✅ FIX: Include geographic_hierarchy for drill-down functionality
         ...(formData.geographic_hierarchy && {
           geographic_hierarchy: formData.geographic_hierarchy,

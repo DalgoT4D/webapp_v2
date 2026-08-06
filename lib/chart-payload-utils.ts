@@ -1,4 +1,22 @@
-import { ChartTypes, type ChartType } from '@/types/charts';
+import { ChartTypes, type ChartType, type ChartMetric } from '@/types/charts';
+
+/**
+ * Strips null `column` and `aggregation` from expression-based metrics before
+ * sending to the backend API. The backend raises ValueError when it receives
+ * `aggregation: null` without first checking for `column_expression`.
+ */
+export function sanitizeMetricsForApi(
+  metrics: ChartMetric[] | undefined
+): ChartMetric[] | undefined {
+  if (!metrics) return metrics;
+  return metrics.map((metric) => {
+    if (metric.column_expression) {
+      const { column, aggregation, ...rest } = metric;
+      return rest;
+    }
+    return metric;
+  });
+}
 
 /**
  * Merges columnFormatting and dateColumnFormatting from customizations into the

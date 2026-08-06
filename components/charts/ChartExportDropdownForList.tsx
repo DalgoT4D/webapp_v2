@@ -14,6 +14,7 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { ChartExporter, generateFilename, type TableData } from '@/lib/chart-export';
 import { MapExportHandler } from '@/lib/map-export-handler';
 import { buildPivotDataFields } from '@/components/charts/pivot-table/utils';
+import { sanitizeMetricsForApi } from '@/lib/chart-payload-utils';
 
 interface ChartExportDropdownForListProps {
   chartId: number;
@@ -179,7 +180,9 @@ export function ChartExportDropdownForList({
       schema_name: chart.schema_name,
       table_name: chart.table_name,
       ...(chart.extra_config?.metrics &&
-        chart.extra_config.metrics.length > 0 && { metrics: chart.extra_config.metrics }),
+        chart.extra_config.metrics.length > 0 && {
+          metrics: sanitizeMetricsForApi(chart.extra_config.metrics),
+        }),
       ...buildPivotDataFields(chart.extra_config),
       extra_config: {
         filters: chart.extra_config?.filters || [],
@@ -220,7 +223,9 @@ export function ChartExportDropdownForList({
           extra_dimension: chart.extra_config.extra_dimension_column,
         }),
         ...(chart.extra_config?.metrics &&
-          chart.extra_config.metrics.length > 0 && { metrics: chart.extra_config.metrics }),
+          chart.extra_config.metrics.length > 0 && {
+            metrics: sanitizeMetricsForApi(chart.extra_config.metrics),
+          }),
         // Pivot table top-level fields — the /chart-data/ pipeline reads these off
         // the payload root (not extra_config).
         ...(chart.chart_type === 'pivot_table' && buildPivotDataFields(chart.extra_config)),

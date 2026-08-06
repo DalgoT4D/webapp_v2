@@ -1,4 +1,8 @@
-import { getApiCustomizations, mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
+import {
+  getApiCustomizations,
+  mergeTableColumnFormatting,
+  sanitizeMetricsForApi,
+} from '@/lib/chart-payload-utils';
 import { ChartTypes } from '@/types/charts';
 
 describe('getApiCustomizations', () => {
@@ -68,6 +72,66 @@ describe('getApiCustomizations', () => {
     expect(getApiCustomizations(ChartTypes.NUMBER, undefined)).toEqual({});
     expect(getApiCustomizations(ChartTypes.BAR, undefined)).toEqual({});
     expect(getApiCustomizations(ChartTypes.TABLE, undefined)).toBeUndefined();
+  });
+});
+
+describe('sanitizeMetricsForApi', () => {
+  it('returns undefined when metrics is undefined', () => {
+    expect(sanitizeMetricsForApi(undefined)).toBeUndefined();
+  });
+
+  it('strips column and aggregation from expression metrics', () => {
+    const metrics = [
+      {
+        column: null,
+        aggregation: null,
+        alias: 'COUNT(*)',
+        column_expression: 'count(*)',
+      },
+    ];
+    const result = sanitizeMetricsForApi(metrics);
+    expect(result).toEqual([
+      {
+        alias: 'COUNT(*)',
+        column_expression: 'count(*)',
+      },
+    ]);
+    expect(result![0]).not.toHaveProperty('column');
+    expect(result![0]).not.toHaveProperty('aggregation');
+  });
+
+  it('keeps column and aggregation for simple metrics', () => {
+    const metrics = [
+      {
+        column: 'amount',
+        aggregation: 'sum',
+        alias: 'SUM(amount)',
+      },
+    ];
+    expect(sanitizeMetricsForApi(metrics)).toEqual(metrics);
+  });
+
+  it('handles mixed simple and expression metrics', () => {
+    const metrics = [
+      { column: 'price', aggregation: 'avg', alias: 'AVG(price)' },
+      {
+        column: null,
+        aggregation: null,
+        alias: 'count(*)',
+        column_expression: 'count(*)',
+      },
+      { column: null, aggregation: 'count', alias: 'Total Count' },
+    ];
+    const result = sanitizeMetricsForApi(metrics);
+    expect(result).toEqual([
+      { column: 'price', aggregation: 'avg', alias: 'AVG(price)' },
+      { alias: 'count(*)', column_expression: 'count(*)' },
+      { column: null, aggregation: 'count', alias: 'Total Count' },
+    ]);
+  });
+
+  it('returns empty array for empty metrics array', () => {
+    expect(sanitizeMetricsForApi([])).toEqual([]);
   });
 });
 
