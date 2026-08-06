@@ -12,15 +12,11 @@
  * though the pill stays available to reopen it manually.
  */
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { CheckCircle2, ChevronRight, Circle, Minus, Play, Rocket } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { getStoredPath } from './insight-walkthrough-constants';
-import { getFlowResumeStep, FLOW_RESUME_ROUTES } from './flow-resume';
 
 interface GettingStartedWidgetProps {
-  orgSlug: string;
   /**
    * Whether landing here opens the panel. True on /impact (where the checklist is the point)
    * and false elsewhere, where the pill alone is enough and an auto-opening panel would cover
@@ -32,50 +28,41 @@ interface GettingStartedWidgetProps {
   hasBuiltFirstInsight: boolean;
   hasAutomatedPipeline: boolean;
   onStartTour: () => void;
+  /**
+   * What a row does is a decision about walkthrough state (start fresh, resume, or offer the
+   * fork), so it lives with the owner of that state — tour-gate.tsx — not here.
+   */
+  onBuildInsightClick: () => void;
+  onAutomatePipelineClick: () => void;
 }
 
 interface ChecklistItem {
-  key: string;
+  key: 'build-insight' | 'automate-pipeline';
   label: string;
   description: string;
   checked: boolean;
-  href: string;
+  onClick: () => void;
 }
 
 export function GettingStartedWidget({
-  orgSlug,
   defaultOpen,
   walkthroughActive,
   hasBuiltFirstInsight,
   hasAutomatedPipeline,
   onStartTour,
+  onBuildInsightClick,
+  onAutomatePipelineClick,
 }: GettingStartedWidgetProps) {
   // Starts true (collapsed) so the full panel never flashes open before the effect below
-  // settles it — the resume hrefs it also computes read localStorage, unavailable on the
-  // server.
+  // settles it.
   const [minimized, setMinimized] = useState(true);
-  // Default hrefs for a flow never started (or already finished) — corrected below to the
-  // exact spot a user left off, per Himanshu: clicking a checklist item should resume the
-  // matching flow (sample/own_data → build-insight, automate_pipeline → automate-pipeline)
-  // rather than always landing on the same generic page.
-  const [buildInsightHref, setBuildInsightHref] = useState('/charts');
-  const [automatePipelineHref, setAutomatePipelineHref] = useState('/pipeline');
 
   useEffect(() => {
     // Re-derived on arrival (and whenever a walkthrough starts or ends) rather than
     // persisted: returning to /impact re-opens the panel even if it was minimized last
     // visit, and a running flow keeps it minimized wherever the user goes.
     setMinimized(walkthroughActive || !defaultOpen);
-
-    const path = getStoredPath(orgSlug);
-    if (path === 'sample' || path === 'own_data') {
-      const step = getFlowResumeStep(orgSlug, path);
-      if (step) setBuildInsightHref(FLOW_RESUME_ROUTES[step.id]);
-    } else if (path === 'automate_pipeline') {
-      const step = getFlowResumeStep(orgSlug, path);
-      if (step) setAutomatePipelineHref(FLOW_RESUME_ROUTES[step.id]);
-    }
-  }, [orgSlug, defaultOpen, walkthroughActive]);
+  }, [defaultOpen, walkthroughActive]);
 
   const handleStartTour = () => {
     trackEvent(ANALYTICS_EVENTS.GETTING_STARTED_TOUR_LINK_CLICKED);
@@ -88,14 +75,14 @@ export function GettingStartedWidget({
       label: 'Build your first insight',
       description: 'Build out your first dashboard and share it',
       checked: hasBuiltFirstInsight,
-      href: buildInsightHref,
+      onClick: onBuildInsightClick,
     },
     {
       key: 'automate-pipeline',
       label: 'Setup an automated data pipeline',
       description: 'Setup your data to be updated, cleaned and computed regularly',
       checked: hasAutomatedPipeline,
-      href: automatePipelineHref,
+      onClick: onAutomatePipelineClick,
     },
   ];
 
@@ -157,28 +144,57 @@ export function GettingStartedWidget({
           </button>
 
           <ul className="mt-4 divide-y">
-            {items.map((item) => (
-              <li key={item.key}>
-                <Link
-                  href={item.href}
-                  data-testid={`getting-started-widget-item-${item.key}`}
-                  className="flex w-full items-start gap-3 py-3 text-left"
-                >
+            {items.map((item) => {
+              const testId = `getting-started-widget-item-${item.key}`;
+              const rowClass = 'flex w-full items-start gap-3 py-3 text-left';
+              const body = (
+                <>
                   {item.checked ? (
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                    <CheckCircle2 className="text-primary mt-0.5 h-5 w-5 shrink-0" />
                   ) : (
-                    <Circle className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+                    <Circle className="text-muted-foreground mt-0.5 h-5 w-5 shrink-0" />
                   )}
                   <span className="flex-1">
-                    <span className="block text-base font-semibold text-foreground">
+                    <span className="text-foreground block text-base font-semibold">
                       {item.label}
                     </span>
-                    <span className="block text-sm text-muted-foreground">{item.description}</span>
+                    <span className="text-muted-foreground block text-sm">{item.description}</span>
                   </span>
-                  <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
-                </Link>
-              </li>
-            ))}
+                  {/* Done items are a status row, not a link — no affordance to click. */}
+                  {!item.checked && (
+                    <ChevronRight className="text-muted-foreground mt-1 h-4 w-4 shrink-0" />
+                  )}
+                </>
+              );
+
+              return (
+                <li key={item.key}>
+                  {item.checked ? (
+                    <div data-testid={testId} className={rowClass}>
+                      {body}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      data-testid={testId}
+                      className={rowClass}
+                      onClick={() => {
+                        trackEvent(ANALYTICS_EVENTS.GETTING_STARTED_ITEM_CLICKED, {
+                          item: item.key,
+                        });
+                        // Get out of the way of whatever this starts (a dialog, a coachmark on
+                        // the page behind). Can't be left to the walkthroughActive effect: when
+                        // a flow is already running, that value never changes on this click.
+                        setMinimized(true);
+                        item.onClick();
+                      }}
+                    >
+                      {body}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

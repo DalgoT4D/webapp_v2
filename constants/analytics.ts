@@ -19,10 +19,24 @@ export const ANALYTICS_EVENTS = {
   TOUR_SKIPPED: 'onboarding:tour_skipped',
   TOUR_COMPLETED: 'onboarding:tour_completed',
   GETTING_STARTED_TOUR_LINK_CLICKED: 'onboarding:getting_started_tour_link_clicked',
-  // Shown only when the tour is finished via its last step's "Finish Tour" button — not on Skip.
+  // Carries { item: 'build-insight' | 'automate-pipeline' } — which checklist row was
+  // clicked. What it then does (open the fork dialog, resume, start a flow) depends on
+  // walkthrough state and is covered by that flow's own events.
+  GETTING_STARTED_ITEM_CLICKED: 'onboarding:getting_started_item_clicked',
+  // The GetStartedModal's 'choice' screen — shown only when the tour is finished via its
+  // last step's "Finish Tour" button, not on Skip.
   POST_TOUR_MODAL_VIEWED: 'onboarding:post_tour_modal_viewed',
   // Carries { choice: 'insight' | 'pipeline' | 'close' } — which option was picked.
   POST_TOUR_MODAL_DISMISSED: 'onboarding:post_tour_modal_dismissed',
+  // The GetStartedModal's 'insight' screen (sample vs own data). Carries
+  // { entry: 'post_tour' | 'widget' | 'resume' } — how the user got to it.
+  INSIGHT_FORK_MODAL_VIEWED: 'onboarding:insight_fork_modal_viewed',
+  // Carries { choice: 'sample' | 'own_data' } — which fork was taken.
+  INSIGHT_FORK_CHOSEN: 'onboarding:insight_fork_chosen',
+  // The two walkthrough celebration dialogs (see celebration-modal.tsx). Both carry
+  // { choice: 'cta' | 'close' }.
+  KPI_LIVE_MODAL_DISMISSED: 'onboarding:kpi_live_modal_dismissed',
+  DASHBOARD_LIVE_MODAL_DISMISSED: 'onboarding:dashboard_live_modal_dismissed',
   // Sample-data insight walkthrough (Fork2 -> KPI created -> dashboard shared)
   INSIGHT_WALKTHROUGH_STARTED: 'onboarding:insight_walkthrough_started',
   // Carries { stage } — the stage that was just shown.

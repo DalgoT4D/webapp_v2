@@ -8,14 +8,47 @@
  * directly (see kpi-page.tsx, dashboard-builder-v2.tsx, dashboard-native-view.tsx). This
  * component only owns rendering the right highlight for the CURRENT stage and reacting to
  * route changes for stages whose advance signal is simply "the user navigated onward".
+ *
+ * The one stage NOT rendered here is 'fork2' (sample vs own data) — that's a dialog now,
+ * see get-started-modal.tsx, rendered by tour-gate.tsx.
  */
 import { useCallback, useEffect, useRef } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import { driver, type Driver } from 'driver.js';
+import { usePathname } from 'next/navigation';
+import { driver, type Driver, type Popover } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import './tour.css';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import type { WalkthroughStage } from './insight-walkthrough-constants';
+
+/** Shared by both forks' "now build a dashboard" nudges. */
+const DASHBOARD_NUDGE_IMAGE = '/branding/dashboard-nudge-graph.jpg';
+
+/** Set on <body> (where driver.js puts `driver-active`) while a dimOverlay:false stage is up — see tour.css. */
+const PASSTHROUGH_CLASS = 'dalgo-tour-passthrough';
+
+/**
+ * driver.js focuses its popover on every render (`[popover, element][0].focus()`), which is
+ * fine when a highlight appears on its own but not when one stage advances into the next
+ * mid-typing: these stages advance on the user's real input, so the coachmark can move while
+ * a field still has the caret in it. Put focus back where it was — the highlight is a pointer,
+ * it should never take the keyboard away from what the user is doing.
+ */
+function highlightKeepingFocus(d: Driver, element: HTMLElement, popover: Popover): void {
+  const previous = document.activeElement as HTMLElement | null;
+  d.highlight({ element, popover });
+  if (previous && previous !== document.activeElement && document.body.contains(previous)) {
+    previous.focus({ preventScroll: true });
+  }
+}
+
+/**
+ * How long a hint stage waits for its field before giving up and moving on. Short on purpose:
+ * these targets are already-rendered fields in an open dialog, so anything slower than a
+ * re-render means the field isn't coming — it's conditional and this metric doesn't have it
+ * (Time Column only renders when the table has a date column). Waiting the full 30s there
+ * leaves the user staring at no coach at all.
+ */
+const HINT_TARGET_TIMEOUT_MS = 2500;
 
 /** Resolve when `selector` is in the DOM, or after `timeout` ms (returns the el or null). */
 function waitForElement(selector: string, timeout = 30000): Promise<Element | null> {
@@ -43,6 +76,26 @@ interface StageConfig {
    * yet (the stage is skipped rather than highlighting nothing).
    */
   selector: string | (() => string | null);
+  /**
+   * A better target to move onto if and when it shows up — for a control whose real subject
+   * only exists after the user acts on it (opening a dropdown, expanding a section). The
+   * highlight starts on `selector`, hops here once this matches, and hops back if it goes
+   * away. Polled by the same rAF loop that keeps the highlight glued to its target.
+   */
+  preferredSelector?: string;
+  /**
+   * Marks this stage a hint rather than a gate: the user is being shown a field, not asked to
+   * do a particular thing to it. Set it to the stage that follows and the coachmark moves on
+   * as soon as they engage — clicking the field (opening a dropdown counts) or clicking away
+   * from it. Without this, a stage that waits for a value CHANGE stalls forever on a field
+   * that already holds a valid default, e.g. Direction.
+   *
+   * Leave unset where the target genuinely must be clicked (Continue, Create KPI, Save,
+   * Share) — those advance from the real handler instead.
+   */
+  nextOnInteraction?: WalkthroughStage;
+  /** Illustration rendered above the title inside the popover (public/ path). */
+  imageSrc?: string;
   title: string;
   description: string;
   /**
@@ -93,7 +146,13 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   kpi_metric: {
     route: '/kpis',
+    nextOnInteraction: 'kpi_target',
     selector: '[data-testid="kpi-form-metric-field"]',
+    // Once the picker is open, point at the top suggestion rather than the whole field —
+    // that's the "choose the suggested one" the copy is talking about. Matched on ARIA
+    // roles rather than a testid because the combobox builds its item testids from a
+    // generated base id (see components/ui/combobox.tsx).
+    preferredSelector: '[role="listbox"] [role="option"]',
     title: 'Pick a metric',
     description:
       'The measure this KPI tracks, for example a count of beneficiaries. Choose the suggested one to get started.',
@@ -101,6 +160,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   kpi_target: {
     route: '/kpis',
+    nextOnInteraction: 'kpi_direction',
     selector: '[data-testid="kpi-form-target-field"]',
     title: 'Target value',
     description:
@@ -109,6 +169,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   kpi_direction: {
     route: '/kpis',
+    nextOnInteraction: 'kpi_time_column',
     selector: '[data-testid="kpi-form-direction-field"]',
     title: 'Direction',
     description:
@@ -124,6 +185,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   kpi_time_column: {
     route: '/kpis',
+    nextOnInteraction: 'kpi_continue',
     selector: '[data-testid="kpi-form-time-column-field"]',
     title: 'Time column',
     description:
@@ -132,6 +194,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   kpi_type: {
     route: '/kpis',
+    nextOnInteraction: 'kpi_submit',
     selector: '[data-testid="kpi-form-type-field"]',
     title: 'KPI type',
     description:
@@ -148,9 +211,11 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   dashboard_nudge: {
     route: '/kpis',
     selector: 'a[href="/dashboards"]',
-    title: 'Add it to a dashboard',
-    description:
-      'Your KPI is live 🎉 Pin it onto a dashboard with a chart so your team sees the full picture.',
+    imageSrc: DASHBOARD_NUDGE_IMAGE,
+    // "Your KPI is live" moved to the celebration dialog that opens right before this
+    // (kpi-live-modal.tsx) — repeating it here read as the same message twice.
+    title: 'Build your first dashboard',
+    description: 'Now add your KPI and a few charts to a dashboard and share it!',
     closeLabel: 'Later',
     dimOverlay: false,
   },
@@ -213,6 +278,13 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description: 'Send it to your team so everyone sees the same numbers — click the Share icon.',
     dimOverlay: false,
   },
+  share_copy_link: {
+    route: null, // same dynamic /dashboards/{id} as 'share'
+    selector: '[data-testid="copy-link-btn"]',
+    title: 'Grab the link',
+    description: 'Copy it and drop it to your team — anyone with this link can open the dashboard.',
+    dimOverlay: false,
+  },
   // own_data_ingest has no entry here — it's a silent wait stage (see tour-gate.tsx's
   // sync-detection effect), not a coachmark.
   own_data_charts_intro: {
@@ -239,6 +311,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   own_data_dashboard_nudge: {
     route: '/charts',
     selector: 'a[href="/dashboards"]',
+    imageSrc: DASHBOARD_NUDGE_IMAGE,
     title: 'Build your first dashboard',
     description: 'Now add your KPI and a few charts to a dashboard and share it!',
     closeLabel: 'Later',
@@ -396,8 +469,20 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
 };
 
+/**
+ * Which route each stage's coachmark lives on — derived from STAGE_CONFIG so the two can't
+ * drift. Used by the Get Started widget to send a returning user (who left mid-flow) to the
+ * page their stored stage is anchored to, so the coachmark picks up exactly where they left
+ * off. Stages with a dynamic route (`share`) or no route at all are simply absent.
+ */
+export const WALKTHROUGH_STAGE_ROUTES: Partial<Record<WalkthroughStage, string>> =
+  Object.fromEntries(
+    Object.entries(STAGE_CONFIG)
+      .filter(([, config]) => config.route)
+      .map(([stage, config]) => [stage, config.route])
+  );
+
 export function InsightWalkthroughCoachmark(): null {
-  const router = useRouter();
   const pathname = usePathname();
   const active = useInsightWalkthroughStore((s) => s.active);
   const stage = useInsightWalkthroughStore((s) => s.stage);
@@ -409,106 +494,52 @@ export function InsightWalkthroughCoachmark(): null {
   // Keeps a highlight glued to its target while layout is still moving under it —
   // a sidebar collapsing, a canvas pan/zoom settling, dagre re-laying nodes out —
   // none of which fire the window 'resize' event driver.js listens for on its own.
-  // Also self-destroys the moment the target leaves the DOM (e.g. a panel closes
-  // after Save), instead of leaving a stale popover pointing at nothing until the
-  // stage variable itself gets around to changing.
-  const trackTarget = useCallback((d: Driver, el: Element) => {
-    const tick = () => {
-      if (!document.body.contains(el)) {
-        d.destroy();
-        return;
-      }
-      d.refresh();
+  //
+  // It also keeps the coachmark ALIVE. Two things used to kill it for good: the target
+  // leaving the DOM (click outside the KPI dialog, Radix closes it, every target inside goes
+  // with it) and driver.js's own close paths (Escape). Either way the flow looked broken —
+  // the effect below only re-runs on stage/route changes, so reopening the dialog brought
+  // nothing back. Now both cases just call `onLost`, which re-waits for the selector and
+  // shows the same stage again. Skip is still the one way out: it flips `active`, and the
+  // caller's guard stands the watcher down.
+  //
+  // Also where `preferredSelector` is honoured: the same tick watches for that element
+  // appearing (or going away) and re-highlights, which is how a highlight can follow a
+  // dropdown that opens after the stage was already rendered.
+  const trackTarget = useCallback(
+    (
+      d: Driver,
+      baseEl: Element,
+      popover: Popover,
+      preferredSelector: string | undefined,
+      onLost: () => void
+    ) => {
+      let current = baseEl;
+      const tick = () => {
+        if (!document.body.contains(baseEl) || !d.isActive()) {
+          d.destroy();
+          onLost();
+          return;
+        }
+        const preferred = preferredSelector ? document.querySelector(preferredSelector) : null;
+        const next = preferred ?? baseEl;
+        if (next !== current) {
+          current = next;
+          highlightKeepingFocus(d, next as HTMLElement, popover);
+        }
+        d.refresh();
+        trackingFrameRef.current = requestAnimationFrame(tick);
+      };
       trackingFrameRef.current = requestAnimationFrame(tick);
-    };
-    trackingFrameRef.current = requestAnimationFrame(tick);
-  }, []);
+    },
+    []
+  );
 
-  // Fork2: a one-off custom coachmark (3 actions, not a generic highlight+skip), rendered
-  // manually rather than through STAGE_CONFIG/renderStage below.
-  useEffect(() => {
-    let cancelled = false;
-
-    if (active && stage === 'fork2') {
-      (async () => {
-        const sidebarEl = await waitForElement('a[href="/kpis"]');
-        if (cancelled || !sidebarEl) return;
-
-        const d = driver({
-          popoverClass: 'dalgo-tour',
-          overlayColor: '#000000',
-          overlayOpacity: 0.55,
-          stagePadding: 6,
-          stageRadius: 10,
-          allowClose: true,
-          showButtons: [],
-          onPopoverRender: (popover) => {
-            // driver.js hides title/description (display: none) when the step's popover
-            // config had no title/description text — which is the case here (content is
-            // injected here, not passed to highlight()). Restore visibility explicitly.
-            popover.title.style.display = 'block';
-            popover.description.style.display = 'block';
-            popover.title.insertAdjacentHTML(
-              'beforebegin',
-              '<img src="/branding/tour-fork2-preview.svg" alt="A bar chart preview" class="dalgo-tour-fork2-image" />'
-            );
-            popover.title.textContent = 'Build your first insight';
-            popover.description.innerHTML =
-              'How do you want to build it — with our ready-made sample data, or by connecting your own?' +
-              '<div class="dalgo-tour-fork2-actions">' +
-              '<button class="dalgo-tour-fork2-primary" data-action="sample">USE SAMPLE DATA</button>' +
-              '<button class="dalgo-tour-fork2-secondary" data-action="own">CONNECT MY DATA</button>' +
-              '</div>' +
-              '<div class="dalgo-tour-fork2-skip" data-action="skip">Skip for now</div>';
-
-            popover.wrapper
-              .querySelector('[data-action="sample"]')
-              ?.addEventListener('click', () => {
-                d.destroy();
-                useInsightWalkthroughStore.getState().chooseSample();
-                router.push('/kpis');
-              });
-            popover.wrapper.querySelector('[data-action="own"]')?.addEventListener('click', () => {
-              d.destroy();
-              useInsightWalkthroughStore.getState().chooseOwnData();
-              router.push('/ingest');
-            });
-            popover.wrapper.querySelector('[data-action="skip"]')?.addEventListener('click', () => {
-              d.destroy();
-              useInsightWalkthroughStore.getState().skip();
-            });
-          },
-          onDestroyed: () => {
-            driverRef.current = null;
-          },
-        });
-        driverRef.current = d;
-        // driver.js only builds popover DOM (and fires onPopoverRender) when `popover` is
-        // present on the step — omitting it entirely (as opposed to an empty object) skips
-        // popover creation altogether, leaving just the highlight ring with no content. This
-        // step's actual title/description/buttons are injected via onPopoverRender above, so
-        // side/align plus an empty object otherwise is enough to make driver.js build the DOM
-        // to inject into. side:'right'/align:'start' matches every other sidebar-anchored stage
-        // in this file (STAGE_CONFIG's own default) — without it driver.js auto-picks a
-        // placement (here, below the target), which also visibly animates into position.
-        d.highlight({
-          element: sidebarEl as HTMLElement,
-          popover: { side: 'right', align: 'start' },
-        });
-      })();
-    }
-
-    return () => {
-      cancelled = true;
-      driverRef.current?.destroy();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, stage]);
-
-  // All other single-highlight stages: generic highlight+skip against STAGE_CONFIG, keyed by
+  // Single-highlight stages: generic highlight+skip against STAGE_CONFIG, keyed by
   // route+selector.
   useEffect(() => {
     let cancelled = false;
+    let detachEngagement: (() => void) | null = null;
     // pipeline_ingest's "Connect your data" nudge only makes sense before the user has
     // actually created a connection — once trackedConnectionId is set, they're mid-sync
     // (possibly for minutes), and re-showing "add a source" would be actively misleading.
@@ -516,20 +547,87 @@ export function InsightWalkthroughCoachmark(): null {
     // in tour-gate.tsx advances the stage.
     const isWaitingOnTrackedConnection = stage === 'pipeline_ingest' && trackedConnectionId;
     const config =
+      // 'fork2' is the sample/own-data dialog (get-started-modal.tsx, rendered by
+      // tour-gate.tsx), not a coachmark — it has no STAGE_CONFIG entry.
       active && stage && stage !== 'fork2' && !suppressCoachmark && !isWaitingOnTrackedConnection
         ? STAGE_CONFIG[stage]
         : undefined;
 
     if (config) {
-      (async () => {
+      // Set before the first await, not inside show(): between one stage's cleanup and the
+      // next stage's highlight there would otherwise be a window with the class off, and
+      // driver.js's `.driver-active * { pointer-events: none }` eats any click landing in it.
+      if (config.dimOverlay === false) document.body.classList.add(PASSTHROUGH_CLASS);
+
+      // A hint stage is done the moment the user engages with its field — or deliberately
+      // looks away from it. Either way they've seen it, and the flow must not wait on a
+      // change event that may never come (defaulted dropdowns) or on a popover the user has
+      // already dismissed. advanceIfBefore keeps this one-way: a late click can't drag an
+      // already-progressed walkthrough backwards.
+      // Deferred a macrotask on purpose. Advancing tears this stage's coachmark down and
+      // builds the next one, which re-runs driver.js's pointer-events juggling — do that
+      // while the user's click is still in flight and the click never reaches the control
+      // they clicked (a KPI Type button would highlight, advance, and select nothing).
+      // Letting the event finish first means the app's own handler wins.
+      const advancePastHint = () => {
+        if (!config.nextOnInteraction) return;
+        setTimeout(() => {
+          if (cancelled) return;
+          useInsightWalkthroughStore.getState().advanceIfBefore(config.nextOnInteraction!);
+        }, 0);
+      };
+
+      const listenForEngagement = (el: Element): (() => void) => {
+        if (!config.nextOnInteraction) return () => {};
+        const onTargetClick = () => advancePastHint();
+        const onDocumentClick = (event: Event) => {
+          const target = event.target as Node | null;
+          if (!target || el.contains(target)) return;
+          // The popover is part of the coachmark, not "somewhere else" — and Skip lives in
+          // it, which must stay a skip rather than an advance.
+          if (document.querySelector('.driver-popover')?.contains(target)) return;
+          advancePastHint();
+        };
+        el.addEventListener('click', onTargetClick);
+        document.addEventListener('click', onDocumentClick, true);
+        return () => {
+          el.removeEventListener('click', onTargetClick);
+          document.removeEventListener('click', onDocumentClick, true);
+        };
+      };
+
+      /** Re-entrant: also the recovery path when a target disappears mid-stage. */
+      const show = async (): Promise<void> => {
         if (config.route && window.location.pathname !== config.route) return;
-        if (stage === 'share' && !/^\/dashboards\/\d+$/.test(window.location.pathname)) return;
+        if (
+          (stage === 'share' || stage === 'share_copy_link') &&
+          !/^\/dashboards\/\d+$/.test(window.location.pathname)
+        ) {
+          return;
+        }
         const resolvedSelector =
           typeof config.selector === 'function' ? config.selector() : config.selector;
         if (!resolvedSelector) return;
-        const el = await waitForElement(resolvedSelector);
-        if (cancelled || !el) return;
+        const el = await waitForElement(
+          resolvedSelector,
+          config.nextOnInteraction ? HINT_TARGET_TIMEOUT_MS : undefined
+        );
+        if (cancelled) return;
+        if (!el) {
+          // A hint whose field never appeared: skip it rather than stall. This is the
+          // conditional-field case — e.g. Direction hands off to Time Column, which doesn't
+          // render for a metric with no date columns.
+          if (config.nextOnInteraction) advancePastHint();
+          return;
+        }
+        // The store can have moved on (or been skipped) during that wait — re-showing a stage
+        // the user has already left would yank them backwards.
+        const live = useInsightWalkthroughStore.getState();
+        if (!live.active || live.stage !== stage || live.suppressCoachmark) return;
 
+        // See tour.css: keeps the rest of an open dialog usable while one field inside it is
+        // highlighted — which matters most for stages that retarget (preferredSelector), where
+        // the highlight can shrink to a single dropdown row. Added above, synchronously.
         const dimOverlay = config.dimOverlay !== false;
         const d = driver({
           popoverClass: 'dalgo-tour',
@@ -540,6 +638,14 @@ export function InsightWalkthroughCoachmark(): null {
           allowClose: true,
           showButtons: ['close'],
           onPopoverRender: (popover) => {
+            if (config.imageSrc) {
+              // driver.js builds the popover DOM itself, so the illustration is injected
+              // rather than passed as config — same approach the old fork2 popover used.
+              popover.title.insertAdjacentHTML(
+                'beforebegin',
+                `<img src="${config.imageSrc}" alt="" class="dalgo-tour-stage-image" />`
+              );
+            }
             const closeLabel = config.closeLabel ?? 'Skip';
             popover.closeButton.textContent = closeLabel;
             popover.closeButton.setAttribute('aria-label', 'Skip walkthrough');
@@ -554,22 +660,31 @@ export function InsightWalkthroughCoachmark(): null {
           },
         });
         driverRef.current = d;
-        d.highlight({
-          element: el as HTMLElement,
-          popover: {
-            title: config.title,
-            description: config.description,
-            side: config.side ?? 'right',
-            align: config.align ?? 'start',
-          },
+        const popover: Popover = {
+          title: config.title,
+          description: config.description,
+          side: config.side ?? 'right',
+          align: config.align ?? 'start',
+        };
+        highlightKeepingFocus(d, el as HTMLElement, popover);
+        detachEngagement?.();
+        detachEngagement = listenForEngagement(el);
+        trackTarget(d, el, popover, config.preferredSelector, () => {
+          detachEngagement?.();
+          detachEngagement = null;
+          if (cancelled) return;
+          void show();
         });
-        trackTarget(d, el);
-      })();
+      };
+
+      void show();
     }
 
     return () => {
       cancelAnimationFrame(trackingFrameRef.current);
       cancelled = true;
+      detachEngagement?.();
+      document.body.classList.remove(PASSTHROUGH_CLASS);
       driverRef.current?.destroy();
     };
   }, [active, stage, pathname, suppressCoachmark, trackedConnectionId, trackTarget]);

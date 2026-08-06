@@ -38,7 +38,11 @@ import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useK
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { useAuthStore } from '@/stores/authStore';
-import { markKpiCreated } from '@/components/onboarding/insight-walkthrough-constants';
+import {
+  markKpiCreated,
+  isStageBefore,
+} from '@/components/onboarding/insight-walkthrough-constants';
+import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
@@ -161,6 +165,8 @@ export function KPIPageComponent() {
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [formOpen, setFormOpen] = useState(searchParams.get('create') === 'true');
+  // Walkthrough only — see handleFormSuccess.
+  const [kpiLiveModalOpen, setKpiLiveModalOpen] = useState(false);
   const [editingKpi, setEditingKpi] = useState<KPI | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedKpi, setSelectedKpi] = useState<KPI | null>(null);
@@ -234,15 +240,22 @@ export function KPIPageComponent() {
     // so a returning user's progress is accurate (see flow-resume.ts).
     if (orgSlug) markKpiCreated(orgSlug);
     const walkthrough = useInsightWalkthroughStore.getState();
-    // Accepts either pre-state, same reasoning as handleContinue in kpi-form.tsx: KPI Type
-    // is optional, so a user who never picks one (stage stays kpi_type) must still complete
-    // the walkthrough correctly when they click Create KPI.
+    // Whatever they skipped on the way here — an optional KPI Type, a hint they clicked past
+    // — creating the KPI is the checkpoint, so catch the walkthrough up to it.
     if (
       walkthrough.active &&
-      (walkthrough.stage === 'kpi_type' || walkthrough.stage === 'kpi_submit')
+      walkthrough.stage &&
+      isStageBefore(walkthrough.path, walkthrough.stage, 'dashboard_nudge')
     ) {
-      toastSuccess.generic('🎉 Your First KPI is live');
-      walkthrough.advanceTo('dashboard_nudge');
+      // A full celebration dialog rather than a toast — this is where the flow hands over
+      // from KPIs to dashboards, and the handover needs a CTA, not a corner notification.
+      setKpiLiveModalOpen(true);
+      // The next stage's coachmark points at the Dashboards nav item, which is visible
+      // behind this dialog — without suppressing it, congratulations and the nudge land on
+      // screen together. Released when the dialog closes, so the nudge is what the user
+      // sees next.
+      walkthrough.setSuppressCoachmark(true);
+      walkthrough.advanceIfBefore('dashboard_nudge');
     }
   }, [mutate, globalMutate, orgSlug]);
 
@@ -483,6 +496,20 @@ export function KPIPageComponent() {
         onOpenChange={setFormOpen}
         onSuccess={handleFormSuccess}
         kpi={editingKpi}
+      />
+
+      <CelebrationModal
+        open={kpiLiveModalOpen}
+        onOpenChange={(open) => {
+          setKpiLiveModalOpen(open);
+          // Whichever way it closes, the dashboard nudge is the next thing to see.
+          if (!open) useInsightWalkthroughStore.getState().setSuppressCoachmark(false);
+        }}
+        title="Congratulation, your KPI is live!"
+        description="Your insights are built and now you can add it to a dashboard"
+        ctaLabel="Add to Dashboard"
+        dismissEvent={ANALYTICS_EVENTS.KPI_LIVE_MODAL_DISMISSED}
+        testId="kpi-live-modal"
       />
 
       <KPIDetailDrawer

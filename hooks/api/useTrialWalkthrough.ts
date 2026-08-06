@@ -5,12 +5,13 @@ import { apiGet, apiPut } from '@/lib/api';
  * Backend persistence for the three trial onboarding walkthroughs.
  *
  * Division of labour (deliberate — don't merge these two sources):
- *  - BACKEND (this file) answers "has the user already decided about this flow?", so we
- *    stop offering it unprompted. Only final states: skipped or completed, per flow.
- *  - localStorage (components/onboarding/insight-walkthrough-constants.ts) answers "what
- *    has the user actually accomplished?" — per-step stage, chosen fork, and the milestone
- *    flags the Get Started checklist reads. Intentionally not persisted server-side;
- *    cross-device resume is explicitly out of scope.
+ *  - BACKEND (this file) is the permanent record, and the only one: per flow, whether it
+ *    was skipped or completed. That's what the Get Started ticks read, so they survive a
+ *    cleared browser.
+ *  - localStorage (components/onboarding/insight-walkthrough-constants.ts) is scratch space
+ *    for a flow that is still running — coachmark stage, chosen fork, milestone flags for
+ *    "where do I resume". Wiped once the flow resolves and its backend write lands (see the
+ *    store's finish/skip), so a restarted flow always begins from nothing.
  */
 
 const USER_PREFERENCES_KEY = '/api/userpreferences/';
@@ -47,6 +48,14 @@ export function isFlowDecided(
   return Boolean(flowState?.completed || flowState?.skipped);
 }
 
+/** Completed only — a skipped flow is decided, but nothing was achieved by it. */
+export function isFlowCompleted(
+  state: TrialWalkthroughState | undefined,
+  flow: TrialWalkthroughFlow
+): boolean {
+  return Boolean(state?.[flow]?.completed);
+}
+
 /**
  * @param enabled - pass false for non-trial users so SWR skips the request entirely.
  *   TourGate mounts app-wide and can't early-return before its hooks, so this is what
@@ -69,9 +78,10 @@ export function useTrialWalkthrough(enabled = true) {
 }
 
 /**
- * Records a flow's final state. Fire-and-forget by design: this is onboarding bookkeeping,
- * so a failed write must never block the click that triggered it — worst case the flow is
- * offered again on a fresh browser (localStorage still suppresses it on this one).
+ * Records a flow's final state. Never throws — this is onboarding bookkeeping and must not
+ * break the click that triggered it — but DOES report whether the write landed, because the
+ * caller drops its local scratch state on success and keeps it as the fallback on failure
+ * (see the store's finish/skip).
  *
  * Skipped and completed are mutually exclusive; the backend clears the other flag, so
  * completing a previously-skipped flow correctly un-skips it.
@@ -79,16 +89,18 @@ export function useTrialWalkthrough(enabled = true) {
 export async function saveTrialWalkthroughFlow(
   flow: TrialWalkthroughFlow,
   outcome: 'skipped' | 'completed'
-): Promise<void> {
+): Promise<boolean> {
   try {
     await apiPut('/api/userpreferences/trial-walkthrough', {
       flow,
       [outcome]: true,
     });
-    // Keep the gate's cached copy honest for anything that reads it later this session
-    // without a remount (e.g. navigating back to /impact right after skipping).
+    // The checklist ticks read this cache, so refresh it rather than waiting for the next
+    // mount — a tick should appear the moment its write lands.
     void globalMutate(USER_PREFERENCES_KEY);
+    return true;
   } catch (error) {
     console.error(`Failed to persist trial walkthrough state for "${flow}":`, error);
+    return false;
   }
 }

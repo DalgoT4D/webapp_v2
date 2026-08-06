@@ -17,29 +17,38 @@
  * a parent via a callback — this is the same component that knows definitively whether the
  * user completed the last step, so there's no cross-component state to fall out of sync.
  */
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { driver, type Driver, type PopoverDOM } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import './tour.css';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { TOUR_STEPS, TOUR_CONTENT_SELECTOR, markTourSeen, type TourStep } from './tour-constants';
-import { PostTourModal } from './post-tour-modal';
+import {
+  TOUR_STEPS,
+  TOUR_CONTENT_SELECTOR,
+  markTourSeen,
+  saveTourProgress,
+  clearTourProgress,
+  type TourStep,
+} from './tour-constants';
 import { saveTrialWalkthroughFlow } from '@/hooks/api/useTrialWalkthrough';
 
 export interface ProductTourHandle {
-  startTour: () => void;
+  /** @param startIndex - step to begin at; non-zero when resuming an interrupted run. */
+  startTour: (startIndex?: number) => void;
 }
 
 interface ProductTourProps {
   orgSlug: string;
   /** Fires once the tour ends, however it ended (completed, skipped, or closed). */
   onTourEnd?: (reason: 'completed' | 'skipped') => void;
-  /** Fires when the post-tour modal's "Build your first insight" option is picked. */
-  onInsightPathChosen: () => void;
-  /** Fires when the post-tour modal's "Automate Pipeline" option is picked. */
-  onPipelinePathChosen: () => void;
+  /**
+   * Fires when the tour is completed via its last step's "Finish Tour" button (not on Skip)
+   * and the follow-up choice is still worth offering. The dialog itself lives in tour-gate.tsx
+   * — all its entry points share one instance so it can swap screens in place.
+   */
+  onOfferPostTourChoice: () => void;
   /**
    * False once BOTH post-tour flows (insights, automate-pipeline) are already decided —
    * the modal would have nothing left to offer, so it's suppressed. The tour itself stays
@@ -389,8 +398,29 @@ function anchorPopoverToSidebar(popover: PopoverDOM, step: TourStep): void {
   arrow.style.top = `${Math.min(Math.max(arrowCenter, POPOVER_VIEWPORT_MARGIN_PX), maxArrowTop)}px`;
 }
 
+/**
+ * Every step's popover chrome: the ✕ close label, the CTA class, and the sidebar re-anchor.
+ * Module-level because it touches no component state beyond the step it's handed.
+ */
+function decoratePopover(popover: PopoverDOM, step: TourStep): void {
+  // Close is a top-right "✕" (driver.js's own default position, which the CSS keeps rather
+  // than overriding), and the primary CTA sits at the footer's left. Clicking ✕ runs the same
+  // path as any other exit — finish('skipped') — so it records the skip on the backend, not
+  // just locally.
+  popover.closeButton.textContent = '✕';
+  popover.closeButton.setAttribute('aria-label', 'Skip tour');
+  popover.closeButton.classList.add('dalgo-tour-close-btn');
+  popover.nextButton.classList.add('dalgo-tour-next-btn');
+
+  // The popover's target is the synthetic spotlight band (for the stage cutout), but the
+  // popover itself must sit beside the SIDEBAR item, not the content. Deferred a frame:
+  // driver.js calls its own auto-positioning function right after this hook returns, which
+  // would otherwise clobber a same-tick override.
+  requestAnimationFrame(() => anchorPopoverToSidebar(popover, step));
+}
+
 export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(function ProductTour(
-  { orgSlug, onTourEnd, onInsightPathChosen, onPipelinePathChosen, canOfferPostTourChoice = true },
+  { orgSlug, onTourEnd, onOfferPostTourChoice, canOfferPostTourChoice = true },
   ref
 ) {
   const router = useRouter();
@@ -398,7 +428,6 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
   const driverRef = useRef<Driver | null>(null);
   const stepIndexRef = useRef(0);
   const activeRef = useRef(false);
-  const [showPostTourModal, setShowPostTourModal] = useState(false);
   // Guards against the pathname-triggered re-anchor effect below firing a second,
   // redundant renderStep for the same index while the first one is still awaiting
   // waitForElement (e.g. right after router.push, before the new page has painted).
@@ -412,6 +441,13 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
     canOfferPostTourChoiceRef.current = canOfferPostTourChoice;
   }, [canOfferPostTourChoice]);
 
+  // Same reason as canOfferPostTourChoiceRef — keeps openPostTourModal stable even though
+  // the parent re-creates this callback on its own re-renders.
+  const onOfferPostTourChoiceRef = useRef(onOfferPostTourChoice);
+  useEffect(() => {
+    onOfferPostTourChoiceRef.current = onOfferPostTourChoice;
+  }, [onOfferPostTourChoice]);
+
   // Deferred a tick: this is called from driver.js's native button click handler, outside
   // React's own synthetic event system. Opening the Dialog synchronously here mounts it (and
   // its "click outside to close" listener) WHILE the same click event is still bubbling to
@@ -422,12 +458,15 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
     // Both post-tour flows already decided — a repeat run of the tour ends silently rather
     // than re-offering choices the user has been through.
     if (!canOfferPostTourChoiceRef.current) return;
-    setTimeout(() => setShowPostTourModal(true), 0);
+    setTimeout(() => onOfferPostTourChoiceRef.current(), 0);
   }, []);
 
   const finish = useCallback(
     (reason: 'completed' | 'skipped') => {
       markTourSeen(orgSlug);
+      // The run is over one way or the other, so there's nothing left to resume — leaving the
+      // index behind would re-open the tour on the next page load.
+      clearTourProgress(orgSlug);
       trackEvent(
         reason === 'completed' ? ANALYTICS_EVENTS.TOUR_COMPLETED : ANALYTICS_EVENTS.TOUR_SKIPPED,
         { step: stepIndexRef.current + 1 }
@@ -444,6 +483,10 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
       if (!activeRef.current || renderingIndexRef.current === index) return;
       renderingIndexRef.current = index;
       stepIndexRef.current = index;
+      // Written before the step actually renders, not after: a reload can land anywhere in the
+      // navigate-and-wait sequence below, and resuming the step the user was heading to beats
+      // resuming the one they already left.
+      saveTourProgress(orgSlug, index);
       const step = TOUR_STEPS[index];
       const isLast = index === TOUR_STEPS.length - 1;
       const sidebarSelector = `a[href="${step.route}"]`;
@@ -523,10 +566,8 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
                 // to detect completion — that hook only fires if driver's OWN internal
                 // "active element/step" state happens to be set by the time destroy() runs,
                 // which depends on an animation-completion timer outside our control.
-                // showPostTourModal is local state owned by this same component, not threaded
-                // through a parent callback, so there's no cross-component state to fall out
-                // of sync — openPostTourModal() (deferred, see its own comment) guarantees the
-                // modal actually shows on a real completion.
+                // openPostTourModal() (deferred, see its own comment) then guarantees the
+                // dialog actually shows on a real completion.
                 activeRef.current = false;
                 finish('completed');
                 openPostTourModal();
@@ -551,63 +592,67 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
         if (renderingIndexRef.current === index) renderingIndexRef.current = null;
       }
     },
-    [router, finish, openPostTourModal]
+    [router, orgSlug, finish, openPostTourModal]
   );
 
-  const startTour = useCallback(() => {
-    if (activeRef.current) return;
-    activeRef.current = true;
-    stepIndexRef.current = 0;
-    driverRef.current = driver({
-      popoverClass: 'dalgo-tour',
-      overlayColor: '#000000',
-      overlayOpacity: 0.55,
-      stagePadding: 6,
-      stageRadius: 10,
-      allowClose: true,
-      disableActiveInteraction: true,
-      onPopoverRender: (popover: PopoverDOM) => {
-        // Close is a top-right "✕" (driver.js's own default position, which the CSS keeps
-        // rather than overriding), and the primary CTA sits at the footer's left. Clicking
-        // ✕ runs the same path as any other exit — finish('skipped') — so it records the
-        // skip on the backend, not just locally.
-        popover.closeButton.textContent = '✕';
-        popover.closeButton.setAttribute('aria-label', 'Skip tour');
-        popover.closeButton.classList.add('dalgo-tour-close-btn');
-        popover.nextButton.classList.add('dalgo-tour-next-btn');
-
-        // The popover's target is the synthetic spotlight band (for the stage cutout), but
-        // the popover itself must sit beside the SIDEBAR item, not the content. Deferred a
-        // frame: driver.js calls its own auto-positioning function right after this hook
-        // returns, which would otherwise clobber a same-tick override.
-        requestAnimationFrame(() =>
-          anchorPopoverToSidebar(popover, TOUR_STEPS[stepIndexRef.current])
-        );
-      },
-      onCloseClick: () => {
-        // Handle the "Skip" click ourselves rather than falling through to driver.js's
-        // default close behavior — that behavior only calls `onDestroyed` if its OWN
-        // internal `__activeElement`/`__activeStep` state happens to already be set, which
-        // depends on an animation-completion timer we don't control. Calling `finish`
-        // directly here guarantees it always fires.
-        activeRef.current = false;
-        finish('skipped');
-        driverRef.current?.destroy();
-      },
-      onDestroyed: () => {
-        // Safety net only, for exits we haven't explicitly handled (Escape key, overlay
-        // click) — both `onNextClick`'s isLast branch and `onCloseClick` above already call
-        // `finish` themselves and set `activeRef.current = false` first, so this is a no-op
-        // for those paths (avoids double-firing analytics/localStorage for the same exit).
-        const wasActive = activeRef.current;
-        activeRef.current = false;
-        driverRef.current = null;
-        if (wasActive) finish('skipped');
-      },
-    });
-    trackEvent(ANALYTICS_EVENTS.TOUR_STARTED);
-    void renderStep(0);
-  }, [renderStep, finish]);
+  const startTour = useCallback(
+    (startIndex = 0) => {
+      if (activeRef.current) return;
+      activeRef.current = true;
+      stepIndexRef.current = startIndex;
+      // Defensive: the insight walkthrough's coachmarks put this on <body> to let clicks
+      // through their dialog (see tour.css). It's cleaned up with each of those stages, but if
+      // one ever overlapped the tour it would re-enable the whole page mid-tour.
+      document.body.classList.remove('dalgo-tour-passthrough');
+      driverRef.current = driver({
+        popoverClass: 'dalgo-tour',
+        overlayColor: '#000000',
+        overlayOpacity: 0.55,
+        stagePadding: 6,
+        stageRadius: 10,
+        // Next and ✕ in the popover are the only ways through the tour.
+        //
+        // allowClose gates driver.js's OWN exits — overlay click and Escape — not our ✕, which
+        // runs through the onCloseClick hook below and still works with this false. The overlay
+        // click was the live one: the overlay <svg> is pointer-events:none, but driver gives its
+        // <path> an inline `auto`, so a click anywhere on the dimmed page hit that path, emitted
+        // overlayClick, and tore the tour down — recording a SKIP the user never asked for.
+        allowClose: false,
+        // Same story for the keyboard: Escape hit the same close path, and the arrow keys drove
+        // a step navigation this tour doesn't use.
+        allowKeyboardControl: false,
+        disableActiveInteraction: true,
+        onPopoverRender: (popover: PopoverDOM) =>
+          decoratePopover(popover, TOUR_STEPS[stepIndexRef.current]),
+        onCloseClick: () => {
+          // Handle the "Skip" click ourselves rather than falling through to driver.js's
+          // default close behavior — that behavior only calls `onDestroyed` if its OWN
+          // internal `__activeElement`/`__activeStep` state happens to already be set, which
+          // depends on an animation-completion timer we don't control. Calling `finish`
+          // directly here guarantees it always fires.
+          activeRef.current = false;
+          finish('skipped');
+          driverRef.current?.destroy();
+        },
+        onDestroyed: () => {
+          // Safety net only. With allowClose/allowKeyboardControl off there are no driver.js
+          // exits left, so in practice this now covers unmounts alone — but both
+          // `onNextClick`'s isLast branch and `onCloseClick` above already call `finish`
+          // themselves and set `activeRef.current = false` first, so this stays a no-op for
+          // those paths (avoids double-firing analytics/localStorage for the same exit).
+          const wasActive = activeRef.current;
+          activeRef.current = false;
+          driverRef.current = null;
+          if (wasActive) finish('skipped');
+        },
+      });
+      // Only a genuine start counts — a resume is the same run continuing, and firing this
+      // again would inflate starts every time the user reloads mid-tour.
+      if (startIndex === 0) trackEvent(ANALYTICS_EVENTS.TOUR_STARTED);
+      void renderStep(startIndex);
+    },
+    [renderStep, finish]
+  );
 
   useImperativeHandle(ref, () => ({ startTour }), [startTour]);
 
@@ -667,12 +712,7 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
     };
   }, []);
 
-  return (
-    <PostTourModal
-      open={showPostTourModal}
-      onOpenChange={setShowPostTourModal}
-      onSelectInsight={onInsightPathChosen}
-      onSelectPipeline={onPipelinePathChosen}
-    />
-  );
+  // Renders nothing of its own — the tour is driver.js overlays plus a synthetic spotlight
+  // element appended to the body, and the post-tour dialog now lives in tour-gate.tsx.
+  return null;
 });

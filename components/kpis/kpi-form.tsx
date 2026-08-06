@@ -155,6 +155,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
   const metricId = watch('metric_id');
   const targetValue = watch('target_value');
   const timeDimensionColumn = watch('time_dimension_column');
+  const metricTypeTag = watch('metric_type_tag');
 
   // Watch-based rather than only reacting to the Select's onValueChange: if the table has
   // exactly one date column, Radix's Select never fires onValueChange for re-selecting a
@@ -166,9 +167,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
   useEffect(() => {
     if (!timeDimensionColumn) return;
     const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active && walkthrough.stage === 'kpi_time_column') {
-      walkthrough.advanceTo('kpi_continue');
-    }
+    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_continue');
   }, [timeDimensionColumn]);
 
   // Same watch-based reasoning as the time column effect above — waiting for onBlur
@@ -178,10 +177,18 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
   useEffect(() => {
     if (!targetValue) return;
     const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active && walkthrough.stage === 'kpi_target') {
-      walkthrough.advanceTo('kpi_direction');
-    }
+    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_direction');
   }, [targetValue]);
+
+  // KPI Type is the walkthrough's last field, so picking one moves the coachmark onto the
+  // Create KPI button. Same watch-based approach as the two effects above; guarded on a
+  // truthy value because the type buttons toggle — clicking the selected one clears it back
+  // to '', which shouldn't count as having picked anything.
+  useEffect(() => {
+    if (!metricTypeTag) return;
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_submit');
+  }, [metricTypeTag]);
 
   const { data: metrics, mutate: mutateMetrics } = useMetrics({ pageSize: 50 });
   const { tags: existingTags } = useProgramTags();
@@ -260,9 +267,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
       setValue('time_grain', 'monthly');
     }
     const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active && walkthrough.stage === 'kpi_metric') {
-      walkthrough.advanceTo('kpi_target');
-    }
+    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_target');
   };
 
   // Track each step as it becomes visible (fires on open too, since step resets on open)
@@ -293,10 +298,10 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
     const ok = await trigger(['name', 'target_value', 'direction', 'time_dimension_column']);
     if (ok) {
       setStep(3);
+      // Catches up anyone who skipped the step-2 hints (a defaulted dropdown left alone, a
+      // field clicked past) — advanceIfBefore only ever moves forward.
       const walkthrough = useInsightWalkthroughStore.getState();
-      if (walkthrough.active && walkthrough.stage === 'kpi_continue') {
-        walkthrough.advanceTo('kpi_type');
-      }
+      if (walkthrough.active) walkthrough.advanceIfBefore('kpi_type');
     }
   };
 
@@ -309,12 +314,12 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
       setValue('amber_threshold_pct', '80');
     }
     const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active && walkthrough.stage === 'kpi_direction') {
+    if (walkthrough.active) {
       // The selected metric may have no date/timestamp columns — the Time Column field
       // doesn't render at all then (replaced by a "no date columns found" message), so
       // there's nothing for the kpi_time_column stage to highlight. Skip straight to
       // kpi_continue instead of getting stuck waiting for a field that will never appear.
-      walkthrough.advanceTo(dateColumns.length === 0 ? 'kpi_continue' : 'kpi_time_column');
+      walkthrough.advanceIfBefore(dateColumns.length === 0 ? 'kpi_continue' : 'kpi_time_column');
     }
   };
 

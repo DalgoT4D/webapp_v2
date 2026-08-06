@@ -26,6 +26,9 @@ interface ShareModalProps {
   initialShareStatus?: Partial<ShareStatus>;
   getShareStatus: (id: number) => Promise<ShareStatus>;
   updateSharing: (id: number, data: { is_public: boolean }) => Promise<ShareStatus>;
+  /** Notified after the public link is copied. Additive hook for callers that need to
+   *  react to the copy itself (the trial walkthrough ends on it); no effect otherwise. */
+  onCopyLink?: () => void;
   /** When provided, enables the "Share via Email" section */
   onShareViaEmail?: (data: {
     recipient_emails: string[];
@@ -42,6 +45,7 @@ export function ShareModal({
   initialShareStatus,
   getShareStatus,
   updateSharing,
+  onCopyLink,
   onShareViaEmail,
 }: ShareModalProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -108,8 +112,9 @@ export function ShareModal({
   const handleCopyUrl = useCallback(async () => {
     if (shareStatus.public_url) {
       await copyUrlToClipboard(shareStatus.public_url);
+      onCopyLink?.();
     }
-  }, [shareStatus.public_url]);
+  }, [shareStatus.public_url, onCopyLink]);
 
   const handleAddEmail = useCallback(() => {
     const email = emailInput.trim();

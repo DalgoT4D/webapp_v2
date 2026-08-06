@@ -141,3 +141,46 @@ export function markTourSeen(orgSlug: string): void {
     // localStorage unavailable (e.g. private mode) — worst case the tour re-offers itself.
   }
 }
+
+/**
+ * Which step a RUNNING tour is on. Written on every step, cleared by finish() — so a value
+ * being present means the run was interrupted rather than exited, and TourGate puts it back
+ * on screen (see its resume effect).
+ *
+ * The tour keeps its live state in refs, which a page reload wipes; without this the ✕ was
+ * not the only way out — F5 was too, silently. Separate from TOUR_SEEN (a permanent "this org
+ * has been through it" flag) because the two answer different questions and clear at
+ * different times.
+ */
+export const TOUR_PROGRESS_STORAGE_PREFIX = 'dalgo_tour_progress_';
+
+export function saveTourProgress(orgSlug: string, stepIndex: number): void {
+  try {
+    localStorage.setItem(`${TOUR_PROGRESS_STORAGE_PREFIX}${orgSlug}`, String(stepIndex));
+  } catch {
+    // localStorage unavailable (e.g. private mode) — worst case a reload ends the tour.
+  }
+}
+
+/** The step to resume at, or null if no tour is mid-run (or the stored value is unusable). */
+export function getTourProgress(orgSlug: string): number | null {
+  try {
+    const raw = localStorage.getItem(`${TOUR_PROGRESS_STORAGE_PREFIX}${orgSlug}`);
+    if (raw === null) return null;
+    const index = Number(raw);
+    // Guards a hand-edited value, and a stored index left over from a build whose TOUR_STEPS
+    // had more steps than this one — resuming out of range would render nothing at all.
+    if (!Number.isInteger(index) || index < 0 || index >= TOUR_STEPS.length) return null;
+    return index;
+  } catch {
+    return null;
+  }
+}
+
+export function clearTourProgress(orgSlug: string): void {
+  try {
+    localStorage.removeItem(`${TOUR_PROGRESS_STORAGE_PREFIX}${orgSlug}`);
+  } catch {
+    // no-op
+  }
+}

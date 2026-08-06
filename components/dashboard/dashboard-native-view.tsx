@@ -95,6 +95,8 @@ import { useFullscreen } from '@/hooks/useFullscreen';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { markDashboardShared } from '@/components/onboarding/insight-walkthrough-constants';
+import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import { EmbedCodeDropdown } from '@/components/dashboard/embed-code-dropdown';
 
 // Define responsive breakpoints and column configurations (same as builder)
@@ -285,13 +287,19 @@ export function DashboardNativeView({
   );
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  // Walkthrough only — the "you're officially live" beat, after the public link is copied.
+  const [dashboardLiveModalOpen, setDashboardLiveModalOpen] = useState(false);
+  const walkthroughStage = useInsightWalkthroughStore((state) => state.stage);
 
-  // Share dialog is a plain interaction with no coachmark of its own (per design) — hide the
-  // walkthrough spotlight while it's open so its overlay doesn't darken it (same pattern as the
-  // KPI/chart picker modals in dashboard-builder-v2).
+  // The share dialog gets no coachmark of its own while the user is finding their way around
+  // it, so the spotlight hides (same pattern as the KPI/chart picker modals in
+  // dashboard-builder-v2). It comes back for 'share_copy_link', whose target — the copy
+  // button — is inside this very dialog.
   useEffect(() => {
-    useInsightWalkthroughStore.getState().setSuppressCoachmark(shareModalOpen);
-  }, [shareModalOpen]);
+    useInsightWalkthroughStore
+      .getState()
+      .setSuppressCoachmark(shareModalOpen && walkthroughStage !== 'share_copy_link');
+  }, [shareModalOpen, walkthroughStage]);
   const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
   // Filters panel collapse state
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
@@ -525,13 +533,37 @@ export function DashboardNativeView({
   // Handle dashboard update after sharing changes
   const handleDashboardUpdate = () => {
     mutate(); // Refresh the dashboard data
-    const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active && walkthrough.stage === 'share') {
-      toastSuccess.generic('🎉 Congratulations! Your First Dashboard is created and shared');
-      walkthrough.finish();
-      router.push('/dashboards');
-    }
   };
+
+  // Wraps updateDashboardSharing (passed to ShareModal, a components/ui/ component we keep
+  // free of onboarding logic) so going public is what moves the walkthrough on — same trick
+  // dashboard-list-v2 uses for the "shared" milestone. The dialog stays open: the next stage
+  // points at the copy button inside it.
+  const handleUpdateSharing = useCallback(
+    async (id: number, data: { is_public: boolean }) => {
+      const result = await updateDashboardSharing(id, data);
+      if (data.is_public) {
+        if (selectedOrgSlug) markDashboardShared(selectedOrgSlug);
+        const walkthrough = useInsightWalkthroughStore.getState();
+        if (walkthrough.active && walkthrough.stage === 'share') {
+          walkthrough.advanceTo('share_copy_link');
+        }
+      }
+      return result;
+    },
+    [selectedOrgSlug]
+  );
+
+  // Copying the link is the walkthrough's last action — the flow ends on a celebration
+  // rather than a toast, and stays put so the user is looking at what they just built.
+  const handleCopyLink = useCallback(() => {
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'share_copy_link') {
+      walkthrough.finish();
+      setShareModalOpen(false);
+      setDashboardLiveModalOpen(true);
+    }
+  }, []);
 
   // Handle refresh
   const handleRefresh = async () => {
@@ -1484,6 +1516,15 @@ export function DashboardNativeView({
         `
           : ''}
       `}</style>
+      <CelebrationModal
+        open={dashboardLiveModalOpen}
+        onOpenChange={setDashboardLiveModalOpen}
+        title="Congratulation, you're officially live!"
+        description="Your insights are built and your new dashboard is ready to go."
+        ctaLabel="View Dashboard"
+        dismissEvent={ANALYTICS_EVENTS.DASHBOARD_LIVE_MODAL_DISMISSED}
+        testId="dashboard-live-modal"
+      />
       {/* Share Modal */}
       {dashboard && !isPublicMode && (
         <ShareModal
@@ -1492,12 +1533,13 @@ export function DashboardNativeView({
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
+          onCopyLink={handleCopyLink}
           initialShareStatus={{
             is_public: dashboard.is_public,
             public_access_count: dashboard.public_access_count,
           }}
           getShareStatus={getDashboardSharingStatus}
-          updateSharing={updateDashboardSharing}
+          updateSharing={handleUpdateSharing}
         />
       )}
     </div>

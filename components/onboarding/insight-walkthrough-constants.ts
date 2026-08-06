@@ -23,6 +23,9 @@ export type WalkthroughStage =
   | 'builder_save'
   | 'builder_preview'
   | 'share'
+  // Inside the share dialog, once public access is on: the last thing the user does before
+  // the walkthrough ends. The dialog deliberately stays open through it.
+  | 'share_copy_link'
   // Own-data fork (Fork2 "CONNECT MY DATA"). own_data_ingest has no coachmark — the
   // ingest wizard already explains itself — and can outlive the browser session (a
   // sync can take a while), so it's the one stage resumed via a real API check
@@ -36,7 +39,8 @@ export type WalkthroughStage =
   | 'own_data_dashboard_nudge'
   | 'own_data_builder_add_chart'
   | 'own_data_builder_add_kpi'
-  // Automate-pipeline fork (PostTourModal's "Automate Pipeline" option). No fork2 step —
+  // Automate-pipeline fork (the GetStartedModal's "Setup an automated data pipeline"
+  // option — see get-started-modal.tsx). No fork2 step —
   // single linear path: Ingest -> Transform (one clean table) -> Orchestrate (scheduled
   // pipeline). pipeline_ingest has no coachmark, same silent-wait treatment as
   // own_data_ingest, resumed via the tracked connection's sync status (see tour-gate.tsx).
@@ -62,8 +66,12 @@ export const WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   'kpi_metric',
   'kpi_target',
   'kpi_direction',
-  'kpi_continue',
+  // Runtime order, which the wizard's own handlers follow: Direction picks the time column
+  // next (when the metric has date columns), and Continue is what leaves step 2. Listing
+  // these the other way round silently breaks isStageBefore — the time-column stage would
+  // count as AFTER Continue, so the checkpoint could never catch anyone up from it.
   'kpi_time_column',
+  'kpi_continue',
   'kpi_type',
   'kpi_submit',
   'dashboard_nudge',
@@ -74,6 +82,7 @@ export const WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   'builder_save',
   'builder_preview',
   'share',
+  'share_copy_link',
 ];
 
 // The own-data path's own linear order — kept separate from WALKTHROUGH_STAGE_ORDER
@@ -93,11 +102,12 @@ export const OWN_DATA_WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   'builder_save',
   'builder_preview',
   'share',
+  'share_copy_link',
 ];
 
 // The automate-pipeline path's own linear order — kept separate from
 // WALKTHROUGH_STAGE_ORDER/OWN_DATA_WALKTHROUGH_STAGE_ORDER since it diverges at the
-// very first step (no fork2 — PostTourModal routes straight here). Once the pipeline is
+// very first step (no fork2 — the GetStartedModal routes straight here). Once the pipeline is
 // created, it converges into the own-data fork's chart/dashboard tail (same builder,
 // same "chart first" convergence at dashboard_intro) rather than ending the walkthrough —
 // automating a pipeline gets you clean data, not an insight built from it.
@@ -128,7 +138,99 @@ export const AUTOMATE_PIPELINE_STAGE_ORDER: WalkthroughStage[] = [
   'builder_save',
   'builder_preview',
   'share',
+  'share_copy_link',
 ];
+
+/** The linear order the given fork runs in — the three arrays above, keyed by path. */
+export function stageOrderFor(path: WalkthroughPath | null): WalkthroughStage[] {
+  if (path === 'own_data') return OWN_DATA_WALKTHROUGH_STAGE_ORDER;
+  if (path === 'automate_pipeline') return AUTOMATE_PIPELINE_STAGE_ORDER;
+  return WALKTHROUGH_STAGE_ORDER;
+}
+
+/**
+ * Is `stage` earlier than `target` in this fork's order? Used to keep progress monotonic:
+ * a checkpoint can then say "move to X unless we're already past it", which is what lets a
+ * user who skipped a hint (left a defaulted dropdown alone, clicked past a field) rejoin the
+ * flow at the next real action instead of stalling on a step that will never fire.
+ *
+ * Unknown stages (not in this fork's order) count as "before" — better to advance than to
+ * leave the walkthrough stuck behind a stage that isn't part of this path at all.
+ */
+export function isStageBefore(
+  path: WalkthroughPath | null,
+  stage: WalkthroughStage,
+  target: WalkthroughStage
+): boolean {
+  const order = stageOrderFor(path);
+  const targetIndex = order.indexOf(target);
+  if (targetIndex === -1) return true;
+  const stageIndex = order.indexOf(stage);
+  return stageIndex === -1 || stageIndex < targetIndex;
+}
+
+/**
+ * Where a flow re-enters when the user comes back to it from the Get Started widget.
+ *
+ * Most stages can simply be navigated back to, but many target something that only exists
+ * mid-interaction — a field inside the KPI dialog, a form inside the transform canvas's
+ * right panel, a tile in a dashboard that was never saved. Landing on those routes cold
+ * shows no coachmark at all (the highlight just waits for a selector that never appears),
+ * so each one maps back to the last stage reachable from a freshly-loaded page.
+ *
+ * Stages absent from this map resume as themselves.
+ */
+export const RESUME_ANCHOR_STAGES: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
+  // Everything from kpi_metric on lives inside the KPI form dialog.
+  kpi_metric: 'kpi_intro',
+  kpi_target: 'kpi_intro',
+  kpi_direction: 'kpi_intro',
+  kpi_continue: 'kpi_intro',
+  kpi_time_column: 'kpi_intro',
+  kpi_type: 'kpi_intro',
+  kpi_submit: 'kpi_intro',
+  // The builder stages need a dashboard in progress — an unsaved one is gone on reload, so
+  // re-enter at "create a dashboard". 'share' needs a dashboard id we can't know either.
+  builder_add_kpi: 'dashboard_intro',
+  builder_add_chart: 'dashboard_intro',
+  builder_resize: 'dashboard_intro',
+  builder_save: 'dashboard_intro',
+  builder_preview: 'dashboard_intro',
+  share: 'dashboard_intro',
+  // Lives inside the share dialog of a dashboard we can't identify on a cold load.
+  share_copy_link: 'dashboard_intro',
+  own_data_builder_add_chart: 'dashboard_intro',
+  own_data_builder_add_kpi: 'dashboard_intro',
+  // Anchored on a sidebar link and shown wherever the user happened to be — needs a real
+  // page to go back to.
+  own_data_charts_intro: 'own_data_chart_create',
+  // Lives on the chart builder, which can't be reopened without the chart being built.
+  own_data_chart_save: 'own_data_chart_create',
+  pipeline_transform_intro: 'pipeline_workflow_intro',
+  // Canvas stages that depend on a selected node or an open operation panel.
+  pipeline_select_node: 'pipeline_pick_table',
+  pipeline_pick_function: 'pipeline_pick_table',
+  pipeline_drop_columns: 'pipeline_pick_table',
+  pipeline_save_table: 'pipeline_pick_table',
+  pipeline_name_table: 'pipeline_pick_table',
+};
+
+/**
+ * Routes for the stages that deliberately have no coachmark (silent waits — see
+ * tour-gate.tsx's sync detection), so they're absent from the coachmark's own route map
+ * but still need somewhere to send a returning user.
+ */
+export const SILENT_STAGE_ROUTES: Partial<Record<WalkthroughStage, string>> = {
+  own_data_ingest: '/ingest',
+};
+
+export function getResumeAnchorStage(stage: WalkthroughStage): WalkthroughStage {
+  return RESUME_ANCHOR_STAGES[stage] ?? stage;
+}
+
+// Every key below shares this prefix — clearWalkthroughStorage relies on that to find them
+// all without an explicit list.
+const WALKTHROUGH_STORAGE_NAMESPACE = 'dalgo_insight_walkthrough_';
 
 const STAGE_STORAGE_PREFIX = 'dalgo_insight_walkthrough_stage_';
 const DONE_STORAGE_PREFIX = 'dalgo_insight_walkthrough_done_';
@@ -378,5 +480,24 @@ export function hasTransformPublished(orgSlug: string): boolean {
     return localStorage.getItem(`${TRANSFORM_PUBLISHED_STORAGE_PREFIX}${orgSlug}`) === '1';
   } catch {
     return false;
+  }
+}
+
+/**
+ * Wipes this org's entire walkthrough scratch space — stage, fork, tracked connection, done
+ * flag and every milestone. Called once a flow resolves AND its backend write lands: from
+ * then on the record lives server-side (see hooks/api/useTrialWalkthrough.ts), and leaving
+ * stale local flags behind would make a restarted flow think work it hasn't done is finished.
+ *
+ * Matched by prefix rather than an explicit key list so a flag added later can't be
+ * forgotten here.
+ */
+export function clearWalkthroughStorage(orgSlug: string): void {
+  try {
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith(WALKTHROUGH_STORAGE_NAMESPACE) && key.endsWith(orgSlug))
+      .forEach((key) => localStorage.removeItem(key));
+  } catch {
+    // no-op
   }
 }

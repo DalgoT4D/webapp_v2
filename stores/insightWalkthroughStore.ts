@@ -8,6 +8,7 @@ import {
 import {
   type WalkthroughStage,
   type WalkthroughPath,
+  isStageBefore,
   getStoredWalkthroughStage,
   saveWalkthroughStage,
   clearWalkthroughState,
@@ -18,6 +19,7 @@ import {
   getStoredTrackedConnection,
   saveTrackedConnection,
   clearTrackedConnection,
+  clearWalkthroughStorage,
 } from '@/components/onboarding/insight-walkthrough-constants';
 
 interface InsightWalkthroughState {
@@ -42,6 +44,8 @@ interface InsightWalkthroughState {
   start: (orgSlug: string) => void;
   resume: (orgSlug: string) => void;
   advanceTo: (stage: WalkthroughStage) => void;
+  /** advanceTo, but never backwards — see isStageBefore. */
+  advanceIfBefore: (stage: WalkthroughStage) => void;
   setTargetNodeId: (nodeId: string | null) => void;
   chooseSample: () => void;
   chooseOwnData: () => void;
@@ -98,6 +102,20 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
     set({ stage });
   },
 
+  /**
+   * What every real checkpoint (Continue, Create KPI, Save, Share) should call instead of
+   * advanceTo. Coachmarks are hints, not gates: a user can leave a defaulted dropdown alone,
+   * click past a field, or dismiss a popover, and the stage they're on may be behind what
+   * they've actually done. Jumping forward — and only forward — rejoins them to the flow
+   * rather than waiting for a step whose trigger can no longer fire.
+   */
+  advanceIfBefore: (stage) => {
+    const { orgSlug, stage: current, path } = get();
+    if (!orgSlug || !current) return;
+    if (!isStageBefore(path, current, stage)) return;
+    get().advanceTo(stage);
+  },
+
   chooseSample: () => {
     const orgSlug = get().orgSlug;
     if (!orgSlug) return;
@@ -116,7 +134,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
     set({ path: 'own_data', stage: 'own_data_ingest' });
   },
 
-  // No fork2 screen for this path — PostTourModal navigates straight to /ingest itself,
+  // No fork2 screen for this path — the GetStartedModal's caller navigates straight to /ingest,
   // this action just flips the store state before that navigation happens.
   startAutomatePipeline: (orgSlug) => {
     savePath(orgSlug, 'automate_pipeline');
@@ -148,7 +166,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
       clearWalkthroughState(orgSlug);
       clearTrackedConnection(orgSlug);
       trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_SKIPPED, { stage });
-      void saveTrialWalkthroughFlow(backendFlowFor(path), 'skipped');
+      void resolveFlow(orgSlug, path, 'skipped');
     }
     set({ active: false, orgSlug: null, stage: null, trackedConnectionId: null });
   },
@@ -160,8 +178,25 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
       clearTrackedConnection(orgSlug);
       markWalkthroughDone(orgSlug);
       trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_COMPLETED);
-      void saveTrialWalkthroughFlow(backendFlowFor(path), 'completed');
+      void resolveFlow(orgSlug, path, 'completed');
     }
     set({ active: false, orgSlug: null, stage: null, trackedConnectionId: null });
   },
 }));
+
+/**
+ * Hands a resolved flow to the backend — the permanent record from here on — and only then
+ * drops this org's local scratch space.
+ *
+ * Order matters: if the write fails (offline, backend down) the local state stays exactly as
+ * it was, so this browser still suppresses the flow and can still resume it. Clearing first
+ * would lose both.
+ */
+async function resolveFlow(
+  orgSlug: string,
+  path: WalkthroughPath | null,
+  outcome: 'skipped' | 'completed'
+): Promise<void> {
+  const saved = await saveTrialWalkthroughFlow(backendFlowFor(path), outcome);
+  if (saved) clearWalkthroughStorage(orgSlug);
+}

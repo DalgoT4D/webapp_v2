@@ -172,47 +172,26 @@
   opacity: 0.9;
 }
 
-/* Fork2's preview image, injected ahead of the title via insertAdjacentHTML — see
-   onPopoverRender in insight-walkthrough-coachmark.tsx. Fills the popover's content
-   width; height follows the asset's own 211x120 aspect ratio. */
-.dalgo-tour-fork2-image {
+/* A stage's illustration (StageConfig.imageSrc), injected ahead of the popover title. Fills
+   the popover's content width; height follows the asset's own aspect ratio. */
+.dalgo-tour-stage-image {
   display: block;
   width: 100%;
   height: auto;
+  border-radius: 8px;
   margin-bottom: 12px;
 }
 
-/* Fork2's popover has 3 custom actions instead of the default Next/Skip pair. */
-.dalgo-tour-fork2-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
+/* driver.js kills pointer-events on everything but its highlighted element
+   (`.driver-active * { pointer-events: none }`). That's right for a dimmed page-level
+   spotlight, but wrong for the stages running with an invisible overlay inside an already-open
+   dialog (dimOverlay: false) — there the highlight is a pointer, not a gate, and the user still
+   has to use the rest of the form. Clicks pass through for those; the overlay itself stays
+   click-through, exactly as driver.js has it. The class goes on <body>, where driver.js puts
+   its own `driver-active` — matching on <html> silently never applies. */
+body.driver-active.dalgo-tour-passthrough * {
+  pointer-events: auto;
 }
-.dalgo-tour-fork2-primary,
-.dalgo-tour-fork2-secondary {
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: center;
-}
-.dalgo-tour-fork2-primary {
-  background: var(--primary);
-  color: white;
-  border: none;
-}
-.dalgo-tour-fork2-secondary {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--foreground);
-}
-.dalgo-tour-fork2-skip {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--muted-foreground);
-  text-align: center;
-  cursor: pointer;
-  text-decoration: underline;
+body.driver-active.dalgo-tour-passthrough .driver-overlay {
+  pointer-events: none;
 }
