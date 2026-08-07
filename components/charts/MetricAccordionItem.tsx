@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Combobox, highlightText } from '@/components/ui/combobox';
+import { TooltipLabel } from '@/components/charts/types/shared/TooltipLabel';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { X, Loader2, Library, Save, ChevronDown } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -337,8 +338,10 @@ export function MetricAccordionItem({
               noItemsMessage="No saved metrics yet"
               renderItem={(item, _sel, q) => (
                 <div className="flex flex-col min-w-0">
-                  <span className="truncate">{highlightText(item.label, q)}</span>
-                  <span className="text-xs text-muted-foreground truncate">{item.summary}</span>
+                  <TooltipLabel label={item.label}>{highlightText(item.label, q)}</TooltipLabel>
+                  <TooltipLabel label={item.summary} className="text-xs text-muted-foreground">
+                    {item.summary}
+                  </TooltipLabel>
                 </div>
               )}
             />
@@ -386,7 +389,7 @@ export function MetricAccordionItem({
                     {item.value !== '*' && (
                       <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
                     )}
-                    <span className="truncate">{highlightText(item.label, q)}</span>
+                    <TooltipLabel label={item.label}>{highlightText(item.label, q)}</TooltipLabel>
                   </div>
                 )}
               />
