@@ -27,25 +27,21 @@ const CUSTOM_SOURCES: Record<string, CustomSource> = {
   [normalizeSourceName(SOURCE_NAME_GOOGLE_SHEETS)]: {
     Form: GoogleSheetsForm,
     connectionView: {
-      streamNoun: 'Sheets',
+      streamNoun: 'Tables',
       supportsIncremental: false,
       allowedDestModes: [DestinationSyncMode.OVERWRITE, DestinationSyncMode.APPEND],
-      streamHelp:
-        'Each tab in your spreadsheet is one sheet. All of them are synced by default — toggle off any you don’t want to bring into your warehouse.',
     },
   },
   [normalizeSourceName(SOURCE_NAME_KOBOTOOLBOX)]: {
     Form: KoboToolboxForm,
     connectionView: {
-      streamNoun: 'Forms',
+      streamNoun: 'Tables',
       supportsIncremental: true,
       allowedDestModes: [
         DestinationSyncMode.OVERWRITE,
         DestinationSyncMode.APPEND,
         DestinationSyncMode.APPEND_DEDUP,
       ],
-      streamHelp:
-        'Each Kobo form is synced as its own table. All forms are synced by default — toggle off any you don’t want to bring into your warehouse.',
     },
   },
 };

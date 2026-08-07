@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useForm, useWatch, type FieldValues } from 'react-hook-form';
+import { useForm, useWatch, type FieldValues, type UseFormTrigger } from 'react-hook-form';
 import { GoogleSheetsForm } from '../GoogleSheetsForm';
 import type { ParsedSpec, FieldNode } from '@/components/connectors/types';
 
@@ -149,5 +149,56 @@ describe('GoogleSheetsForm', () => {
     let authType: unknown;
     render(<Harness connected onAuthType={(v) => (authType = v)} />);
     expect(authType).toBe('Client');
+  });
+
+  // Regression: the service-account field is required by its own oneOf branch's
+  // schema (spec-parser.ts has no notion of "only when this branch is active"),
+  // and — unlike every other oneOf sub-field — it's always mounted here so the
+  // OAuth button can sit next to it. That RHF rule used to fire even while the
+  // field was disabled and unused, blocking form submission outright for any
+  // already-OAuth-connected source (edit save / wizard Next both call RHF's
+  // whole-form validation before their own submit logic ever runs).
+  it('does not block whole-form validation on the empty service field once OAuth is connected', async () => {
+    let trigger: UseFormTrigger<FieldValues> | undefined;
+    function TriggerHarness() {
+      const {
+        control,
+        setValue,
+        trigger: t,
+      } = useForm<FieldValues>({
+        // spreadsheet_id filled so it isolates the one thing under test: the
+        // service-account field's own required-ness must not block validation.
+        defaultValues: {
+          spreadsheet_id: 'https://docs.google.com/spreadsheets/d/abc',
+          credentials: { auth_type: 'Client' },
+        },
+      });
+      trigger = t;
+      return (
+        <GoogleSheetsForm
+          parsedSpec={spec}
+          control={control}
+          setValue={setValue}
+          mode="edit"
+          oauth={{
+            connected: true,
+            busy: false,
+            buttonLabel: 'Re-authenticate with Google',
+            lockWhenConnected: false,
+            onClick: () => {},
+          }}
+        />
+      );
+    }
+    render(<TriggerHarness />);
+    await userEvent.click(screen.getByTestId('gsheets-advanced-trigger'));
+
+    let isValid: boolean | undefined;
+    await act(async () => {
+      isValid = await trigger!();
+    });
+
+    expect(isValid).toBe(true);
+    expect(screen.queryByText('Service Account Information. is required')).not.toBeInTheDocument();
   });
 });

@@ -101,7 +101,7 @@ jest.mock('@/components/ingest/sources/custom/registry', () => ({
     if (sourceName === 'Google Sheets') {
       return {
         connectionView: {
-          streamNoun: 'sheet',
+          streamNoun: 'Tables',
           supportsIncremental: false,
           allowedDestModes: ['overwrite'],
         },
@@ -227,7 +227,7 @@ describe('ConnectionFormBody split help + custom view', () => {
     expect(screen.queryByTestId('connection-source-chip')).not.toBeInTheDocument();
     expect(onHeaderInfoChange).toHaveBeenCalledWith({
       sourceName: 'My Sheet',
-      streamNoun: 'sheet',
+      streamNoun: 'Tables',
     });
   });
 
@@ -278,7 +278,7 @@ describe('ConnectionFormBody split help + custom view', () => {
     expect(screen.getByTestId('advanced-options-toggle')).toBeInTheDocument();
     expect(onHeaderInfoChange).toHaveBeenCalledWith({
       sourceName: 'My Sheet',
-      streamNoun: 'sheet',
+      streamNoun: 'Tables',
     });
   });
 });

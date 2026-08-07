@@ -22,8 +22,6 @@ export interface ConnectionConcept {
 const EXAMPLE_ROW_COUNT = '10,000';
 
 interface HelpOptions {
-  // Column label for a stream in this source, e.g. "Sheets", "Forms", "Streams".
-  streamNoun?: string;
   // Source offers incremental sync (adds the cursor + full/incremental concepts).
   supportsIncremental?: boolean;
   // Source offers Append + Dedup (adds the primary-key concept + dedup copy).
@@ -38,10 +36,7 @@ interface HelpOptions {
  * Airbyte sources, and by tests).
  */
 export function getConnectionHelp(opts: HelpOptions = {}): ConnectionConcept[] {
-  const { streamNoun = 'Streams', supportsIncremental = true, allowsDedup = true } = opts;
-
-  const nounSingular = streamNoun.replace(/s$/i, '').toLowerCase();
-  const nounPlural = streamNoun.toLowerCase();
+  const { supportsIncremental = true, allowsDedup = true } = opts;
 
   const cards: ConnectionConcept[] = [];
 
@@ -49,22 +44,23 @@ export function getConnectionHelp(opts: HelpOptions = {}): ConnectionConcept[] {
   cards.push({
     id: 'sync',
     title: 'What a sync does',
-    body: 'A sync copies data from your source into your Dalgo warehouse. It runs on the schedule you set, and each run brings the latest data across so your dashboards and reports stay current.',
+    body: 'A sync copies data from your source into your Dalgo warehouse. Each sync pulls in the latest data from your data source, so your connected dashboards stay updated.',
     impact:
       'Dalgo only reads from the source — nothing there is changed. You can re-run a sync any time.',
   });
 
   cards.push({
     id: 'stream',
-    title: streamNoun,
-    body: `Each ${nounSingular} is one table Dalgo can pull — a tab in a spreadsheet, a Kobo form, or a table in a database. Toggle one off to leave it out of the sync.`,
-    impact: `Bring in only what you need. Fewer ${nounPlural} means faster, lighter syncs and a tidier warehouse.`,
+    title: 'Tables',
+    body: 'Sources can have multiple tables — multiple tabs in a Google Sheet, forms in Kobo, or tables in a database are each read as a separate table. Select the tables of data you want to pull into Dalgo.',
+    impact:
+      'Bring in only what you need. Fewer tables means faster, lighter syncs and a tidier warehouse.',
   });
 
   cards.push({
     id: 'columns',
     title: 'Columns',
-    body: `Open a ${nounSingular} to see its columns — the individual fields inside it, like "district" or "submission_date". Every column comes across when the ${nounSingular} is synced.`,
+    body: 'Open a table to see its columns — the individual fields inside it, like "district" or "submission_date". Every column comes across when the table is synced.',
     impact: `A quick way to confirm the fields you expect are really there before you run the sync.`,
   });
 
@@ -74,7 +70,7 @@ export function getConnectionHelp(opts: HelpOptions = {}): ConnectionConcept[] {
       id: 'sync-mode',
       title: 'Full refresh vs incremental',
       body: 'Full refresh reads every row on every run. Incremental reads only the rows added or changed since the last run, tracked by a cursor field.',
-      impact: `Say a form has ${EXAMPLE_ROW_COUNT} submissions. Full refresh re-copies all ${EXAMPLE_ROW_COUNT} every run — dependable, but slow and heavier on the source. Incremental copies just the new ones (perhaps 50 today), so runs finish in seconds and cost far less.`,
+      impact: `Say a table has ${EXAMPLE_ROW_COUNT} rows. Full refresh re-copies all ${EXAMPLE_ROW_COUNT} every run — dependable, but slow and heavier on the source. Incremental copies just the new ones (perhaps 50 today), so runs finish in seconds and cost far less.`,
     });
   }
 
@@ -87,7 +83,7 @@ export function getConnectionHelp(opts: HelpOptions = {}): ConnectionConcept[] {
       : 'How new data lands in the warehouse table. Overwrite replaces the whole table each run, so it always matches the source. Append adds new rows on top of what is already there.',
     impact: allowsDedup
       ? 'Overwrite always mirrors the source but rewrites everything each run. Append keeps history but can pile up duplicates. Append + Dedup keeps history without duplicates — it needs incremental plus a primary key.'
-      : `Pick Overwrite when the ${nounSingular} is edited in place and you want an exact copy each run. Pick Append when rows are only ever added and you want to keep the older ones.`,
+      : 'Pick Overwrite when the table is edited in place and you want an exact copy each run. Pick Append when rows are only ever added and you want to keep the older ones.',
   });
 
   if (supportsIncremental) {

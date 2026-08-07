@@ -27,12 +27,9 @@ interface Props {
   def: SourceDefinition;
   onCreated: (sourceId: string) => void;
   onBack: () => void;
-  /** Abandons the whole wizard. Kept separate from onBack so this step offers both
-   *  actions, the way the alerts wizard does on its middle steps. */
-  onCancel: () => void;
 }
 
-export function CreateSourceStep({ def, onCreated, onBack, onCancel }: Props) {
+export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   // Google Sheets and KoboToolbox get a hand-tailored form; every other
   // source falls back to the generic spec-driven form with no panel.
   const isGoogleSheets = isGoogleSheetsSource(def.name);
@@ -94,6 +91,7 @@ export function CreateSourceStep({ def, onCreated, onBack, onCancel }: Props) {
 
   const { save, loading, setupLogs } = useSourceSave({
     sourceDefId: def.sourceDefinitionId,
+    sourceDefName: def.name,
     getConfig: buildConfig,
     onSaved: (sourceId) => {
       trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, {
@@ -112,7 +110,7 @@ export function CreateSourceStep({ def, onCreated, onBack, onCancel }: Props) {
     setAuthorizing(true);
     try {
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_STARTED, { source_type: 'Google Sheets' });
-      const { authUrl } = await getSourceOAuthConsent(def.sourceDefinitionId);
+      const { authUrl } = await getSourceOAuthConsent(def.sourceDefinitionId, def.name);
       const { ref } = await openOAuthPopup(authUrl);
       setOauthRef(ref);
       toastSuccess.generic('Authorized with Google');
@@ -122,7 +120,7 @@ export function CreateSourceStep({ def, onCreated, onBack, onCancel }: Props) {
       authorizingRef.current = false;
       setAuthorizing(false);
     }
-  }, [validateName, def.sourceDefinitionId]);
+  }, [validateName, def.sourceDefinitionId, def.name]);
 
   // Phase 2: create the source from the redeemed ref and advance.
   const handleCreateGoogle = useCallback(async () => {
@@ -133,6 +131,7 @@ export function CreateSourceStep({ def, onCreated, onBack, onCancel }: Props) {
     try {
       const { sourceId } = await createOAuthSource({
         sourceDefId: def.sourceDefinitionId,
+        sourceName: def.name,
         name,
         config: buildConfig(),
         refresh_token_ref: oauthRef,
@@ -150,7 +149,7 @@ export function CreateSourceStep({ def, onCreated, onBack, onCancel }: Props) {
       creatingGoogleRef.current = false;
       setCreatingGoogle(false);
     }
-  }, [oauthRef, def.sourceDefinitionId, name, buildConfig, onCreated]);
+  }, [oauthRef, def.sourceDefinitionId, def.name, name, buildConfig, onCreated]);
 
   const busy = loading || authorizing || creatingGoogle;
   // Once a Google ref is acquired, the footer Next redeems it into a source. Without a
@@ -293,15 +292,6 @@ export function CreateSourceStep({ def, onCreated, onBack, onCancel }: Props) {
       </div>
 
       <div className="flex flex-shrink-0 justify-end gap-2 border-t px-6 py-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          disabled={busy}
-          data-testid="wizard-cancel-btn"
-        >
-          Cancel
-        </Button>
         <Button
           type="button"
           variant="outline"

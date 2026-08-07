@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import { useWatch } from 'react-hook-form';
 import { renderField } from '@/components/connectors/ConnectorConfigForm';
@@ -11,6 +11,7 @@ import {
   AccordionContent,
 } from '@/components/ui/accordion';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { FieldNode } from '@/components/connectors/types';
 import {
   GSHEETS_KEY_CREDENTIALS,
@@ -98,30 +99,94 @@ export function GoogleSheetsForm({
       f.parentValue === GSHEETS_SERVICE_AUTH_TYPE &&
       f.path[f.path.length - 1] === GSHEETS_KEY_SERVICE_INFO
   );
+  // The parser marks this required from its own oneOf branch's schema alone — it has
+  // no notion of "only when this branch is actually selected" (spec-parser.ts's
+  // `optionRequired`, applied unconditionally per branch). Every other oneOf field
+  // dodges this because OneOfField only ever mounts the active branch's Controllers;
+  // this one is always mounted (so the OAuth button can sit next to it), so its RHF
+  // rule fires even while disabled and unused, blocking submit outright. The real
+  // "provide one of the two" invariant is already enforced correctly elsewhere
+  // (CreateSourceStep's authError check, driven by actual oauthRef/serviceProvided
+  // state) — so this field itself is never RHF-required.
+  const serviceFieldForRender = serviceField ? { ...serviceField, required: false } : undefined;
+  // Every field belonging to the OAuth (Client) branch — cleared when the user
+  // deliberately switches to a service-account key, the same generic sibling-clear
+  // OneOfField.tsx does for every other connector's oneOf. Without this, stale
+  // client_id/client_secret/refresh_token would ride along next to
+  // service_account_info and fail Airbyte's additionalProperties:false schema.
+  const clientBranchFields = useMemo(
+    () =>
+      credentialsField?.oneOfSubFields?.filter((f) => f.parentValue === GSHEETS_OAUTH_AUTH_TYPE) ??
+      [],
+    [credentialsField]
+  );
   const discriminatorPath = credentialsField?.constKey
     ? [...credentialsField.path, credentialsField.constKey].join('.')
     : '';
   const servicePath = serviceField?.path.join('.') ?? '__no_service__';
   const serviceValue = useWatch({ control, name: servicePath }) as string | undefined;
+  const serviceProvided = !!serviceValue?.trim();
 
   const connected = !!oauth?.connected;
 
-  // Keep the discriminator consistent with the active path. OAuth wins: once
-  // connected, any service JSON is cleared and auth_type is pinned to Client.
+  // Deliberate escape hatch off an already-connected OAuth source: the service
+  // field stays disabled while connected (see serviceDisabled below), so typing
+  // alone can't switch away — the discriminator effect just fights it, since
+  // `connected` reflects real persisted/session state and never changes on its
+  // own. Clicking "Use a service-account key instead" flips this once, telling
+  // the effect below to stop forcing Client for the rest of the session.
+  const [serviceUnlocked, setServiceUnlocked] = useState(false);
+  const effectiveConnected = connected && !serviceUnlocked;
+
+  // Keep the discriminator consistent with the active path. OAuth wins by
+  // default: while effectively connected, any service JSON is cleared and
+  // auth_type is pinned to Client. Once unlocked (or never connected), typing a
+  // service JSON flips auth_type to Service and strips the stale Client-branch
+  // fields so the config only ever matches one oneOf branch at a time.
   useEffect(() => {
     if (!discriminatorPath) return;
-    if (connected) {
+    if (effectiveConnected) {
       if (serviceValue) setValue(servicePath, undefined);
       setValue(discriminatorPath, GSHEETS_OAUTH_AUTH_TYPE);
     } else {
+      if (serviceValue) {
+        for (const field of clientBranchFields) {
+          setValue(field.path.join('.'), undefined);
+        }
+      }
       setValue(
         discriminatorPath,
         serviceValue ? GSHEETS_SERVICE_AUTH_TYPE : GSHEETS_OAUTH_AUTH_TYPE
       );
     }
-  }, [connected, serviceValue, servicePath, discriminatorPath, setValue]);
+  }, [
+    effectiveConnected,
+    serviceValue,
+    servicePath,
+    discriminatorPath,
+    clientBranchFields,
+    setValue,
+  ]);
 
-  const serviceDisabled = disabled || connected;
+  const serviceDisabled = disabled || effectiveConnected;
+
+  // Block the OAuth button while a service-account key is already present and no
+  // OAuth connection exists yet — switching methods is deliberate (clear the key
+  // first), not a silent one-click overwrite of a working credential.
+  const oauthBlocked = !connected && serviceProvided;
+
+  // Auto-open Advanced once, whichever reason surfaces it first: an existing
+  // service key blocking the OAuth button, or the user unlocking the service
+  // field on a connected source. Never auto-closes after that — the user's own
+  // toggling wins from here on.
+  const [advancedValue, setAdvancedValue] = useState('');
+  const autoOpenedRef = useRef(false);
+  useEffect(() => {
+    if ((oauthBlocked || serviceUnlocked) && !autoOpenedRef.current) {
+      autoOpenedRef.current = true;
+      setAdvancedValue('advanced');
+    }
+  }, [oauthBlocked, serviceUnlocked]);
 
   return (
     <div className="space-y-4" data-testid="google-sheets-form">
@@ -143,6 +208,25 @@ export function GoogleSheetsForm({
                 {oauth.buttonLabel}
               </span>
             </div>
+          ) : oauthBlocked ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="block">
+                  <button
+                    type="button"
+                    data-testid="gsheets-oauth-connect-btn"
+                    disabled
+                    className="flex w-full cursor-not-allowed items-center gap-3 rounded-md border px-4 py-3 text-left text-sm opacity-60"
+                  >
+                    <GoogleIcon className="h-5 w-5 flex-shrink-0" />
+                    <span className="font-medium">Authenticate with Google</span>
+                  </button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent data-testid="gsheets-oauth-blocked-tooltip">
+                Remove the service-account key below to authenticate with Google instead.
+              </TooltipContent>
+            </Tooltip>
           ) : (
             <button
               type="button"
@@ -166,6 +250,22 @@ export function GoogleSheetsForm({
               {oauth.busy && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
             </button>
           )}
+          {connected && !serviceUnlocked && (
+            <button
+              type="button"
+              onClick={() => setServiceUnlocked(true)}
+              data-testid="gsheets-use-service-key-btn"
+              className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+            >
+              Use a service-account key instead
+            </button>
+          )}
+          {serviceUnlocked && (
+            <p className="text-xs text-muted-foreground" data-testid="gsheets-unlock-note">
+              Paste a service-account key below — saving will replace your Google connection with
+              it.
+            </p>
+          )}
           {oauth.error && (
             <p className="text-xs text-destructive mt-1" data-testid="gsheets-auth-error">
               {oauth.error}
@@ -175,7 +275,13 @@ export function GoogleSheetsForm({
       )}
 
       {(advanced.length > 0 || serviceField) && (
-        <Accordion type="single" collapsible data-testid="gsheets-advanced">
+        <Accordion
+          type="single"
+          collapsible
+          value={advancedValue}
+          onValueChange={setAdvancedValue}
+          data-testid="gsheets-advanced"
+        >
           <AccordionItem value="advanced" className="border-none">
             <AccordionTrigger
               className="text-sm font-semibold text-muted-foreground uppercase tracking-wider py-2 hover:no-underline"
@@ -187,14 +293,14 @@ export function GoogleSheetsForm({
               {advanced.map((field) => renderField(field, control, setValue, disabled))}
               {serviceField && (
                 <div
-                  className={connected ? 'opacity-60' : undefined}
+                  className={effectiveConnected ? 'opacity-60' : undefined}
                   data-testid="gsheets-service-field"
                 >
                   <p className="mb-2 text-xs text-muted-foreground">
                     Prefer not to use Google sign-in? Paste a service-account JSON key instead.
-                    {connected && ' (Disabled — you are already signed in with Google.)'}
+                    {effectiveConnected && ' (Disabled — you are already signed in with Google.)'}
                   </p>
-                  {renderField(serviceField, control, setValue, serviceDisabled)}
+                  {renderField(serviceFieldForRender, control, setValue, serviceDisabled)}
                 </div>
               )}
             </AccordionContent>

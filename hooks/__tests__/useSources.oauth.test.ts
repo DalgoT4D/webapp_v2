@@ -15,15 +15,16 @@ describe('useSources Google OAuth mutations', () => {
   });
 
   describe('getSourceOAuthConsent', () => {
-    it('POSTs the source definition id and returns the Google auth URL', async () => {
+    it('POSTs the source definition id + name and returns the Google auth URL', async () => {
       (apiPost as jest.Mock).mockResolvedValue({
         authUrl: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=x',
       });
 
-      const result = await getSourceOAuthConsent('gsheets-def-id');
+      const result = await getSourceOAuthConsent('gsheets-def-id', 'Google Sheets');
 
       expect(apiPost).toHaveBeenCalledWith('/api/airbyte/sources/oauth/consent/', {
         sourceDefId: 'gsheets-def-id',
+        sourceName: 'Google Sheets',
       });
       expect(result.authUrl).toBe('https://accounts.google.com/o/oauth2/v2/auth?client_id=x');
     });
@@ -35,6 +36,7 @@ describe('useSources Google OAuth mutations', () => {
 
       const result = await createOAuthSource({
         sourceDefId: 'gsheets-def-id',
+        sourceName: 'Google Sheets',
         name: 'my sheet',
         config: { spreadsheet_id: 'https://sheet' },
         refresh_token_ref: 'ref-abc',
@@ -42,6 +44,7 @@ describe('useSources Google OAuth mutations', () => {
 
       expect(apiPost).toHaveBeenCalledWith('/api/airbyte/sources/oauth/create/', {
         sourceDefId: 'gsheets-def-id',
+        sourceName: 'Google Sheets',
         name: 'my sheet',
         config: { spreadsheet_id: 'https://sheet' },
         refresh_token_ref: 'ref-abc',
