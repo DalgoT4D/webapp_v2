@@ -56,14 +56,14 @@ export const SyncStatusCell = memo(function SyncStatusCell({
   );
 
   return (
-    <div className="flex flex-col items-start gap-1">
+    <div className="flex flex-col items-start gap-1 min-w-0 max-w-full">
       {/* Time info: relative time for completed states, triggered-by for active states */}
       {isCompletedState ? (
         <span className="text-base text-gray-900">{lastRunTime(conn.lastRun?.startTime)}</span>
       ) : (
         conn.lock && (
           <>
-            <span className="text-sm text-gray-500">
+            <span className="max-w-full truncate text-sm text-gray-500">
               Triggered by: {trimEmail(conn.lock.lockedBy)}
             </span>
             <span className="text-base text-gray-900">{lastRunTime(conn.lock.lockedAt)}</span>
