@@ -59,6 +59,7 @@ export const ANALYTICS_EVENTS = {
   KPI_ANNOTATION_CREATED: 'kpi:annotation_created',
   KPI_ANNOTATION_UPDATED: 'kpi:annotation_updated',
   KPI_ANNOTATION_DELETED: 'kpi:annotation_deleted',
+  KPI_WIZARD_STEP_VIEWED: 'kpi:wizard_step_viewed',
   METRIC_USED: 'metric:metric_used',
   METRIC_CREATED: 'metric:metric_created',
   METRIC_UPDATED: 'metric:metric_updated',
