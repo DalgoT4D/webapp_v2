@@ -490,7 +490,7 @@ export function DashboardListV2() {
   const handleUpdateDashboardSharing = useCallback(
     async (id: number, data: { is_public: boolean }) => {
       const result = await updateDashboardSharing(id, data);
-      if (data.is_public && selectedOrgSlug) markDashboardShared(selectedOrgSlug);
+      if (data.is_public) markDashboardShared();
       return result;
     },
     [selectedOrgSlug]

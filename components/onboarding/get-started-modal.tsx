@@ -24,7 +24,20 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
-const ILLUSTRATION_SRC = '/branding/tour-fork2-preview.svg';
+/**
+ * Carries its own mint gradient (fading to near-white at the bottom edge), so the pane it
+ * fills needs no background of its own — the fade is what reads as the illustration sitting
+ * inset in the dialog. Two things were baked into the asset when it was exported from the
+ * design, both deliberate:
+ *  - the design's decorative ✕ was painted out. The Dialog renders a REAL close button at
+ *    `top-4 right-4`, which lands in exactly that corner, and the two rendered as a double ✕.
+ *  - it was padded top and bottom with its own edge gradient. `object-cover` scales on
+ *    whichever axis binds; at the source's original 346x324 the pane's height bound, and the
+ *    ~5% horizontal crop that followed sliced through the "2,847" stat card at the right
+ *    edge. The taller source makes WIDTH bind instead, so the full illustration shows and the
+ *    crop lands in the padding.
+ */
+const ILLUSTRATION_SRC = '/branding/get-started-illustration.jpg';
 
 export type GetStartedScreen = 'choice' | 'insight';
 /** Where the dialog was opened from — analytics only. */
@@ -143,10 +156,14 @@ export function GetStartedModal({
       }}
     >
       <DialogContent
-        className="max-w-3xl gap-0 overflow-hidden p-0 sm:max-w-3xl"
+        className="max-w-5xl gap-0 overflow-hidden p-0 sm:max-w-5xl"
         data-testid="get-started-modal"
       >
-        <div className="grid sm:grid-cols-2">
+        {/* 3fr/2fr, not an even split: at this width an even one left the copy column wider
+            than its longest line while squeezing the illustration. Both screens share this one
+            DialogContent, so 'choice' and 'insight' are guaranteed the same width — swapping
+            screens must not resize the dialog under the user's cursor. */}
+        <div className="grid sm:grid-cols-[3fr_2fr]">
           <div className="flex flex-col gap-6 p-10">
             {screen === 'choice' ? (
               <>
@@ -217,8 +234,8 @@ export function GetStartedModal({
               </>
             )}
           </div>
-          <div className="relative hidden bg-[#d5f0e6] sm:block">
-            <Image src={ILLUSTRATION_SRC} alt="" fill className="object-contain" />
+          <div className="relative hidden sm:block">
+            <Image src={ILLUSTRATION_SRC} alt="" fill className="object-cover" priority />
           </div>
         </div>
       </DialogContent>

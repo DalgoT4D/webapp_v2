@@ -14,8 +14,10 @@ export interface TourStep {
   /** Overrides the default "Next" primary-button label. */
   ctaLabel?: string;
   /**
-   * Spotlight the whole content area instead of just the first row/card of it — for pages
-   * like Transform where the thing being called out (the workflow diagram) isn't at the top.
+   * Spotlight the whole content area instead of just the first row/card of it. No step uses
+   * this today — Transform did, but a cutout over the entire content area leaves nothing
+   * dimmed, so the step read as unhighlighted; it now unions its two cards instead. Kept for
+   * a page whose callout genuinely is the full area.
    */
   spotlightFull?: boolean;
   /**
@@ -104,7 +106,14 @@ export const TOUR_STEPS: TourStep[] = [
     title: 'Transform',
     content:
       'Clean, join and reshape your raw data into models that actually answer your questions.',
-    spotlightFull: true,
+    // One cutout covering BOTH of this page's cards — the DBT repository card and the workflow
+    // canvas card — matching the Figma frame. Previously `spotlightFull`, which cut a hole over
+    // the entire content area: nothing was left dimmed, so the step read as having no highlight
+    // at all. The two cards are the page's only content, so the union of them is the highlight;
+    // the page title and the UI/DBT tab row stay dimmed like every other step's header.
+    spotlightRowOnly: true,
+    spotlightRowCount: 2,
+    rowSelector: '[data-testid="dbt-repository-card"], [data-testid="workflow-canvas-card"]',
   },
   {
     route: '/ingest',

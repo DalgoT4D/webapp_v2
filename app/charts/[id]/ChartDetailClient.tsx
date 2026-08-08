@@ -27,6 +27,8 @@ import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import type { ChartDataPayload } from '@/types/charts';
 import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 import type * as echarts from 'echarts';
@@ -55,6 +57,7 @@ interface DrillDownLevel {
 }
 
 export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
+  const celebrationPending = useInsightWalkthroughStore((s) => s.pendingCelebration === 'chart');
   const router = useRouter();
   const searchParams = useSearchParams();
   const isFromDashboard = searchParams.get('from') === 'dashboard';
@@ -983,6 +986,25 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           </Card>
         </div>
       </div>
+
+      {/* Walkthrough handover: the chart is built and on screen behind this — now put it on a
+          dashboard. Raised by the save handler on the builder page (which can't render it, it's
+          a different route) and consumed here. Closing it either way releases the
+          dashboard-nudge coachmark, so that's what the user sees next. */}
+      <CelebrationModal
+        open={celebrationPending}
+        onOpenChange={(open) => {
+          if (open) return;
+          const walkthrough = useInsightWalkthroughStore.getState();
+          walkthrough.setPendingCelebration(null);
+          walkthrough.setSuppressCoachmark(false);
+        }}
+        title="Congratulation, your Chart is live!"
+        description="Your insights are built and now you can add it to a dashboard"
+        ctaLabel="Add to Dashboard"
+        dismissEvent={ANALYTICS_EVENTS.CHART_LIVE_MODAL_DISMISSED}
+        testId="chart-live-modal"
+      />
     </div>
   );
 }

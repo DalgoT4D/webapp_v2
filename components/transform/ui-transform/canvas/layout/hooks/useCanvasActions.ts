@@ -183,7 +183,14 @@ export function useCanvasActions({ isPreview, runWorkflow }: UseCanvasActionsPar
             // finished, not the instant Save was clicked (CreateTableForm dispatches
             // this action fire-and-forget — runWorkflow above is what awaits the
             // real 2s-poll completion).
-            if (useInsightWalkthroughStore.getState().stage === 'pipeline_name_table') {
+            // Either canvas stage can be live here: the Save-button step is the normal one,
+            // pipeline_name_table the case where the name was left as typed-once/untouched so
+            // its own hand-off never fired.
+            const canvasStage = useInsightWalkthroughStore.getState().stage;
+            if (
+              canvasStage === 'pipeline_name_table' ||
+              canvasStage === 'pipeline_save_new_table'
+            ) {
               useInsightWalkthroughStore.getState().advanceTo('pipeline_table_built');
             }
           } catch (error: unknown) {

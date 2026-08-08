@@ -1380,7 +1380,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         trackEvent(ANALYTICS_EVENTS.DASHBOARD_CHART_ADDED, { chart_type: chartType });
 
         // Resume-nudge milestone — set regardless of an active coachmark session.
-        if (orgSlug) markChartAddedToDashboard(orgSlug);
+        markChartAddedToDashboard();
 
         // Animate component entrance
         dashboardAnimation.animateComponent(newComponent.id, 500);
@@ -1391,10 +1391,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         const walkthrough = useInsightWalkthroughStore.getState();
         if (walkthrough.active && walkthrough.stage === 'builder_add_chart') {
           walkthrough.advanceTo('builder_resize');
-        } else if (walkthrough.active && walkthrough.stage === 'own_data_builder_add_chart') {
+        } else if (walkthrough.active && walkthrough.stage === 'builder_add_chart_first') {
           // Own-data path adds chart-then-KPI (opposite of the sample path) — next is
           // the KPI-add stage, not resize.
-          walkthrough.advanceTo('own_data_builder_add_kpi');
+          walkthrough.advanceTo('builder_add_kpi_second');
         }
       } catch (error) {
         console.error('Failed to add chart');
@@ -1438,14 +1438,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
       trackEvent(ANALYTICS_EVENTS.DASHBOARD_KPI_ADDED);
       // Resume-nudge milestone — set regardless of an active coachmark session.
-      if (orgSlug) markKpiAddedToDashboard(orgSlug);
+      markKpiAddedToDashboard();
       dashboardAnimation.animateComponent(newComponent.id, 500);
       scrollToComponentIfNeeded(newComponent.id);
 
       const walkthrough = useInsightWalkthroughStore.getState();
       if (walkthrough.active && walkthrough.stage === 'builder_add_kpi') {
         walkthrough.advanceTo('builder_add_chart');
-      } else if (walkthrough.active && walkthrough.stage === 'own_data_builder_add_kpi') {
+      } else if (walkthrough.active && walkthrough.stage === 'builder_add_kpi_second') {
         // Own-data path already added its chart first — next is resize, converging
         // back into the shared tail (resize → save → preview → share).
         walkthrough.advanceTo('builder_resize');

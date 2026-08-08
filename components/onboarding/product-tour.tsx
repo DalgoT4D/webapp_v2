@@ -2,13 +2,18 @@
 
 /**
  * Guided product tour engine (driver.js). Mirrors the "tour flow" Figma frames
- * (section 2303:4689) — two DIFFERENT elements per step, not one:
- *  - the SPOTLIGHT (dim-overlay cutout) covers the top of the page's list/content — the
- *    first couple of rows, not the whole page.
- *  - the POPOVER sits next to the sidebar nav item for that route.
- * driver.js ties both to a single target, so we spotlight a synthetic "virtual" element
- * sized/positioned to the content's top band, and separately override the popover's
- * position onto the sidebar link via `onPopoverRender`.
+ * (section 2303:4689) — three DIFFERENT elements per step, not one:
+ *  - the SPOTLIGHT (dim-overlay cutout) covers the top of the page's list/content, so the
+ *    step's rows are the one lit part of the page. A synthetic "virtual" element sized to that
+ *    band is what driver.js is handed as the step's highlight target. The rows are picked out
+ *    by the cutout alone — no border is drawn around them.
+ *  - the RING (`.dalgo-tour-ring`) goes on the sidebar nav item for that route. The app chrome
+ *    — top navbar AND the whole sidebar — is lifted out of the dim
+ *    (`.dalgo-tour-chrome-lifted`), so only the list page dims: the nav stays fully legible for
+ *    the run and the ring marks which entry this step is about.
+ *  - the POPOVER sits next to that same nav item — its position is overridden onto the
+ *    sidebar link via `onPopoverRender`, since driver.js would otherwise place it against
+ *    the band.
  *
  * Exposes `startTour()` via ref so the intent modal / getting-started widget (siblings,
  * not descendants) can trigger it without a context provider — the tour itself renders
@@ -169,6 +174,29 @@ const POPOVER_MAX_PUSH_UP_PX = 72;
 const ARROW_WIDTH_PX = 17.5;
 const ARROW_HEIGHT_PX = 14;
 const ARROW_ELEMENT_ID = 'dalgo-tour-sidebar-arrow';
+/**
+ * Rounded brand outline drawn on the step's SIDEBAR NAV ITEM — the thing the popover points
+ * at, and the only thing in this tour that's actually clickable (see `.dalgo-tour-ring` in
+ * tour.css). The content band gets its own outline from CSS, keyed off the element id rather
+ * than this class, precisely because it is a region and not a click target.
+ */
+const RING_CLASS = 'dalgo-tour-ring';
+/**
+ * Goes on the app-chrome ROOTS (not the ringed item) for the tour's duration, keeping the top
+ * navbar and the whole side nav out of the dim — only the list page itself dims, so the chrome
+ * stays fully legible and the user can see where each step is heading next. Applied by THIS
+ * component only: the coachmark runs with no overlay, so it has nothing to lift above. See
+ * `.dalgo-tour-chrome-lifted` in tour.css.
+ */
+const CHROME_LIFT_CLASS = 'dalgo-tour-chrome-lifted';
+const CHROME_ROOT_IDS = ['main-layout-navbar', 'main-layout-sidebar'];
+
+/** Lift/drop the navbar + sidebar out of (and back into) the dim overlay. Idempotent. */
+function setChromeLifted(lifted: boolean) {
+  for (const id of CHROME_ROOT_IDS) {
+    document.getElementById(id)?.classList.toggle(CHROME_LIFT_CLASS, lifted);
+  }
+}
 
 /**
  * Custom triangle pointing at the sidebar nav item, appended inside the popover wrapper.
@@ -428,6 +456,8 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
   const driverRef = useRef<Driver | null>(null);
   const stepIndexRef = useRef(0);
   const activeRef = useRef(false);
+  /** Sidebar nav item currently wearing RING_CLASS — cleared as the tour moves on or ends. */
+  const ringedElRef = useRef<HTMLElement | null>(null);
   // Guards against the pathname-triggered re-anchor effect below firing a second,
   // redundant renderStep for the same index while the first one is still awaiting
   // waitForElement (e.g. right after router.push, before the new page has painted).
@@ -472,6 +502,9 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
         { step: stepIndexRef.current + 1 }
       );
       void saveTrialWalkthroughFlow('product_tour', reason);
+      ringedElRef.current?.classList.remove(RING_CLASS);
+      ringedElRef.current = null;
+      setChromeLifted(false);
       document.getElementById(SPOTLIGHT_ELEMENT_ID)?.remove();
       onTourEnd?.(reason);
     },
@@ -529,6 +562,14 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
           await waitForRealRows(contentEl, step.rowSelector);
           if (!activeRef.current) return;
         }
+
+        // Keep the whole nav out of the dim, then ring this step's item (and un-ring the
+        // previous step's). Re-applied per step rather than once at start: the sidebar root
+        // survives navigation, but the tour can be resumed onto a freshly mounted layout.
+        setChromeLifted(true);
+        ringedElRef.current?.classList.remove(RING_CLASS);
+        (sidebarEl as HTMLElement).classList.add(RING_CLASS);
+        ringedElRef.current = sidebarEl as HTMLElement;
 
         const spotlightEl = getOrCreateSpotlightElement();
         positionSpotlightElement(
@@ -607,8 +648,13 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
       driverRef.current = driver({
         popoverClass: 'dalgo-tour',
         overlayColor: '#000000',
+        // Dims the page except the cutout over the content band — THE thing that makes the
+        // step's list rows read as picked out. The navbar and sidebar are lifted above this
+        // overlay by CHROME_LIFT_CLASS so the chrome isn't dimmed along with the list.
         overlayOpacity: 0.55,
         stagePadding: 6,
+        // Rounds the cutout, and kept in sync with the band's own border-radius in tour.css so the
+        // ring drawn on the band follows the same curve as the hole it sits in.
         stageRadius: 10,
         // Next and ✕ in the popover are the only ways through the tour.
         //
@@ -670,6 +716,9 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
   useEffect(() => {
     return () => {
       driverRef.current?.destroy();
+      ringedElRef.current?.classList.remove(RING_CLASS);
+      ringedElRef.current = null;
+      setChromeLifted(false);
       document.getElementById(SPOTLIGHT_ELEMENT_ID)?.remove();
     };
   }, []);

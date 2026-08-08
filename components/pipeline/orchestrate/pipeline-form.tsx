@@ -327,14 +327,17 @@ function PipelineFormContent({
 
         const walkthrough = useInsightWalkthroughStore.getState();
         if (walkthrough.stage === 'pipeline_create_it' && walkthrough.orgSlug) {
-          toastSuccess.generic('🎉 Your pipeline is live and running');
-          // Independent of the walkthrough's own finish() — a pipeline running is a
-          // milestone on its own, not the end of the walkthrough. It now continues into
-          // the same chart/dashboard/share tail the own-data fork uses (see
-          // AUTOMATE_PIPELINE_STAGE_ORDER) — automating a pipeline gets you clean data,
-          // not an insight built from it.
-          markPipelineCreated(walkthrough.orgSlug);
-          walkthrough.advanceTo('own_data_charts_intro');
+          markPipelineCreated();
+          // The end of this walkthrough: a scheduled pipeline IS the thing it set out to
+          // build. Charting what it produces is the build-insights flow, which the user
+          // starts from the Get Started checklist when they want it — and which now skips
+          // its sample/own-data question, since the pipeline already put real data in place
+          // (see TourGate.handleBuildInsightClick).
+          walkthrough.finish();
+          // Raised after finish() (which leaves it alone by design) so the pipeline list can
+          // render it a route later — the celebration belongs on the pipeline the user just
+          // built, not on the form they're leaving.
+          walkthrough.setPendingCelebration('pipeline');
         }
       }
 

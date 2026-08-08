@@ -5,14 +5,19 @@
  * polling, no backend calls. Decoupled from the live coachmark (`stage`): this reflects
  * real progress even if the guided tour was never resumed or was abandoned.
  *
+ * Milestones are shared across flows on purpose (see the storage section of
+ * insight-walkthrough-constants.ts), so a user who connected real data while automating a
+ * pipeline isn't asked to connect it again by the build-insights checklist. Only the SEQUENCE
+ * differs per path.
+ *
  * The "create dashboard" step is intentionally never resumed into a specific dashboard —
  * the user just makes a fresh one each time; only the milestone flags matter, not which
  * dashboard satisfied them.
  */
-import { useAuthStore } from '@/stores/authStore';
 import {
   type WalkthroughPath,
   getStoredPath,
+  getActiveWalkthroughFlow,
   hasConnectedRealData,
   hasPipelineCreated,
   hasKpiCreated,
@@ -45,53 +50,47 @@ export const FLOW_RESUME_ROUTES: Record<FlowResumeStep['id'], string> = {
   create_dashboard: '/dashboards',
 };
 
-function dashboardGroupDone(orgSlug: string, requireChart: boolean): boolean {
-  const chartDone = !requireChart || hasChartAddedToDashboard(orgSlug);
-  return chartDone && hasKpiAddedToDashboard(orgSlug) && hasDashboardShared(orgSlug);
+function dashboardGroupDone(requireChart: boolean): boolean {
+  const chartDone = !requireChart || hasChartAddedToDashboard();
+  return chartDone && hasKpiAddedToDashboard() && hasDashboardShared();
 }
 
-export function getFlowResumeStep(
-  orgSlug: string,
-  path: WalkthroughPath | null
-): FlowResumeStep | null {
+export function getFlowResumeStep(path: WalkthroughPath | null): FlowResumeStep | null {
   if (!path) return null;
 
   if (path === 'sample') {
-    if (!hasKpiCreated(orgSlug)) return { id: 'create_kpi', label: 'Create a KPI' };
-    if (!dashboardGroupDone(orgSlug, false)) {
+    if (!hasKpiCreated()) return { id: 'create_kpi', label: 'Create a KPI' };
+    if (!dashboardGroupDone(false)) {
       return { id: 'create_dashboard', label: 'Create a dashboard' };
     }
     return null;
   }
 
-  if (path === 'own_data') {
-    if (!hasConnectedRealData(orgSlug)) return { id: 'ingest_data', label: 'Connect your data' };
-    if (!hasChartCreated(orgSlug)) return { id: 'create_chart', label: 'Create a chart' };
-    if (!dashboardGroupDone(orgSlug, true)) {
-      return { id: 'create_dashboard', label: 'Create a dashboard' };
-    }
+  if (!hasConnectedRealData()) return { id: 'ingest_data', label: 'Connect your data' };
+
+  // The automate-pipeline flow is ingest -> transform -> orchestrate and stops there: a
+  // scheduled pipeline is what it set out to deliver. Charting the result is the build-insights
+  // flow, which the user starts separately.
+  if (path === 'automate_pipeline') {
+    if (!hasTransformPublished()) return { id: 'transform_data', label: 'Transform your data' };
+    if (!hasPipelineCreated())
+      return { id: 'orchestrate_pipeline', label: 'Orchestrate your pipeline' };
     return null;
   }
 
-  // automate_pipeline
-  if (!hasConnectedRealData(orgSlug)) return { id: 'ingest_data', label: 'Connect your data' };
-  if (!hasTransformPublished(orgSlug))
-    return { id: 'transform_data', label: 'Transform your data' };
-  if (!hasPipelineCreated(orgSlug))
-    return { id: 'orchestrate_pipeline', label: 'Orchestrate your pipeline' };
-  if (!hasChartCreated(orgSlug)) return { id: 'create_chart', label: 'Create a chart' };
-  if (!dashboardGroupDone(orgSlug, true)) {
+  if (!hasChartCreated()) return { id: 'create_chart', label: 'Create a chart' };
+  if (!dashboardGroupDone(true)) {
     return { id: 'create_dashboard', label: 'Create a dashboard' };
   }
   return null;
 }
 
-/** orgSlug is read the same way TourGate does — via the selected org on authStore. */
+/**
+ * The resume step for whichever flow the user was last driving. Both flows can be mid-run at
+ * once, so the active-flow pointer decides which one the widget speaks about — the same
+ * pointer TourGate resumes from, so the nudge and the coachmark never disagree.
+ */
 export function useFlowResumeStep(): FlowResumeStep | null {
-  const orgUsers = useAuthStore((s) => s.orgUsers);
-  const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
-  const orgSlug = orgUsers.find((ou) => ou.org.slug === selectedOrgSlug)?.org.slug ?? null;
-  if (!orgSlug) return null;
-  const path = getStoredPath(orgSlug);
-  return getFlowResumeStep(orgSlug, path);
+  const flow = getActiveWalkthroughFlow() ?? 'insights';
+  return getFlowResumeStep(getStoredPath(flow));
 }

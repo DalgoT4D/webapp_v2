@@ -20,6 +20,7 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
 import { markTransformPublished } from '@/components/onboarding/insight-walkthrough-constants';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 
 interface PublishModalProps {
   open: boolean;
@@ -46,6 +47,11 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
   useEffect(() => {
     if (open) {
       fetchGitStatus();
+      // Walkthrough: the Publish coachmark's whole point was to open this dialog, so opening
+      // it is the hand-off to the commit-message step inside it.
+      if (useInsightWalkthroughStore.getState().stage === 'pipeline_table_built') {
+        useInsightWalkthroughStore.getState().advanceTo('pipeline_publish_commit');
+      }
     }
   }, [open]);
 
@@ -89,7 +95,14 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
         trackEvent(ANALYTICS_EVENTS.TRANSFORM_CHANGES_PUBLISHED);
         toastSuccess.published('Changes');
         // Resume-nudge milestone — transformation counts done once published.
-        if (orgSlug) markTransformPublished(orgSlug);
+        markTransformPublished();
+        // Transform leg is finished; the walkthrough's next stop is Orchestrate. Advancing here
+        // rather than waiting for the /orchestrate route means the dialog doesn't close back
+        // onto a coachmark still pointing at a Publish the user just did.
+        const publishStage = useInsightWalkthroughStore.getState().stage;
+        if (publishStage === 'pipeline_publish_commit' || publishStage === 'pipeline_table_built') {
+          useInsightWalkthroughStore.getState().advanceTo('pipeline_orchestrate_intro');
+        }
         onPublishSuccess?.();
         onClose();
       } else {

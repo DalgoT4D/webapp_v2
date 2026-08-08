@@ -36,6 +36,8 @@ export const ANALYTICS_EVENTS = {
   // The two walkthrough celebration dialogs (see celebration-modal.tsx). Both carry
   // { choice: 'cta' | 'close' }.
   KPI_LIVE_MODAL_DISMISSED: 'onboarding:kpi_live_modal_dismissed',
+  CHART_LIVE_MODAL_DISMISSED: 'onboarding:chart_live_modal_dismissed',
+  PIPELINE_LIVE_MODAL_DISMISSED: 'onboarding:pipeline_live_modal_dismissed',
   DASHBOARD_LIVE_MODAL_DISMISSED: 'onboarding:dashboard_live_modal_dismissed',
   // Sample-data insight walkthrough (Fork2 -> KPI created -> dashboard shared)
   INSIGHT_WALKTHROUGH_STARTED: 'onboarding:insight_walkthrough_started',
@@ -60,6 +62,12 @@ export const ANALYTICS_EVENTS = {
   // Status polling gave up (too many consecutive failures or hard timeout) before
   // a terminal clone status arrived — screen fell back from the spinner.
   TRIAL_POLL_TIMEOUT: 'trial:poll_timeout',
+  // "Subscribe Now" on the header countdown pill opened the confirm modal. Carries
+  // { days_left }. Separate from BILLING_UPGRADE_REQUESTED (the Settings → Billing button)
+  // even though both hit the same endpoint, so we can compare which surface converts.
+  SUBSCRIPTION_REQUEST_OPENED: 'trial:subscription_request_opened',
+  // The request POST succeeded. Carries { days_left, already_requested }.
+  SUBSCRIPTION_REQUEST_SENT: 'trial:subscription_request_sent',
   // Breadth — every menu / submenu / tab
   FEATURE_VIEWED: 'feature:viewed',
   // Charts (CHART_SAVED is the edit/update event)

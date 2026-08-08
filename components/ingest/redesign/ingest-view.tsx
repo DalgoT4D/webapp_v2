@@ -15,6 +15,10 @@ import { useSources } from '@/hooks/api/useSources';
 import { useConnectionsList } from '@/hooks/api/useConnections';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import {
+  isWizardCoachedStage,
+  PICK_SOURCE_REWIND_STAGES,
+} from '@/components/onboarding/insight-walkthrough-constants';
 import type { Warehouse } from '@/types/warehouse';
 
 /**
@@ -79,13 +83,38 @@ export function IngestView() {
     }
   }, [state, canCreateWarehouse]);
 
-  // The "Connect your data" coachmark (automate-pipeline walkthrough) points at the New
-  // Source button — hide it once the wizard itself is open, same pattern as the KPI/chart
-  // selector modals in dashboard-builder-v2.tsx, so the coachmark doesn't sit awkwardly
-  // behind the wizard's own dialog overlay.
+  // The "Connect your data" coachmark points at the New Source button — hide it once the
+  // wizard itself is open, same pattern as the KPI/chart selector modals in
+  // dashboard-builder-v2.tsx, so the coachmark doesn't sit awkwardly behind the wizard's own
+  // dialog overlay. The pick-a-source stages are the exception: their target IS inside the
+  // wizard, so suppressing them would mean they never showed at all.
+  //
+  // `walkthroughStage` is SUBSCRIBED rather than read via getState(): the move onto a
+  // pick-a-source stage comes from SelectSourceStep mounting, i.e. after wizardOpen has
+  // already flipped. With wizardOpen as the only dependency this effect would latch
+  // suppressed:true and never re-run, and the card inside would never get coached.
+  const walkthroughStage = useInsightWalkthroughStore((s) => s.stage);
   useEffect(() => {
-    useInsightWalkthroughStore.getState().setSuppressCoachmark(wizardOpen);
-  }, [wizardOpen]);
+    useInsightWalkthroughStore
+      .getState()
+      .setSuppressCoachmark(wizardOpen && !isWizardCoachedStage(walkthroughStage));
+  }, [wizardOpen, walkthroughStage]);
+
+  /**
+   * Leaving the wizard without a connection strands a pick-a-source stage on a card that no
+   * longer exists — the coachmark would sit waiting on a selector that can't reappear until
+   * the wizard is opened again. Put the walkthrough back on the New Source button so it can.
+   *
+   * Runs on completion too, not just dismissal: the wizard can finish having created only a
+   * source (its connection step is cancellable), and this fork needs a CONNECTION — that's
+   * what the sync checkpoint in tour-gate.tsx watches.
+   */
+  const rewindWalkthroughIfNoConnection = () => {
+    const { stage, trackedConnectionId, advanceTo } = useInsightWalkthroughStore.getState();
+    if (trackedConnectionId || !stage) return;
+    const rewindTo = PICK_SOURCE_REWIND_STAGES[stage];
+    if (rewindTo) advanceTo(rewindTo);
+  };
 
   const openWarehouseWizard = () => {
     setWizardNeedsWarehouse(true);
@@ -147,6 +176,7 @@ export function IngestView() {
           needsWarehouse={wizardNeedsWarehouse}
           onClose={() => {
             setWizardOpen(false);
+            rewindWalkthroughIfNoConnection();
             // Revalidate on close (not mid-flow) so the ingest state — and the card
             // behind the dialog — only changes once the wizard is gone. A warehouse
             // may have been created even if no source was.
@@ -155,6 +185,7 @@ export function IngestView() {
           }}
           onComplete={() => {
             setWizardOpen(false);
+            rewindWalkthroughIfNoConnection();
             warehouse.mutate();
             sources.mutate();
             mutateConnections();

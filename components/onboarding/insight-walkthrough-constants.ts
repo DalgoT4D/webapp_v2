@@ -1,9 +1,21 @@
 /**
- * Stage list + localStorage persistence for the post-tour "Build your first insight"
- * walkthrough (Figma "tour flow" sample-data fork, frames 2672:856 -> 2683:7260).
- * Mirrors tour-constants.ts's localStorage-only convention (no backend field — same
- * decision as the main product tour).
+ * Stage list + localStorage persistence for the three onboarding walkthroughs.
+ *
+ * THREE SEPARATE FLOWS — not variations of one sequence:
+ *  a. sample           — "Build your insights with sample data": KPI -> dashboard -> share.
+ *  b. own_data         — "Build your insights with own data":    ingest -> chart -> dashboard
+ *                        -> share. Deliberately NO transform and NO orchestrate.
+ *  c. automate_pipeline— "Automate your pipeline": ingest -> transform -> orchestrate. STOPS
+ *                        there — a scheduled pipeline is the deliverable, not a chart.
+ *
+ * (b) and (c) are separate products a user may run independently and in either order, so their
+ * stored progress must not collide — see the storage section at the bottom of this file.
+ *
+ * They also compose: someone who finishes (c) has real data in the platform, so clicking
+ * "Build insights" afterwards skips the sample/own-data question and drops them straight into
+ * (b)'s chart tail. See TourGate.handleBuildInsightClick.
  */
+import { getWalkthroughScope, scopeSuffix, type WalkthroughScope } from './walkthrough-scope';
 
 export type WalkthroughStage =
   | 'fork2'
@@ -23,28 +35,44 @@ export type WalkthroughStage =
   | 'builder_save'
   | 'builder_preview'
   | 'share'
+  // Inside the share dialog: the Public Access switch, which is what actually produces a
+  // link. Nothing to copy until it's on, so it gets its own step ahead of share_copy_link.
+  | 'share_public_toggle'
   // Inside the share dialog, once public access is on: the last thing the user does before
   // the walkthrough ends. The dialog deliberately stays open through it.
   | 'share_copy_link'
-  // Own-data fork (Fork2 "CONNECT MY DATA"). own_data_ingest has no coachmark — the
-  // ingest wizard already explains itself — and can outlive the browser session (a
-  // sync can take a while), so it's the one stage resumed via a real API check
-  // (see tour-gate.tsx) rather than a route match. own_data_builder_add_chart/kpi
-  // are separate from builder_add_chart/kpi (not reused) because this path adds
-  // them in the opposite order (chart first, since that's what was just built).
+  // Own-data fork (Fork2 "CONNECT MY DATA"). own_data_ingest points at the New Source
+  // button; own_data_pick_source points at the Google Sheets card inside the wizard the
+  // button opens. Neither has an advance signal of its own past that — the wait for the
+  // first sync can outlive the browser session, so the fork rejoins via a real API check
+  // (see tour-gate.tsx) rather than a route match.
   | 'own_data_ingest'
-  | 'own_data_charts_intro'
-  | 'own_data_chart_create'
-  | 'own_data_chart_save'
-  | 'own_data_dashboard_nudge'
-  | 'own_data_builder_add_chart'
-  | 'own_data_builder_add_kpi'
+  | 'own_data_pick_source'
+  | 'own_data_source_next'
+  // The chart -> dashboard -> share tail (see CHART_TO_SHARE_TAIL). Unprefixed because it is
+  // entered two ways — after the own-data fork's first sync, and directly by a user who
+  // already has real data — so naming it after either entry point would mislead.
+  | 'chart_intro'
+  | 'chart_create'
+  | 'chart_pick_table'
+  | 'chart_pick_type'
+  | 'chart_data_config'
+  | 'chart_styling'
+  | 'chart_save'
+  | 'chart_dashboard_nudge'
+  // Distinct from builder_add_kpi/builder_add_chart because this tail adds the tiles in the
+  // opposite order to the sample fork: a chart already exists by this point, so it goes first.
+  | 'builder_add_chart_first'
+  | 'builder_add_kpi_second'
   // Automate-pipeline fork (the GetStartedModal's "Setup an automated data pipeline"
-  // option — see get-started-modal.tsx). No fork2 step —
-  // single linear path: Ingest -> Transform (one clean table) -> Orchestrate (scheduled
-  // pipeline). pipeline_ingest has no coachmark, same silent-wait treatment as
-  // own_data_ingest, resumed via the tracked connection's sync status (see tour-gate.tsx).
+  // option — see get-started-modal.tsx). No fork2 step — it routes straight here, and it ends
+  // at pipeline_create_it. pipeline_ingest/pipeline_pick_source are this fork's copies of the
+  // own-data ingest pair (same two targets, same coachmark copy); they're separate stages so
+  // each fork's order and resume anchor stay self-contained. Both then wait on the tracked
+  // connection's sync status (see tour-gate.tsx).
   | 'pipeline_ingest'
+  | 'pipeline_pick_source'
+  | 'pipeline_source_next'
   | 'pipeline_transform_intro'
   | 'pipeline_workflow_intro'
   | 'pipeline_pick_table'
@@ -53,7 +81,15 @@ export type WalkthroughStage =
   | 'pipeline_drop_columns'
   | 'pipeline_save_table'
   | 'pipeline_name_table'
+  // The create-table form's own Save button. Split from pipeline_name_table because naming the
+  // output and committing the form are two separate coachmarks in the design: the first says
+  // what to type, the second says what Save actually does (build this table now, or chain more
+  // functions first).
+  | 'pipeline_save_new_table'
   | 'pipeline_table_built'
+  // The commit-message box inside the Publish Changes dialog, which pipeline_table_built's
+  // Publish click opens. Nothing publishes without a message, so it gets its own step.
+  | 'pipeline_publish_commit'
   | 'pipeline_orchestrate_intro'
   | 'pipeline_add_connection'
   | 'pipeline_run_transform'
@@ -82,37 +118,41 @@ export const WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   'builder_save',
   'builder_preview',
   'share',
+  'share_public_toggle',
   'share_copy_link',
 ];
 
-// The own-data path's own linear order — kept separate from WALKTHROUGH_STAGE_ORDER
-// since the two forks aren't a single sequence (they diverge at fork2 and converge
-// again at dashboard_intro, which both paths reuse).
-export const OWN_DATA_WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
-  'fork2',
-  'own_data_ingest',
-  'own_data_charts_intro',
-  'own_data_chart_create',
-  'own_data_chart_save',
-  'own_data_dashboard_nudge',
+/**
+ * Build a chart from real tables, put it on a dashboard, share it — the build-insights flow's
+ * own-data half, and the only place charts are built.
+ *
+ * Reached two ways, which is why it's a named constant rather than inline: by the own-data
+ * fork after its first sync, and by a user who clicks "Build insights" once real data already
+ * exists (having automated a pipeline, say). That second entry skips the sample/own-data
+ * question entirely — the platform already has their data — and lands straight on 'chart_intro'.
+ */
+const CHART_TO_SHARE_TAIL: WalkthroughStage[] = [
+  'chart_intro',
+  'chart_create',
+  'chart_pick_table',
+  'chart_pick_type',
+  'chart_data_config',
+  'chart_styling',
+  'chart_save',
+  'chart_dashboard_nudge',
   'dashboard_intro',
-  'own_data_builder_add_chart',
-  'own_data_builder_add_kpi',
+  'builder_add_chart_first',
+  'builder_add_kpi_second',
   'builder_resize',
   'builder_save',
   'builder_preview',
   'share',
+  'share_public_toggle',
   'share_copy_link',
 ];
 
-// The automate-pipeline path's own linear order — kept separate from
-// WALKTHROUGH_STAGE_ORDER/OWN_DATA_WALKTHROUGH_STAGE_ORDER since it diverges at the
-// very first step (no fork2 — the GetStartedModal routes straight here). Once the pipeline is
-// created, it converges into the own-data fork's chart/dashboard tail (same builder,
-// same "chart first" convergence at dashboard_intro) rather than ending the walkthrough —
-// automating a pipeline gets you clean data, not an insight built from it.
-export const AUTOMATE_PIPELINE_STAGE_ORDER: WalkthroughStage[] = [
-  'pipeline_ingest',
+/** Shape the raw tables into one clean table, then make it repeatable. automate_pipeline only. */
+const TRANSFORM_ORCHESTRATE_STAGES: WalkthroughStage[] = [
   'pipeline_transform_intro',
   'pipeline_workflow_intro',
   'pipeline_pick_table',
@@ -121,24 +161,38 @@ export const AUTOMATE_PIPELINE_STAGE_ORDER: WalkthroughStage[] = [
   'pipeline_drop_columns',
   'pipeline_save_table',
   'pipeline_name_table',
+  'pipeline_save_new_table',
   'pipeline_table_built',
+  'pipeline_publish_commit',
   'pipeline_orchestrate_intro',
   'pipeline_add_connection',
   'pipeline_run_transform',
   'pipeline_set_schedule',
   'pipeline_create_it',
-  'own_data_charts_intro',
-  'own_data_chart_create',
-  'own_data_chart_save',
-  'own_data_dashboard_nudge',
-  'dashboard_intro',
-  'own_data_builder_add_chart',
-  'own_data_builder_add_kpi',
-  'builder_resize',
-  'builder_save',
-  'builder_preview',
-  'share',
-  'share_copy_link',
+];
+
+// The own-data path's own linear order — kept separate from WALKTHROUGH_STAGE_ORDER
+// since the two forks aren't a single sequence (they diverge at fork2 and converge
+// again at dashboard_intro, which both paths reuse). Contains no pipeline_* stage by
+// design: connecting your own data and charting it is the whole flow. Also the order used
+// when the chart tail is entered directly, without the fork — see CHART_ENTRY_STAGE.
+export const OWN_DATA_WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
+  'fork2',
+  'own_data_ingest',
+  'own_data_pick_source',
+  'own_data_source_next',
+  ...CHART_TO_SHARE_TAIL,
+];
+
+// The automate-pipeline path's own linear order. Diverges at the very first step (no fork2 —
+// the GetStartedModal routes straight here) and ENDS at the created pipeline: a scheduled
+// pipeline is what this walkthrough set out to build. Charting what it produces is the
+// build-insights flow, started separately from the Get Started checklist.
+export const AUTOMATE_PIPELINE_STAGE_ORDER: WalkthroughStage[] = [
+  'pipeline_ingest',
+  'pipeline_pick_source',
+  'pipeline_source_next',
+  ...TRANSFORM_ORCHESTRATE_STAGES,
 ];
 
 /** The linear order the given fork runs in — the three arrays above, keyed by path. */
@@ -147,6 +201,23 @@ export function stageOrderFor(path: WalkthroughPath | null): WalkthroughStage[] 
   if (path === 'automate_pipeline') return AUTOMATE_PIPELINE_STAGE_ORDER;
   return WALKTHROUGH_STAGE_ORDER;
 }
+
+/**
+ * The stage the chart tail starts at. Used when build-insights is entered with real data
+ * already in the platform (typically right after the automate-pipeline walkthrough): there's
+ * nothing to ask at fork2 — the user's own data is already there — so the flow opens here.
+ */
+export const CHART_ENTRY_STAGE: WalkthroughStage = 'chart_intro';
+
+/**
+ * Where each path goes the moment its tracked connection's first sync lands. own_data has no
+ * transform/orchestrate leg, so it rejoins at the chart tail; automate_pipeline rejoins at
+ * Transform. Read by tour-gate's sync checkpoint.
+ */
+export const POST_SYNC_STAGE_FOR: Record<'own_data' | 'automate_pipeline', WalkthroughStage> = {
+  own_data: 'chart_intro',
+  automate_pipeline: 'pipeline_transform_intro',
+};
 
 /**
  * Is `stage` earlier than `target` in this fork's order? Used to keep progress monotonic:
@@ -167,6 +238,68 @@ export function isStageBefore(
   if (targetIndex === -1) return true;
   const stageIndex = order.indexOf(stage);
   return stageIndex === -1 || stageIndex < targetIndex;
+}
+
+/**
+ * Each fork's source-picker stage, mapped to the "click New Source" stage that reopens the
+ * wizard it lives in.
+ */
+const PICK_SOURCE_TO_INGEST_STAGE: Record<string, WalkthroughStage> = {
+  own_data_pick_source: 'own_data_ingest',
+  pipeline_pick_source: 'pipeline_ingest',
+};
+
+/**
+ * Which picker stage each "click New Source" stage hands off to. SelectSourceStep advances
+ * through this on mount, which is the one signal that holds however the picker was reached —
+ * a New Source click, Back from the configure step, or the wizard auto-opening on its
+ * warehouse step for an org that has none yet (that org has no New Source button to click at
+ * all, so a click-based handoff would never fire for the very users this fork targets).
+ *
+ * Derived rather than written out twice so the pair can't drift.
+ */
+export const PICK_SOURCE_STAGE_FOR: Partial<Record<WalkthroughStage, WalkthroughStage>> =
+  Object.fromEntries(
+    Object.entries(PICK_SOURCE_TO_INGEST_STAGE).map(([pickStage, ingestStage]) => [
+      ingestStage,
+      pickStage,
+    ])
+  );
+
+/**
+ * Which "click Next" stage each picker stage hands off to, once the user has selected a
+ * source. The picker coachmark deliberately doesn't name a source — any of them is a valid
+ * choice, popular card or search result — so the handoff is the selection itself, whatever
+ * was selected (see SelectSourceStep). Without this the coachmark stayed parked on the
+ * picker and never told the user the Next button was now live.
+ */
+export const SOURCE_NEXT_STAGE_FOR: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
+  own_data_pick_source: 'own_data_source_next',
+  pipeline_pick_source: 'pipeline_source_next',
+};
+
+/**
+ * Every stage whose coachmark target lives INSIDE the add-source wizard dialog — the picker
+ * and its Next button — mapped to the "click New Source" stage that reopens it.
+ *
+ * Two consumers, both needing the same set:
+ *  - ingest-view.tsx, which otherwise hides every coachmark while the wizard is open (these
+ *    are the exception — they're pointing at something in it) and which rewinds through this
+ *    map when the wizard is dismissed without a connection, so the walkthrough isn't left
+ *    waiting on a card that no longer exists.
+ *  - RESUME_ANCHOR_STAGES below, for the same reason on a cold page load.
+ */
+export const PICK_SOURCE_REWIND_STAGES: Partial<Record<WalkthroughStage, WalkthroughStage>> =
+  Object.fromEntries(
+    Object.entries(PICK_SOURCE_TO_INGEST_STAGE).flatMap(([pickStage, ingestStage]) => [
+      [pickStage, ingestStage],
+      [SOURCE_NEXT_STAGE_FOR[pickStage as WalkthroughStage]!, ingestStage],
+    ])
+  );
+
+/** Is this stage's coachmark target inside the add-source wizard? */
+export function isWizardCoachedStage(stage: WalkthroughStage | null): boolean {
+  return stage !== null && stage in PICK_SOURCE_REWIND_STAGES;
 }
 
 /**
@@ -198,14 +331,24 @@ export const RESUME_ANCHOR_STAGES: Partial<Record<WalkthroughStage, WalkthroughS
   builder_preview: 'dashboard_intro',
   share: 'dashboard_intro',
   // Lives inside the share dialog of a dashboard we can't identify on a cold load.
+  share_public_toggle: 'dashboard_intro',
   share_copy_link: 'dashboard_intro',
-  own_data_builder_add_chart: 'dashboard_intro',
-  own_data_builder_add_kpi: 'dashboard_intro',
-  // Anchored on a sidebar link and shown wherever the user happened to be — needs a real
-  // page to go back to.
-  own_data_charts_intro: 'own_data_chart_create',
-  // Lives on the chart builder, which can't be reopened without the chart being built.
-  own_data_chart_save: 'own_data_chart_create',
+  builder_add_chart_first: 'dashboard_intro',
+  builder_add_kpi_second: 'dashboard_intro',
+  ...PICK_SOURCE_REWIND_STAGES,
+  // chart_intro and chart_dashboard_nudge are deliberately ABSENT: both point at a sidebar
+  // link, which is on screen on every route, so a cold load can show them exactly where the
+  // user is. Anchoring chart_intro to chart_create (a /charts-only stage) meant refreshing
+  // anywhere else parked the coachmark until the user happened to navigate there.
+  //
+  // /charts/new cold-loads with no dataset picked and no type chosen, and /charts/new/configure
+  // can't be reached at all without a chart in progress — so the whole builder run re-enters
+  // at "click Create chart".
+  chart_pick_table: 'chart_create',
+  chart_pick_type: 'chart_create',
+  chart_data_config: 'chart_create',
+  chart_styling: 'chart_create',
+  chart_save: 'chart_create',
   pipeline_transform_intro: 'pipeline_workflow_intro',
   // Canvas stages that depend on a selected node or an open operation panel.
   pipeline_select_node: 'pipeline_pick_table',
@@ -213,23 +356,38 @@ export const RESUME_ANCHOR_STAGES: Partial<Record<WalkthroughStage, WalkthroughS
   pipeline_drop_columns: 'pipeline_pick_table',
   pipeline_save_table: 'pipeline_pick_table',
   pipeline_name_table: 'pipeline_pick_table',
-};
-
-/**
- * Routes for the stages that deliberately have no coachmark (silent waits — see
- * tour-gate.tsx's sync detection), so they're absent from the coachmark's own route map
- * but still need somewhere to send a returning user.
- */
-export const SILENT_STAGE_ROUTES: Partial<Record<WalkthroughStage, string>> = {
-  own_data_ingest: '/ingest',
+  pipeline_save_new_table: 'pipeline_pick_table',
+  // The Publish dialog is gone on a cold load, but the Publish button that opens it is right
+  // there on the canvas — re-enter one step back rather than at the top of the canvas run.
+  pipeline_publish_commit: 'pipeline_table_built',
 };
 
 export function getResumeAnchorStage(stage: WalkthroughStage): WalkthroughStage {
   return RESUME_ANCHOR_STAGES[stage] ?? stage;
 }
 
-// Every key below shares this prefix — clearWalkthroughStorage relies on that to find them
-// all without an explicit list.
+// ---------------------------------------------------------------------------
+// Storage
+// ---------------------------------------------------------------------------
+//
+// Two kinds of key, scoped differently on purpose:
+//
+//  1. PER-FLOW state — "where am I in THIS walkthrough": stage, chosen fork, done flag,
+//     tracked connection. Keyed `<prefix><flow>_<userId>_<orgSlug>`. Without the flow segment,
+//     starting the automate-pipeline walkthrough overwrote a half-finished build-insights run
+//     (one `stage_` slot for both), and finishing either one set a single `done_` flag that
+//     stopped the other from ever resuming.
+//
+//  2. SHARED milestones — "what has this user actually done in this org": connected real data,
+//     created a chart, shared a dashboard. Keyed `<prefix><userId>_<orgSlug>`, with no flow
+//     segment, because they're facts rather than progress. Doing the work once counts for both
+//     flows, so a user who connected data via automate-pipeline isn't asked to connect it again
+//     by build-insights.
+//
+// Every key ends with `<userId>_<orgSlug>`: progress is per-org, and a shared browser (or one
+// user in several orgs) must not blur two participants together. That pair is exactly the
+// backend's granularity too — UserPreferences.trial_walkthrough hangs off a OneToOne to OrgUser.
+
 const WALKTHROUGH_STORAGE_NAMESPACE = 'dalgo_insight_walkthrough_';
 
 const STAGE_STORAGE_PREFIX = 'dalgo_insight_walkthrough_stage_';
@@ -239,145 +397,175 @@ const CONNECTION_STORAGE_PREFIX = 'dalgo_insight_walkthrough_conn_';
 
 export type WalkthroughPath = 'sample' | 'own_data' | 'automate_pipeline';
 
-export function getStoredWalkthroughStage(orgSlug: string): WalkthroughStage | null {
+/**
+ * Which of the independently-runnable walkthroughs a piece of state belongs to. Mirrors the
+ * backend's flow keys (minus 'product_tour', which has its own storage): both insight forks
+ * record against 'insights', because fork2 asks the user to pick one of the two — they're
+ * branches of a single walkthrough, not two.
+ */
+export type WalkthroughFlow = 'insights' | 'automate_pipeline';
+
+export function flowForPath(path: WalkthroughPath | null): WalkthroughFlow {
+  return path === 'automate_pipeline' ? 'automate_pipeline' : 'insights';
+}
+
+/** Per-flow key: `<prefix><flow>_<userId>_<orgSlug>`. */
+function flowKey(prefix: string, flow: WalkthroughFlow, scope: WalkthroughScope): string {
+  return `${prefix}${flow}_${scopeSuffix(scope)}`;
+}
+
+/** Shared-milestone key: `<prefix><userId>_<orgSlug>`, no flow segment. */
+function scopedKey(prefix: string, scope: WalkthroughScope): string {
+  return `${prefix}${scopeSuffix(scope)}`;
+}
+
+/**
+ * Read a flow-scoped value. Returns null when there's no scope yet (pre-login) or storage is
+ * unavailable (private mode) — callers treat both as "nothing recorded".
+ */
+function readFlowValue(prefix: string, flow: WalkthroughFlow): string | null {
   try {
-    const raw = localStorage.getItem(`${STAGE_STORAGE_PREFIX}${orgSlug}`);
-    return (raw as WalkthroughStage) || null;
+    const scope = getWalkthroughScope();
+    if (!scope) return null;
+    return localStorage.getItem(flowKey(prefix, flow, scope));
   } catch {
     return null;
   }
 }
 
-export function saveWalkthroughStage(orgSlug: string, stage: WalkthroughStage): void {
+function writeFlowValue(prefix: string, flow: WalkthroughFlow, value: string): void {
   try {
-    localStorage.setItem(`${STAGE_STORAGE_PREFIX}${orgSlug}`, stage);
+    const scope = getWalkthroughScope();
+    if (!scope) return;
+    localStorage.setItem(flowKey(prefix, flow, scope), value);
   } catch {
     // localStorage unavailable (e.g. private mode) — worst case the walkthrough restarts.
   }
 }
 
-export function clearWalkthroughState(orgSlug: string): void {
+function removeFlowValue(prefix: string, flow: WalkthroughFlow): void {
   try {
-    localStorage.removeItem(`${STAGE_STORAGE_PREFIX}${orgSlug}`);
+    const scope = getWalkthroughScope();
+    if (!scope) return;
+    localStorage.removeItem(flowKey(prefix, flow, scope));
   } catch {
     // no-op
   }
 }
 
-export function markWalkthroughDone(orgSlug: string): void {
+/** Set a shared milestone flag. Milestones are write-once — there's no "unmark". */
+function markMilestone(prefix: string): void {
   try {
-    localStorage.setItem(`${DONE_STORAGE_PREFIX}${orgSlug}`, '1');
+    const scope = getWalkthroughScope();
+    if (!scope) return;
+    localStorage.setItem(scopedKey(prefix, scope), '1');
   } catch {
     // no-op
   }
 }
 
-export function hasFinishedWalkthrough(orgSlug: string): boolean {
+function hasMilestone(prefix: string): boolean {
   try {
-    return localStorage.getItem(`${DONE_STORAGE_PREFIX}${orgSlug}`) === '1';
+    const scope = getWalkthroughScope();
+    if (!scope) return false;
+    return localStorage.getItem(scopedKey(prefix, scope)) === '1';
   } catch {
     return false;
   }
 }
 
-// Persists across skip()/finish() (unlike stage) — the getting-started widget reads
-// this after completion to know which branch the user took.
-export function getStoredPath(orgSlug: string): WalkthroughPath | null {
-  try {
-    const raw = localStorage.getItem(`${PATH_STORAGE_PREFIX}${orgSlug}`);
-    return (raw as WalkthroughPath) || null;
-  } catch {
-    return null;
-  }
+export function getStoredWalkthroughStage(flow: WalkthroughFlow): WalkthroughStage | null {
+  return (readFlowValue(STAGE_STORAGE_PREFIX, flow) as WalkthroughStage) || null;
 }
 
-export function savePath(orgSlug: string, path: WalkthroughPath): void {
-  try {
-    localStorage.setItem(`${PATH_STORAGE_PREFIX}${orgSlug}`, path);
-  } catch {
-    // no-op
-  }
+export function saveWalkthroughStage(flow: WalkthroughFlow, stage: WalkthroughStage): void {
+  writeFlowValue(STAGE_STORAGE_PREFIX, flow, stage);
+}
+
+export function clearWalkthroughState(flow: WalkthroughFlow): void {
+  removeFlowValue(STAGE_STORAGE_PREFIX, flow);
+}
+
+export function markWalkthroughDone(flow: WalkthroughFlow): void {
+  writeFlowValue(DONE_STORAGE_PREFIX, flow, '1');
+}
+
+export function hasFinishedWalkthrough(flow: WalkthroughFlow): boolean {
+  return readFlowValue(DONE_STORAGE_PREFIX, flow) === '1';
+}
+
+// Persists across skip()/finish() (unlike stage) — the getting-started widget reads
+// this after completion to know which branch the user took.
+export function getStoredPath(flow: WalkthroughFlow): WalkthroughPath | null {
+  return (readFlowValue(PATH_STORAGE_PREFIX, flow) as WalkthroughPath) || null;
+}
+
+export function savePath(flow: WalkthroughFlow, path: WalkthroughPath): void {
+  writeFlowValue(PATH_STORAGE_PREFIX, flow, path);
 }
 
 // Tracks the specific connection created during the own-data or automate-pipeline fork,
 // so a later page load (possibly a new session, if the user left before the first sync
 // finished) can tell whether THIS connection has synced — not just any connection in the org.
-export function getStoredTrackedConnection(orgSlug: string): string | null {
+// Per-flow: each walkthrough tracks the connection IT created, so running one doesn't leave
+// the other watching a connection it never saw made.
+export function getStoredTrackedConnection(flow: WalkthroughFlow): string | null {
+  return readFlowValue(CONNECTION_STORAGE_PREFIX, flow);
+}
+
+export function saveTrackedConnection(flow: WalkthroughFlow, connectionId: string): void {
+  writeFlowValue(CONNECTION_STORAGE_PREFIX, flow, connectionId);
+}
+
+export function clearTrackedConnection(flow: WalkthroughFlow): void {
+  removeFlowValue(CONNECTION_STORAGE_PREFIX, flow);
+}
+
+// Which flow the user was last driving. Scoped to the user+org (NOT per flow — it's the
+// pointer that picks between them), and needed because both flows can hold a half-finished
+// stage at once: on a cold page load "resume the walkthrough" would otherwise have to guess,
+// and would keep dragging someone back to whichever flow won an arbitrary tie-break.
+const ACTIVE_FLOW_STORAGE_PREFIX = 'dalgo_insight_walkthrough_active_flow_';
+
+export function getActiveWalkthroughFlow(): WalkthroughFlow | null {
   try {
-    return localStorage.getItem(`${CONNECTION_STORAGE_PREFIX}${orgSlug}`);
+    const scope = getWalkthroughScope();
+    if (!scope) return null;
+    const raw = localStorage.getItem(scopedKey(ACTIVE_FLOW_STORAGE_PREFIX, scope));
+    return raw === 'insights' || raw === 'automate_pipeline' ? raw : null;
   } catch {
     return null;
   }
 }
 
-export function saveTrackedConnection(orgSlug: string, connectionId: string): void {
+export function saveActiveWalkthroughFlow(flow: WalkthroughFlow): void {
   try {
-    localStorage.setItem(`${CONNECTION_STORAGE_PREFIX}${orgSlug}`, connectionId);
+    const scope = getWalkthroughScope();
+    if (!scope) return;
+    localStorage.setItem(scopedKey(ACTIVE_FLOW_STORAGE_PREFIX, scope), flow);
   } catch {
     // no-op
   }
 }
 
-export function clearTrackedConnection(orgSlug: string): void {
+export function clearActiveWalkthroughFlow(): void {
   try {
-    localStorage.removeItem(`${CONNECTION_STORAGE_PREFIX}${orgSlug}`);
+    const scope = getWalkthroughScope();
+    if (!scope) return;
+    localStorage.removeItem(scopedKey(ACTIVE_FLOW_STORAGE_PREFIX, scope));
   } catch {
     // no-op
   }
 }
+
+// --- Shared milestones ---
+// Set unconditionally on the real user action, regardless of which flow (if any) is running.
+// That's what lets a returning user (new session, tour not running) get an accurate
+// "resume here" nudge computed from actual progress — see flow-resume.ts — and what lets work
+// done in one walkthrough count towards the other.
 
 const CONNECTED_REAL_DATA_STORAGE_PREFIX = 'dalgo_insight_walkthrough_connected_';
-
-// Set the moment the fork's tracked connection syncs successfully, regardless of which
-// fork (own_data or automate_pipeline) is running and regardless of whether that fork
-// later finishes or is skipped. Decoupled from `path`/hasFinishedWalkthrough on purpose —
-// Figma's automate-pipeline widget screenshot shows "Connect your own data" checked right
-// after ingest completes, well before the rest of that flow finishes. Never cleared by
-// skip()/finish() — like `path`, the getting-started widget reads it long-term.
-export function markConnectedRealData(orgSlug: string): void {
-  try {
-    localStorage.setItem(`${CONNECTED_REAL_DATA_STORAGE_PREFIX}${orgSlug}`, '1');
-  } catch {
-    // no-op
-  }
-}
-
-export function hasConnectedRealData(orgSlug: string): boolean {
-  try {
-    return localStorage.getItem(`${CONNECTED_REAL_DATA_STORAGE_PREFIX}${orgSlug}`) === '1';
-  } catch {
-    return false;
-  }
-}
-
 const PIPELINE_CREATED_STORAGE_PREFIX = 'dalgo_insight_walkthrough_pipeline_created_';
-
-// Set the moment "Create Pipeline" succeeds — independent of hasFinishedWalkthrough, which
-// now only fires once the automate-pipeline fork's chart/dashboard/share tail also completes
-// (see AUTOMATE_PIPELINE_STAGE_ORDER). The getting-started widget's "Automate data pipeline"
-// item needs to check in right away, not wait for the rest of the walkthrough.
-export function markPipelineCreated(orgSlug: string): void {
-  try {
-    localStorage.setItem(`${PIPELINE_CREATED_STORAGE_PREFIX}${orgSlug}`, '1');
-  } catch {
-    // no-op
-  }
-}
-
-export function hasPipelineCreated(orgSlug: string): boolean {
-  try {
-    return localStorage.getItem(`${PIPELINE_CREATED_STORAGE_PREFIX}${orgSlug}`) === '1';
-  } catch {
-    return false;
-  }
-}
-
-// --- Flow resume-nudge milestones ---
-// Unlike `stage` (which only advances while a coachmark session is actively on that exact
-// stage), these are set unconditionally on the real user action, regardless of whether the
-// walkthrough is currently active. That's what lets a returning user (new session, tour not
-// running) get an accurate "resume here" nudge computed from actual progress — see
-// flow-resume.ts, which reads these to compute the next step per flow.
 const KPI_CREATED_STORAGE_PREFIX = 'dalgo_insight_walkthrough_kpi_created_';
 const CHART_CREATED_STORAGE_PREFIX = 'dalgo_insight_walkthrough_chart_created_';
 const CHART_IN_DASHBOARD_STORAGE_PREFIX = 'dalgo_insight_walkthrough_chart_in_dash_';
@@ -385,117 +573,101 @@ const KPI_IN_DASHBOARD_STORAGE_PREFIX = 'dalgo_insight_walkthrough_kpi_in_dash_'
 const DASHBOARD_SHARED_STORAGE_PREFIX = 'dalgo_insight_walkthrough_shared_';
 const TRANSFORM_PUBLISHED_STORAGE_PREFIX = 'dalgo_insight_walkthrough_transform_published_';
 
-export function markKpiCreated(orgSlug: string): void {
-  try {
-    localStorage.setItem(`${KPI_CREATED_STORAGE_PREFIX}${orgSlug}`, '1');
-  } catch {
-    // no-op
-  }
+// Set the moment a walkthrough's tracked connection syncs successfully, whichever flow was
+// running and whether or not that flow later finishes or is skipped. Figma's automate-pipeline
+// widget screenshot shows "Connect your own data" checked right after ingest completes, well
+// before the rest of that flow finishes.
+export function markConnectedRealData(): void {
+  markMilestone(CONNECTED_REAL_DATA_STORAGE_PREFIX);
 }
 
-export function hasKpiCreated(orgSlug: string): boolean {
-  try {
-    return localStorage.getItem(`${KPI_CREATED_STORAGE_PREFIX}${orgSlug}`) === '1';
-  } catch {
-    return false;
-  }
+export function hasConnectedRealData(): boolean {
+  return hasMilestone(CONNECTED_REAL_DATA_STORAGE_PREFIX);
 }
 
-export function markChartCreated(orgSlug: string): void {
-  try {
-    localStorage.setItem(`${CHART_CREATED_STORAGE_PREFIX}${orgSlug}`, '1');
-  } catch {
-    // no-op
-  }
+// Set the moment "Create Pipeline" succeeds — independent of the flow's done flag, which only
+// fires once the automate-pipeline fork's chart/dashboard/share tail also completes. The
+// getting-started widget's "Automate data pipeline" item needs to check in right away.
+export function markPipelineCreated(): void {
+  markMilestone(PIPELINE_CREATED_STORAGE_PREFIX);
 }
 
-export function hasChartCreated(orgSlug: string): boolean {
-  try {
-    return localStorage.getItem(`${CHART_CREATED_STORAGE_PREFIX}${orgSlug}`) === '1';
-  } catch {
-    return false;
-  }
+export function hasPipelineCreated(): boolean {
+  return hasMilestone(PIPELINE_CREATED_STORAGE_PREFIX);
 }
 
-export function markChartAddedToDashboard(orgSlug: string): void {
-  try {
-    localStorage.setItem(`${CHART_IN_DASHBOARD_STORAGE_PREFIX}${orgSlug}`, '1');
-  } catch {
-    // no-op
-  }
+export function markKpiCreated(): void {
+  markMilestone(KPI_CREATED_STORAGE_PREFIX);
 }
 
-export function hasChartAddedToDashboard(orgSlug: string): boolean {
-  try {
-    return localStorage.getItem(`${CHART_IN_DASHBOARD_STORAGE_PREFIX}${orgSlug}`) === '1';
-  } catch {
-    return false;
-  }
+export function hasKpiCreated(): boolean {
+  return hasMilestone(KPI_CREATED_STORAGE_PREFIX);
 }
 
-export function markKpiAddedToDashboard(orgSlug: string): void {
-  try {
-    localStorage.setItem(`${KPI_IN_DASHBOARD_STORAGE_PREFIX}${orgSlug}`, '1');
-  } catch {
-    // no-op
-  }
+export function markChartCreated(): void {
+  markMilestone(CHART_CREATED_STORAGE_PREFIX);
 }
 
-export function hasKpiAddedToDashboard(orgSlug: string): boolean {
-  try {
-    return localStorage.getItem(`${KPI_IN_DASHBOARD_STORAGE_PREFIX}${orgSlug}`) === '1';
-  } catch {
-    return false;
-  }
+export function hasChartCreated(): boolean {
+  return hasMilestone(CHART_CREATED_STORAGE_PREFIX);
 }
 
-export function markDashboardShared(orgSlug: string): void {
-  try {
-    localStorage.setItem(`${DASHBOARD_SHARED_STORAGE_PREFIX}${orgSlug}`, '1');
-  } catch {
-    // no-op
-  }
+export function markChartAddedToDashboard(): void {
+  markMilestone(CHART_IN_DASHBOARD_STORAGE_PREFIX);
 }
 
-export function hasDashboardShared(orgSlug: string): boolean {
-  try {
-    return localStorage.getItem(`${DASHBOARD_SHARED_STORAGE_PREFIX}${orgSlug}`) === '1';
-  } catch {
-    return false;
-  }
+export function hasChartAddedToDashboard(): boolean {
+  return hasMilestone(CHART_IN_DASHBOARD_STORAGE_PREFIX);
+}
+
+export function markKpiAddedToDashboard(): void {
+  markMilestone(KPI_IN_DASHBOARD_STORAGE_PREFIX);
+}
+
+export function hasKpiAddedToDashboard(): boolean {
+  return hasMilestone(KPI_IN_DASHBOARD_STORAGE_PREFIX);
+}
+
+export function markDashboardShared(): void {
+  markMilestone(DASHBOARD_SHARED_STORAGE_PREFIX);
+}
+
+export function hasDashboardShared(): boolean {
+  return hasMilestone(DASHBOARD_SHARED_STORAGE_PREFIX);
 }
 
 // Set once a dbt workflow has been created, run, AND published — publish is the last of the
 // three, so its success handler is the single point that marks this (see PublishModal.tsx).
-export function markTransformPublished(orgSlug: string): void {
-  try {
-    localStorage.setItem(`${TRANSFORM_PUBLISHED_STORAGE_PREFIX}${orgSlug}`, '1');
-  } catch {
-    // no-op
-  }
+export function markTransformPublished(): void {
+  markMilestone(TRANSFORM_PUBLISHED_STORAGE_PREFIX);
 }
 
-export function hasTransformPublished(orgSlug: string): boolean {
-  try {
-    return localStorage.getItem(`${TRANSFORM_PUBLISHED_STORAGE_PREFIX}${orgSlug}`) === '1';
-  } catch {
-    return false;
-  }
+export function hasTransformPublished(): boolean {
+  return hasMilestone(TRANSFORM_PUBLISHED_STORAGE_PREFIX);
 }
 
 /**
- * Wipes this org's entire walkthrough scratch space — stage, fork, tracked connection, done
- * flag and every milestone. Called once a flow resolves AND its backend write lands: from
- * then on the record lives server-side (see hooks/api/useTrialWalkthrough.ts), and leaving
- * stale local flags behind would make a restarted flow think work it hasn't done is finished.
+ * Drops ONE flow's scratch space — its stage, fork, done flag and tracked connection. Called
+ * once that flow resolves AND its backend write lands: from then on the record lives
+ * server-side (see hooks/api/useTrialWalkthrough.ts).
  *
- * Matched by prefix rather than an explicit key list so a flag added later can't be
+ * Deliberately leaves alone:
+ *  - the other flow's keys, which may belong to a run the user is still in the middle of, and
+ *  - the shared milestones, which are facts about work actually done. Clearing those would make
+ *    the other flow ask the user to connect data or build a chart they already have. (This is
+ *    the opposite of what the old org-wide version did — it prefix-matched and wiped
+ *    everything, which is exactly how finishing one walkthrough erased the other.)
+ *
+ * Matched by prefix rather than an explicit key list so a per-flow key added later can't be
  * forgotten here.
  */
-export function clearWalkthroughStorage(orgSlug: string): void {
+export function clearWalkthroughStorage(flow: WalkthroughFlow): void {
   try {
+    const scope = getWalkthroughScope();
+    if (!scope) return;
+    const suffix = `${flow}_${scopeSuffix(scope)}`;
     Object.keys(localStorage)
-      .filter((key) => key.startsWith(WALKTHROUGH_STORAGE_NAMESPACE) && key.endsWith(orgSlug))
+      .filter((key) => key.startsWith(WALKTHROUGH_STORAGE_NAMESPACE) && key.endsWith(suffix))
       .forEach((key) => localStorage.removeItem(key));
   } catch {
     // no-op

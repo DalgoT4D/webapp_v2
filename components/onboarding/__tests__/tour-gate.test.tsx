@@ -4,7 +4,14 @@ import userEvent from '@testing-library/user-event';
 import { TestWrapper } from '@/test-utils/render';
 import { mockApiGet } from '@/test-utils/api';
 import { TOUR_SEEN_STORAGE_PREFIX, saveTourProgress } from '../tour-constants';
-import { savePath, saveWalkthroughStage } from '../insight-walkthrough-constants';
+import {
+  savePath,
+  saveWalkthroughStage,
+  saveTrackedConnection,
+  markConnectedRealData,
+  hasConnectedRealData,
+} from '../insight-walkthrough-constants';
+import { SyncStatus } from '@/constants/connections';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { TourGate } from '../tour-gate';
 
@@ -70,6 +77,10 @@ function setupAuthStore(orgUser: OrgUser | null) {
   (useAuthStore as unknown as jest.Mock).mockImplementation(
     (selector: (s: typeof state) => unknown) => selector(state)
   );
+  // walkthrough-scope.ts reads the store outside React (useAuthStore.getState()), which the
+  // bare jest.fn() mock doesn't provide — without this every storage helper sees no scope and
+  // silently writes nothing.
+  (useAuthStore as unknown as { getState: () => typeof state }).getState = () => state;
 }
 
 const renderGate = () =>
@@ -223,7 +234,7 @@ describe('TourGate', () => {
     expect(mockTourProps.current?.canOfferPostTourChoice).toBe(true);
   });
 
-  it('stops offering the post-tour choice once automate-pipeline is complete — it settles both', async () => {
+  it('keeps offering build-insights after automate-pipeline completes — they are separate flows', async () => {
     mockApiGet.mockImplementation((path: string) =>
       path === '/api/userpreferences/'
         ? Promise.resolve({
@@ -238,7 +249,10 @@ describe('TourGate', () => {
     renderGate();
 
     await screen.findByText('What brings you to Dalgo');
-    expect(mockTourProps.current?.canOfferPostTourChoice).toBe(false);
+    // The pipeline walkthrough now ends at the created pipeline rather than running on into
+    // the chart -> dashboard -> share tail, so finishing it says nothing about insights —
+    // and building one is exactly the intended follow-up.
+    expect(mockTourProps.current?.canOfferPostTourChoice).toBe(true);
   });
 
   it('offers only the flow that is still open when the tour is re-run', async () => {
@@ -328,14 +342,16 @@ describe('TourGate', () => {
     await expectTick('automate-pipeline', false);
   });
 
-  it('completing automate-pipeline ticks both rows — that fork ends in the same insight tail', async () => {
+  it('ticks only the pipeline row when automate-pipeline completes', async () => {
     localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
     mockWalkthroughState({ automate_pipeline: { skipped: false, completed: true } });
     setupAuthStore(buildOrgUser());
     renderGate();
 
     await expectTick('automate-pipeline', true);
-    await expectTick('build-insight', true);
+    // No insight was built — that walkthrough stops at the created pipeline. Ticking this
+    // would claim work the user hasn't done and hide the very next step we want them on.
+    await expectTick('build-insight', false);
   });
 
   it('leaves a skipped flow unticked — decided is not the same as achieved', async () => {
@@ -497,11 +513,13 @@ describe('TourGate — Get Started checklist actions', () => {
 
   it('resumes an interrupted flow at the last stage reachable from a cold page load', async () => {
     const user = userEvent.setup();
-    savePath('trial-org', 'sample');
+    // Storage is scoped to the selected org's user, so the auth store has to be set up first
+    // — before that there's no scope to write into.
+    setupAuthStore(buildOrgUser());
+    savePath('insights', 'sample');
     // Left off inside the KPI form dialog — that field only exists while the dialog is open,
     // so resuming there literally shows nothing; kpi_intro is the re-entry point.
-    saveWalkthroughStage('trial-org', 'kpi_metric');
-    setupAuthStore(buildOrgUser());
+    saveWalkthroughStage('insights', 'kpi_metric');
     renderGate();
 
     await clickBuildInsight(user);
@@ -511,10 +529,131 @@ describe('TourGate — Get Started checklist actions', () => {
     expect(screen.queryByTestId('get-started-option-sample')).not.toBeInTheDocument();
   });
 
+  it('moves a returning user onto the chart flow once their tracked connection has synced', async () => {
+    // The one handoff with no click behind it. The user created a connection, closed the tab
+    // while the first sync ran, and came back — nothing in memory survives, so the checkpoint
+    // has to recognise THIS connection's success from storage plus a fresh connections fetch.
+    //
+    // Also the regression guard for an ordering bug: the resume effect waits on the backend's
+    // userpreferences fetch, so the connections response routinely lands while the store is
+    // still inactive. Read non-reactively, the checkpoint bailed on that pass and never ran
+    // again (a finished sync holds no lock, so SWR stops polling and `connections` keeps its
+    // identity), leaving the user on a page with no coachmark at all.
+    setupAuthStore(buildOrgUser());
+    savePath('insights', 'own_data');
+    saveWalkthroughStage('insights', 'own_data_source_next');
+    saveTrackedConnection('insights', 'conn-1');
+    mockApiGet.mockImplementation((path: string) => {
+      if (path === '/api/userpreferences/') {
+        return Promise.resolve({ success: true, res: { trial_walkthrough: {} } });
+      }
+      if (path === '/api/airbyte/v1/connections') {
+        return Promise.resolve([
+          { connectionId: 'conn-1', lock: null, lastRun: { status: SyncStatus.SUCCESS } },
+        ]);
+      }
+      return undefined;
+    });
+
+    renderGate();
+
+    await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('chart_intro'));
+    // Set independently of the coachmark, so the Get Started checklist is accurate too.
+    expect(hasConnectedRealData()).toBe(true);
+  });
+
+  it('moves on as soon as the tracked connection STARTS syncing', async () => {
+    // TEMPORARY (trial only). This used to require SyncStatus.SUCCESS and assert the user
+    // stayed parked on 'own_data_ingest' through a running sync. A real first sync takes
+    // minutes, and every ingest stage goes silent while trackedConnectionId is set — so the
+    // user sat with no coachmark at all and read the walkthrough as dead. See hasSyncStarted
+    // in tour-gate.tsx; revert both together.
+    setupAuthStore(buildOrgUser());
+    savePath('insights', 'own_data');
+    saveWalkthroughStage('insights', 'own_data_source_next');
+    saveTrackedConnection('insights', 'conn-1');
+    mockApiGet.mockImplementation((path: string) => {
+      if (path === '/api/userpreferences/') {
+        return Promise.resolve({ success: true, res: { trial_walkthrough: {} } });
+      }
+      if (path === '/api/airbyte/v1/connections') {
+        return Promise.resolve([
+          { connectionId: 'conn-1', lock: {}, lastRun: { status: SyncStatus.RUNNING } },
+        ]);
+      }
+      return undefined;
+    });
+
+    renderGate();
+
+    await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('chart_intro'));
+    expect(hasConnectedRealData()).toBe(true);
+  });
+
+  it('waits while the connection exists but no sync has been triggered yet', async () => {
+    // The wizard creates the connection BEFORE kicking off its sync. Advancing on the
+    // connection's mere existence would jump the user past a coachmark still pointing into
+    // the wizard they have not finished.
+    setupAuthStore(buildOrgUser());
+    savePath('insights', 'own_data');
+    saveWalkthroughStage('insights', 'own_data_source_next');
+    saveTrackedConnection('insights', 'conn-1');
+    mockApiGet.mockImplementation((path: string) => {
+      if (path === '/api/userpreferences/') {
+        return Promise.resolve({ success: true, res: { trial_walkthrough: {} } });
+      }
+      if (path === '/api/airbyte/v1/connections') {
+        return Promise.resolve([{ connectionId: 'conn-1', lock: null, lastRun: null }]);
+      }
+      return undefined;
+    });
+
+    renderGate();
+
+    await waitFor(() => expect(useInsightWalkthroughStore.getState().active).toBe(true));
+    expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_ingest');
+    expect(hasConnectedRealData()).toBe(false);
+  });
+
+  it('resumes a sidebar-anchored stage in place, without rewinding the chart flow', async () => {
+    const user = userEvent.setup();
+    setupAuthStore(buildOrgUser());
+    // Chart already built — the nudge points at the Dashboards link, which needs no
+    // navigation. This used to count as "unresumable" and drop through to the fresh-start
+    // branch, which sent a user who had finished their chart back to the start of it.
+    savePath('insights', 'own_data');
+    saveWalkthroughStage('insights', 'chart_dashboard_nudge');
+    markConnectedRealData();
+    renderGate();
+
+    await clickBuildInsight(user);
+
+    expect(useInsightWalkthroughStore.getState().stage).toBe('chart_dashboard_nudge');
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('skips the sample/own-data question once the user already has real data', async () => {
+    const user = userEvent.setup();
+    setupAuthStore(buildOrgUser());
+    // They automated a pipeline (or connected a source some other way), so asking "sample or
+    // your own data?" has no useful branch left — open straight on the chart builder.
+    markConnectedRealData();
+    renderGate();
+
+    await clickBuildInsight(user);
+
+    expect(screen.queryByTestId('get-started-option-sample')).not.toBeInTheDocument();
+    expect(useInsightWalkthroughStore.getState().stage).toBe('chart_intro');
+    expect(useInsightWalkthroughStore.getState().path).toBe('own_data');
+    // No navigation: chart_intro spotlights the sidebar's Charts link, and pushing /charts
+    // would satisfy that stage's own route-advance instantly and skip the beat.
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
   it('re-offers the fork when a path was picked but the flow was skipped (no stage left)', async () => {
     const user = userEvent.setup();
-    savePath('trial-org', 'own_data');
     setupAuthStore(buildOrgUser());
+    savePath('insights', 'own_data');
     renderGate();
 
     await clickBuildInsight(user);
@@ -537,10 +676,10 @@ describe('TourGate — Get Started checklist actions', () => {
 
   it('resumes an interrupted pipeline flow out of the canvas at its table-picking step', async () => {
     const user = userEvent.setup();
-    savePath('trial-org', 'automate_pipeline');
-    // Depends on an open operation panel — pipeline_pick_table is the cold-load entry.
-    saveWalkthroughStage('trial-org', 'pipeline_drop_columns');
     setupAuthStore(buildOrgUser());
+    savePath('automate_pipeline', 'automate_pipeline');
+    // Depends on an open operation panel — pipeline_pick_table is the cold-load entry.
+    saveWalkthroughStage('automate_pipeline', 'pipeline_drop_columns');
     renderGate();
 
     await clickChecklistRow(user, 'automate-pipeline');

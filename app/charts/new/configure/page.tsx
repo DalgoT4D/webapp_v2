@@ -47,8 +47,10 @@ import {
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
-import { useAuthStore } from '@/stores/authStore';
-import { markChartCreated } from '@/components/onboarding/insight-walkthrough-constants';
+import {
+  isStageBefore,
+  markChartCreated,
+} from '@/components/onboarding/insight-walkthrough-constants';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -141,9 +143,6 @@ function ConfigureChartPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { trigger: createChart, isMutating } = useCreateChart();
-  const orgUsers = useAuthStore((s) => s.orgUsers);
-  const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
-  const orgSlug = orgUsers.find((ou) => ou.org.slug === selectedOrgSlug)?.org.slug ?? null;
 
   // ✅ ADD: Drill-up and drill-home handlers for create mode
   const handleDrillUp = useCallback((targetLevel: number) => {
@@ -984,12 +983,26 @@ function ConfigureChartPageContent() {
       toastSuccess.created('Chart');
 
       // Resume-nudge milestone — set regardless of an active coachmark session.
-      if (orgSlug) markChartCreated(orgSlug);
+      markChartCreated();
 
       const walkthrough = useInsightWalkthroughStore.getState();
-      if (walkthrough.active && walkthrough.stage === 'own_data_chart_save') {
-        toastSuccess.generic('🎉 Congratulations! Your First Chart is live');
-        walkthrough.advanceTo('own_data_dashboard_nudge');
+      // Saving the chart is the checkpoint, whatever hints were clicked past on the way here
+      // (the two tab stages are read-this hints a user can skip straight over).
+      if (
+        walkthrough.active &&
+        walkthrough.stage &&
+        !isFromDashboard &&
+        isStageBefore(walkthrough.path, walkthrough.stage, 'chart_dashboard_nudge')
+      ) {
+        // Hand the celebration to the chart's own page rather than showing it here: the user
+        // should see the chart they just built behind the dialog, not the builder they're
+        // leaving. The normal redirect below carries them there.
+        walkthrough.setPendingCelebration('chart');
+        // The next stage's coachmark points at the Dashboards nav item, which would otherwise
+        // appear on the chart page underneath the dialog. Released when it closes, so the
+        // nudge is what the user sees next.
+        walkthrough.setSuppressCoachmark(true);
+        walkthrough.advanceIfBefore('chart_dashboard_nudge');
       }
 
       if (isFromDashboard) {
@@ -1104,10 +1117,11 @@ function ConfigureChartPageContent() {
           <div className="w-[30%] border-r">
             <Tabs defaultValue="configuration" className="h-full">
               <div className="px-4 pt-4">
-                <TabsList className="grid w-full h-11 grid-cols-2">
+                <TabsList className="grid w-full h-11 grid-cols-2" data-testid="chart-config-tabs">
                   <TabsTrigger
                     value="configuration"
                     className="flex items-center justify-center gap-2 text-sm h-full"
+                    data-testid="chart-data-config-tab"
                   >
                     <BarChart3 className="h-4 w-4" />
                     Data Configuration
@@ -1115,6 +1129,7 @@ function ConfigureChartPageContent() {
                   <TabsTrigger
                     value="styling"
                     className="flex items-center justify-center gap-2 text-sm h-full"
+                    data-testid="chart-styling-tab"
                   >
                     <Database className="h-4 w-4" />
                     Chart Styling

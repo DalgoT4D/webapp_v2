@@ -238,7 +238,7 @@ export function KPIPageComponent() {
     globalMutate('/api/kpis/program-tags/');
     // Resume-nudge milestone — set regardless of whether a coachmark session is active,
     // so a returning user's progress is accurate (see flow-resume.ts).
-    if (orgSlug) markKpiCreated(orgSlug);
+    markKpiCreated();
     const walkthrough = useInsightWalkthroughStore.getState();
     // Whatever they skipped on the way here — an optional KPI Type, a hint they clicked past
     // — creating the KPI is the checkpoint, so catch the walkthrough up to it.
