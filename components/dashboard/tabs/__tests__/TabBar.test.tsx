@@ -118,6 +118,7 @@ describe('TabBar', () => {
     render(<TabBar {...defaultProps} isEditMode={true} />);
     const source = screen.getByTestId('tab-item-tab-1');
     expect(source).toHaveAttribute('aria-roledescription', 'reorderable dashboard tab');
+    expect(source).toHaveAttribute('aria-keyshortcuts', 'Alt+ArrowLeft Alt+ArrowRight');
     expect(source).toHaveClass('cursor-grab');
     expect(source).toHaveAttribute('aria-disabled', 'false');
     expect(screen.getByTestId('tab-title-tab-1')).toHaveAttribute('aria-label', 'Rename Tab 1 tab');
@@ -135,5 +136,6 @@ describe('TabBar', () => {
   it('disables tab reordering during a cross-tab widget drag', () => {
     render(<TabBar {...defaultProps} isEditMode={true} isWidgetDragging />);
     expect(screen.getByTestId('tab-item-tab-1')).not.toHaveAttribute('aria-roledescription');
+    expect(screen.getByTestId('tab-item-tab-1')).not.toHaveAttribute('aria-keyshortcuts');
   });
 });

@@ -1,11 +1,17 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
   DASHBOARD_RICH_TEXT_FLUSH_EVENT,
   DASHBOARD_WIDGET_DRAG_START_EVENT,
   UnifiedTextElement,
   type UnifiedTextConfig,
 } from '../text-element-unified';
+
+jest.mock('@/lib/analytics', () => ({ trackEvent: jest.fn() }));
+
+const mockTrackEvent = trackEvent as jest.MockedFunction<typeof trackEvent>;
 
 const config: UnifiedTextConfig = {
   content: 'Original',
@@ -28,6 +34,41 @@ describe('UnifiedTextElement', () => {
     });
     Range.prototype.getBoundingClientRect = jest.fn(() => new DOMRect());
     document.elementFromPoint = jest.fn(() => null);
+  });
+
+  beforeEach(() => {
+    mockTrackEvent.mockClear();
+  });
+
+  it('tracks editing sessions and successful formatting actions', async () => {
+    const user = userEvent.setup();
+    render(<UnifiedTextElement config={config} onUpdate={jest.fn()} isEditMode />);
+
+    const editor = await screen.findByTestId('dashboard-rich-text-editor');
+    fireEvent.click(editor);
+    await waitFor(() => expect(editor).toHaveAttribute('contenteditable', 'true'));
+    expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_EDIT_STARTED);
+
+    await user.click(screen.getByRole('button', { name: 'Heading 1' }));
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_FORMAT_APPLIED,
+      { format_type: 'heading' }
+    );
+  });
+
+  it('ignores malformed dashboard flush events without ending the edit session', async () => {
+    render(
+      <UnifiedTextElement config={config} componentId="text-1" onUpdate={jest.fn()} isEditMode />
+    );
+
+    const editor = await screen.findByTestId('dashboard-rich-text-editor');
+    fireEvent.click(editor);
+    await waitFor(() => expect(editor).toHaveAttribute('contenteditable', 'true'));
+
+    expect(() =>
+      act(() => document.dispatchEvent(new CustomEvent(DASHBOARD_RICH_TEXT_FLUSH_EVENT)))
+    ).not.toThrow();
+    expect(editor).toHaveAttribute('contenteditable', 'true');
   });
 
   it('flushes active rich-text changes before its widget starts dragging', async () => {
@@ -53,7 +94,7 @@ describe('UnifiedTextElement', () => {
     await waitFor(() =>
       expect(onUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
-          content: expect.not.stringMatching(/^Original$/),
+          content: expect.stringContaining('updated'),
           richText: expect.objectContaining({ type: 'doc' }),
         })
       )
@@ -154,6 +195,33 @@ describe('UnifiedTextElement', () => {
     expect(screen.getByText('Text color')).toBeInTheDocument();
     expect(screen.getByLabelText('Custom text color').closest('div')).toHaveClass('w-40');
     expect(screen.getAllByRole('button', { name: /Set text color/ })).toHaveLength(8);
+  });
+
+  it('shows the font-size placeholder when the selected size is not an exact option', async () => {
+    const fractionalSizeConfig: UnifiedTextConfig = {
+      ...config,
+      richText: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: 'Fractional size',
+                marks: [{ type: 'textStyle', attrs: { fontSize: '12.5px' } }],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    render(<UnifiedTextElement config={fractionalSizeConfig} onUpdate={jest.fn()} isEditMode />);
+
+    const editor = await screen.findByTestId('dashboard-rich-text-editor');
+    fireEvent.click(editor);
+
+    expect(await screen.findByTestId('rich-text-font-size')).toHaveValue('');
   });
 
   it('can turn bold off for text typed after an existing bold run', async () => {

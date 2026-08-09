@@ -12,8 +12,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { calculateTextDimensions } from '@/lib/chart-size-constraints';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
   legacyConfigToRichText,
+  MAX_RICH_TEXT_FONT_SIZE,
+  MIN_RICH_TEXT_FONT_SIZE,
   richTextDocumentsEqual,
   sanitizeRichTextDocument,
   type UnifiedTextConfig,
@@ -35,7 +39,16 @@ export interface RichTextFlushEventDetail {
   updates: Array<{ componentId: string; config: UnifiedTextConfig }>;
 }
 
-const FONT_SIZES = Array.from({ length: 23 }, (_, index) => 10 + index);
+const FONT_SIZES = Array.from(
+  { length: MAX_RICH_TEXT_FONT_SIZE - MIN_RICH_TEXT_FONT_SIZE + 1 },
+  (_, index) => MIN_RICH_TEXT_FONT_SIZE + index
+);
+// Keep the floating toolbar usable on narrow screens and clear of viewport edges.
+const TOOLBAR_MIN_WIDTH_PX = 320;
+const TOOLBAR_MAX_WIDTH_PX = 620;
+const TOOLBAR_DEFAULT_WIDTH_PX = 560;
+const TOOLBAR_HEIGHT_PX = 56;
+const TOOLBAR_VIEWPORT_GUTTER_PX = 8;
 const COLOR_PRESETS = [
   '#000000',
   '#374151',
@@ -48,6 +61,26 @@ const COLOR_PRESETS = [
 ];
 
 type SelectionMarkState = 'active' | 'mixed' | 'inactive';
+type RichTextFormatType =
+  | 'heading'
+  | 'paragraph'
+  | 'font_size'
+  | 'bold'
+  | 'italic'
+  | 'underline'
+  | 'alignment'
+  | 'color';
+
+interface TextStyleAttributes {
+  color?: string;
+  fontSize?: string;
+}
+
+function getFontSizeSelectValue(fontSize?: string): number | '' {
+  if (!fontSize?.endsWith('px')) return '';
+  const parsed = Number(fontSize.slice(0, -2));
+  return FONT_SIZES.includes(parsed) && `${parsed}px` === fontSize ? parsed : '';
+}
 
 function getSelectionMarkState(
   editor: NonNullable<ReturnType<typeof useEditor>>,
@@ -73,7 +106,7 @@ function getSelectionMarkState(
 function setHeadingLevel(
   editor: NonNullable<ReturnType<typeof useEditor>>,
   level: 1 | 2 | 3
-): void {
+): boolean {
   const { from, to } = editor.state.selection;
   const $from = editor.state.doc.resolve(from);
   const $to = editor.state.doc.resolve(to);
@@ -84,7 +117,7 @@ function setHeadingLevel(
   const blockFrom = $from.start($from.depth);
   const blockTo = $to.end($to.depth);
 
-  editor
+  return editor
     .chain()
     .focus()
     .setTextSelection({ from: blockFrom, to: blockTo })
@@ -132,11 +165,18 @@ export function UnifiedTextElement({
 }: UnifiedTextElementProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const [toolbarPosition, setToolbarPosition] = useState({ top: 8, left: 8, width: 560 });
+  const [toolbarPosition, setToolbarPosition] = useState({
+    top: TOOLBAR_VIEWPORT_GUTTER_PX,
+    left: TOOLBAR_VIEWPORT_GUTTER_PX,
+    width: TOOLBAR_DEFAULT_WIDTH_PX,
+  });
   const containerRef = useRef<HTMLDivElement>(null);
   const configRef = useRef(config);
   const editingSessionRef = useRef(false);
-  configRef.current = config;
+
+  useEffect(() => {
+    configRef.current = config;
+  }, [config]);
 
   const initialDocument = useMemo(
     () => sanitizeRichTextDocument(config.richText || legacyConfigToRichText(config)),
@@ -161,29 +201,52 @@ export function UnifiedTextElement({
 
   const toolbarState = useEditorState({
     editor,
-    selector: ({ editor: currentEditor }) => ({
-      bold: currentEditor ? getSelectionMarkState(currentEditor, 'bold') : 'inactive',
-      italic: currentEditor ? getSelectionMarkState(currentEditor, 'italic') : 'inactive',
-      underline: currentEditor ? getSelectionMarkState(currentEditor, 'underline') : 'inactive',
-      headingLevel: ([1, 2, 3] as const).find((level) =>
-        currentEditor?.isActive('heading', { level })
-      ),
-      paragraph: currentEditor?.isActive('paragraph') || false,
-      alignment:
-        (['left', 'center', 'right'] as const).find((alignment) =>
-          currentEditor?.isActive({ textAlign: alignment })
-        ) || 'left',
-      color: currentEditor?.getAttributes('textStyle').color || '#000000',
-      fontSize: currentEditor?.getAttributes('textStyle').fontSize || '',
-    }),
+    selector: ({ editor: currentEditor }) => {
+      const textStyle = currentEditor?.getAttributes('textStyle') as
+        | TextStyleAttributes
+        | undefined;
+      return {
+        bold: currentEditor ? getSelectionMarkState(currentEditor, 'bold') : 'inactive',
+        italic: currentEditor ? getSelectionMarkState(currentEditor, 'italic') : 'inactive',
+        underline: currentEditor ? getSelectionMarkState(currentEditor, 'underline') : 'inactive',
+        headingLevel: ([1, 2, 3] as const).find((level) =>
+          currentEditor?.isActive('heading', { level })
+        ),
+        paragraph: currentEditor?.isActive('paragraph') || false,
+        alignment:
+          (['left', 'center', 'right'] as const).find((alignment) =>
+            currentEditor?.isActive({ textAlign: alignment })
+          ) || 'left',
+        color: textStyle?.color || '#000000',
+        fontSize: textStyle?.fontSize || '',
+      };
+    },
   });
+
+  const applyFormatting = useCallback((formatType: RichTextFormatType, command: () => boolean) => {
+    if (command()) {
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_FORMAT_APPLIED, {
+        format_type: formatType,
+      });
+    }
+  }, []);
 
   const calculateToolbarPosition = useCallback(() => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const width = Math.min(620, Math.max(320, rect.width));
-    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
-    const top = rect.top > 64 ? rect.top - 56 : Math.min(window.innerHeight - 56, rect.bottom + 8);
+    const width = Math.min(TOOLBAR_MAX_WIDTH_PX, Math.max(TOOLBAR_MIN_WIDTH_PX, rect.width));
+    const left = Math.max(
+      TOOLBAR_VIEWPORT_GUTTER_PX,
+      Math.min(rect.left, window.innerWidth - width - TOOLBAR_VIEWPORT_GUTTER_PX)
+    );
+    const toolbarClearance = TOOLBAR_HEIGHT_PX + TOOLBAR_VIEWPORT_GUTTER_PX;
+    const top =
+      rect.top > toolbarClearance
+        ? rect.top - TOOLBAR_HEIGHT_PX
+        : Math.min(
+            window.innerHeight - TOOLBAR_HEIGHT_PX,
+            rect.bottom + TOOLBAR_VIEWPORT_GUTTER_PX
+          );
     setToolbarPosition({ top, left, width });
   }, []);
 
@@ -241,8 +304,9 @@ export function UnifiedTextElement({
     editor.setEditable(true);
     setIsEditing(true);
     editor.commands.focus('end');
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_EDIT_STARTED);
     requestAnimationFrame(calculateToolbarPosition);
-  }, [calculateToolbarPosition, editor, isEditMode, isEditing]);
+  }, [calculateToolbarPosition, editor, isEditMode]);
 
   useEffect(() => {
     if (!editor || isEditing) return;
@@ -320,9 +384,11 @@ export function UnifiedTextElement({
   useEffect(() => {
     if (!componentId || !isEditing) return undefined;
     const handleFlush = (event: Event) => {
+      const detail = (event as CustomEvent<Partial<RichTextFlushEventDetail>>).detail;
+      if (!Array.isArray(detail?.updates)) return;
       const nextConfig = commit(false);
       if (nextConfig) {
-        (event as CustomEvent<RichTextFlushEventDetail>).detail.updates.push({
+        detail.updates.push({
           componentId,
           config: nextConfig,
         });
@@ -354,7 +420,7 @@ export function UnifiedTextElement({
               variant={toolbarState?.headingLevel === level ? 'default' : 'ghost'}
               className="h-7 px-2 text-xs"
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => setHeadingLevel(editor, level)}
+              onClick={() => applyFormatting('heading', () => setHeadingLevel(editor, level))}
               aria-label={`Heading ${level}`}
               data-testid={`rich-text-heading-${level}`}
             >
@@ -367,7 +433,9 @@ export function UnifiedTextElement({
             variant={toolbarState?.paragraph ? 'default' : 'ghost'}
             className="h-7 px-2 text-xs"
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => editor.chain().focus().setParagraph().run()}
+            onClick={() =>
+              applyFormatting('paragraph', () => editor.chain().focus().setParagraph().run())
+            }
             aria-label="Normal text"
             data-testid="rich-text-paragraph"
           >
@@ -375,10 +443,12 @@ export function UnifiedTextElement({
           </Button>
           <span className="mx-1 h-5 w-px bg-gray-200" />
           <select
-            value={toolbarState?.fontSize ? Number.parseInt(toolbarState.fontSize, 10) : ''}
+            value={getFontSizeSelectValue(toolbarState?.fontSize)}
             onMouseDown={(event) => event.stopPropagation()}
             onChange={(event) =>
-              editor.chain().focus().setFontSize(`${event.target.value}px`).run()
+              applyFormatting('font_size', () =>
+                editor.chain().focus().setFontSize(`${event.target.value}px`).run()
+              )
             }
             className="h-7 rounded border bg-white px-1 text-xs"
             aria-label="Font size"
@@ -398,19 +468,22 @@ export function UnifiedTextElement({
               label: 'Bold',
               active: toolbarState?.bold,
               icon: Bold,
-              command: () => editor.chain().focus().toggleBold().run(),
+              command: () =>
+                applyFormatting('bold', () => editor.chain().focus().toggleBold().run()),
             },
             {
               label: 'Italic',
               active: toolbarState?.italic,
               icon: Italic,
-              command: () => editor.chain().focus().toggleItalic().run(),
+              command: () =>
+                applyFormatting('italic', () => editor.chain().focus().toggleItalic().run()),
             },
             {
               label: 'Underline',
               active: toolbarState?.underline,
               icon: Underline,
-              command: () => editor.chain().focus().toggleUnderline().run(),
+              command: () =>
+                applyFormatting('underline', () => editor.chain().focus().toggleUnderline().run()),
             },
           ].map(({ label, active, icon: Icon, command }) => (
             <Button
@@ -441,7 +514,9 @@ export function UnifiedTextElement({
               variant={toolbarState?.alignment === value ? 'default' : 'ghost'}
               className="h-7 w-7 p-0"
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => editor.chain().focus().setTextAlign(value).run()}
+              onClick={() =>
+                applyFormatting('alignment', () => editor.chain().focus().setTextAlign(value).run())
+              }
               aria-label={label}
               data-testid={`rich-text-align-${value}`}
             >
@@ -480,7 +555,9 @@ export function UnifiedTextElement({
                       style={{ backgroundColor: color }}
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => {
-                        editor.chain().focus().setColor(color).run();
+                        applyFormatting('color', () =>
+                          editor.chain().focus().setColor(color).run()
+                        );
                         setShowColorPicker(false);
                       }}
                       aria-label={`Set text color ${color}`}
@@ -494,7 +571,9 @@ export function UnifiedTextElement({
                     type="color"
                     value={toolbarState?.color || '#000000'}
                     onChange={(event) => {
-                      editor.chain().focus().setColor(event.target.value).run();
+                      applyFormatting('color', () =>
+                        editor.chain().focus().setColor(event.target.value).run()
+                      );
                       setShowColorPicker(false);
                     }}
                     className="h-7 w-10 cursor-pointer overflow-hidden rounded border bg-white p-0"

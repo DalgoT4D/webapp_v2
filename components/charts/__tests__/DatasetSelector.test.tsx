@@ -66,6 +66,7 @@ describe('DatasetSelector', () => {
       expect(
         screen.getByText('Set up a warehouse before selecting a dataset.')
       ).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText('Search datasets...')).not.toBeInTheDocument();
     });
   });
 

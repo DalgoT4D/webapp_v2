@@ -1,4 +1,8 @@
-import { legacyConfigToRichText, sanitizeRichTextDocument } from '../rich-text-config';
+import {
+  legacyConfigToRichText,
+  richTextDocumentsEqual,
+  sanitizeRichTextDocument,
+} from '../rich-text-config';
 
 const legacyConfig = {
   content: 'Hello\nworld',
@@ -31,6 +35,21 @@ describe('dashboard rich-text compatibility', () => {
           ]),
         },
       ],
+    });
+  });
+
+  it('converts a legacy heading without an explicit level to H2', () => {
+    const document = legacyConfigToRichText({
+      ...legacyConfig,
+      content: 'Legacy heading',
+      type: 'heading',
+      headingLevel: undefined,
+    });
+
+    expect(document.content?.[0]).toMatchObject({
+      type: 'heading',
+      attrs: { level: 2, textAlign: 'center' },
+      content: [expect.objectContaining({ text: 'Legacy heading' })],
     });
   });
 
@@ -117,6 +136,15 @@ describe('dashboard rich-text compatibility', () => {
       type: 'doc',
       content: [{ type: 'paragraph' }],
     });
+  });
+
+  it('compares equivalent documents structurally instead of by object key order', () => {
+    expect(
+      richTextDocumentsEqual(
+        { type: 'doc', content: [{ type: 'paragraph', attrs: { textAlign: 'left' } }] },
+        { content: [{ attrs: { textAlign: 'left' }, type: 'paragraph' }], type: 'doc' }
+      )
+    ).toBe(true);
   });
 
   it('normalizes browser-style pasted colors without accepting transparency', () => {

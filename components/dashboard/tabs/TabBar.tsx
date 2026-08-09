@@ -212,6 +212,7 @@ const TabItem = memo(function TabItem({
       role="tab"
       aria-selected={isActive}
       aria-roledescription={canReorder ? 'reorderable dashboard tab' : undefined}
+      aria-keyshortcuts={canReorder ? 'Alt+ArrowLeft Alt+ArrowRight' : undefined}
       tabIndex={0}
     >
       {reorderPosition && (

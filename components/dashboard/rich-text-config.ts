@@ -17,6 +17,8 @@ export interface UnifiedTextConfig {
 
 const TEXT_ALIGNMENTS = new Set(['left', 'center', 'right']);
 const ALLOWED_MARKS = new Set(['bold', 'italic', 'underline', 'textStyle']);
+export const MIN_RICH_TEXT_FONT_SIZE = 10;
+export const MAX_RICH_TEXT_FONT_SIZE = 32;
 type RichTextMark = NonNullable<JSONContent['marks']>[number];
 
 function legacyTextMarks(config: UnifiedTextConfig): RichTextMark[] {
@@ -73,7 +75,7 @@ function sanitizeFontSize(value: unknown): string | undefined {
   if (typeof value !== 'string' || !/^\d+(?:\.\d+)?px$/.test(value)) return undefined;
   const parsed = Number.parseFloat(value);
   if (Number.isNaN(parsed)) return undefined;
-  return `${Math.max(10, Math.min(32, parsed))}px`;
+  return `${Math.max(MIN_RICH_TEXT_FONT_SIZE, Math.min(MAX_RICH_TEXT_FONT_SIZE, parsed))}px`;
 }
 
 export function sanitizeRichTextDocument(value: JSONContent): JSONContent {
@@ -142,5 +144,29 @@ export function sanitizeRichTextDocument(value: JSONContent): JSONContent {
 }
 
 export function richTextDocumentsEqual(left: JSONContent, right: JSONContent): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+  const compare = (leftValue: unknown, rightValue: unknown): boolean => {
+    if (leftValue === rightValue) return true;
+    if (leftValue === null || rightValue === null) return false;
+    if (typeof leftValue !== 'object' || typeof rightValue !== 'object') return false;
+    if (Array.isArray(leftValue) || Array.isArray(rightValue)) {
+      if (!Array.isArray(leftValue) || !Array.isArray(rightValue)) return false;
+      return (
+        leftValue.length === rightValue.length &&
+        leftValue.every((entry, index) => compare(entry, rightValue[index]))
+      );
+    }
+
+    const leftRecord = leftValue as Record<string, unknown>;
+    const rightRecord = rightValue as Record<string, unknown>;
+    const leftKeys = Object.keys(leftRecord);
+    const rightKeys = Object.keys(rightRecord);
+    return (
+      leftKeys.length === rightKeys.length &&
+      leftKeys.every(
+        (key) => Object.hasOwn(rightRecord, key) && compare(leftRecord[key], rightRecord[key])
+      )
+    );
+  };
+
+  return compare(left, right);
 }

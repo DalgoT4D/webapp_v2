@@ -326,6 +326,10 @@ interface DashboardEditorState {
   activeTabId: string;
 }
 
+interface DashboardSavePayloadOverrides {
+  filter_layout?: 'vertical' | 'horizontal';
+}
+
 interface CrossTabDragSession {
   componentId: string;
   componentType: DashboardComponentType;
@@ -613,7 +617,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Ref to always access the latest editor state in pointer/grid callbacks.
     const stateRef = useRef(state);
-    stateRef.current = state;
+    useEffect(() => {
+      stateRef.current = state;
+    }, [state]);
 
     const flushActiveRichText = useCallback((): DashboardEditorState => {
       const detail: RichTextFlushEventDetail = { updates: [] };
@@ -984,7 +990,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     };
 
     // Save dashboard
-    const saveDashboard = async (overrides: any = {}, flushRichText = true) => {
+    const saveDashboard = async (
+      overrides: DashboardSavePayloadOverrides = {},
+      flushRichText = true
+    ) => {
       if (!dashboardId) return;
 
       const editorState = flushRichText ? flushActiveRichText() : stateRef.current;
@@ -1254,6 +1263,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         crossTabHoverTimerRef.current = null;
       }
     }, []);
+
+    // Prevent a pending tab-hover handoff from firing after the builder unmounts.
+    useEffect(() => () => clearCrossTabHoverTimer(), [clearCrossTabHoverTimer]);
 
     const publishCrossTabDrag = useCallback((session: CrossTabDragSession | null) => {
       crossTabDragRef.current = session;
