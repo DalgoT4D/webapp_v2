@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
-import { SyncMode, DestinationSyncMode } from '@/constants/connections';
+import { SyncMode, DestinationSyncMode, CAST_TYPE_OPTIONS } from '@/constants/connections';
 import type { SourceStream } from '@/types/connections';
 import type { ConnectionConceptId } from './constants';
 
@@ -45,6 +45,10 @@ interface StreamConfigTableProps {
   onUpdateStreamPrimaryKey: (streamName: string, primaryKey: string[]) => void;
   onToggleStreamExpand: (streamName: string) => void;
   onToggleColumn: (streamName: string, columnName: string) => void;
+  onUpdateCastType: (streamName: string, columnName: string, castType: string | null) => void;
+  // Show the "Cast to" column in the expanded column view. Enabled only for
+  // sources in CAST_SUPPORTED_SOURCES (currently Google Sheets only).
+  showCastColumn?: boolean;
   // Label used for the stream noun in headings/columns. Defaults to "Tables".
   streamNoun?: string;
   // Hide the Incremental column entirely (some sources never support it).
@@ -77,6 +81,8 @@ export function StreamConfigTable({
   onUpdateStreamPrimaryKey,
   onToggleStreamExpand,
   onToggleColumn,
+  onUpdateCastType,
+  showCastColumn = false,
   streamNoun = 'Tables',
   showIncremental = true,
   allowedDestModes = [
@@ -490,6 +496,22 @@ export function StreamConfigTable({
                       <tr key={`cols-${stream.name}`} className="bg-muted/30">
                         <td colSpan={colCount} className="px-4 py-2">
                           <table className="w-full">
+                            <thead>
+                              <tr className="border-b border-muted">
+                                <th className="py-1 px-2 w-10" />
+                                <th className="py-1 px-2 text-left text-xs font-medium text-muted-foreground">
+                                  Column
+                                </th>
+                                <th className="py-1 px-2 text-right text-xs font-medium text-muted-foreground">
+                                  Type
+                                </th>
+                                {showCastColumn && (
+                                  <th className="py-1 px-2 text-right text-xs font-medium text-muted-foreground w-36">
+                                    Cast to
+                                  </th>
+                                )}
+                              </tr>
+                            </thead>
                             <tbody>
                               {stream.columns.map((col) => {
                                 const isCursorField = stream.cursorField === col.name;
@@ -526,6 +548,33 @@ export function StreamConfigTable({
                                         {col.data_type}
                                       </span>
                                     </td>
+                                    {showCastColumn && (
+                                      <td className="py-1.5 px-2 text-right w-36">
+                                        <Select
+                                          value={col.cast_to_type ?? undefined}
+                                          onValueChange={(v) =>
+                                            onUpdateCastType(
+                                              stream.name,
+                                              col.name,
+                                              v === '__none__' ? null : v
+                                            )
+                                          }
+                                          disabled={disabled || isSaving || !col.selected}
+                                        >
+                                          <SelectTrigger className="h-6 text-xs w-full">
+                                            <SelectValue placeholder="—" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="__none__">—</SelectItem>
+                                            {CAST_TYPE_OPTIONS.map((opt) => (
+                                              <SelectItem key={opt.value} value={opt.value}>
+                                                {opt.label}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </td>
+                                    )}
                                   </tr>
                                 );
                               })}
