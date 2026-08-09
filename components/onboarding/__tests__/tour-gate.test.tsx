@@ -62,6 +62,16 @@ import { useAuthStore, type OrgUser } from '@/stores/authStore';
 
 // ============ Helpers ============
 
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * A plan end_date leaving exactly `daysLeft` whole days on the clock. Half a day is added so
+ * the window lands mid-day rather than on the boundary, where a floor is a tick from flipping.
+ */
+function planEndDateWithDaysLeft(daysLeft: number): string {
+  return new Date(Date.now() + (daysLeft + 0.5) * MS_PER_DAY).toISOString();
+}
+
 function buildOrgUser(overrides: Partial<OrgUser> = {}): OrgUser {
   return {
     user_id: 1,
@@ -72,6 +82,10 @@ function buildOrgUser(overrides: Partial<OrgUser> = {}): OrgUser {
     permissions: [],
     has_seen_rbac_notice: true,
     subscription_plan: 'Free Trial',
+    // Mid-trial by default, so the intent modal isn't standing down for a lifecycle nudge in
+    // every unrelated test. Individual tests override it.
+    plan_start_date: new Date(Date.now() - 4 * MS_PER_DAY).toISOString(),
+    plan_end_date: planEndDateWithDaysLeft(10),
     ...overrides,
   };
 }
@@ -271,12 +285,8 @@ describe('TourGate', () => {
 
   it('stands down when a trial lifecycle nudge is due the same session', async () => {
     // Both are unrouted auto-opening dialogs, and NudgeCenter mounts app-wide — without the
-    // isTrialDayNudgeDue check they stack on /impact on days 7, 13 and 14.
-    const created = new Date();
-    created.setDate(created.getDate() - 13);
-    setupAuthStore(
-      buildOrgUser({ org: { ...buildOrgUser().org, created_at: created.toISOString() } })
-    );
+    // isTrialDayNudgeDue check they stack on /impact on the nudge days (7 / 1 / 0 days left).
+    setupAuthStore(buildOrgUser({ plan_end_date: planEndDateWithDaysLeft(1) }));
     renderGate();
 
     expect(await screen.findByTestId('getting-started-widget')).toBeInTheDocument();
@@ -284,11 +294,7 @@ describe('TourGate', () => {
   });
 
   it('opens normally on a day with no trial lifecycle nudge', async () => {
-    const created = new Date();
-    created.setDate(created.getDate() - 3);
-    setupAuthStore(
-      buildOrgUser({ org: { ...buildOrgUser().org, created_at: created.toISOString() } })
-    );
+    setupAuthStore(buildOrgUser({ plan_end_date: planEndDateWithDaysLeft(11) }));
     renderGate();
 
     expect(await screen.findByTestId('tour-intent-modal')).toBeInTheDocument();

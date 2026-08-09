@@ -34,11 +34,16 @@ jest.mock('@/stores/authStore', () => ({
 
 const ORG_PLAN_URL = '/api/orgpreferences/org-plan';
 
-/** created_at that leaves exactly `days` whole days on the clock. */
-function createdAtWithDaysLeft(days: number): string {
-  const created = new Date();
-  created.setDate(created.getDate() - (TRIAL_PERIOD_DAYS - days));
-  return created.toISOString();
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * A plan end_date that leaves exactly `days` whole days on the clock.
+ *
+ * Half a day is added so the window lands mid-day rather than exactly on the boundary, where a
+ * floor is one tick away from flipping. Negative values put the end date in the past.
+ */
+function planEndDateWithDaysLeft(days: number): string {
+  return new Date(Date.now() + (days + 0.5) * MS_PER_DAY).toISOString();
 }
 
 function setOrgUser({
@@ -47,7 +52,11 @@ function setOrgUser({
 }: { plan?: string; daysLeft?: number } = {}) {
   mockOrgUser = {
     subscription_plan: plan,
-    org: { slug: 'trial-org', created_at: createdAtWithDaysLeft(daysLeft) },
+    org: { slug: 'trial-org' },
+    plan_start_date: new Date(
+      Date.now() - (TRIAL_PERIOD_DAYS - daysLeft) * MS_PER_DAY
+    ).toISOString(),
+    plan_end_date: planEndDateWithDaysLeft(daysLeft),
   };
 }
 
@@ -103,6 +112,24 @@ describe('TrialBadge rendering', () => {
     renderBadge();
     await screen.findByTestId('trial-subscribe-cta');
     expect(screen.getByTestId('trial-days-badge')).toHaveTextContent('Last day today');
+  });
+
+  it('distinguishes an already-expired trial from the last day', async () => {
+    setOrgUser({ daysLeft: -3 });
+    renderBadge();
+    await screen.findByTestId('trial-subscribe-cta');
+    // The reaper runs on a schedule, so a trial can sit past its end_date for a while. Saying
+    // "Last day today" then would be a lie the old created_at math told, because it clamped.
+    expect(screen.getByTestId('trial-days-badge')).toHaveTextContent('Trial ended');
+  });
+
+  it('renders nothing when the org has no plan window at all', () => {
+    mockOrgUser = { subscription_plan: FREE_TRIAL_PLAN_NAME, org: { slug: 'trial-org' } };
+
+    renderBadge();
+
+    expect(screen.queryByTestId('trial-days-badge')).not.toBeInTheDocument();
+    expect(mockApiGet).not.toHaveBeenCalled();
   });
 
   it('hides the CTA from users without the upgrade permission', async () => {

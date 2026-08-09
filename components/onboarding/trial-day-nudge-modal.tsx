@@ -1,15 +1,19 @@
 'use client';
 
 /**
- * Trial lifecycle nudges — fire on an exact elapsed day of the 14-day trial (see
+ * Trial lifecycle nudges — fire on an exact number of days REMAINING in the trial (see
  * TRIAL_NUDGE_DAYS), regardless of onboarding-flow progress. Mounted via NudgeCenter.
  *
- * Day 7 is the halfway "let's get your data flowing" prompt. Days 13 and 14 — the second-last
- * and last days — both show the "almost over" upgrade modal, deliberately as two separate
- * nudges: dismissal is keyed per day, so closing it on 13 still lets the final-day one land.
+ * 7 days left is the halfway "let's get your data flowing" prompt. 1 and 0 days left — the
+ * second-last and last days — both show the "almost over" upgrade modal, deliberately as two
+ * separate nudges: dismissal is keyed per day, so closing it with 1 day left still lets the
+ * final-day one land.
  *
- * Dismissing is permanent (localStorage) per org and per day — unlike the flow-resume nudge,
- * this isn't meant to nag every session, just to land once on that specific day.
+ * Every day count comes from the org plan's own end_date (currentuserv2 `plan_end_date`), the
+ * same date the backend's lifecycle emails and expired-trial reaper work from.
+ *
+ * Dismissing is per session, per org and per day — unlike the flow-resume nudge, this isn't
+ * meant to nag every session, just to land once on that specific day.
  */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -18,10 +22,9 @@ import { useAuthStore } from '@/stores/authStore';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import {
   FREE_TRIAL_PLAN_NAME,
-  TRIAL_PERIOD_DAYS,
   TRIAL_NUDGE_DAYS,
   type TrialNudgeDay,
-  trialDaysElapsed,
+  trialDaysRemaining,
   markTrialDayNudgeDismissed,
   hasTrialDayNudgeDismissed,
 } from '@/constants/trial';
@@ -35,21 +38,24 @@ export function TrialDayNudgeModal() {
   const orgUser = getCurrentOrgUser();
   const orgSlug =
     orgUser?.subscription_plan === FREE_TRIAL_PLAN_NAME ? (orgUser.org?.slug ?? null) : null;
-  const createdAt = orgUser?.org?.created_at ?? null;
+  const planEndDate = orgUser?.plan_end_date ?? null;
   // Starts null so nothing flashes open before this effect can check sessionStorage — a
   // browser-only API, unavailable during server render.
   const [day, setDay] = useState<TrialNudgeDay | null>(null);
 
   useEffect(() => {
-    if (!orgSlug || !createdAt) return;
-    // TRIAL_NUDGE_DAYS counts days ELAPSED since signup, not days remaining — 7 of 14 is the
-    // halfway nudge, 13 and 14 are the last two days.
-    const elapsedDay = trialDaysElapsed(createdAt);
-    const candidate = TRIAL_NUDGE_DAYS.find((d) => d === elapsedDay);
-    setDay(candidate && !hasTrialDayNudgeDismissed(orgSlug, candidate) ? candidate : null);
-  }, [orgSlug, createdAt]);
+    if (!orgSlug || !planEndDate) return;
+    // TRIAL_NUDGE_DAYS counts days REMAINING, matching what the copy claims: 7 days left is the
+    // halfway nudge, 1 and 0 are the last two days. `trialDaysRemaining` is unclamped, so an
+    // expired trial goes negative and matches nothing rather than sticking on the day-0 nudge.
+    const daysLeft = trialDaysRemaining(planEndDate);
+    const candidate = TRIAL_NUDGE_DAYS.find((d) => d === daysLeft);
+    setDay(
+      candidate !== undefined && !hasTrialDayNudgeDismissed(orgSlug, candidate) ? candidate : null
+    );
+  }, [orgSlug, planEndDate]);
 
-  if (!day || !orgSlug || !createdAt) return null;
+  if (day === null || !orgSlug || !planEndDate) return null;
 
   // Closing is the ONLY thing that suppresses this for the session — a reload before closing
   // deliberately brings it back, because the user hasn't acknowledged it yet.
@@ -72,15 +78,16 @@ export function TrialDayNudgeModal() {
           router.push('/kpis?create=true');
         }}
         imageSrc={ILLUSTRATION_SRC}
-        testId="trial-day7-nudge-modal"
+        testId="trial-nudge-7d-modal"
       />
     );
   }
 
-  // Days 13 and 14 share this modal — the deletion date is what changes meaning between them
+  // 1 and 0 days left share this modal — the deletion date is what changes meaning between them
   // (tomorrow vs today), and the date is spelled out rather than described, so one copy holds.
-  const expiry = new Date(createdAt);
-  expiry.setDate(expiry.getDate() + TRIAL_PERIOD_DAYS);
+  // It is the plan's real end_date, not an arithmetic guess: this is the one line of copy that
+  // makes the user a promise about when their data disappears.
+  const expiry = new Date(planEndDate);
 
   return (
     <TwoPaneNudgeDialog
@@ -93,7 +100,7 @@ export function TrialDayNudgeModal() {
         router.push('/settings/billing');
       }}
       imageSrc={ILLUSTRATION_SRC}
-      testId={`trial-day${day}-nudge-modal`}
+      testId={`trial-nudge-${day}d-modal`}
     />
   );
 }

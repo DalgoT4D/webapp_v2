@@ -20,22 +20,22 @@ export function NudgeCenter() {
 
   const orgSlug =
     orgUser?.subscription_plan === FREE_TRIAL_PLAN_NAME ? (orgUser.org?.slug ?? null) : null;
-  const createdAt = orgUser?.org?.created_at ?? null;
+  const planEndDate = orgUser?.plan_end_date ?? null;
 
   // Starts false so this never flashes a priority decision made before hydration —
   // hasTrialDayNudgeDismissed reads sessionStorage, unavailable during server render.
   const [dayNudgeEligible, setDayNudgeEligible] = useState(false);
 
   useEffect(() => {
-    if (!orgSlug || !createdAt) {
+    if (!orgSlug || !planEndDate) {
       setDayNudgeEligible(false);
       return;
     }
     // Same predicate the modal itself applies, and the same one TourGate stands down for
     // (see isTrialDayNudgeDue) — if these disagreed, the modal would mount and render
     // nothing, or two dialogs would open at once.
-    setDayNudgeEligible(isTrialDayNudgeDue(orgSlug, createdAt));
-  }, [orgSlug, createdAt]);
+    setDayNudgeEligible(isTrialDayNudgeDue(orgSlug, planEndDate));
+  }, [orgSlug, planEndDate]);
 
   if (dayNudgeEligible) return <TrialDayNudgeModal />;
   return null;

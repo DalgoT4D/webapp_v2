@@ -1,56 +1,62 @@
 // Free trial onboarding constants — signup → activate → live progress → auto-login
 
-// Free-trial length in days. Drives the header "N days remaining" badge, computed from the
-// org's created_at. Must match the backend reaper that deletes trial orgs after this many days.
+/**
+ * Default free-trial length in days, for copy and for tests that need a realistic window.
+ *
+ * NOT a source of truth for any countdown. Every trial window comes from the org's plan dates
+ * (`OrgPlans.start_date` / `end_date`, surfaced on currentuserv2 as `plan_start_date` /
+ * `plan_end_date`) — an admin can extend or shorten a trial via the backend's `createorgplan`,
+ * and the lifecycle emails and expired-trial reaper both honour those dates. Anything here that
+ * counted days from a constant would quietly disagree with them.
+ *
+ * Keep in sync with the backend's TRIAL_DURATION_DAYS.
+ */
 export const TRIAL_PERIOD_DAYS = 14;
 // base_plan value the backend returns for free-trial orgs (OrgPlanType.FREE_TRIAL)
 export const FREE_TRIAL_PLAN_NAME = 'Free Trial';
 
-/** Whole calendar days left in a trial given the org's created_at (ISO). Clamped at 0. */
-export function trialDaysRemaining(createdAtIso: string): number {
-  const created = new Date(createdAtIso);
-  const endMs = new Date(
-    created.getFullYear(),
-    created.getMonth(),
-    created.getDate() + TRIAL_PERIOD_DAYS
-  ).getTime();
-  const now = new Date();
-  const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const MS_PER_DAY = 86_400_000;
-  return Math.max(0, Math.round((endMs - todayMs) / MS_PER_DAY));
-}
+const MS_PER_DAY = 86_400_000;
 
 /**
- * Whole calendar days since signup, counting the signup day as 0.
+ * Whole days between two instants, floored — the exact rule the backend counts trial days by
+ * (`(now - start_date).days` in `lifecycle_emails.trial_window`).
  *
- * NOT `TRIAL_PERIOD_DAYS - trialDaysRemaining()`, which is what the nudges used to do:
- * `trialDaysRemaining` clamps at 0, so that expression sticks at 14 forever once the trial
- * ends — an expired org whose reaper hasn't run yet would keep matching the day-14 nudge.
- * This counts up without a ceiling, so day 14 means day 14 and nothing later does.
+ * Floored elapsed duration, deliberately NOT calendar days in the viewer's local timezone.
+ * Calendar-day math made the answer depend on the browser's clock offset, so a user in IST and
+ * the nightly backend sweep could disagree by a day about which day of the trial it was — the
+ * frontend's day-7 modal would fire before the backend's midpoint email. Duration math gives
+ * both the same number wherever the user is.
  */
-export function trialDaysElapsed(createdAtIso: string): number {
-  const created = new Date(createdAtIso);
-  const createdMs = new Date(
-    created.getFullYear(),
-    created.getMonth(),
-    created.getDate()
-  ).getTime();
-  const now = new Date();
-  const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const MS_PER_DAY = 86_400_000;
-  // Clamped below only, against a clock skew that puts "today" before signup.
-  return Math.max(0, Math.round((todayMs - createdMs) / MS_PER_DAY));
+function wholeDaysBetween(fromMs: number, toMs: number): number {
+  return Math.floor((toMs - fromMs) / MS_PER_DAY);
 }
 
 /**
- * Elapsed days that fire a trial lifecycle nudge (see TrialDayNudgeModal). Day 7 is the
- * halfway "let's get your data flowing" prompt; 13 and 14 are the second-last and last days
- * of the trial, both showing the "almost over" upgrade modal.
+ * Whole days left before the plan's `end_date`.
+ *
+ * NOT clamped: an expired trial whose reaper hasn't run yet returns a negative number, and
+ * callers need to be able to tell "last day" (0) from "already over" (< 0). Clamping here is
+ * what made the old created_at version stick at its bounds forever. Clamp at the point of
+ * display instead.
+ */
+export function trialDaysRemaining(endIso: string): number {
+  return wholeDaysBetween(Date.now(), new Date(endIso).getTime());
+}
+
+/**
+ * Days REMAINING that fire a trial lifecycle nudge (see TrialDayNudgeModal). 7 is the halfway
+ * "let's get your data flowing" prompt; 1 and 0 are the second-last and last days, both
+ * showing the "almost over" upgrade modal.
+ *
+ * Keyed on days remaining rather than days elapsed because that is what the copy says out loud
+ * ("7 days left", "your account will be deleted on…"). On the standard 14-day window the two
+ * are the same trigger; on an admin-shortened window only the remaining-based one keeps the
+ * words true.
  *
  * Shared with NudgeCenter, which decides whether to mount the modal at all — the two must
  * agree or the modal mounts on a day it then refuses to render.
  */
-export const TRIAL_NUDGE_DAYS = [7, 13, 14] as const;
+export const TRIAL_NUDGE_DAYS = [7, 1, 0] as const;
 export type TrialNudgeDay = (typeof TRIAL_NUDGE_DAYS)[number];
 
 // TODO: point at the real scheduling link once it exists. Kept as a single constant so the
@@ -131,11 +137,11 @@ const TRIAL_DAY_NUDGE_DISMISSED_PREFIX = 'dalgo_trial_day_nudge_dismissed_';
 
 /**
  * Per-SESSION dismiss for the trial lifecycle nudges (TrialDayNudgeModal), keyed by org and
- * elapsed day.
+ * days remaining.
  *
  * Written when the user CLOSES the modal, not when it opens: closing is the only thing that
  * suppresses it. A reload before closing deliberately shows it again — the user hasn't
- * acknowledged it yet, and on days 13 and 14 that message is worth repeating.
+ * acknowledged it yet, and on the last two days that message is worth repeating.
  *
  * sessionStorage, deliberately: once closed it stays gone for the rest of the session however
  * the user navigates or refreshes, but coming back to Dalgo in a new session on a nudge day
@@ -164,15 +170,14 @@ export function hasTrialDayNudgeDismissed(orgSlug: string, day: number): boolean
  *
  * Read by NudgeCenter (to decide whether to mount the modal) AND by TourGate (to stand its own
  * landing-page modal down). Both are unrouted auto-opening dialogs, so without this they stack
- * on /impact on days 7, 13 and 14 — the day the trial nudge matters most is exactly the day
- * the intent modal is most likely to be showing.
+ * on /impact on nudge days — the day the trial nudge matters most is exactly the day the intent
+ * modal is most likely to be showing.
  *
  * Browser-only (sessionStorage): call it from an effect, never during render.
  */
-export function isTrialDayNudgeDue(orgSlug: string, createdAtIso: string): boolean {
-  const elapsedDay = trialDaysElapsed(createdAtIso);
+export function isTrialDayNudgeDue(orgSlug: string, endIso: string): boolean {
+  const daysLeft = trialDaysRemaining(endIso);
   return (
-    TRIAL_NUDGE_DAYS.some((d) => d === elapsedDay) &&
-    !hasTrialDayNudgeDismissed(orgSlug, elapsedDay)
+    TRIAL_NUDGE_DAYS.some((d) => d === daysLeft) && !hasTrialDayNudgeDismissed(orgSlug, daysLeft)
   );
 }

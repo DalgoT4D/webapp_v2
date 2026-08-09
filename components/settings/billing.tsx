@@ -11,6 +11,7 @@ import { CheckCircle2, Info, Calendar } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/components/ui/use-toast';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { trialDaysRemaining } from '@/constants/trial';
 
 interface OrgPlan {
   org: {
@@ -33,13 +34,14 @@ interface OrgPlan {
   upgrade_requested: boolean;
 }
 
+// Shares `trialDaysRemaining` with the header countdown badge and the trial lifecycle nudges,
+// so the "N days remaining" here can't disagree with the pill in the header — they used to,
+// because this page counted from the plan's end_date while the badge counted from
+// org.created_at. Unclamped by design, so "expired" stays distinguishable from "last day".
 const calculatePlanStatus = (endDate: string | null) => {
   if (!endDate) return { isExpired: false, isLessThanAWeek: false, daysRemaining: null };
 
-  const now = new Date();
-  const end = new Date(endDate);
-  const diffTime = end.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const diffDays = trialDaysRemaining(endDate);
 
   return {
     isExpired: diffDays < 0,
@@ -275,9 +277,11 @@ export default function Billing() {
                         >
                           {isExpired
                             ? 'Plan has expired'
-                            : daysRemaining !== null
-                              ? `${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining`
-                              : ''}
+                            : daysRemaining === 0
+                              ? 'Last day today'
+                              : daysRemaining !== null
+                                ? `${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining`
+                                : ''}
                         </span>
                       </>
                     )}

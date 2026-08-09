@@ -156,9 +156,10 @@ export function TourGate() {
 
   const isTrialOrg = forcePreview || orgUser?.subscription_plan === FREE_TRIAL_PLAN_NAME;
   const orgSlug = orgUser?.org.slug ?? null;
-  // Signup timestamp — drives both the "N days left" heading and the check for whether a
-  // trial lifecycle nudge outranks this modal today.
-  const createdAt = orgUser?.org.created_at ?? null;
+  // The plan's end date — drives both the "N days left" heading and the check for whether a
+  // trial lifecycle nudge outranks this modal today. Comes from OrgPlans.end_date via
+  // currentuserv2, the same date the backend counts trial days from.
+  const planEndDate = orgUser?.plan_end_date ?? null;
   // Subscribed (not read via getState) so the widget collapses the moment a flow starts,
   // wherever the user happens to be, and reopens once it ends.
   const walkthroughActive = useInsightWalkthroughStore((s) => s.active);
@@ -234,11 +235,11 @@ export function TourGate() {
     }
     // Already landed this session — a refresh or a walk back to /impact isn't a new arrival.
     if (hasShownIntentModalThisSession(orgSlug)) return;
-    // A trial lifecycle nudge (day 7 / 13 / 14, see NudgeCenter) is an unrouted auto-opening
+    // A trial lifecycle nudge (7 / 1 / 0 days left, see NudgeCenter) is an unrouted auto-opening
     // dialog too, and it outranks this one: "your trial ends on <date>" is time-critical and
     // this modal's own heading says much the same thing. Burn this session's slot so the two
     // can't stack, and so dismissing the day nudge doesn't immediately surface a second modal.
-    if (createdAt && isTrialDayNudgeDue(orgSlug, createdAt)) {
+    if (planEndDate && isTrialDayNudgeDue(orgSlug, planEndDate)) {
       hasOpenedModalRef.current = true;
       markIntentModalShownThisSession(orgSlug);
       return;
@@ -255,7 +256,7 @@ export function TourGate() {
   }, [
     isTrialOrg,
     orgSlug,
-    createdAt,
+    planEndDate,
     pathname,
     walkthroughLoading,
     walkthroughState,
@@ -628,7 +629,7 @@ export function TourGate() {
           }}
           onStartTour={startTour}
           variant={intentVariant}
-          trialDaysLeft={createdAt ? trialDaysRemaining(createdAt) : 0}
+          trialDaysLeft={planEndDate ? Math.max(0, trialDaysRemaining(planEndDate)) : 0}
         />
       )}
     </>

@@ -4,8 +4,10 @@
  * Free-trial countdown pill in the app header, doubling as the subscription CTA.
  *
  * Renders only for free-trial orgs; shows whole days left ("Last day today" on the final
- * day) computed from data already in the auth store (org.created_at + subscription_plan from
- * currentuserv2). The trial length lives in a frontend constant (TRIAL_PERIOD_DAYS).
+ * day) computed from data already in the auth store (plan_end_date + subscription_plan from
+ * currentuserv2). The window is the backend's own OrgPlans.end_date, so an admin-extended or
+ * -shortened trial counts down truthfully and the badge agrees with the lifecycle emails and
+ * the reaper.
  *
  * The "Subscribe Now" half is a once-per-org request that emails the partnerships team, so
  * it needs the server's `upgrade_requested` — the one extra fetch this component makes, and
@@ -29,8 +31,8 @@ import {
 export function TrialBadge() {
   const { getCurrentOrgUser } = useAuthStore();
   const orgUser = getCurrentOrgUser();
-  const createdAt = orgUser?.org?.created_at;
-  const isTrial = orgUser?.subscription_plan === FREE_TRIAL_PLAN_NAME && Boolean(createdAt);
+  const planEndDate = orgUser?.plan_end_date;
+  const isTrial = orgUser?.subscription_plan === FREE_TRIAL_PLAN_NAME && Boolean(planEndDate);
 
   const { hasPermission } = useRbac();
   const { orgPlan, mutate: mutateOrgPlan } = useOrgPlan(isTrial);
@@ -38,8 +40,15 @@ export function TrialBadge() {
 
   if (!isTrial) return null;
 
-  const days = trialDaysRemaining(createdAt as string);
-  const label = days <= 0 ? 'Last day today' : `${days} day${days === 1 ? '' : 's'} left`;
+  // Unclamped: a negative count means the trial is already over and the reaper hasn't run yet,
+  // which is a different thing to say than "last day".
+  const days = trialDaysRemaining(planEndDate as string);
+  const label =
+    days < 0
+      ? 'Trial ended'
+      : days === 0
+        ? 'Last day today'
+        : `${days} day${days === 1 ? '' : 's'} left`;
 
   const alreadyRequested = orgPlan?.upgrade_requested === true;
   // Only offer the CTA once we know the org has NOT already requested. While the plan is
