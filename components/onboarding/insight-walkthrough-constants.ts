@@ -21,6 +21,11 @@ export type WalkthroughStage =
   | 'fork2'
   | 'kpi_intro'
   | 'kpi_metric'
+  // Step 1's Continue, which is what actually renders step 2. Without a stage of its own the
+  // coachmark jumped from the metric field straight to the Target field — a field that does
+  // not exist until this button is clicked — and spent the hint timeout walking blindly
+  // through step 2's stages while the user sat on step 1.
+  | 'kpi_step1_continue'
   | 'kpi_target'
   | 'kpi_direction'
   | 'kpi_continue'
@@ -123,6 +128,7 @@ export const WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   'fork2',
   'kpi_intro',
   'kpi_metric',
+  'kpi_step1_continue',
   'kpi_target',
   'kpi_direction',
   // Runtime order, which the wizard's own handlers follow: Direction picks the time column
@@ -385,6 +391,7 @@ export function isWizardCoachedStage(stage: WalkthroughStage | null): boolean {
 export const RESUME_ANCHOR_STAGES: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
   // Everything from kpi_metric on lives inside the KPI form dialog.
   kpi_metric: 'kpi_intro',
+  kpi_step1_continue: 'kpi_intro',
   kpi_target: 'kpi_intro',
   kpi_direction: 'kpi_intro',
   kpi_continue: 'kpi_intro',
@@ -463,6 +470,10 @@ const STAGE_STORAGE_PREFIX = 'dalgo_insight_walkthrough_stage_';
 const DONE_STORAGE_PREFIX = 'dalgo_insight_walkthrough_done_';
 const PATH_STORAGE_PREFIX = 'dalgo_insight_walkthrough_path_';
 const CONNECTION_STORAGE_PREFIX = 'dalgo_insight_walkthrough_conn_';
+// When the connection above was tracked, as epoch ms. Written with it and read only by the
+// sync checkpoint, which needs to tell "created seconds ago and not in the list YET" from
+// "gone from the list because it was deleted" — see getTrackedConnectionAt.
+const CONNECTION_TRACKED_AT_PREFIX = 'dalgo_insight_walkthrough_conn_at_';
 
 export type WalkthroughPath = 'sample' | 'own_data' | 'automate_pipeline';
 
@@ -600,12 +611,25 @@ export function saveDismissedSyncRun(flow: WalkthroughFlow, runId: string): void
   writeFlowValue(SYNC_DISMISSED_RUN_STORAGE_PREFIX, flow, runId);
 }
 
+/**
+ * When the tracked connection was recorded, or null if unknown (tracking written by a build
+ * that predates this key). Null reads as "long ago": the checkpoint's grace period only ever
+ * protects a connection we know was created moments ago.
+ */
+export function getTrackedConnectionAt(flow: WalkthroughFlow): number | null {
+  const raw = readFlowValue(CONNECTION_TRACKED_AT_PREFIX, flow);
+  const at = raw === null ? NaN : Number(raw);
+  return Number.isFinite(at) ? at : null;
+}
+
 export function saveTrackedConnection(flow: WalkthroughFlow, connectionId: string): void {
+  writeFlowValue(CONNECTION_TRACKED_AT_PREFIX, flow, String(Date.now()));
   writeFlowValue(CONNECTION_STORAGE_PREFIX, flow, connectionId);
 }
 
 export function clearTrackedConnection(flow: WalkthroughFlow): void {
   removeFlowValue(CONNECTION_STORAGE_PREFIX, flow);
+  removeFlowValue(CONNECTION_TRACKED_AT_PREFIX, flow);
 }
 
 // Which flow the user was last driving. Scoped to the user+org (NOT per flow — it's the

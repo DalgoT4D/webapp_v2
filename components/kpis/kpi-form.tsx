@@ -267,7 +267,9 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
       setValue('time_grain', 'monthly');
     }
     const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_target');
+    // NOT kpi_target: that field lives on step 2 and doesn't exist yet. Point the coachmark at
+    // the Continue button that gets them there.
+    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_step1_continue');
   };
 
   // Track each step as it becomes visible (fires on open too, since step resets on open)
@@ -285,6 +287,10 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
       const ok = await metricStepRef.current?.handleContinue();
       if (ok) {
         setStep(2);
+        // Step 2's fields are now mounting, so the target hint finally has something to point
+        // at. Also catches the user who created a metric inline and never touched the picker.
+        const walkthrough = useInsightWalkthroughStore.getState();
+        if (walkthrough.active) walkthrough.advanceIfBefore('kpi_target');
       } else if (!metricId) {
         setStepError('Please select a metric, or complete the new metric form');
       }
@@ -390,7 +396,9 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      {/* preventOutsideClose: a multi-step form with unsaved input — a stray backdrop click
+          shouldn't throw the work away. Dismissing is deliberate: the X (or Escape). */}
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto" preventOutsideClose>
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit KPI' : 'Create KPI'}</DialogTitle>
         </DialogHeader>

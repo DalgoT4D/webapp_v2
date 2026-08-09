@@ -158,6 +158,9 @@ export function GetStartedModal({
       <DialogContent
         className="max-w-5xl gap-0 overflow-hidden p-0 sm:max-w-5xl"
         data-testid="get-started-modal"
+        // This is the onboarding fork — a stray click on the backdrop shouldn't drop the user
+        // out of it. Dismissing is a deliberate act: the X (or Escape).
+        preventOutsideClose
       >
         {/* 3fr/2fr, not an even split: at this width an even one left the copy column wider
             than its longest line while squeezing the illustration. Both screens share this one

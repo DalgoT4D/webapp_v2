@@ -91,6 +91,19 @@ const renderGate = () =>
     </TestWrapper>
   );
 
+/**
+ * Backdates the "when was this connection tracked" stamp saveTrackedConnection writes, so a
+ * test reads as a connection tracked in an EARLIER session rather than seconds ago. The sync
+ * checkpoint treats those two differently on purpose — see NEW_CONNECTION_APPEAR_GRACE_MS.
+ */
+const ageTrackedConnection = () => {
+  const key = Object.keys(localStorage).find((k) =>
+    k.startsWith('dalgo_insight_walkthrough_conn_at_')
+  );
+  if (!key) throw new Error('no tracked-connection timestamp to age — track one first');
+  localStorage.setItem(key, String(Date.now() - 60 * 60 * 1000));
+};
+
 // ============ Tests ============
 
 describe('TourGate', () => {
@@ -661,6 +674,40 @@ describe('TourGate — Get Started checklist actions', () => {
     await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('sync_running'));
   });
 
+  it('waits for a just-created connection to appear instead of writing it off', async () => {
+    // A connection is NOT in this list the instant it is created — right after the wizard's
+    // POST resolves, both the cached list and a forced refetch still come back without it.
+    // Reading that as "deleted" untracked the connection seconds after it was made and
+    // stranded the user on Ingest, unable to reach charts/transform when the sync landed.
+    setupAuthStore(buildOrgUser());
+    savePath('insights', 'own_data');
+    saveWalkthroughStage('insights', 'own_data_source_next');
+    saveTrackedConnection('insights', 'conn-1'); // tracked NOW — inside the grace period
+    let connectionsCall = 0;
+    mockApiGet.mockImplementation((path: string) => {
+      if (path === '/api/userpreferences/') {
+        return Promise.resolve({ success: true, res: { trial_walkthrough: {} } });
+      }
+      if (path === '/api/airbyte/v1/connections') {
+        connectionsCall += 1;
+        // The first two responses predate the connection, as the real API's did.
+        if (connectionsCall <= 2) return Promise.resolve([]);
+        return Promise.resolve([
+          { connectionId: 'conn-1', lock: {}, lastRun: { status: SyncStatus.RUNNING } },
+        ]);
+      }
+      return undefined;
+    });
+
+    renderGate();
+
+    // Polls until it turns up (NEW_CONNECTION_POLL_MS apart), keeping the tracking throughout.
+    await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('sync_running'), {
+      timeout: 10000,
+    });
+    expect(useInsightWalkthroughStore.getState().trackedConnectionId).toBe('conn-1');
+  }, 15000);
+
   it('untracks a deleted connection instead of waiting on it forever', async () => {
     // Deleting the connection and starting over is the natural move after a failed sync.
     // Without this the walkthrough sat on a holding stage watching a connection that was
@@ -669,6 +716,9 @@ describe('TourGate — Get Started checklist actions', () => {
     savePath('insights', 'own_data');
     saveWalkthroughStage('insights', 'sync_failed');
     saveTrackedConnection('insights', 'conn-1');
+    // Tracked in an earlier session, not seconds ago — past the grace period that protects a
+    // brand-new connection from a list that hasn't caught up with it yet.
+    ageTrackedConnection();
     mockApiGet.mockImplementation((path: string) => {
       if (path === '/api/userpreferences/') {
         return Promise.resolve({ success: true, res: { trial_walkthrough: {} } });

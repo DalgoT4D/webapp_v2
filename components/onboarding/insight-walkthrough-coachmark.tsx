@@ -186,8 +186,15 @@ interface StageConfig {
    * - 'value' — free-text/number inputs. Advances only once something has been ENTERED, and
    *   not until the user stops typing (blur, or a short idle) so the coachmark can't jump
    *   mid-keystroke.
+   * - 'open' — Radix Select triggers. Same intent as 'click', but that never fires here:
+   *   Select calls preventDefault() on the trigger's pointerdown (react-select's own open
+   *   handler), which suppresses the compatibility mouse events, click included. So the stage
+   *   listens on pointerdown instead — opening the list IS the action, and the user who reads
+   *   the options and keeps the default is done with the field either way. Opt-in rather than
+   *   the default because advancing on pointerdown tears the coachmark down while a real
+   *   button's click is still in flight (see advancePastHint).
    */
-  advanceOn?: 'click' | 'value';
+  advanceOn?: 'click' | 'value' | 'open';
   /**
    * Element the `nextOnInteraction` listener attaches to, when that isn't the element being
    * spotlighted. Defaults to `selector`.
@@ -299,11 +306,21 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   kpi_metric: {
     route: '/kpis',
-    nextOnInteraction: 'kpi_target',
+    nextOnInteraction: 'kpi_step1_continue',
     selector: '[data-testid="kpi-form-metric-field"]',
     title: 'Pick a metric',
     description:
       'The measure this KPI tracks, for example a count of beneficiaries. Choose the suggested one to get started.',
+  },
+  // Everything after this stage lives on the wizard's step 2, so this button is the gate that
+  // puts those targets in the DOM at all — the walkthrough has to wait on it rather than
+  // pointing at fields the user can't see yet.
+  kpi_step1_continue: {
+    ring: true,
+    route: '/kpis',
+    selector: '[data-testid="kpi-form-step1-continue-btn"]',
+    title: 'Keep going',
+    description: 'Click Continue to set this KPI’s target.',
   },
   kpi_target: {
     route: '/kpis',
@@ -317,6 +334,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   kpi_direction: {
     route: '/kpis',
     nextOnInteraction: 'kpi_time_column',
+    advanceOn: 'open',
     selector: '[data-testid="kpi-form-direction-field"]',
     title: 'Direction',
     description:
@@ -419,6 +437,10 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="dashboard-share-btn"]',
     title: 'Share your dashboard',
     description: 'Send it to your team so everyone sees the same numbers — click the Share icon.',
+    // The Share icon sits in the top-right toolbar: a 'right' popover runs off the viewport,
+    // so it hangs below, right-aligned to keep it on screen.
+    side: 'bottom',
+    align: 'end',
   },
   share_public_toggle: {
     route: null, // same dynamic /dashboards/{id} as 'share'
@@ -426,11 +448,11 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Turn on public access',
     description:
       'Flip this on to create a shareable link — anyone you send it to can open the dashboard, no login needed.',
-    // The switch sits at the right edge of a centred dialog, so a 'right' popover would be
-    // clamped against the viewport edge and read as floating loose. Below it there's open
-    // dialog body.
-    side: 'bottom',
-    align: 'end',
+    // Beside the dialog rather than inside it: the switch sits at the dialog's right edge, so
+    // a 'right' popover clears the dialog entirely instead of covering the copy explaining
+    // what the switch does.
+    side: 'right',
+    align: 'start',
   },
   share_copy_link: {
     ring: true,
@@ -924,9 +946,10 @@ export function InsightWalkthroughCoachmark(): null {
           }
         }
 
+        const engagementEvent = config.advanceOn === 'open' ? 'pointerdown' : 'click';
         const onTargetClick = () => advancePastHint();
-        el.addEventListener('click', onTargetClick);
-        return () => el.removeEventListener('click', onTargetClick);
+        el.addEventListener(engagementEvent, onTargetClick);
+        return () => el.removeEventListener(engagementEvent, onTargetClick);
       };
 
       /** Re-entrant: also the recovery path when a target disappears mid-stage. */

@@ -36,6 +36,7 @@ import {
   getActiveWalkthroughFlow,
   hasConnectedRealData,
   getDismissedSyncRun,
+  getTrackedConnectionAt,
   POST_SYNC_STAGE_FOR,
   SYNC_WAIT_STAGES,
   type WalkthroughFlow,
@@ -49,6 +50,18 @@ import {
 } from '@/hooks/api/useTrialWalkthrough';
 
 const IMPACT_PATH = '/impact';
+
+/**
+ * How long after a connection is tracked its absence from the connections list is still read as
+ * "hasn't shown up yet" rather than "deleted", and how often we re-ask in that window.
+ *
+ * The list is not immediately consistent with a create: right after the wizard's POST resolved,
+ * both the cached list and a forced refetch still returned the pre-creation set, while the same
+ * endpoint returned the new connection later. Two minutes is far longer than that gap and far
+ * shorter than a first sync, so it costs a deleted connection a short wait and nothing else.
+ */
+const NEW_CONNECTION_APPEAR_GRACE_MS = 2 * 60 * 1000;
+const NEW_CONNECTION_POLL_MS = 3000;
 
 interface GetStartedModalState {
   open: boolean;
@@ -201,6 +214,12 @@ export function TourGate() {
   // resume from this browser's stale localStorage stage before being suppressed.
   useEffect(() => {
     if (!orgSlug || walkthroughLoading) return;
+    // Resuming means REWINDING to the stage's cold-load anchor (see the store's resume), which
+    // is right for a fresh mount and destructive for a run already on screen: `walkthroughState`
+    // changes identity whenever any flow's outcome is persisted (saveTrialWalkthroughFlow
+    // refreshes the userpreferences cache), so this effect re-fires mid-flow — and a user
+    // halfway through the KPI dialog was yanked back to "click Create KPI".
+    if (useInsightWalkthroughStore.getState().active) return;
     // Both walkthroughs can hold a half-finished stage at the same time, so which one to put
     // back on screen is a real choice — take the one the user was last driving, and only fall
     // back to a fixed order when there's no pointer (older browsers, cleared key).
@@ -230,7 +249,16 @@ export function TourGate() {
     data: connections,
     isLoading: connectionsLoading,
     isError: connectionsError,
+    mutate: mutateConnections,
   } = useConnectionsList();
+  // Pending "has the new connection shown up yet?" poll — see the checkpoint effect.
+  const appearRetryRef = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (appearRetryRef.current) window.clearTimeout(appearRetryRef.current);
+    },
+    []
+  );
   // Subscribed, not read through getState(), because they have to be effect DEPENDENCIES.
   // The resume effect above waits on the backend's userpreferences fetch, so on a cold load
   // the connections response can easily land first — with the store still inactive. Reading
@@ -255,9 +283,41 @@ export function TourGate() {
       // an in-flight fetch AND a failed one are both indistinguishable from an empty org by the
       // array alone — untracking on either would throw away a live connection over nothing more
       // than a cold mount or a blip in the network.
-      if (!connectionsLoading && !connectionsError) {
-        useInsightWalkthroughStore.getState().untrackConnection();
+      if (connectionsLoading || connectionsError) return;
+      // ...and neither is "loaded" the same as "current". A connection does not appear in this
+      // list the instant it is created: right after the wizard's POST returns, both the cached
+      // list AND a forced refetch still came back with the pre-creation set. Untracking off
+      // that dropped the tracking seconds after the connection was made, rewound the stage to
+      // "connect your data", and left the post-sync hand-off to charts/transform unable to
+      // fire at all. So a connection we know was tracked moments ago is not written off — it
+      // is re-polled until it turns up or the grace period runs out. Tracking with no
+      // timestamp is from an older build (or an older session): treat it as long past and
+      // decide immediately, which is what makes a real deletion still resolve on a cold load.
+      const trackedAt = getTrackedConnectionAt(flow);
+      if (trackedAt !== null && Date.now() - trackedAt < NEW_CONNECTION_APPEAR_GRACE_MS) {
+        // Self-rescheduling rather than driven by re-renders: a refetch that returns the same
+        // list is deep-equal, so SWR keeps the old reference, nothing re-renders and this
+        // effect would never run again. And nothing else is polling either — the list only
+        // polls while a connection in it holds a lock, and ours isn't in it yet.
+        const pollForConnection = () => {
+          appearRetryRef.current = window.setTimeout(() => {
+            void mutateConnections().then((fresh) => {
+              const live = useInsightWalkthroughStore.getState();
+              if (live.trackedConnectionId !== trackedConnectionId) return;
+              // It landed — the fresh data re-renders this effect, which takes it from here.
+              if ((fresh ?? []).some((c) => c.connectionId === trackedConnectionId)) return;
+              if (Date.now() - trackedAt >= NEW_CONNECTION_APPEAR_GRACE_MS) {
+                live.untrackConnection();
+                return;
+              }
+              pollForConnection();
+            });
+          }, NEW_CONNECTION_POLL_MS);
+        };
+        pollForConnection();
+        return;
       }
+      useInsightWalkthroughStore.getState().untrackConnection();
       return;
     }
 
@@ -306,6 +366,7 @@ export function TourGate() {
     connections,
     connectionsLoading,
     connectionsError,
+    mutateConnections,
     orgSlug,
     walkthroughActive,
     trackedConnectionId,

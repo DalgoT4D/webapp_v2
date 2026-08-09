@@ -191,7 +191,10 @@ describe('InsightWalkthroughCoachmark', () => {
 
       await userEvent.click(field);
 
-      await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_target'));
+      // Step 1's Continue, not the target field — that one only exists on step 2.
+      await waitFor(() =>
+        expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_step1_continue')
+      );
     });
 
     it('stays put while a typed field is being filled, and moves on once it is', async () => {
