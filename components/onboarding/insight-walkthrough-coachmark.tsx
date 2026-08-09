@@ -49,8 +49,7 @@ const PICK_SOURCE_STAGE: StageConfig = {
   route: '/ingest', // the wizard is a dialog rendered on the Ingest page
   selector: '[data-testid="source-picker-body"]',
   title: 'Pick a platform',
-  description:
-    'Choose one of the popular sources, or search the full catalog for the platform your data lives in.',
+  description: 'Get started quickly with a google sheet',
   // No `ring`: any source in the picker is a valid choice, and outlining the whole panel
   // read as "click the panel". The popover pointing at it is the whole highlight here.
   // The picker fills a centred, narrow (sm:max-w-xl) dialog — a 'right' popover would be
@@ -302,7 +301,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="create-kpi-btn"]',
     title: 'Track your targets',
     description:
-      'A KPI turns a metric into a goal, set a target and Dalgo flags it green or red so you always know where you stand.',
+      'A key performance indicator uses your key metrics and shows the current value of your goals against a target, its trend over time, and status. Align this with your programs for an effective overview.',
   },
   kpi_metric: {
     route: '/kpis',
@@ -329,7 +328,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="kpi-form-target-field"]',
     title: 'Target value',
     description:
-      'The number you’re aiming for. Dalgo marks the KPI green once you reach it and red when you fall short.',
+      'The number you are aiming for. Dalgo marks the KPI green once you reach it and red when you fall short.',
   },
   kpi_direction: {
     route: '/kpis',
@@ -337,8 +336,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     advanceOn: 'open',
     selector: '[data-testid="kpi-form-direction-field"]',
     title: 'Direction',
-    description:
-      'Tell Dalgo whether a higher or lower value counts as on-track, so it knows which way to flag.',
+    description: 'Do you intend for the value of this indicator to rise or fall?',
   },
   kpi_continue: {
     ring: true,
@@ -352,8 +350,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     nextOnInteraction: 'kpi_continue',
     selector: '[data-testid="kpi-form-time-column-field"]',
     title: 'Time column',
-    description:
-      'The date column Dalgo trends this KPI over — paired with a grain like Monthly so the number moves over time.',
+    description: 'Select the relevant column from the dataset to track the KPIs trend over time.',
   },
   kpi_type: {
     route: '/kpis',
@@ -361,7 +358,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="kpi-form-type-field"]',
     title: 'KPI type',
     description:
-      'A simple way to classify what this measures along the results chain — input, output, outcome or impact. It just organises your KPIs, so pick whichever fits.',
+      'Classify the indicator based on your results framework. Is this a measure of your inputs, outputs, outcomes or impact?',
   },
   kpi_submit: {
     ring: true,
@@ -393,7 +390,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     route: '/dashboards/create',
     selector: '[data-testid="add-kpi-btn"]',
     title: 'Add your KPI',
-    description: 'Click Add KPI and pick the KPI you just built to drop it onto the canvas.',
+    description: 'Click Add KPI and pick the KPI you just built to add it to the dashboard',
     side: 'bottom',
   },
   builder_add_chart: {
@@ -401,7 +398,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     route: '/dashboards/create',
     selector: '[data-testid="add-chart-btn"]',
     title: 'Add a Chart',
-    description: 'Click Add chart and drop a sample chart next to it.',
+    description: 'Add a sample chart to your dashboard',
     side: 'bottom',
   },
   builder_resize: {
@@ -420,7 +417,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     route: '/dashboards/create',
     selector: '[data-testid="dashboard-save-btn"]',
     title: 'Save your dashboard',
-    description: 'Looks good. Save it so your team can open it.',
+    description: 'Once you’re ready, save your dashboard so you can share it',
     side: 'bottom',
   },
   builder_preview: {
@@ -428,7 +425,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     route: '/dashboards/create',
     selector: '[data-testid="dashboard-preview-btn"]',
     title: 'Preview it first',
-    description: 'Saved! Take a quick look the way your team will see it.',
+    description: 'Saved! Take a quick look the way your team will see it',
     side: 'bottom',
   },
   share: {
@@ -436,7 +433,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     route: null, // resolved dynamically to /dashboards/{id} — matched by pathname regex below
     selector: '[data-testid="dashboard-share-btn"]',
     title: 'Share your dashboard',
-    description: 'Send it to your team so everyone sees the same numbers — click the Share icon.',
+    description: 'Hit share to show your team what you’ve built!',
     // The Share icon sits in the top-right toolbar: a 'right' popover runs off the viewport,
     // so it hangs below, right-aligned to keep it on screen.
     side: 'bottom',
@@ -591,7 +588,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     route: '/dashboards/create',
     selector: '[data-testid="add-chart-btn"]',
     title: 'Add a Chart',
-    description: 'Click Add chart and drop the chart you just built onto the canvas.',
+    description: 'Click Add chart and pick the chart you just built to add it to the dashboard',
     side: 'bottom',
   },
   builder_add_kpi_second: {
@@ -599,7 +596,11 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     route: '/dashboards/create',
     selector: '[data-testid="add-kpi-btn"]',
     title: 'Add your KPI',
-    description: 'Click Add KPI and pick the KPI you just built to drop it onto the canvas.',
+    // Own-data tail, so there is no KPI the user built earlier — the design points at the
+    // sample KPIs instead. Deliberately different from builder_add_kpi (sample fork), which
+    // does follow a KPI the user made.
+    description:
+      'Add key performance indicators to headline your dashboard. Use a sample one for now to see how they look!',
     side: 'bottom',
   },
   // The automate-pipeline fork's opening beat: point at Ingest and let the user click it,
@@ -775,22 +776,21 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     route: '/orchestrate',
     selector: '[data-testid="create-pipeline-btn"]',
     title: 'Make it repeatable',
-    description:
-      'One last step — wrap your ingest + transform into a pipeline so it runs on its own, every day.',
+    description: 'Click here to configure your first data pipeline with Dalgo',
   },
   pipeline_add_connection: {
     route: '/orchestrate/create',
     selector: '[data-testid="connections-container"]',
     title: 'Add a connection',
     description:
-      'Open Connections and pick your source — this is the data the pipeline pulls in on every run.',
+      'Pick the data that you connected in the ingest step to refresh it on a regular schedule.',
   },
   pipeline_run_transform: {
     route: '/orchestrate/create',
     selector: '[data-testid="run-transform-tasks-checkbox"]',
     title: 'Run all the tasks',
     description:
-      'Tick Run transform tasks so each daily run does ingest and your transform together.',
+      'Select "Run transform tasks" to ensure your desired final tables for charting are built out with the latest connected data.',
     // The connections combobox is multi-select, so it STAYS OPEN after a pick — and the pick
     // is exactly what advances to this stage. Without the wait, this coachmark rendered on top
     // of the still-open option list, covering the very rows the user was choosing from.
@@ -805,7 +805,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="cron-container"]',
     title: 'Set a schedule',
     description:
-      'Open Frequency and choose, so your pipeline refreshes the data on its own every morning.',
+      'Select when and how often you want this pipeline to run based on your program needs.',
     // Frequency sits in the right-hand column, flush with the page edge — 'right' clamps.
     side: 'left',
     align: 'start',
@@ -815,8 +815,10 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     route: '/orchestrate/create',
     selector: '[data-testid="submit-btn"]',
     title: 'Create it',
+    // Figma's copy reads "configured to your meet your requirements" and "Click create" — the
+    // duplicated word is a typo, and the button is labelled CREATE PIPELINE.
     description:
-      'That’s everything — a connection, your transform and a daily schedule. Click Create Pipeline to set it running.',
+      'That’s everything — your data pipeline is configured to meet your requirements. Click Create Pipeline to save it.',
   },
 };
 

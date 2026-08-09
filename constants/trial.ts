@@ -57,6 +57,10 @@ export type TrialNudgeDay = (typeof TRIAL_NUDGE_DAYS)[number];
 // swap is one line — the "Book a call" link in the trial nudge modals reads it.
 export const BOOK_A_CALL_URL = '#';
 
+// Public product docs — the "Read documentation" link in the getting-started widget's
+// all-done state.
+export const DALGO_DOCS_URL = 'https://docs.dalgo.org/intro';
+
 // Status polling cadence for the progress screen (ms). Kept above the SWRProvider's
 // dedupingInterval (2000ms in lib/swr.tsx). The hook also sets refreshWhenHidden so
 // polling continues even if the tab is backgrounded — this is a provisioning screen

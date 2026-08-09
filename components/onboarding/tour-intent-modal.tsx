@@ -62,9 +62,6 @@ const INTENT_OPTIONS: IntentOption[] = [
   },
 ];
 
-const DOT_COUNT = 3;
-const ACTIVE_DOT = 1;
-
 export function TourIntentModal({
   open,
   onOpenChange,
@@ -162,28 +159,14 @@ export function TourIntentModal({
               />
             </div>
             <div className="w-[515px] text-center">
+              {/* Verbatim from Figma's 'intro' pane (2546:2179 / 2546:2180) — design-owned copy. */}
               <p className="text-lg font-bold text-[#0f2b45]">
-                Take a guided walkthrough see the finished product.
+                Turn your programme data into proof of impact.
               </p>
               <p className="mt-2 text-sm font-medium text-[#036057]">
-                Look around a fully populated workspace to see what Dalgo can actually do for your
-                programme.
+                Bring your scattered sources together to build automated dashboards, track key
+                metrics, and share results with your team.
               </p>
-              <div
-                className="mt-4 flex justify-center gap-1"
-                role="presentation"
-                data-testid="tour-intent-modal-dots"
-              >
-                {Array.from({ length: DOT_COUNT }, (_, i) => (
-                  <span
-                    key={`tour-intent-dot-${i}`}
-                    className={cn(
-                      'h-1 w-8 rounded-full',
-                      i === ACTIVE_DOT ? 'bg-primary' : 'bg-white/70'
-                    )}
-                  />
-                ))}
-              </div>
             </div>
           </div>
         </div>

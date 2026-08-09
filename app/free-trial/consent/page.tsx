@@ -152,8 +152,15 @@ export default function TrialConsentPage() {
         />
         <label htmlFor="trial-consent-checkbox" className="text-sm text-muted-foreground">
           I&apos;ve read and accept the{' '}
-          {/* Privacy Policy link deferred — no policy page exists yet. */}
-          <span className="font-medium text-primary">Privacy Policy</span>
+          <a
+            href="https://dalgo.org/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-primary hover:underline"
+            data-testid="trial-consent-privacy-policy-link"
+          >
+            Privacy Policy
+          </a>
         </label>
       </div>
 

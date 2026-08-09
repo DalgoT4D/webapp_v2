@@ -1,10 +1,11 @@
 // Content + config for the 9-step guided product tour (driver.js).
-// Copy and step order mirror the "tour flow" Figma frames (section 2303:4689).
 //
-// NOTE: Figma's copy for the Alerts/Metrics/Orchestrate/Transform frames (steps 5-8) was
-// duplicated verbatim across all four frames (a WIP content placeholder, not a design
-// decision) — only Alerts' text is from Figma; Metrics/Orchestrate/Transform below are
-// written to match voice/tone pending real copy from design.
+// Copy and step order are VERBATIM from the "tour flow" Figma frames — one frame per step,
+// each carrying a `coach` tooltip (kpi 2303:3581, chart 2303:3619, dashboard 2303:3451,
+// report 2303:3695, alert 2303:3657, metric 2378:156, ingest 2303:3733, transform 2378:192,
+// orchestrate 2378:227). Step order is the frames' left-to-right canvas order, confirmed
+// against each frame's progress-dot graphic (1 filled dot on kpi … 9 on orchestrate).
+// Don't reword these strings — they are design-owned copy.
 
 export interface TourStep {
   /** Route to navigate to before showing this step. */
@@ -48,16 +49,15 @@ export const TOUR_CONTENT_SELECTOR = '#main-layout-main-content';
 export const TOUR_STEPS: TourStep[] = [
   {
     route: '/kpis',
-    title: 'KPI',
-    content: "Set your programme targets and see what's on- or off-track at a glance.",
-    ctaLabel: 'Start Tour',
+    title: 'Key Performance Indicator',
+    content:
+      'Setup your key indicators and targets to build an overview of your program against your monitoring framework',
     spotlightRowOnly: true,
   },
   {
     route: '/charts',
     title: 'Charts',
-    content:
-      'Turn any table into bar, line, pie or map charts in a couple of clicks — no code, no data engineer.',
+    content: 'Visualise your data in interactive charts to capture trends, distributions and more.',
     spotlightRowOnly: true,
     spotlightRowCount: 4,
   },
@@ -65,7 +65,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: '/dashboards',
     title: 'Dashboards',
     content:
-      'Pin your charts into one shareable view your whole team can open — the story behind your numbers.',
+      'Bring your charts and KPIs together to provide comprehensive shareable views for your teams',
     spotlightRowOnly: true,
     spotlightRowCount: 4,
   },
@@ -73,39 +73,42 @@ export const TOUR_STEPS: TourStep[] = [
     route: '/reports',
     title: 'Reports',
     content:
-      'Package your dashboards into funder-ready reports you can generate and share on a schedule.',
+      'Generate snapshots of dashboards per reporting period. Comment, collaborate, review, summarise and share!',
     spotlightRowOnly: true,
     spotlightRowCount: 4,
   },
   {
     route: '/alerts',
     title: 'Alerts',
-    content:
-      'Get notified the moment a metric crosses a threshold you care about — before it becomes a problem.',
+    content: 'Setup data-backed alerts to bring critical events to your attention!',
     spotlightRowOnly: true,
     spotlightRowCount: 4,
   },
   {
     route: '/metrics',
     title: 'Metrics',
-    content:
-      'Define the key numbers you care about — like people reached or funds spent — and track each one over time.',
+    content: 'Save common calculations to your metric library, reusable across the platform.',
     spotlightRowOnly: true,
     spotlightRowCount: 4,
   },
   {
-    route: '/orchestrate',
-    title: 'Orchestrate',
+    route: '/ingest',
+    title: 'Bring in your own data',
     content:
-      'Put your syncs and transforms on autopilot — schedule them once and Dalgo keeps your data fresh automatically.',
+      'Bring your data in, Dalgo caters to over 300 sources of data including popular nonprofit sources like Google sheets, Airtable, Salesforce, Kobo Toolbox, Commcare, Survey CTO, and Avni',
     spotlightRowOnly: true,
     spotlightRowCount: 4,
+    // Ingest's source list is a flex column of divs, not a table or card grid, so neither
+    // default shape matches. It also nests a connections <table> inside each source row —
+    // without this selector the table heuristic would spotlight those inner connection rows
+    // rather than the sources themselves.
+    rowSelector: '[data-testid^="source-row-"]',
   },
   {
     route: '/transform',
     title: 'Transform',
     content:
-      'Clean, join and reshape your raw data into models that actually answer your questions.',
+      'Setup your data cleaning and computation logic in the transform section via our interactive UI or using DBT cloud',
     // One cutout covering BOTH of this page's cards — the DBT repository card and the workflow
     // canvas card — matching the Figma frame. Previously `spotlightFull`, which cut a hole over
     // the entire content area: nothing was left dimmed, so the step read as having no highlight
@@ -116,18 +119,13 @@ export const TOUR_STEPS: TourStep[] = [
     rowSelector: '[data-testid="dbt-repository-card"], [data-testid="workflow-canvas-card"]',
   },
   {
-    route: '/ingest',
-    title: 'Ingest',
+    route: '/orchestrate',
+    title: 'Orchestrate',
     content:
-      "That's the tour. When you're ready, connect your own sources — Google Sheets, field tools — and build a pipeline.",
+      'Setup Dalgo to pull in and transform your data on a schedule, so that you always have recent, clean, and computed data readily accessible in your dashboards.',
     ctaLabel: 'Finish Tour',
     spotlightRowOnly: true,
     spotlightRowCount: 4,
-    // Ingest's source list is a flex column of divs, not a table or card grid, so neither
-    // default shape matches. It also nests a connections <table> inside each source row —
-    // without this selector the table heuristic would spotlight those inner connection rows
-    // rather than the sources themselves.
-    rowSelector: '[data-testid^="source-row-"]',
   },
 ];
 

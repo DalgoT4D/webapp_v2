@@ -19,6 +19,8 @@ export const ANALYTICS_EVENTS = {
   TOUR_SKIPPED: 'onboarding:tour_skipped',
   TOUR_COMPLETED: 'onboarding:tour_completed',
   GETTING_STARTED_TOUR_LINK_CLICKED: 'onboarding:getting_started_tour_link_clicked',
+  // The docs link that replaces the tour link in the widget's all-done state.
+  GETTING_STARTED_DOCS_LINK_CLICKED: 'onboarding:getting_started_docs_link_clicked',
   // Carries { item: 'build-insight' | 'automate-pipeline' } — which checklist row was
   // clicked. What it then does (open the fork dialog, resume, start a flow) depends on
   // walkthrough state and is covered by that flow's own events.

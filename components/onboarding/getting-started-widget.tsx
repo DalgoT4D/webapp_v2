@@ -12,9 +12,18 @@
  * though the pill stays available to reopen it manually.
  */
 import { useEffect, useState } from 'react';
-import { CheckCircle2, ChevronRight, Circle, Minus, Play, Rocket } from 'lucide-react';
+import {
+  ArrowUpRight,
+  CheckCircle2,
+  ChevronRight,
+  Circle,
+  Minus,
+  Play,
+  Rocket,
+} from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { DALGO_DOCS_URL } from '@/constants/trial';
 
 interface GettingStartedWidgetProps {
   /**
@@ -86,6 +95,21 @@ export function GettingStartedWidget({
     },
   ];
 
+  // Three header states, one Figma frame each: nothing started ("Welcome to Dalgo"), part-way
+  // through (2952:7297), and both flows done (2736:13796) — which also swaps the tour link
+  // below for a documentation one, since a finished user has nothing left to be toured through.
+  const allComplete = items.every((item) => item.checked);
+  const anyComplete = items.some((item) => item.checked);
+  const heading = allComplete
+    ? {
+        title: 'Congratulations — You’re all set',
+        subtitle: 'Discover additional features in Dalgo to enhance your workflow.',
+      }
+    : {
+        title: anyComplete ? 'Welcome back. Pick up where you left off?' : 'Welcome to Dalgo',
+        subtitle: 'Turn your programme data into insights and reports you can share',
+      };
+
   return (
     <>
       {/* Always visible, in both states — opens the panel when minimized, no-op if
@@ -107,10 +131,13 @@ export function GettingStartedWidget({
         >
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xl font-bold text-foreground">Welcome to Dalgo</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Turn your programme data into insights and reports you can share
+              <p
+                className="text-xl font-bold text-foreground"
+                data-testid="getting-started-widget-title"
+              >
+                {heading.title}
               </p>
+              <p className="mt-1 text-sm text-muted-foreground">{heading.subtitle}</p>
             </div>
             <button
               type="button"
@@ -133,15 +160,33 @@ export function GettingStartedWidget({
             </span>
           </div>
 
-          <button
-            type="button"
-            data-testid="getting-started-widget-tour-link"
-            onClick={handleStartTour}
-            className="mt-4 text-sm text-muted-foreground"
-          >
-            New to dalgo?{' '}
-            <span className="font-medium text-primary hover:underline">Take a 2 min tour</span>
-          </button>
+          {allComplete ? (
+            /* Figma 2863:2415 — replaces the tour link once both flows are done. */
+            <p className="mt-4 text-sm text-muted-foreground">
+              Need help &amp; guides?{' '}
+              <a
+                href={DALGO_DOCS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="getting-started-widget-docs-link"
+                onClick={() => trackEvent(ANALYTICS_EVENTS.GETTING_STARTED_DOCS_LINK_CLICKED)}
+                className="text-primary inline-flex items-center gap-1 font-medium hover:underline"
+              >
+                Read documentation
+                <ArrowUpRight className="h-4 w-4 shrink-0" />
+              </a>
+            </p>
+          ) : (
+            <button
+              type="button"
+              data-testid="getting-started-widget-tour-link"
+              onClick={handleStartTour}
+              className="mt-4 text-sm text-muted-foreground"
+            >
+              New to dalgo?{' '}
+              <span className="font-medium text-primary hover:underline">Take a 2 min tour</span>
+            </button>
+          )}
 
           <ul className="mt-4 divide-y">
             {items.map((item) => {
@@ -196,6 +241,16 @@ export function GettingStartedWidget({
               );
             })}
           </ul>
+
+          {/* Figma 3053:7971 — sits below the task cards. Label only for now: no booking URL
+              has been decided, and a link that goes nowhere is worse than plain text. */}
+          <div
+            data-testid="getting-started-widget-schedule-call"
+            className="mt-4 flex items-center gap-1 text-primary opacity-80"
+          >
+            <span className="text-xs font-semibold">Schedule a call with us</span>
+            <ArrowUpRight className="h-3 w-3 shrink-0" />
+          </div>
         </div>
       )}
     </>
