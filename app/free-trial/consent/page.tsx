@@ -111,7 +111,7 @@ export default function TrialConsentPage() {
   }
 
   return (
-    <TrialCenteredCard testId="trial-consent-card">
+    <TrialCenteredCard testId="trial-consent-card" width="wide">
       <TrialBrandHeader
         title="How we handle your trial data"
         subtitle="A few things to know while we set up your workspace."

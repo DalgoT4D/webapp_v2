@@ -8,11 +8,17 @@
  * It never navigates on its own. Each caller decides what closing means: revealing the next
  * coachmark, or simply getting out of the way of the thing just built.
  */
-import { Check, X } from 'lucide-react';
+import Image from 'next/image';
+import { X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { trackEvent } from '@/lib/analytics';
 import type { AnalyticsEvent } from '@/constants/analytics';
+
+// Animated tick shown at the top of every celebration modal.
+const CELEBRATION_ANIMATION_SRC = '/branding/celebration-checkmark.gif';
+// The GIF's native size (150x150). Rendered 1:1 so it stays crisp and doesn't resample.
+const CELEBRATION_ANIMATION_SIZE = 150;
 
 interface CelebrationModalProps {
   open: boolean;
@@ -69,11 +75,17 @@ export function CelebrationModal({
         </button>
 
         <div className="flex flex-col items-center gap-4 px-10 pt-12 pb-10 text-center">
-          <span className="border-primary/30 flex h-24 w-24 items-center justify-center rounded-full border">
-            <span className="bg-primary flex h-16 w-16 items-center justify-center rounded-full">
-              <Check className="h-8 w-8 text-white" strokeWidth={3} />
-            </span>
-          </span>
+          {/* Animated tick. `unoptimized` is required — Next's image optimizer re-encodes
+              GIFs to a single still frame, which would silently kill the animation. */}
+          <Image
+            src={CELEBRATION_ANIMATION_SRC}
+            alt=""
+            width={CELEBRATION_ANIMATION_SIZE}
+            height={CELEBRATION_ANIMATION_SIZE}
+            unoptimized
+            priority
+            data-testid={`${testId}-animation`}
+          />
           <DialogTitle className="text-2xl font-bold">{title}</DialogTitle>
           <DialogDescription className="text-muted-foreground text-base">
             {description}
