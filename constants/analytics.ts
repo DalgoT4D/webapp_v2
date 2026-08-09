@@ -46,6 +46,11 @@ export const ANALYTICS_EVENTS = {
   INSIGHT_WALKTHROUGH_COMPLETED: 'onboarding:insight_walkthrough_completed',
   // Carries { stage } — the stage the user was on when they skipped.
   INSIGHT_WALKTHROUGH_SKIPPED: 'onboarding:insight_walkthrough_skipped',
+  // One-shot feature coachmarks on /reports, /alerts and /metrics — no flow, no ordering.
+  // Both carry { nudge: 'reports_nudge' | 'alerts_nudge' | 'metrics_nudge' }. VIEWED can
+  // fire on repeat visits (the nudge returns until dismissed); DISMISSED fires once.
+  FEATURE_NUDGE_VIEWED: 'onboarding:feature_nudge_viewed',
+  FEATURE_NUDGE_DISMISSED: 'onboarding:feature_nudge_dismissed',
   // Free trial onboarding
   TRIAL_SIGNUP_SUBMITTED: 'trial:signup_submitted',
   // Verification link re-sent from the check-your-email card (re-POSTs signup).

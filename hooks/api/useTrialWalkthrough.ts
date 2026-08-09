@@ -16,7 +16,19 @@ import { apiGet, apiPut } from '@/lib/api';
 
 const USER_PREFERENCES_KEY = '/api/userpreferences/';
 
-export type TrialWalkthroughFlow = 'product_tour' | 'insights' | 'automate_pipeline';
+/**
+ * The three guided walkthroughs, plus the one-shot feature nudges (see
+ * components/onboarding/feature-nudge-constants.ts). They share one union — and one endpoint —
+ * because both are "has this user been shown X" bookkeeping on the same backend dict. A nudge
+ * only ever writes 'completed'; it has no skipped state.
+ */
+export type TrialWalkthroughFlow =
+  | 'product_tour'
+  | 'insights'
+  | 'automate_pipeline'
+  | 'reports_nudge'
+  | 'alerts_nudge'
+  | 'metrics_nudge';
 
 export interface TrialWalkthroughFlowState {
   skipped: boolean;

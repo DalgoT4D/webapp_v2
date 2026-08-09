@@ -8,8 +8,10 @@
  */
 import type { ReactNode } from 'react';
 import Image from 'next/image';
+import { ArrowRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { BOOK_A_CALL_URL } from '@/constants/trial';
 
 interface TwoPaneNudgeDialogProps {
   onOpenChange: (open: boolean) => void;
@@ -50,7 +52,19 @@ export function TwoPaneNudgeDialog({
             </Button>
             <div className="bg-muted rounded-lg p-4">
               <p className="text-sm font-medium">Need help structuring your programme data?</p>
-              <p className="text-muted-foreground mt-1 text-sm">Contact us at Book a call</p>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Contact us at{' '}
+                <a
+                  href={BOOK_A_CALL_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary inline-flex items-center gap-1 font-medium hover:underline"
+                  data-testid={`${testId}-book-a-call`}
+                >
+                  Book a call
+                  <ArrowRight className="h-4 w-4" />
+                </a>
+              </p>
             </div>
           </div>
           <div className="relative hidden bg-[#d5f0e6] sm:block">

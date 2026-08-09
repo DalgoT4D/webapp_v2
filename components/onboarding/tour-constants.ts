@@ -152,6 +152,60 @@ export function markTourSeen(orgSlug: string): void {
 }
 
 /**
+ * Whether this org has EVER been shown the intent modal — which picks its copy, not whether
+ * it opens. First time it asks "What brings you to Dalgo"; every time after, it greets a
+ * returning user with the days left on their trial.
+ *
+ * Separate from TOUR_SEEN, which product-tour.tsx writes when the tour itself runs. A user
+ * can meet this modal and never start the tour, and those two facts answer different
+ * questions.
+ */
+export const TOUR_INTENT_SEEN_STORAGE_PREFIX = 'dalgo_tour_intent_seen_';
+
+export function hasSeenIntentModal(orgSlug: string): boolean {
+  try {
+    return localStorage.getItem(`${TOUR_INTENT_SEEN_STORAGE_PREFIX}${orgSlug}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function markIntentModalSeen(orgSlug: string): void {
+  try {
+    localStorage.setItem(`${TOUR_INTENT_SEEN_STORAGE_PREFIX}${orgSlug}`, '1');
+  } catch {
+    // localStorage unavailable (e.g. private mode) — worst case the user is greeted as a
+    // first-timer again, which is a copy difference and nothing more.
+  }
+}
+
+/**
+ * Whether the intent modal has already opened in THIS browser session — the modal returns
+ * each time the user comes back to Dalgo, but must not reappear on a refresh or on every
+ * navigation back to /impact while they are working.
+ *
+ * sessionStorage, deliberately: "they opened Dalgo again" is exactly a new session, and there
+ * is no login event a modal can hang off (a reload is indistinguishable from one).
+ */
+export const TOUR_INTENT_SESSION_STORAGE_PREFIX = 'dalgo_tour_intent_session_';
+
+export function hasShownIntentModalThisSession(orgSlug: string): boolean {
+  try {
+    return sessionStorage.getItem(`${TOUR_INTENT_SESSION_STORAGE_PREFIX}${orgSlug}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function markIntentModalShownThisSession(orgSlug: string): void {
+  try {
+    sessionStorage.setItem(`${TOUR_INTENT_SESSION_STORAGE_PREFIX}${orgSlug}`, '1');
+  } catch {
+    // no-op
+  }
+}
+
+/**
  * Which step a RUNNING tour is on. Written on every step, cleared by finish() — so a value
  * being present means the run was interrupted rather than exited, and TourGate puts it back
  * on screen (see its resume effect).

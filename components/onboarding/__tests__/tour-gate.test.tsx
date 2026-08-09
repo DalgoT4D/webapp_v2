@@ -3,7 +3,13 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TestWrapper } from '@/test-utils/render';
 import { mockApiGet } from '@/test-utils/api';
-import { TOUR_SEEN_STORAGE_PREFIX, saveTourProgress } from '../tour-constants';
+import {
+  saveTourProgress,
+  markIntentModalSeen,
+  markIntentModalShownThisSession,
+  hasSeenIntentModal,
+  hasShownIntentModalThisSession,
+} from '../tour-constants';
 import {
   savePath,
   saveWalkthroughStage,
@@ -104,12 +110,30 @@ const ageTrackedConnection = () => {
   localStorage.setItem(key, String(Date.now() - 60 * 60 * 1000));
 };
 
+/** Seeds the backend trial_walkthrough record — the gate every flow decision reads. */
+const mockWalkthroughState = (trial_walkthrough: Record<string, unknown>) =>
+  mockApiGet.mockImplementation((path: string) =>
+    path === '/api/userpreferences/'
+      ? Promise.resolve({ success: true, res: { trial_walkthrough } })
+      : undefined
+  );
+
+/**
+ * Keeps the landing-page intent modal out of the way of tests that aren't about it. It now
+ * opens once per SESSION for any trial user with a build flow left to finish, and its Radix
+ * overlay makes everything behind it unclickable.
+ */
+const suppressIntentModal = () => markIntentModalShownThisSession('trial-org');
+
 // ============ Tests ============
 
 describe('TourGate', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    // The intent modal is now once-per-SESSION (see tour-constants) — without this, the first
+    // test to open it suppresses it for every test after.
+    sessionStorage.clear();
     mockPathname = '/impact';
     mockTourProps.current = null;
     // Default: no flow decided on the backend, so gating falls to localStorage as before.
@@ -161,16 +185,125 @@ describe('TourGate', () => {
     expect(screen.getByTestId('getting-started-widget-tour-link')).toBeInTheDocument();
   });
 
-  it('does not auto-open the intent modal when the org already saw the tour', () => {
-    localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+  it('greets a returning user with the days left, not the first-visit question', async () => {
+    // Seen once before (localStorage), fresh session — the modal comes back, but reworded.
+    markIntentModalSeen('trial-org');
     setupAuthStore(buildOrgUser());
     renderGate();
 
+    expect(await screen.findByTestId('tour-intent-modal')).toBeInTheDocument();
     // Dialog content only renders in the DOM when open (Radix unmounts when closed).
     expect(screen.queryByText('What brings you to Dalgo')).not.toBeInTheDocument();
-    // Checklist shape is the same either way — the two build flows.
-    expect(screen.getByTestId('getting-started-widget-item-build-insight')).toBeInTheDocument();
-    expect(screen.getByTestId('getting-started-widget-item-automate-pipeline')).toBeInTheDocument();
+    expect(screen.getByText(/Welcome back — \d+ days? left for your trial/)).toBeInTheDocument();
+    expect(screen.getByTestId('tour-intent-subtitle')).toBeInTheDocument();
+    // Same three options either way — only the heading block changes.
+    expect(screen.getByTestId('tour-intent-option-tour')).toBeInTheDocument();
+    expect(screen.getByTestId('tour-intent-option-insight')).toBeInTheDocument();
+    expect(screen.getByTestId('tour-intent-option-pipeline')).toBeInTheDocument();
+  });
+
+  it('stays shut for the rest of the session once it has opened', async () => {
+    // A refresh, or walking back to /impact mid-work, is not a new arrival.
+    markIntentModalShownThisSession('trial-org');
+    setupAuthStore(buildOrgUser());
+    renderGate();
+
+    expect(await screen.findByTestId('getting-started-widget')).toBeInTheDocument();
+    expect(screen.queryByTestId('tour-intent-modal')).not.toBeInTheDocument();
+  });
+
+  it('stops opening once both build flows are completed', async () => {
+    // The bar is completion of the two flows that build something. The tour is a look
+    // around, not work done, so it is deliberately not part of it.
+    mockWalkthroughState({
+      insights: { skipped: false, completed: true },
+      automate_pipeline: { skipped: false, completed: true },
+    });
+    setupAuthStore(buildOrgUser());
+    renderGate();
+
+    expect(await screen.findByTestId('getting-started-widget')).toBeInTheDocument();
+    expect(screen.queryByTestId('tour-intent-modal')).not.toBeInTheDocument();
+  });
+
+  it('keeps opening while only one build flow is completed', async () => {
+    mockWalkthroughState({ insights: { skipped: false, completed: true } });
+    setupAuthStore(buildOrgUser());
+    renderGate();
+
+    expect(await screen.findByTestId('tour-intent-modal')).toBeInTheDocument();
+  });
+
+  it('records nothing until the user actually closes it', async () => {
+    // A reload before closing must re-offer it, unchanged — so opening writes no flag, and a
+    // first-timer who refreshes is still asked what brings them here rather than greeted back.
+    setupAuthStore(buildOrgUser());
+    renderGate();
+    await screen.findByTestId('tour-intent-modal');
+
+    expect(hasShownIntentModalThisSession('trial-org')).toBe(false);
+    expect(hasSeenIntentModal('trial-org')).toBe(false);
+  });
+
+  it('records both flags once closed', async () => {
+    const user = userEvent.setup();
+    setupAuthStore(buildOrgUser());
+    renderGate();
+    await screen.findByTestId('tour-intent-modal');
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(hasShownIntentModalThisSession('trial-org')).toBe(true));
+    // localStorage: the NEXT session gets the welcome-back copy.
+    expect(hasSeenIntentModal('trial-org')).toBe(true);
+  });
+
+  it('records both flags when an option is picked, not just on the ✕', async () => {
+    const user = userEvent.setup();
+    setupAuthStore(buildOrgUser());
+    renderGate();
+
+    await user.click(await screen.findByTestId('tour-intent-option-tour'));
+
+    await waitFor(() => expect(hasShownIntentModalThisSession('trial-org')).toBe(true));
+    expect(hasSeenIntentModal('trial-org')).toBe(true);
+  });
+
+  it('stands down when a trial lifecycle nudge is due the same session', async () => {
+    // Both are unrouted auto-opening dialogs, and NudgeCenter mounts app-wide — without the
+    // isTrialDayNudgeDue check they stack on /impact on days 7, 13 and 14.
+    const created = new Date();
+    created.setDate(created.getDate() - 13);
+    setupAuthStore(
+      buildOrgUser({ org: { ...buildOrgUser().org, created_at: created.toISOString() } })
+    );
+    renderGate();
+
+    expect(await screen.findByTestId('getting-started-widget')).toBeInTheDocument();
+    expect(screen.queryByTestId('tour-intent-modal')).not.toBeInTheDocument();
+  });
+
+  it('opens normally on a day with no trial lifecycle nudge', async () => {
+    const created = new Date();
+    created.setDate(created.getDate() - 3);
+    setupAuthStore(
+      buildOrgUser({ org: { ...buildOrgUser().org, created_at: created.toISOString() } })
+    );
+    renderGate();
+
+    expect(await screen.findByTestId('tour-intent-modal')).toBeInTheDocument();
+  });
+
+  it('keeps opening when the flows were skipped rather than completed', async () => {
+    // Skipping means "not now" — and next session is a new now.
+    mockWalkthroughState({
+      insights: { skipped: true, completed: false },
+      automate_pipeline: { skipped: true, completed: false },
+    });
+    setupAuthStore(buildOrgUser());
+    renderGate();
+
+    expect(await screen.findByTestId('tour-intent-modal')).toBeInTheDocument();
   });
 
   it('starts the driver.js tour when the intent modal\'s "Explore the platform" option is picked', async () => {
@@ -187,7 +320,7 @@ describe('TourGate', () => {
 
   it('hides the getting-started widget while the tour runs, and restores it when it ends', async () => {
     const user = userEvent.setup();
-    localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+    suppressIntentModal();
     setupAuthStore(buildOrgUser());
     renderGate();
 
@@ -224,10 +357,10 @@ describe('TourGate', () => {
     setupAuthStore(buildOrgUser());
     renderGate();
 
-    // product_tour is deliberately left undecided, so the intent modal opening is a
-    // reliable signal that the backend gate has resolved before we assert on the prop.
-    await screen.findByText('What brings you to Dalgo');
-    expect(mockTourProps.current?.canOfferPostTourChoice).toBe(false);
+    // Waited on the prop itself rather than on the intent modal appearing: with both flows
+    // completed the modal no longer opens at all, so it is no longer a readiness signal.
+    // The prop starts true (nothing completed until the fetch lands) and flips on resolve.
+    await waitFor(() => expect(mockTourProps.current?.canOfferPostTourChoice).toBe(false));
   });
 
   it('still offers the post-tour choice when a flow was skipped rather than completed', async () => {
@@ -302,7 +435,7 @@ describe('TourGate', () => {
           })
         : undefined
     );
-    localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+    suppressIntentModal();
     setupAuthStore(buildOrgUser());
     renderGate();
 
@@ -326,7 +459,7 @@ describe('TourGate', () => {
           })
         : undefined
     );
-    localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+    suppressIntentModal();
     setupAuthStore(buildOrgUser());
     renderGate();
 
@@ -363,7 +496,7 @@ describe('TourGate', () => {
     const user = userEvent.setup();
     // Mark seen so the intent modal doesn't also auto-open and cover the widget —
     // this test is only about the widget's own trigger wiring.
-    localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+    suppressIntentModal();
     setupAuthStore(buildOrgUser());
     renderGate();
 
@@ -371,14 +504,6 @@ describe('TourGate', () => {
 
     expect(mockStartTour).toHaveBeenCalledTimes(1);
   });
-
-  /** Seeds the backend record — the only source the checklist ticks read. */
-  const mockWalkthroughState = (trial_walkthrough: Record<string, unknown>) =>
-    mockApiGet.mockImplementation((path: string) =>
-      path === '/api/userpreferences/'
-        ? Promise.resolve({ success: true, res: { trial_walkthrough } })
-        : undefined
-    );
 
   /**
    * Waits for a row's icon to settle. Rows render unchecked first — a tick now depends on
@@ -393,7 +518,7 @@ describe('TourGate', () => {
   };
 
   it('ticks "Build your first insight" once the insights flow is recorded complete', async () => {
-    localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+    suppressIntentModal();
     mockWalkthroughState({ insights: { skipped: false, completed: true } });
     setupAuthStore(buildOrgUser());
     renderGate();
@@ -403,7 +528,7 @@ describe('TourGate', () => {
   });
 
   it('ticks only the pipeline row when automate-pipeline completes', async () => {
-    localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+    suppressIntentModal();
     mockWalkthroughState({ automate_pipeline: { skipped: false, completed: true } });
     setupAuthStore(buildOrgUser());
     renderGate();
@@ -415,7 +540,7 @@ describe('TourGate', () => {
   });
 
   it('leaves a skipped flow unticked — decided is not the same as achieved', async () => {
-    localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+    suppressIntentModal();
     mockWalkthroughState({
       insights: { skipped: true, completed: false },
       automate_pipeline: { skipped: true, completed: false },
@@ -428,7 +553,7 @@ describe('TourGate', () => {
   });
 
   it('ignores stale local flags — the backend is the only source for a tick', async () => {
-    localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+    suppressIntentModal();
     // Left behind by a flow whose backend write never landed, so nothing is recorded.
     localStorage.setItem('dalgo_insight_walkthrough_done_trial-org', '1');
     localStorage.setItem('dalgo_insight_walkthrough_pipeline_created_trial-org', '1');
@@ -449,6 +574,9 @@ describe('TourGate — resuming an interrupted product tour', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    // The intent modal is now once-per-SESSION (see tour-constants) — without this, the first
+    // test to open it suppresses it for every test after.
+    sessionStorage.clear();
     mockPathname = '/impact';
     mockApiGet.mockImplementation((path: string) =>
       path === '/api/userpreferences/'
@@ -480,7 +608,7 @@ describe('TourGate — resuming an interrupted product tour', () => {
   });
 
   it('does not resume a tour that was never interrupted', async () => {
-    localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+    suppressIntentModal();
     setupAuthStore(buildOrgUser());
     renderGate();
 
@@ -527,10 +655,13 @@ describe('TourGate — Get Started checklist actions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    // The intent modal is now once-per-SESSION (see tour-constants) — without this, the first
+    // test to open it suppresses it for every test after.
+    sessionStorage.clear();
     mockPathname = '/impact';
     // Tour already seen everywhere in this block: these tests are about the checklist, and
     // the intent modal would otherwise cover it.
-    localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+    suppressIntentModal();
     useInsightWalkthroughStore.setState({
       active: false,
       orgSlug: null,

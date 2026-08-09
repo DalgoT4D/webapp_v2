@@ -13,21 +13,28 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
-import { FREE_TRIAL_PLAN_NAME } from '@/constants/trial';
+import { FREE_TRIAL_PLAN_NAME, trialDaysRemaining, isTrialDayNudgeDue } from '@/constants/trial';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { useConnectionsList } from '@/hooks/api/useConnections';
 import { SyncStatus } from '@/constants/connections';
 import { NEXT_PUBLIC_WEBAPP_ENVIRONMENT } from '@/constants/constants';
 import type { Connection } from '@/types/connections';
 import { ProductTour, type ProductTourHandle } from './product-tour';
-import { TourIntentModal } from './tour-intent-modal';
+import { TourIntentModal, type TourIntentVariant } from './tour-intent-modal';
 import { GettingStartedWidget } from './getting-started-widget';
 import {
   InsightWalkthroughCoachmark,
   WALKTHROUGH_STAGE_ROUTES,
 } from './insight-walkthrough-coachmark';
+import { FeatureNudgeCoachmark } from './feature-nudge-coachmark';
 import { GetStartedModal, type GetStartedEntry, type GetStartedScreen } from './get-started-modal';
-import { hasSeenTour, getTourProgress } from './tour-constants';
+import {
+  getTourProgress,
+  hasSeenIntentModal,
+  markIntentModalSeen,
+  hasShownIntentModalThisSession,
+  markIntentModalShownThisSession,
+} from './tour-constants';
 import {
   markConnectedRealData,
   getStoredPath,
@@ -129,6 +136,7 @@ export function TourGate() {
   const hasOpenedModalRef = useRef(false);
   const hasResumedTourRef = useRef(false);
   const [intentModalOpen, setIntentModalOpen] = useState(false);
+  const [intentVariant, setIntentVariant] = useState<TourIntentVariant>('first_time');
   // One dialog instance, three entry points (tour finish, the Get Started widget, and
   // resuming a stored 'fork2' stage) — see get-started-modal.tsx.
   const [getStartedModal, setGetStartedModal] = useState<GetStartedModalState>(CLOSED_MODAL);
@@ -148,6 +156,9 @@ export function TourGate() {
 
   const isTrialOrg = forcePreview || orgUser?.subscription_plan === FREE_TRIAL_PLAN_NAME;
   const orgSlug = orgUser?.org.slug ?? null;
+  // Signup timestamp — drives both the "N days left" heading and the check for whether a
+  // trial lifecycle nudge outranks this modal today.
+  const createdAt = orgUser?.org.created_at ?? null;
   // Subscribed (not read via getState) so the widget collapses the moment a flow starts,
   // wherever the user happens to be, and reopens once it ends.
   const walkthroughActive = useInsightWalkthroughStore((s) => s.active);
@@ -195,18 +206,61 @@ export function TourGate() {
     return () => clearTimeout(timer);
   }, [isTrialOrg, orgSlug, runTour]);
 
+  /**
+   * The landing-page intent modal. No longer a one-time thing: it returns once per browser
+   * session for as long as the user still has a walkthrough to finish, because a trial is
+   * short and a user who bounced off it on day 1 is exactly who this is for.
+   *
+   * It stops for good once BOTH build-insight and automate-pipeline are COMPLETED — the tour
+   * isn't part of that bar (it's a look around, not work done), and a skip doesn't count
+   * either: skipping means "not now", and next session is a new now.
+   *
+   * `hasSeenIntentModal` doesn't gate whether it opens, only which copy it wears — first
+   * visit asks what brings you here, later ones greet you back.
+   *
+   * Both flags are written when the user CLOSES the modal (see the onOpenChange handler),
+   * never when it opens: a reload before closing shows it again, unchanged — the user hasn't
+   * acknowledged it, and a first-timer who refreshes must still be asked what brings them
+   * here rather than being greeted back.
+   */
   useEffect(() => {
     if (!orgSlug || walkthroughLoading) return;
-    const nowSeen = hasSeenTour(orgSlug);
-    if (!isTrialOrg || nowSeen || pathname !== IMPACT_PATH || hasOpenedModalRef.current) return;
-    // Already skipped or completed the tour on some other browser/session.
-    if (isFlowDecided(walkthroughState, 'product_tour')) return;
+    if (!isTrialOrg || pathname !== IMPACT_PATH || hasOpenedModalRef.current) return;
+    if (
+      isFlowCompleted(walkthroughState, 'insights') &&
+      isFlowCompleted(walkthroughState, 'automate_pipeline')
+    ) {
+      return;
+    }
+    // Already landed this session — a refresh or a walk back to /impact isn't a new arrival.
+    if (hasShownIntentModalThisSession(orgSlug)) return;
+    // A trial lifecycle nudge (day 7 / 13 / 14, see NudgeCenter) is an unrouted auto-opening
+    // dialog too, and it outranks this one: "your trial ends on <date>" is time-critical and
+    // this modal's own heading says much the same thing. Burn this session's slot so the two
+    // can't stack, and so dismissing the day nudge doesn't immediately surface a second modal.
+    if (createdAt && isTrialDayNudgeDue(orgSlug, createdAt)) {
+      hasOpenedModalRef.current = true;
+      markIntentModalShownThisSession(orgSlug);
+      return;
+    }
     // Mid-run and about to be resumed by the effect above — offering to start it again on top
     // of its own popover would be nonsense.
     if (getTourProgress(orgSlug) !== null) return;
+    // A walkthrough already on screen owns the user's attention; the modal would cover its
+    // own coachmark.
+    if (walkthroughActive) return;
     hasOpenedModalRef.current = true;
+    setIntentVariant(hasSeenIntentModal(orgSlug) ? 'returning' : 'first_time');
     setIntentModalOpen(true);
-  }, [isTrialOrg, orgSlug, pathname, walkthroughLoading, walkthroughState]);
+  }, [
+    isTrialOrg,
+    orgSlug,
+    createdAt,
+    pathname,
+    walkthroughLoading,
+    walkthroughState,
+    walkthroughActive,
+  ]);
 
   // Resume the insight walkthrough (see insight-walkthrough-coachmark.tsx) if the user
   // refreshed or navigated away mid-flow — a no-op if it was never started or already
@@ -513,6 +567,14 @@ export function TourGate() {
         }
       />
       <InsightWalkthroughCoachmark />
+      {/* Belongs to no flow — a one-shot explainer on /reports, /alerts and /metrics, which
+          no walkthrough visits. Mounted here rather than in main-layout so it inherits this
+          component's trial-only gate for free, and reuses the preferences fetch already made
+          above instead of firing its own. */}
+      <FeatureNudgeCoachmark
+        suppressed={walkthroughActive || tourRunning}
+        walkthroughState={walkthroughState}
+      />
       <GetStartedModal
         open={getStartedModal.open}
         initialScreen={getStartedModal.screen}
@@ -548,12 +610,25 @@ export function TourGate() {
           onAutomatePipelineClick={handleAutomatePipelineClick}
         />
       )}
-      {/* Still /impact-only: this is the first-run welcome prompt, not a persistent affordance. */}
+      {/* Still /impact-only: this is the landing-page welcome prompt, not a persistent
+          affordance. It now returns once per session (see the effect above), wearing the
+          'returning' copy after the first time. */}
       {pathname === IMPACT_PATH && (
         <TourIntentModal
           open={intentModalOpen}
-          onOpenChange={setIntentModalOpen}
+          // Closing is what records it — by the ✕, by the overlay, or by picking one of the
+          // three options (they all route through here). Until then a reload re-offers it
+          // with the same copy.
+          onOpenChange={(open) => {
+            setIntentModalOpen(open);
+            if (!open) {
+              markIntentModalSeen(orgSlug);
+              markIntentModalShownThisSession(orgSlug);
+            }
+          }}
           onStartTour={startTour}
+          variant={intentVariant}
+          trialDaysLeft={createdAt ? trialDaysRemaining(createdAt) : 0}
         />
       )}
     </>

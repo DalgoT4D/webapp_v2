@@ -20,6 +20,43 @@ export function trialDaysRemaining(createdAtIso: string): number {
   return Math.max(0, Math.round((endMs - todayMs) / MS_PER_DAY));
 }
 
+/**
+ * Whole calendar days since signup, counting the signup day as 0.
+ *
+ * NOT `TRIAL_PERIOD_DAYS - trialDaysRemaining()`, which is what the nudges used to do:
+ * `trialDaysRemaining` clamps at 0, so that expression sticks at 14 forever once the trial
+ * ends — an expired org whose reaper hasn't run yet would keep matching the day-14 nudge.
+ * This counts up without a ceiling, so day 14 means day 14 and nothing later does.
+ */
+export function trialDaysElapsed(createdAtIso: string): number {
+  const created = new Date(createdAtIso);
+  const createdMs = new Date(
+    created.getFullYear(),
+    created.getMonth(),
+    created.getDate()
+  ).getTime();
+  const now = new Date();
+  const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const MS_PER_DAY = 86_400_000;
+  // Clamped below only, against a clock skew that puts "today" before signup.
+  return Math.max(0, Math.round((todayMs - createdMs) / MS_PER_DAY));
+}
+
+/**
+ * Elapsed days that fire a trial lifecycle nudge (see TrialDayNudgeModal). Day 7 is the
+ * halfway "let's get your data flowing" prompt; 13 and 14 are the second-last and last days
+ * of the trial, both showing the "almost over" upgrade modal.
+ *
+ * Shared with NudgeCenter, which decides whether to mount the modal at all — the two must
+ * agree or the modal mounts on a day it then refuses to render.
+ */
+export const TRIAL_NUDGE_DAYS = [7, 13, 14] as const;
+export type TrialNudgeDay = (typeof TRIAL_NUDGE_DAYS)[number];
+
+// TODO: point at the real scheduling link once it exists. Kept as a single constant so the
+// swap is one line — the "Book a call" link in the trial nudge modals reads it.
+export const BOOK_A_CALL_URL = '#';
+
 // Status polling cadence for the progress screen (ms). Kept above the SWRProvider's
 // dedupingInterval (2000ms in lib/swr.tsx). The hook also sets refreshWhenHidden so
 // polling continues even if the tab is backgrounded — this is a provisioning screen
@@ -88,12 +125,22 @@ export const TRIAL_PENDING_ACTIVATION_KEY = 'dalgo_trial_pending_activation';
 
 const TRIAL_DAY_NUDGE_DISMISSED_PREFIX = 'dalgo_trial_day_nudge_dismissed_';
 
-// Permanent (localStorage, not sessionStorage) dismiss for the day-7 / day-13 trial
-// lifecycle nudges (TrialDayNudgeModal) — once closed, never shown again for that org,
-// unlike the flow-resume nudge's per-session suppression.
+/**
+ * Per-SESSION dismiss for the trial lifecycle nudges (TrialDayNudgeModal), keyed by org and
+ * elapsed day.
+ *
+ * Written when the user CLOSES the modal, not when it opens: closing is the only thing that
+ * suppresses it. A reload before closing deliberately shows it again — the user hasn't
+ * acknowledged it yet, and on days 13 and 14 that message is worth repeating.
+ *
+ * sessionStorage, deliberately: once closed it stays gone for the rest of the session however
+ * the user navigates or refreshes, but coming back to Dalgo in a new session on a nudge day
+ * shows it again. These are end-of-trial prompts; landing once and never again for the rest of
+ * the trial would waste the day that matters most.
+ */
 export function markTrialDayNudgeDismissed(orgSlug: string, day: number): void {
   try {
-    localStorage.setItem(`${TRIAL_DAY_NUDGE_DISMISSED_PREFIX}${day}_${orgSlug}`, '1');
+    sessionStorage.setItem(`${TRIAL_DAY_NUDGE_DISMISSED_PREFIX}${day}_${orgSlug}`, '1');
   } catch {
     // no-op
   }
@@ -101,8 +148,27 @@ export function markTrialDayNudgeDismissed(orgSlug: string, day: number): void {
 
 export function hasTrialDayNudgeDismissed(orgSlug: string, day: number): boolean {
   try {
-    return localStorage.getItem(`${TRIAL_DAY_NUDGE_DISMISSED_PREFIX}${day}_${orgSlug}`) === '1';
+    return sessionStorage.getItem(`${TRIAL_DAY_NUDGE_DISMISSED_PREFIX}${day}_${orgSlug}`) === '1';
   } catch {
     return false;
   }
+}
+
+/**
+ * Whether a trial lifecycle nudge is due right now — today is one of TRIAL_NUDGE_DAYS and it
+ * hasn't been dismissed this session.
+ *
+ * Read by NudgeCenter (to decide whether to mount the modal) AND by TourGate (to stand its own
+ * landing-page modal down). Both are unrouted auto-opening dialogs, so without this they stack
+ * on /impact on days 7, 13 and 14 — the day the trial nudge matters most is exactly the day
+ * the intent modal is most likely to be showing.
+ *
+ * Browser-only (sessionStorage): call it from an effect, never during render.
+ */
+export function isTrialDayNudgeDue(orgSlug: string, createdAtIso: string): boolean {
+  const elapsedDay = trialDaysElapsed(createdAtIso);
+  return (
+    TRIAL_NUDGE_DAYS.some((d) => d === elapsedDay) &&
+    !hasTrialDayNudgeDismissed(orgSlug, elapsedDay)
+  );
 }

@@ -1,8 +1,15 @@
 'use client';
 
 /**
- * "What brings you to Dalgo" — one-time intent modal shown on a trial user's first visit
- * to /impact. Figma frame: "take tour" intro (tour flow section, 2452:663-equivalent).
+ * The trial user's landing-page intent modal, shown on /impact. Figma frame: "take tour"
+ * intro (tour flow section, 2452:663-equivalent).
+ *
+ * Two copies of the same modal, chosen by `variant` — the options, illustration and layout
+ * are identical, only the heading block differs:
+ *  - 'first_time' asks "What brings you to Dalgo".
+ *  - 'returning' greets them back with the days left on their trial and points at the
+ *    fastest route to value. It reappears once per session until they have completed both
+ *    the build-insight and automate-pipeline walkthroughs (see tour-gate.tsx).
  *
  * Only the "Explore the platform" option is wired to real behavior (starts the driver.js
  * tour via `onStartTour`); the other two just close the modal for now — decided with
@@ -15,10 +22,16 @@ import { cn } from '@/lib/utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
+export type TourIntentVariant = 'first_time' | 'returning';
+
 interface TourIntentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onStartTour: () => void;
+  /** Which heading block to render. Defaults to the original first-visit copy. */
+  variant?: TourIntentVariant;
+  /** Whole days left in the trial — only read by the 'returning' variant's heading. */
+  trialDaysLeft?: number;
 }
 
 interface IntentOption {
@@ -52,23 +65,32 @@ const INTENT_OPTIONS: IntentOption[] = [
 const DOT_COUNT = 3;
 const ACTIVE_DOT = 1;
 
-export function TourIntentModal({ open, onOpenChange, onStartTour }: TourIntentModalProps) {
+export function TourIntentModal({
+  open,
+  onOpenChange,
+  onStartTour,
+  variant = 'first_time',
+  trialDaysLeft = 0,
+}: TourIntentModalProps) {
   const handleSelect = (option: IntentOption) => {
-    trackEvent(ANALYTICS_EVENTS.TOUR_INTENT_MODAL_DISMISSED, { choice: option.id });
+    trackEvent(ANALYTICS_EVENTS.TOUR_INTENT_MODAL_DISMISSED, { choice: option.id, variant });
     onOpenChange(false);
     if (option.id === 'tour') {
       onStartTour();
     }
   };
 
+  const isReturning = variant === 'returning';
+  const dayLabel = trialDaysLeft === 1 ? '1 day' : `${trialDaysLeft} days`;
+
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         if (!next) {
-          trackEvent(ANALYTICS_EVENTS.TOUR_INTENT_MODAL_DISMISSED, { choice: 'close' });
+          trackEvent(ANALYTICS_EVENTS.TOUR_INTENT_MODAL_DISMISSED, { choice: 'close', variant });
         } else {
-          trackEvent(ANALYTICS_EVENTS.TOUR_INTENT_MODAL_VIEWED);
+          trackEvent(ANALYTICS_EVENTS.TOUR_INTENT_MODAL_VIEWED, { variant });
         }
         onOpenChange(next);
       }}
@@ -80,9 +102,20 @@ export function TourIntentModal({ open, onOpenChange, onStartTour }: TourIntentM
         <div className="grid h-full grid-cols-1 md:grid-cols-[5fr_6fr]">
           <div className="px-8 py-14">
             <DialogTitle className="text-2xl font-bold text-foreground">
-              What brings you to Dalgo
+              {isReturning
+                ? `Welcome back — ${dayLabel} left for your trial`
+                : 'What brings you to Dalgo'}
             </DialogTitle>
-            <div className="mt-8 space-y-5">
+            {isReturning && (
+              <p
+                className="mt-4 text-base text-muted-foreground"
+                data-testid="tour-intent-subtitle"
+              >
+                You haven&apos;t started yet. The fastest way to see what Dalgo does is to turn the
+                sample data into a dashboard, about 5 minutes.
+              </p>
+            )}
+            <div className={cn('space-y-5', isReturning ? 'mt-6' : 'mt-8')}>
               {INTENT_OPTIONS.map((option) => (
                 <button
                   key={option.id}

@@ -1,10 +1,15 @@
 'use client';
 
 /**
- * Trial lifecycle nudges — fire on the exact day (7 or 13 of the 14-day trial),
- * regardless of onboarding-flow progress. Mounted via NudgeCenter. Dismissing is
- * permanent (localStorage) per org — unlike the flow-resume nudge, this isn't meant to
- * nag every session, just to land once on that specific day.
+ * Trial lifecycle nudges — fire on an exact elapsed day of the 14-day trial (see
+ * TRIAL_NUDGE_DAYS), regardless of onboarding-flow progress. Mounted via NudgeCenter.
+ *
+ * Day 7 is the halfway "let's get your data flowing" prompt. Days 13 and 14 — the second-last
+ * and last days — both show the "almost over" upgrade modal, deliberately as two separate
+ * nudges: dismissal is keyed per day, so closing it on 13 still lets the final-day one land.
+ *
+ * Dismissing is permanent (localStorage) per org and per day — unlike the flow-resume nudge,
+ * this isn't meant to nag every session, just to land once on that specific day.
  */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -14,15 +19,15 @@ import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import {
   FREE_TRIAL_PLAN_NAME,
   TRIAL_PERIOD_DAYS,
-  trialDaysRemaining,
+  TRIAL_NUDGE_DAYS,
+  type TrialNudgeDay,
+  trialDaysElapsed,
   markTrialDayNudgeDismissed,
   hasTrialDayNudgeDismissed,
 } from '@/constants/trial';
 import { TwoPaneNudgeDialog } from './two-pane-nudge-dialog';
 
 const ILLUSTRATION_SRC = '/branding/trial-countdown-illustration.jpg';
-const NUDGE_DAYS = [7, 13] as const;
-type NudgeDay = (typeof NUDGE_DAYS)[number];
 
 export function TrialDayNudgeModal() {
   const router = useRouter();
@@ -31,22 +36,23 @@ export function TrialDayNudgeModal() {
   const orgSlug =
     orgUser?.subscription_plan === FREE_TRIAL_PLAN_NAME ? (orgUser.org?.slug ?? null) : null;
   const createdAt = orgUser?.org?.created_at ?? null;
-  // Starts null so nothing flashes open before this effect can check localStorage — a
+  // Starts null so nothing flashes open before this effect can check sessionStorage — a
   // browser-only API, unavailable during server render.
-  const [day, setDay] = useState<NudgeDay | null>(null);
+  const [day, setDay] = useState<TrialNudgeDay | null>(null);
 
   useEffect(() => {
     if (!orgSlug || !createdAt) return;
-    // NUDGE_DAYS counts elapsed days since signup, not days *remaining* — day 7 of 14 is
-    // the halfway nudge, day 13 is the "almost over" one. trialDaysRemaining() only gives
-    // remaining, so elapsed = period - remaining.
-    const elapsedDay = TRIAL_PERIOD_DAYS - trialDaysRemaining(createdAt);
-    const candidate = NUDGE_DAYS.find((d) => d === elapsedDay);
+    // TRIAL_NUDGE_DAYS counts days ELAPSED since signup, not days remaining — 7 of 14 is the
+    // halfway nudge, 13 and 14 are the last two days.
+    const elapsedDay = trialDaysElapsed(createdAt);
+    const candidate = TRIAL_NUDGE_DAYS.find((d) => d === elapsedDay);
     setDay(candidate && !hasTrialDayNudgeDismissed(orgSlug, candidate) ? candidate : null);
   }, [orgSlug, createdAt]);
 
   if (!day || !orgSlug || !createdAt) return null;
 
+  // Closing is the ONLY thing that suppresses this for the session — a reload before closing
+  // deliberately brings it back, because the user hasn't acknowledged it yet.
   const dismiss = () => {
     markTrialDayNudgeDismissed(orgSlug, day);
     setDay(null);
@@ -71,6 +77,8 @@ export function TrialDayNudgeModal() {
     );
   }
 
+  // Days 13 and 14 share this modal — the deletion date is what changes meaning between them
+  // (tomorrow vs today), and the date is spelled out rather than described, so one copy holds.
   const expiry = new Date(createdAt);
   expiry.setDate(expiry.getDate() + TRIAL_PERIOD_DAYS);
 
@@ -78,14 +86,14 @@ export function TrialDayNudgeModal() {
     <TwoPaneNudgeDialog
       onOpenChange={(open) => !open && dismiss()}
       title="Your trial is almost over."
-      body={`On ${format(expiry, 'MMMM d, yyyy')}, your account will be deleted. There is still time to connect some sample data and see what Dalgo can actually do for you.`}
+      body={`On ${format(expiry, 'MMMM d, yyyy')}, your account will be deleted. Secure your full licence now to keep your data syncing seamlessly and your dashboards active.`}
       ctaLabel="Upgrade"
       onCta={() => {
         dismiss();
         router.push('/settings/billing');
       }}
       imageSrc={ILLUSTRATION_SRC}
-      testId="trial-day13-nudge-modal"
+      testId={`trial-day${day}-nudge-modal`}
     />
   );
 }
