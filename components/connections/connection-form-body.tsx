@@ -19,7 +19,12 @@ import {
   triggerSync,
 } from '@/hooks/api/useConnections';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
-import { SyncMode, DestinationSyncMode, FormMode } from '@/constants/connections';
+import {
+  SyncMode,
+  DestinationSyncMode,
+  FormMode,
+  isCastSupportedSource,
+} from '@/constants/connections';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import type { SyncCatalog, SchemaDiscoveryResponse } from '@/types/connections';
@@ -137,6 +142,7 @@ export function ConnectionFormBody({
     () => (sourceDefName ? getCustomSource(sourceDefName)?.connectionView : null) ?? null,
     [sourceDefName]
   );
+  const showCastColumn = sourceDefName ? isCastSupportedSource(sourceDefName) : false;
   const [activeConcept, setActiveConcept] = useState<ConnectionConceptId | null>(null);
 
   // Help-panel cards tailored to this source's capabilities. Custom sources
@@ -179,6 +185,7 @@ export function ConnectionFormBody({
     updateStreamCursorField,
     updateStreamPrimaryKey,
     toggleColumn,
+    updateCastType,
     toggleStreamExpand,
     handleIncrementalAllToggle,
     filteredStreams,
@@ -210,14 +217,28 @@ export function ConnectionFormBody({
       // append_dedup) — coerce to the first allowed mode so the dest-mode
       // <Select> doesn't render blank.
       const parsed = connection.syncCatalog.streams.map((s) => parseCatalogStream(s));
+
+      // Build cast type lookup from stored post_sync_transform
+      const castConfigMap: Record<string, Record<string, string>> = {};
+      for (const op of connection.post_sync_transform?.ops ?? []) {
+        if (op.type === 'cast') castConfigMap[op.table] = op.config;
+      }
+      const withCasts = parsed.map((s) => {
+        const columnCasts = castConfigMap[s.name] ?? {};
+        return {
+          ...s,
+          columns: s.columns.map((c) => ({ ...c, cast_to_type: columnCasts[c.name] ?? null })),
+        };
+      });
+
       setStreams(
         connectionView
-          ? parsed.map((s) =>
+          ? withCasts.map((s) =>
               connectionView.allowedDestModes.includes(s.destinationSyncMode as DestinationSyncMode)
                 ? s
                 : { ...s, destinationSyncMode: connectionView.allowedDestModes[0] }
             )
-          : parsed
+          : withCasts
       );
     }
   }, [connection, isCreate, connectionView]);
@@ -288,6 +309,20 @@ export function ConnectionFormBody({
     return Object.keys(next).length === 0;
   }, [name, isCreate, presetSourceId, selectedSourceId, hasSelectedStreams, connectionView]);
 
+  const buildPostSyncTransform = useCallback(() => {
+    const ops = streams
+      .filter((s) => s.selected)
+      .flatMap((s) => {
+        const config: Record<string, string> = {};
+        for (const c of s.columns) {
+          if (c.cast_to_type) config[c.name] = c.cast_to_type;
+        }
+        if (Object.keys(config).length === 0) return [];
+        return [{ type: 'cast' as const, schema: destinationSchema, table: s.name, config }];
+      });
+    return ops.length > 0 ? { ops } : null;
+  }, [streams, destinationSchema]);
+
   const handleSave = useCallback(async () => {
     if (!validate()) return;
 
@@ -320,6 +355,7 @@ export function ConnectionFormBody({
           normalize,
           syncCatalog: discoveredCatalog!,
           catalogId: catalogId || undefined,
+          post_sync_transform: buildPostSyncTransform(),
         });
         trackEvent(ANALYTICS_EVENTS.CONNECTION_CREATED, { source_type: sourceType });
         toastSuccess.created('Connection');
@@ -344,6 +380,7 @@ export function ConnectionFormBody({
           destinationSchema: destinationSchema || undefined,
           syncCatalog: connection?.syncCatalog,
           catalogId: catalogId || undefined,
+          post_sync_transform: buildPostSyncTransform(),
         });
         trackEvent(ANALYTICS_EVENTS.CONNECTION_UPDATED, {
           source_type: connection?.source?.sourceName,
@@ -369,6 +406,7 @@ export function ConnectionFormBody({
     discoveredCatalog,
     connection,
     connectionView,
+    buildPostSyncTransform,
     onSuccess,
   ]);
 
@@ -630,6 +668,8 @@ export function ConnectionFormBody({
                   onUpdateStreamPrimaryKey={updateStreamPrimaryKey}
                   onToggleStreamExpand={toggleStreamExpand}
                   onToggleColumn={toggleColumn}
+                  onUpdateCastType={updateCastType}
+                  showCastColumn={showCastColumn}
                   streamNoun={connectionView?.streamNoun}
                   showIncremental={connectionView ? connectionView.supportsIncremental : true}
                   allowedDestModes={connectionView?.allowedDestModes}
