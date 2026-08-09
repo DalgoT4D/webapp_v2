@@ -168,7 +168,7 @@ describe('insightWalkthroughStore', () => {
       store().startAutomatePipeline(ORG_A);
 
       expect(store().flow).toBe('automate_pipeline');
-      expect(store().stage).toBe('pipeline_ingest');
+      expect(store().stage).toBe('pipeline_ingest_nudge');
       // The whole point: the other run is still exactly where it was left.
       expect(getStoredWalkthroughStage('insights')).toBe('chart_pick_type');
       expect(getStoredPath('insights')).toBe('own_data');
@@ -377,8 +377,9 @@ describe('insightWalkthroughStore', () => {
     store().startAutomatePipeline(ORG_A);
     expect(store().active).toBe(true);
     expect(store().path).toBe('automate_pipeline');
-    expect(store().stage).toBe('pipeline_ingest');
+    // The Ingest sidebar nudge, not /ingest itself — starting this flow doesn't navigate.
+    expect(store().stage).toBe('pipeline_ingest_nudge');
     expect(getStoredPath('automate_pipeline')).toBe('automate_pipeline');
-    expect(getStoredWalkthroughStage('automate_pipeline')).toBe('pipeline_ingest');
+    expect(getStoredWalkthroughStage('automate_pipeline')).toBe('pipeline_ingest_nudge');
   });
 });

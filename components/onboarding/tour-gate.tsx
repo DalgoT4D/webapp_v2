@@ -16,6 +16,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { FREE_TRIAL_PLAN_NAME } from '@/constants/trial';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { useConnectionsList } from '@/hooks/api/useConnections';
+import { SyncStatus } from '@/constants/connections';
+import { NEXT_PUBLIC_WEBAPP_ENVIRONMENT } from '@/constants/constants';
 import type { Connection } from '@/types/connections';
 import { ProductTour, type ProductTourHandle } from './product-tour';
 import { TourIntentModal } from './tour-intent-modal';
@@ -33,7 +35,9 @@ import {
   getResumeAnchorStage,
   getActiveWalkthroughFlow,
   hasConnectedRealData,
+  getDismissedSyncRun,
   POST_SYNC_STAGE_FOR,
+  SYNC_WAIT_STAGES,
   type WalkthroughFlow,
   type WalkthroughPath,
 } from './insight-walkthrough-constants';
@@ -55,27 +59,50 @@ interface GetStartedModalState {
 const CLOSED_MODAL: GetStartedModalState = { open: false, screen: 'choice', entry: 'post_tour' };
 
 /**
- * TEMPORARY (trial only — remove and go back to requiring SyncStatus.SUCCESS).
- *
- * What the walkthrough's sync checkpoint accepts as "the data is on its way". A first sync of
- * a real source can take minutes, and during it every ingest stage goes silent (see
- * INGEST_STAGES in insight-walkthrough-coachmark.tsx) — so the user sits on a page with no
- * coachmark at all, which reads as the walkthrough having died. Advancing at sync START keeps
- * them moving.
- *
- * Two signals, because a brand-new connection can show either first:
- *  - `lock` — Airbyte holds one for the duration of a run, set the moment a sync is triggered.
- *    The earliest thing we can see, and the one that fires in practice.
- *  - ANY `lastRun` status — running/queued while it goes, and every terminal status after.
- *    Terminal ones are in on purpose: this widens the old `=== SUCCESS` check, and a first
- *    sync that failed or was cancelled still means the user did the connecting part.
- *
- * Deliberately NOT "connection exists": the wizard creates the connection before triggering
- * its sync, and advancing there would skip past a coachmark still pointing into the wizard.
+ * LOCAL DEV ONLY. Waiting out a real first sync makes the walkthrough untestable on a laptop,
+ * so on `NEXT_PUBLIC_WEBAPP_ENVIRONMENT=local` the checkpoint treats a sync that has merely
+ * STARTED as a success and moves straight on. Every other environment — staging, production,
+ * and the default when the var is unset (see constants/constants.ts) — waits for the real
+ * thing.
  */
-function hasSyncStarted(conn: Connection): boolean {
-  if (conn.lock) return true;
-  return !!conn.lastRun?.status;
+const ADVANCE_ON_SYNC_START = NEXT_PUBLIC_WEBAPP_ENVIRONMENT === 'local';
+
+type SyncOutcome =
+  /** Data landed. The walkthrough moves on to this fork's post-sync stage. */
+  | 'success'
+  /** The run is over and didn't succeed (failed/cancelled) — the user has to retry. */
+  | 'failed'
+  /** Queued or running. Nothing to do but tell the user we're watching. */
+  | 'pending'
+  /** Nothing has been triggered on this connection at all — see the note below. */
+  | 'unknown';
+
+/**
+ * Where the tracked connection's first sync currently stands.
+ *
+ * `lock` and `lastRun` answer different questions and are read in that order: the backend
+ * creates a TaskLock synchronously inside the trigger-sync request and DELETES it the moment
+ * the flow run reaches a terminal state (see fetch_orgtask_lock_v1 in the backend), so a live
+ * lock means "in flight" and its absence hands the verdict to `lastRun`.
+ *
+ * 'unknown' — no lock and no run — is deliberately NOT treated as a failure. It's the state a
+ * connection is in for the instant between being created and its first sync being triggered,
+ * and a stray revalidation landing in that window would otherwise declare a perfectly healthy
+ * connection broken. The one case that genuinely stays there forever (triggerSync threw, which
+ * is best-effort in connection-form-body.tsx) reports itself from that catch block instead.
+ */
+function classifySync(conn: Connection): SyncOutcome {
+  if (ADVANCE_ON_SYNC_START && (conn.lock || conn.lastRun?.status)) return 'success';
+  if (conn.lock) return 'pending';
+  const status = conn.lastRun?.status;
+  if (!status) return 'unknown';
+  if (status === SyncStatus.SUCCESS) return 'success';
+  // Only the two statuses that definitely mean "over, and not successful" count as a failure.
+  // Everything else — running, queued, and any state Airbyte reports that SyncStatus doesn't
+  // enumerate (its job API also has 'incomplete' and 'pending') — falls through to waiting.
+  // Telling someone their live sync failed is a worse error than making them wait a bit.
+  if (status === SyncStatus.FAILED || status === SyncStatus.CANCELLED) return 'failed';
+  return 'pending';
 }
 
 export function TourGate() {
@@ -199,7 +226,11 @@ export function TourGate() {
   // ingest wizard. useConnectionsList() already fetches fresh data on every mount (plus
   // smart-polls while any connection is locked/running) — reuse it rather than adding new
   // polling.
-  const { data: connections } = useConnectionsList();
+  const {
+    data: connections,
+    isLoading: connectionsLoading,
+    isError: connectionsError,
+  } = useConnectionsList();
   // Subscribed, not read through getState(), because they have to be effect DEPENDENCIES.
   // The resume effect above waits on the backend's userpreferences fetch, so on a cold load
   // the connections response can easily land first — with the store still inactive. Reading
@@ -210,27 +241,75 @@ export function TourGate() {
   const trackedConnectionId = useInsightWalkthroughStore((s) => s.trackedConnectionId);
   useEffect(() => {
     if (!orgSlug) return;
-    const { active, path } = useInsightWalkthroughStore.getState();
-    if (!active || !trackedConnectionId) return;
+    const { active, path, stage, flow } = useInsightWalkthroughStore.getState();
+    if (!active || !flow || !trackedConnectionId) return;
     // Only the two forks that ingest real data. Belt-and-braces against a stale tracked
     // connection surviving into a sample-data run: 'pipeline_transform_intro' isn't in the
     // sample order at all, so isStageBefore would wave it through and yank that user into
     // Transform.
     if (path !== 'own_data' && path !== 'automate_pipeline') return;
     const conn = connections.find((c) => c.connectionId === trackedConnectionId);
-    if (!conn) return;
-    if (!hasSyncStarted(conn)) return;
+    if (!conn) {
+      // Gone from a list that actually loaded = deleted, typically after a failed sync so the
+      // user could start over. Both guards matter: useConnectionsList returns `data || []`, so
+      // an in-flight fetch AND a failed one are both indistinguishable from an empty org by the
+      // array alone — untracking on either would throw away a live connection over nothing more
+      // than a cold mount or a blip in the network.
+      if (!connectionsLoading && !connectionsError) {
+        useInsightWalkthroughStore.getState().untrackConnection();
+      }
+      return;
+    }
 
-    // Fires for EITHER fork, independent of stage/finish — see hasConnectedRealData's
-    // doc comment for why this is decoupled from path+hasFinishedWalkthrough.
-    markConnectedRealData();
+    const outcome = classifySync(conn);
 
-    // The two forks rejoin in DIFFERENT places: own-data goes straight to building a chart,
-    // automate-pipeline has transform and orchestrate to do first. advanceIfBefore, not
-    // advanceTo — a stale connections response arriving after the user has moved on must
-    // never drag them back to the start of the tail.
-    useInsightWalkthroughStore.getState().advanceIfBefore(POST_SYNC_STAGE_FOR[path]);
-  }, [connections, orgSlug, walkthroughActive, trackedConnectionId]);
+    if (outcome === 'success') {
+      // Fires for EITHER fork, independent of stage/finish — see hasConnectedRealData's
+      // doc comment for why this is decoupled from path+hasFinishedWalkthrough.
+      markConnectedRealData();
+
+      // The two forks rejoin in DIFFERENT places: own-data goes straight to building a chart,
+      // automate-pipeline has transform and orchestrate to do first. advanceIfBefore, not
+      // advanceTo — a stale connections response arriving after the user has moved on must
+      // never drag them back to the start of the tail. It also carries them off sync_running
+      // and sync_failed, which sit outside every order array precisely so this can.
+      useInsightWalkthroughStore.getState().advanceIfBefore(POST_SYNC_STAGE_FOR[path]);
+      return;
+    }
+
+    // Everything below only reports on a wait the user is still IN. Without this guard a
+    // second connection created later in the flow (tracked the moment it's made) would drag
+    // someone already building charts back to "your sync is running".
+    if (!stage || !SYNC_WAIT_STAGES.includes(stage)) return;
+
+    // 'unknown' means nothing has been triggered yet — say nothing rather than guess (see
+    // classifySync). Both real outcomes below use advanceTo, not advanceIfBefore: these stages
+    // sit outside the order arrays, so the monotonic helper can't reason about them, and a
+    // failed retry genuinely has to move the user BACK from the ingest stage they were handed
+    // when they dismissed the previous failure.
+    if (outcome === 'pending') {
+      if (stage !== 'sync_running') useInsightWalkthroughStore.getState().advanceTo('sync_running');
+      return;
+    }
+    if (outcome !== 'failed') return;
+
+    // Keyed by RUN, not by a plain dismissed flag: the same failure must never nag twice (the
+    // acknowledgement is persisted, so this holds across reloads), while a retry that fails
+    // again is a different job id and does speak up.
+    const runId = conn.lastRun ? String(conn.lastRun.job_id) : null;
+    if (runId && getDismissedSyncRun(flow) === runId) return;
+    // Recorded before the stage moves so the coachmark's "Got it" knows which failure it is
+    // acknowledging (see dismissSyncFailure).
+    useInsightWalkthroughStore.getState().setSyncFailedRunId(runId);
+    if (stage !== 'sync_failed') useInsightWalkthroughStore.getState().advanceTo('sync_failed');
+  }, [
+    connections,
+    connectionsLoading,
+    connectionsError,
+    orgSlug,
+    walkthroughActive,
+    trackedConnectionId,
+  ]);
 
   /**
    * Puts the store on the insight walkthrough's opening stage ('fork2') without picking a
@@ -318,9 +397,9 @@ export function TourGate() {
       router.push(step ? FLOW_RESUME_ROUTES[step.id] : '/pipeline');
       return;
     }
-    // This flow has no fork to choose, so the row starts it outright.
+    // This flow has no fork to choose, so the row starts it outright. No navigation: it opens
+    // on a nudge pointing at the Ingest nav item, and the user clicks it themselves.
     useInsightWalkthroughStore.getState().startAutomatePipeline(orgSlug);
-    router.push('/ingest');
   }, [orgSlug, resumeStoredFlow, router]);
 
   const chooseFork = useCallback(
@@ -339,16 +418,21 @@ export function TourGate() {
     [ensureWalkthroughStarted, router]
   );
 
-  // Which post-tour follow-ups are still worth offering. The tour is freely re-runnable, so
-  // a flow the user already resolved (completed, or explicitly skipped) must not be offered
-  // again when they run it a second time.
+  // Which post-tour follow-ups are still worth offering. The tour is freely re-runnable, so a
+  // flow the user already COMPLETED must not be offered again when they run it a second time.
+  //
+  // Completed only, deliberately NOT isFlowDecided: skipping a flow means "not now", not
+  // "never" — the whole point of finishing the tour again is to be shown what's left to do,
+  // and a single past Skip shouldn't bury the flow permanently. (Auto-OFFERING a flow
+  // unprompted still respects a skip; that's the isFlowDecided gate on the intent modal and
+  // the resume effects above.)
   //
   // The two are independent. Automating a pipeline used to imply an insight had been built,
   // because that walkthrough ran on into the chart -> dashboard -> share tail; it now ends at
   // the created pipeline, so finishing it says nothing about insights — and offering
   // build-insights next is precisely the intended follow-up.
-  const canOfferInsight = !isFlowDecided(walkthroughState, 'insights');
-  const canOfferPipeline = !isFlowDecided(walkthroughState, 'automate_pipeline');
+  const canOfferInsight = !isFlowCompleted(walkthroughState, 'insights');
+  const canOfferPipeline = !isFlowCompleted(walkthroughState, 'automate_pipeline');
 
   if (!isTrialOrg || !orgSlug) return null;
 
@@ -378,8 +462,8 @@ export function TourGate() {
         showPipelineOption={canOfferPipeline}
         onOpenChange={(open) => setGetStartedModal((prev) => ({ ...prev, open }))}
         onSelectPipeline={() => {
+          // Deliberately no router.push — the flow's first stage is the Ingest sidebar nudge.
           useInsightWalkthroughStore.getState().startAutomatePipeline(orgSlug);
-          router.push('/ingest');
         }}
         onSelectSample={() => chooseFork('sample')}
         onSelectOwnData={() => chooseFork('own_data')}

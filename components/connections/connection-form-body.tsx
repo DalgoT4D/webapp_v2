@@ -346,6 +346,16 @@ export function ConnectionFormBody({
           toastSuccess.generic('First sync started');
         } catch (syncError) {
           toastError.api(syncError, 'Connection created, but the first sync could not be started');
+          // The walkthrough can't infer this one. With no sync triggered the connection has no
+          // lock and no lastRun — indistinguishable from the split second between being created
+          // and its sync starting, so tour-gate's checkpoint deliberately stays quiet on that
+          // shape (see classifySync). Report it from here, where we actually know.
+          if (
+            walkthrough.active &&
+            (walkthrough.path === 'own_data' || walkthrough.path === 'automate_pipeline')
+          ) {
+            useInsightWalkthroughStore.getState().advanceTo('sync_failed');
+          }
         }
       } else if (connectionId) {
         await updateConnection(connectionId, {

@@ -49,6 +49,16 @@ export type WalkthroughStage =
   | 'own_data_ingest'
   | 'own_data_pick_source'
   | 'own_data_source_next'
+  // The two states of waiting on the tracked connection's first sync, shared by BOTH real-data
+  // forks (own_data and automate_pipeline) — the wait is identical, only what comes after it
+  // differs (see POST_SYNC_STAGE_FOR), so one pair of stages serves both.
+  //
+  // Deliberately absent from every order array. They aren't steps in either walkthrough, they're
+  // a holding pattern the checkpoint puts the user in and takes them out of; leaving them
+  // unordered means isStageBefore reads them as "before everything", so the success checkpoint
+  // can advance straight off either one whenever the sync finally lands.
+  | 'sync_running'
+  | 'sync_failed'
   // The chart -> dashboard -> share tail (see CHART_TO_SHARE_TAIL). Unprefixed because it is
   // entered two ways — after the own-data fork's first sync, and directly by a user who
   // already has real data — so naming it after either entry point would mislead.
@@ -70,6 +80,13 @@ export type WalkthroughStage =
   // own-data ingest pair (same two targets, same coachmark copy); they're separate stages so
   // each fork's order and resume anchor stay self-contained. Both then wait on the tracked
   // connection's sync status (see tour-gate.tsx).
+  // Sidebar nudge on the Ingest nav item — the automate-pipeline fork's opening beat. The
+  // flow used to router.push('/ingest') the moment the user picked it, which moved them
+  // somewhere they hadn't asked to go and taught them nothing about where the feature lives.
+  // Same illustrated-card treatment as pipeline_transform_intro and
+  // pipeline_orchestrate_nudge: every leg of this fork now starts by pointing at the nav item
+  // and letting the user click it.
+  | 'pipeline_ingest_nudge'
   | 'pipeline_ingest'
   | 'pipeline_pick_source'
   | 'pipeline_source_next'
@@ -90,6 +107,12 @@ export type WalkthroughStage =
   // The commit-message box inside the Publish Changes dialog, which pipeline_table_built's
   // Publish click opens. Nothing publishes without a message, so it gets its own step.
   | 'pipeline_publish_commit'
+  // Sidebar nudge on the Orchestrate nav item, shown the moment the publish lands. The stage
+  // after it lives on /orchestrate, and coachmarks never navigate on their own — without this
+  // beat the flow went silent on the canvas until the user guessed where to go next. Same
+  // illustrated-card treatment as pipeline_transform_intro, which does the identical job for
+  // the transform leg.
+  | 'pipeline_orchestrate_nudge'
   | 'pipeline_orchestrate_intro'
   | 'pipeline_add_connection'
   | 'pipeline_run_transform'
@@ -164,6 +187,7 @@ const TRANSFORM_ORCHESTRATE_STAGES: WalkthroughStage[] = [
   'pipeline_save_new_table',
   'pipeline_table_built',
   'pipeline_publish_commit',
+  'pipeline_orchestrate_nudge',
   'pipeline_orchestrate_intro',
   'pipeline_add_connection',
   'pipeline_run_transform',
@@ -189,6 +213,7 @@ export const OWN_DATA_WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
 // pipeline is what this walkthrough set out to build. Charting what it produces is the
 // build-insights flow, started separately from the Get Started checklist.
 export const AUTOMATE_PIPELINE_STAGE_ORDER: WalkthroughStage[] = [
+  'pipeline_ingest_nudge',
   'pipeline_ingest',
   'pipeline_pick_source',
   'pipeline_source_next',
@@ -210,7 +235,7 @@ export function stageOrderFor(path: WalkthroughPath | null): WalkthroughStage[] 
 export const CHART_ENTRY_STAGE: WalkthroughStage = 'chart_intro';
 
 /**
- * Where each path goes the moment its tracked connection's first sync lands. own_data has no
+ * Where each path goes the moment its tracked connection's first sync SUCCEEDS. own_data has no
  * transform/orchestrate leg, so it rejoins at the chart tail; automate_pipeline rejoins at
  * Transform. Read by tour-gate's sync checkpoint.
  */
@@ -218,6 +243,50 @@ export const POST_SYNC_STAGE_FOR: Record<'own_data' | 'automate_pipeline', Walkt
   own_data: 'chart_intro',
   automate_pipeline: 'pipeline_transform_intro',
 };
+
+/**
+ * Where each path goes when the user dismisses the sync-failure coachmark with "Got it".
+ *
+ * Back to its own ingest stage rather than to a "dismissed" flag: that stage is already silent
+ * while a tracked connection exists (see INGEST_STAGES), so the coachmark goes away and stays
+ * away — shown once, as intended — while the walkthrough itself stays live and the checkpoint
+ * keeps watching. Retrying the sync or connecting a different source then picks the flow back
+ * up on its own, with no extra state to remember or clear.
+ */
+export const SYNC_RETRY_STAGE_FOR: Record<'own_data' | 'automate_pipeline', WalkthroughStage> = {
+  own_data: 'own_data_ingest',
+  automate_pipeline: 'pipeline_ingest',
+};
+
+/**
+ * Both forks' ingest stages — every stage that lives on /ingest before the first sync.
+ *
+ * Two consumers:
+ *  - the coachmark, which goes silent on these while a tracked connection is mid-sync ("add a
+ *    source" is actively misleading once they already have), and
+ *  - tour-gate's checkpoint, which only puts a user into the sync_running/sync_failed holding
+ *    pattern FROM one of these (plus the holding stages themselves — see SYNC_WAIT_STAGES).
+ *    Without that guard, a second connection created later in the flow would drag someone who
+ *    is already building charts back to "your sync is running".
+ */
+export const INGEST_STAGES: WalkthroughStage[] = [
+  'own_data_ingest',
+  'own_data_pick_source',
+  'own_data_source_next',
+  // The nudge included: "go connect your data" is just as misleading as "add a source" once
+  // the connection they already made is mid-sync.
+  'pipeline_ingest_nudge',
+  'pipeline_ingest',
+  'pipeline_pick_source',
+  'pipeline_source_next',
+];
+
+/** Every stage from which the sync checkpoint may show a waiting/failed coachmark. */
+export const SYNC_WAIT_STAGES: WalkthroughStage[] = [
+  ...INGEST_STAGES,
+  'sync_running',
+  'sync_failed',
+];
 
 /**
  * Is `stage` earlier than `target` in this fork's order? Used to keep progress monotonic:
@@ -511,6 +580,24 @@ export function savePath(flow: WalkthroughFlow, path: WalkthroughPath): void {
 // the other watching a connection it never saw made.
 export function getStoredTrackedConnection(flow: WalkthroughFlow): string | null {
   return readFlowValue(CONNECTION_STORAGE_PREFIX, flow);
+}
+
+// Which failed sync run the user has already acknowledged ("Got it" on the sync_failed
+// coachmark), as its Airbyte job id.
+//
+// Keyed by RUN, not by connection or by a plain "dismissed" flag, so the coachmark behaves the
+// way the user expects in all three cases: the same failure never nags twice (including across
+// reloads, since this is persisted), while a retry that fails again — or a different connection
+// that fails — is a new job id and does speak up. Per flow, like the tracked connection it
+// belongs to.
+const SYNC_DISMISSED_RUN_STORAGE_PREFIX = 'dalgo_insight_walkthrough_sync_dismissed_run_';
+
+export function getDismissedSyncRun(flow: WalkthroughFlow): string | null {
+  return readFlowValue(SYNC_DISMISSED_RUN_STORAGE_PREFIX, flow);
+}
+
+export function saveDismissedSyncRun(flow: WalkthroughFlow, runId: string): void {
+  writeFlowValue(SYNC_DISMISSED_RUN_STORAGE_PREFIX, flow, runId);
 }
 
 export function saveTrackedConnection(flow: WalkthroughFlow, connectionId: string): void {

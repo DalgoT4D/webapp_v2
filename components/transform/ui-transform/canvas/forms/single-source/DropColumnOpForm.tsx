@@ -89,17 +89,22 @@ export function DropColumnOpForm({
 
   return (
     <form onSubmit={onSubmit} className="p-6 space-y-4" data-testid="drop-operation-form">
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search columns..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-9"
-          disabled={isViewMode}
-          data-testid="drop-search"
-        />
+      {/* Search — sticky at the top of the panel's scroll area (the negative margins cancel the
+          form's own p-6 so the bar spans the full panel width and the column list scrolls
+          cleanly under it, rather than past its edges). The onboarding coachmark for this step
+          anchors here, so it must not scroll away with the list. */}
+      <div className="sticky top-0 z-10 bg-white -mx-6 -mt-6 px-6 pt-6 pb-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search columns..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+            disabled={isViewMode}
+            data-testid="drop-search"
+          />
+        </div>
       </div>
 
       {/* Select All / Clear */}

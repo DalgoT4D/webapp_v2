@@ -99,9 +99,14 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
         // Transform leg is finished; the walkthrough's next stop is Orchestrate. Advancing here
         // rather than waiting for the /orchestrate route means the dialog doesn't close back
         // onto a coachmark still pointing at a Publish the user just did.
+        //
+        // The nudge, not pipeline_orchestrate_intro itself: that stage is pinned to /orchestrate
+        // and coachmarks never navigate on their own, so pointing there left the canvas with no
+        // coachmark at all. The nudge rings the Orchestrate sidebar item from wherever the user
+        // is, and reaching /orchestrate advances it (see ROUTE_ADVANCES).
         const publishStage = useInsightWalkthroughStore.getState().stage;
         if (publishStage === 'pipeline_publish_commit' || publishStage === 'pipeline_table_built') {
-          useInsightWalkthroughStore.getState().advanceTo('pipeline_orchestrate_intro');
+          useInsightWalkthroughStore.getState().advanceTo('pipeline_orchestrate_nudge');
         }
         onPublishSuccess?.();
         onClose();

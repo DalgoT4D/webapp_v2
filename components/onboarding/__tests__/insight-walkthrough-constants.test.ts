@@ -212,8 +212,10 @@ describe('insight-walkthrough-constants', () => {
       expect(WALKTHROUGH_STAGE_ORDER[WALKTHROUGH_STAGE_ORDER.length - 1]).toBe('share_copy_link');
     });
 
-    it('runs the pipeline fork from New Source to the created pipeline, and stops there', () => {
-      expect(AUTOMATE_PIPELINE_STAGE_ORDER[0]).toBe('pipeline_ingest');
+    it('runs the pipeline fork from the Ingest nudge to the created pipeline, and stops there', () => {
+      // Opens on the sidebar nudge, not on New Source: picking the flow no longer navigates
+      // anywhere — the user clicks Ingest themselves.
+      expect(AUTOMATE_PIPELINE_STAGE_ORDER[0]).toBe('pipeline_ingest_nudge');
       // A scheduled pipeline is this walkthrough's deliverable. Charting what it produces is
       // the build-insights flow, started separately — so no chart or dashboard stage here.
       expect(AUTOMATE_PIPELINE_STAGE_ORDER[AUTOMATE_PIPELINE_STAGE_ORDER.length - 1]).toBe(
@@ -231,7 +233,10 @@ describe('insight-walkthrough-constants', () => {
         'own_data_pick_source',
         'own_data_source_next',
       ]);
-      expect(AUTOMATE_PIPELINE_STAGE_ORDER.slice(0, 3)).toEqual([
+      // One beat earlier than the own-data fork: that one is reached THROUGH fork2, which
+      // navigates, so it lands on /ingest already. This fork starts wherever the user was.
+      expect(AUTOMATE_PIPELINE_STAGE_ORDER.slice(0, 4)).toEqual([
+        'pipeline_ingest_nudge',
         'pipeline_ingest',
         'pipeline_pick_source',
         'pipeline_source_next',

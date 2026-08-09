@@ -18,7 +18,11 @@ import { driver, type Driver, type Popover } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import './tour.css';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
-import { getResumeAnchorStage, type WalkthroughStage } from './insight-walkthrough-constants';
+import {
+  getResumeAnchorStage,
+  INGEST_STAGES,
+  type WalkthroughStage,
+} from './insight-walkthrough-constants';
 
 /** Shared by both forks' "now build a dashboard" nudges. */
 const DASHBOARD_NUDGE_IMAGE = '/branding/dashboard-nudge-graph.jpg';
@@ -70,9 +74,10 @@ const SOURCE_NEXT_STAGE: StageConfig = {
   title: 'Now set it up',
   description: 'Click Next and we’ll ask for the details Dalgo needs to connect to it.',
   ring: true,
-  // The button sits at the bottom-right of the dialog, so 'right'/'bottom' would both be
-  // clamped against a viewport edge and read as floating loose from it.
-  side: 'top',
+  // Beside the button, not above it: a 'top' popover sat over the dialog body and covered the
+  // source cards the user had just picked from. The dialog is centred and narrow
+  // (sm:max-w-xl), so there's always open page to its right for the popover to sit in.
+  side: 'right',
   align: 'end',
 };
 
@@ -112,6 +117,30 @@ const HINT_TARGET_TIMEOUT_MS = 2500;
  * user who types and then sits still isn't left on a stage they've finished.
  */
 const VALUE_IDLE_MS = 600;
+
+/**
+ * How long a `deferWhileDropdownOpen` stage waits for the open dropdown to be dismissed before
+ * showing anyway. A ceiling, not an expectation: a user who parks a combobox open and wanders
+ * off should still get the coachmark rather than silence.
+ */
+const DROPDOWN_CLOSE_TIMEOUT_MS = 15000;
+
+/** Radix popover content, mounted and open — every Combobox dropdown in the app is one. */
+const OPEN_DROPDOWN_SELECTOR = '[data-slot="popover-content"][data-state="open"]';
+
+/** Resolve once no dropdown is open, or after `timeout` ms either way. */
+function waitForDropdownsClosed(timeout = DROPDOWN_CLOSE_TIMEOUT_MS): Promise<void> {
+  return new Promise((resolve) => {
+    if (!document.querySelector(OPEN_DROPDOWN_SELECTOR)) return resolve();
+    const start = Date.now();
+    const tick = () => {
+      if (!document.querySelector(OPEN_DROPDOWN_SELECTOR)) return resolve();
+      if (Date.now() - start > timeout) return resolve();
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
 
 /** Resolve when `selector` is in the DOM, or after `timeout` ms (returns the el or null). */
 function waitForElement(selector: string, timeout = 30000): Promise<Element | null> {
@@ -181,6 +210,27 @@ interface StageConfig {
    * Stages that ask for a real action never get this — the action is the affordance.
    */
   showNext?: boolean;
+  /**
+   * Renders a "Got it" button that runs this handler instead of advancing a stage.
+   *
+   * For coachmarks whose button means "I've read this", not "I've done it" — the sync-failure
+   * message, which has to record WHICH failure was acknowledged as well as move the
+   * walkthrough, and which moves it BACKWARDS (something advanceIfBefore would refuse). The
+   * handler owns both, so this stays a rendering flag.
+   *
+   * Ignored when `showNext` is set — a stage asks for one button, not two.
+   */
+  onDismiss?: () => void;
+  /**
+   * Hold this stage's coachmark back while a Radix popover (our Combobox dropdowns) is open,
+   * showing it only once the user has closed the list.
+   *
+   * For stages ENTERED FROM a dropdown selection: a multi-select Combobox stays open after a
+   * pick, so the next coachmark rendered straight over the option list the user was still
+   * working in. Waiting costs nothing — the popover is dismissed by the same click-outside that
+   * means "I'm done here".
+   */
+  deferWhileDropdownOpen?: boolean;
   /** Illustration rendered above the title inside the popover (public/ path). */
   imageSrc?: string;
   title: string;
@@ -209,20 +259,13 @@ interface StageConfig {
   align?: 'start' | 'center' | 'end';
 }
 
-/** Both forks' ingest pairs — every stage that lives on /ingest before the first sync. */
-const INGEST_STAGES: WalkthroughStage[] = [
-  'own_data_ingest',
-  'own_data_pick_source',
-  'own_data_source_next',
-  'pipeline_ingest',
-  'pipeline_pick_source',
-  'pipeline_source_next',
-];
-
 // Stages driven purely by route change (no manual advanceTo call needed elsewhere) map here
 // to the NEXT stage they unlock once that route is reached.
 const ROUTE_ADVANCES: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
   dashboard_nudge: 'dashboard_intro',
+  // The nudge's whole job is getting the user onto /ingest — arriving there IS its
+  // completion, same shape as the transform/orchestrate nudges below.
+  pipeline_ingest_nudge: 'pipeline_ingest',
   chart_intro: 'chart_create',
   chart_create: 'chart_pick_table',
   // Picking a type doesn't leave /charts/new on its own — the user still has to click Next.
@@ -234,9 +277,13 @@ const ROUTE_ADVANCES: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
   pipeline_workflow_intro: 'pipeline_pick_table',
   // Both publish stages fall through to Orchestrate on arrival: the commit box is the normal
   // path, pipeline_table_built the fallback for a user who published without ever landing on
-  // that step (or dismissed the dialog and went to Orchestrate anyway).
+  // that step (or dismissed the dialog and went to Orchestrate anyway). They skip the nudge on
+  // purpose — a user already standing on /orchestrate doesn't need to be told to go there.
   pipeline_table_built: 'pipeline_orchestrate_intro',
   pipeline_publish_commit: 'pipeline_orchestrate_intro',
+  // The nudge's whole job is getting the user onto /orchestrate, so arriving there IS its
+  // completion — same shape as pipeline_transform_intro above.
+  pipeline_orchestrate_nudge: 'pipeline_orchestrate_intro',
   pipeline_orchestrate_intro: 'pipeline_add_connection',
 };
 
@@ -405,6 +452,44 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   own_data_pick_source: PICK_SOURCE_STAGE,
   own_data_source_next: SOURCE_NEXT_STAGE,
+  // --- Waiting on the tracked connection's first sync. Shared by both real-data forks; only
+  // tour-gate's checkpoint moves the user in and out of these. ---
+  sync_running: {
+    // Route-less on purpose, with a target that follows the user (see below).
+    route: null,
+    // On /ingest: the connection's own row, resolved from the store — the message is about
+    // THIS connection and nothing else on the page identifies it.
+    //
+    // Anywhere else: the Ingest nav item, which is on screen on every app route. A first sync
+    // takes minutes and the user is free to wander during it; pinning this to /ingest meant
+    // they saw NOTHING for that whole window, which is precisely the "the walkthrough died"
+    // reading this stage exists to prevent. The copy works for both — it says what's
+    // happening and that we'll move them on, not "look at this row".
+    selector: () => {
+      const id = useInsightWalkthroughStore.getState().trackedConnectionId;
+      if (id && window.location.pathname === '/ingest') {
+        return `[data-testid="connection-row-${id}"]`;
+      }
+      return 'a[href="/ingest"]';
+    },
+    // No `ring`: nothing to click. The user is being told to wait, not to act.
+    title: 'Your data is syncing',
+    description:
+      'This can take a few minutes for a first sync. Leave it running — we’ll move you to the next step as soon as it finishes, even if you come back later.',
+    side: 'bottom',
+    align: 'start',
+  },
+  sync_failed: {
+    ring: true,
+    route: null, // sidebar item — the failure matters wherever the user happens to be
+    selector: 'a[href="/ingest"]',
+    title: 'That sync didn’t finish',
+    description:
+      'Open Ingest and run the sync again, or connect a different source — we’ll pick things up as soon as one succeeds.',
+    // "I've read this", not "I've done it" — records this run as acknowledged and hands them
+    // back to their fork's ingest stage, which is silent while a tracked connection exists.
+    onDismiss: () => useInsightWalkthroughStore.getState().dismissSyncFailure(),
+  },
   // --- The chart -> dashboard -> share tail, run by own_data AND automate_pipeline ---
   chart_intro: {
     ring: true,
@@ -495,7 +580,20 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description: 'Click Add KPI and pick the KPI you just built to drop it onto the canvas.',
     side: 'bottom',
   },
-  // The automate-pipeline fork's opening pair — the own-data twin of these lives above.
+  // The automate-pipeline fork's opening beat: point at Ingest and let the user click it,
+  // rather than pushing them onto /ingest the instant they pick the flow. Same illustrated
+  // sidebar card as pipeline_transform_intro and pipeline_orchestrate_nudge, which do the
+  // identical job for this fork's two later legs.
+  pipeline_ingest_nudge: {
+    ring: true,
+    route: null, // sidebar item — on screen wherever the user picked the flow from
+    selector: 'a[href="/ingest"]',
+    imageSrc: DASHBOARD_NUDGE_IMAGE,
+    title: 'Start with your data',
+    description:
+      'Head to the ingest section to connect the source your pipeline will pull from on every run.',
+  },
+  // The automate-pipeline fork's ingest pair — the own-data twin of these lives above.
   pipeline_ingest: {
     ring: true,
     route: '/ingest',
@@ -552,11 +650,16 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description: 'Click this table to start building — a functions panel opens on the right.',
   },
   pipeline_pick_function: {
+    ring: true,
     route: '/transform/canvas',
-    // Whole panel, not just the "Functions" heading: the heading alone doesn't
-    // cover the operation rows below it, and driver.js blocks clicks outside
-    // whatever element it highlights.
-    selector: '[data-testid="operation-config-layout"]',
+    // The Drop row itself, not the whole Functions panel: the copy names exactly one
+    // function, and spotlighting the entire list left the user hunting for it — worse on a
+    // short viewport, where Drop sits below the fold of the panel's own scroll area. driver.js
+    // scrolls a highlighted element into view (ancestor scroll containers included), so
+    // pointing at the row is also what makes this work at any screen height.
+    // Clicks elsewhere in the panel still land: every coachmark stage runs passthrough
+    // (see PASSTHROUGH_CLASS), so highlighting one row doesn't gate the rest.
+    selector: '[data-testid="operation-dropcolumns"]',
     title: 'Let’s start with a simple function',
     description: 'Select the Drop function to remove columns that you don’t need.',
     // Every stage below lives in the canvas's right-hand panel, which is flush with the
@@ -567,8 +670,12 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   pipeline_drop_columns: {
     route: '/transform/canvas',
-    // Whole form (checkboxes + Save), not just the column list — same reason as above.
-    selector: '[data-testid="drop-operation-form"]',
+    // The form's search bar, which is sticky at the top of the panel (see DropColumnOpForm) —
+    // NOT the whole form. Anchored to the form, the popover was centred on a target whose
+    // height is the entire column list, so it drifted off screen the moment the user scrolled
+    // down to find a column. Pinned to the search bar it stays put while the list scrolls
+    // under it.
+    selector: '[data-testid="drop-search"]',
     title: 'Drop the clutter',
     description: 'Tick the fields you do not report on, then hit Save.',
     side: 'left',
@@ -586,17 +693,19 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   pipeline_name_table: {
     route: '/transform/canvas',
-    // Whole form (name + schema + folder + Save) — schema and folder are already pre-filled
-    // (intermediate / root), so the only thing to fill in is the name. Advances once that name
-    // has actually been typed, which is what makes Save meaningful.
-    selector: '[data-testid="create-table-form"]',
+    // The Output Name input, not the whole form: schema and folder are already pre-filled
+    // (intermediate / root), so the name is the only thing to fill in, and a popover centred
+    // on the full form landed level with whichever field happened to be in the middle —
+    // "random position", pointing at nothing the copy mentions. Advances once that name has
+    // actually been typed, which is what makes Save meaningful.
+    selector: '[data-testid="output-name-input"]',
     nextOnInteraction: 'pipeline_save_new_table',
     advanceOn: 'value',
     title: 'Name your table',
     description:
       'We have pre-filled the intermediate schema. Give it a clear name — like customer_summary.',
     side: 'left',
-    align: 'center',
+    align: 'start',
   },
   pipeline_save_new_table: {
     ring: true,
@@ -629,6 +738,16 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     side: 'right',
     align: 'center',
   },
+  pipeline_orchestrate_nudge: {
+    ring: true,
+    route: null, // sidebar item — on screen wherever the publish happened to land the user
+    selector: 'a[href="/orchestrate"]',
+    // Illustrated card, matching pipeline_transform_intro: both are "one leg done, here's the
+    // next" beats rather than in-page instructions.
+    imageSrc: DASHBOARD_NUDGE_IMAGE,
+    title: 'Create a data pipeline',
+    description: 'Setup a scheduled run of your data connection and transformation',
+  },
   pipeline_orchestrate_intro: {
     ring: true,
     route: '/orchestrate',
@@ -650,6 +769,14 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Run all the tasks',
     description:
       'Tick Run transform tasks so each daily run does ingest and your transform together.',
+    // The connections combobox is multi-select, so it STAYS OPEN after a pick — and the pick
+    // is exactly what advances to this stage. Without the wait, this coachmark rendered on top
+    // of the still-open option list, covering the very rows the user was choosing from.
+    deferWhileDropdownOpen: true,
+    // Below the checkbox, not beside it: 'right' put the popover over the checkbox's own label,
+    // so "Run transform tasks" — the thing the copy tells you to tick — was unreadable.
+    side: 'bottom',
+    align: 'start',
   },
   pipeline_set_schedule: {
     route: '/orchestrate/create',
@@ -657,6 +784,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Set a schedule',
     description:
       'Open Frequency and choose, so your pipeline refreshes the data on its own every morning.',
+    // Frequency sits in the right-hand column, flush with the page edge — 'right' clamps.
+    side: 'left',
+    align: 'start',
   },
   pipeline_create_it: {
     ring: true,
@@ -833,6 +963,12 @@ export function InsightWalkthroughCoachmark(): null {
           if (anchor !== stage) useInsightWalkthroughStore.getState().advanceTo(anchor);
           return;
         }
+        // Done AFTER the target is resolved but BEFORE anything is drawn, so the wait is on
+        // rendering rather than on finding what to render.
+        if (config.deferWhileDropdownOpen) {
+          await waitForDropdownsClosed();
+          if (cancelled) return;
+        }
         // The store can have moved on (or been skipped) during that wait — re-showing a stage
         // the user has already left would yank them backwards.
         const live = useInsightWalkthroughStore.getState();
@@ -865,7 +1001,8 @@ export function InsightWalkthroughCoachmark(): null {
             // Top-right ✕ on every coachmark (same affordance as ProductTour) rather than a
             // worded "Skip"/"Later" link — it ends the whole walkthrough, not just this stage
             // (see onCloseClick).
-            if (config.showNext) popover.nextButton.classList.add('dalgo-tour-next-btn');
+            if (config.showNext || config.onDismiss)
+              popover.nextButton.classList.add('dalgo-tour-next-btn');
             popover.closeButton.textContent = '✕';
             popover.closeButton.setAttribute('aria-label', 'Skip walkthrough');
             popover.closeButton.setAttribute('data-testid', 'walkthrough-skip-btn');
@@ -880,6 +1017,7 @@ export function InsightWalkthroughCoachmark(): null {
           },
         });
         driverRef.current = d;
+        const onDismiss = config.showNext ? null : (config.onDismiss ?? null);
         const popover: Popover = {
           title: config.title,
           description: config.description,
@@ -890,13 +1028,14 @@ export function InsightWalkthroughCoachmark(): null {
           // `showButtons: []` default into the step it builds, and that empty array beats the
           // instance-level config, so driver.js renders the close button with an inline
           // `display: none`. That's why these coachmarks had no dismissal control at all.
-          showButtons: config.showNext ? ['next', 'close'] : ['close'],
+          showButtons: config.showNext || onDismiss ? ['next', 'close'] : ['close'],
           ...(config.showNext && {
             nextBtnText: 'Got it',
             onNextClick: () => {
               useInsightWalkthroughStore.getState().advanceIfBefore(config.nextOnInteraction!);
             },
           }),
+          ...(onDismiss && { nextBtnText: 'Got it', onNextClick: onDismiss }),
         };
         highlightKeepingFocus(d, el as HTMLElement, popover);
         // Ring only the major targets (see StageConfig.ring). Cleared first because show() is

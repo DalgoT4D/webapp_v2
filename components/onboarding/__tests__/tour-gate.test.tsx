@@ -8,6 +8,7 @@ import {
   savePath,
   saveWalkthroughStage,
   saveTrackedConnection,
+  saveDismissedSyncRun,
   markConnectedRealData,
   hasConnectedRealData,
 } from '../insight-walkthrough-constants';
@@ -193,7 +194,7 @@ describe('TourGate', () => {
     expect(await screen.findByTestId('getting-started-widget-pill')).toBeInTheDocument();
   });
 
-  it('stops offering the post-tour choice once BOTH insight flows are decided', async () => {
+  it('stops offering the post-tour choice once BOTH insight flows are completed', async () => {
     mockApiGet.mockImplementation((path: string) =>
       path === '/api/userpreferences/'
         ? Promise.resolve({
@@ -201,7 +202,7 @@ describe('TourGate', () => {
             res: {
               trial_walkthrough: {
                 insights: { skipped: false, completed: true },
-                automate_pipeline: { skipped: true, completed: false },
+                automate_pipeline: { skipped: false, completed: true },
               },
             },
           })
@@ -216,7 +217,29 @@ describe('TourGate', () => {
     expect(mockTourProps.current?.canOfferPostTourChoice).toBe(false);
   });
 
-  it('still offers the post-tour choice while one insight flow is undecided', async () => {
+  it('still offers the post-tour choice when a flow was skipped rather than completed', async () => {
+    mockApiGet.mockImplementation((path: string) =>
+      path === '/api/userpreferences/'
+        ? Promise.resolve({
+            success: true,
+            res: {
+              trial_walkthrough: {
+                insights: { skipped: true, completed: false },
+                automate_pipeline: { skipped: true, completed: false },
+              },
+            },
+          })
+        : undefined
+    );
+    setupAuthStore(buildOrgUser());
+    renderGate();
+
+    await screen.findByText('What brings you to Dalgo');
+    // A skip is "not now", not "never" — finishing the tour again re-offers both.
+    expect(mockTourProps.current?.canOfferPostTourChoice).toBe(true);
+  });
+
+  it('still offers the post-tour choice while one insight flow is incomplete', async () => {
     mockApiGet.mockImplementation((path: string) =>
       path === '/api/userpreferences/'
         ? Promise.resolve({
@@ -261,7 +284,7 @@ describe('TourGate', () => {
         ? Promise.resolve({
             success: true,
             res: {
-              trial_walkthrough: { automate_pipeline: { skipped: true, completed: false } },
+              trial_walkthrough: { automate_pipeline: { skipped: false, completed: true } },
             },
           })
         : undefined
@@ -277,6 +300,30 @@ describe('TourGate', () => {
 
     expect(await screen.findByTestId('get-started-option-insight')).toBeInTheDocument();
     expect(screen.queryByTestId('get-started-option-pipeline')).not.toBeInTheDocument();
+  });
+
+  it('offers pipeline alone once build-insights is completed', async () => {
+    mockApiGet.mockImplementation((path: string) =>
+      path === '/api/userpreferences/'
+        ? Promise.resolve({
+            success: true,
+            res: {
+              trial_walkthrough: { insights: { skipped: false, completed: true } },
+            },
+          })
+        : undefined
+    );
+    localStorage.setItem(`${TOUR_SEEN_STORAGE_PREFIX}trial-org`, '1');
+    setupAuthStore(buildOrgUser());
+    renderGate();
+
+    await screen.findByTestId('getting-started-widget-pill');
+    await act(async () => {
+      mockTourProps.current?.onOfferPostTourChoice?.();
+    });
+
+    expect(await screen.findByTestId('get-started-option-pipeline')).toBeInTheDocument();
+    expect(screen.queryByTestId('get-started-option-insight')).not.toBeInTheDocument();
   });
 
   it('does not auto-open the intent modal when the backend says the tour was already decided', async () => {
@@ -562,12 +609,10 @@ describe('TourGate — Get Started checklist actions', () => {
     expect(hasConnectedRealData()).toBe(true);
   });
 
-  it('moves on as soon as the tracked connection STARTS syncing', async () => {
-    // TEMPORARY (trial only). This used to require SyncStatus.SUCCESS and assert the user
-    // stayed parked on 'own_data_ingest' through a running sync. A real first sync takes
-    // minutes, and every ingest stage goes silent while trackedConnectionId is set — so the
-    // user sat with no coachmark at all and read the walkthrough as dead. See hasSyncStarted
-    // in tour-gate.tsx; revert both together.
+  it('holds a running sync on the waiting coachmark instead of moving on', async () => {
+    // The walkthrough waits for real data. Every ingest stage goes silent while
+    // trackedConnectionId is set, so without this holding stage the user sits on a page with
+    // no coachmark for the length of a first sync and reads the walkthrough as dead.
     setupAuthStore(buildOrgUser());
     savePath('insights', 'own_data');
     saveWalkthroughStage('insights', 'own_data_source_next');
@@ -579,6 +624,155 @@ describe('TourGate — Get Started checklist actions', () => {
       if (path === '/api/airbyte/v1/connections') {
         return Promise.resolve([
           { connectionId: 'conn-1', lock: {}, lastRun: { status: SyncStatus.RUNNING } },
+        ]);
+      }
+      return undefined;
+    });
+
+    renderGate();
+
+    await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('sync_running'));
+    // Nothing has landed in the warehouse yet, so the checklist must not tick either.
+    expect(hasConnectedRealData()).toBe(false);
+  });
+
+  it('keeps waiting on a run status it does not recognise', async () => {
+    // Airbyte's job API reports states SyncStatus does not enumerate ('incomplete',
+    // 'pending'). Only failed/cancelled mean "over and unsuccessful" — telling someone their
+    // live sync failed is a worse error than making them wait.
+    setupAuthStore(buildOrgUser());
+    savePath('insights', 'own_data');
+    saveWalkthroughStage('insights', 'own_data_source_next');
+    saveTrackedConnection('insights', 'conn-1');
+    mockApiGet.mockImplementation((path: string) => {
+      if (path === '/api/userpreferences/') {
+        return Promise.resolve({ success: true, res: { trial_walkthrough: {} } });
+      }
+      if (path === '/api/airbyte/v1/connections') {
+        return Promise.resolve([
+          { connectionId: 'conn-1', lock: null, lastRun: { job_id: 80, status: 'incomplete' } },
+        ]);
+      }
+      return undefined;
+    });
+
+    renderGate();
+
+    await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('sync_running'));
+  });
+
+  it('untracks a deleted connection instead of waiting on it forever', async () => {
+    // Deleting the connection and starting over is the natural move after a failed sync.
+    // Without this the walkthrough sat on a holding stage watching a connection that was
+    // never coming back, with its coachmark pointing at a row that no longer rendered.
+    setupAuthStore(buildOrgUser());
+    savePath('insights', 'own_data');
+    saveWalkthroughStage('insights', 'sync_failed');
+    saveTrackedConnection('insights', 'conn-1');
+    mockApiGet.mockImplementation((path: string) => {
+      if (path === '/api/userpreferences/') {
+        return Promise.resolve({ success: true, res: { trial_walkthrough: {} } });
+      }
+      if (path === '/api/airbyte/v1/connections') return Promise.resolve([]);
+      return undefined;
+    });
+
+    renderGate();
+
+    await waitFor(() =>
+      expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_ingest')
+    );
+    // Dropped, not just rewound — the ingest stage is silent while a connection is tracked,
+    // so leaving it set would show no coachmark at all.
+    expect(useInsightWalkthroughStore.getState().trackedConnectionId).toBeNull();
+  });
+
+  it('reports a failed sync, and shows it only once per failed run', async () => {
+    setupAuthStore(buildOrgUser());
+    savePath('insights', 'own_data');
+    saveWalkthroughStage('insights', 'own_data_source_next');
+    saveTrackedConnection('insights', 'conn-1');
+    mockApiGet.mockImplementation((path: string) => {
+      if (path === '/api/userpreferences/') {
+        return Promise.resolve({ success: true, res: { trial_walkthrough: {} } });
+      }
+      if (path === '/api/airbyte/v1/connections') {
+        return Promise.resolve([
+          {
+            connectionId: 'conn-1',
+            lock: null,
+            lastRun: { job_id: 77, status: SyncStatus.FAILED },
+          },
+        ]);
+      }
+      return undefined;
+    });
+
+    const { unmount } = renderGate();
+
+    await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('sync_failed'));
+    expect(hasConnectedRealData()).toBe(false);
+
+    // "Got it" — acknowledges THIS run and hands the user back to their fork's ingest stage,
+    // which is silent while a tracked connection exists.
+    act(() => useInsightWalkthroughStore.getState().dismissSyncFailure());
+    expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_ingest');
+
+    // A reload with the same failure still on the connection must not nag again.
+    unmount();
+    saveWalkthroughStage('insights', 'own_data_ingest');
+    renderGate();
+    await waitFor(() => expect(useInsightWalkthroughStore.getState().active).toBe(true));
+    expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_ingest');
+  });
+
+  it('speaks up again when a retry fails as a different run', async () => {
+    // The dismissal is keyed by Airbyte job id, not a plain "seen it" flag — a second failure
+    // is new information and has to be reported.
+    setupAuthStore(buildOrgUser());
+    savePath('insights', 'own_data');
+    saveWalkthroughStage('insights', 'own_data_ingest');
+    saveTrackedConnection('insights', 'conn-1');
+    saveDismissedSyncRun('insights', '77');
+    mockApiGet.mockImplementation((path: string) => {
+      if (path === '/api/userpreferences/') {
+        return Promise.resolve({ success: true, res: { trial_walkthrough: {} } });
+      }
+      if (path === '/api/airbyte/v1/connections') {
+        return Promise.resolve([
+          {
+            connectionId: 'conn-1',
+            lock: null,
+            lastRun: { job_id: 78, status: SyncStatus.FAILED },
+          },
+        ]);
+      }
+      return undefined;
+    });
+
+    renderGate();
+
+    await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('sync_failed'));
+  });
+
+  it('moves off the failure coachmark once a retry finally succeeds', async () => {
+    // sync_failed sits outside every order array precisely so advanceIfBefore can carry the
+    // user off it — a guard against the holding stage becoming a dead end.
+    setupAuthStore(buildOrgUser());
+    savePath('insights', 'own_data');
+    saveWalkthroughStage('insights', 'sync_failed');
+    saveTrackedConnection('insights', 'conn-1');
+    mockApiGet.mockImplementation((path: string) => {
+      if (path === '/api/userpreferences/') {
+        return Promise.resolve({ success: true, res: { trial_walkthrough: {} } });
+      }
+      if (path === '/api/airbyte/v1/connections') {
+        return Promise.resolve([
+          {
+            connectionId: 'conn-1',
+            lock: null,
+            lastRun: { job_id: 79, status: SyncStatus.SUCCESS },
+          },
         ]);
       }
       return undefined;
@@ -670,8 +864,10 @@ describe('TourGate — Get Started checklist actions', () => {
     await clickChecklistRow(user, 'automate-pipeline');
 
     expect(useInsightWalkthroughStore.getState().path).toBe('automate_pipeline');
-    expect(useInsightWalkthroughStore.getState().stage).toBe('pipeline_ingest');
-    expect(mockPush).toHaveBeenCalledWith('/ingest');
+    // Opens on the Ingest sidebar nudge and stays put: the row starts the flow, the USER
+    // clicks Ingest. Pushing them onto /ingest moved them somewhere they hadn't asked to go.
+    expect(useInsightWalkthroughStore.getState().stage).toBe('pipeline_ingest_nudge');
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('resumes an interrupted pipeline flow out of the canvas at its table-picking step', async () => {

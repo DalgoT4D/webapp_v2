@@ -325,7 +325,7 @@ export function KPIPageComponent() {
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
             <DocsLink path="/kpis">
-              <h1 className="text-3xl font-bold">KPI</h1>
+              <h1 className="text-3xl font-bold">Key Performance Indicators</h1>
             </DocsLink>
             <p className="text-muted-foreground mt-1">
               Track business objectives with measurable KPIs linked to your metrics

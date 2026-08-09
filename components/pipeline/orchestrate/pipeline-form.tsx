@@ -413,7 +413,7 @@ function PipelineFormContent({
             </div>
 
             {/* Connections */}
-            <div className="space-y-2">
+            <div className="space-y-2" data-testid="connections-container">
               <Label className="text-[15px] font-medium">Connections</Label>
               <p className="text-sm text-muted-foreground">
                 Connections are run in the sequence you select them.
@@ -490,7 +490,7 @@ function PipelineFormContent({
             <h2 className="text-lg font-semibold text-gray-900">Schedule</h2>
 
             {/* Schedule type */}
-            <div className="space-y-2">
+            <div className="space-y-2" data-testid="cron-container">
               <Label className="text-[15px] font-medium">
                 Frequency <span className="text-red-500">*</span>
               </Label>

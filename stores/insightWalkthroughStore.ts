@@ -22,6 +22,8 @@ import {
   CHART_ENTRY_STAGE,
   saveActiveWalkthroughFlow,
   clearActiveWalkthroughFlow,
+  saveDismissedSyncRun,
+  SYNC_RETRY_STAGE_FOR,
 } from '@/components/onboarding/insight-walkthrough-constants';
 
 interface InsightWalkthroughState {
@@ -62,6 +64,14 @@ interface InsightWalkthroughState {
    * Transient (not persisted): a page reload mid-walkthrough just re-highlights nothing
    * until the user acts again. */
   targetNodeId: string | null;
+  /**
+   * The Airbyte job id of the failed sync the 'sync_failed' coachmark is currently reporting,
+   * so dismissing it can record WHICH failure was acknowledged (see dismissSyncFailure).
+   *
+   * Transient (not persisted): tour-gate's checkpoint re-derives it from the connections
+   * response on every load, and the acknowledgement itself is what gets persisted.
+   */
+  syncFailedRunId: string | null;
   start: (orgSlug: string) => void;
   resume: (orgSlug: string, flow?: WalkthroughFlow) => void;
   advanceTo: (stage: WalkthroughStage) => void;
@@ -74,6 +84,11 @@ interface InsightWalkthroughState {
   startChartFlow: (orgSlug: string) => void;
   startAutomatePipeline: (orgSlug: string) => void;
   trackConnection: (connectionId: string) => void;
+  /** Stop watching the tracked connection — it's gone (see the action). */
+  untrackConnection: () => void;
+  setSyncFailedRunId: (runId: string | null) => void;
+  /** "Got it" on the sync-failure coachmark — see the action for what it does and why. */
+  dismissSyncFailure: () => void;
   setSuppressCoachmark: (suppressed: boolean) => void;
   setPendingCelebration: (celebration: 'chart' | 'pipeline' | null) => void;
   skip: () => void;
@@ -90,6 +105,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   suppressCoachmark: false,
   pendingCelebration: null,
   targetNodeId: null,
+  syncFailedRunId: null,
 
   start: (orgSlug) => {
     saveActiveWalkthroughFlow('insights');
@@ -190,20 +206,22 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
     });
   },
 
-  // No fork2 screen for this path — the GetStartedModal's caller navigates straight to /ingest,
-  // this action just flips the store state before that navigation happens. Writes only into the
+  // No fork2 screen for this path — picking it in the GetStartedModal starts the flow outright.
+  // It opens on the Ingest sidebar nudge and does NOT navigate: the caller used to push
+  // /ingest immediately, which moved the user somewhere they hadn't asked to go. They click
+  // Ingest themselves and the nudge's route advance takes it from there. Writes only into the
   // 'automate_pipeline' namespace, so a build-insights run left half-finished is untouched and
   // still resumable.
   startAutomatePipeline: (orgSlug) => {
     saveActiveWalkthroughFlow('automate_pipeline');
     savePath('automate_pipeline', 'automate_pipeline');
-    saveWalkthroughStage('automate_pipeline', 'pipeline_ingest');
+    saveWalkthroughStage('automate_pipeline', 'pipeline_ingest_nudge');
     trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_STARTED, { path: 'automate_pipeline' });
     set({
       active: true,
       orgSlug,
       flow: 'automate_pipeline',
-      stage: 'pipeline_ingest',
+      stage: 'pipeline_ingest_nudge',
       path: 'automate_pipeline',
       trackedConnectionId: null,
     });
@@ -214,6 +232,51 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
     if (!orgSlug || !flow) return;
     saveTrackedConnection(flow, connectionId);
     set({ trackedConnectionId: connectionId });
+  },
+
+  /**
+   * The tracked connection no longer exists — the user deleted it, typically after a failed
+   * sync, to start over.
+   *
+   * Puts them back on their fork's ingest stage AND drops the tracking, which is what makes
+   * that stage visible again (it's silenced precisely while a connection is being watched).
+   * Without this the walkthrough sat on a holding stage forever, waiting on a connection that
+   * was never coming back and pointing its coachmark at a table row that no longer rendered.
+   */
+  untrackConnection: () => {
+    const { flow, path } = get();
+    if (!flow) return;
+    clearTrackedConnection(flow);
+    set({ trackedConnectionId: null, syncFailedRunId: null });
+    if (path === 'own_data' || path === 'automate_pipeline') {
+      get().advanceTo(SYNC_RETRY_STAGE_FOR[path]);
+    }
+  },
+
+  setSyncFailedRunId: (runId) => {
+    // Guarded: the checkpoint re-runs on every poll while a failure is on screen, and an
+    // unconditional set() would wake every subscriber a few times a second for no change.
+    if (get().syncFailedRunId === runId) return;
+    set({ syncFailedRunId: runId });
+  },
+
+  /**
+   * Acknowledge the failed sync the coachmark is reporting, and get out of the way.
+   *
+   * Records WHICH run was acknowledged (by Airbyte job id) so this exact failure never shows
+   * again — including after a reload — while a retry that fails is a new job id and does. Then
+   * hands the user back to their fork's ingest stage, which is silent while a tracked
+   * connection exists, so nothing is on screen while they retry the sync or connect a
+   * different source. Either of those rejoins the flow on its own: the checkpoint keeps
+   * watching, and a success advances straight past both holding stages.
+   */
+  dismissSyncFailure: () => {
+    const { flow, path, syncFailedRunId } = get();
+    if (!flow) return;
+    if (syncFailedRunId) saveDismissedSyncRun(flow, syncFailedRunId);
+    if (path === 'own_data' || path === 'automate_pipeline') {
+      get().advanceTo(SYNC_RETRY_STAGE_FOR[path]);
+    }
   },
 
   setSuppressCoachmark: (suppressed) => set({ suppressCoachmark: suppressed }),

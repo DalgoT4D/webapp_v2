@@ -19,6 +19,14 @@ function mountTarget(testId: string, inner?: HTMLElement): HTMLElement {
   return target;
 }
 
+/** Sidebar-anchored stages target a nav link by href rather than a testid. */
+function mountLink(href: string): HTMLAnchorElement {
+  const link = document.createElement('a');
+  link.setAttribute('href', href);
+  document.body.appendChild(link);
+  return link;
+}
+
 function skipButton(): HTMLElement | null {
   return document.querySelector('[data-testid="walkthrough-skip-btn"]');
 }
@@ -315,6 +323,57 @@ describe('InsightWalkthroughCoachmark', () => {
     );
   });
 
+  describe('sync holding stages', () => {
+    it('points the waiting coachmark at the tracked connection’s own row', async () => {
+      // The row has no static selector — it's resolved from the store, because the message is
+      // about THIS connection and nothing else on /ingest identifies it.
+      mockPathname = '/ingest';
+      window.history.pushState({}, '', '/ingest');
+      mountTarget('connection-row-conn-1');
+      setStage('sync_running', { path: 'own_data', trackedConnectionId: 'conn-1' });
+
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(popoverTitle()).toContain('Your data is syncing'));
+    });
+
+    it('falls back to the Ingest nav item while the user is on another page', async () => {
+      // A first sync takes minutes and the user is free to wander during it. Pinned to
+      // /ingest, this stage showed NOTHING for that whole window — exactly the "walkthrough
+      // died" reading it exists to prevent.
+      mockPathname = '/orchestrate';
+      window.history.pushState({}, '', '/orchestrate');
+      mountLink('/ingest');
+      setStage('sync_running', { path: 'own_data', trackedConnectionId: 'conn-1' });
+
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(popoverTitle()).toContain('Your data is syncing'));
+    });
+
+    it('gives the failure coachmark a Got it that rewinds to the fork’s ingest stage', async () => {
+      // Dismissing means "I've read this", not "I've done it": it lands on a stage that is
+      // silent while a tracked connection exists, so the message shows exactly once while the
+      // walkthrough itself stays live.
+      mountLink('/ingest');
+      setStage('sync_failed', {
+        path: 'automate_pipeline',
+        flow: 'automate_pipeline',
+        trackedConnectionId: 'conn-1',
+        syncFailedRunId: '77',
+      });
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('That sync didn’t finish'));
+
+      const gotIt = document.querySelector('.driver-popover-next-btn') as HTMLElement;
+      expect(gotIt.textContent).toBe('Got it');
+      await userEvent.click(gotIt);
+
+      expect(useInsightWalkthroughStore.getState().stage).toBe('pipeline_ingest');
+    });
+  });
+
   describe('transform stages', () => {
     beforeEach(() => {
       mockPathname = '/transform/canvas';
@@ -322,8 +381,10 @@ describe('InsightWalkthroughCoachmark', () => {
     });
 
     it('moves from naming the table to its Save button once a name is entered', async () => {
+      // The stage targets the Output Name input itself, so the coached element IS the input.
       const input = document.createElement('input');
-      mountTarget('create-table-form', input);
+      input.setAttribute('data-testid', 'output-name-input');
+      document.body.appendChild(input);
       setStage('pipeline_name_table', { path: 'automate_pipeline', flow: 'automate_pipeline' });
       render(<InsightWalkthroughCoachmark />);
       await waitFor(() => expect(popoverTitle()).toContain('Name your table'));
@@ -363,6 +424,41 @@ describe('InsightWalkthroughCoachmark', () => {
       // Target sits inside an open Radix dialog, whose own backdrop already dims the page —
       // driver.js's overlay would darken the rest of that same dialog.
       expect(document.body.classList.contains('dalgo-tour-passthrough')).toBe(true);
+    });
+
+    it('nudges the Orchestrate sidebar item after publishing, from the canvas', async () => {
+      // The stage after this one is pinned to /orchestrate and coachmarks never navigate on
+      // their own — without a route-less nudge the flow went silent on the canvas.
+      const link = mountLink('/orchestrate');
+      setStage('pipeline_orchestrate_nudge', {
+        path: 'automate_pipeline',
+        flow: 'automate_pipeline',
+      });
+
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(popoverTitle()).toContain('Create a data pipeline'));
+      expect(link.classList.contains('dalgo-tour-ring')).toBe(true);
+      expect(document.querySelector('.dalgo-tour-stage-image')).not.toBeNull();
+    });
+
+    it('advances the Orchestrate nudge once the user actually gets there', async () => {
+      mountLink('/orchestrate');
+      mountTarget('create-pipeline-btn');
+      setStage('pipeline_orchestrate_nudge', {
+        path: 'automate_pipeline',
+        flow: 'automate_pipeline',
+      });
+      const { rerender } = render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Create a data pipeline'));
+
+      mockPathname = '/orchestrate';
+      window.history.pushState({}, '', '/orchestrate');
+      rerender(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() =>
+        expect(useInsightWalkthroughStore.getState().stage).toBe('pipeline_orchestrate_intro')
+      );
     });
   });
 
