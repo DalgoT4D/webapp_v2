@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useCharts } from '@/hooks/api/useChart';
 import { useRouter } from 'next/navigation';
 import GridLayout from 'react-grid-layout';
@@ -46,7 +47,7 @@ import {
   AlertCircle,
   Filter,
   ArrowLeft,
-  Eye,
+  CircleCheck,
   Edit,
   Target,
 } from 'lucide-react';
@@ -56,7 +57,12 @@ import { FilterConfigModal } from './filter-config-modal';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { DashboardCell } from './DashboardCell';
 import { TabBar } from './tabs/TabBar';
-import type { UnifiedTextConfig } from './text-element-unified';
+import {
+  DASHBOARD_RICH_TEXT_FLUSH_EVENT,
+  DASHBOARD_WIDGET_DRAG_START_EVENT,
+  type RichTextFlushEventDetail,
+  type UnifiedTextConfig,
+} from './text-element-unified';
 import { DashboardFilterType } from '@/types/dashboard-filters';
 import type {
   CreateFilterPayload,
@@ -65,8 +71,10 @@ import type {
   NumericalFilterSettings,
   DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
-import { DashboardTab, DashboardTabsData, DashboardComponentType } from '@/types/dashboard';
-import { getDefaultTabsConfig } from './tabs/tab-utils';
+import { DashboardComponentType } from '@/types/dashboard';
+import type { DashboardTab } from '@/types/dashboard';
+import { initializeTabsData } from './tabs/tab-utils';
+import { moveWidgetBetweenTabs, pointerToGridPosition } from './tabs/cross-tab-drag';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -84,6 +92,9 @@ const FULL_WIDTH_COLS = 12;
 const AUTOSCROLL_EDGE_PX = 60;
 // Max scroll speed (px/frame), capped to prevent runaway scroll. Spec: ~30px/frame.
 const AUTOSCROLL_MAX_SPEED_PX = 30;
+const CROSS_TAB_HOVER_DELAY_MS = 500;
+const GRID_MARGIN = 8;
+const GRID_PADDING = 8;
 
 // Max length for the dashboard description (keeps the header compact).
 const DESCRIPTION_MAX_LENGTH = 100;
@@ -310,11 +321,36 @@ interface DashboardComponent {
   config: any;
 }
 
-interface DashboardState {
-  layout: DashboardLayout[];
-  layouts?: ResponsiveLayouts;
-  components: Record<string, DashboardComponent>;
-  // filters removed - now managed independently outside undo/redo
+interface DashboardEditorState {
+  tabs: DashboardTab[];
+  activeTabId: string;
+}
+
+interface CrossTabDragSession {
+  componentId: string;
+  componentType: DashboardComponentType;
+  sourceTabId: string;
+  hoverTabId: string | null;
+  targetTabId: string | null;
+  item: DashboardLayout;
+  clientX: number;
+  clientY: number;
+  targetPosition: { x: number; y: number } | null;
+  phase: 'grid' | 'handoff';
+}
+
+function getActiveEditorTab(state: DashboardEditorState): DashboardTab {
+  return state.tabs.find((tab) => tab.id === state.activeTabId) || state.tabs[0];
+}
+
+function updateActiveEditorTab(
+  state: DashboardEditorState,
+  update: Partial<Pick<DashboardTab, 'layout_config' | 'components'>>
+): DashboardEditorState {
+  return {
+    ...state,
+    tabs: state.tabs.map((tab) => (tab.id === state.activeTabId ? { ...tab, ...update } : tab)),
+  };
 }
 
 interface DashboardBuilderV2Props {
@@ -366,16 +402,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
   ) {
     const router = useRouter();
 
-    // Canvas is always driven by tab content — layout and components live inside tabs only.
-    // If tabs exist, load the first tab's canvas. Otherwise start empty (new dashboard).
-    const firstTab =
-      initialData?.tabs && Array.isArray(initialData.tabs) && initialData.tabs.length > 0
-        ? initialData.tabs[0]
-        : null;
-
-    let initialLayout = Array.isArray(firstTab?.layout_config) ? firstTab.layout_config : [];
-    const initialComponents = firstTab?.components ?? {};
-
     // Helper function to ensure text components have content constraints
     const ensureTextContentConstraints = (components: any) => {
       const updatedComponents = { ...components };
@@ -416,33 +442,34 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       return updatedComponents;
     };
 
-    // Ensure all text components have content constraints
-    const componentsWithConstraints = ensureTextContentConstraints(initialComponents);
+    const rawInitialTabs = initializeTabsData(
+      initialData?.tabs,
+      Array.isArray(initialData?.layout_config) ? initialData.layout_config : [],
+      initialData?.components || {}
+    ).tabs;
 
-    // Apply minimum size constraints to existing layout items
-    initialLayout = initialLayout.map((item: any) => {
-      const component = componentsWithConstraints[item.i];
-      if (component) {
-        const chartType = getChartTypeFromConfig(component.config);
-        // Always use base chart type constraints for minW/minH (resize limits)
-        // This ensures users can freely resize components
-        const baseMinDimensions = getMinGridDimensions(chartType);
-
-        return {
-          ...item,
-          // Keep the saved dimensions - don't force expand based on content constraints
-          w: item.w || baseMinDimensions.w,
-          h: item.h || baseMinDimensions.h,
-          // Use base constraints for resize limits (allows flexible resizing)
-          minW: baseMinDimensions.w,
-          minH: baseMinDimensions.h,
-        };
-      }
-      return item;
+    // Normalize every tab up front. Tabs are the single source of truth for the canvas,
+    // so inactive tabs must receive the same constraints as the initially visible tab.
+    const initialTabs = rawInitialTabs.map((tab) => {
+      const components = ensureTextContentConstraints(tab.components || {});
+      const layout = (Array.isArray(tab.layout_config) ? tab.layout_config : []).map(
+        (item: DashboardLayout) => {
+          const component = components[item.i];
+          if (!component) return item;
+          const chartType = getChartTypeFromConfig(component.config);
+          const baseMinDimensions = getMinGridDimensions(chartType);
+          return {
+            ...item,
+            w: item.w || baseMinDimensions.w,
+            h: item.h || baseMinDimensions.h,
+            minW: baseMinDimensions.w,
+            minH: baseMinDimensions.h,
+            maxW: FULL_WIDTH_COLS,
+          };
+        }
+      );
+      return { ...tab, layout_config: layout, components };
     });
-
-    // Load responsive layouts if available, otherwise they'll be generated later
-    const initialResponsiveLayouts = initialData?.responsive_layouts || null;
 
     // Fetch live dashboard data to get updated filters
     const {
@@ -496,15 +523,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           .filter(Boolean) // Remove null entries
       : [];
 
-    // Don't create filter components - they should already be in initialComponents
-    // Just use the components and layout as they are
-    const mergedComponents = componentsWithConstraints;
-    const mergedLayout = initialLayout;
-
-    // Use saved responsive layouts if available, otherwise generate them
-    const initialLayouts = initialResponsiveLayouts || generateResponsiveLayouts(mergedLayout);
-
-    // State management with undo/redo (canvas only - no filters)
+    // All tab content participates in one history so a cross-tab move is atomic.
     const {
       state,
       setState,
@@ -513,11 +532,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       redo: redoBase,
       canUndo,
       canRedo,
-    } = useUndoRedo<DashboardState>(
+    } = useUndoRedo<DashboardEditorState>(
       {
-        layout: mergedLayout,
-        layouts: initialLayouts,
-        components: mergedComponents,
+        tabs: initialTabs,
+        activeTabId: initialTabs[0].id,
       },
       20
     );
@@ -569,6 +587,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [isLocked, setIsLocked] = useState(false);
     const [lockToken, setLockToken] = useState<string | null>(null);
     const [lockRefreshInterval, setLockRefreshInterval] = useState<NodeJS.Timeout | null>(null);
+    const lockRequestInFlightRef = useRef(false);
+    const hasDashboardLockRef = useRef(false);
 
     // Filters panel collapse state
     const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
@@ -584,24 +604,46 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [description, setDescription] = useState(initialData?.description || '');
     const [isEditingTitle, setIsEditingTitle] = useState(isNewDashboard || false);
 
-    // Tabs state - initialize from initialData or create default
-    const [tabsData, setTabsData] = useState<DashboardTabsData>(() => {
-      // Backend returns tabs as an array, convert to DashboardTabsData structure
-      if (initialData?.tabs && Array.isArray(initialData.tabs) && initialData.tabs.length > 0) {
-        return {
-          tabs: initialData.tabs as DashboardTab[],
-          activeTabId: initialData.tabs[0].id,
-        };
-      }
-      // For new dashboards or existing dashboards without tabs, use default
-      return getDefaultTabsConfig();
-    });
+    const [dragPreviewTabId, setDragPreviewTabId] = useState<string | null>(null);
+    const renderedActiveTabId = dragPreviewTabId || state.activeTabId;
+    const activeTab =
+      state.tabs.find((tab) => tab.id === renderedActiveTabId) || getActiveEditorTab(state);
+    const activeLayout = activeTab?.layout_config || [];
+    const activeComponents = activeTab?.components || {};
 
-    // Refs to always access the latest state/tabsData in callbacks without stale closures
+    // Ref to always access the latest editor state in pointer/grid callbacks.
     const stateRef = useRef(state);
     stateRef.current = state;
-    const tabsDataRef = useRef(tabsData);
-    tabsDataRef.current = tabsData;
+
+    const flushActiveRichText = useCallback((): DashboardEditorState => {
+      const detail: RichTextFlushEventDetail = { updates: [] };
+      document.dispatchEvent(new CustomEvent(DASHBOARD_RICH_TEXT_FLUSH_EVENT, { detail }));
+      if (!detail.updates.length) return stateRef.current;
+
+      const nextState = detail.updates.reduce<DashboardEditorState>(
+        (currentState, update) => ({
+          ...currentState,
+          tabs: currentState.tabs.map((tab) =>
+            tab.components[update.componentId]
+              ? {
+                  ...tab,
+                  components: {
+                    ...tab.components,
+                    [update.componentId]: {
+                      ...tab.components[update.componentId],
+                      config: update.config,
+                    },
+                  },
+                }
+              : tab
+          ),
+        }),
+        stateRef.current
+      );
+      stateRef.current = nextState;
+      setState(nextState);
+      return nextState;
+    }, [setState]);
     const [showSettings, setShowSettings] = useState(false);
     const [resizingItems, setResizingItems] = useState<Set<string>>(new Set());
     const [containerWidth, setContainerWidth] = useState(
@@ -714,7 +756,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Observe WHITE dashboard container for responsive width (not gray outer container)
     useEffect(() => {
-      if (!dashboardContainerRef.current) return;
+      if (!dashboardContainerRef.current) return undefined;
 
       const handleResize = (entries: ResizeObserverEntry[]): void => {
         for (const entry of entries) {
@@ -826,7 +868,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Auto-save (but not during undo/redo operations)
     useEffect(() => {
       if (dashboardId && debouncedState && !isUndoRedoOperation) {
-        saveDashboard();
+        saveDashboard({}, false);
       }
     }, [debouncedState, isUndoRedoOperation]);
 
@@ -847,6 +889,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Keyboard shortcuts for undo/redo
     useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
+        const target = e.target as HTMLElement | null;
+        if (target?.closest('input, textarea, select, [contenteditable="true"], .ProseMirror')) {
+          return;
+        }
         if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
           e.preventDefault();
           if (canUndo) undo();
@@ -862,7 +908,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Lock dashboard for editing with auto-refresh setup
     const lockDashboard = async () => {
-      if (!dashboardId) return;
+      if (!dashboardId || lockRequestInFlightRef.current || hasDashboardLockRef.current) return;
+
+      lockRequestInFlightRef.current = true;
 
       // Clear any existing interval first
       if (lockRefreshInterval) {
@@ -872,6 +920,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
       try {
         const response = await apiPost(`/api/dashboards/${dashboardId}/lock/`, {});
+        hasDashboardLockRef.current = true;
         setIsLocked(true);
         setLockToken(response.lock_token);
 
@@ -905,6 +954,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
         // For other errors, just log them
         console.error('Lock acquisition failed:', error.message || 'Unknown error');
+      } finally {
+        lockRequestInFlightRef.current = false;
       }
     };
 
@@ -926,14 +977,17 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
         setIsLocked(false);
         setLockToken(null);
+        hasDashboardLockRef.current = false;
       } catch (error) {
         console.error('Failed to unlock dashboard:', error);
       }
     };
 
     // Save dashboard
-    const saveDashboard = async (overrides: any = {}) => {
+    const saveDashboard = async (overrides: any = {}, flushRichText = true) => {
       if (!dashboardId) return;
+
+      const editorState = flushRichText ? flushActiveRichText() : stateRef.current;
 
       setIsSaving(true);
       setSaveStatus('saving');
@@ -945,15 +999,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         // Ensure title is not empty, use default if needed
         const finalTitle = title.trim() || 'Untitled Dashboard';
 
-        // Flush current tab's live canvas into tabsData before saving
-        // (tabsData only syncs per-tab content on tab switch, not on every canvas change)
-        const currentTabsData = tabsDataRef.current;
-        const tabsWithLatestCanvas = currentTabsData.tabs.map((t) =>
-          t.id === currentTabsData.activeTabId
-            ? { ...t, layout_config: state.layout, components: state.components }
-            : t
-        );
-
         // Create safe serializable payload (filters removed - managed independently)
         const payload = {
           title: finalTitle,
@@ -961,7 +1006,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           grid_columns: SCREEN_SIZES[targetScreenSize].cols,
           target_screen_size: targetScreenSize,
           filter_layout: filterLayout,
-          tabs: JSON.parse(JSON.stringify(tabsWithLatestCanvas)), // Persist all tabs
+          tabs: JSON.parse(JSON.stringify(editorState.tabs)),
           // filters removed - managed via separate API endpoints
           ...overrides, // Apply any overrides passed to the function
         };
@@ -1025,98 +1070,89 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Track if we're currently dragging (for cursor/visual state on the dragged cell)
     const [isDragging, setIsDragging] = useState(false);
     const [draggedItem, setDraggedItem] = useState<DashboardLayout | null>(null);
+    const [crossTabDrag, setCrossTabDrag] = useState<CrossTabDragSession | null>(null);
+    const crossTabDragRef = useRef<CrossTabDragSession | null>(null);
+    const crossTabHoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+      crossTabDragRef.current = crossTabDrag;
+    }, [crossTabDrag]);
 
     // ===== Tab Handlers =====
 
-    // Handle tab change (switching active tab)
-    // Saves current tab's canvas into tabsData, then loads the new tab's canvas into state
+    // Tab selection is navigation, not an edit, so it does not add a history entry.
     const handleTabChange = useCallback(
       (tabId: string) => {
-        const currentTabsData = tabsDataRef.current;
-        const currentState = stateRef.current;
-
-        // Save current tab's layout/components, then switch active tab
-        const updatedTabs = currentTabsData.tabs.map((t) =>
-          t.id === currentTabsData.activeTabId
-            ? { ...t, layout_config: currentState.layout, components: currentState.components }
-            : t
-        );
-
-        setTabsData({ tabs: updatedTabs, activeTabId: tabId });
-
-        // Load the new tab's content into the canvas (no undo history — tab switch isn't undoable)
-        const newTab = updatedTabs.find((t) => t.id === tabId);
-        setStateWithoutHistory({
-          ...currentState,
-          layout: newTab?.layout_config || [],
-          components: newTab?.components || {},
-        });
+        if (!stateRef.current.tabs.some((tab) => tab.id === tabId)) return;
+        flushActiveRichText();
+        setDragPreviewTabId(null);
+        setStateWithoutHistory((prev) => ({ ...prev, activeTabId: tabId }));
       },
-      [setStateWithoutHistory]
+      [flushActiveRichText, setStateWithoutHistory]
     );
 
-    // Handle adding a new tab
-    // Saves current tab's canvas before switching to the new empty tab
     const handleTabAdd = useCallback(
       (newTab: DashboardTab) => {
-        const currentTabsData = tabsDataRef.current;
-        const currentState = stateRef.current;
-
-        // Save current tab's layout/components first
-        const updatedTabs = currentTabsData.tabs.map((t) =>
-          t.id === currentTabsData.activeTabId
-            ? { ...t, layout_config: currentState.layout, components: currentState.components }
-            : t
-        );
-
-        setTabsData({ tabs: [...updatedTabs, newTab], activeTabId: newTab.id });
-
-        // New tab starts with an empty canvas
-        setStateWithoutHistory({ ...currentState, layout: [], components: {} });
+        setState((prev) => ({
+          tabs: [...prev.tabs, newTab],
+          activeTabId: newTab.id,
+        }));
       },
-      [setStateWithoutHistory]
+      [setState]
     );
 
     // Handle removing a tab
     const handleTabRemove = useCallback(
       (tabId: string) => {
-        const currentTabsData = tabsDataRef.current;
-        const currentState = stateRef.current;
-
-        if (currentTabsData.tabs.length <= 1) return;
-
-        const tabIndex = currentTabsData.tabs.findIndex((t) => t.id === tabId);
-        const newTabs = currentTabsData.tabs.filter((t) => t.id !== tabId);
-
-        let newActiveTabId = currentTabsData.activeTabId;
-        if (currentTabsData.activeTabId === tabId) {
-          // Prefer previous tab, or next if removing first
-          const newActiveIndex = Math.max(0, tabIndex - 1);
-          newActiveTabId = newTabs[newActiveIndex]?.id || newTabs[0]?.id;
-        }
-
-        setTabsData({ tabs: newTabs, activeTabId: newActiveTabId });
-
-        // If the deleted tab was active, load the new active tab's canvas
-        if (currentTabsData.activeTabId === tabId) {
-          const newActiveTab = newTabs.find((t) => t.id === newActiveTabId);
-          setStateWithoutHistory({
-            ...currentState,
-            layout: newActiveTab?.layout_config || [],
-            components: newActiveTab?.components || {},
-          });
-        }
+        setState((prev) => {
+          if (prev.tabs.length <= 1) return prev;
+          const tabIndex = prev.tabs.findIndex((tab) => tab.id === tabId);
+          if (tabIndex < 0) return prev;
+          const tabs = prev.tabs.filter((tab) => tab.id !== tabId);
+          const activeTabId =
+            prev.activeTabId === tabId
+              ? tabs[Math.max(0, tabIndex - 1)]?.id || tabs[0].id
+              : prev.activeTabId;
+          return { tabs, activeTabId };
+        });
       },
-      [setStateWithoutHistory]
+      [setState]
     );
 
     // Handle renaming a tab
-    const handleTabRename = useCallback((tabId: string, newTitle: string) => {
-      setTabsData((prev) => ({
-        ...prev,
-        tabs: prev.tabs.map((tab) => (tab.id === tabId ? { ...tab, title: newTitle } : tab)),
-      }));
-    }, []);
+    const handleTabRename = useCallback(
+      (tabId: string, newTitle: string) => {
+        setState((prev) => ({
+          ...prev,
+          tabs: prev.tabs.map((tab) => (tab.id === tabId ? { ...tab, title: newTitle } : tab)),
+        }));
+      },
+      [setState]
+    );
+
+    const handleTabReorder = useCallback(
+      (tabId: string, toIndex: number) => {
+        const currentTabs = stateRef.current.tabs;
+        const fromIndex = currentTabs.findIndex((tab) => tab.id === tabId);
+        const destinationIndex = Math.max(0, Math.min(currentTabs.length - 1, toIndex));
+        if (fromIndex < 0 || destinationIndex === fromIndex) return;
+
+        setState((prev) => {
+          const nextFromIndex = prev.tabs.findIndex((tab) => tab.id === tabId);
+          if (nextFromIndex < 0) return prev;
+          const nextDestinationIndex = Math.max(0, Math.min(prev.tabs.length - 1, toIndex));
+          const tabs = [...prev.tabs];
+          const [movedTab] = tabs.splice(nextFromIndex, 1);
+          tabs.splice(nextDestinationIndex, 0, movedTab);
+          return { ...prev, tabs };
+        });
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_TAB_REORDERED, {
+          from_index: fromIndex,
+          to_index: destinationIndex,
+        });
+      },
+      [setState]
+    );
 
     // ===== End Tab Handlers =====
 
@@ -1128,7 +1164,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // owned by RGL's grid model; this only clamps w/h and stamps minW/minH/maxW so subsequent
     // drags/resizes enforce them natively. Text widgets use content-aware minimums.
     const applyItemConstraints = useCallback((items: DashboardLayout[]): DashboardLayout[] => {
-      const components = stateRef.current.components;
+      const components = getActiveEditorTab(stateRef.current).components;
       return items.map((item) => {
         const component = components[item.i];
         if (!component) return item;
@@ -1212,47 +1248,302 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Stop autoscroll if the component unmounts mid-drag
     useEffect(() => () => stopAutoscroll(), [stopAutoscroll]);
 
+    const clearCrossTabHoverTimer = useCallback(() => {
+      if (crossTabHoverTimerRef.current) {
+        clearTimeout(crossTabHoverTimerRef.current);
+        crossTabHoverTimerRef.current = null;
+      }
+    }, []);
+
+    const publishCrossTabDrag = useCallback((session: CrossTabDragSession | null) => {
+      crossTabDragRef.current = session;
+      setCrossTabDrag(session);
+    }, []);
+
+    const getTargetPosition = useCallback(
+      (session: CrossTabDragSession, clientX: number, clientY: number) => {
+        const container = dashboardContainerRef.current;
+        const canvas = canvasRef.current;
+        if (!container || !canvas) return null;
+        const rect = container.getBoundingClientRect();
+        return pointerToGridPosition(clientX, clientY, session.item, {
+          containerWidth: rect.width,
+          containerLeft: rect.left,
+          containerTop: rect.top,
+          cols: currentScreenConfig.cols,
+          rowHeight: ROW_HEIGHT,
+          marginX: GRID_MARGIN,
+          marginY: GRID_MARGIN,
+          paddingX: GRID_PADDING,
+          paddingY: GRID_PADDING,
+        });
+      },
+      [currentScreenConfig.cols]
+    );
+
+    const beginCrossTabHandoff = useCallback(
+      (targetTabId: string) => {
+        const session = crossTabDragRef.current;
+        if (!session || session.phase !== 'grid' || session.sourceTabId === targetTabId) return;
+        clearCrossTabHoverTimer();
+        const next: CrossTabDragSession = {
+          ...session,
+          hoverTabId: targetTabId,
+          targetTabId,
+          targetPosition: null,
+          phase: 'handoff',
+        };
+        // End RGL's source-grid gesture while that grid is still mounted. The physical
+        // pointer remains down and the document-level handoff listeners take over on the
+        // next render, but react-draggable can now remove its document listeners cleanly
+        // instead of throwing "DraggableCore: Unmounted during event" on the final mouseup.
+        publishCrossTabDrag(next);
+        document.dispatchEvent(
+          new MouseEvent('mouseup', {
+            bubbles: true,
+            clientX: session.clientX,
+            clientY: session.clientY,
+          })
+        );
+        setDragPreviewTabId(targetTabId);
+        autoscrollPointerYRef.current = session.clientY;
+        startAutoscroll();
+      },
+      [clearCrossTabHoverTimer, publishCrossTabDrag, startAutoscroll]
+    );
+
+    const updateCrossTabHover = useCallback(
+      (clientX: number, clientY: number) => {
+        const session = crossTabDragRef.current;
+        if (!session || session.phase !== 'grid') return;
+
+        const tabElement = document
+          .elementsFromPoint(clientX, clientY)
+          .map((element) =>
+            (element as HTMLElement).closest<HTMLElement>('[data-dashboard-tab-id]')
+          )
+          .find(Boolean);
+        const hoverTabId = tabElement?.dataset.dashboardTabId || null;
+        const validHoverTabId =
+          hoverTabId && hoverTabId !== session.sourceTabId ? hoverTabId : null;
+
+        if (session.hoverTabId === validHoverTabId) return;
+        clearCrossTabHoverTimer();
+        const next = { ...session, clientX, clientY, hoverTabId: validHoverTabId };
+        publishCrossTabDrag(next);
+
+        if (validHoverTabId) {
+          crossTabHoverTimerRef.current = setTimeout(
+            () => beginCrossTabHandoff(validHoverTabId),
+            CROSS_TAB_HOVER_DELAY_MS
+          );
+        }
+      },
+      [beginCrossTabHandoff, clearCrossTabHoverTimer, publishCrossTabDrag]
+    );
+
+    const finishCrossTabDrag = useCallback(
+      (commit: boolean) => {
+        const session = crossTabDragRef.current;
+        clearCrossTabHoverTimer();
+        stopAutoscroll();
+
+        if (
+          commit &&
+          session?.phase === 'handoff' &&
+          session.targetTabId &&
+          session.targetPosition
+        ) {
+          setState((prev) =>
+            moveWidgetBetweenTabs(
+              prev,
+              {
+                componentId: session.componentId,
+                sourceTabId: session.sourceTabId,
+                targetTabId: session.targetTabId!,
+                ...session.targetPosition!,
+              },
+              currentScreenConfig.cols
+            )
+          );
+          trackEvent(ANALYTICS_EVENTS.DASHBOARD_WIDGET_MOVED_BETWEEN_TABS, {
+            element_type: session.componentType,
+          });
+        }
+
+        setDragPreviewTabId(null);
+        publishCrossTabDrag(null);
+        isDraggingRef.current = false;
+        setIsDragging(false);
+        setDraggedItem(null);
+      },
+      [
+        clearCrossTabHoverTimer,
+        currentScreenConfig.cols,
+        publishCrossTabDrag,
+        setState,
+        stopAutoscroll,
+      ]
+    );
+
+    // Once the source grid unmounts, keep the gesture alive at document level.
+    useEffect(() => {
+      if (crossTabDrag?.phase !== 'handoff') return undefined;
+
+      const initialPositionFrame = requestAnimationFrame(() => {
+        const session = crossTabDragRef.current;
+        if (!session || session.phase !== 'handoff') return;
+        publishCrossTabDrag({
+          ...session,
+          targetPosition: getTargetPosition(session, session.clientX, session.clientY),
+        });
+      });
+
+      const handleMouseMove = (event: MouseEvent) => {
+        const session = crossTabDragRef.current;
+        if (!session || session.phase !== 'handoff') return;
+        autoscrollPointerYRef.current = event.clientY;
+        publishCrossTabDrag({
+          ...session,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          targetPosition: getTargetPosition(session, event.clientX, event.clientY),
+        });
+      };
+      const handleCanvasScroll = () => {
+        const session = crossTabDragRef.current;
+        if (!session || session.phase !== 'handoff') return;
+        publishCrossTabDrag({
+          ...session,
+          targetPosition: getTargetPosition(session, session.clientX, session.clientY),
+        });
+      };
+      const handleMouseUp = (event: MouseEvent) => {
+        const canvasRect = canvasRef.current?.getBoundingClientRect();
+        const isInsideCanvas = Boolean(
+          canvasRect &&
+            event.clientX >= canvasRect.left &&
+            event.clientX <= canvasRect.right &&
+            event.clientY >= canvasRect.top &&
+            event.clientY <= canvasRect.bottom
+        );
+        const session = crossTabDragRef.current;
+        if (isInsideCanvas && session?.phase === 'handoff') {
+          publishCrossTabDrag({
+            ...session,
+            clientX: event.clientX,
+            clientY: event.clientY,
+            targetPosition: getTargetPosition(session, event.clientX, event.clientY),
+          });
+        }
+        finishCrossTabDrag(isInsideCanvas);
+      };
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          finishCrossTabDrag(false);
+        }
+      };
+      const handleWindowBlur = () => finishCrossTabDrag(false);
+
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('blur', handleWindowBlur);
+      const canvas = canvasRef.current;
+      canvas?.addEventListener('scroll', handleCanvasScroll, { passive: true });
+      return () => {
+        cancelAnimationFrame(initialPositionFrame);
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('blur', handleWindowBlur);
+        canvas?.removeEventListener('scroll', handleCanvasScroll);
+      };
+    }, [crossTabDrag?.phase, finishCrossTabDrag, getTargetPosition, publishCrossTabDrag]);
+
     // --- Drag handlers ------------------------------------------------------------------
     const handleDragStart = useCallback(
-      (_layout: any[], _oldItem: any, newItem: DashboardLayout) => {
+      (
+        _layout: DashboardLayout[],
+        _oldItem: DashboardLayout,
+        newItem: DashboardLayout,
+        _placeholder: DashboardLayout,
+        event: MouseEvent
+      ) => {
+        document.dispatchEvent(
+          new CustomEvent(DASHBOARD_WIDGET_DRAG_START_EVENT, {
+            detail: { componentId: newItem.i },
+          })
+        );
         isDraggingRef.current = true;
         setIsDragging(true);
         setDraggedItem(newItem);
+        const editorState = stateRef.current;
+        const component = getActiveEditorTab(editorState).components[newItem.i];
+        if (component) {
+          publishCrossTabDrag({
+            componentId: newItem.i,
+            componentType: component.type,
+            sourceTabId: editorState.activeTabId,
+            hoverTabId: null,
+            targetTabId: null,
+            item: { ...newItem },
+            clientX: event?.clientX || 0,
+            clientY: event?.clientY || 0,
+            targetPosition: null,
+            phase: 'grid',
+          });
+        }
         startAutoscroll();
       },
-      [startAutoscroll]
+      [publishCrossTabDrag, startAutoscroll]
     );
 
     // Track the pointer Y so the autoscroll loop knows how close we are to an edge.
     const handleDrag = useCallback(
       (
-        _layout: any[],
-        _oldItem: any,
+        _layout: DashboardLayout[],
+        _oldItem: DashboardLayout,
         _newItem: DashboardLayout,
-        _placeholder: any,
+        _placeholder: DashboardLayout,
         e: MouseEvent
       ) => {
-        if (e && typeof e.clientY === 'number') autoscrollPointerYRef.current = e.clientY;
+        if (e && typeof e.clientY === 'number') {
+          autoscrollPointerYRef.current = e.clientY;
+          const session = crossTabDragRef.current;
+          if (session?.phase === 'grid') {
+            publishCrossTabDrag({ ...session, clientX: e.clientX, clientY: e.clientY });
+            updateCrossTabHover(e.clientX, e.clientY);
+          }
+        }
       },
-      []
+      [publishCrossTabDrag, updateCrossTabHover]
     );
 
     // Handle drag stop - RGL returns the final, gravity-up-compacted layout. Commit it as
     // one history entry. Each widget keeps its own (x, y, w, h); nothing is re-derived from
     // array order, which is what made the old fluid model unpredictable (DALGO-1219).
     const handleDragStop = useCallback(
-      (layout: DashboardLayout[], _oldItem: any, _newItem: DashboardLayout) => {
+      (layout: DashboardLayout[], _oldItem: DashboardLayout, _newItem: DashboardLayout) => {
+        const session = crossTabDragRef.current;
+        if (session?.phase === 'handoff') return;
+
         isDraggingRef.current = false;
         setIsDragging(false);
         setDraggedItem(null);
+        clearCrossTabHoverTimer();
+        publishCrossTabDrag(null);
         stopAutoscroll();
 
-        if (!isUndoRedoOperationRef.current) {
+        // Releasing over a tab before the dwell completes cancels instead of committing
+        // a surprising edge position back into the source grid.
+        if (!session?.hoverTabId && !isUndoRedoOperationRef.current) {
           const next = applyItemConstraints(layout);
-          setState((prev) => ({ ...prev, layout: next }));
+          setState((prev) => updateActiveEditorTab(prev, { layout_config: next }));
         }
       },
-      [setState, stopAutoscroll, applyItemConstraints]
+      [applyItemConstraints, clearCrossTabHoverTimer, publishCrossTabDrag, setState, stopAutoscroll]
     );
 
     // Handle breakpoint changes
@@ -1287,7 +1578,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
         if (!isUndoRedoOperationRef.current) {
           const next = applyItemConstraints(layout);
-          setState((prev) => ({ ...prev, layout: next }));
+          setState((prev) => updateActiveEditorTab(prev, { layout_config: next }));
         }
       },
       [setState, applyItemConstraints]
@@ -1333,7 +1624,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         const newLayoutItem: DashboardLayout = {
           i: newComponent.id,
           x: 0,
-          y: bottomY(state.layout),
+          y: bottomY(activeLayout),
           w: FULL_WIDTH_COLS,
           h: defaultDimensions.h,
           minW: minDimensions.w,
@@ -1341,13 +1632,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           minH: minDimensions.h,
         };
 
-        setState({
-          ...state,
-          layout: [...state.layout, newLayoutItem],
-          components: {
-            ...state.components,
-            [newComponent.id]: newComponent,
-          },
+        setState((prev) => {
+          const tab = getActiveEditorTab(prev);
+          return updateActiveEditorTab(prev, {
+            layout_config: [...tab.layout_config, newLayoutItem],
+            components: { ...tab.components, [newComponent.id]: newComponent },
+          });
         });
 
         trackEvent(ANALYTICS_EVENTS.DASHBOARD_CHART_ADDED, { chart_type: chartType });
@@ -1380,7 +1670,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       const newLayoutItem: DashboardLayout = {
         i: newComponent.id,
         x: 0,
-        y: bottomY(state.layout),
+        y: bottomY(activeLayout),
         w: FULL_WIDTH_COLS,
         h: defaultDimensions.h,
         minW: minDimensions.w,
@@ -1388,13 +1678,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         minH: minDimensions.h,
       };
 
-      setState({
-        ...state,
-        layout: [...state.layout, newLayoutItem],
-        components: {
-          ...state.components,
-          [newComponent.id]: newComponent,
-        },
+      setState((prev) => {
+        const tab = getActiveEditorTab(prev);
+        return updateActiveEditorTab(prev, {
+          layout_config: [...tab.layout_config, newLayoutItem],
+          components: { ...tab.components, [newComponent.id]: newComponent },
+        });
       });
 
       trackEvent(ANALYTICS_EVENTS.DASHBOARD_KPI_ADDED);
@@ -1440,7 +1729,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       const newLayoutItem: DashboardLayout = {
         i: newComponent.id,
         x: 0,
-        y: bottomY(state.layout),
+        y: bottomY(activeLayout),
         w: FULL_WIDTH_COLS,
         h: textDimensions.h,
         minW: textMinDimensions.w,
@@ -1448,13 +1737,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         minH: textMinDimensions.h,
       };
 
-      setState({
-        ...state,
-        layout: [...state.layout, newLayoutItem],
-        components: {
-          ...state.components,
-          [newComponent.id]: newComponent,
-        },
+      setState((prev) => {
+        const tab = getActiveEditorTab(prev);
+        return updateActiveEditorTab(prev, {
+          layout_config: [...tab.layout_config, newLayoutItem],
+          components: { ...tab.components, [newComponent.id]: newComponent },
+        });
       });
 
       trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_ELEMENT_ADDED);
@@ -1469,20 +1757,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Remove component. Anything below the removed widget slides up (gravity-up);
     // side neighbours stay where they are. One history entry.
     const removeComponent = (componentId: string) => {
-      const removedType = state.components[componentId]?.type;
-      const newComponents = { ...state.components };
+      const removedType = activeComponents[componentId]?.type;
+      const newComponents = { ...activeComponents };
       delete newComponents[componentId];
 
       const newLayout = compactVertical(
-        state.layout.filter((item) => item.i !== componentId),
+        activeLayout.filter((item) => item.i !== componentId),
         FLUID_GRID_COLS
       );
 
-      setState({
-        ...state,
-        layout: newLayout,
-        components: newComponents,
-      });
+      setState((prev) =>
+        updateActiveEditorTab(prev, { layout_config: newLayout, components: newComponents })
+      );
       trackEvent(ANALYTICS_EVENTS.DASHBOARD_ELEMENT_REMOVED, { element_type: removedType });
     };
 
@@ -1653,11 +1939,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const getExcludedChartIds = (): number[] => {
       const chartIds: number[] = [];
 
-      // Guard against state.components being null/undefined during state transitions
-      if (state.components) {
-        Object.values(state.components).forEach((component) => {
-          if (component.type === DashboardComponentType.CHART && component.config.chartId) {
-            chartIds.push(component.config.chartId);
+      if (activeComponents) {
+        Object.values(activeComponents).forEach((component) => {
+          const chartId = component.config.chartId;
+          if (component.type === DashboardComponentType.CHART && typeof chartId === 'number') {
+            chartIds.push(chartId);
           }
         });
       }
@@ -1667,10 +1953,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     const getExcludedKPIIds = (): number[] => {
       const kpiIds: number[] = [];
-      if (state.components) {
-        Object.values(state.components).forEach((component) => {
-          if (component.type === DashboardComponentType.KPI && component.config.kpiId) {
-            kpiIds.push(component.config.kpiId);
+      if (activeComponents) {
+        Object.values(activeComponents).forEach((component) => {
+          const kpiId = component.config.kpiId;
+          if (component.type === DashboardComponentType.KPI && typeof kpiId === 'number') {
+            kpiIds.push(kpiId);
           }
         });
       }
@@ -1684,15 +1971,17 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       // as minW/minH; changing them mid-drag causes items to reflow under the pointer.
       if (isDraggingRef.current && newConfig.contentConstraints !== undefined) return;
 
-      setState({
-        ...stateRef.current,
-        components: {
-          ...stateRef.current.components,
-          [componentId]: {
-            ...stateRef.current.components[componentId],
-            config: newConfig,
+      setState((prev) => {
+        const tab = getActiveEditorTab(prev);
+        return updateActiveEditorTab(prev, {
+          components: {
+            ...tab.components,
+            [componentId]: {
+              ...tab.components[componentId],
+              config: newConfig,
+            },
           },
-        },
+        });
       });
     };
 
@@ -1725,7 +2014,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // Find next available position for new component
     const findAvailablePosition = (width: number, height: number): { x: number; y: number } => {
-      const layout = state.layout || [];
+      const layout = activeLayout;
       const maxCols = currentScreenConfig.cols;
 
       // Create a grid to track occupied spaces
@@ -1774,8 +2063,34 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       return { x: 0, y: maxY + 1 };
     };
 
+    const handoffPlaceholderStyle = (() => {
+      if (crossTabDrag?.phase !== 'handoff' || !crossTabDrag.targetPosition) return null;
+      const usableWidth =
+        actualContainerWidth - GRID_PADDING * 2 - GRID_MARGIN * (currentScreenConfig.cols - 1);
+      const columnWidth = usableWidth / currentScreenConfig.cols;
+      const { x, y } = crossTabDrag.targetPosition;
+      return {
+        left: GRID_PADDING + x * (columnWidth + GRID_MARGIN),
+        top: GRID_PADDING + y * (ROW_HEIGHT + GRID_MARGIN),
+        width: crossTabDrag.item.w * columnWidth + (crossTabDrag.item.w - 1) * GRID_MARGIN,
+        height: crossTabDrag.item.h * ROW_HEIGHT + (crossTabDrag.item.h - 1) * GRID_MARGIN,
+      };
+    })();
+
     return (
       <div className="dashboard-builder h-full flex flex-col overflow-hidden">
+        {crossTabDrag?.phase === 'handoff' &&
+          typeof document !== 'undefined' &&
+          createPortal(
+            <div
+              className="pointer-events-none fixed z-[10000] -translate-x-1/2 -translate-y-1/2 rounded-md border-2 border-blue-500 bg-blue-50/95 px-3 py-2 text-sm font-medium text-blue-700 shadow-xl"
+              style={{ left: crossTabDrag.clientX, top: crossTabDrag.clientY }}
+              data-testid="cross-tab-drag-overlay"
+            >
+              Move {crossTabDrag.componentType} to this tab
+            </div>,
+            document.body
+          )}
         {/* Fixed Header with Title and Toolbar */}
         <div className="border-b bg-white flex-shrink-0">
           {/* Mobile Header */}
@@ -1851,11 +2166,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     onClick={onPreview}
                     className="p-1.5"
                     disabled={isNavigating}
+                    data-testid="save-and-finish-mobile-btn"
+                    aria-label={isNavigating ? 'Saving and finishing' : 'Save and finish'}
+                    title={isNavigating ? 'Saving and finishing' : 'Save and finish'}
                   >
                     {isNavigating ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <Eye className="w-4 h-4" />
+                      <CircleCheck className="w-4 h-4" />
                     )}
                   </Button>
                 )}
@@ -2262,16 +2580,22 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   <span className="hidden lg:inline">Save</span>
                 </Button>
 
-                {/* Preview button */}
+                {/* Save changes and return to dashboard view mode. */}
                 {onPreview && (
-                  <Button size="sm" variant="outline" onClick={onPreview} disabled={isNavigating}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={onPreview}
+                    disabled={isNavigating}
+                    data-testid="save-and-finish-btn"
+                  >
                     {isNavigating ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     ) : (
-                      <Eye className="w-4 h-4 mr-2" />
+                      <CircleCheck className="w-4 h-4 mr-2" />
                     )}
                     <span className="hidden lg:inline">
-                      {isNavigating ? 'Switching...' : 'Preview'}
+                      {isNavigating ? 'Saving and finishing...' : 'Save and Finish'}
                     </span>
                   </Button>
                 )}
@@ -2335,13 +2659,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Tab Bar */}
             <TabBar
-              tabs={tabsData.tabs}
-              activeTabId={tabsData.activeTabId}
+              tabs={state.tabs}
+              activeTabId={renderedActiveTabId}
               isEditMode={true}
               onTabChange={handleTabChange}
               onTabAdd={handleTabAdd}
               onTabRemove={handleTabRemove}
               onTabRename={handleTabRename}
+              onTabReorder={handleTabReorder}
+              dragTargetTabId={crossTabDrag?.hoverTabId || crossTabDrag?.targetTabId}
+              isWidgetDragging={Boolean(crossTabDrag)}
             />
 
             {/* Dashboard Canvas - Responsive Container */}
@@ -2358,18 +2685,34 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     currentScreenConfig.height,
                     400,
                     // Calculate content height from layout items
-                    Array.isArray(state.layout) && state.layout.length > 0
-                      ? Math.max(...state.layout.map((item) => (item.y + item.h) * ROW_HEIGHT)) +
+                    activeLayout.length > 0
+                      ? Math.max(...activeLayout.map((item) => (item.y + item.h) * ROW_HEIGHT)) +
                           100
                       : 0
                   ),
                   position: 'relative',
                 }}
               >
+                {handoffPlaceholderStyle && (
+                  <div
+                    className="pointer-events-none absolute z-30 rounded-md border-2 border-dashed border-blue-500 bg-blue-100/50 shadow-inner"
+                    style={handoffPlaceholderStyle}
+                    data-testid="cross-tab-drop-placeholder"
+                  />
+                )}
                 <GridLayout
+                  // The handoff grid can receive the tail of RGL's original mouse gesture.
+                  // Remount it once more when the handoff settles so RGL cannot retain an
+                  // activeDrag placeholder over the newly inserted destination widget.
+                  key={`dashboard-grid-${renderedActiveTabId}-${
+                    crossTabDrag?.phase === 'handoff' ? 'handoff' : 'settled'
+                  }`}
                   className="layout relative z-10"
+                  data-grid-instance={`${renderedActiveTabId}-${
+                    crossTabDrag?.phase === 'handoff' ? 'handoff' : 'settled'
+                  }`}
                   data-grid-model="true"
-                  layout={Array.isArray(state.layout) ? state.layout : []}
+                  layout={activeLayout}
                   cols={currentScreenConfig.cols} // Always exactly 12 columns (Superset-style)
                   rowHeight={ROW_HEIGHT}
                   width={actualContainerWidth} // Use available container width - columns adjust to fit
@@ -2394,8 +2737,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   isResizable={true}
                   resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
                 >
-                  {(Array.isArray(state.layout) ? state.layout : []).map((item) => {
-                    const component = state.components[item.i];
+                  {activeLayout.map((item) => {
+                    const component = activeComponents[item.i];
                     if (!component) return null;
                     return (
                       // RGL requires the immediate child to carry key={item.i}; the wrapping div

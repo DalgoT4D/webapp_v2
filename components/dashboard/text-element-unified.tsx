@@ -1,782 +1,537 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import { TextStyleKit } from '@tiptap/extension-text-style';
+import TextAlign from '@tiptap/extension-text-align';
+import Placeholder from '@tiptap/extension-placeholder';
+import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Type,
-  Bold,
-  Italic,
-  Underline,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Palette,
-  Hash,
-} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateTextDimensions } from '@/lib/chart-size-constraints';
-
-export interface UnifiedTextConfig {
-  content: string;
-  type: 'paragraph' | 'heading';
-  headingLevel?: 1 | 2 | 3;
-  fontSize: number;
-  fontWeight: 'normal' | 'bold';
-  fontStyle: 'normal' | 'italic';
-  textDecoration: 'none' | 'underline';
-  textAlign: 'left' | 'center' | 'right';
-  color: string;
-  backgroundColor?: string;
-  contentConstraints?: {
-    minWidth: number;
-    minHeight: number;
-  };
-}
+import {
+  legacyConfigToRichText,
+  richTextDocumentsEqual,
+  sanitizeRichTextDocument,
+  type UnifiedTextConfig,
+} from './rich-text-config';
+export type { UnifiedTextConfig } from './rich-text-config';
 
 interface UnifiedTextElementProps {
   config: UnifiedTextConfig;
   onUpdate: (config: UnifiedTextConfig) => void;
+  componentId?: string;
   onRemove?: () => void;
   isEditMode?: boolean;
 }
 
-// Font size options from 10px to 32px
-const fontSizeOptions = Array.from({ length: 23 }, (_, i) => 10 + i);
+export const DASHBOARD_WIDGET_DRAG_START_EVENT = 'dashboard:widget-drag-start';
+export const DASHBOARD_RICH_TEXT_FLUSH_EVENT = 'dashboard:rich-text-flush';
 
-const textTypePresets = [
-  { label: 'H1', value: 1, type: 'heading' },
-  { label: 'H2', value: 2, type: 'heading' },
-  { label: 'H3', value: 3, type: 'heading' },
-  { label: 'T', value: 'paragraph', type: 'paragraph' },
+export interface RichTextFlushEventDetail {
+  updates: Array<{ componentId: string; config: UnifiedTextConfig }>;
+}
+
+const FONT_SIZES = Array.from({ length: 23 }, (_, index) => 10 + index);
+const COLOR_PRESETS = [
+  '#000000',
+  '#374151',
+  '#6B7280',
+  '#EF4444',
+  '#F59E0B',
+  '#10B981',
+  '#3B82F6',
+  '#8B5CF6',
 ];
 
-const colorPresets = [
-  { color: '#000000', name: 'Black' },
-  { color: '#374151', name: 'Dark Gray' },
-  { color: '#6B7280', name: 'Gray' },
-  { color: '#EF4444', name: 'Red' },
-  { color: '#F59E0B', name: 'Orange' },
-  { color: '#10B981', name: 'Green' },
-  { color: '#3B82F6', name: 'Blue' },
-  { color: '#8B5CF6', name: 'Purple' },
+type SelectionMarkState = 'active' | 'mixed' | 'inactive';
+
+function getSelectionMarkState(
+  editor: NonNullable<ReturnType<typeof useEditor>>,
+  markName: string
+): SelectionMarkState {
+  const { from, to, empty } = editor.state.selection;
+  if (empty) return editor.isActive(markName) ? 'active' : 'inactive';
+
+  let selectedCharacters = 0;
+  let markedCharacters = 0;
+  editor.state.doc.nodesBetween(from, to, (node, position) => {
+    if (!node.isText) return;
+    const overlap = Math.max(0, Math.min(to, position + node.nodeSize) - Math.max(from, position));
+    selectedCharacters += overlap;
+    if (node.marks.some((mark) => mark.type.name === markName)) markedCharacters += overlap;
+  });
+
+  if (markedCharacters === 0) return 'inactive';
+  if (markedCharacters === selectedCharacters) return 'active';
+  return 'mixed';
+}
+
+function setHeadingLevel(
+  editor: NonNullable<ReturnType<typeof useEditor>>,
+  level: 1 | 2 | 3
+): void {
+  const { from, to } = editor.state.selection;
+  const $from = editor.state.doc.resolve(from);
+  const $to = editor.state.doc.resolve(to);
+
+  // Legacy text boxes carry their old whole-box font size as an inline mark.
+  // Clear that mark across every selected text block so the heading hierarchy
+  // is visible, while preserving marks such as color, bold, and underline.
+  const blockFrom = $from.start($from.depth);
+  const blockTo = $to.end($to.depth);
+
+  editor
+    .chain()
+    .focus()
+    .setTextSelection({ from: blockFrom, to: blockTo })
+    .unsetFontSize()
+    .setHeading({ level })
+    .setTextSelection({ from, to })
+    .run();
+}
+
+const editorExtensions = [
+  StarterKit.configure({
+    blockquote: false,
+    bulletList: false,
+    code: false,
+    codeBlock: false,
+    horizontalRule: false,
+    link: false,
+    listItem: false,
+    listKeymap: false,
+    orderedList: false,
+    strike: false,
+    trailingNode: false,
+    heading: { levels: [1, 2, 3] },
+  }),
+  TextStyleKit.configure({
+    backgroundColor: false,
+    fontFamily: false,
+    lineHeight: false,
+    color: { types: ['textStyle'] },
+    fontSize: { types: ['textStyle'] },
+  }),
+  TextAlign.configure({
+    types: ['heading', 'paragraph'],
+    alignments: ['left', 'center', 'right'],
+    defaultAlignment: 'left',
+  }),
+  Placeholder.configure({ placeholder: 'Start typing…' }),
 ];
 
 export function UnifiedTextElement({
   config,
   onUpdate,
-  onRemove,
+  componentId,
   isEditMode = true,
 }: UnifiedTextElementProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [tempContent, setTempContent] = useState(config.content);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [toolbarPosition, setToolbarPosition] = useState({ top: 8, left: 8, width: 560 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const configRef = useRef(config);
+  const editingSessionRef = useRef(false);
+  configRef.current = config;
 
-  // Helper function to calculate and update content constraints
-  const updateWithContentConstraints = useCallback(
-    (updatedConfig: UnifiedTextConfig) => {
-      const textDimensions = calculateTextDimensions({
-        content: updatedConfig.content,
-        fontSize: updatedConfig.fontSize,
-        fontWeight: updatedConfig.fontWeight,
-        type: updatedConfig.type,
-        textAlign: updatedConfig.textAlign,
-      });
-
-      const configWithConstraints = {
-        ...updatedConfig,
-        contentConstraints: {
-          minWidth: textDimensions.width,
-          minHeight: textDimensions.height,
-        },
-      };
-
-      onUpdate(configWithConstraints);
-    },
-    [onUpdate]
+  const initialDocument = useMemo(
+    () => sanitizeRichTextDocument(config.richText || legacyConfigToRichText(config)),
+    // The component key is stable; external updates are synchronized by the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [toolbarPosition, setToolbarPosition] = useState<{
-    top: number;
-    left: number;
-    width: number;
-  } | null>(null);
+  const editor = useEditor({
+    extensions: editorExtensions,
+    content: initialDocument,
+    editable: isEditMode && isEditing,
+    immediatelyRender: false,
+    editorProps: {
+      attributes: {
+        class:
+          'min-h-[2rem] w-full whitespace-pre-wrap break-words outline-none [&_p]:my-0 [&_h1]:my-0 [&_h1]:text-[32px] [&_h1]:font-bold [&_h1]:leading-tight [&_h2]:my-0 [&_h2]:text-[26px] [&_h2]:font-bold [&_h2]:leading-tight [&_h3]:my-0 [&_h3]:text-[22px] [&_h3]:font-semibold [&_h3]:leading-snug',
+        'data-testid': 'dashboard-rich-text-editor',
+      },
+    },
+  });
 
-  // Sync tempContent when config.content changes from outside (like formatting)
-  useEffect(() => {
-    if (!isEditing) {
-      setTempContent(config.content || '');
-    }
-  }, [config.content, isEditing]);
+  const toolbarState = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => ({
+      bold: currentEditor ? getSelectionMarkState(currentEditor, 'bold') : 'inactive',
+      italic: currentEditor ? getSelectionMarkState(currentEditor, 'italic') : 'inactive',
+      underline: currentEditor ? getSelectionMarkState(currentEditor, 'underline') : 'inactive',
+      headingLevel: ([1, 2, 3] as const).find((level) =>
+        currentEditor?.isActive('heading', { level })
+      ),
+      paragraph: currentEditor?.isActive('paragraph') || false,
+      alignment:
+        (['left', 'center', 'right'] as const).find((alignment) =>
+          currentEditor?.isActive({ textAlign: alignment })
+        ) || 'left',
+      color: currentEditor?.getAttributes('textStyle').color || '#000000',
+      fontSize: currentEditor?.getAttributes('textStyle').fontSize || '',
+    }),
+  });
 
-  // Prevent content clearing when entering edit mode
-  useEffect(() => {
-    if (isEditing && !tempContent && config.content) {
-      setTempContent(config.content);
-    }
-  }, [isEditing, tempContent, config.content]);
-
-  // Calculate toolbar position when editing starts
   const calculateToolbarPosition = useCallback(() => {
-    if (!containerRef.current) return;
-
-    const rect = containerRef.current.getBoundingClientRect();
-    const viewportHeight = window.innerHeight;
-    const toolbarHeight = 50; // Approximate toolbar height
-
-    // Check if there's space above the component
-    const spaceAbove = rect.top;
-    const spaceBelow = viewportHeight - rect.bottom;
-
-    let top: number;
-    let left = rect.left;
-    let width = rect.width;
-
-    // Position above if there's enough space, otherwise below
-    if (spaceAbove >= toolbarHeight + 10) {
-      top = rect.top - toolbarHeight - 10;
-    } else if (spaceBelow >= toolbarHeight + 10) {
-      top = rect.bottom + 10;
-    } else {
-      // If no space above or below, position at top of viewport
-      top = 10;
-    }
-
-    // Ensure toolbar doesn't go off-screen horizontally
-    if (left + width > window.innerWidth) {
-      left = window.innerWidth - width - 10;
-    }
-    if (left < 10) {
-      left = 10;
-      width = Math.min(width, window.innerWidth - 20);
-    }
-
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = Math.min(620, Math.max(320, rect.width));
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    const top = rect.top > 64 ? rect.top - 56 : Math.min(window.innerHeight - 56, rect.bottom + 8);
     setToolbarPosition({ top, left, width });
   }, []);
 
-  // Auto-hide toolbar when clicking outside
+  const commit = useCallback(
+    (notify = true): UnifiedTextConfig | null => {
+      if (!editor) return null;
+      const richText = sanitizeRichTextDocument(editor.getJSON());
+      if (!richTextDocumentsEqual(richText, editor.getJSON())) {
+        editor.commands.setContent(richText, { emitUpdate: false });
+      }
+      const content = editor.getText({ blockSeparator: '\n' });
+      const current = configRef.current;
+      const dimensions = calculateTextDimensions({
+        content,
+        fontSize: current.fontSize || 16,
+        fontWeight: current.fontWeight || 'normal',
+        type: current.type || 'paragraph',
+        textAlign: current.textAlign || 'left',
+      });
+      const nextConfig: UnifiedTextConfig = {
+        ...current,
+        content,
+        richText,
+        contentConstraints: { minWidth: dimensions.width, minHeight: dimensions.height },
+      };
+      if (notify) onUpdate(nextConfig);
+      return nextConfig;
+    },
+    [editor, onUpdate]
+  );
+
+  const stopEditing = useCallback(
+    (shouldCommit: boolean) => {
+      if (!editingSessionRef.current) return;
+      editingSessionRef.current = false;
+      if (shouldCommit) commit();
+      else if (editor) {
+        editor.commands.setContent(
+          sanitizeRichTextDocument(
+            configRef.current.richText || legacyConfigToRichText(configRef.current)
+          ),
+          { emitUpdate: false }
+        );
+      }
+      editor?.setEditable(false);
+      setIsEditing(false);
+      setShowColorPicker(false);
+    },
+    [commit, editor]
+  );
+
+  const startEditing = useCallback(() => {
+    if (!isEditMode || !editor || editingSessionRef.current) return;
+    editingSessionRef.current = true;
+    editor.setEditable(true);
+    setIsEditing(true);
+    editor.commands.focus('end');
+    requestAnimationFrame(calculateToolbarPosition);
+  }, [calculateToolbarPosition, editor, isEditMode, isEditing]);
+
   useEffect(() => {
-    if (!isEditing) return;
+    if (!editor || isEditing) return;
+    const incoming = sanitizeRichTextDocument(config.richText || legacyConfigToRichText(config));
+    if (!richTextDocumentsEqual(editor.getJSON(), incoming)) {
+      editor.commands.setContent(incoming, { emitUpdate: false });
+    }
+  }, [config, editor, isEditing]);
 
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
+  useEffect(() => {
+    if (!editor) return;
+    editor.setEditable(isEditMode && isEditing);
+  }, [editor, isEditMode, isEditing]);
 
-      // Don't hide if clicking on the text component or toolbar
+  useEffect(() => {
+    if (!isEditing) return undefined;
+    const handleFocusIn = (event: FocusEvent) => {
+      const target = event.target as HTMLElement | null;
       if (
-        containerRef.current?.contains(target) ||
-        target.closest('[data-toolbar]') ||
-        target.closest('.drag-cancel')
+        (target && containerRef.current?.contains(target)) ||
+        target?.closest('[data-rich-text-toolbar]')
       ) {
         return;
       }
+      stopEditing(true);
+    };
+    document.addEventListener('focusin', handleFocusIn);
+    return () => {
+      document.removeEventListener('focusin', handleFocusIn);
+    };
+  }, [isEditing, stopEditing]);
 
-      // Auto-save and hide toolbar
-      updateWithContentConstraints({ ...config, content: tempContent });
+  useEffect(() => {
+    if (!isEditing) return undefined;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (containerRef.current?.contains(target) || target.closest('[data-rich-text-toolbar]'))
+        return;
+      stopEditing(true);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        stopEditing(false);
+      } else if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        event.preventDefault();
+        stopEditing(true);
+      }
+    };
+    const reposition = () => calculateToolbarPosition();
+    document.addEventListener('mousedown', handlePointerDown, true);
+    document.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown, true);
+      document.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
+    };
+  }, [calculateToolbarPosition, isEditing, stopEditing]);
+
+  useEffect(() => {
+    if (!componentId || !isEditing) return undefined;
+    const handleWidgetDragStart = (event: Event) => {
+      const draggedComponentId = (event as CustomEvent<{ componentId?: string }>).detail
+        ?.componentId;
+      if (draggedComponentId === componentId) stopEditing(true);
+    };
+    document.addEventListener(DASHBOARD_WIDGET_DRAG_START_EVENT, handleWidgetDragStart);
+    return () =>
+      document.removeEventListener(DASHBOARD_WIDGET_DRAG_START_EVENT, handleWidgetDragStart);
+  }, [componentId, isEditing, stopEditing]);
+
+  useEffect(() => {
+    if (!componentId || !isEditing) return undefined;
+    const handleFlush = (event: Event) => {
+      const nextConfig = commit(false);
+      if (nextConfig) {
+        (event as CustomEvent<RichTextFlushEventDetail>).detail.updates.push({
+          componentId,
+          config: nextConfig,
+        });
+      }
+      editingSessionRef.current = false;
+      editor?.setEditable(false);
       setIsEditing(false);
       setShowColorPicker(false);
-      setToolbarPosition(null);
     };
+    document.addEventListener(DASHBOARD_RICH_TEXT_FLUSH_EVENT, handleFlush);
+    return () => document.removeEventListener(DASHBOARD_RICH_TEXT_FLUSH_EVENT, handleFlush);
+  }, [commit, componentId, editor, isEditing]);
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isEditing, config, tempContent, onUpdate]);
+  if (!editor) return null;
+  if (!isEditMode && !config.content && !config.richText) return null;
 
-  // Auto-resize textarea and focus when editing
-  useEffect(() => {
-    if (isEditing && textareaRef.current) {
-      const textarea = textareaRef.current;
-
-      // Focus and select text consistently
-      setTimeout(() => {
-        if (textarea) {
-          textarea.focus();
-          // Always select all text when entering edit mode
-          textarea.setSelectionRange(0, textarea.value.length);
-        }
-      }, 50);
-
-      // Stable resize function - prevent jumping by maintaining scroll position
-      const autoResize = () => {
-        const scrollTop = textarea.scrollTop;
-        const selectionStart = textarea.selectionStart;
-        const selectionEnd = textarea.selectionEnd;
-
-        // Store the current scroll position of the parent container
-        const parentScroll = containerRef.current?.scrollTop || 0;
-
-        textarea.style.height = 'auto';
-        const newHeight = Math.max(32, textarea.scrollHeight);
-        textarea.style.height = newHeight + 'px';
-
-        // Restore all positions to prevent jumping
-        textarea.scrollTop = scrollTop;
-        textarea.setSelectionRange(selectionStart, selectionEnd);
-
-        // Restore parent scroll if it exists
-        if (containerRef.current) {
-          containerRef.current.scrollTop = parentScroll;
-        }
-      };
-
-      autoResize();
-      textarea.addEventListener('input', autoResize);
-
-      return () => {
-        textarea.removeEventListener('input', autoResize);
-      };
-    }
-  }, [isEditing, config.fontSize]);
-
-  // Start editing mode
-  const startEditing = useCallback(() => {
-    if (!isEditMode) return;
-    // Preserve current content to prevent disappearing
-    const currentContent = config.content || '';
-    if (!isEditing) {
-      setTempContent(currentContent);
-      setIsEditing(true);
-      // Calculate toolbar position after a brief delay to ensure DOM is updated
-      setTimeout(calculateToolbarPosition, 10);
-    }
-  }, [config.content, isEditMode, isEditing, calculateToolbarPosition]);
-
-  // Quick formatting function - auto-save and continue editing
-  const handleQuickFormat = useCallback(
-    (property: keyof UnifiedTextConfig, value: any) => {
-      // Store current state to prevent jumping
-      const textarea = textareaRef.current;
-      const selectionStart = textarea?.selectionStart || 0;
-      const selectionEnd = textarea?.selectionEnd || 0;
-      const scrollTop = textarea?.scrollTop || 0;
-      const parentScroll = containerRef.current?.scrollTop || 0;
-
-      // Auto-save content and formatting immediately
-      const updatedConfig = { ...config, content: tempContent, [property]: value };
-      updateWithContentConstraints(updatedConfig);
-
-      // Use requestAnimationFrame for smoother restoration
-      requestAnimationFrame(() => {
-        if (textarea) {
-          textarea.focus();
-          textarea.setSelectionRange(selectionStart, selectionEnd);
-          textarea.scrollTop = scrollTop;
-
-          // Restore parent container scroll
-          if (containerRef.current) {
-            containerRef.current.scrollTop = parentScroll;
-          }
-        }
-      });
-
-      // Keep editing state active for continued editing
-      setIsEditing(true);
-    },
-    [config, tempContent, onUpdate]
-  );
-
-  // Handle keyboard shortcuts
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && e.ctrlKey) {
-        e.preventDefault();
-        // Auto-save and exit on Ctrl+Enter
-        updateWithContentConstraints({ ...config, content: tempContent });
-        setIsEditing(false);
-        setShowColorPicker(false);
-        setToolbarPosition(null);
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        // Cancel and exit on Escape (revert to original content)
-        setTempContent(config.content);
-        setIsEditing(false);
-        setShowColorPicker(false);
-        setToolbarPosition(null);
-      } else if (e.ctrlKey) {
-        // Format shortcuts with auto-save
-        if (e.key === 'b') {
-          e.preventDefault();
-          handleQuickFormat('fontWeight', config.fontWeight === 'bold' ? 'normal' : 'bold');
-        } else if (e.key === 'i') {
-          e.preventDefault();
-          handleQuickFormat('fontStyle', config.fontStyle === 'italic' ? 'normal' : 'italic');
-        } else if (e.key === 'u') {
-          e.preventDefault();
-          handleQuickFormat(
-            'textDecoration',
-            config.textDecoration === 'underline' ? 'none' : 'underline'
-          );
-        }
-      }
-    },
-    [config, tempContent, onUpdate, handleQuickFormat]
-  );
-
-  // Handle text type change - auto-save and continue editing
-  const handleTypeChange = useCallback(
-    (newType: string | number) => {
-      // Store current state to prevent jumping
-      const textarea = textareaRef.current;
-      const selectionStart = textarea?.selectionStart || 0;
-      const selectionEnd = textarea?.selectionEnd || 0;
-      const scrollTop = textarea?.scrollTop || 0;
-      const parentScroll = containerRef.current?.scrollTop || 0;
-
-      // Default font sizes matching standard HTML heading hierarchy
-      const headingFontSizes: Record<number, number> = { 1: 32, 2: 24, 3: 20 };
-      // Default paragraph size matches base text size used across the app
-      const paragraphFontSize = 14;
-
-      if (newType === 'paragraph') {
-        updateWithContentConstraints({
-          ...config,
-          content: tempContent,
-          type: 'paragraph',
-          fontSize: paragraphFontSize,
-        });
-      } else {
-        const headingLevel = newType as 1 | 2 | 3;
-        updateWithContentConstraints({
-          ...config,
-          content: tempContent,
-          type: 'heading',
-          headingLevel,
-          fontSize: headingFontSizes[headingLevel],
-        });
-      }
-
-      // Use requestAnimationFrame for smoother restoration
-      requestAnimationFrame(() => {
-        if (textarea) {
-          textarea.focus();
-          textarea.setSelectionRange(selectionStart, selectionEnd);
-          textarea.scrollTop = scrollTop;
-
-          // Restore parent container scroll
-          if (containerRef.current) {
-            containerRef.current.scrollTop = parentScroll;
-          }
-        }
-      });
-
-      // Keep editing state active for continued editing
-      setIsEditing(true);
-    },
-    [config, tempContent, onUpdate]
-  );
-
-  // Get text styles for rendering
-  const getTextStyles = useCallback(
-    () => ({
-      fontSize: `${config.fontSize}px`,
-      fontWeight: config.fontWeight,
-      fontStyle: config.fontStyle,
-      textDecoration: config.textDecoration,
-      textAlign: config.textAlign as any,
-      color: config.color,
-      backgroundColor: config.backgroundColor || 'transparent',
-      lineHeight: config.type === 'heading' ? '1.2' : '1.5',
-      margin: 0,
-      outline: 'none',
-      width: '100%',
-      wordBreak: 'break-word' as any,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent:
-        config.textAlign === 'center'
-          ? 'center'
-          : config.textAlign === 'right'
-            ? 'flex-end'
-            : 'flex-start',
-      minHeight: '100%',
-    }),
-    [config]
-  );
-
-  // Floating toolbar component that renders via portal
-  const FloatingToolbar = () => {
-    if (!toolbarPosition || !isEditing) return null;
-
-    return createPortal(
-      <div
-        className="fixed z-[9999] pointer-events-auto drag-cancel"
-        style={{
-          top: toolbarPosition.top,
-          left: toolbarPosition.left,
-          width: Math.min(toolbarPosition.width, 600), // Max width to prevent huge toolbars
-          minWidth: 500, // Increased min width to ensure enough space for all elements
-        }}
-        data-toolbar="true"
-      >
+  const toolbar = isEditing
+    ? createPortal(
         <div
-          className="bg-white shadow-2xl rounded-lg border border-gray-200 px-3 py-2 flex items-center backdrop-blur-sm w-full"
-          data-toolbar="true"
+          className="drag-cancel fixed z-[9999] flex max-w-[calc(100vw-16px)] flex-wrap items-center gap-1 rounded-lg border bg-white p-2 shadow-2xl"
+          style={toolbarPosition}
+          data-rich-text-toolbar
         >
-          {/* Left: Quick format buttons */}
-          <div className="flex items-center gap-1 flex-1">
-            {/* Text Type */}
-            <div className="flex">
-              {textTypePresets.map((preset) => (
-                <Button
-                  key={preset.label}
-                  size="sm"
-                  variant={
-                    (config.type === 'paragraph' && preset.value === 'paragraph') ||
-                    (config.type === 'heading' && config.headingLevel === preset.value)
-                      ? 'default'
-                      : 'ghost'
-                  }
-                  onClick={() => handleTypeChange(preset.value)}
-                  className="h-6 px-1.5 text-xs"
-                  title={preset.label === 'T' ? 'Normal Text' : preset.label}
-                >
-                  {preset.label}
-                </Button>
-              ))}
-            </div>
-
-            <div className="w-px h-4 bg-gray-300 mx-1" />
-
-            {/* Font Size Dropdown */}
-            <div className="flex items-center">
-              <select
-                value={config.fontSize}
-                onChange={(e) => handleQuickFormat('fontSize', parseInt(e.target.value))}
-                className="h-6 px-1 text-xs border rounded bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 drag-cancel"
-                title="Font Size"
-              >
-                {fontSizeOptions.map((size) => (
-                  <option key={size} value={size}>
-                    {size}px
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="w-px h-4 bg-gray-300 mx-1" />
-
-            {/* Formatting */}
+          {([1, 2, 3] as const).map((level) => (
             <Button
+              key={level}
+              type="button"
               size="sm"
-              variant={config.fontWeight === 'bold' ? 'default' : 'ghost'}
-              onClick={() =>
-                handleQuickFormat('fontWeight', config.fontWeight === 'bold' ? 'normal' : 'bold')
-              }
-              className="h-6 px-1.5"
-              title="Bold"
+              variant={toolbarState?.headingLevel === level ? 'default' : 'ghost'}
+              className="h-7 px-2 text-xs"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => setHeadingLevel(editor, level)}
+              aria-label={`Heading ${level}`}
+              data-testid={`rich-text-heading-${level}`}
             >
-              <Bold className="w-3 h-3" />
+              H{level}
             </Button>
+          ))}
+          <Button
+            type="button"
+            size="sm"
+            variant={toolbarState?.paragraph ? 'default' : 'ghost'}
+            className="h-7 px-2 text-xs"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => editor.chain().focus().setParagraph().run()}
+            aria-label="Normal text"
+            data-testid="rich-text-paragraph"
+          >
+            T
+          </Button>
+          <span className="mx-1 h-5 w-px bg-gray-200" />
+          <select
+            value={toolbarState?.fontSize ? Number.parseInt(toolbarState.fontSize, 10) : ''}
+            onMouseDown={(event) => event.stopPropagation()}
+            onChange={(event) =>
+              editor.chain().focus().setFontSize(`${event.target.value}px`).run()
+            }
+            className="h-7 rounded border bg-white px-1 text-xs"
+            aria-label="Font size"
+            data-testid="rich-text-font-size"
+          >
+            <option value="" disabled>
+              Size
+            </option>
+            {FONT_SIZES.map((size) => (
+              <option key={size} value={size}>
+                {size}px
+              </option>
+            ))}
+          </select>
+          {[
+            {
+              label: 'Bold',
+              active: toolbarState?.bold,
+              icon: Bold,
+              command: () => editor.chain().focus().toggleBold().run(),
+            },
+            {
+              label: 'Italic',
+              active: toolbarState?.italic,
+              icon: Italic,
+              command: () => editor.chain().focus().toggleItalic().run(),
+            },
+            {
+              label: 'Underline',
+              active: toolbarState?.underline,
+              icon: Underline,
+              command: () => editor.chain().focus().toggleUnderline().run(),
+            },
+          ].map(({ label, active, icon: Icon, command }) => (
             <Button
+              key={label}
+              type="button"
               size="sm"
-              variant={config.fontStyle === 'italic' ? 'default' : 'ghost'}
-              onClick={() =>
-                handleQuickFormat('fontStyle', config.fontStyle === 'italic' ? 'normal' : 'italic')
-              }
-              className="h-6 px-1.5"
-              title="Italic"
+              variant={active === 'active' ? 'default' : active === 'mixed' ? 'outline' : 'ghost'}
+              className={cn('h-7 w-7 p-0', active === 'mixed' && 'border-dashed')}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={command}
+              aria-label={label}
+              aria-pressed={active === 'mixed' ? 'mixed' : active === 'active'}
+              data-testid={`rich-text-${label.toLowerCase()}`}
             >
-              <Italic className="w-3 h-3" />
+              <Icon className="h-3.5 w-3.5" />
             </Button>
-
-            <div className="w-px h-4 bg-gray-300 mx-1" />
-
-            {/* Alignment */}
+          ))}
+          <span className="mx-1 h-5 w-px bg-gray-200" />
+          {[
+            { value: 'left', label: 'Align left', icon: AlignLeft },
+            { value: 'center', label: 'Align center', icon: AlignCenter },
+            { value: 'right', label: 'Align right', icon: AlignRight },
+          ].map(({ value, label, icon: Icon }) => (
             <Button
+              key={value}
+              type="button"
               size="sm"
-              variant={config.textAlign === 'left' ? 'default' : 'ghost'}
-              onClick={() => handleQuickFormat('textAlign', 'left')}
-              className="h-6 px-1.5"
-              title="Align Left"
+              variant={toolbarState?.alignment === value ? 'default' : 'ghost'}
+              className="h-7 w-7 p-0"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => editor.chain().focus().setTextAlign(value).run()}
+              aria-label={label}
+              data-testid={`rich-text-align-${value}`}
             >
-              <AlignLeft className="w-3 h-3" />
+              <Icon className="h-3.5 w-3.5" />
             </Button>
+          ))}
+          <div className="relative">
             <Button
-              size="sm"
-              variant={config.textAlign === 'center' ? 'default' : 'ghost'}
-              onClick={() => handleQuickFormat('textAlign', 'center')}
-              className="h-6 px-1.5"
-              title="Align Center"
-            >
-              <AlignCenter className="w-3 h-3" />
-            </Button>
-            <Button
-              size="sm"
-              variant={config.textAlign === 'right' ? 'default' : 'ghost'}
-              onClick={() => handleQuickFormat('textAlign', 'right')}
-              className="h-6 px-1.5"
-              title="Align Right"
-            >
-              <AlignRight className="w-3 h-3" />
-            </Button>
-          </div>
-
-          {/* Right: Color picker */}
-          <div className="flex items-center gap-1 flex-shrink-0 relative">
-            <div className="w-px h-4 bg-gray-300 mx-1" />
-            <Button
+              type="button"
               size="sm"
               variant={showColorPicker ? 'default' : 'ghost'}
-              onClick={() => setShowColorPicker(!showColorPicker)}
-              className="h-6 px-1.5 relative"
-              title="Text Color"
+              className="h-7 w-7 p-0"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => setShowColorPicker((visible) => !visible)}
+              aria-label="Text color"
+              data-testid="rich-text-color-picker"
             >
-              <Palette className="w-3 h-3" />
-              <div
-                className="absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white"
-                style={{ backgroundColor: config.color }}
+              <Palette className="h-3.5 w-3.5" />
+              <span
+                className="absolute bottom-0.5 right-0.5 h-2 w-2 rounded-full border border-white"
+                style={{ backgroundColor: toolbarState?.color || '#000000' }}
               />
             </Button>
-
-            {/* Color picker dropdown */}
             {showColorPicker && (
-              <div
-                className="absolute bg-white shadow-lg border rounded p-2 z-[10000] min-w-[120px]"
-                style={{
-                  // Smart positioning: try bottom first, then top, then left if needed
-                  top: toolbarPosition && toolbarPosition.top > 200 ? 'auto' : '100%',
-                  bottom: toolbarPosition && toolbarPosition.top > 200 ? '100%' : 'auto',
-                  right: 0,
-                  marginTop: toolbarPosition && toolbarPosition.top <= 200 ? '8px' : '0',
-                  marginBottom: toolbarPosition && toolbarPosition.top > 200 ? '8px' : '0',
-                }}
-              >
-                <div className="grid grid-cols-4 gap-1">
-                  {colorPresets.map((preset) => (
+              <div className="absolute right-0 top-9 z-[10000] w-40 rounded-lg border bg-white p-3 shadow-xl">
+                <p className="mb-2 text-xs font-medium text-gray-700">Text color</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {COLOR_PRESETS.map((color) => (
                     <button
-                      key={preset.color}
+                      key={color}
+                      type="button"
                       className={cn(
-                        'w-6 h-6 rounded border transition-all hover:scale-110',
-                        config.color === preset.color
-                          ? 'border-blue-500 scale-110'
-                          : 'border-gray-200'
+                        'h-7 w-7 rounded-md border border-gray-200 transition-transform hover:scale-110',
+                        toolbarState?.color === color && 'ring-2 ring-blue-500 ring-offset-1'
                       )}
-                      style={{ backgroundColor: preset.color }}
+                      style={{ backgroundColor: color }}
+                      onMouseDown={(event) => event.preventDefault()}
                       onClick={() => {
-                        handleQuickFormat('color', preset.color);
+                        editor.chain().focus().setColor(color).run();
                         setShowColorPicker(false);
                       }}
-                      title={preset.name}
+                      aria-label={`Set text color ${color}`}
+                      data-testid={`rich-text-color-${color.slice(1).toLowerCase()}`}
                     />
                   ))}
                 </div>
-                {/* Custom color input */}
-                <div className="mt-2 pt-2 border-t border-gray-200">
+                <label className="mt-3 flex cursor-pointer items-center justify-between border-t pt-3 text-xs text-gray-600">
+                  Custom color
                   <input
                     type="color"
-                    value={config.color}
-                    onChange={(e) => {
-                      handleQuickFormat('color', e.target.value);
+                    value={toolbarState?.color || '#000000'}
+                    onChange={(event) => {
+                      editor.chain().focus().setColor(event.target.value).run();
                       setShowColorPicker(false);
                     }}
-                    className="w-full h-6 rounded border cursor-pointer"
-                    title="Custom color"
+                    className="h-7 w-10 cursor-pointer overflow-hidden rounded border bg-white p-0"
+                    aria-label="Custom text color"
+                    data-testid="rich-text-custom-color"
                   />
-                </div>
+                </label>
               </div>
             )}
           </div>
-        </div>
-      </div>,
-      document.body
-    );
-  };
+        </div>,
+        document.body
+      )
+    : null;
 
-  // Preview mode - simplified structure to match container height
-  if (!isEditMode) {
-    const content = config.content || '';
+  const content = (
+    <div
+      ref={containerRef}
+      className={cn(
+        'drag-cancel flex h-full w-full items-center p-4',
+        isEditMode && 'cursor-text',
+        isEditing && 'rounded bg-white'
+      )}
+      style={{ backgroundColor: config.backgroundColor || 'transparent' }}
+      onClick={startEditing}
+    >
+      <EditorContent editor={editor} className="w-full" />
+    </div>
+  );
 
-    if (!content) return null; // Don't render empty text in preview
-
-    return (
-      <div
-        ref={containerRef}
-        className="h-full w-full flex items-center justify-center p-4"
-        onClick={startEditing}
-      >
-        {config.content ? (
-          config.type === 'heading' ? (
-            (() => {
-              const Tag = `h${config.headingLevel || 2}` as keyof JSX.IntrinsicElements;
-              return (
-                <Tag
-                  className="whitespace-pre-wrap break-words w-full"
-                  style={{
-                    fontSize: `${config.fontSize}px`,
-                    fontWeight: config.fontWeight,
-                    fontStyle: config.fontStyle,
-                    textDecoration: config.textDecoration,
-                    textAlign: config.textAlign as any,
-                    color: config.color,
-                    backgroundColor: config.backgroundColor || 'transparent',
-                    lineHeight: config.type === 'heading' ? '1.2' : '1.5',
-                    margin: 0,
-                    padding: 0,
-                    wordBreak: 'break-word' as any,
-                  }}
-                >
-                  {config.content}
-                </Tag>
-              );
-            })()
-          ) : (
-            <div
-              className="whitespace-pre-wrap break-words w-full"
-              style={{
-                fontSize: `${config.fontSize}px`,
-                fontWeight: config.fontWeight,
-                fontStyle: config.fontStyle,
-                textDecoration: config.textDecoration,
-                textAlign: config.textAlign as any,
-                color: config.color,
-                backgroundColor: config.backgroundColor || 'transparent',
-                lineHeight: config.type === 'heading' ? '1.2' : '1.5',
-                margin: 0,
-                padding: 0,
-                wordBreak: 'break-word' as any,
-              }}
-            >
-              {config.content}
-            </div>
-          )
-        ) : (
-          <div className="text-gray-400 italic text-sm">Click to add text...</div>
-        )}
-      </div>
-    );
-  }
-
-  // Edit mode - use same Card structure as charts
+  if (!isEditMode) return content;
   return (
     <>
-      {/* Floating toolbar rendered via portal */}
-      <FloatingToolbar />
-
-      <div ref={containerRef} className="h-full w-full">
-        <Card className="h-full w-full flex flex-col">
-          <CardContent className="p-4 flex-1 flex flex-col min-h-0">
-            <div
-              className={cn(
-                'flex-1 w-full h-full cursor-text transition-all duration-200 drag-cancel flex items-center justify-center',
-                isEditing ? 'bg-white rounded' : 'bg-transparent',
-                !config.content && 'justify-center'
-              )}
-              onClick={startEditing}
-            >
-              {isEditing ? (
-                <textarea
-                  ref={textareaRef}
-                  value={tempContent}
-                  onChange={(e) => setTempContent(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  onBlur={(e) => {
-                    // Don't exit if clicking on toolbar elements
-                    const relatedTarget = e.relatedTarget as HTMLElement;
-                    if (
-                      relatedTarget &&
-                      (relatedTarget.closest('.drag-cancel') ||
-                        relatedTarget.closest('[data-toolbar]'))
-                    ) {
-                      return;
-                    }
-
-                    // Auto-save content and exit editing after a delay
-                    setTimeout(() => {
-                      // Only exit if focus has truly moved away from the component and we're not clicking on the textarea itself
-                      const activeElement = document.activeElement;
-                      const isStillFocusedOnComponent =
-                        containerRef.current?.contains(activeElement);
-                      const isStillFocusedOnTextarea = activeElement === textareaRef.current;
-
-                      if (!isStillFocusedOnComponent && !isStillFocusedOnTextarea) {
-                        // Always save the current content, even if empty
-                        updateWithContentConstraints({ ...config, content: tempContent });
-                        setIsEditing(false);
-                        setShowColorPicker(false);
-                        setToolbarPosition(null);
-                      }
-                    }, 200);
-                  }}
-                  className="resize-none border-none outline-none bg-transparent drag-cancel w-full text-center"
-                  style={{
-                    fontSize: `${config.fontSize}px`,
-                    fontWeight: config.fontWeight,
-                    fontStyle: config.fontStyle,
-                    textDecoration: config.textDecoration,
-                    textAlign: config.textAlign as any,
-                    color: config.color,
-                    backgroundColor: config.backgroundColor || 'transparent',
-                    lineHeight: config.type === 'heading' ? '1.2' : '1.5',
-                    margin: 0,
-                    outline: 'none',
-                    wordBreak: 'break-word' as any,
-                    resize: 'none',
-                    border: 'none',
-                    padding: 0,
-                    height: 'auto',
-                    minHeight: 'auto',
-                    overflow: 'visible',
-                  }}
-                  placeholder="Start typing..."
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  {config.content ? (
-                    config.type === 'heading' ? (
-                      (() => {
-                        const Tag = `h${config.headingLevel || 2}` as keyof JSX.IntrinsicElements;
-                        return (
-                          <Tag
-                            className="whitespace-pre-wrap break-words w-full text-center"
-                            style={{
-                              fontSize: `${config.fontSize}px`,
-                              fontWeight: config.fontWeight,
-                              fontStyle: config.fontStyle,
-                              textDecoration: config.textDecoration,
-                              textAlign: config.textAlign as any,
-                              color: config.color,
-                              backgroundColor: config.backgroundColor || 'transparent',
-                              lineHeight: config.type === 'heading' ? '1.2' : '1.5',
-                              margin: 0,
-                              padding: 0,
-                              wordBreak: 'break-word' as any,
-                            }}
-                          >
-                            {config.content}
-                          </Tag>
-                        );
-                      })()
-                    ) : (
-                      <div
-                        className="whitespace-pre-wrap break-words w-full text-center"
-                        style={{
-                          fontSize: `${config.fontSize}px`,
-                          fontWeight: config.fontWeight,
-                          fontStyle: config.fontStyle,
-                          textDecoration: config.textDecoration,
-                          textAlign: config.textAlign as any,
-                          color: config.color,
-                          backgroundColor: config.backgroundColor || 'transparent',
-                          lineHeight: config.type === 'heading' ? '1.2' : '1.5',
-                          margin: 0,
-                          padding: 0,
-                          wordBreak: 'break-word' as any,
-                        }}
-                      >
-                        {config.content}
-                      </div>
-                    )
-                  ) : (
-                    <div className="text-gray-400 italic text-sm">Click to add text...</div>
-                  )}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {toolbar}
+      <Card className="h-full w-full">
+        <CardContent className="h-full p-0">{content}</CardContent>
+      </Card>
     </>
   );
 }

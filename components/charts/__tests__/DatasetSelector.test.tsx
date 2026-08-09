@@ -52,6 +52,21 @@ describe('DatasetSelector', () => {
         expect(screen.queryByPlaceholderText('Search datasets...')).not.toBeInTheDocument();
       }
     });
+
+    it('explains when datasets are unavailable because no warehouse is configured', () => {
+      (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        noWarehouse: true,
+      });
+
+      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
+
+      expect(
+        screen.getByText('Set up a warehouse before selecting a dataset.')
+      ).toBeInTheDocument();
+    });
   });
 
   describe('Rendering and Initial State', () => {

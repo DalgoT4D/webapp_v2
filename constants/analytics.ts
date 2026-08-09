@@ -40,6 +40,8 @@ export const ANALYTICS_EVENTS = {
   DASHBOARD_TEXT_ELEMENT_ADDED: 'dashboard:text_element_added',
   DASHBOARD_TAB_CREATED: 'dashboard:tab_created',
   DASHBOARD_TAB_DELETED: 'dashboard:tab_deleted',
+  DASHBOARD_TAB_REORDERED: 'dashboard:tab_reordered',
+  DASHBOARD_WIDGET_MOVED_BETWEEN_TABS: 'dashboard:widget_moved_between_tabs',
   // Reports
   REPORT_CREATED: 'report:report_created',
   REPORT_UPDATED: 'report:report_updated',
