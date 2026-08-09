@@ -13,24 +13,18 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 export default function CreateDashboardPage() {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
   // Get user permissions — the access-denied return lives below, after all hooks,
   // to keep the hook order stable across renders (Rules of Hooks)
   const { hasPermission } = useRbac();
   const canCreateDashboard = hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS);
 
-  // Ensure component is mounted before running client-side code
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   // Create the dashboard once, then hand off to its edit page via the URL.
   // The URL (not local state) guards against re-creation: a refresh always
   // remounts this page from a clean slate, so if creation itself set local
   // state instead of navigating, a refresh would create another dashboard.
   useEffect(() => {
-    if (!mounted || !canCreateDashboard || isCreating) return;
+    if (!canCreateDashboard || isCreating) return;
 
     const initDashboard = async () => {
       setIsCreating(true);
@@ -47,12 +41,11 @@ export default function CreateDashboardPage() {
         console.error('Failed to create dashboard:', error);
         toastError.create(error, 'dashboard');
         router.push('/dashboards');
-        setIsCreating(false);
       }
     };
 
     initDashboard();
-  }, [mounted, canCreateDashboard, isCreating, router]);
+  }, [canCreateDashboard, isCreating, router]);
 
   // Check if user has create permissions (after all hooks — Rules of Hooks)
   if (!canCreateDashboard) {
