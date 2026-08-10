@@ -46,7 +46,7 @@ import {
   AlertCircle,
   Filter,
   ArrowLeft,
-  CircleCheck,
+  Eye,
   Edit,
   Target,
 } from 'lucide-react';
@@ -2174,7 +2174,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     {isNavigating ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <CircleCheck className="w-4 h-4" />
+                      <Eye className="w-4 h-4" />
                     )}
                   </Button>
                 )}
@@ -2577,18 +2577,17 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     onClick={onPreview}
                     disabled={isNavigating}
                     data-testid="view-dashboard-btn"
+                    className="min-w-[104px] justify-center px-4"
                     aria-label={
                       isNavigating ? 'Saving and opening dashboard view' : 'View dashboard'
                     }
                   >
                     {isNavigating ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <CircleCheck className="w-4 h-4 mr-2" />
+                      <Eye className="w-4 h-4" />
                     )}
-                    <span className="hidden lg:inline">
-                      {isNavigating ? 'Saving and opening view...' : 'View'}
-                    </span>
+                    <span>{isNavigating ? 'Saving and opening view...' : 'View'}</span>
                   </Button>
                 )}
               </div>
