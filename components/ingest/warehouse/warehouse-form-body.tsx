@@ -61,14 +61,16 @@ export function WarehouseFormBody({
     warehouse?.destinationDefinitionId ?? null
   );
 
-  // Build combobox items from warehouse definitions
+  // Build combobox items from warehouse definitions (Snowflake excluded)
   const warehouseDefItems = useMemo<ComboboxItem[]>(
     () =>
-      definitions.map((def) => ({
-        value: def.destinationDefinitionId,
-        label: def.name,
-        icon: def.icon,
-      })),
+      definitions
+        .filter((def) => !def.name.toLowerCase().includes('snowflake'))
+        .map((def) => ({
+          value: def.destinationDefinitionId,
+          label: def.name,
+          icon: def.icon,
+        })),
     [definitions]
   );
   const [warehouseName, setWarehouseName] = useState(warehouse?.name ?? '');
