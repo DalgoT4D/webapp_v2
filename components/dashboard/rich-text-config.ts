@@ -17,9 +17,17 @@ export interface UnifiedTextConfig {
 
 const TEXT_ALIGNMENTS = new Set(['left', 'center', 'right']);
 const ALLOWED_MARKS = new Set(['bold', 'italic', 'underline', 'textStyle']);
+// Font-size limits supported by the dashboard rich-text editor and sanitizer.
 export const MIN_RICH_TEXT_FONT_SIZE = 10;
 export const MAX_RICH_TEXT_FONT_SIZE = 32;
+// Defaults used when legacy or malformed text configuration omits these values.
+export const DEFAULT_RICH_TEXT_FONT_SIZE = 16;
+export const DEFAULT_RICH_TEXT_HEADING_LEVEL = 2 as const;
 type RichTextMark = NonNullable<JSONContent['marks']>[number];
+
+function isJsonContent(value: unknown): value is JSONContent {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 function legacyTextMarks(config: UnifiedTextConfig): RichTextMark[] {
   const marks: RichTextMark[] = [];
@@ -28,7 +36,10 @@ function legacyTextMarks(config: UnifiedTextConfig): RichTextMark[] {
   if (config.textDecoration === 'underline') marks.push({ type: 'underline' });
   marks.push({
     type: 'textStyle',
-    attrs: { color: config.color || '#000000', fontSize: `${config.fontSize || 16}px` },
+    attrs: {
+      color: config.color || '#000000',
+      fontSize: `${config.fontSize || DEFAULT_RICH_TEXT_FONT_SIZE}px`,
+    },
   });
   return marks;
 }
@@ -40,7 +51,10 @@ export function legacyConfigToRichText(config: UnifiedTextConfig): JSONContent {
       type: config.type === 'heading' ? 'heading' : 'paragraph',
       attrs:
         config.type === 'heading'
-          ? { level: config.headingLevel || 2, textAlign: config.textAlign || 'left' }
+          ? {
+              level: config.headingLevel || DEFAULT_RICH_TEXT_HEADING_LEVEL,
+              textAlign: config.textAlign || 'left',
+            }
           : { textAlign: config.textAlign || 'left' },
       ...(line ? { content: [{ type: 'text', text: line, marks: legacyTextMarks(config) }] } : {}),
     })),
@@ -78,13 +92,15 @@ function sanitizeFontSize(value: unknown): string | undefined {
   return `${Math.max(MIN_RICH_TEXT_FONT_SIZE, Math.min(MAX_RICH_TEXT_FONT_SIZE, parsed))}px`;
 }
 
-export function sanitizeRichTextDocument(value: JSONContent): JSONContent {
-  const sanitizeInlineNode = (node: JSONContent): JSONContent | null => {
+export function sanitizeRichTextDocument(value: unknown): JSONContent {
+  const sanitizeInlineNode = (node: unknown): JSONContent | null => {
+    if (!isJsonContent(node)) return null;
     if (node.type === 'hardBreak') return { type: 'hardBreak' };
     if (node.type === 'text') {
       if (typeof node.text !== 'string' || !node.text.length) return null;
       const sanitized: JSONContent = { type: 'text', text: node.text };
-      const candidateMarks = (node.marks || [])
+      const candidateMarks = (Array.isArray(node.marks) ? node.marks : [])
+        .filter(isJsonContent)
         .filter((mark) => ALLOWED_MARKS.has(mark.type))
         .map((mark) => {
           if (mark.type !== 'textStyle') return { type: mark.type };
@@ -118,13 +134,14 @@ export function sanitizeRichTextDocument(value: JSONContent): JSONContent {
     return null;
   };
 
-  const sanitizeBlockNode = (node: JSONContent): JSONContent | null => {
+  const sanitizeBlockNode = (node: unknown): JSONContent | null => {
+    if (!isJsonContent(node)) return null;
     if (node.type !== 'paragraph' && node.type !== 'heading') return null;
     const sanitized: JSONContent = { type: node.type };
     if (node.type === 'heading') {
       const level = Number(node.attrs?.level);
       sanitized.attrs = {
-        level: [1, 2, 3].includes(level) ? level : 2,
+        level: [1, 2, 3].includes(level) ? level : DEFAULT_RICH_TEXT_HEADING_LEVEL,
         textAlign: TEXT_ALIGNMENTS.has(node.attrs?.textAlign) ? node.attrs?.textAlign : 'left',
       };
     } else {
@@ -133,13 +150,19 @@ export function sanitizeRichTextDocument(value: JSONContent): JSONContent {
       };
     }
 
-    const content = (node.content || []).map(sanitizeInlineNode).filter(Boolean) as JSONContent[];
+    const content = (Array.isArray(node.content) ? node.content : [])
+      .map(sanitizeInlineNode)
+      .filter(Boolean) as JSONContent[];
     if (content.length) sanitized.content = content;
     return sanitized;
   };
 
-  if (value.type !== 'doc') return { type: 'doc', content: [{ type: 'paragraph' }] };
-  const content = (value.content || []).map(sanitizeBlockNode).filter(Boolean) as JSONContent[];
+  if (!isJsonContent(value) || value.type !== 'doc') {
+    return { type: 'doc', content: [{ type: 'paragraph' }] };
+  }
+  const content = (Array.isArray(value.content) ? value.content : [])
+    .map(sanitizeBlockNode)
+    .filter(Boolean) as JSONContent[];
   return { type: 'doc', content: content.length ? content : [{ type: 'paragraph' }] };
 }
 

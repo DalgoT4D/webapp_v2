@@ -138,6 +138,53 @@ describe('dashboard rich-text compatibility', () => {
     });
   });
 
+  it('returns safe content when persisted array fields are malformed', () => {
+    expect(sanitizeRichTextDocument({ type: 'doc', content: {} })).toEqual({
+      type: 'doc',
+      content: [{ type: 'paragraph' }],
+    });
+
+    expect(
+      sanitizeRichTextDocument({
+        type: 'doc',
+        content: [
+          null,
+          'invalid',
+          { type: 'paragraph', content: {} },
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Safe', marks: { type: 'bold' } }],
+          },
+          {
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: 'Also safe',
+                marks: [null, 'invalid', { type: 'bold' }],
+              },
+            ],
+          },
+        ],
+      })
+    ).toEqual({
+      type: 'doc',
+      content: [
+        { type: 'paragraph', attrs: { textAlign: 'left' } },
+        {
+          type: 'paragraph',
+          attrs: { textAlign: 'left' },
+          content: [{ type: 'text', text: 'Safe' }],
+        },
+        {
+          type: 'paragraph',
+          attrs: { textAlign: 'left' },
+          content: [{ type: 'text', text: 'Also safe', marks: [{ type: 'bold' }] }],
+        },
+      ],
+    });
+  });
+
   it('compares equivalent documents structurally instead of by object key order', () => {
     expect(
       richTextDocumentsEqual(

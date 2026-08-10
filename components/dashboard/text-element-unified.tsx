@@ -15,6 +15,7 @@ import { calculateTextDimensions } from '@/lib/chart-size-constraints';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
+  DEFAULT_RICH_TEXT_FONT_SIZE,
   legacyConfigToRichText,
   MAX_RICH_TEXT_FONT_SIZE,
   MIN_RICH_TEXT_FONT_SIZE,
@@ -261,7 +262,7 @@ export function UnifiedTextElement({
       const current = configRef.current;
       const dimensions = calculateTextDimensions({
         content,
-        fontSize: current.fontSize || 16,
+        fontSize: current.fontSize || DEFAULT_RICH_TEXT_FONT_SIZE,
         fontWeight: current.fontWeight || 'normal',
         type: current.type || 'paragraph',
         textAlign: current.textAlign || 'left',

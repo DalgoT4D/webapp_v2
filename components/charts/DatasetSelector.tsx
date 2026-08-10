@@ -3,6 +3,8 @@
 import React from 'react';
 import { useAllSchemaTables } from '@/hooks/api/useChart';
 import { Combobox, highlightText, type ComboboxItem } from '@/components/ui/combobox';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { trackEvent } from '@/lib/analytics';
 
 interface DatasetSelectorProps {
   schema_name?: string;
@@ -22,6 +24,14 @@ export function DatasetSelector({
   autoFocus = false,
 }: DatasetSelectorProps) {
   const { data: allTables, isLoading, error, noWarehouse } = useAllSchemaTables();
+
+  React.useEffect(() => {
+    if (noWarehouse) {
+      trackEvent(ANALYTICS_EVENTS.CHART_DATASET_SELECTOR_STATE_VIEWED, {
+        state: 'no_warehouse',
+      });
+    }
+  }, [noWarehouse]);
 
   // Map API data to Combobox items
   const items: ComboboxItem[] = React.useMemo(
