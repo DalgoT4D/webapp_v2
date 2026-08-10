@@ -474,29 +474,42 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   // --- Waiting on the tracked connection's first sync. Shared by both real-data forks; only
   // tour-gate's checkpoint moves the user in and out of these. ---
   sync_running: {
-    // Route-less on purpose, with a target that follows the user (see below).
+    // Route-less on purpose: the stage stays live while the user wanders, it just doesn't
+    // DRAW anywhere except /ingest (see below).
     route: null,
-    // On /ingest: the connection's own row, resolved from the store — the message is about
-    // THIS connection and nothing else on the page identifies it.
+    // /ingest ONLY, pinned to the syncing connection's own sync button.
     //
-    // Anywhere else: the Ingest nav item, which is on screen on every app route. A first sync
-    // takes minutes and the user is free to wander during it; pinning this to /ingest meant
-    // they saw NOTHING for that whole window, which is precisely the "the walkthrough died"
-    // reading this stage exists to prevent. The copy works for both — it says what's
-    // happening and that we'll move them on, not "look at this row".
+    // Two deliberate choices here:
+    //
+    // 1. The button, not the row. A row-wide target parks the popover in the middle of the
+    //    connection, pointing at nothing in particular; the spinner in the Actions cell is the
+    //    thing that is actually "syncing", so that is what gets spotlighted.
+    //
+    // 2. Returning null off /ingest, which skips the stage rather than retargeting it. This
+    //    used to fall back to the Ingest nav item so something was on screen for the whole
+    //    multi-minute sync — but following the user onto every page reads as nagging, and the
+    //    stage has nothing to ask of them. They are free to explore; sync completion moves
+    //    them on from wherever they are (chart_intro / the transform hand-off are both
+    //    route-less), so nothing is lost by going quiet. The stage redraws if they come back
+    //    to /ingest — the effect re-runs on `pathname`.
+    //
+    // The connection id comes from the store: nothing else on the page identifies WHICH
+    // connection this is about. Both button states are matched because the Actions cell swaps
+    // between them — `sync-btn-*` while running or idle, `cancel-sync-*` while queued — and
+    // only ever renders one, so the first match is the right one.
     selector: () => {
       const id = useInsightWalkthroughStore.getState().trackedConnectionId;
-      if (id && window.location.pathname === '/ingest') {
-        return `[data-testid="connection-row-${id}"]`;
-      }
-      return 'a[href="/ingest"]';
+      if (!id || window.location.pathname !== '/ingest') return null;
+      return `[data-testid="sync-btn-${id}"], [data-testid="cancel-sync-${id}"]`;
     },
     // No `ring`: nothing to click. The user is being told to wait, not to act.
     title: 'Your data is syncing',
     description:
       'This can take a few minutes for a first sync. Leave it running — we’ll move you to the next step as soon as it finishes, even if you come back later.',
     side: 'bottom',
-    align: 'start',
+    // End-aligned: the sync button sits at the right edge of a full-width table, so a
+    // start-aligned popover would open off the side of the viewport.
+    align: 'end',
   },
   sync_failed: {
     ring: true,

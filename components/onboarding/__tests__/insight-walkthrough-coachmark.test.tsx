@@ -327,12 +327,14 @@ describe('InsightWalkthroughCoachmark', () => {
   });
 
   describe('sync holding stages', () => {
-    it('points the waiting coachmark at the tracked connection’s own row', async () => {
-      // The row has no static selector — it's resolved from the store, because the message is
-      // about THIS connection and nothing else on /ingest identifies it.
+    it('points the waiting coachmark at the tracked connection’s sync button', async () => {
+      // The button, not the row: a row-wide target parks the popover in the middle of the
+      // connection pointing at nothing, while the spinner in the Actions cell is the thing
+      // actually syncing. No static selector — the id is resolved from the store, because
+      // nothing else on /ingest says WHICH connection this is about.
       mockPathname = '/ingest';
       window.history.pushState({}, '', '/ingest');
-      mountTarget('connection-row-conn-1');
+      mountTarget('sync-btn-conn-1');
       setStage('sync_running', { path: 'own_data', trackedConnectionId: 'conn-1' });
 
       render(<InsightWalkthroughCoachmark />);
@@ -340,18 +342,40 @@ describe('InsightWalkthroughCoachmark', () => {
       await waitFor(() => expect(popoverTitle()).toContain('Your data is syncing'));
     });
 
-    it('falls back to the Ingest nav item while the user is on another page', async () => {
-      // A first sync takes minutes and the user is free to wander during it. Pinned to
-      // /ingest, this stage showed NOTHING for that whole window — exactly the "walkthrough
-      // died" reading it exists to prevent.
-      mockPathname = '/orchestrate';
-      window.history.pushState({}, '', '/orchestrate');
-      mountLink('/ingest');
+    it('also finds the button while the sync is queued', async () => {
+      // The Actions cell swaps sync-btn for cancel-sync while a run is queued. Matching only
+      // sync-btn would leave this stage silently pointing at nothing for that window.
+      mockPathname = '/ingest';
+      window.history.pushState({}, '', '/ingest');
+      mountTarget('cancel-sync-conn-1');
       setStage('sync_running', { path: 'own_data', trackedConnectionId: 'conn-1' });
 
       render(<InsightWalkthroughCoachmark />);
 
       await waitFor(() => expect(popoverTitle()).toContain('Your data is syncing'));
+    });
+
+    it('stays silent while the user is on another page', async () => {
+      // A first sync takes minutes and the user is free to explore. This stage asks nothing of
+      // them, so following them around every route is just nagging — it used to retarget the
+      // Ingest nav item. Sync completion moves them on from wherever they are, so nothing is
+      // lost by going quiet here.
+      mockPathname = '/orchestrate';
+      window.history.pushState({}, '', '/orchestrate');
+      // Both former and current targets are present in the DOM, so the ONLY thing keeping the
+      // popover away is the route check — not a missing element.
+      mountLink('/ingest');
+      mountTarget('sync-btn-conn-1');
+      setStage('sync_running', { path: 'own_data', trackedConnectionId: 'conn-1' });
+
+      render(<InsightWalkthroughCoachmark />);
+      // Settle rather than waitFor: an empty title satisfies waitFor on its first tick, so it
+      // would pass whether or not the popover was about to appear.
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 50));
+      });
+
+      expect(popoverTitle()).toBe('');
     });
 
     it('gives the failure coachmark a Got it that rewinds to the fork’s ingest stage', async () => {
