@@ -38,7 +38,6 @@ import {
   Plus,
   Undo,
   Redo,
-  Save,
   Loader2,
   Type,
   Lock,
@@ -2159,18 +2158,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
               {/* Mobile Quick Actions */}
               <div className="flex items-center gap-1 flex-shrink-0">
-                <Button
-                  onClick={() => {
-                    // Fire only on explicit user save (not the autosave/title-blur/resize paths).
-                    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED);
-                    saveDashboard();
-                  }}
-                  size="sm"
-                  variant="ghost"
-                  className="p-1.5"
-                >
-                  <Save className="w-4 h-4" />
-                </Button>
                 {onPreview && (
                   <Button
                     variant="ghost"
@@ -2178,9 +2165,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     onClick={onPreview}
                     className="p-1.5"
                     disabled={isNavigating}
-                    data-testid="save-and-finish-mobile-btn"
-                    aria-label={isNavigating ? 'Saving and finishing' : 'Save and finish'}
-                    title={isNavigating ? 'Saving and finishing' : 'Save and finish'}
+                    data-testid="view-dashboard-mobile-btn"
+                    aria-label={
+                      isNavigating ? 'Saving and opening dashboard view' : 'View dashboard'
+                    }
+                    title={isNavigating ? 'Saving and opening dashboard view' : 'View dashboard'}
                   >
                     {isNavigating ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -2580,18 +2569,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   </PopoverContent>
                 </Popover> */}
 
-                <Button
-                  onClick={() => {
-                    // Fire only on explicit user save (not the autosave/title-blur/resize paths).
-                    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED);
-                    saveDashboard();
-                  }}
-                  size="sm"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  <span className="hidden lg:inline">Save</span>
-                </Button>
-
                 {/* Save changes and return to dashboard view mode. */}
                 {onPreview && (
                   <Button
@@ -2599,7 +2576,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     variant="outline"
                     onClick={onPreview}
                     disabled={isNavigating}
-                    data-testid="save-and-finish-btn"
+                    data-testid="view-dashboard-btn"
+                    aria-label={
+                      isNavigating ? 'Saving and opening dashboard view' : 'View dashboard'
+                    }
                   >
                     {isNavigating ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -2607,7 +2587,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       <CircleCheck className="w-4 h-4 mr-2" />
                     )}
                     <span className="hidden lg:inline">
-                      {isNavigating ? 'Saving and finishing...' : 'Save and Finish'}
+                      {isNavigating ? 'Saving and opening view...' : 'View'}
                     </span>
                   </Button>
                 )}
