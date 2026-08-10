@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { DALGO_DOCS_URL } from '@/constants/trial';
+import { BOOK_A_CALL_URL, DALGO_DOCS_URL } from '@/constants/trial';
 
 interface GettingStartedWidgetProps {
   /**
@@ -242,15 +242,18 @@ export function GettingStartedWidget({
             })}
           </ul>
 
-          {/* Figma 3053:7971 — sits below the task cards. Label only for now: no booking URL
-              has been decided, and a link that goes nowhere is worse than plain text. */}
-          <div
+          {/* Figma 3053:7971 — sits below the task cards. */}
+          <a
+            href={BOOK_A_CALL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             data-testid="getting-started-widget-schedule-call"
-            className="mt-4 flex items-center gap-1 text-primary opacity-80"
+            onClick={() => trackEvent(ANALYTICS_EVENTS.BOOK_A_CALL_CLICKED, { source: 'widget' })}
+            className="text-primary mt-4 flex items-center gap-1 opacity-80 hover:underline hover:opacity-100"
           >
             <span className="text-xs font-semibold">Schedule a call with us</span>
             <ArrowUpRight className="h-3 w-3 shrink-0" />
-          </div>
+          </a>
         </div>
       )}
     </>

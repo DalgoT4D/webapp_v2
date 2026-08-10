@@ -11,6 +11,8 @@ import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { BOOK_A_CALL_URL } from '@/constants/trial';
 
 interface TwoPaneNudgeDialogProps {
@@ -58,6 +60,9 @@ export function TwoPaneNudgeDialog({
                   href={BOOK_A_CALL_URL}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() =>
+                    trackEvent(ANALYTICS_EVENTS.BOOK_A_CALL_CLICKED, { source: 'nudge' })
+                  }
                   className="text-primary inline-flex items-center gap-1 font-medium hover:underline"
                   data-testid={`${testId}-book-a-call`}
                 >

@@ -25,6 +25,10 @@ export const ANALYTICS_EVENTS = {
   // clicked. What it then does (open the fork dialog, resume, start a flow) depends on
   // walkthrough state and is covered by that flow's own events.
   GETTING_STARTED_ITEM_CLICKED: 'onboarding:getting_started_item_clicked',
+  // The "Schedule a call with us" / "Book a call" link out to the Dalgo team's booking page.
+  // Carries { source: 'widget' | 'nudge' } — the widget row vs the trial nudge modals, which
+  // fire at very different moments of the trial and convert differently.
+  BOOK_A_CALL_CLICKED: 'onboarding:book_a_call_clicked',
   // The GetStartedModal's 'choice' screen — shown only when the tour is finished via its
   // last step's "Finish Tour" button, not on Skip.
   POST_TOUR_MODAL_VIEWED: 'onboarding:post_tour_modal_viewed',

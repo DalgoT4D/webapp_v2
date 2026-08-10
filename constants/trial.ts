@@ -59,9 +59,10 @@ export function trialDaysRemaining(endIso: string): number {
 export const TRIAL_NUDGE_DAYS = [7, 1, 0] as const;
 export type TrialNudgeDay = (typeof TRIAL_NUDGE_DAYS)[number];
 
-// TODO: point at the real scheduling link once it exists. Kept as a single constant so the
-// swap is one line — the "Book a call" link in the trial nudge modals reads it.
-export const BOOK_A_CALL_URL = '#';
+// Booking link for a call with the Dalgo team. Read by the "Book a call" link in the trial
+// nudge modals and the getting-started widget's "Schedule a call with us" row — one constant so
+// a change of host or owner is a single edit.
+export const BOOK_A_CALL_URL = 'https://calendly.com/priyesh-projecttech4dev/30min';
 
 // Public product docs — the "Read documentation" link in the getting-started widget's
 // all-done state.
