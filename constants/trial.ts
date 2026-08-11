@@ -16,37 +16,86 @@ export const TRIAL_PERIOD_DAYS = 14;
 export const FREE_TRIAL_PLAN_NAME = 'Free Trial';
 
 const MS_PER_DAY = 86_400_000;
+const MS_PER_HOUR = 3_600_000;
 
 /**
- * Whole days between two instants, floored — the exact rule the backend counts trial days by
- * (`(now - start_date).days` in `lifecycle_emails.trial_window`).
+ * Days left before the plan's `end_date`, counted INCLUSIVE of the day the user is on — a trial
+ * that started an hour ago reads 14, not 13, and its final day reads 1.
  *
- * Floored elapsed duration, deliberately NOT calendar days in the viewer's local timezone.
- * Calendar-day math made the answer depend on the browser's clock offset, so a user in IST and
- * the nightly backend sweep could disagree by a day about which day of the trial it was — the
- * frontend's day-7 modal would fire before the backend's midpoint email. Duration math gives
- * both the same number wherever the user is.
- */
-function wholeDaysBetween(fromMs: number, toMs: number): number {
-  return Math.floor((toMs - fromMs) / MS_PER_DAY);
-}
-
-/**
- * Whole days left before the plan's `end_date`.
+ * Ceil, not floor, because that is exactly what the backend says out loud. The lifecycle emails
+ * compute `total_days - day_number` where `day_number = (now - start_date).days` floors
+ * (`lifecycle_emails.trial_window`), and `total_days - floor(elapsed) === ceil(total_days -
+ * elapsed) === ceil(remaining)`. Flooring the remainder here made every surface in the app read
+ * one day lower than the email that landed in the same inbox on the same day.
  *
- * NOT clamped: an expired trial whose reaper hasn't run yet returns a negative number, and
- * callers need to be able to tell "last day" (0) from "already over" (< 0). Clamping here is
+ * Duration math, deliberately NOT calendar days in the viewer's local timezone. Calendar-day
+ * math made the answer depend on the browser's clock offset, so a user in IST and the nightly
+ * backend sweep could disagree by a day about which day of the trial it was — the frontend's
+ * midpoint modal would fire before the backend's midpoint email. Duration math gives both the
+ * same number wherever the user is.
+ *
+ * NOT clamped: an expired trial whose reaper hasn't run yet returns 0 or a negative number, and
+ * callers need to be able to tell "last day" (1) from "already over" (<= 0). Clamping here is
  * what made the old created_at version stick at its bounds forever. Clamp at the point of
  * display instead.
  */
 export function trialDaysRemaining(endIso: string): number {
-  return wholeDaysBetween(Date.now(), new Date(endIso).getTime());
+  return Math.ceil((new Date(endIso).getTime() - Date.now()) / MS_PER_DAY);
 }
 
 /**
+ * Hours left before the plan's `end_date`, rounded the same inclusive way `trialDaysRemaining`
+ * rounds days — 90 minutes left reads as 2, and anything inside the last hour reads as 1.
+ *
+ * Only meaningful on the final day; `trialCountdownLabel` is what decides when to reach for it.
+ */
+export function trialHoursRemaining(endIso: string): number {
+  return Math.ceil((new Date(endIso).getTime() - Date.now()) / MS_PER_HOUR);
+}
+
+/**
+ * The one countdown string every surface shows — header badge and the billing page — so the two
+ * can never word the same moment differently.
+ *
+ * Days until the final day, then hours. The whole last day counts in hours rather than saying
+ * "last day today": a trial expires at the clock time it was created (end_date is clone-time +
+ * 14 days, see the backend's clone_service), so "last day" spans anything from 24 hours to a
+ * few minutes. An hour count is the only thing that tells the user which of those they're in.
+ *
+ * Reads the clock, so it does NOT update on its own — a caller that keeps it on screen has to
+ * re-render on a timer (see TRIAL_COUNTDOWN_TICK_MS).
+ */
+export function trialCountdownLabel(endIso: string): string {
+  const days = trialDaysRemaining(endIso);
+  // 2+ days covers everything up to the second-last day; 1 means "somewhere inside the last
+  // 24 hours", which is where the hour count takes over.
+  if (days >= 2) return `${days} days left`;
+
+  const hours = trialHoursRemaining(endIso);
+  // Unclamped, like the day count: the reaper sweeps hourly, so an org can sit past its
+  // end_date for up to an hour, and saying anything but "ended" then would be a lie.
+  if (hours <= 0) return 'Trial ended';
+  // Ceil means 1 covers the whole final hour — there is no honest "1 hour left" to show.
+  if (hours === 1) return 'Less than an hour left';
+  return `${hours} hours left`;
+}
+
+/**
+ * How often a mounted countdown re-reads the clock. One minute: the label only ever changes on
+ * an hour boundary, and a minute of staleness on that is invisible, but a tab left open all day
+ * must not still be showing the number it mounted with.
+ */
+export const TRIAL_COUNTDOWN_TICK_MS = 60_000;
+
+/**
  * Days REMAINING that fire a trial lifecycle nudge (see TrialDayNudgeModal). 7 is the halfway
- * "let's get your data flowing" prompt; 1 and 0 are the second-last and last days, both
+ * "let's get your data flowing" prompt; 2 and 1 are the second-last and last days, both
  * showing the "almost over" upgrade modal.
+ *
+ * These count the same inclusive way `trialDaysRemaining` does, so the LAST day is 1, not 0 —
+ * 0 is only ever the expiry instant itself, which no user is sitting on. Day 7 lands on the
+ * same calendar day as the backend's midpoint email (`day_number >= 7`), so the modal saying
+ * "7 days left" agrees with both the email and the header badge.
  *
  * Keyed on days remaining rather than days elapsed because that is what the copy says out loud
  * ("7 days left", "your account will be deleted on…"). On the standard 14-day window the two
@@ -56,7 +105,7 @@ export function trialDaysRemaining(endIso: string): number {
  * Shared with NudgeCenter, which decides whether to mount the modal at all — the two must
  * agree or the modal mounts on a day it then refuses to render.
  */
-export const TRIAL_NUDGE_DAYS = [7, 1, 0] as const;
+export const TRIAL_NUDGE_DAYS = [7, 2, 1] as const;
 export type TrialNudgeDay = (typeof TRIAL_NUDGE_DAYS)[number];
 
 // Booking link for a call with the Dalgo team. Read by the "Book a call" link in the trial

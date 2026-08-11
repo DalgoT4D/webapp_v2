@@ -1,9 +1,13 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TestWrapper } from '@/test-utils/render';
 import { mockApiGet, mockApiPost } from '@/test-utils/api';
-import { FREE_TRIAL_PLAN_NAME, TRIAL_PERIOD_DAYS } from '@/constants/trial';
+import {
+  FREE_TRIAL_PLAN_NAME,
+  TRIAL_COUNTDOWN_TICK_MS,
+  TRIAL_PERIOD_DAYS,
+} from '@/constants/trial';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { TrialBadge } from '../trial-badge';
 
@@ -35,15 +39,17 @@ jest.mock('@/stores/authStore', () => ({
 const ORG_PLAN_URL = '/api/orgpreferences/org-plan';
 
 const MS_PER_DAY = 86_400_000;
+const MS_PER_HOUR = 3_600_000;
 
 /**
- * A plan end_date that leaves exactly `days` whole days on the clock.
+ * A plan end_date that reads as exactly `days` days left, counted inclusive of today the way
+ * `trialDaysRemaining` (ceil) does.
  *
- * Half a day is added so the window lands mid-day rather than exactly on the boundary, where a
- * floor is one tick away from flipping. Negative values put the end date in the past.
+ * Half a day is shaved off so the window lands mid-day rather than exactly on the boundary,
+ * where the ceil is one tick away from flipping. Values <= 0 put the end date in the past.
  */
 function planEndDateWithDaysLeft(days: number): string {
-  return new Date(Date.now() + (days + 0.5) * MS_PER_DAY).toISOString();
+  return new Date(Date.now() + (days - 0.5) * MS_PER_DAY).toISOString();
 }
 
 function setOrgUser({
@@ -57,6 +63,16 @@ function setOrgUser({
       Date.now() - (TRIAL_PERIOD_DAYS - daysLeft) * MS_PER_DAY
     ).toISOString(),
     plan_end_date: planEndDateWithDaysLeft(daysLeft),
+  };
+}
+
+/** A trial sitting `hours` from its end_date — i.e. somewhere inside the final day. */
+function setOrgUserWithHoursLeft(hours: number) {
+  mockOrgUser = {
+    subscription_plan: FREE_TRIAL_PLAN_NAME,
+    org: { slug: 'trial-org' },
+    plan_start_date: new Date(Date.now() - TRIAL_PERIOD_DAYS * MS_PER_DAY).toISOString(),
+    plan_end_date: new Date(Date.now() + hours * MS_PER_HOUR).toISOString(),
   };
 }
 
@@ -100,18 +116,56 @@ describe('TrialBadge rendering', () => {
     expect(mockApiGet).not.toHaveBeenCalled();
   });
 
-  it('singularises the countdown on the second-to-last day', async () => {
-    setOrgUser({ daysLeft: 1 });
+  it('counts the first day of a 14-day trial as 14 days left, not 13', async () => {
+    // Days left include the day the user is on, matching the backend's lifecycle emails
+    // (`total_days - floor(elapsed)`). Flooring the remainder here greeted a brand-new trial
+    // with "13 days left" an hour after signup.
+    setOrgUser({ daysLeft: TRIAL_PERIOD_DAYS });
     renderBadge();
     await screen.findByTestId('trial-subscribe-cta');
-    expect(screen.getByTestId('trial-days-badge')).toHaveTextContent('1 day left');
+    expect(screen.getByTestId('trial-days-badge')).toHaveTextContent('14 days left');
   });
 
-  it('shows "Last day today" once no whole days remain', async () => {
-    setOrgUser({ daysLeft: 0 });
+  it('still counts the second-to-last day in days, not hours', async () => {
+    setOrgUser({ daysLeft: 2 });
     renderBadge();
     await screen.findByTestId('trial-subscribe-cta');
-    expect(screen.getByTestId('trial-days-badge')).toHaveTextContent('Last day today');
+    expect(screen.getByTestId('trial-days-badge')).toHaveTextContent('2 days left');
+  });
+
+  it('counts the final day in hours', async () => {
+    // A trial expires at the clock time it was created, so "last day" can mean 20 hours or 20
+    // minutes. The hour count is the only thing that tells the user which.
+    setOrgUserWithHoursLeft(11);
+    renderBadge();
+    await screen.findByTestId('trial-subscribe-cta');
+    expect(screen.getByTestId('trial-days-badge')).toHaveTextContent('11 hours left');
+  });
+
+  it('stops counting hours inside the final one', async () => {
+    setOrgUserWithHoursLeft(0.4);
+    renderBadge();
+    await screen.findByTestId('trial-subscribe-cta');
+    expect(screen.getByTestId('trial-days-badge')).toHaveTextContent('Less than an hour left');
+  });
+
+  it('re-reads the clock on a timer so an open tab does not freeze the countdown', async () => {
+    jest.useFakeTimers();
+    try {
+      setOrgUserWithHoursLeft(5.5);
+      renderBadge();
+      expect(screen.getByTestId('trial-days-badge')).toHaveTextContent('6 hours left');
+
+      // Push the clock past two hour boundaries; only the tick can surface that.
+      await act(async () => {
+        jest.setSystemTime(Date.now() + 2 * MS_PER_HOUR);
+        jest.advanceTimersByTime(TRIAL_COUNTDOWN_TICK_MS);
+      });
+
+      expect(screen.getByTestId('trial-days-badge')).toHaveTextContent('4 hours left');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('distinguishes an already-expired trial from the last day', async () => {
@@ -132,14 +186,16 @@ describe('TrialBadge rendering', () => {
     expect(mockApiGet).not.toHaveBeenCalled();
   });
 
-  it('hides the CTA from users without the upgrade permission', async () => {
+  it('offers the CTA to users without the upgrade permission too', async () => {
+    // Every member of a trial org gets to ask — the request is once-per-org and the backend
+    // is what decides, so hiding the button here only hid the trial's one conversion path.
     mockPermissions = [];
 
     renderBadge();
 
     await waitFor(() => expect(mockApiGet).toHaveBeenCalledWith(ORG_PLAN_URL));
     expect(screen.getByTestId('trial-days-badge')).toHaveTextContent('7 days left');
-    expect(screen.queryByTestId('trial-subscribe-cta')).not.toBeInTheDocument();
+    expect(await screen.findByTestId('trial-subscribe-cta')).toBeInTheDocument();
   });
 
   it('shows an inert "Request sent" once the org has already requested', async () => {
@@ -168,6 +224,7 @@ describe('TrialBadge subscription request flow', () => {
     expect(mockApiPost).not.toHaveBeenCalled();
     expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_OPENED, {
       days_left: 7,
+      source: 'header_badge',
     });
 
     // the revalidation after the POST must see the org as having requested
@@ -180,6 +237,7 @@ describe('TrialBadge subscription request flow', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_SENT, {
       days_left: 7,
       already_requested: false,
+      source: 'header_badge',
     });
     expect(await screen.findByTestId('trial-request-sent-label')).toBeInTheDocument();
   });
@@ -229,6 +287,7 @@ describe('TrialBadge subscription request flow', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_SENT, {
       days_left: 7,
       already_requested: true,
+      source: 'header_badge',
     });
   });
 });

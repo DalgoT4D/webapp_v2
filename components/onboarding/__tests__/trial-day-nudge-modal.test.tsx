@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { format } from 'date-fns';
 import { FREE_TRIAL_PLAN_NAME, TRIAL_PERIOD_DAYS } from '@/constants/trial';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { TrialDayNudgeModal } from '../trial-day-nudge-modal';
 
 // ============ Mocks ============
@@ -10,6 +11,29 @@ import { TrialDayNudgeModal } from '../trial-day-nudge-modal';
 const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
+}));
+
+const mockTrackEvent = jest.fn();
+jest.mock('@/lib/analytics', () => ({
+  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+}));
+
+const mockToastError = jest.fn();
+jest.mock('@/lib/toast', () => ({
+  toastError: { api: (...args: unknown[]) => mockToastError(...args) },
+}));
+
+const mockRequestPlanUpgrade = jest.fn();
+const mockMutateOrgPlan = jest.fn();
+// The header pill reads this same hook/SWR key — mocking the hook stands in for that shared
+// cache, and `mutate` being called is what keeps the two surfaces in the same state.
+let mockUpgradeRequested = false;
+jest.mock('@/hooks/api/useOrgPlan', () => ({
+  useOrgPlan: () => ({
+    orgPlan: { upgrade_requested: mockUpgradeRequested },
+    mutate: (...args: unknown[]) => mockMutateOrgPlan(...args),
+  }),
+  requestPlanUpgrade: (...args: unknown[]) => mockRequestPlanUpgrade(...args),
 }));
 
 let mockOrgUser: Record<string, unknown> | null = null;
@@ -27,13 +51,14 @@ const ORG_SLUG = 'org-a';
 const MS_PER_DAY = 86_400_000;
 
 /**
- * A plan end_date leaving exactly `daysLeft` whole days on the clock.
+ * A plan end_date that reads as exactly `daysLeft` days left, counted inclusive of today the
+ * way `trialDaysRemaining` (ceil) does.
  *
- * Half a day is added so the window lands mid-day rather than exactly on the boundary, where a
- * floor is one tick away from flipping. Negative values put the end date in the past.
+ * Half a day is shaved off so the window lands mid-day rather than exactly on the boundary,
+ * where the ceil is one tick away from flipping. Values <= 0 put the end date in the past.
  */
 function planEndDateWithDaysLeft(daysLeft: number): Date {
-  return new Date(Date.now() + (daysLeft + 0.5) * MS_PER_DAY);
+  return new Date(Date.now() + (daysLeft - 0.5) * MS_PER_DAY);
 }
 
 function setTrialOrg(daysLeft: number, plan: string = FREE_TRIAL_PLAN_NAME) {
@@ -63,10 +88,11 @@ describe('TrialDayNudgeModal', () => {
     sessionStorage.clear();
     localStorage.clear();
     mockOrgUser = null;
+    mockUpgradeRequested = false;
   });
 
   describe('which day it fires on', () => {
-    it.each([1, 0])('shows the "almost over" modal with %i days left', async (daysLeft) => {
+    it.each([2, 1])('shows the "almost over" modal with %i days left', async (daysLeft) => {
       setTrialOrg(daysLeft);
 
       render(<TrialDayNudgeModal />);
@@ -84,7 +110,7 @@ describe('TrialDayNudgeModal', () => {
       expect(screen.queryByText('Your trial is almost over.')).not.toBeInTheDocument();
     });
 
-    it.each([8, 6, 2])('stays away on a non-nudge day (%i days left)', async (daysLeft) => {
+    it.each([9, 6, 3])('stays away on a non-nudge day (%i days left)', async (daysLeft) => {
       setTrialOrg(daysLeft);
 
       render(<TrialDayNudgeModal />);
@@ -130,7 +156,7 @@ describe('TrialDayNudgeModal', () => {
     });
 
     it('stays away for a paid org', async () => {
-      setTrialOrg(0, 'Enterprise');
+      setTrialOrg(1, 'Enterprise');
 
       render(<TrialDayNudgeModal />);
 
@@ -164,24 +190,82 @@ describe('TrialDayNudgeModal', () => {
   });
 
   describe('dismissal', () => {
-    it('sends Upgrade to billing and closes', async () => {
-      setTrialOrg(0);
+    it('sends the subscription request from Subscribe Now, in place', async () => {
+      // The Settings → Billing page this used to route to no longer exists, so the nudge owns
+      // the same one-per-org request the header pill makes — under the same words.
+      mockRequestPlanUpgrade.mockResolvedValue({ already_requested: false });
+      setTrialOrg(1);
       render(<TrialDayNudgeModal />);
-      const cta = await screen.findByTestId('trial-nudge-0d-modal-cta');
+
+      const cta = await screen.findByTestId('trial-nudge-1d-modal-cta');
+      expect(cta).toHaveTextContent('Subscribe Now');
+      await userEvent.click(cta);
+
+      // the nudge itself is gone, replaced by the confirm step — nothing has been sent yet
+      expect(screen.queryByTestId('trial-nudge-1d-modal')).not.toBeInTheDocument();
+      expect(mockRequestPlanUpgrade).not.toHaveBeenCalled();
+      expect(mockPush).not.toHaveBeenCalled();
+
+      await userEvent.click(await screen.findByTestId('subscription-confirm-button'));
+
+      await waitFor(() => expect(mockRequestPlanUpgrade).toHaveBeenCalled());
+      expect(await screen.findByTestId('subscription-sent-modal')).toBeInTheDocument();
+      expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_SENT, {
+        days_left: 1,
+        already_requested: false,
+        source: 'trial_nudge',
+      });
+    });
+
+    it('revalidates the org plan so the header pill flips too', async () => {
+      mockRequestPlanUpgrade.mockResolvedValue({ already_requested: false });
+      setTrialOrg(1);
+      render(<TrialDayNudgeModal />);
+
+      await userEvent.click(await screen.findByTestId('trial-nudge-1d-modal-cta'));
+      await userEvent.click(await screen.findByTestId('subscription-confirm-button'));
+
+      // Same SWR key as the header badge, so revalidating here is what puts both surfaces in
+      // the "Request sent" state without a reload.
+      await waitFor(() => expect(mockMutateOrgPlan).toHaveBeenCalled());
+    });
+
+    it('goes inert once the org has already requested, from either surface', async () => {
+      mockUpgradeRequested = true;
+      setTrialOrg(1);
+      render(<TrialDayNudgeModal />);
+
+      const cta = await screen.findByTestId('trial-nudge-1d-modal-cta');
+      expect(cta).toHaveTextContent('Request sent');
+      expect(cta).toBeDisabled();
 
       await userEvent.click(cta);
 
-      expect(mockPush).toHaveBeenCalledWith('/settings/billing');
-      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      expect(mockRequestPlanUpgrade).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('subscription-confirm-modal')).not.toBeInTheDocument();
+    });
+
+    it('keeps the confirm step open when the request fails', async () => {
+      mockRequestPlanUpgrade.mockRejectedValue(new Error('boom'));
+      setTrialOrg(1);
+      render(<TrialDayNudgeModal />);
+
+      await userEvent.click(await screen.findByTestId('trial-nudge-1d-modal-cta'));
+      await userEvent.click(await screen.findByTestId('subscription-confirm-button'));
+
+      await waitFor(() => expect(mockToastError).toHaveBeenCalled());
+      // still on the confirm step, so the user can retry without reopening anything
+      expect(screen.getByTestId('subscription-confirm-modal')).toBeInTheDocument();
+      expect(screen.queryByTestId('subscription-sent-modal')).not.toBeInTheDocument();
     });
 
     it('records nothing until the user closes it', async () => {
       // A reload before closing deliberately shows it again — the user hasn't acknowledged it,
       // and on the last two days that message is worth repeating.
-      setTrialOrg(0);
+      setTrialOrg(1);
 
       render(<TrialDayNudgeModal />);
-      await screen.findByTestId('trial-nudge-0d-modal');
+      await screen.findByTestId('trial-nudge-1d-modal');
 
       expect(sessionStorage.length).toBe(0);
     });
@@ -189,21 +273,21 @@ describe('TrialDayNudgeModal', () => {
     it('records the dismissal in sessionStorage, not localStorage', async () => {
       // The nudge must come back when the user opens Dalgo again, but must NOT come back on a
       // reload within the same session — that is exactly sessionStorage's lifetime.
-      setTrialOrg(0);
+      setTrialOrg(1);
       render(<TrialDayNudgeModal />);
-      await screen.findByTestId('trial-nudge-0d-modal');
+      await screen.findByTestId('trial-nudge-1d-modal');
 
       await userEvent.keyboard('{Escape}');
 
       await waitFor(() =>
-        expect(sessionStorage.getItem(`dalgo_trial_day_nudge_dismissed_0_${ORG_SLUG}`)).toBe('1')
+        expect(sessionStorage.getItem(`dalgo_trial_day_nudge_dismissed_1_${ORG_SLUG}`)).toBe('1')
       );
       expect(localStorage.length).toBe(0);
     });
 
     it('stays shut for the rest of the session once dismissed', async () => {
-      setTrialOrg(0);
-      sessionStorage.setItem(`dalgo_trial_day_nudge_dismissed_0_${ORG_SLUG}`, '1');
+      setTrialOrg(1);
+      sessionStorage.setItem(`dalgo_trial_day_nudge_dismissed_1_${ORG_SLUG}`, '1');
 
       render(<TrialDayNudgeModal />);
 
@@ -213,12 +297,12 @@ describe('TrialDayNudgeModal', () => {
 
     it('still shows on the last day after being dismissed on the second-last one', async () => {
       // Separate keys per day, deliberately — the final day is the one that matters most.
-      setTrialOrg(0);
-      sessionStorage.setItem(`dalgo_trial_day_nudge_dismissed_1_${ORG_SLUG}`, '1');
+      setTrialOrg(1);
+      sessionStorage.setItem(`dalgo_trial_day_nudge_dismissed_2_${ORG_SLUG}`, '1');
 
       render(<TrialDayNudgeModal />);
 
-      expect(await screen.findByTestId('trial-nudge-0d-modal')).toBeInTheDocument();
+      expect(await screen.findByTestId('trial-nudge-1d-modal')).toBeInTheDocument();
     });
   });
 });

@@ -1,5 +1,5 @@
 ---
-description: Settings domain map — billing, user management (invites/roles), about, and the permission-gating model.
+description: Settings domain map — user management (invites/roles), branding, warehouse, and the permission-gating model.
 paths:
   - "components/settings/**"
   - "app/settings/**"
@@ -10,15 +10,17 @@ paths:
 
 # Settings — Domain Map
 
-Org-scoped settings: Billing, User Management (invites + roles), About. All actions are permission-gated; the frontend disables UI but the backend enforces access.
+Org-scoped settings: User Management (invites + roles), Branding, Warehouse. All actions are permission-gated; the frontend disables UI but the backend enforces access.
+
+The Billing and About pages were deleted — do not recreate them. The only upgrade path left is the
+subscription request (`org-plan/upgrade`), raised from the header's trial countdown pill and from
+the end-of-trial nudge, both via `SubscriptionRequestModal`.
 
 ## Where things live
 
 | Concern | Location |
 |---|---|
-| Billing | `app/settings/billing/page.tsx` → `components/settings/billing.tsx` |
 | User Management | `app/settings/user-management/page.tsx` → `components/settings/user-management/UserManagement.tsx` |
-| About | `app/settings/about/page.tsx` → `components/settings/about.tsx` |
 | Invite/role components | `components/settings/user-management/{InviteUserDialog,UsersTable,InvitationsTable,DeleteUserDialog,DeleteInvitationDialog}.tsx` |
 | Org creation | `components/settings/organizations/CreateOrgDialog.tsx` |
 | Hooks | `hooks/api/useUserManagement.ts` (`useUsers`, `useRoles`, `useInvitations`, `useUserActions`, `useInvitationActions`), `usePermissions.ts` (`useUserPermissions`) |
@@ -34,8 +36,8 @@ Invite + role:
   POST /api/v1/organizations/users/invite/accept/ (invite_code + password)
   POST /api/organizations/user_role/modify/     (email + role_uuid)
   → guarded by @has_permission([can_create_invitation, can_view_invitations, can_edit_orguser_role])
-Billing: GET /api/orgpreferences/org-plan → POST /api/orgpreferences/org-plan/upgrade
-About:   GET /api/orgpreferences/toolinfo (Airbyte/Prefect/dbt/Elementary/Superset versions)
+Org plan (header trial pill + end-of-trial nudge, hooks/api/useOrgPlan.ts):
+  GET /api/orgpreferences/org-plan → POST /api/orgpreferences/org-plan/upgrade
 ```
 
 ## ⚠️ Gotchas
@@ -43,4 +45,4 @@ About:   GET /api/orgpreferences/toolinfo (Airbyte/Prefect/dbt/Elementary/Supers
 - **Permission gating is centralized** — use `useUserPermissions()` (`hasPermission`/`hasAnyPermission`/`hasAllPermissions`); it reads `currentOrgUser.permissions`. UI gating is convenience only — the backend `@has_permission` decorator is the real enforcement. **Never mock `useAuthStore` for permission checks in tests; mock `useUserPermissions`** (see `rules/testing.md`).
 - **Role-level hierarchy** — you cannot assign a role with a higher level than your own (backend returns 403).
 - **Everything is org-scoped** — endpoints filter by `orguser.org`; no cross-org visibility.
-- **Billing is org-level** — `org-plan/upgrade` emails biz-dev (idempotent per request); Superset access is a plan feature, not per-user.
+- **The upgrade request is org-level** — `org-plan/upgrade` emails biz-dev (idempotent per request, so a replay returns `already_requested`); Superset access is a plan feature, not per-user.

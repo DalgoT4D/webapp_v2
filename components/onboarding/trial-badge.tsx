@@ -3,8 +3,8 @@
 /**
  * Free-trial countdown pill in the app header, doubling as the subscription CTA.
  *
- * Renders only for free-trial orgs; shows whole days left ("Last day today" on the final
- * day) computed from data already in the auth store (plan_end_date + subscription_plan from
+ * Renders only for free-trial orgs; shows days left counted inclusive of today, switching to an
+ * hour count for the final 24 hours, from data already in the auth store (plan_end_date + subscription_plan from
  * currentuserv2). The window is the backend's own OrgPlans.end_date, so an admin-extended or
  * -shortened trial counts down truthfully and the badge agrees with the lifecycle emails and
  * the reaper.
@@ -12,16 +12,23 @@
  * The "Subscribe Now" half is a once-per-org request that emails the partnerships team, so
  * it needs the server's `upgrade_requested` — the one extra fetch this component makes, and
  * only for trial orgs (useOrgPlan is passed `false` for everyone else, which nulls the SWR
- * key so no request goes out). Users without the upgrade permission see the countdown with
- * no CTA, since the POST would 403 for them.
+ * key so no request goes out). Deliberately NOT permission-gated: every member of a trial org
+ * gets to ask, and once anyone has, this flips to an inert "Request sent".
+ *
+ * TrialDayNudgeModal offers the same request off the same SWR key, so the two are always in
+ * the same state — requesting from either flips both.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useOrgPlan, requestPlanUpgrade } from '@/hooks/api/useOrgPlan';
-import { FREE_TRIAL_PLAN_NAME, trialDaysRemaining } from '@/constants/trial';
+import {
+  FREE_TRIAL_PLAN_NAME,
+  TRIAL_COUNTDOWN_TICK_MS,
+  trialCountdownLabel,
+  trialDaysRemaining,
+} from '@/constants/trial';
 import { toastError } from '@/lib/toast';
 import {
   SubscriptionRequestModal,
@@ -34,33 +41,38 @@ export function TrialBadge() {
   const planEndDate = orgUser?.plan_end_date;
   const isTrial = orgUser?.subscription_plan === FREE_TRIAL_PLAN_NAME && Boolean(planEndDate);
 
-  const { hasPermission } = useRbac();
   const { orgPlan, mutate: mutateOrgPlan } = useOrgPlan(isTrial);
   const [stage, setStage] = useState<SubscriptionRequestStage>('idle');
 
+  // The label is read off the clock, so nothing re-renders this on its own. Without the tick a
+  // tab left open through the final day keeps showing the hour count it mounted with — the one
+  // stretch of the trial where a stale number is worst.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!isTrial) return undefined;
+    const id = setInterval(() => setTick((n) => n + 1), TRIAL_COUNTDOWN_TICK_MS);
+    return () => clearInterval(id);
+  }, [isTrial]);
+
   if (!isTrial) return null;
 
-  // Unclamped: a negative count means the trial is already over and the reaper hasn't run yet,
-  // which is a different thing to say than "last day".
+  // Days until the last 24 hours, then hours — see trialCountdownLabel.
+  const label = trialCountdownLabel(planEndDate as string);
+  // Still days for analytics: the funnel groups trials by day, and an hours-based property would
+  // splinter the final day into 24 buckets.
   const days = trialDaysRemaining(planEndDate as string);
-  const label =
-    days < 0
-      ? 'Trial ended'
-      : days === 0
-        ? 'Last day today'
-        : `${days} day${days === 1 ? '' : 's'} left`;
 
   const alreadyRequested = orgPlan?.upgrade_requested === true;
   // Only offer the CTA once we know the org has NOT already requested. While the plan is
   // still loading (or failed to load) the pill stays a plain countdown rather than briefly
   // offering a request that has already been made.
-  const canRequest =
-    orgPlan !== undefined &&
-    !alreadyRequested &&
-    hasPermission(PERMISSIONS.CAN_INITIATE_ORG_PLAN_UPGRADE);
+  const canRequest = orgPlan !== undefined && !alreadyRequested;
 
   const openConfirm = () => {
-    trackEvent(ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_OPENED, { days_left: days });
+    trackEvent(ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_OPENED, {
+      days_left: days,
+      source: 'header_badge',
+    });
     setStage('confirm');
   };
 
@@ -71,6 +83,7 @@ export function TrialBadge() {
       trackEvent(ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_SENT, {
         days_left: days,
         already_requested: Boolean(response?.already_requested),
+        source: 'header_badge',
       });
       await mutateOrgPlan();
       setStage('sent');

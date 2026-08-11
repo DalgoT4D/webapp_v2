@@ -73,11 +73,11 @@ export const ANALYTICS_EVENTS = {
   // Status polling gave up (too many consecutive failures or hard timeout) before
   // a terminal clone status arrived — screen fell back from the spinner.
   TRIAL_POLL_TIMEOUT: 'trial:poll_timeout',
-  // "Subscribe Now" on the header countdown pill opened the confirm modal. Carries
-  // { days_left }. Separate from BILLING_UPGRADE_REQUESTED (the Settings → Billing button)
-  // even though both hit the same endpoint, so we can compare which surface converts.
+  // An upgrade CTA opened the confirm modal. Carries { days_left, source } — `source` is the
+  // surface it was opened from ('header_badge' | 'trial_nudge'), which is what tells us which
+  // one converts now that the Settings → Billing page is gone.
   SUBSCRIPTION_REQUEST_OPENED: 'trial:subscription_request_opened',
-  // The request POST succeeded. Carries { days_left, already_requested }.
+  // The request POST succeeded. Carries { days_left, already_requested, source }.
   SUBSCRIPTION_REQUEST_SENT: 'trial:subscription_request_sent',
   // Breadth — every menu / submenu / tab
   FEATURE_VIEWED: 'feature:viewed',
@@ -206,7 +206,6 @@ export const ANALYTICS_EVENTS = {
   USER_ROLE_CHANGED: 'settings:user_role_changed',
   USER_DELETED: 'settings:user_deleted',
   ORG_CREATED: 'settings:org_created',
-  BILLING_UPGRADE_REQUESTED: 'settings:billing_upgrade_requested',
   // Auth / account
   PASSWORD_CHANGED: 'auth:password_changed',
   // Notifications
@@ -277,9 +276,7 @@ export const FEATURES = {
   DATA_QUALITY: 'data_quality',
   ALERTS: 'alerts',
   NOTIFICATIONS: 'notifications',
-  SETTINGS_BILLING: 'settings_billing',
   SETTINGS_USER_MANAGEMENT: 'settings_user_management',
-  SETTINGS_ABOUT: 'settings_about',
   SETTINGS_SUPERSET_USAGE: 'settings_superset_usage',
   SETTINGS_BRANDING: 'settings_branding',
   // Pre-auth free-trial screens. Three separate features (not one `free_trial`)
@@ -312,9 +309,7 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/data-quality', feature: FEATURES.DATA_QUALITY },
   { prefix: '/alerts', feature: FEATURES.ALERTS },
   { prefix: '/notifications', feature: FEATURES.NOTIFICATIONS },
-  { prefix: '/settings/billing', feature: FEATURES.SETTINGS_BILLING },
   { prefix: '/settings/user-management', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
-  { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
   { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
   { prefix: '/free-trial/activate', feature: FEATURES.FREE_TRIAL_ACTIVATE },
   { prefix: '/free-trial/consent', feature: FEATURES.FREE_TRIAL_CONSENT },

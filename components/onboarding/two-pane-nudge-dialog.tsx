@@ -21,6 +21,8 @@ interface TwoPaneNudgeDialogProps {
   body: ReactNode;
   ctaLabel: string;
   onCta: () => void;
+  /** Renders the CTA as an inert state label (e.g. "Request sent") rather than an action. */
+  ctaDisabled?: boolean;
   imageSrc: string;
   testId: string;
 }
@@ -31,6 +33,7 @@ export function TwoPaneNudgeDialog({
   body,
   ctaLabel,
   onCta,
+  ctaDisabled = false,
   imageSrc,
   testId,
 }: TwoPaneNudgeDialogProps) {
@@ -48,6 +51,7 @@ export function TwoPaneNudgeDialog({
               variant="primary"
               className="w-fit"
               onClick={onCta}
+              disabled={ctaDisabled}
               data-testid={`${testId}-cta`}
             >
               {ctaLabel}
