@@ -1556,7 +1556,7 @@ export function DashboardNativeView({
       <CelebrationModal
         open={dashboardLiveModalOpen}
         onOpenChange={setDashboardLiveModalOpen}
-        title="Congratulation, you're officially live!"
+        title="Congratulations, you're officially live!"
         description="Your insights are built and your new dashboard is ready to go."
         ctaLabel="View Dashboard"
         dismissEvent={ANALYTICS_EVENTS.DASHBOARD_LIVE_MODAL_DISMISSED}

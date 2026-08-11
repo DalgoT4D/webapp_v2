@@ -45,7 +45,7 @@ const DATA_HANDLING_NOTICES = [
     icon: ShieldCheck,
     title: 'Avoid sensitive or personal data',
     description:
-      "Avoid uploading sensitive/private information to the Dalgo warehouse during this trial. As per DPDP you are liable as the data fiduciary for your team and beneficiarie's data.",
+      "Avoid uploading sensitive/private information to the Dalgo warehouse during this trial. As per the DPDP Act, you are liable as the data fiduciary for your team's and beneficiaries' data.",
   },
 ];
 

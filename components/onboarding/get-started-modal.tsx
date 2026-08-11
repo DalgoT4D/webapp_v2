@@ -175,7 +175,7 @@ export function GetStartedModal({
                 </DialogTitle>
                 <DialogDescription className="text-muted-foreground text-base">
                   We’ve setup some samples to make this easier for you, you can connect your own
-                  data in too!
+                  data too!
                 </DialogDescription>
                 <div className="flex flex-col gap-3">
                   {showInsightOption && (

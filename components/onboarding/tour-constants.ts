@@ -108,7 +108,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: '/transform',
     title: 'Transform',
     content:
-      'Setup your data cleaning and computation logic in the transform section via our interactive UI or using DBT cloud',
+      'Setup your data cleaning and computation logic in the transform section via our interactive UI',
     // One cutout covering BOTH of this page's cards — the DBT repository card and the workflow
     // canvas card — matching the Figma frame. Previously `spotlightFull`, which cut a hole over
     // the entire content area: nothing was left dimmed, so the step read as having no highlight

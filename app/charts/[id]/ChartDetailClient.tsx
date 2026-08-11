@@ -999,8 +999,8 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           walkthrough.setPendingCelebration(null);
           walkthrough.setSuppressCoachmark(false);
         }}
-        title="Congratulation, your Chart is live!"
-        description="Your insights are built and now you can add it to a dashboard"
+        title="Congratulations, your Chart is live!"
+        description="Your insight is built, and you can now add it to a dashboard!"
         ctaLabel="Add to Dashboard"
         dismissEvent={ANALYTICS_EVENTS.CHART_LIVE_MODAL_DISMISSED}
         testId="chart-live-modal"

@@ -505,8 +505,8 @@ export function KPIPageComponent() {
           // Whichever way it closes, the dashboard nudge is the next thing to see.
           if (!open) useInsightWalkthroughStore.getState().setSuppressCoachmark(false);
         }}
-        title="Congratulation, your KPI is live!"
-        description="Your insights are built and now you can add it to a dashboard"
+        title="Congratulations, your KPI is live!"
+        description="Your insight is built, and you can now add it to a dashboard!"
         ctaLabel="Add to Dashboard"
         dismissEvent={ANALYTICS_EVENTS.KPI_LIVE_MODAL_DISMISSED}
         testId="kpi-live-modal"

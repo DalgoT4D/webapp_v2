@@ -253,8 +253,8 @@ export function PipelineList() {
           if (open) return;
           useInsightWalkthroughStore.getState().setPendingCelebration(null);
         }}
-        title="Congratulation, your Pipeline is live"
-        description="Your data pipeline are built now you can build insight with your data"
+        title="Congratulations, your Pipeline is live!"
+        description="Your data pipeline is built, and you can now build insights with your data!"
         ctaLabel="View Pipeline"
         dismissEvent={ANALYTICS_EVENTS.PIPELINE_LIVE_MODAL_DISMISSED}
         testId="pipeline-live-modal"

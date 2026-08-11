@@ -14,8 +14,8 @@ function renderModal(onCta?: jest.Mock) {
       open
       {...handlers}
       onCta={onCta}
-      title="Congratulation, your KPI is live!"
-      description="Your insights are built and now you can add it to a dashboard"
+      title="Congratulations, your KPI is live!"
+      description="Your insight is built, and you can now add it to a dashboard!"
       ctaLabel="Add to Dashboard"
       dismissEvent={'onboarding:kpi_live_modal_dismissed' as never}
       testId="kpi-live-modal"
@@ -30,7 +30,7 @@ describe('CelebrationModal', () => {
   it('celebrates the new KPI and offers the dashboard hand-off', () => {
     renderModal();
 
-    expect(screen.getByText('Congratulation, your KPI is live!')).toBeInTheDocument();
+    expect(screen.getByText('Congratulations, your KPI is live!')).toBeInTheDocument();
     expect(screen.getByTestId('kpi-live-modal-cta')).toBeInTheDocument();
   });
 
