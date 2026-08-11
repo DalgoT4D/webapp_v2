@@ -426,6 +426,14 @@ function EditChartPageContent() {
     }
 
     if (formData.chart_type === ChartTypes.NUMBER) {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          metric.column_expression ||
+          (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       return !!(
         formData.aggregate_function &&
         (formData.aggregate_function === 'count' || formData.aggregate_column)
@@ -1139,6 +1147,14 @@ function EditChartPageContent() {
     }
 
     if (formData.chart_type === ChartTypes.NUMBER) {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          metric.column_expression ||
+          (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       const needsAggregateColumn = formData.aggregate_function !== 'count';
       return !!(
         formData.aggregate_function &&
