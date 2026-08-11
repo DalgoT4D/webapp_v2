@@ -23,7 +23,7 @@ import { apiPublicPost } from '@/lib/api';
 import { toastError, toastInfo } from '@/lib/toast';
 import { trackEvent, trackFeatureView } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, FEATURES } from '@/constants/analytics';
-import { TRIAL_SIGNUP_PATH, TRIAL_ROLE_OPTIONS } from '@/constants/trial';
+import { TRIAL_SIGNUP_PATH, WORK_FUNCTION_OPTIONS } from '@/constants/trial';
 import type { TrialSignupRequest } from '@/types/trial';
 
 // Backend returns 409 when an account with this email already exists.
@@ -185,7 +185,7 @@ export default function FreeTrialPage() {
             />
           </TrialField>
 
-          <TrialField id="role" label="Role" error={errors.role?.message}>
+          <TrialField id="role" label="Function" error={errors.role?.message}>
             <Controller
               name="role"
               control={control}
@@ -198,10 +198,10 @@ export default function FreeTrialPage() {
                     aria-invalid={!!errors.role}
                     data-testid="trial-signup-role-input"
                   >
-                    <SelectValue placeholder="eg. Data analyst" />
+                    <SelectValue placeholder="eg. Data and Technology" />
                   </SelectTrigger>
                   <SelectContent>
-                    {TRIAL_ROLE_OPTIONS.map((option) => (
+                    {WORK_FUNCTION_OPTIONS.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>

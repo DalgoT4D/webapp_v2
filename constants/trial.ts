@@ -95,17 +95,18 @@ export const TRIAL_STATUS_PATH = '/api/v1/public/trial/status';
 // backend kept the person (email + password + verified) when it tore down the failed attempt.
 export const TRIAL_RETRY_PATH = '/api/v1/public/trial/retry';
 
-// Role options for the trial signup form. Same list the post-invitation signup uses for its
-// "work domain" field (app/invitations/page.tsx) — kept in sync so the captured value matches.
-// This is job-title metadata only; it is NOT a Dalgo permission role.
-export const TRIAL_ROLE_OPTIONS = [
-  { value: 'none', label: 'None / Prefer not to say' },
-  { value: 'monitoring_evaluation', label: 'Monitoring & Evaluation' },
-  { value: 'program_manager', label: 'Program Manager' },
-  { value: 'data_tech', label: 'Data & Tech' },
-  { value: 'leadership', label: 'Leadership (COO, Founder, CTO etc.)' },
-  { value: 'consultant', label: 'Consultant' },
-  { value: 'field_worker', label: 'Field worker' },
+// "Function" options for the trial signup form, also imported by the post-invitation signup
+// (app/invitations/page.tsx) so both forms offer exactly one list. This is metadata about the
+// person's team; it is NOT a Dalgo permission role.
+//
+// The backend accepts ONLY these five slugs (trial_schema.WorkDomain) — anything else is a 422.
+// Adding or renaming an option means changing that Literal too.
+export const WORK_FUNCTION_OPTIONS = [
+  { value: 'monitoring_evaluation', label: 'Monitoring and Evaluation' },
+  { value: 'program_implementation', label: 'Program Implementation' },
+  { value: 'data_technology', label: 'Data and Technology' },
+  { value: 'leadership', label: 'Leadership (Founder, COO, CTO, etc.)' },
+  { value: 'external_consultant', label: 'External Consultant' },
 ] as const;
 
 // Labels shown on the progress screen. The backend emits 7 numbered steps (1-7, see

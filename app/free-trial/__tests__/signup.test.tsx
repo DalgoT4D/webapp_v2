@@ -86,12 +86,13 @@ beforeEach(() => {
   sessionStorage.clear();
 });
 
-// Role is a Radix Select whose displayed option labels differ from the stored slug value
-// (e.g. "Program Manager" → "program_manager"); pass the visible label to pick, assert the slug.
+// Function is a Radix Select whose displayed option labels differ from the stored slug value
+// (e.g. "Program Implementation" → "program_implementation"); pass the visible label to pick,
+// assert the slug.
 async function fillAndSubmit(
   email = 'jane@example.org',
   orgName = 'Acme Foundation',
-  roleLabel = 'Program Manager'
+  roleLabel = 'Program Implementation'
 ) {
   const user = userEvent.setup();
   fireEvent.change(screen.getByTestId('trial-signup-email-input'), {
@@ -119,13 +120,13 @@ describe('FreeTrialPage', () => {
     mockApiPublicPost.mockResolvedValueOnce({ status: 'ok' });
     render(<FreeTrialPage />);
 
-    await fillAndSubmit('jane@example.org', 'Acme Foundation', 'Program Manager');
+    await fillAndSubmit('jane@example.org', 'Acme Foundation', 'Program Implementation');
 
     await waitFor(() => {
       expect(mockApiPublicPost).toHaveBeenCalledWith('/api/v1/public/trial/signup', {
         email: 'jane@example.org',
         org_name: 'Acme Foundation',
-        role: 'program_manager',
+        role: 'program_implementation',
       });
     });
   });
