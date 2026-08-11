@@ -32,7 +32,7 @@ jest.mock('../stream-config-table', () => ({
 }));
 
 jest.mock('../hooks/useStreamConfig', () => ({
-  useStreamConfig: () => ({
+  useStreamConfig: (): Record<string, unknown> => ({
     streams: [],
     setStreams: jest.fn(),
     streamSearch: '',
@@ -82,7 +82,8 @@ describe('ConnectionForm', () => {
     });
   });
 
-  it('renders create mode with correct title and disabled save button', async () => {
+  it('keeps save enabled in create mode and shows inline required errors on submit', async () => {
+    const user = userEvent.setup();
     render(
       <TestWrapper>
         <ConnectionForm mode={FormMode.CREATE} onClose={mockOnClose} onSuccess={mockOnSuccess} />
@@ -91,8 +92,17 @@ describe('ConnectionForm', () => {
 
     await waitFor(() => {
       expect(screen.getByText('New Connection')).toBeInTheDocument();
-      expect(screen.getByTestId('save-connection-btn')).toBeDisabled();
     });
+
+    // Button stays clickable so pressing it surfaces what's missing (alerts/KPI pattern).
+    const saveBtn = screen.getByTestId('save-connection-btn');
+    expect(saveBtn).not.toBeDisabled();
+
+    // Empty required fields → inline errors, and nothing is submitted.
+    await user.click(saveBtn);
+    expect(await screen.findByTestId('connection-name-error')).toBeInTheDocument();
+    expect(screen.getByTestId('connection-source-error')).toBeInTheDocument();
+    expect(mockOnSuccess).not.toHaveBeenCalled();
   });
 
   it('renders edit mode with correct title and pre-filled name', async () => {
@@ -114,8 +124,10 @@ describe('ConnectionForm', () => {
       </TestWrapper>
     );
 
+    // Header now names the source for every source (matches the gsheet/kobo
+    // treatment): the mock connection's source display name is 'Prod DB'.
     await waitFor(() => {
-      expect(screen.getByText('Edit Connection')).toBeInTheDocument();
+      expect(screen.getByText('Edit Prod DB connection')).toBeInTheDocument();
       expect(screen.getByTestId('connection-name-input')).toHaveValue('My Connection');
     });
   });
@@ -139,8 +151,38 @@ describe('ConnectionForm', () => {
       </TestWrapper>
     );
 
-    await waitFor(() => expect(screen.getByText('View Connection')).toBeInTheDocument());
+    // Header names the source for every source now — mock source name is 'Prod DB'.
+    await waitFor(() => expect(screen.getByText('Prod DB connection')).toBeInTheDocument());
     expect(screen.queryByTestId('save-connection-btn')).not.toBeInTheDocument();
+  });
+
+  it('preselects and locks the source when lockedSourceId is given in create mode', async () => {
+    render(
+      <TestWrapper>
+        <ConnectionForm
+          mode={FormMode.CREATE}
+          lockedSourceId="src-1"
+          onClose={mockOnClose}
+          onSuccess={mockOnSuccess}
+        />
+      </TestWrapper>
+    );
+
+    const sourceInput = await screen.findByTestId('source-select-input');
+    // Preselected to the locked source's label, and not changeable.
+    await waitFor(() => expect(sourceInput).toHaveValue('Prod DB'));
+    expect(sourceInput).toBeDisabled();
+  });
+
+  it('leaves the source picker enabled in create mode without lockedSourceId', async () => {
+    render(
+      <TestWrapper>
+        <ConnectionForm mode={FormMode.CREATE} onClose={mockOnClose} onSuccess={mockOnSuccess} />
+      </TestWrapper>
+    );
+
+    const sourceInput = await screen.findByTestId('source-select-input');
+    expect(sourceInput).not.toBeDisabled();
   });
 
   it('calls onClose when cancel button is clicked', async () => {

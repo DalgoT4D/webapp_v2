@@ -21,8 +21,6 @@ import {
   ChartBarBig,
   ChevronLeft,
   ChevronRight,
-  Info,
-  CreditCard,
   Users,
   Target,
   Palette,
@@ -218,10 +216,11 @@ export const getNavItems = (
           visibleToRoles: ACCESS_PAGE_ROLES,
         },
         {
-          title: 'About',
-          href: '/settings/about',
-          icon: Info,
-          isActive: currentPath.startsWith('/settings/about'),
+          title: 'Warehouse',
+          href: '/settings/warehouse',
+          icon: Database,
+          isActive: currentPath.startsWith('/settings/warehouse'),
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         ...(isFeatureFlagEnabled(FeatureFlagKeys.USAGE_DASHBOARD) && hasSupersetSetup
           ? [
@@ -267,11 +266,9 @@ const hasActiveChild = (item: NavItemType): boolean => {
 function CollapsedNavItem({
   item,
   onExpandSidebar,
-  isSubmenuExpanded = false,
 }: {
   item: NavItemType;
   onExpandSidebar?: () => void;
-  isSubmenuExpanded?: boolean;
 }) {
   const visibleChildren = item.children?.filter((child) => !child.hide) || [];
   const hasChildren = visibleChildren.length > 0;
@@ -376,6 +373,7 @@ function ExpandedNavItem({
                     child.title === 'About' ||
                       child.title === 'Billing' ||
                       child.title === 'Branding' ||
+                      child.title === 'Warehouse' ||
                       child.title === 'User Management'
                       ? 'h-5 w-5'
                       : 'h-6 w-6'
@@ -476,6 +474,7 @@ function MobileNavItem({
                     child.title === 'About' ||
                       child.title === 'Billing' ||
                       child.title === 'Branding' ||
+                      child.title === 'Warehouse' ||
                       child.title === 'User Management'
                       ? 'h-5 w-5'
                       : 'h-6 w-6'
@@ -510,7 +509,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [hasUserToggledSidebar, setHasUserToggledSidebar] = useState(false);
   // Explicit open/closed state per parent menu. `undefined` means "follow the path" (fallback
   // to hasActiveChild). Once set (auto on subtree entry, or manually via the chevron), the
   // state persists — navigating out of a subtree does NOT auto-close the parent.
@@ -568,9 +566,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       // Transform canvas (edit workflow)
       pathname === '/transform/canvas';
 
-    // Reset user toggle preference on page navigation
-    setHasUserToggledSidebar(false);
-
     // Auto-collapse when navigating to these pages
     if (shouldAutoCollapse) {
       setIsSidebarCollapsed(true);
@@ -579,7 +574,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
   // Determine if sidebar should be shown based on screen size
   const shouldShowDesktopSidebar = responsive.isDesktop;
-  const shouldUseMobileMenu = responsive.isMobile || responsive.isTablet;
 
   return (
     <div id="main-layout-root" className="h-screen w-screen overflow-hidden bg-gray-50">
@@ -613,10 +607,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => {
-                  setIsSidebarCollapsed(!isSidebarCollapsed);
-                  setHasUserToggledSidebar(true);
-                }}
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                 className={cn(
                   'h-6 w-6 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200/60 shadow-sm hover:bg-white hover:shadow-md transition-all duration-200',
                   'text-gray-400 hover:text-gray-600',
@@ -650,10 +641,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                         <CollapsedNavItem
                           key={`${item.href}-${index}`}
                           item={item}
-                          onExpandSidebar={() => {
-                            setIsSidebarCollapsed(false);
-                            setHasUserToggledSidebar(true);
-                          }}
+                          onExpandSidebar={() => setIsSidebarCollapsed(false)}
                         />,
                       ];
                     })

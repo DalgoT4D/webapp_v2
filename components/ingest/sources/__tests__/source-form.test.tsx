@@ -1,7 +1,8 @@
 /**
  * Source Form Tests
  *
- * Tests for SourceForm component (create and edit modes)
+ * SourceForm only edits an existing source — creation lives in the add-source
+ * wizard (see wizard/__tests__/create-source-step.test.tsx).
  */
 
 import React from 'react';
@@ -34,41 +35,32 @@ jest.mock('@/components/connectors/utils', () => ({
   extractSpecDefaults: jest.fn(() => ({})),
 }));
 
-jest.mock('@/components/ui/combobox', () => ({
-  Combobox: ({
-    items,
-    onValueChange,
-    value,
-    disabled,
-    placeholder,
-  }: {
-    items: Array<{ value: string; label: string }>;
-    onValueChange?: (value: string) => void;
-    value?: string;
-    disabled?: boolean;
-    placeholder?: string;
-  }) => (
-    <div data-testid="source-type-combobox">
-      <input placeholder={placeholder} readOnly value={value || ''} />
-      {!disabled &&
-        items.map((item) => (
-          <button
-            key={item.value}
-            data-testid={`combobox-option-${item.value}`}
-            onClick={() => onValueChange?.(item.value)}
-          >
-            {item.label}
-          </button>
-        ))}
-    </div>
-  ),
-  highlightText: (text: string) => text,
-}));
-
 jest.mock('@/lib/toast', () => ({
   toastSuccess: { deleted: jest.fn(), created: jest.fn(), updated: jest.fn(), generic: jest.fn() },
   toastError: { delete: jest.fn(), save: jest.fn(), api: jest.fn() },
 }));
+
+// ============ Helpers ============
+
+const SPEC_RESPONSE = { connectionSpecification: { type: 'object', properties: {} } };
+
+/** Wire the three GETs the dialog makes: definitions, the source, and its spec. */
+function mockApis({
+  source = createMockSource(),
+  definitions = [createMockDefinition()],
+  spec = SPEC_RESPONSE as unknown,
+}: {
+  source?: ReturnType<typeof createMockSource>;
+  definitions?: ReturnType<typeof createMockDefinition>[];
+  spec?: unknown;
+} = {}) {
+  mockApiGet.mockImplementation((url: string) => {
+    if (url === '/api/airbyte/source_definitions') return Promise.resolve(definitions);
+    if (url === `/api/airbyte/sources/${source.sourceId}`) return Promise.resolve(source);
+    if (url.includes('/specifications')) return Promise.resolve(spec);
+    return Promise.resolve(undefined);
+  });
+}
 
 // ============ SourceForm Tests ============
 
@@ -80,15 +72,12 @@ describe('SourceForm', () => {
     open: true,
     onClose: mockOnClose,
     onSuccess: mockOnSuccess,
+    sourceId: 'src-1',
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockApiGet.mockImplementation((url: string) => {
-      if (url === '/api/airbyte/source_definitions')
-        return Promise.resolve([createMockDefinition()]);
-      return Promise.resolve(undefined);
-    });
+    mockApis();
   });
 
   it('does not render form when open is false', () => {
@@ -96,97 +85,89 @@ describe('SourceForm', () => {
     expect(screen.queryByTestId('source-form')).not.toBeInTheDocument();
   });
 
-  it('renders create mode with correct title and disabled save button', async () => {
+  it('renders the edit dialog with the pre-filled name and a read-only source type', async () => {
     render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
-
-    await waitFor(() => {
-      expect(screen.getByText('Add Source')).toBeInTheDocument();
-      expect(screen.getByTestId('source-save-btn')).toBeDisabled();
-    });
-  });
-
-  it('renders edit mode with correct title, pre-filled name, and disabled source type selector', async () => {
-    mockApiGet.mockImplementation((url: string) => {
-      if (url === '/api/airbyte/source_definitions')
-        return Promise.resolve([createMockDefinition()]);
-      if (url === '/api/airbyte/sources/src-1') return Promise.resolve(createMockSource());
-      return Promise.resolve(undefined);
-    });
-
-    render(<SourceForm {...defaultProps} sourceId="src-1" />, { wrapper: TestWrapper });
 
     await waitFor(() => {
       expect(screen.getByText('Edit Source')).toBeInTheDocument();
       expect(screen.getByTestId('source-name-input')).toHaveValue('My Postgres Source');
     });
 
-    // Source type combobox is disabled in edit mode — no option buttons rendered
-    expect(screen.queryByTestId('combobox-option-def-1')).not.toBeInTheDocument();
+    // The type is fixed for an existing source: shown as text, never as a picker.
+    expect(screen.getByTestId('source-type-display')).toHaveTextContent('Postgres');
+    expect(screen.queryByTestId('source-type-combobox')).not.toBeInTheDocument();
+  });
+
+  it('holds a single loader until the source and its spec are ready', async () => {
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/api/airbyte/source_definitions')
+        return Promise.resolve([createMockDefinition()]);
+      if (url.includes('/specifications')) return new Promise(() => {}); // never resolves
+      return new Promise(() => {});
+    });
+
+    render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
+
+    expect(await screen.findByTestId('source-form-loading')).toBeInTheDocument();
+    expect(screen.queryByTestId('source-form')).not.toBeInTheDocument();
+  });
+
+  // The save button stays clickable on an incomplete form: pressing it is what
+  // reveals the inline required-field errors, rather than a silently disabled button.
+  it('keeps the save button enabled and surfaces an inline error for an empty name', async () => {
+    const user = userEvent.setup();
+    render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
+
+    const nameInput = await screen.findByTestId('source-name-input');
+    await user.clear(nameInput);
+
+    const saveBtn = screen.getByTestId('source-save-btn');
+    expect(saveBtn).toBeEnabled();
+    await user.click(saveBtn);
+
+    expect(await screen.findByTestId('source-name-error')).toHaveTextContent(
+      'Source name is required'
+    );
+  });
+
+  it('clears the name error as soon as the user types again', async () => {
+    const user = userEvent.setup();
+    render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
+
+    const nameInput = await screen.findByTestId('source-name-input');
+    await user.clear(nameInput);
+    await user.click(screen.getByTestId('source-save-btn'));
+    expect(await screen.findByTestId('source-name-error')).toBeInTheDocument();
+
+    await user.type(nameInput, 'Renamed source');
+    expect(screen.queryByTestId('source-name-error')).not.toBeInTheDocument();
   });
 
   it('calls onClose when cancel button is clicked', async () => {
     const user = userEvent.setup();
     render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
 
-    await user.click(screen.getByTestId('source-cancel-btn'));
+    await user.click(await screen.findByTestId('source-cancel-btn'));
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 
-  it('shows spec loading indicator after selecting a source type', async () => {
-    const user = userEvent.setup();
-    mockApiGet.mockImplementation((url: string) => {
-      if (url === '/api/airbyte/source_definitions')
-        return Promise.resolve([createMockDefinition()]);
-      if (url.includes('/specifications')) return new Promise(() => {}); // never resolves → isLoading: true
-      return Promise.resolve(undefined);
-    });
-
+  it('renders the generic spec-driven form for a source with no custom form', async () => {
     render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
-    await waitFor(() => expect(screen.getByTestId('combobox-option-def-1')).toBeInTheDocument());
-    await user.click(screen.getByTestId('combobox-option-def-1'));
 
-    await waitFor(() => {
-      expect(screen.getByText('Loading configuration...')).toBeInTheDocument();
-    });
+    expect(await screen.findByTestId('connector-config-form')).toBeInTheDocument();
+    expect(screen.queryByTestId('kobo-toolbox-form')).not.toBeInTheDocument();
   });
 
-  it('shows ConnectorConfigForm once spec has loaded', async () => {
-    const user = userEvent.setup();
-    mockApiGet.mockImplementation((url: string) => {
-      if (url === '/api/airbyte/source_definitions')
-        return Promise.resolve([createMockDefinition()]);
-      if (url.includes('/specifications'))
-        return Promise.resolve({ connectionSpecification: { type: 'object', properties: {} } });
-      return Promise.resolve(undefined);
+  it('renders the KoboToolbox custom form instead of the generic form', async () => {
+    mockApis({
+      source: createMockSource({ sourceDefinitionId: 'kobo-def', sourceName: 'KoboToolbox' }),
+      definitions: [createMockDefinition({ sourceDefinitionId: 'kobo-def', name: 'KoboToolbox' })],
     });
 
     render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
-    await waitFor(() => expect(screen.getByTestId('combobox-option-def-1')).toBeInTheDocument());
-    await user.click(screen.getByTestId('combobox-option-def-1'));
 
-    await waitFor(() => {
-      expect(screen.getByTestId('connector-config-form')).toBeInTheDocument();
-    });
-  });
-
-  it('enables save button when name, source type, and spec are all present', async () => {
-    const user = userEvent.setup();
-    mockApiGet.mockImplementation((url: string) => {
-      if (url === '/api/airbyte/source_definitions')
-        return Promise.resolve([createMockDefinition()]);
-      if (url.includes('/specifications'))
-        return Promise.resolve({ connectionSpecification: { type: 'object', properties: {} } });
-      return Promise.resolve(undefined);
-    });
-
-    render(<SourceForm {...defaultProps} />, { wrapper: TestWrapper });
-    await waitFor(() => expect(screen.getByTestId('combobox-option-def-1')).toBeInTheDocument());
-
-    await user.type(screen.getByTestId('source-name-input'), 'My New Source');
-    await user.click(screen.getByTestId('combobox-option-def-1'));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('source-save-btn')).not.toBeDisabled();
-    });
+    expect(await screen.findByTestId('kobo-toolbox-form')).toBeInTheDocument();
+    // The generic form must NOT render for a custom source.
+    expect(screen.queryByTestId('connector-config-form')).not.toBeInTheDocument();
   });
 });
