@@ -1,9 +1,14 @@
 /**
  * Tests for the /free-trial/activate set-password page.
  *
- * Covers: token read from the URL, successful submit → apiPublicPost call,
- * stashing creds in sessionStorage, routing to the progress screen,
- * mismatched-confirm validation, and the missing-token error state.
+ * This screen does NOT create the account — it validates the password and hands token +
+ * password to the consent screen via sessionStorage, which is where /trial/activate fires.
+ * (The 400/409 activate-response tests that used to live here moved to the consent screen's
+ * suite along with the call itself.)
+ *
+ * Covers: token read from the URL, the offline password rules, the /trial/validate-password
+ * pre-flight (including its fail-open behaviour), the sessionStorage handoff, the
+ * mismatched-confirm rule, and the missing-token error state.
  */
 
 import type { AnchorHTMLAttributes, ImgHTMLAttributes, ReactNode } from 'react';
@@ -31,8 +36,8 @@ jest.mock('@/lib/analytics', () => ({
   trackFeatureView: (...args: unknown[]) => mockTrackFeatureView(...args),
 }));
 
-// The activate page redirects to the progress screen via a full-page navigation
-// (lib/navigation.hardNavigate → window.location.assign), not router.push — see the page.
+// The activate page moves on via a full-page navigation (lib/navigation.hardNavigate →
+// window.location.assign), not router.push — see the page.
 const mockAssign = jest.fn();
 jest.mock('@/lib/navigation', () => ({
   hardNavigate: (...args: unknown[]) => mockAssign(...args),
@@ -77,11 +82,15 @@ jest.mock('@/components/ui/animated-background-simple', () => ({
 
 import TrialActivatePage from '@/app/free-trial/activate/page';
 
+const VALIDATE_PATH = '/api/v1/public/trial/validate-password';
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockSearchParams = { token: 'good-token' };
   sessionStorage.clear();
   localStorage.clear();
+  // Default: the backend accepts the password. Individual tests override.
+  mockApiPublicPost.mockResolvedValue({ valid: true });
 });
 
 async function fillAndSubmit(password = 'super-secret-1', confirmPassword = password) {
@@ -94,6 +103,10 @@ async function fillAndSubmit(password = 'super-secret-1', confirmPassword = pass
   fireEvent.click(screen.getByTestId('trial-activate-submit-button'));
 }
 
+function readPendingActivation() {
+  return JSON.parse(sessionStorage.getItem('dalgo_trial_pending_activation') || '{}');
+}
+
 describe('TrialActivatePage', () => {
   it('renders the password + confirm password fields plus submit button when a token is present', () => {
     render(<TrialActivatePage />);
@@ -103,25 +116,69 @@ describe('TrialActivatePage', () => {
     expect(screen.getByTestId('trial-activate-submit-button')).toBeInTheDocument();
   });
 
-  it('submits token + password via apiPublicPost, stashes creds, and routes to the progress screen', async () => {
-    mockApiPublicPost.mockResolvedValueOnce({ task_id: 'task-123', email: 'jane@example.org' });
+  it('pre-flights the password against the backend, then hands token + password to the consent screen', async () => {
     render(<TrialActivatePage />);
 
     await fillAndSubmit('super-secret-1', 'super-secret-1');
 
     await waitFor(() => {
-      expect(mockApiPublicPost).toHaveBeenCalledWith('/api/v1/public/trial/activate', {
-        token: 'good-token',
+      expect(mockApiPublicPost).toHaveBeenCalledWith(VALIDATE_PATH, {
         password: 'super-secret-1',
       });
     });
 
-    expect(JSON.parse(sessionStorage.getItem('dalgo_trial_creds') || '{}')).toEqual({
-      email: 'jane@example.org',
+    await waitFor(() => {
+      expect(mockAssign).toHaveBeenCalledWith('/free-trial/consent');
+    });
+    expect(readPendingActivation()).toEqual({
+      token: 'good-token',
       password: 'super-secret-1',
     });
-    expect(mockTrackEvent).toHaveBeenCalledWith('trial:trial_activated');
-    expect(mockAssign).toHaveBeenCalledWith('/free-trial/progress?task_id=task-123');
+  });
+
+  it("shows Django's own reason and does not advance when the backend rejects the password", async () => {
+    // The rule the client can't check offline — CommonPasswordValidator's 20k-word list.
+    mockApiPublicPost.mockRejectedValueOnce(
+      new Error('Public API error: 400 Bad Request - This password is too common.')
+    );
+    render(<TrialActivatePage />);
+
+    await fillAndSubmit('password123', 'password123');
+
+    expect(await screen.findByText('This password is too common.')).toBeInTheDocument();
+    expect(mockAssign).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem('dalgo_trial_pending_activation')).toBeNull();
+  });
+
+  it('rejects a too-short password offline, without calling the backend', async () => {
+    render(<TrialActivatePage />);
+
+    await fillAndSubmit('Ab1!x', 'Ab1!x');
+
+    expect(await screen.findByText('Password must be at least 8 characters')).toBeInTheDocument();
+    expect(mockApiPublicPost).not.toHaveBeenCalled();
+  });
+
+  it('rejects an all-numeric password offline, without calling the backend', async () => {
+    render(<TrialActivatePage />);
+
+    await fillAndSubmit('4831067295', '4831067295');
+
+    expect(await screen.findByText('Password cannot be entirely numbers')).toBeInTheDocument();
+    expect(mockApiPublicPost).not.toHaveBeenCalled();
+  });
+
+  it('falls open and lets the user through when the pre-flight itself fails', async () => {
+    // A 500 / network error means the CHECK broke, not the password. /trial/activate
+    // re-validates server-side, so blocking signup here would be strictly worse.
+    mockApiPublicPost.mockRejectedValueOnce(new Error('Failed to fetch'));
+    render(<TrialActivatePage />);
+
+    await fillAndSubmit('super-secret-1', 'super-secret-1');
+
+    await waitFor(() => {
+      expect(mockAssign).toHaveBeenCalledWith('/free-trial/consent');
+    });
   });
 
   it('shows a validation error and makes no API call when passwords do not match', async () => {
@@ -130,7 +187,7 @@ describe('TrialActivatePage', () => {
     await fillAndSubmit('super-secret-1', 'different-password');
 
     expect(await screen.findByText('Passwords do not match')).toBeInTheDocument();
-    expect(mockApiPublicPost).not.toHaveBeenCalled();
+    expect(mockAssign).not.toHaveBeenCalled();
   });
 
   it('shows an invalid-link error state when the token is missing from the URL', () => {
@@ -139,34 +196,5 @@ describe('TrialActivatePage', () => {
 
     expect(screen.getByTestId('trial-activate-invalid-token')).toBeInTheDocument();
     expect(screen.queryByTestId('trial-activate-password-input')).not.toBeInTheDocument();
-  });
-
-  it('shows an error toast + request-new-link on a 400 (invalid/expired token)', async () => {
-    mockApiPublicPost.mockRejectedValueOnce(new Error('Public API error: 400 Bad Request'));
-    render(<TrialActivatePage />);
-
-    await fillAndSubmit();
-
-    await waitFor(() => {
-      expect(mockToastErrorApi).toHaveBeenCalledWith(
-        expect.any(Error),
-        'This link is invalid or has expired.'
-      );
-    });
-    expect(screen.getByTestId('trial-activate-invalid-token')).toBeInTheDocument();
-  });
-
-  it('shows an info toast + login link on a 409 (account exists / already provisioning)', async () => {
-    mockApiPublicPost.mockRejectedValueOnce(new Error('Public API error: 409 Conflict'));
-    render(<TrialActivatePage />);
-
-    await fillAndSubmit();
-
-    await waitFor(() => {
-      expect(mockToastInfoGeneric).toHaveBeenCalledWith(
-        'This account already exists or is already being set up.'
-      );
-    });
-    expect(mockAssign).not.toHaveBeenCalled();
   });
 });

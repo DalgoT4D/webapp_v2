@@ -38,6 +38,7 @@ import {
   type TourStep,
 } from './tour-constants';
 import { saveTrialWalkthroughFlow } from '@/hooks/api/useTrialWalkthrough';
+import { useSidebarStore } from '@/stores/sidebarStore';
 
 export interface ProductTourHandle {
   /** @param startIndex - step to begin at; non-zero when resuming an interrupted run. */
@@ -535,6 +536,11 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
           await waitForPathname(step.route);
           if (!activeRef.current) return;
         }
+
+        // Every step of this tour rings a sidebar item and pins its popover beside it (see
+        // anchorPopoverToSidebar), so a collapsed sidebar leaves the whole tour hanging off a
+        // column of unlabelled icons. Open it — the tour never collapses it back.
+        useSidebarStore.getState().revealNavItem(step.route);
 
         // Wait for the sidebar link (handles the "Data" submenu needing to auto-expand
         // before its children mount) AND the content wrapper (for the spotlight band).

@@ -1,4 +1,5 @@
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { useSidebarStore } from '@/stores/sidebarStore';
 import { mockApiPut } from '@/test-utils/api';
 import {
   getStoredWalkthroughStage,
@@ -55,6 +56,25 @@ describe('insightWalkthroughStore', () => {
     store().finish();
     expect(store().active).toBe(false);
     expect(hasFinishedWalkthrough('insights')).toBe(true);
+  });
+
+  it('finish() gives the sidebar back — the flow ends on a page that collapsed it', () => {
+    useSidebarStore.setState({ collapsed: true });
+    store().start(ORG_A);
+    store().advanceTo('share_copy_link');
+
+    store().finish();
+
+    expect(useSidebarStore.getState().collapsed).toBe(false);
+  });
+
+  it('skip() gives the sidebar back too', () => {
+    useSidebarStore.setState({ collapsed: true });
+    store().start(ORG_A);
+
+    store().skip();
+
+    expect(useSidebarStore.getState().collapsed).toBe(false);
   });
 
   it('skip() deactivates without marking done', () => {

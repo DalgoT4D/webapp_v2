@@ -23,6 +23,15 @@ import type { TrialActivateResponse } from '@/types/trial';
 const HTTP_STATUS_BAD_REQUEST = 400;
 const HTTP_STATUS_CONFLICT = 409;
 
+// /trial/activate 400s for two unrelated causes — a dead token and a password the Django
+// validators rejected — so the status alone can't pick the message. This is the prefix the
+// backend puts on the second one (ddpui/api/trial_api.py), followed by Django's own reason.
+//
+// This is a BACKSTOP: the activate screen pre-checks the password against the same validators
+// via /trial/validate-password, so a password reaching here should be rare (the user's password
+// went stale in sessionStorage, or the pre-check failed open on a network error).
+const PASSWORD_REJECTED_DETAIL = 'password does not meet requirements';
+
 interface PendingActivation {
   token: string;
   password: string;
@@ -54,6 +63,9 @@ export default function TrialConsentPage() {
   const [pending, setPending] = useState<PendingActivation | null>(null);
   const [agreed, setAgreed] = useState(false);
   const [invalidToken, setInvalidToken] = useState(false);
+  // Django's own reason ("This password is too common.", …) when the server rejects the
+  // password, or null when it hasn't.
+  const [passwordRejection, setPasswordRejection] = useState<string | null>(null);
   const [accountConflict, setAccountConflict] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -88,7 +100,15 @@ export default function TrialConsentPage() {
       hardNavigate(`/free-trial/progress?task_id=${res.task_id}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
-      if (message.includes(String(HTTP_STATUS_BAD_REQUEST))) {
+      if (message.includes(PASSWORD_REJECTED_DETAIL)) {
+        // The token is NOT burned in this case — the backend validates the password before
+        // consuming it — so send the user back to retype rather than telling them to request
+        // a new link. Show Django's reason after the prefix; fall back to a generic line if
+        // the prefix arrived on its own.
+        const reason = message.split(`${PASSWORD_REJECTED_DETAIL}:`)[1]?.trim();
+        setPasswordRejection(reason || 'That password does not meet our requirements.');
+        toastError.api(error, 'That password was rejected. Please choose a different one.');
+      } else if (message.includes(String(HTTP_STATUS_BAD_REQUEST))) {
         setInvalidToken(true);
         toastError.api(error, 'This link is invalid or has expired.');
       } else if (message.includes(String(HTTP_STATUS_CONFLICT))) {
@@ -116,6 +136,23 @@ export default function TrialConsentPage() {
         title="How we handle your trial data"
         subtitle="A few things to know while we set up your workspace."
       />
+
+      {passwordRejection && (
+        <div
+          className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200"
+          data-testid="trial-consent-password-rejected"
+        >
+          {passwordRejection}{' '}
+          <a
+            href={`/free-trial/activate?token=${encodeURIComponent(pending.token)}`}
+            className="font-medium underline hover:no-underline"
+            data-testid="trial-consent-change-password-link"
+          >
+            Choose a different password
+          </a>
+          {' — '}your link is still valid.
+        </div>
+      )}
 
       {invalidToken && (
         <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">

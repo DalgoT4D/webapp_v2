@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useSidebarStore } from '@/stores/sidebarStore';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { saveTrialWalkthroughFlow } from '@/hooks/api/useTrialWalkthrough';
@@ -286,6 +287,10 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   setTargetNodeId: (nodeId) => set({ targetNodeId: nodeId }),
 
   skip: () => {
+    // Both flows end on a page that collapsed the sidebar on arrival (a saved dashboard, the
+    // canvas), and nothing else ever expands it again. Whether they finished or quit, the user
+    // is now on their own and needs the labelled menu back to find anything.
+    useSidebarStore.getState().setCollapsed(false);
     const { orgSlug, stage, flow } = get();
     if (orgSlug && flow) {
       clearWalkthroughState(flow);
@@ -307,6 +312,8 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   },
 
   finish: () => {
+    // See skip() — the flow ends on a collapsed page and the menu has to come back.
+    useSidebarStore.getState().setCollapsed(false);
     const { orgSlug, flow } = get();
     if (orgSlug && flow) {
       clearWalkthroughState(flow);

@@ -2,6 +2,7 @@ import React from 'react';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { useSidebarStore } from '@/stores/sidebarStore';
 import { InsightWalkthroughCoachmark } from '../insight-walkthrough-coachmark';
 import type { WalkthroughStage } from '../insight-walkthrough-constants';
 
@@ -59,6 +60,7 @@ describe('InsightWalkthroughCoachmark', () => {
     window.history.pushState({}, '', '/kpis');
     localStorage.clear();
     document.body.innerHTML = '';
+    useSidebarStore.setState({ collapsed: false, expandedMenus: {}, parentMenuByHref: {} });
     setStage('kpi_intro');
   });
 
@@ -486,6 +488,55 @@ describe('InsightWalkthroughCoachmark', () => {
       await waitFor(() =>
         expect(useInsightWalkthroughStore.getState().stage).toBe('pipeline_orchestrate_intro')
       );
+    });
+  });
+
+  describe('sidebar-anchored stages', () => {
+    // Every one of these fires at a hand-off, and by then the user is standing on a page that
+    // collapsed the sidebar to the icon rail on arrival. Nothing else ever expands it again.
+    it('opens the collapsed sidebar and the Data submenu for the Transform nudge', async () => {
+      mockPathname = '/transform/canvas';
+      window.history.pushState({}, '', '/transform/canvas');
+      useSidebarStore.setState({ collapsed: true, parentMenuByHref: { '/transform': 'Data' } });
+      mountLink('/transform');
+      setStage('pipeline_transform_intro', {
+        path: 'automate_pipeline',
+        flow: 'automate_pipeline',
+      });
+
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(useSidebarStore.getState().collapsed).toBe(false));
+      expect(useSidebarStore.getState().expandedMenus.Data).toBe(true);
+    });
+
+    it('opens the collapsed sidebar for the Orchestrate nudge', async () => {
+      mockPathname = '/transform/canvas';
+      window.history.pushState({}, '', '/transform/canvas');
+      useSidebarStore.setState({ collapsed: true, parentMenuByHref: { '/orchestrate': 'Data' } });
+      mountLink('/orchestrate');
+      setStage('pipeline_orchestrate_nudge', {
+        path: 'automate_pipeline',
+        flow: 'automate_pipeline',
+      });
+
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(useSidebarStore.getState().collapsed).toBe(false));
+      expect(useSidebarStore.getState().expandedMenus.Data).toBe(true);
+    });
+
+    it('leaves the sidebar alone for a stage anchored inside the page', async () => {
+      // Only the nav-item stages touch it: a builder or canvas step wants the width, and
+      // opening the menu under someone mid-edit would be the walkthrough moving their layout.
+      useSidebarStore.setState({ collapsed: true });
+      mountTarget('create-kpi-btn');
+      setStage('kpi_intro');
+
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(popoverTitle()).toContain('Track your targets'));
+      expect(useSidebarStore.getState().collapsed).toBe(true);
     });
   });
 

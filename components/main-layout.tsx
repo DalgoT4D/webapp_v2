@@ -33,6 +33,7 @@ import PipelineOverviewIcon from '@/assets/icons/pipeline-overview';
 import OrchestrateIcon from '@/assets/icons/orchestrate';
 import { Header } from './header';
 import { useAuthStore } from '@/stores/authStore';
+import { useSidebarStore } from '@/stores/sidebarStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { TransformTypeEnum as TransformType, useTransformType } from '@/hooks/api/useTransform';
 import Image from 'next/image';
@@ -502,11 +503,20 @@ function MobileNavItem({
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  // Collapse and per-menu open/closed both live in the sidebar store rather than in local
+  // state: the trial walkthrough opens the menu from outside this component when a coachmark
+  // is anchored to a nav item (see stores/sidebarStore.ts). Everything below still drives them
+  // exactly as it did — this component remains the only thing that ever COLLAPSES the sidebar.
+  const isSidebarCollapsed = useSidebarStore((s) => s.collapsed);
+  const setIsSidebarCollapsed = useSidebarStore((s) => s.setCollapsed);
+  const toggleSidebarCollapsed = useSidebarStore((s) => s.toggleCollapsed);
   // Explicit open/closed state per parent menu. `undefined` means "follow the path" (fallback
   // to hasActiveChild). Once set (auto on subtree entry, or manually via the chevron), the
   // state persists — navigating out of a subtree does NOT auto-close the parent.
-  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
+  const expandedMenus = useSidebarStore((s) => s.expandedMenus);
+  const openMenus = useSidebarStore((s) => s.openMenus);
+  const setMenuExpanded = useSidebarStore((s) => s.setMenuExpanded);
+  const registerParentMenus = useSidebarStore((s) => s.registerParentMenus);
   const responsive = useResponsiveLayout();
   const { currentOrg } = useAuthStore();
   const { role } = useRbac();
@@ -523,25 +533,31 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
   // Auto-open a parent's submenu when the current path enters its subtree. Never auto-closes.
   useEffect(() => {
-    setExpandedMenus((prev) => {
-      let next = prev;
-      for (const item of navItems) {
-        if (item.children && hasActiveChild(item) && !next[item.title]) {
-          next = { ...next, [item.title]: true };
-        }
-      }
-      return next;
-    });
+    openMenus(navItems.filter((item) => item.children && hasActiveChild(item)).map((i) => i.title));
     // navItems is recomputed each render from the same inputs; depending on pathname is sufficient.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [pathname, openMenus]);
+
+  // Publish "which parent owns this child href" for anything that needs to open the menu from
+  // outside the layout — the walkthrough coachmarks anchored to /ingest, /transform and
+  // /orchestrate, which are Data's children and aren't rendered at all while Data is closed.
+  useEffect(() => {
+    const map: Record<string, string> = {};
+    for (const item of navItems) {
+      for (const child of item.children ?? []) {
+        if (!child.hide) map[child.href] = item.title;
+      }
+    }
+    registerParentMenus(map);
+    // Same as above: navItems is derived from pathname and the memo-stable hook values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, registerParentMenus]);
 
   const getMenuExpanded = (item: NavItemType): boolean =>
     expandedMenus[item.title] ?? hasActiveChild(item);
 
   const toggleMenuExpansion = (item: NavItemType) => {
-    const current = getMenuExpanded(item);
-    setExpandedMenus((prev) => ({ ...prev, [item.title]: !current }));
+    setMenuExpanded(item.title, !getMenuExpanded(item));
   };
 
   // Auto-collapse sidebar on specific dashboard/chart pages
@@ -564,7 +580,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     if (shouldAutoCollapse) {
       setIsSidebarCollapsed(true);
     }
-  }, [pathname]);
+  }, [pathname, setIsSidebarCollapsed]);
 
   // Determine if sidebar should be shown based on screen size
   const shouldShowDesktopSidebar = responsive.isDesktop;
@@ -601,7 +617,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                onClick={toggleSidebarCollapsed}
                 className={cn(
                   'h-6 w-6 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200/60 shadow-sm hover:bg-white hover:shadow-md transition-all duration-200',
                   'text-gray-400 hover:text-gray-600',

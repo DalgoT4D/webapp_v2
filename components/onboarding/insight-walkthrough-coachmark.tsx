@@ -18,6 +18,7 @@ import { driver, type Driver, type Popover } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import './tour.css';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { useSidebarStore } from '@/stores/sidebarStore';
 import {
   getResumeAnchorStage,
   INGEST_STAGES,
@@ -139,6 +140,32 @@ function waitForDropdownsClosed(timeout = DROPDOWN_CLOSE_TIMEOUT_MS): Promise<vo
     };
     tick();
   });
+}
+
+/**
+ * A stage whose target IS a sidebar nav link — `dashboard_nudge`, `sync_failed`, `chart_intro`,
+ * `chart_dashboard_nudge`, `pipeline_ingest_nudge`, `pipeline_transform_intro`,
+ * `pipeline_orchestrate_nudge`. Matched off the selector rather than carried as a separate
+ * StageConfig flag so the two can't disagree.
+ */
+const SIDEBAR_LINK_SELECTOR = /^a\[href="([^"]+)"\]$/;
+
+/**
+ * Open the sidebar when this stage points at a nav item, and leave it open.
+ *
+ * These stages all fire at a hand-off — "your sync finished, now go to Transform", "you've
+ * published, now go to Orchestrate", "your chart is saved, now go to Dashboards" — and by then
+ * the user is usually standing on a page that collapsed the sidebar to the icon rail on arrival
+ * (/charts/new, /dashboards/create, /transform/canvas, a saved dashboard). Nothing ever expands
+ * it again, so the coachmark either pointed at an unlabelled 40px icon or, for the three Data
+ * children, waited out its 30s timeout on a link that isn't rendered while Data is closed.
+ *
+ * Deliberately one-way: the walkthrough never collapses the sidebar, so the per-page
+ * auto-collapse still behaves exactly as it always did once the user moves on into a builder.
+ */
+function revealSidebarTarget(selector: string): void {
+  const href = selector.match(SIDEBAR_LINK_SELECTOR)?.[1];
+  if (href) useSidebarStore.getState().revealNavItem(href);
 }
 
 /** Resolve when `selector` is in the DOM, or after `timeout` ms (returns the el or null). */
@@ -979,6 +1006,9 @@ export function InsightWalkthroughCoachmark(): null {
         const resolvedSelector =
           typeof config.selector === 'function' ? config.selector() : config.selector;
         if (!resolvedSelector) return;
+        // Before the wait, not after: for a target inside the Data submenu the link doesn't
+        // exist in the DOM until this opens the menu, so waiting first would time out.
+        revealSidebarTarget(resolvedSelector);
         const el = await waitForElement(
           resolvedSelector,
           config.nextOnInteraction ? HINT_TARGET_TIMEOUT_MS : undefined

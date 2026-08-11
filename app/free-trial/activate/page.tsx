@@ -11,7 +11,7 @@ import { TrialCenteredCard } from '@/app/free-trial/_components/TrialCenteredCar
 import { TrialNoticeCard } from '@/app/free-trial/_components/TrialNoticeCard';
 import { TrialBrandHeader } from '@/app/free-trial/_components/TrialBrandHeader';
 import { TrialField } from '@/app/free-trial/_components/TrialField';
-import { validateTrialPassword } from '@/app/free-trial/_lib/utils';
+import { checkTrialPasswordWithBackend } from '@/app/free-trial/_lib/utils';
 import { hardNavigate } from '@/lib/navigation';
 import { TRIAL_PENDING_ACTIVATION_KEY } from '@/constants/trial';
 
@@ -97,10 +97,12 @@ function ActivateFormCard() {
                 data-testid="trial-activate-password-input"
                 {...register('password', {
                   required: 'Password is required',
-                  // Mirrors the three Django validators that actually run server-side, so a
-                  // weak password is caught here rather than coming back as a 400 that is
-                  // indistinguishable from an expired link.
-                  validate: (value) => validateTrialPassword(value) ?? true,
+                  // Checks the password against the SAME Django validators /trial/activate
+                  // runs — the cheap rules locally, the rest via the backend pre-flight. The
+                  // rules can't drift, and a weak password is reported here with Django's own
+                  // reason instead of coming back one screen later as an activate 400 that
+                  // looks identical to an expired link.
+                  validate: async (value) => (await checkTrialPasswordWithBackend(value)) ?? true,
                 })}
               />
               <Button

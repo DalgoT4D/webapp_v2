@@ -139,6 +139,11 @@ export const TRIAL_HARD_TIMEOUT_SECONDS = 420;
 // Public backend endpoints (unauthenticated — via apiPublicPost/apiPublicGet)
 export const TRIAL_SIGNUP_PATH = '/api/v1/public/trial/signup';
 export const TRIAL_ACTIVATE_PATH = '/api/v1/public/trial/activate';
+// Pre-flight password check for the activate form. Runs Django's AUTH_PASSWORD_VALIDATORS and
+// nothing else — stateless, token-free, creates no account. Exists because one of those
+// validators (CommonPasswordValidator) needs a 20k-word list the browser can't reasonably carry,
+// so the only way to report a weak password ON the password form is to ask the backend.
+export const TRIAL_VALIDATE_PASSWORD_PATH = '/api/v1/public/trial/validate-password';
 export const TRIAL_STATUS_PATH = '/api/v1/public/trial/status';
 // Re-run a failed clone under the SAME task_id — no re-signup / re-verify / re-password. The
 // backend kept the person (email + password + verified) when it tore down the failed attempt.

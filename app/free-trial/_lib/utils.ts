@@ -2,17 +2,24 @@
 // edge-case logic (step derivation, password rules, storage guards) is directly
 // unit-testable — see __tests__/utils.test.ts.
 
-import { BACKEND_STEP_TO_DISPLAY_INDEX, TRIAL_STEP_LABELS } from '@/constants/trial';
-import { TRIAL_COMMON_PASSWORDS, TRIAL_PASSWORD_MIN_LENGTH } from './constants';
+import {
+  BACKEND_STEP_TO_DISPLAY_INDEX,
+  TRIAL_STEP_LABELS,
+  TRIAL_VALIDATE_PASSWORD_PATH,
+} from '@/constants/trial';
+import { apiPublicPost } from '@/lib/api';
+import { TRIAL_PASSWORD_MIN_LENGTH } from './constants';
 import type { TrialProgressStep } from '@/types/trial';
 
 /**
- * Client-side stand-in for the three Django validators that actually run on
- * `/trial/activate`. Note the backend calls `validate_password(password)` with NO
- * user object, so `UserAttributeSimilarityValidator` returns early and never fires —
- * only length, all-numeric, and common-password are live.
+ * The two Django validators we can check offline: length and all-numeric.
  *
- * Returns the message to show, or null when the password passes.
+ * The backend calls `validate_password(password)` with NO user object, so
+ * `UserAttributeSimilarityValidator` returns early and never fires. The only other live
+ * validator is `CommonPasswordValidator`, which needs Django's 20,000-word list — that one
+ * is checked by asking the backend (`checkTrialPasswordWithBackend`).
+ *
+ * Returns the message to show, or null when the password clears these two rules.
  */
 export function validateTrialPassword(password: string): string | null {
   if (password.length < TRIAL_PASSWORD_MIN_LENGTH) {
@@ -21,10 +28,48 @@ export function validateTrialPassword(password: string): string | null {
   if (/^\d+$/.test(password)) {
     return 'Password cannot be entirely numbers';
   }
-  if (TRIAL_COMMON_PASSWORDS.has(password.toLowerCase())) {
-    return 'This password is too common. Please choose a different one';
-  }
   return null;
+}
+
+// Matches the Error `apiPublicPost` throws: `Public API error: <status> <statusText> - <detail>`.
+const PUBLIC_API_ERROR_PATTERN = /^Public API error: (\d{3})[^-]*(?: - (.*))?$/s;
+
+/**
+ * Pull a REJECTION reason out of an `apiPublicPost` error — i.e. Django's own message on a 400.
+ *
+ * Only 400 counts. A 500 or a network failure means the check itself broke, not that the
+ * password is bad, and surfacing that as a password error would tell the user to change a
+ * password that may be perfectly fine. Those return null so the caller falls open.
+ */
+function passwordRejectionReason(error: unknown): string | null {
+  const message = error instanceof Error ? error.message : '';
+  const match = PUBLIC_API_ERROR_PATTERN.exec(message);
+  if (!match || match[1] !== '400') return null;
+  return match[2]?.trim() || null;
+}
+
+/**
+ * Ask the backend to run the real `AUTH_PASSWORD_VALIDATORS` against this password.
+ *
+ * Runs the offline rules first so an obviously-short password costs no round-trip, then hits
+ * `/trial/validate-password` for the rest (in practice: the common-password list). Returns
+ * Django's own message so the user is told exactly which rule they broke, or null when the
+ * password passes.
+ *
+ * Fails OPEN — a network error, a 500, or a 400 with no detail all return null and let the
+ * user continue. `/trial/activate` re-validates server-side and is the actual gate; blocking
+ * signup here because a UX pre-check couldn't reach the server would be strictly worse.
+ */
+export async function checkTrialPasswordWithBackend(password: string): Promise<string | null> {
+  const offlineError = validateTrialPassword(password);
+  if (offlineError) return offlineError;
+
+  try {
+    await apiPublicPost(TRIAL_VALIDATE_PASSWORD_PATH, { password });
+    return null;
+  } catch (error) {
+    return passwordRejectionReason(error);
+  }
 }
 
 // Webmail inboxes we can deep-link into, keyed by email domain. Deliberately small:
