@@ -53,6 +53,7 @@ import { CreateSnapshotDialog } from '@/components/reports/create-snapshot-dialo
 import { formatCreatedOn } from '@/components/reports/utils';
 import { ReportShareMenu } from '@/components/reports/report-share-menu';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { AccessBadge } from '@/components/ui/access-badge';
 
 // Debounce delay in ms before sending filter to API
 const FILTER_DEBOUNCE_MS = 400;
@@ -578,9 +579,12 @@ export default function ReportsPage() {
                           onClick={() => router.push(`/reports/${snapshot.id}`)}
                         >
                           <TableCell className="py-4">
-                            <span className="font-medium text-lg text-gray-900">
-                              {snapshot.title}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-lg text-gray-900">
+                                {snapshot.title}
+                              </span>
+                              <AccessBadge level={snapshot.access_level} />
+                            </div>
                           </TableCell>
                           <TableCell className="py-4 text-base text-gray-700">
                             {snapshot.dashboard_title || '—'}
@@ -605,7 +609,7 @@ export default function ReportsPage() {
                               className="flex items-center gap-2"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              {hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS) && (
+                              {snapshot.access_level === 'edit' && (
                                 <ReportShareMenu
                                   snapshotId={snapshot.id}
                                   reportTitle={snapshot.title}
@@ -631,7 +635,7 @@ export default function ReportsPage() {
                                     <FileText className="h-4 w-4 mr-2" />
                                     View Report
                                   </DropdownMenuItem>
-                                  {canDelete && (
+                                  {canDelete && snapshot.access_level === 'edit' && (
                                     <DropdownMenuItem
                                       data-testid={`report-delete-${snapshot.id}`}
                                       onClick={() => handleDelete(snapshot)}

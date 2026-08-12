@@ -45,6 +45,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
+import { AccessBadge } from '@/components/ui/access-badge';
 // import {
 //   Command,
 //   CommandEmpty,
@@ -97,6 +98,14 @@ import {
   updateDashboardSharing,
 } from '@/hooks/api/useDashboards';
 import { ShareModal } from '@/components/ui/share-modal';
+import { bulkAddGrant } from '@/hooks/api/useAccess';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -160,6 +169,13 @@ export function DashboardListV2() {
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [selectedDashboard, setSelectedDashboard] = useState<any>(null);
+  // Bulk selection state
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedDashboards, setSelectedDashboards] = useState<Set<number>>(new Set());
+  const [bulkShareOpen, setBulkShareOpen] = useState(false);
+  const [bulkShareEmail, setBulkShareEmail] = useState('');
+  const [bulkShareLevel, setBulkShareLevel] = useState<'view' | 'edit'>('view');
+  const [isBulkSharing, setIsBulkSharing] = useState(false);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -483,6 +499,43 @@ export function DashboardListV2() {
     mutate(); // Refresh the dashboard list
   }, [mutate]);
 
+  // Bulk selection helpers
+  const exitSelectionMode = useCallback(() => {
+    setIsSelectionMode(false);
+    setSelectedDashboards(new Set());
+  }, []);
+
+  const toggleDashboardSelection = useCallback((id: number) => {
+    setSelectedDashboards((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleBulkShare = useCallback(async () => {
+    if (!bulkShareEmail.trim() || selectedDashboards.size === 0) return;
+    setIsBulkSharing(true);
+    try {
+      const { shared, skipped } = await bulkAddGrant('dashboard', Array.from(selectedDashboards), {
+        pending_grants: [{ email: bulkShareEmail.trim(), access_level: bulkShareLevel }],
+      });
+      const msg =
+        skipped > 0
+          ? `Shared ${shared} dashboard${shared !== 1 ? 's' : ''}, skipped ${skipped} (no edit access)`
+          : `Shared ${shared} dashboard${shared !== 1 ? 's' : ''} successfully`;
+      toastSuccess.generic(msg);
+      setBulkShareOpen(false);
+      setBulkShareEmail('');
+      setBulkShareLevel('view');
+    } catch {
+      toastError.api(null, 'Failed to share dashboards');
+    } finally {
+      setIsBulkSharing(false);
+    }
+  }, [bulkShareEmail, bulkShareLevel, selectedDashboards]);
+
   // Landing page handlers
   const handleSetPersonalLanding = useCallback(
     async (dashboardId: number) => {
@@ -800,28 +853,39 @@ export function DashboardListV2() {
         {/* Name Column with Star */}
         <TableCell className="py-4">
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 p-0 hover:bg-yellow-50"
-              onClick={(e) => {
-                e.preventDefault();
-                handleToggleFavorite(dashboard.id);
-              }}
-            >
-              {isFavorited ? (
-                <Star className="w-4 h-4 text-yellow-500 fill-current" />
-              ) : (
-                <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400" />
-              )}
-            </Button>
-            <div className="flex flex-col">
-              <Link
-                href={getNavigationUrl()}
-                className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
+            {isSelectionMode ? (
+              <Checkbox
+                checked={selectedDashboards.has(dashboard.id)}
+                onCheckedChange={() => toggleDashboardSelection(dashboard.id)}
+                className="h-5 w-5"
+              />
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 p-0 hover:bg-yellow-50"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleToggleFavorite(dashboard.id);
+                }}
               >
-                {dashboard.title || dashboard.dashboard_title}
-              </Link>
+                {isFavorited ? (
+                  <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                ) : (
+                  <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400" />
+                )}
+              </Button>
+            )}
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <Link
+                  href={getNavigationUrl()}
+                  className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
+                >
+                  {dashboard.title || dashboard.dashboard_title}
+                </Link>
+                <AccessBadge level={dashboard.access_level} />
+              </div>
               {(isPersonalLanding || isOrgDefault || isLocked) && (
                 <div className="flex items-center gap-2 mt-1">
                   {isPersonalLanding && (
@@ -1623,15 +1687,47 @@ export function DashboardListV2() {
             </p>
           </div>
 
-          {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
-            <Link id="dashboard-create-link" href="/dashboards/create">
-              <Button id="dashboard-create-button" variant="primary">
-                <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
-                CREATE DASHBOARD
+          <div className="flex items-center gap-2">
+            {hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS) && !isSelectionMode && (
+              <Button variant="outline" size="sm" onClick={() => setIsSelectionMode(true)}>
+                <Share2 className="w-4 h-4 mr-2" />
+                Bulk Share
               </Button>
-            </Link>
-          )}
+            )}
+            {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
+              <Link id="dashboard-create-link" href="/dashboards/create">
+                <Button id="dashboard-create-button" variant="primary">
+                  <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
+                  CREATE DASHBOARD
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
+
+        {/* Bulk action bar */}
+        {isSelectionMode && (
+          <div className="flex items-center justify-between px-6 py-3 bg-blue-50 border-b border-blue-200">
+            <div className="flex items-center gap-3">
+              <button onClick={exitSelectionMode} className="p-1 hover:bg-blue-100 rounded">
+                <X className="w-4 h-4 text-blue-600" />
+              </button>
+              <span className="text-sm font-medium text-blue-900">
+                {selectedDashboards.size} dashboard{selectedDashboards.size !== 1 ? 's' : ''}{' '}
+                selected
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBulkShareOpen(true)}
+              disabled={selectedDashboards.size === 0}
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Share ({selectedDashboards.size})
+            </Button>
+          </div>
+        )}
 
         {/* Filter Summary - Only shows when filters are active to save space */}
         {getActiveFilterCount() > 0 && (
@@ -2035,6 +2131,71 @@ export function DashboardListV2() {
           updateSharing={updateDashboardSharing}
         />
       )}
+
+      {/* Bulk Share Dialog */}
+      <Dialog
+        open={bulkShareOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBulkShareOpen(false);
+            setBulkShareEmail('');
+            setBulkShareLevel('view');
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Share {selectedDashboards.size} Dashboard{selectedDashboards.size !== 1 ? 's' : ''}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="bulk-dash-share-email">Email address</Label>
+              <Input
+                id="bulk-dash-share-email"
+                type="email"
+                placeholder="user@example.com"
+                value={bulkShareEmail}
+                onChange={(e) => setBulkShareEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Access level</Label>
+              <Select
+                value={bulkShareLevel}
+                onValueChange={(v) => setBulkShareLevel(v as 'view' | 'edit')}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="view">Can view</SelectItem>
+                  <SelectItem value="edit">Can edit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-gray-500">
+              Dashboards where you don&apos;t have edit access will be skipped.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setBulkShareOpen(false);
+                setBulkShareEmail('');
+                setBulkShareLevel('view');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleBulkShare} disabled={!bulkShareEmail.trim() || isBulkSharing}>
+              {isBulkSharing ? 'Sharing…' : 'Share'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

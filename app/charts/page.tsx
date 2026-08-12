@@ -72,6 +72,15 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
+import { AccessBadge } from '@/components/ui/access-badge';
+import { bulkAddGrant } from '@/hooks/api/useAccess';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 const chartIcons = {
   bar: BarChart2,
@@ -118,6 +127,10 @@ export default function ChartsPage() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedCharts, setSelectedCharts] = useState<Set<number>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkShareOpen, setBulkShareOpen] = useState(false);
+  const [bulkShareEmail, setBulkShareEmail] = useState('');
+  const [bulkShareLevel, setBulkShareLevel] = useState<'view' | 'edit'>('view');
+  const [isBulkSharing, setIsBulkSharing] = useState(false);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -521,6 +534,28 @@ export default function ChartsPage() {
     exitSelectionMode,
   ]);
 
+  const handleBulkShare = useCallback(async () => {
+    if (!bulkShareEmail.trim() || selectedCharts.size === 0) return;
+    setIsBulkSharing(true);
+    try {
+      const { shared, skipped } = await bulkAddGrant('chart', Array.from(selectedCharts), {
+        pending_grants: [{ email: bulkShareEmail.trim(), access_level: bulkShareLevel }],
+      });
+      const msg =
+        skipped > 0
+          ? `Shared ${shared} chart${shared !== 1 ? 's' : ''}, skipped ${skipped} (no edit access)`
+          : `Shared ${shared} chart${shared !== 1 ? 's' : ''} successfully`;
+      toastSuccess.generic(msg);
+      setBulkShareOpen(false);
+      setBulkShareEmail('');
+      setBulkShareLevel('view');
+    } catch {
+      toastError.api(null, 'Failed to share charts');
+    } finally {
+      setIsBulkSharing(false);
+    }
+  }, [bulkShareEmail, bulkShareLevel, selectedCharts]);
+
   // Render sort icon for table headers
   const renderSortIcon = (column: 'title' | 'updated_at' | 'chart_type' | 'data_source') => {
     if (sortBy !== column) {
@@ -832,13 +867,16 @@ export default function ChartsPage() {
                 <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400" />
               )}
             </Button>
-            <div className="flex flex-col">
-              <Link
-                href={hasPermission(PERMISSIONS.CAN_VIEW_CHARTS) ? `/charts/${chart.id}` : '#'}
-                className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
-              >
-                {chart.title}
-              </Link>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <Link
+                  href={hasPermission(PERMISSIONS.CAN_VIEW_CHARTS) ? `/charts/${chart.id}` : '#'}
+                  className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
+                >
+                  {chart.title}
+                </Link>
+                <AccessBadge level={chart.access_level} />
+              </div>
             </div>
           </div>
         </TableCell>
@@ -893,14 +931,14 @@ export default function ChartsPage() {
         {/* Actions Column */}
         <TableCell className="py-4">
           <div className="flex items-center gap-2">
-            {hasPermission(PERMISSIONS.CAN_EDIT_CHARTS) && (
+            {chart.access_level === 'edit' && (
               <Link href={`/charts/${chart.id}/edit`}>
                 <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
                   <Edit className="w-4 h-4 text-gray-600" />
                 </Button>
               </Link>
             )}
-            {hasPermission(PERMISSIONS.CAN_SHARE_CHARTS) && (
+            {chart.access_level === 'edit' && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -1079,21 +1117,32 @@ export default function ChartsPage() {
               </div>
             </div>
 
-            {hasPermission(PERMISSIONS.CAN_DELETE_CHARTS) && (
+            <div className="flex gap-2">
               <Button
-                variant="destructive"
+                variant="outline"
                 size="sm"
-                onClick={handleBulkDelete}
-                disabled={selectedCharts.size === 0 || isBulkDeleting}
+                onClick={() => setBulkShareOpen(true)}
+                disabled={selectedCharts.size === 0}
               >
-                {isBulkDeleting ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                ) : (
-                  <Trash className="w-4 h-4 mr-2" />
-                )}
-                Delete {selectedCharts.size > 0 ? `(${selectedCharts.size})` : ''}
+                <Share2 className="w-4 h-4 mr-2" />
+                Share {selectedCharts.size > 0 ? `(${selectedCharts.size})` : ''}
               </Button>
-            )}
+              {hasPermission(PERMISSIONS.CAN_DELETE_CHARTS) && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={selectedCharts.size === 0 || isBulkDeleting}
+                >
+                  {isBulkDeleting ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  ) : (
+                    <Trash className="w-4 h-4 mr-2" />
+                  )}
+                  Delete {selectedCharts.size > 0 ? `(${selectedCharts.size})` : ''}
+                </Button>
+              )}
+            </div>
           </div>
         )}
 
@@ -1456,6 +1505,71 @@ export default function ChartsPage() {
           onClose={handleShareModalClose}
         />
       )}
+
+      {/* Bulk Share Dialog */}
+      <Dialog
+        open={bulkShareOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBulkShareOpen(false);
+            setBulkShareEmail('');
+            setBulkShareLevel('view');
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Share {selectedCharts.size} Chart{selectedCharts.size !== 1 ? 's' : ''}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="bulk-share-email">Email address</Label>
+              <Input
+                id="bulk-share-email"
+                type="email"
+                placeholder="user@example.com"
+                value={bulkShareEmail}
+                onChange={(e) => setBulkShareEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Access level</Label>
+              <Select
+                value={bulkShareLevel}
+                onValueChange={(v) => setBulkShareLevel(v as 'view' | 'edit')}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="view">Can view</SelectItem>
+                  <SelectItem value="edit">Can edit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-gray-500">
+              Charts where you don&apos;t have edit access will be skipped.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setBulkShareOpen(false);
+                setBulkShareEmail('');
+                setBulkShareLevel('view');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleBulkShare} disabled={!bulkShareEmail.trim() || isBulkSharing}>
+              {isBulkSharing ? 'Sharing…' : 'Share'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

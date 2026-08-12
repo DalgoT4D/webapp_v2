@@ -75,6 +75,7 @@ export interface KPI {
   created_by?: string; // creator's email
   created_at: string;
   updated_at: string;
+  access_level?: 'view' | 'edit';
 }
 
 export interface KPICreate {

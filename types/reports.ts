@@ -19,6 +19,7 @@ export interface ReportSnapshot {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  access_level?: 'view' | 'edit';
 }
 
 export interface FrozenChartConfig {

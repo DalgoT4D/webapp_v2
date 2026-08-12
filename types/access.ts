@@ -3,8 +3,13 @@ export type PrincipalType = 'user' | 'group';
 export type ShareRowKind = 'user' | 'group' | 'invitation';
 export type ShareRowStatus = 'active' | 'pending';
 
+export interface CascadeSource {
+  dashboard_id: number;
+  dashboard_title: string;
+}
+
 export interface ShareRow {
-  share_id: number;
+  share_id: number | null;
   principal_type: ShareRowKind;
   principal_id: number | null;
   email: string | null;
@@ -12,6 +17,7 @@ export interface ShareRow {
   role_or_group: string | null;
   access_level: AccessLevel;
   status: ShareRowStatus;
+  cascade_sources: CascadeSource[];
 }
 
 export interface PrincipalGrantPayload {

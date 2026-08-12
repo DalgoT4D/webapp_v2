@@ -120,8 +120,14 @@ export function RolesTab() {
     },
   ];
 
+  const LEVEL_RANK: Record<Level, number> = { no_access: 0, view: 1, edit: 2 };
+
   const handleResourceChange = (role: string, level: Level) => {
-    if (role === 'Analysts') setAnalystLevel(level);
+    if (role === 'Analysts') {
+      setAnalystLevel(level);
+      // Clamp member floor if it would exceed new analyst floor
+      if (LEVEL_RANK[memberLevel] > LEVEL_RANK[level]) setMemberLevel(level);
+    }
     if (role === 'Members') setMemberLevel(level);
   };
 
@@ -168,9 +174,15 @@ export function RolesTab() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="no_access">{LEVEL_LABEL.no_access}</SelectItem>
-                          <SelectItem value="view">{LEVEL_LABEL.view}</SelectItem>
-                          <SelectItem value="edit">{LEVEL_LABEL.edit}</SelectItem>
+                          {(['no_access', 'view', 'edit'] as Level[]).map((lvl) => {
+                            const disabled =
+                              row.role === 'Members' && LEVEL_RANK[lvl] > LEVEL_RANK[analystLevel];
+                            return (
+                              <SelectItem key={lvl} value={lvl} disabled={disabled}>
+                                {LEVEL_LABEL[lvl]}
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                     ) : (

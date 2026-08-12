@@ -5,6 +5,7 @@ import { copyUrlToClipboard } from '@/lib/clipboard';
 import {
   AlertTriangle,
   Copy,
+  Lock,
   Loader2,
   Mail,
   Send,
@@ -32,6 +33,10 @@ import {
 } from '@/components/ui/select';
 import { toastError, toastSuccess } from '@/lib/toast';
 import {
+  respondToAccessRequest,
+  toggleResourcePrivate,
+  transferOwnership,
+  useAccessRequests,
   usePeople,
   useResourceGrantActions,
   useResourceGrants,
@@ -40,6 +45,8 @@ import {
 import { useRoles } from '@/hooks/api/useUserManagement';
 import type { AccessLevel, PrincipalType, ShareRow } from '@/types/access';
 import type { ShareStatus } from '@/types/reports';
+import { useAuthStore } from '@/stores/authStore';
+import { ADMIN_ROLES } from '@/lib/rbac';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_RECIPIENTS = 20;
@@ -73,6 +80,8 @@ interface ShareModalProps {
     recipient_emails: string[];
     message?: string;
   }) => Promise<{ recipients_count: number; message: string }>;
+  /** Private toggle — when true, resource is hidden from org floor access. */
+  initialIsPrivate?: boolean;
 }
 
 export function ShareModal({
@@ -86,6 +95,7 @@ export function ShareModal({
   getShareStatus,
   updateSharing,
   onShareViaEmail,
+  initialIsPrivate = false,
 }: ShareModalProps) {
   const entityLabelLower = entityLabel.toLowerCase();
 
@@ -93,7 +103,20 @@ export function ShareModal({
   const { people } = usePeople();
   const { groups } = useUserGroups();
   const { roles } = useRoles();
-  const { shares, mutate: mutateGrants } = useResourceGrants(
+  const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
+  const currentOrgUser = getCurrentOrgUser();
+  const isAdmin = currentOrgUser
+    ? ADMIN_ROLES.includes(currentOrgUser.new_role_slug as (typeof ADMIN_ROLES)[number])
+    : false;
+
+  const {
+    shares,
+    callerIsOwner,
+    mutate: mutateGrants,
+  } = useResourceGrants(isOpen && rtype ? rtype : null, isOpen && rtype ? entityId : null);
+  const isOwnerOrAdmin = callerIsOwner || isAdmin;
+
+  const { requests, mutate: mutateRequests } = useAccessRequests(
     isOpen && rtype ? rtype : null,
     isOpen && rtype ? entityId : null
   );
@@ -115,6 +138,21 @@ export function ShareModal({
     is_public: initialShareStatus?.is_public ?? false,
     public_access_count: initialShareStatus?.public_access_count ?? 0,
   });
+
+  // Private toggle state
+  const [isPrivate, setIsPrivate] = useState(initialIsPrivate);
+  const [isPrivateLoading, setIsPrivateLoading] = useState(false);
+
+  // Cascade confirmation state (dashboard grants only)
+  const [pendingAction, setPendingAction] = useState<
+    | { kind: 'level'; share: ShareRow; level: AccessLevel }
+    | { kind: 'remove'; share: ShareRow }
+    | null
+  >(null);
+
+  // Ownership transfer state
+  const [transferTarget, setTransferTarget] = useState<ShareRow | null>(null);
+  const [isTransferring, setIsTransferring] = useState(false);
 
   // Legacy email-share state (Reports)
   const [emailInput, setEmailInput] = useState('');
@@ -344,7 +382,7 @@ export function ShareModal({
     }
   };
 
-  const handleRowLevelChange = async (share: ShareRow, level: AccessLevel) => {
+  const doRowLevelChange = async (share: ShareRow, level: AccessLevel) => {
     if (share.access_level === level) return;
     setRowBusyId(share.share_id);
     try {
@@ -358,7 +396,7 @@ export function ShareModal({
     }
   };
 
-  const handleRowRemove = async (share: ShareRow) => {
+  const doRowRemove = async (share: ShareRow) => {
     setRowBusyId(share.share_id);
     try {
       await removeGrant(share.share_id);
@@ -368,6 +406,86 @@ export function ShareModal({
       // handled in hook
     } finally {
       setRowBusyId(null);
+    }
+  };
+
+  const LEVEL_RANK: Record<string, number> = { no_access: 0, view: 1, edit: 2 };
+
+  const cascadeBlockMessage = (share: ShareRow) => {
+    const titles =
+      share.cascade_sources?.map((cs) => cs.dashboard_title).join(', ') || 'a dashboard';
+    return `Access on this resource is inherited from: ${titles} — change permissions from there`;
+  };
+
+  const handleRowLevelChange = (share: ShareRow, level: AccessLevel) => {
+    if (share.access_level === level) return;
+    if (rtype === 'dashboard') {
+      setPendingAction({ kind: 'level', share, level });
+      return;
+    }
+    if (share.share_id === null) {
+      toastError.api(cascadeBlockMessage(share));
+      return;
+    }
+    if (share.cascade_sources?.length > 0 && LEVEL_RANK[level] < LEVEL_RANK[share.access_level]) {
+      toastError.api(cascadeBlockMessage(share));
+      return;
+    }
+    doRowLevelChange(share, level);
+  };
+
+  const handleRowRemove = (share: ShareRow) => {
+    if (rtype === 'dashboard') {
+      setPendingAction({ kind: 'remove', share });
+      return;
+    }
+    if (share.share_id === null) {
+      toastError.api(cascadeBlockMessage(share));
+      return;
+    }
+    doRowRemove(share);
+  };
+
+  const handleCascadeConfirm = async () => {
+    if (!pendingAction) return;
+    if (pendingAction.kind === 'level') {
+      await doRowLevelChange(pendingAction.share, pendingAction.level);
+    } else {
+      await doRowRemove(pendingAction.share);
+    }
+    setPendingAction(null);
+  };
+
+  // -------- Ownership transfer --------
+
+  const handleTransferConfirm = async () => {
+    if (!transferTarget || !rtype || transferTarget.principal_id == null) return;
+    setIsTransferring(true);
+    try {
+      await transferOwnership(rtype, entityId, transferTarget.principal_id);
+      mutateGrants();
+      onUpdate?.();
+      setTransferTarget(null);
+    } catch {
+      // handled in hook
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
+  // -------- Private toggle --------
+
+  const handleTogglePrivate = async (next: boolean) => {
+    if (!rtype) return;
+    setIsPrivateLoading(true);
+    try {
+      await toggleResourcePrivate(rtype, entityId, next);
+      setIsPrivate(next);
+      onUpdate?.();
+    } catch {
+      // handled in hook
+    } finally {
+      setIsPrivateLoading(false);
     }
   };
 
@@ -637,7 +755,7 @@ export function ShareModal({
                   ) : (
                     shares!.map((s, idx) => (
                       <div
-                        key={s.share_id}
+                        key={s.share_id ?? `cascade-${idx}`}
                         className={`flex items-center gap-3 px-3 py-2 ${idx > 0 ? 'border-t' : ''}`}
                       >
                         <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary">
@@ -662,15 +780,26 @@ export function ShareModal({
                         )}
                         <Select
                           value={s.access_level}
-                          onValueChange={(v) => handleRowLevelChange(s, v as AccessLevel)}
+                          onValueChange={(v) => {
+                            if (v === 'transfer') {
+                              setTransferTarget(s);
+                              return;
+                            }
+                            handleRowLevelChange(s, v as AccessLevel);
+                          }}
                           disabled={rowBusyId === s.share_id}
                         >
-                          <SelectTrigger className="w-24 h-8">
+                          <SelectTrigger className="w-28 h-8">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="view">View</SelectItem>
                             <SelectItem value="edit">Edit</SelectItem>
+                            {isOwnerOrAdmin &&
+                              s.principal_type === 'user' &&
+                              s.principal_id != null && (
+                                <SelectItem value="transfer">Transfer ownership</SelectItem>
+                              )}
                           </SelectContent>
                         </Select>
                         <Button
@@ -678,7 +807,7 @@ export function ShareModal({
                           size="icon"
                           className="h-7 w-7 p-0"
                           onClick={() => handleRowRemove(s)}
-                          disabled={rowBusyId === s.share_id}
+                          disabled={rowBusyId === s.share_id || s.share_id === null}
                           aria-label={`Remove ${s.label}`}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -691,8 +820,82 @@ export function ShareModal({
             </>
           )}
 
+          {/* Private toggle */}
+          {rtype && (
+            <div className="flex items-center justify-between py-2 border-t">
+              <div className="flex items-center gap-2">
+                <Lock className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Private</p>
+                  <p className="text-xs text-muted-foreground">
+                    Only people explicitly shared with can access this {entityLabelLower}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={isPrivate}
+                onCheckedChange={handleTogglePrivate}
+                disabled={isPrivateLoading}
+                data-testid="private-toggle"
+              />
+            </div>
+          )}
+
+          {/* Cascade confirmation dialog (dashboard only) */}
+          {pendingAction && (
+            <Dialog open onOpenChange={() => setPendingAction(null)}>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-orange-500" />
+                    Update dashboard permissions?
+                  </DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                  Changing or removing permissions on a dashboard may affect access to its inner
+                  charts and KPIs. Chart access follows the dashboard share.
+                </p>
+                <div className="flex justify-end gap-3 mt-2">
+                  <Button variant="outline" onClick={() => setPendingAction(null)}>
+                    Cancel
+                  </Button>
+                  <Button variant="primary" onClick={handleCascadeConfirm}>
+                    Continue
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {/* Ownership transfer confirmation dialog */}
+          {transferTarget && (
+            <Dialog open onOpenChange={() => setTransferTarget(null)}>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Transfer ownership to {transferTarget.label}?</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                  You will lose owner status on &quot;{entityLabel}&quot;. Your access will revert
+                  to your role permissions or any direct share you hold.
+                </p>
+                <div className="flex justify-end gap-3 mt-2">
+                  <Button variant="outline" onClick={() => setTransferTarget(null)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleTransferConfirm}
+                    disabled={isTransferring}
+                  >
+                    {isTransferring ? 'Transferring…' : 'Transfer'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
           {/* Public sharing (kept for existing callers) */}
-          {updateSharing && (
+          {updateSharing && !isPrivate && (
             <Card>
               <CardContent className="p-4">
                 <div className="space-y-4">
@@ -842,6 +1045,57 @@ export function ShareModal({
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Access Requests (edit-holders only) */}
+          {rtype && (requests ?? []).length > 0 && (
+            <div className="space-y-2">
+              <Label>Access Requests</Label>
+              <div className="border rounded-md divide-y">
+                {requests!.map((req) => (
+                  <div key={req.id} className="px-3 py-2 flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{req.requester_email}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Requesting {req.requested_level}
+                        {req.note ? ` — ${req.note}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={async () => {
+                          await respondToAccessRequest(
+                            rtype,
+                            entityId,
+                            req.id,
+                            'approved',
+                            req.requested_level
+                          );
+                          mutateRequests();
+                          mutateGrants();
+                        }}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs"
+                        onClick={async () => {
+                          await respondToAccessRequest(rtype, entityId, req.id, 'declined');
+                          mutateRequests();
+                        }}
+                      >
+                        Decline
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           <div className="flex justify-end gap-3">

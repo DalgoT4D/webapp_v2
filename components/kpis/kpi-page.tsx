@@ -6,6 +6,7 @@ import { useSWRConfig } from 'swr';
 import {
   Plus,
   Search,
+  Share2,
   Target,
   MoreVertical,
   Pencil,
@@ -37,6 +38,7 @@ import { DocsLink } from '@/components/ui/docs-link';
 import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
+import { ShareModal } from '@/components/ui/share-modal';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
 import { KPIDeleteDialog } from './kpi-delete-dialog';
@@ -58,9 +60,11 @@ function KPICardWithData({
   onEdit,
   onDelete,
   onCreateAlert,
+  onShare,
   canCreateAlert,
   canEditKpis,
   canDeleteKpis,
+  canShare,
   statusFilter,
 }: {
   kpi: KPI;
@@ -68,9 +72,11 @@ function KPICardWithData({
   onEdit: () => void;
   onDelete: () => void;
   onCreateAlert?: () => void;
+  onShare?: () => void;
   canCreateAlert?: boolean;
   canEditKpis?: boolean;
   canDeleteKpis?: boolean;
+  canShare?: boolean;
   statusFilter?: string;
 }) {
   const { chartData, echartsConfig, isLoading } = useKPIData(kpi.id);
@@ -127,6 +133,12 @@ function KPICardWithData({
                 Create alert
               </DropdownMenuItem>
             )}
+            {canShare && onShare && (
+              <DropdownMenuItem onClick={onShare} className="cursor-pointer">
+                <Share2 className="w-4 h-4 mr-2" />
+                Share
+              </DropdownMenuItem>
+            )}
             {canDeleteKpis && (
               <>
                 <DropdownMenuSeparator />
@@ -162,6 +174,7 @@ export function KPIPageComponent() {
   const [deletingKpi, setDeletingKpi] = useState<KPI | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [alertKpiId, setAlertKpiId] = useState<number | null>(null);
+  const [shareModalKpi, setShareModalKpi] = useState<KPI | null>(null);
 
   const { hasPermission } = useRbac();
   // Create/edit/delete affordances are hidden for view-only roles (members) and
@@ -429,9 +442,11 @@ export function KPIPageComponent() {
                     onEdit={() => handleEdit(kpi)}
                     onDelete={() => handleDeleteClick(kpi)}
                     onCreateAlert={() => setAlertKpiId(kpi.id)}
+                    onShare={() => setShareModalKpi(kpi)}
                     canCreateAlert={canCreateAlert}
                     canEditKpis={canEditKpis}
                     canDeleteKpis={canDeleteKpis}
+                    canShare={kpi.access_level === 'edit'}
                     statusFilter={statusFilter || undefined}
                   />
                 ))}
@@ -488,6 +503,17 @@ export function KPIPageComponent() {
         onOpenChange={(o) => !o && setAlertKpiId(null)}
         initial={{ alertType: 'kpi_rag', kpiId: alertKpiId }}
       />
+
+      {shareModalKpi && (
+        <ShareModal
+          rtype="kpi"
+          entityId={shareModalKpi.id}
+          entityLabel={shareModalKpi.name}
+          isOpen={shareModalKpi !== null}
+          onClose={() => setShareModalKpi(null)}
+          onUpdate={mutate}
+        />
+      )}
     </div>
   );
 }
