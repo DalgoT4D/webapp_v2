@@ -6,10 +6,11 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConnectionFormBody } from '../connection-form-body';
 import { FormMode } from '@/constants/connections';
+import { createConnection, triggerSync } from '@/hooks/api/useConnections';
 import type { Connection } from '@/types/connections';
 
 // ============ Mocks ============
@@ -34,13 +35,19 @@ jest.mock('@/hooks/api/useConnections', () => ({
   triggerSync: jest.fn(),
 }));
 
-// Mutable so a test can simulate discovered streams (the help panel + streams
-// table only appear once discovery returns rows). Prefixed `mock` for hoisting.
+// Mutable so a test can simulate discovered streams (the settings split only
+// appears once discovery returns rows). Prefixed `mock` for hoisting.
 let mockStreams: unknown[] = [];
+let mockHasSelectedStreams = false;
+let mockStreamTableProps: Record<string, unknown> | null = null;
+let mockSettingsPanelProps: Record<string, unknown> | null = null;
 
 afterEach(() => {
   mockConnectionData = null;
   mockStreams = [];
+  mockHasSelectedStreams = false;
+  mockStreamTableProps = null;
+  mockSettingsPanelProps = null;
 });
 
 jest.mock('@/hooks/useBackendWebSocket', () => ({
@@ -55,19 +62,38 @@ jest.mock('@/hooks/useBackendWebSocket', () => ({
 }));
 
 jest.mock('../stream-config-table', () => ({
-  StreamConfigTable: (_props: Record<string, unknown>) => <div data-testid="stream-config-table" />,
+  StreamConfigTable: (props: Record<string, unknown>) => {
+    mockStreamTableProps = props;
+    return (
+      <button
+        type="button"
+        data-testid="stream-config-table"
+        onClick={() => (props.onOpenSettings as (streamName: string) => void)('sheet1')}
+      >
+        Open settings
+      </button>
+    );
+  },
 }));
 
-jest.mock('../connection-help-panel', () => ({
-  ConnectionHelpPanel: (_props: Record<string, unknown>) => (
-    <div data-testid="connection-help-panel" />
-  ),
+jest.mock('../stream-settings-panel', () => ({
+  StreamSettingsPanel: (props: Record<string, unknown>) => {
+    mockSettingsPanelProps = props;
+    return (
+      <button
+        type="button"
+        data-testid="stream-settings-panel"
+        onClick={() => (props.onClose as () => void)()}
+      >
+        Close settings
+      </button>
+    );
+  },
 }));
 
 jest.mock('../hooks/useStreamConfig', () => ({
   useStreamConfig: (): Record<string, unknown> => ({
     streams: mockStreams,
-    setStreams: jest.fn(),
     initializeStreams: jest.fn(),
     streamSearch: '',
     setStreamSearch: jest.fn(),
@@ -80,11 +106,12 @@ jest.mock('../hooks/useStreamConfig', () => ({
     updateStreamCursorField: jest.fn(),
     updateStreamPrimaryKey: jest.fn(),
     toggleColumn: jest.fn(),
+    updateCastType: jest.fn(),
     toggleStreamExpand: jest.fn(),
     handleIncrementalAllToggle: jest.fn(),
     filteredStreams: mockStreams,
     allSelected: false,
-    hasSelectedStreams: false,
+    hasSelectedStreams: mockHasSelectedStreams,
   }),
 }));
 
@@ -158,8 +185,8 @@ describe('ConnectionFormBody', () => {
   });
 });
 
-describe('ConnectionFormBody split help + custom view', () => {
-  it('hides the help panel until streams are discovered, then shows it', () => {
+describe('ConnectionFormBody settings inspector + custom view', () => {
+  it('shows the settings placeholder after streams are discovered', () => {
     const { rerender } = render(
       <ConnectionFormBody
         mode={FormMode.CREATE}
@@ -168,11 +195,9 @@ describe('ConnectionFormBody split help + custom view', () => {
         onCancel={jest.fn()}
       />
     );
-    // No streams yet → no empty docs column.
-    expect(screen.queryByTestId('connection-help-panel')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('stream-settings-placeholder')).not.toBeInTheDocument();
 
-    // Discovery returns rows → panel appears.
-    mockStreams = [{ name: 'sheet1', selected: true }];
+    mockStreams = [{ name: 'sheet1', selected: true, columns: [] }];
     rerender(
       <ConnectionFormBody
         mode={FormMode.CREATE}
@@ -181,10 +206,10 @@ describe('ConnectionFormBody split help + custom view', () => {
         onCancel={jest.fn()}
       />
     );
-    expect(screen.getByTestId('connection-help-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('stream-settings-placeholder')).toBeInTheDocument();
   });
 
-  it('tucks schema + normalize under Advanced options for a generic source too', () => {
+  it('keeps Normalize visible and tucks Destination Schema under Advanced options', () => {
     render(
       <ConnectionFormBody
         mode={FormMode.CREATE}
@@ -195,10 +220,11 @@ describe('ConnectionFormBody split help + custom view', () => {
     );
     // Every connection now uses the bottom Advanced-options section, collapsed.
     expect(screen.getByTestId('advanced-options-toggle')).toBeInTheDocument();
+    expect(screen.getByTestId('normalize-toggle')).toBeInTheDocument();
     expect(screen.queryByTestId('destination-schema-input')).not.toBeInTheDocument();
   });
 
-  it('tucks schema + normalize under Advanced options for a custom source', () => {
+  it('uses the same connection-level disclosure for a custom source', () => {
     render(
       <ConnectionFormBody
         mode={FormMode.CREATE}
@@ -223,18 +249,129 @@ describe('ConnectionFormBody split help + custom view', () => {
       />
     );
 
-    await user.click(screen.getByTestId('advanced-options-toggle'));
-    await user.hover(
-      screen.getByRole('button', {
-        name: 'About Normalize data after sync',
-      })
-    );
+    const helpTrigger = screen.getByRole('button', {
+      name: 'About Normalize data after sync',
+    });
+    await user.hover(helpTrigger);
 
     const tooltip = await screen.findByRole('tooltip');
     expect(tooltip).toHaveTextContent(
       'Organizes the raw records copied from your source into structured warehouse tables'
     );
     expect(tooltip).toHaveTextContent('adds an extra processing step after each sync');
+  });
+
+  it('opens and closes one table settings panel from the streams table', async () => {
+    const user = userEvent.setup();
+    mockStreams = [{ name: 'sheet1', selected: true, columns: [] }];
+    render(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="src-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('stream-settings-placeholder')).toBeInTheDocument();
+    await user.click(screen.getByTestId('stream-config-table'));
+
+    expect(screen.getByTestId('stream-settings-panel')).toBeInTheDocument();
+    expect(mockSettingsPanelProps?.stream).toEqual(mockStreams[0]);
+
+    await user.click(screen.getByTestId('stream-settings-panel'));
+    expect(screen.getByTestId('stream-settings-placeholder')).toBeInTheDocument();
+  });
+
+  it('enables Cast to for Google Sheets only', async () => {
+    const user = userEvent.setup();
+    mockStreams = [{ name: 'sheet1', selected: true, columns: [] }];
+    const { rerender } = render(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="gs-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByTestId('stream-config-table'));
+    expect(mockSettingsPanelProps?.showCastColumn).toBe(true);
+    expect(mockSettingsPanelProps?.showIncremental).toBe(false);
+
+    mockSettingsPanelProps = null;
+    rerender(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="kb-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+
+    expect(mockStreamTableProps).not.toBeNull();
+    await user.click(screen.getByTestId('stream-config-table'));
+    expect(mockSettingsPanelProps?.showCastColumn).toBe(false);
+  });
+
+  it('preserves Google Sheets column casts in the connection save payload', async () => {
+    const user = userEvent.setup();
+    mockHasSelectedStreams = true;
+    mockStreams = [
+      {
+        name: 'sheet1',
+        selected: true,
+        supportsIncremental: false,
+        syncMode: 'full_refresh',
+        destinationSyncMode: 'overwrite',
+        cursorField: '',
+        primaryKey: [],
+        columns: [
+          {
+            name: 'respondent_age',
+            data_type: 'String',
+            selected: true,
+            cast_to_type: 'integer',
+          },
+          {
+            name: 'respondent_name',
+            data_type: 'String',
+            selected: true,
+            cast_to_type: null,
+          },
+        ],
+      },
+    ];
+    jest.mocked(createConnection).mockResolvedValue({
+      connectionId: 'connection-1',
+      deploymentId: 'deployment-1',
+    } as never);
+    jest.mocked(triggerSync).mockResolvedValue(undefined as never);
+
+    render(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="gs-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByTestId('save-connection-btn'));
+
+    await waitFor(() => expect(createConnection).toHaveBeenCalledTimes(1));
+    expect(jest.mocked(createConnection).mock.calls[0][0]).toMatchObject({
+      post_sync_transform: {
+        ops: [
+          {
+            type: 'cast',
+            schema: 'staging',
+            table: 'sheet1',
+            config: { respondent_age: 'integer' },
+          },
+        ],
+      },
+    });
   });
 
   it('reports header info (not a body chip) for a custom source in create', () => {

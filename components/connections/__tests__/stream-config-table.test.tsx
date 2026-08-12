@@ -1,13 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StreamConfigTable } from '../stream-config-table';
-import { SyncMode, DestinationSyncMode } from '@/constants/connections';
+import { DestinationSyncMode, SyncMode } from '@/constants/connections';
 import type { SourceStream } from '@/types/connections';
 
-const stream = (name: string, supportsIncremental: boolean): SourceStream => ({
+const makeStream = (name: string, selected = true): SourceStream => ({
   name,
-  selected: true,
-  supportsIncremental,
+  selected,
+  supportsIncremental: true,
   syncMode: SyncMode.FULL_REFRESH,
   destinationSyncMode: DestinationSyncMode.OVERWRITE,
   cursorField: '',
@@ -17,208 +17,103 @@ const stream = (name: string, supportsIncremental: boolean): SourceStream => ({
   primaryKeyConfig: { sourceDefinedPrimaryKey: false, selected: [], all: [] },
 });
 
+const streams = [makeStream('form_one'), makeStream('form_two', false)];
+
 const baseProps = {
-  streams: [stream('form_one', true)],
-  filteredStreams: [stream('form_one', true)],
-  allSelected: true,
-  incrementalAllStreams: false,
-  expandedStreams: new Set<string>(),
+  streams,
+  filteredStreams: streams,
+  allSelected: false,
   streamSearch: '',
   disabled: false,
   isSaving: false,
+  activeStreamName: null as string | null,
   onStreamSearchChange: jest.fn(),
   onToggleAllStreams: jest.fn(),
-  onIncrementalAllToggle: jest.fn(),
   onToggleStream: jest.fn(),
-  onUpdateStreamSyncMode: jest.fn(),
-  onUpdateStreamDestMode: jest.fn(),
-  onUpdateStreamCursorField: jest.fn(),
-  onUpdateStreamPrimaryKey: jest.fn(),
-  onToggleStreamExpand: jest.fn(),
-  onToggleColumn: jest.fn(),
-  onUpdateCastType: jest.fn(),
+  onOpenSettings: jest.fn(),
 };
 
-describe('StreamConfigTable progressive disclosure', () => {
-  it('hides advanced columns when advancedOpen is false', () => {
-    render(<StreamConfigTable {...baseProps} advancedOpen={false} onToggleAdvanced={jest.fn()} />);
-    expect(screen.getByTestId('stream-toggle-form_one')).toBeInTheDocument();
-    expect(screen.queryByTestId('stream-incremental-form_one')).not.toBeInTheDocument();
-    expect(screen.queryByText('Columns')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('expand-columns-form_one')).not.toBeInTheDocument();
-    expect(screen.getByTestId('advanced-streams-toggle')).toBeInTheDocument();
+describe('StreamConfigTable', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  it('keeps Google Sheets columns accessible while advanced settings are closed', async () => {
-    const user = userEvent.setup();
-    const onConceptFocus = jest.fn();
-    render(
-      <StreamConfigTable
-        {...baseProps}
-        advancedOpen={false}
-        showCastColumn
-        showIncremental={false}
-        onConceptFocus={onConceptFocus}
-        onToggleAdvanced={jest.fn()}
-      />
-    );
+  it('keeps sync in the table and moves per-table options behind one settings action', () => {
+    render(<StreamConfigTable {...baseProps} />);
 
-    expect(screen.getByText('Columns')).toBeInTheDocument();
-    expect(screen.getByTestId('expand-columns-form_one')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Tables' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Sync' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Advanced settings' })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Sync form_one' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Open advanced settings for form_one' })
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Incremental')).not.toBeInTheDocument();
     expect(screen.queryByText('Destination')).not.toBeInTheDocument();
-    expect(screen.queryByText('Incremental?')).not.toBeInTheDocument();
-    expect(screen.queryByText('Cursor Field')).not.toBeInTheDocument();
-    expect(screen.queryByText('Primary Key')).not.toBeInTheDocument();
-
-    await user.click(screen.getByTestId('concept-header-columns'));
-    expect(onConceptFocus).toHaveBeenCalledWith('columns');
   });
 
-  it('shows Google Sheets column names, detected types, and casts while advanced is closed', () => {
-    render(
-      <StreamConfigTable
-        {...baseProps}
-        advancedOpen={false}
-        showCastColumn
-        showIncremental={false}
-        expandedStreams={new Set(['form_one'])}
-        onToggleAdvanced={jest.fn()}
-      />
-    );
-
-    expect(screen.getByRole('columnheader', { name: 'Column' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Type' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Cast to' })).toBeInTheDocument();
-    expect(screen.getByText('col_a')).toBeInTheDocument();
-    expect(screen.getByText('string')).toBeInTheDocument();
-    expect(screen.getByTestId('cast-type-form_one-col_a')).toBeInTheDocument();
-  });
-
-  it('shows advanced columns when advancedOpen is true', () => {
-    render(<StreamConfigTable {...baseProps} advancedOpen onToggleAdvanced={jest.fn()} />);
-    expect(screen.getByTestId('stream-incremental-form_one')).toBeInTheDocument();
-  });
-
-  it('keeps the full advanced table readable inside a horizontal scroll region', () => {
-    render(<StreamConfigTable {...baseProps} advancedOpen onToggleAdvanced={jest.fn()} />);
-
-    expect(screen.getByRole('region', { name: 'Advanced per-table settings' })).toHaveClass(
-      'overflow-x-auto'
-    );
-    expect(screen.getByTestId('streams-table')).toHaveClass('min-w-[1080px]');
-  });
-
-  it('uses a smaller horizontal scroll width for Google Sheets advanced settings', () => {
-    render(
-      <StreamConfigTable
-        {...baseProps}
-        advancedOpen
-        showCastColumn
-        showIncremental={false}
-        onToggleAdvanced={jest.fn()}
-      />
-    );
-
-    expect(screen.getByRole('region', { name: 'Advanced per-table settings' })).toHaveClass(
-      'overflow-x-auto'
-    );
-    expect(screen.getByTestId('streams-table')).toHaveClass('min-w-[760px]');
-    expect(screen.getByTestId('streams-table')).not.toHaveClass('min-w-[1080px]');
-  });
-
-  it('does not force a wide table when no crowded advanced columns are present', () => {
-    render(
-      <StreamConfigTable
-        {...baseProps}
-        advancedOpen
-        showIncremental={false}
-        onToggleAdvanced={jest.fn()}
-      />
-    );
-
-    expect(screen.getByTestId('streams-table')).not.toHaveClass('min-w-[760px]');
-    expect(screen.getByTestId('streams-table')).not.toHaveClass('min-w-[1080px]');
-  });
-
-  it('uses the streamNoun for the column header', () => {
-    render(
-      <StreamConfigTable
-        {...baseProps}
-        advancedOpen
-        streamNoun="Tabs"
-        onToggleAdvanced={jest.fn()}
-      />
-    );
-    expect(screen.getByText('Tabs')).toBeInTheDocument();
-  });
-
-  it('hides the Incremental column when showIncremental is false', () => {
-    render(
-      <StreamConfigTable
-        {...baseProps}
-        advancedOpen
-        showIncremental={false}
-        onToggleAdvanced={jest.fn()}
-      />
-    );
-    expect(screen.queryByTestId('stream-incremental-form_one')).not.toBeInTheDocument();
-  });
-
-  it('hides Cursor Field and Primary Key when showIncremental is false, keeping Destination', () => {
-    render(
-      <StreamConfigTable
-        {...baseProps}
-        advancedOpen
-        showIncremental={false}
-        streamNoun="Sheets"
-        onToggleAdvanced={jest.fn()}
-      />
-    );
-    expect(screen.queryByText('Cursor Field')).not.toBeInTheDocument();
-    expect(screen.queryByText('Primary Key')).not.toBeInTheDocument();
-    expect(screen.getByText('Destination')).toBeInTheDocument();
-  });
-
-  it('omits dest modes not in allowedDestModes', () => {
-    render(
-      <StreamConfigTable
-        {...baseProps}
-        advancedOpen
-        allowedDestModes={[DestinationSyncMode.OVERWRITE, DestinationSyncMode.APPEND]}
-        onToggleAdvanced={jest.fn()}
-      />
-    );
-    // The Append/Dedup item must not be in the rendered select content.
-    expect(screen.queryByText('Append / Dedup')).not.toBeInTheDocument();
-  });
-
-  it('moves the help panel to a concept when its column header is clicked', async () => {
+  it('toggles sync for an individual table', async () => {
     const user = userEvent.setup();
-    const onConceptFocus = jest.fn();
-    render(
-      <StreamConfigTable
-        {...baseProps}
-        advancedOpen
-        onConceptFocus={onConceptFocus}
-        onToggleAdvanced={jest.fn()}
-      />
-    );
-    await user.click(screen.getByTestId('concept-header-cursor'));
-    expect(onConceptFocus).toHaveBeenCalledWith('cursor');
+    const onToggleStream = jest.fn();
+    render(<StreamConfigTable {...baseProps} onToggleStream={onToggleStream} />);
 
-    await user.click(screen.getByTestId('concept-header-sync'));
-    expect(onConceptFocus).toHaveBeenCalledWith('sync');
+    await user.click(screen.getByTestId('stream-toggle-form_one'));
+
+    expect(onToggleStream).toHaveBeenCalledWith('form_one');
   });
 
-  it('renders the "Select your" heading using the given streamNoun', () => {
+  it('opens the selected table settings and highlights its row', async () => {
+    const user = userEvent.setup();
+    const onOpenSettings = jest.fn();
+    const { rerender } = render(
+      <StreamConfigTable {...baseProps} onOpenSettings={onOpenSettings} />
+    );
+
+    await user.click(screen.getByTestId('open-stream-settings-form_two'));
+    expect(onOpenSettings).toHaveBeenCalledWith('form_two');
+
+    rerender(
+      <StreamConfigTable
+        {...baseProps}
+        activeStreamName="form_two"
+        onOpenSettings={onOpenSettings}
+      />
+    );
+    expect(screen.getByTestId('stream-row-form_two')).toHaveAttribute('data-active', 'true');
+    expect(screen.getByTestId('open-stream-settings-form_two')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+  });
+
+  it('shows high-volume table tools and toggles all streams', async () => {
+    const user = userEvent.setup();
+    const manyStreams = Array.from({ length: 6 }, (_, index) => makeStream(`form_${index}`));
+    const onToggleAllStreams = jest.fn();
     render(
       <StreamConfigTable
         {...baseProps}
-        streamNoun="Sheets"
-        advancedOpen={false}
-        onToggleAdvanced={jest.fn()}
+        streams={manyStreams}
+        filteredStreams={manyStreams}
+        allSelected
+        onToggleAllStreams={onToggleAllStreams}
       />
     );
-    expect(screen.getByText(/Select your sheets/)).toBeInTheDocument();
+
+    expect(screen.getByTestId('stream-filter-input')).toBeInTheDocument();
+    await user.click(screen.getByTestId('toggle-all-streams'));
+    expect(onToggleAllStreams).toHaveBeenCalledWith(false);
+  });
+
+  it('supports source-specific table nouns', () => {
+    render(<StreamConfigTable {...baseProps} streamNoun="Sheets" />);
+    expect(screen.getByRole('columnheader', { name: 'Sheets' })).toBeInTheDocument();
+    expect(screen.getByText('Select your sheets (1/2 selected)')).toBeInTheDocument();
+  });
+
+  it('keeps settings exploration available in read-only mode while disabling sync', () => {
+    render(<StreamConfigTable {...baseProps} disabled />);
+    expect(screen.getByTestId('stream-toggle-form_one')).toBeDisabled();
+    expect(screen.getByTestId('open-stream-settings-form_one')).not.toBeDisabled();
   });
 });

@@ -145,6 +145,7 @@ export const ANALYTICS_EVENTS = {
   CONNECTION_SCHEMA_CHANGES_APPLIED: 'connection:schema_changes_applied',
   CONNECTION_LOG_SUMMARY_REQUESTED: 'connection:log_summary_requested',
   CONNECTION_ADVANCED_OPTIONS_EXPANDED: 'connection:advanced_options_expanded',
+  CONNECTION_TABLE_SETTINGS_OPENED: 'connection:table_settings_opened',
   SOURCE_CREATED: 'source:source_created',
   SOURCE_UPDATED: 'source:source_updated',
   SOURCE_DELETED: 'source:source_deleted',

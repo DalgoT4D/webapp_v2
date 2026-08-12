@@ -33,9 +33,8 @@ import type { SyncCatalog, SchemaDiscoveryResponse } from '@/types/connections';
 import { parseCatalogStream } from './utils';
 import { useStreamConfig } from './hooks/useStreamConfig';
 import { StreamConfigTable } from './stream-config-table';
+import { StreamSettingsPanel } from './stream-settings-panel';
 import { getCustomSource } from '@/components/ingest/sources/custom/registry';
-import { ConnectionHelpPanel } from './connection-help-panel';
-import { getConnectionHelp, allowsDedup, type ConnectionConceptId } from './constants';
 
 const SCHEMA_DISCOVERY_WS_PATH = 'airbyte/connection/schema_catalog';
 
@@ -52,9 +51,8 @@ export interface ConnectionFormBodyProps {
   lockedSourceId?: string;
   onSuccess: () => void;
   onCancel: () => void;
-  // Fired when the form gains/loses its second (help) column — i.e. once streams
-  // are discovered. Lets a host (the wizard) widen its modal only after the
-  // streams table needs the room.
+  // Fired when the form gains/loses its table-settings column — i.e. once
+  // streams are discovered. Lets a host widen its modal only when needed.
   onExpandedChange?: (expanded: boolean) => void;
   // Fired once the active source resolves, so the host can name the source in the
   // modal header (and, in the wizard, show "<source> created successfully") for
@@ -145,23 +143,9 @@ export function ConnectionFormBody({
     [sourceDefName]
   );
   const showCastColumn = sourceDefName ? isCastSupportedSource(sourceDefName) : false;
-  const [activeConcept, setActiveConcept] = useState<ConnectionConceptId | null>(null);
-
-  // Help-panel cards tailored to this source's capabilities. Custom sources
-  // (Sheets/Kobo) only show the concepts that apply; everything else gets the
-  // generic full set.
-  const helpConcepts = React.useMemo(
-    () =>
-      getConnectionHelp({
-        supportsIncremental: connectionView ? connectionView.supportsIncremental : true,
-        allowsDedup: connectionView ? allowsDedup(connectionView.allowedDestModes) : true,
-        supportsColumnCasting: showCastColumn,
-      }),
-    [connectionView, showCastColumn]
-  );
+  const [activeSettingsStreamName, setActiveSettingsStreamName] = useState<string | null>(null);
 
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
-  const [advancedStreamsOpen, setAdvancedStreamsOpen] = useState(false);
 
   const [name, setName] = useState('');
   const [destinationSchema, setDestinationSchema] = useState('staging');
@@ -179,7 +163,6 @@ export function ConnectionFormBody({
     initializeStreams,
     streamSearch,
     setStreamSearch,
-    incrementalAllStreams,
     expandedStreams,
     toggleStream,
     toggleAllStreams,
@@ -190,7 +173,6 @@ export function ConnectionFormBody({
     toggleColumn,
     updateCastType,
     toggleStreamExpand,
-    handleIncrementalAllToggle,
     filteredStreams,
     allSelected,
     hasSelectedStreams,
@@ -300,6 +282,7 @@ export function ConnectionFormBody({
   const handleSourceChange = useCallback(
     (sourceId: string) => {
       setSelectedSourceId(sourceId);
+      setActiveSettingsStreamName(null);
       initializeStreams([]);
       setDiscoveredCatalog(null);
     },
@@ -453,25 +436,43 @@ export function ConnectionFormBody({
     });
   }, [name, selectedSourceId, hasSelectedStreams]);
 
-  // Destination Schema field — shared between the always-visible (generic
-  // source) and Advanced-options-collapsed (custom source) layouts.
+  const activeSettingsStream = React.useMemo(
+    () => streams.find((stream) => stream.name === activeSettingsStreamName) ?? null,
+    [streams, activeSettingsStreamName]
+  );
+
+  useEffect(() => {
+    if (activeSettingsStreamName && !activeSettingsStream) {
+      setActiveSettingsStreamName(null);
+    }
+  }, [activeSettingsStreamName, activeSettingsStream]);
+
+  const handleOpenStreamSettings = useCallback(
+    (streamName: string) => {
+      setActiveSettingsStreamName(streamName);
+      trackEvent(ANALYTICS_EVENTS.CONNECTION_TABLE_SETTINGS_OPENED, {
+        source_type: sourceDefName,
+      });
+    },
+    [sourceDefName]
+  );
+
+  const handleCloseStreamSettings = useCallback(() => {
+    setActiveSettingsStreamName(null);
+  }, []);
+
+  // Destination Schema remains a connection-level option rather than a
+  // per-table setting, so it stays in the left-side form.
   const destinationSchemaField = (
     <div>
-      <button
-        type="button"
-        onClick={() => setActiveConcept('schema')}
-        className="cursor-pointer text-base font-medium decoration-dotted underline-offset-2 hover:underline"
-      >
-        <label htmlFor="dest-schema" className="cursor-pointer">
-          Destination Schema
-        </label>
-      </button>
+      <label htmlFor="dest-schema" className="text-base font-medium">
+        Destination Schema
+      </label>
       <Input
         id="dest-schema"
         data-testid="destination-schema-input"
         value={destinationSchema}
         onChange={(e) => setDestinationSchema(e.target.value)}
-        onFocus={() => setActiveConcept('schema')}
         placeholder="e.g., public"
         disabled={disabled || isSaving}
         className="mt-1.5"
@@ -479,7 +480,8 @@ export function ConnectionFormBody({
     </div>
   );
 
-  // Normalize uses compact inline help because it has no help-panel concept card.
+  // Normalize toggle — same sharing rationale as destinationSchemaField. This
+  // low-level option uses compact inline help rather than a full help-panel card.
   const normalizeToggleField = (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-1.5">
@@ -514,9 +516,8 @@ export function ConnectionFormBody({
     </div>
   );
 
-  // Advanced-options section (Destination Schema + Normalize behind a switch),
-  // shared by every connection. Rendered below the stream picker so the primary
-  // flow reads source → name → streams, with rarely-touched settings last.
+  // Advanced connection-level section (Destination Schema only). Normalize is
+  // important enough to remain visible, while schema stays behind disclosure.
   const advancedOptionsSection = (
     <div>
       <div className="flex items-center gap-2.5">
@@ -540,25 +541,17 @@ export function ConnectionFormBody({
           Advanced options
         </label>
       </div>
-      {advancedOptionsOpen && (
-        <div className="mt-3 space-y-6">
-          {destinationSchemaField}
-          {normalizeToggleField}
-        </div>
-      )}
+      {advancedOptionsOpen && <div className="mt-3">{destinationSchemaField}</div>}
     </div>
   );
 
-  // Docs panel only appears once discovery finishes and streams exist — avoids
-  // an empty right-hand column while the schema is still loading. Until then the
-  // form uses the full modal width (single column).
-  const showHelpPanel = streams.length > 0 && !isDiscovering;
+  const streamsReady = streams.length > 0 && !isDiscovering;
 
-  // Let the host (wizard) keep the modal compact during discovery and widen it
-  // only once the streams table + help column need the room.
+  // Once streams exist the host remains wide, so opening and closing a table's
+  // inspector does not make the modal jump between sizes.
   useEffect(() => {
-    onExpandedChange?.(showHelpPanel);
-  }, [showHelpPanel, onExpandedChange]);
+    onExpandedChange?.(streamsReady);
+  }, [streamsReady, onExpandedChange]);
 
   // Report the source name up to the host (create/edit/view) for every source, so
   // the dialog/wizard header names it — and the wizard shows "<source> created
@@ -579,9 +572,10 @@ export function ConnectionFormBody({
             height from the max-h-capped dialog — percentage height would collapse
             to auto and let the column overflow the modal instead of scrolling. */}
         <div
-          className={`grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] gap-6 ${
-            showHelpPanel ? 'md:grid-cols-[62fr_38fr]' : ''
-          }`}
+          className={cn(
+            'grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] gap-6',
+            streamsReady && 'md:grid-cols-[minmax(360px,42fr)_minmax(0,58fr)]'
+          )}
         >
           {/* The whole left column is the single scroll container: the streams
               table grows to its natural height instead of scrolling internally,
@@ -678,9 +672,8 @@ export function ConnectionFormBody({
               ) : null}
             </div>
 
-            {/* Advanced options (Destination Schema + Normalize) above the
-                stream picker, for every connection (source → name → advanced →
-                streams). */}
+            <div className="flex-shrink-0">{normalizeToggleField}</div>
+
             <div className="flex-shrink-0">{advancedOptionsSection}</div>
 
             {/* Streams region grows to its natural height; the whole left column
@@ -701,29 +694,15 @@ export function ConnectionFormBody({
                   streams={streams}
                   filteredStreams={filteredStreams}
                   allSelected={allSelected}
-                  incrementalAllStreams={incrementalAllStreams}
-                  expandedStreams={expandedStreams}
                   streamSearch={streamSearch}
                   disabled={disabled}
                   isSaving={isSaving}
+                  activeStreamName={activeSettingsStreamName}
                   onStreamSearchChange={setStreamSearch}
                   onToggleAllStreams={toggleAllStreams}
-                  onIncrementalAllToggle={handleIncrementalAllToggle}
                   onToggleStream={toggleStream}
-                  onUpdateStreamSyncMode={updateStreamSyncMode}
-                  onUpdateStreamDestMode={updateStreamDestMode}
-                  onUpdateStreamCursorField={updateStreamCursorField}
-                  onUpdateStreamPrimaryKey={updateStreamPrimaryKey}
-                  onToggleStreamExpand={toggleStreamExpand}
-                  onToggleColumn={toggleColumn}
-                  onUpdateCastType={updateCastType}
-                  showCastColumn={showCastColumn}
+                  onOpenSettings={handleOpenStreamSettings}
                   streamNoun={connectionView?.streamNoun}
-                  showIncremental={connectionView ? connectionView.supportsIncremental : true}
-                  allowedDestModes={connectionView?.allowedDestModes}
-                  onConceptFocus={setActiveConcept}
-                  advancedOpen={advancedStreamsOpen}
-                  onToggleAdvanced={() => setAdvancedStreamsOpen((o) => !o)}
                 />
               )}
 
@@ -734,21 +713,40 @@ export function ConnectionFormBody({
               )}
             </div>
           </div>
-          {/* The help panel fills the left column's height and scrolls on its
-              own, so its (tall) content never drives the modal taller than the
-              form side. Hidden until streams are discovered so the modal never
-              shows an empty docs column mid-discovery. */}
-          {showHelpPanel && (
-            <div className="relative hidden min-h-0 md:block">
-              <div className="absolute inset-0">
-                <ConnectionHelpPanel
-                  activeConcept={activeConcept}
-                  concepts={helpConcepts}
-                  onConceptChange={setActiveConcept}
-                />
+          <div className="min-h-0">
+            {activeSettingsStream ? (
+              <StreamSettingsPanel
+                stream={activeSettingsStream}
+                disabled={disabled}
+                isSaving={isSaving}
+                columnsOpen={expandedStreams.has(activeSettingsStream.name)}
+                showCastColumn={showCastColumn}
+                showIncremental={connectionView ? connectionView.supportsIncremental : true}
+                allowedDestModes={connectionView?.allowedDestModes}
+                onClose={handleCloseStreamSettings}
+                onUpdateStreamSyncMode={updateStreamSyncMode}
+                onUpdateStreamDestMode={updateStreamDestMode}
+                onUpdateStreamCursorField={updateStreamCursorField}
+                onUpdateStreamPrimaryKey={updateStreamPrimaryKey}
+                onToggleColumns={toggleStreamExpand}
+                onToggleColumn={toggleColumn}
+                onUpdateCastType={updateCastType}
+              />
+            ) : streamsReady ? (
+              <div
+                className="flex h-full min-h-[240px] items-center justify-center rounded-xl border border-dashed bg-muted/20 px-8 text-center"
+                data-testid="stream-settings-placeholder"
+              >
+                <div className="max-w-sm">
+                  <h3 className="text-base font-semibold">Choose a table to configure</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    Select Open settings beside a table to configure its sync method, destination,
+                    keys, and columns.
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            ) : null}
+          </div>
         </div>
       </div>
 

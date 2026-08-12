@@ -47,6 +47,7 @@ jest.mock('../hooks/useStreamConfig', () => ({
     updateStreamCursorField: jest.fn(),
     updateStreamPrimaryKey: jest.fn(),
     toggleColumn: jest.fn(),
+    updateCastType: jest.fn(),
     toggleStreamExpand: jest.fn(),
     handleIncrementalAllToggle: jest.fn(),
     filteredStreams: [],
