@@ -47,6 +47,8 @@ import {
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { DashboardNameHint } from '@/components/onboarding/dashboard-name-hint';
+import { Label } from '@/components/ui/label';
 import {
   isStageBefore,
   markChartCreated,
@@ -1088,12 +1090,20 @@ function ConfigureChartPageContent() {
             </Button>
 
             {/* Chart Title Input */}
-            <Input
-              value={formData.title}
-              onChange={(e) => handleFormChange({ title: e.target.value })}
-              className="text-lg font-semibold border border-gray-200 shadow-sm px-4 py-2 h-11 bg-white min-w-[300px]"
-              placeholder="Untitled Chart"
-            />
+            <div className="space-y-1">
+              <Label htmlFor="chart-name" className="flex items-center gap-2">
+                Chart name
+                <DashboardNameHint id="chart-name-guidance" />
+              </Label>
+              <Input
+                id="chart-name"
+                aria-describedby="chart-name-guidance"
+                value={formData.title}
+                onChange={(e) => handleFormChange({ title: e.target.value })}
+                className="h-11 min-w-[300px] border border-gray-200 bg-white px-4 py-2 text-lg font-semibold shadow-sm"
+                placeholder="Untitled Chart"
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-4">

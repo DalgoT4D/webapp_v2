@@ -1,7 +1,6 @@
 'use client';
 
-import { Controller } from 'react-hook-form';
-import type { Control, UseFormRegister, FieldErrors } from 'react-hook-form';
+import { Controller, type Control, type UseFormRegister, type FieldErrors } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -14,6 +13,7 @@ import {
 import type { KPIFormData } from './kpi-form-types';
 import { DIRECTION_OPTIONS, TIME_GRAIN_OPTIONS } from '@/types/kpis';
 import type { TableColumn } from '@/types/explore';
+import { DashboardNameHint } from '@/components/onboarding/dashboard-name-hint';
 
 interface KpiSetupStepProps {
   control: Control<KPIFormData>;
@@ -44,10 +44,15 @@ export function KpiSetupStep({
 
       {/* KPI name */}
       <div className="space-y-1">
-        <Label>
-          Name this KPI <span className="text-destructive">*</span>
+        <Label htmlFor="kpi-name" className="flex items-center gap-2">
+          <span>
+            Name this KPI <span className="text-destructive">*</span>
+          </span>
+          {!isEdit && <DashboardNameHint id="kpi-name-guidance" />}
         </Label>
         <Input
+          id="kpi-name"
+          aria-describedby={!isEdit ? 'kpi-name-guidance' : undefined}
           {...register('name', { required: 'KPI name is required' })}
           placeholder="Choose a unique KPI name"
         />

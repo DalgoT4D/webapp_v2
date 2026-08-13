@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { GettingStartedWidget } from '../getting-started-widget';
 
@@ -26,7 +26,14 @@ describe('GettingStartedWidget', () => {
       />
     );
 
-    expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget')).toHaveClass(
+      'w-[calc(100vw-3rem)]',
+      'max-w-[520px]'
+    );
+    expect(screen.getByTestId('getting-started-widget-title')).toHaveClass('sm:whitespace-nowrap');
+    expect(screen.getByTestId('getting-started-widget-subtitle')).toHaveClass(
+      'sm:whitespace-nowrap'
+    );
     expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument();
   });
 
@@ -153,7 +160,7 @@ describe('GettingStartedWidget checklist', () => {
     localStorage.clear();
   });
 
-  it('shows exactly the two checklist items, in order, plus the video placeholder', () => {
+  it('shows exactly the two checklist items in order, plus a click-to-play video', () => {
     render(
       <GettingStartedWidget
         defaultOpen
@@ -166,12 +173,65 @@ describe('GettingStartedWidget checklist', () => {
       />
     );
 
-    expect(screen.getByTestId('getting-started-widget-video-placeholder')).toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget-video')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Play Dalgo product overview video' })
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('getting-started-widget-video-iframe')).not.toBeInTheDocument();
     const items = screen.getAllByTestId(/getting-started-widget-item-/);
     expect(items.map((el) => el.getAttribute('data-testid'))).toEqual([
       'getting-started-widget-item-build-insight',
       'getting-started-widget-item-automate-pipeline',
     ]);
+  });
+
+  it('loads and plays the YouTube video only after the user clicks play', async () => {
+    const user = userEvent.setup();
+    render(
+      <GettingStartedWidget
+        defaultOpen
+        walkthroughActive={false}
+        hasBuiltFirstInsight={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+        onBuildInsightClick={jest.fn()}
+        onAutomatePipelineClick={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByTestId('getting-started-widget-video-iframe')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('getting-started-widget-video-play'));
+
+    expect(screen.getByTestId('getting-started-widget-video-iframe')).toHaveAttribute(
+      'src',
+      'https://www.youtube-nocookie.com/embed/R-JJNgp8xYM?autoplay=1&rel=0'
+    );
+    expect(trackEvent).toHaveBeenCalledWith('onboarding:getting_started_video_played');
+  });
+
+  it('stops the video when the widget is minimized and requires another click after reopening', async () => {
+    const user = userEvent.setup();
+    render(
+      <GettingStartedWidget
+        defaultOpen
+        walkthroughActive={false}
+        hasBuiltFirstInsight={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+        onBuildInsightClick={jest.fn()}
+        onAutomatePipelineClick={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByTestId('getting-started-widget-video-play'));
+    expect(screen.getByTestId('getting-started-widget-video-iframe')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('getting-started-widget-minimize'));
+    await user.click(screen.getByTestId('getting-started-widget-pill'));
+
+    expect(screen.queryByTestId('getting-started-widget-video-iframe')).not.toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget-video-play')).toBeInTheDocument();
   });
 
   it('each unchecked row is a button that reports the click to its owner', async () => {
@@ -263,7 +323,9 @@ describe('GettingStartedWidget checklist', () => {
     );
 
     const item = screen.getByTestId('getting-started-widget-item-build-insight');
-    expect(item.querySelector('svg')).toHaveClass('text-primary'); // CheckCircle2, not the muted Circle
+    const completedIcon = within(item).getByTestId('getting-started-widget-complete-icon');
+    expect(completedIcon).toHaveClass('bg-primary', 'text-primary-foreground');
+    expect(completedIcon.querySelector('svg')).toBeInTheDocument();
     // Done rows are status, not affordances — neither a link nor a button.
     expect(item.tagName).toBe('DIV');
     expect(item).not.toHaveAttribute('href');
@@ -283,6 +345,9 @@ describe('GettingStartedWidget checklist', () => {
     );
 
     const item = screen.getByTestId('getting-started-widget-item-automate-pipeline');
-    expect(item.querySelector('svg')).toHaveClass('text-primary');
+    expect(within(item).getByTestId('getting-started-widget-complete-icon')).toHaveClass(
+      'bg-primary',
+      'text-primary-foreground'
+    );
   });
 });

@@ -11,7 +11,11 @@
  */
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 import { Loader2 } from 'lucide-react';
+
+const CELEBRATION_ANIMATION_SRC = '/branding/celebration-checkmark.gif';
+const CELEBRATION_ANIMATION_SIZE = 150;
 
 export type SubscriptionRequestStage = 'idle' | 'confirm' | 'sending' | 'sent';
 
@@ -20,53 +24,6 @@ interface SubscriptionRequestModalProps {
   onConfirm: () => void;
   /** Called when the user dismisses either modal (Cancel, the X, Esc, or outside click). */
   onClose: () => void;
-}
-
-/**
- * Green tick with scattered confetti, drawn inline rather than shipped as an image so it
- * stays crisp at any size and needs no network fetch inside a modal that appears instantly.
- * Decorative only — the heading carries the meaning, so it is hidden from screen readers.
- */
-function SuccessIllustration() {
-  return (
-    <svg
-      viewBox="0 0 120 120"
-      className="h-24 w-24"
-      fill="none"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <circle cx="60" cy="60" r="26" className="fill-green-500" />
-      <path
-        d="M48 60.5 L56.5 69 L72 53"
-        stroke="white"
-        strokeWidth="5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* confetti — deliberately irregular so it reads as a burst rather than a pattern */}
-      <g strokeWidth="2.5" strokeLinecap="round" fill="none">
-        <path d="M28 44 L34 41" className="stroke-emerald-600" />
-        <path d="M40 28 L43 22" className="stroke-blue-800" />
-        <path d="M78 24 Q82 26 80 30" className="stroke-emerald-700" />
-        <path d="M95 62 Q92 66 95 69" className="stroke-blue-800" />
-        <path d="M52 92 Q57 96 63 93" className="stroke-blue-900" />
-        <path d="M86 88 L91 92" className="stroke-blue-800" />
-        <path d="M24 78 Q28 83 25 88" className="stroke-emerald-800" />
-      </g>
-      <g strokeWidth="0">
-        <circle cx="36" cy="66" r="3" className="fill-rose-900" />
-        <circle cx="90" cy="44" r="2.5" className="fill-yellow-700" />
-        <circle cx="66" cy="20" r="2.5" className="fill-emerald-600" />
-      </g>
-      <g className="fill-blue-800">
-        <path d="M31 32 l4 1 -1 4 -4 -1 z" />
-      </g>
-      <g className="fill-yellow-700">
-        <path d="M88 74 l4 1 -1 4 -4 -1 z" />
-      </g>
-    </svg>
-  );
 }
 
 export function SubscriptionRequestModal({
@@ -80,16 +37,26 @@ export function SubscriptionRequestModal({
     return (
       <Dialog open onOpenChange={(open) => !open && onClose()}>
         <DialogContent
-          className="sm:max-w-xl"
+          className="from-primary/10 overflow-hidden border-none bg-gradient-to-b to-white p-0 sm:max-w-md"
           data-testid="subscription-sent-modal"
           aria-describedby="subscription-sent-description"
         >
-          <div className="flex flex-col items-center gap-6 px-6 py-8 text-center">
-            <SuccessIllustration />
-            <DialogTitle className="text-3xl font-bold">Subscription request sent</DialogTitle>
+          <div className="flex flex-col items-center gap-4 px-10 pt-12 pb-10 text-center">
+            {/* Match the celebration moments elsewhere in onboarding. `unoptimized` preserves
+                the GIF animation instead of allowing Next to flatten it into a still image. */}
+            <Image
+              src={CELEBRATION_ANIMATION_SRC}
+              alt=""
+              width={CELEBRATION_ANIMATION_SIZE}
+              height={CELEBRATION_ANIMATION_SIZE}
+              unoptimized
+              priority
+              data-testid="subscription-sent-animation"
+            />
+            <DialogTitle className="text-2xl font-bold">Subscription request sent</DialogTitle>
             <DialogDescription
               id="subscription-sent-description"
-              className="text-foreground text-lg leading-relaxed"
+              className="text-muted-foreground text-base leading-relaxed"
             >
               Our team will reach out to you within 1 working day with a request for the relevant
               information to generate an invoice and help set you up.

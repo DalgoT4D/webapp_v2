@@ -1,10 +1,12 @@
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TestWrapper } from '@/test-utils/render';
 import { mockApiGet } from '@/test-utils/api';
 import {
   saveTourProgress,
+  getPendingPostTourScreen,
+  savePendingPostTourScreen,
   markIntentModalSeen,
   markIntentModalShownThisSession,
   hasSeenIntentModal,
@@ -478,9 +480,61 @@ describe('TourGate', () => {
     expect(screen.queryByTestId('get-started-option-insight')).not.toBeInTheDocument();
   });
 
-  it('does not auto-open the intent modal when the backend says the tour was already decided', async () => {
-    // localStorage is deliberately left clean — this asserts the backend gate alone
-    // suppresses the modal, which is what covers a user on a fresh/cleared browser.
+  it('restores the unresolved journey chooser after it is closed and the page reloads', async () => {
+    const user = userEvent.setup();
+    suppressIntentModal();
+    setupAuthStore(buildOrgUser());
+    const { unmount } = renderGate();
+
+    await screen.findByTestId('getting-started-widget-pill');
+    act(() => mockTourProps.current?.onOfferPostTourChoice?.());
+    expect(await screen.findByTestId('get-started-option-insight')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /close/i }));
+    await waitFor(() => expect(screen.queryByTestId('get-started-modal')).not.toBeInTheDocument());
+
+    // Closing is a dismissal for this visit. A full remount models refresh: because no journey
+    // was selected, the exact post-tour choice must return instead of only showing the widget.
+    unmount();
+    renderGate();
+
+    expect(await screen.findByTestId('get-started-option-insight')).toBeInTheDocument();
+    expect(screen.getByTestId('get-started-option-pipeline')).toBeInTheDocument();
+    expect(screen.queryByTestId('tour-intent-modal')).not.toBeInTheDocument();
+  });
+
+  it('restores the insight fork screen when refresh happens after choosing that journey', async () => {
+    const user = userEvent.setup();
+    suppressIntentModal();
+    setupAuthStore(buildOrgUser());
+    const { unmount } = renderGate();
+
+    await screen.findByTestId('getting-started-widget-pill');
+    act(() => mockTourProps.current?.onOfferPostTourChoice?.());
+    await user.click(await screen.findByTestId('get-started-option-insight'));
+    expect(screen.getByTestId('get-started-option-sample')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /close/i }));
+    unmount();
+    renderGate();
+
+    expect(await screen.findByTestId('get-started-option-sample')).toBeInTheDocument();
+    expect(screen.getByTestId('get-started-option-own-data')).toBeInTheDocument();
+    expect(screen.getByTestId('get-started-back-btn')).toBeInTheDocument();
+  });
+
+  it('does not expose one user’s pending post-tour choice to another user in the same org', () => {
+    setupAuthStore(buildOrgUser({ user_id: 1 }));
+    savePendingPostTourScreen('trial-org', 'insight');
+    expect(getPendingPostTourScreen('trial-org')).toBe('insight');
+
+    setupAuthStore(buildOrgUser({ user_id: 2 }));
+    expect(getPendingPostTourScreen('trial-org')).toBeNull();
+  });
+
+  it('keeps nudging an unfinished trial after the product tour was skipped', async () => {
+    // A product-tour skip says only that the user stopped the platform overview. It does not
+    // complete either build journey, so the next session still offers a useful way forward.
     mockApiGet.mockImplementation((path: string) =>
       path === '/api/userpreferences/'
         ? Promise.resolve({
@@ -492,10 +546,7 @@ describe('TourGate', () => {
     setupAuthStore(buildOrgUser());
     renderGate();
 
-    // The widget mounts on the same gated render pass, so its presence means the gate has
-    // resolved — without this the assertion below could pass simply by running too early.
-    await screen.findByTestId('getting-started-widget-pill');
-    expect(screen.queryByText('What brings you to Dalgo')).not.toBeInTheDocument();
+    expect(await screen.findByText('What brings you to Dalgo')).toBeInTheDocument();
   });
 
   it('starts the tour from the getting-started widget link', async () => {
@@ -516,10 +567,18 @@ describe('TourGate', () => {
    * the backend fetch resolving, not on synchronous localStorage.
    */
   const expectTick = async (key: string, checked: boolean) => {
-    const expected = checked ? 'text-primary' : 'text-muted-foreground';
     await waitFor(async () => {
       const row = await screen.findByTestId(`getting-started-widget-item-${key}`);
-      expect(row.querySelector('svg')).toHaveClass(expected);
+      if (checked) {
+        expect(within(row).getByTestId('getting-started-widget-complete-icon')).toHaveClass(
+          'bg-primary'
+        );
+      } else {
+        expect(
+          within(row).queryByTestId('getting-started-widget-complete-icon')
+        ).not.toBeInTheDocument();
+        expect(row.querySelector('svg')).toHaveClass('text-muted-foreground');
+      }
     });
   };
 

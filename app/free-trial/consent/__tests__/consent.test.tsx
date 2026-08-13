@@ -33,10 +33,11 @@ jest.mock('@/lib/navigation', () => ({
 }));
 
 const mockReplace = jest.fn();
+const mockRouter = { push: jest.fn(), replace: mockReplace };
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: jest.fn(), replace: mockReplace }),
+  useRouter: () => mockRouter,
   usePathname: () => '/free-trial/consent',
-  useSearchParams: () => ({ get: () => null }),
+  useSearchParams: () => ({ get: (_key: string): string | null => null }),
 }));
 
 jest.mock('next/link', () => {
@@ -75,6 +76,31 @@ async function accept() {
 }
 
 describe('TrialConsentPage', () => {
+  it('shows the requested data-handling copy', async () => {
+    render(<TrialConsentPage />);
+
+    const card = await screen.findByTestId('trial-consent-card');
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'A few things to know before we setup your trial workspace',
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Data deletion')).toBeInTheDocument();
+    expect(screen.getByText('Data Storage')).toBeInTheDocument();
+    expect(screen.getByText('Data privacy and protection')).toBeInTheDocument();
+    expect(card).toHaveTextContent(
+      'By creating this trial account, you consent to the collection, processing, and regulatory-compliant use of your personal and sensitive information.'
+    );
+    expect(card).toHaveTextContent(
+      'I have read and accept the Privacy Policy and terms of data collection and use.'
+    );
+
+    const privacyLink = screen.getByRole('link', { name: 'Privacy Policy' });
+    expect(privacyLink).toHaveAttribute('href', 'https://dalgo.org/privacy');
+    expect(privacyLink).toHaveAttribute('target', '_blank');
+  });
+
   it('activates with the stashed token + password and routes to the progress screen', async () => {
     mockApiPublicPost.mockResolvedValueOnce({ task_id: 'task-123', email: 'jane@example.org' });
     render(<TrialConsentPage />);

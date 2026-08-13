@@ -12,18 +12,14 @@
  * though the pill stays available to reopen it manually.
  */
 import { useEffect, useState } from 'react';
-import {
-  ArrowUpRight,
-  CheckCircle2,
-  ChevronRight,
-  Circle,
-  Minus,
-  Play,
-  Rocket,
-} from 'lucide-react';
+import { ArrowUpRight, Check, ChevronRight, Circle, Minus, Play, Rocket } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { BOOK_A_CALL_URL, DALGO_DOCS_URL } from '@/constants/trial';
+
+const PRODUCT_VIDEO_ID = 'R-JJNgp8xYM';
+const PRODUCT_VIDEO_EMBED_URL = `https://www.youtube-nocookie.com/embed/${PRODUCT_VIDEO_ID}?autoplay=1&rel=0`;
+const PRODUCT_VIDEO_THUMBNAIL_URL = `https://i.ytimg.com/vi/${PRODUCT_VIDEO_ID}/hqdefault.jpg`;
 
 interface GettingStartedWidgetProps {
   /**
@@ -65,13 +61,26 @@ export function GettingStartedWidget({
   // Starts true (collapsed) so the full panel never flashes open before the effect below
   // settles it.
   const [minimized, setMinimized] = useState(true);
+  const [videoStarted, setVideoStarted] = useState(false);
 
   useEffect(() => {
     // Re-derived on arrival (and whenever a walkthrough starts or ends) rather than
     // persisted: returning to /impact re-opens the panel even if it was minimized last
     // visit, and a running flow keeps it minimized wherever the user goes.
-    setMinimized(walkthroughActive || !defaultOpen);
+    const shouldMinimize = walkthroughActive || !defaultOpen;
+    setMinimized(shouldMinimize);
+    if (shouldMinimize) setVideoStarted(false);
   }, [defaultOpen, walkthroughActive]);
+
+  const minimizeWidget = () => {
+    setMinimized(true);
+    setVideoStarted(false);
+  };
+
+  const handlePlayVideo = () => {
+    trackEvent(ANALYTICS_EVENTS.GETTING_STARTED_VIDEO_PLAYED);
+    setVideoStarted(true);
+  };
 
   const handleStartTour = () => {
     trackEvent(ANALYTICS_EVENTS.GETTING_STARTED_TOUR_LINK_CLICKED);
@@ -127,37 +136,61 @@ export function GettingStartedWidget({
       {!minimized && (
         <div
           data-testid="getting-started-widget"
-          className="fixed right-6 bottom-24 z-40 w-[420px] rounded-2xl border bg-card p-6 shadow-xl"
+          className="fixed right-6 bottom-24 z-40 w-[calc(100vw-3rem)] max-w-[520px] rounded-2xl border bg-card p-6 shadow-xl"
         >
           <div className="flex items-start justify-between">
-            <div>
+            <div className="min-w-0 flex-1">
               <p
-                className="text-xl font-bold text-foreground"
+                className="text-xl font-bold text-foreground sm:whitespace-nowrap"
                 data-testid="getting-started-widget-title"
               >
                 {heading.title}
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">{heading.subtitle}</p>
+              <p
+                className="mt-1 text-sm text-muted-foreground sm:whitespace-nowrap"
+                data-testid="getting-started-widget-subtitle"
+              >
+                {heading.subtitle}
+              </p>
             </div>
             <button
               type="button"
               aria-label="Minimize"
               data-testid="getting-started-widget-minimize"
-              onClick={() => setMinimized(true)}
-              className="text-muted-foreground hover:text-foreground"
+              onClick={minimizeWidget}
+              className="ml-4 shrink-0 text-muted-foreground hover:text-foreground"
             >
               <Minus className="h-5 w-5" />
             </button>
           </div>
 
-          {/* Video placeholder — swap for the real walkthrough video later */}
           <div
-            data-testid="getting-started-widget-video-placeholder"
-            className="mt-4 flex h-40 items-center justify-center rounded-xl bg-primary/10"
+            data-testid="getting-started-widget-video"
+            className="mt-4 aspect-video overflow-hidden rounded-xl bg-primary/10"
           >
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow">
-              <Play className="h-5 w-5 text-primary" />
-            </span>
+            {videoStarted ? (
+              <iframe
+                data-testid="getting-started-widget-video-iframe"
+                src={PRODUCT_VIDEO_EMBED_URL}
+                title="Dalgo product overview"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allowFullScreen
+                className="h-full w-full border-0"
+              />
+            ) : (
+              <button
+                type="button"
+                aria-label="Play Dalgo product overview video"
+                data-testid="getting-started-widget-video-play"
+                onClick={handlePlayVideo}
+                className="flex h-full w-full items-center justify-center bg-cover bg-center"
+                style={{ backgroundImage: `url(${PRODUCT_VIDEO_THUMBNAIL_URL})` }}
+              >
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-background shadow">
+                  <Play className="h-5 w-5 text-primary" fill="currentColor" />
+                </span>
+              </button>
+            )}
           </div>
 
           {allComplete ? (
@@ -195,7 +228,13 @@ export function GettingStartedWidget({
               const body = (
                 <>
                   {item.checked ? (
-                    <CheckCircle2 className="text-primary mt-0.5 h-5 w-5 shrink-0" />
+                    <span
+                      aria-hidden="true"
+                      data-testid="getting-started-widget-complete-icon"
+                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+                    >
+                      <Check className="h-3.5 w-3.5 stroke-[3]" />
+                    </span>
                   ) : (
                     <Circle className="text-muted-foreground mt-0.5 h-5 w-5 shrink-0" />
                   )}
@@ -230,7 +269,7 @@ export function GettingStartedWidget({
                         // Get out of the way of whatever this starts (a dialog, a coachmark on
                         // the page behind). Can't be left to the walkthroughActive effect: when
                         // a flow is already running, that value never changes on this click.
-                        setMinimized(true);
+                        minimizeWidget();
                         item.onClick();
                       }}
                     >

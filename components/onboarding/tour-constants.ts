@@ -7,6 +7,8 @@
 // against each frame's progress-dot graphic (1 filled dot on kpi … 9 on orchestrate).
 // Don't reword these strings — they are design-owned copy.
 
+import { getWalkthroughScope, scopeSuffix } from './walkthrough-scope';
+
 export interface TourStep {
   /** Route to navigate to before showing this step. */
   route: string;
@@ -241,6 +243,57 @@ export function getTourProgress(orgSlug: string): number | null {
 export function clearTourProgress(orgSlug: string): void {
   try {
     localStorage.removeItem(`${TOUR_PROGRESS_STORAGE_PREFIX}${orgSlug}`);
+  } catch {
+    // no-op
+  }
+}
+
+/**
+ * The post-tour journey chooser is work the user has not resolved yet. Closing it should
+ * dismiss it for the current page visit, but a reload must bring the same screen back rather
+ * than replacing it with the generic Getting Started widget. The value is the exact screen,
+ * so refreshing after moving into the insight fork does not rewind to the journey list.
+ *
+ * Kept separate from TOUR_PROGRESS_STORAGE_PREFIX: the product tour itself has finished by
+ * this point, and resuming its final spotlight would be the wrong UI.
+ */
+export const POST_TOUR_SCREEN_STORAGE_PREFIX = 'dalgo_post_tour_screen_';
+
+export type PendingPostTourScreen = 'choice' | 'insight';
+
+function pendingPostTourScreenKey(orgSlug: string): string | null {
+  const scope = getWalkthroughScope();
+  if (!scope || scope.orgSlug !== orgSlug) return null;
+  return `${POST_TOUR_SCREEN_STORAGE_PREFIX}${scopeSuffix(scope)}`;
+}
+
+export function getPendingPostTourScreen(orgSlug: string): PendingPostTourScreen | null {
+  try {
+    const key = pendingPostTourScreenKey(orgSlug);
+    if (!key) return null;
+    const screen = localStorage.getItem(key);
+    return screen === 'choice' || screen === 'insight' ? screen : null;
+  } catch {
+    return null;
+  }
+}
+
+export function savePendingPostTourScreen(orgSlug: string, screen: PendingPostTourScreen): void {
+  try {
+    const key = pendingPostTourScreenKey(orgSlug);
+    if (!key) return;
+    localStorage.setItem(key, screen);
+  } catch {
+    // localStorage unavailable — the chooser still works for this visit; only refresh resume
+    // is lost.
+  }
+}
+
+export function clearPendingPostTourScreen(orgSlug: string): void {
+  try {
+    const key = pendingPostTourScreenKey(orgSlug);
+    if (!key) return;
+    localStorage.removeItem(key);
   } catch {
     // no-op
   }

@@ -166,6 +166,18 @@ describe('TrialDayNudgeModal', () => {
   });
 
   describe('copy', () => {
+    it('uses the neutral trial-ending illustration instead of a static countdown', async () => {
+      setTrialOrg(1);
+
+      render(<TrialDayNudgeModal />);
+
+      const modal = await screen.findByTestId('trial-nudge-1d-modal');
+      const imageSrc = modal.querySelector('img')?.getAttribute('src') ?? '';
+      expect(decodeURIComponent(imageSrc)).toContain(
+        '/branding/trial-ending-soon-illustration.jpg'
+      );
+    });
+
     it('names the real deletion date', async () => {
       setTrialOrg(1);
 

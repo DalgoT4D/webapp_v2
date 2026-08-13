@@ -36,6 +36,10 @@ function popoverTitle(): string {
   return document.querySelector('.driver-popover-title')?.textContent ?? '';
 }
 
+function popoverDescription(): string {
+  return document.querySelector('.driver-popover-description')?.textContent ?? '';
+}
+
 type WalkthroughState = ReturnType<typeof useInsightWalkthroughStore.getState>;
 
 function setStage(stage: WalkthroughStage, overrides: Partial<WalkthroughState> = {}) {
@@ -74,6 +78,13 @@ describe('InsightWalkthroughCoachmark', () => {
       await waitFor(() => expect(skipButton()).not.toBeNull());
       expect(skipButton()!.textContent).toBe('✕');
       expect(skipButton()!.style.display).toBe('block');
+      expect(skipButton()!.parentElement).toBe(
+        document.querySelector('.driver-popover-title')?.parentElement
+      );
+      expect(skipButton()!.parentElement).toHaveClass(
+        'dalgo-tour-heading-row',
+        'dalgo-tour-heading-row--coachmark'
+      );
     });
 
     it('ends the whole walkthrough when the ✕ is clicked', async () => {
@@ -115,6 +126,44 @@ describe('InsightWalkthroughCoachmark', () => {
       await userEvent.click(skipButton()!);
 
       await waitFor(() => expect(target.classList.contains('dalgo-tour-ring')).toBe(false));
+    });
+  });
+
+  describe('coachmark guidance', () => {
+    it('makes clear that users may choose any metric', async () => {
+      mountTarget('kpi-form-metric-field');
+      setStage('kpi_metric');
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() =>
+        expect(popoverDescription()).toBe(
+          'The measure this KPI tracks, for example a count of beneficiaries. Choose any metric to get started.'
+        )
+      );
+    });
+
+    it('uses concise, single-line copy for the dashboard Preview guide', async () => {
+      mockPathname = '/dashboards/create';
+      window.history.pushState({}, '', '/dashboards/create');
+      mountTarget('dashboard-preview-btn');
+      setStage('builder_preview');
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(popoverTitle()).toBe('Preview it first'));
+      expect(popoverDescription()).toBe('See what your team will see.');
+      expect(document.querySelector('.driver-popover-description')).toHaveClass(
+        'dalgo-tour-description-one-line'
+      );
+    });
+
+    it('labels the own-data dashboard step as sample KPIs', async () => {
+      mockPathname = '/dashboards/create';
+      window.history.pushState({}, '', '/dashboards/create');
+      mountTarget('add-kpi-btn');
+      setStage('builder_add_kpi_second', { path: 'own_data' });
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(popoverTitle()).toBe('Add sample KPIs'));
     });
   });
 
@@ -164,6 +213,20 @@ describe('InsightWalkthroughCoachmark', () => {
       await waitFor(() => expect(skipButton()).not.toBeNull());
 
       expect(document.body.classList.contains('dalgo-tour-passthrough')).toBe(true);
+    });
+
+    it('highlights Continue after a chart type is selected', async () => {
+      mockPathname = '/charts/new';
+      window.history.pushState({}, '', '/charts/new');
+      mountTarget('chart-type-continue-button');
+      setStage('chart_continue', { path: 'own_data' });
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(popoverTitle()).toBe('Continue to configure your chart'));
+      expect(document.querySelector('.driver-active-element')).toHaveAttribute(
+        'data-testid',
+        'chart-type-continue-button'
+      );
     });
   });
 
@@ -287,10 +350,20 @@ describe('InsightWalkthroughCoachmark', () => {
 
       render(<InsightWalkthroughCoachmark />);
 
-      await waitFor(() => expect(popoverTitle()).toContain('Pick a platform'));
+      await waitFor(() => expect(popoverTitle()).toContain('Pick a data source'));
       // Selecting a source is what advances it (SelectSourceStep's own handler, which sees
       // both cards and search results), so the coachmark itself must not move on a click.
       expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_pick_source');
+    });
+
+    it('continues the popover outline around its pointer triangle', async () => {
+      mountTarget('source-picker-body');
+      setStage('own_data_pick_source', { path: 'own_data' });
+
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(popoverTitle()).toContain('Pick a data source'));
+      expect(document.querySelector('.driver-popover')).toHaveClass('dalgo-tour-arrow-outlined');
     });
 
     it.each([
@@ -303,6 +376,9 @@ describe('InsightWalkthroughCoachmark', () => {
       render(<InsightWalkthroughCoachmark />);
 
       await waitFor(() => expect(popoverTitle()).toContain('Now set it up'));
+      expect(popoverDescription()).toBe(
+        'Click Next to provide the credentials required to connect to the data source.'
+      );
       // A steer, not a gate — the fork rejoins on the tracked connection's first sync
       // (see tour-gate.tsx), not on this click.
       expect(useInsightWalkthroughStore.getState().stage).toBe(stage);
@@ -311,7 +387,7 @@ describe('InsightWalkthroughCoachmark', () => {
     it.each(['own_data_ingest', 'own_data_pick_source', 'own_data_source_next'] as const)(
       'goes silent on %s once a connection is being synced',
       async (stage) => {
-        // "Add a source" / "pick a platform" would be actively misleading while the
+        // "Add a source" / "pick a data source" would be actively misleading while the
         // connection they already made is mid-sync.
         mountTarget('new-source-btn');
         mountTarget('source-picker-body');

@@ -61,6 +61,11 @@
     0 10px 25px -5px rgba(17, 24, 39, 0.25),
     0 8px 10px -6px rgba(17, 24, 39, 0.2);
   max-width: 320px;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 16px 18px;
   font-family:
     var(--font-anek-latin),
@@ -70,15 +75,76 @@
   border: 1px solid var(--border);
 }
 
+/* Continue the card's 1px outline around driver.js's pointer triangle. The library's arrow
+   is itself a zero-size element made from borders, so a normal border cannot be added to it;
+   a second triangle, one pixel larger and painted behind the first, supplies the missing edge
+   on every side/position without changing driver.js's geometry. */
+.dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow {
+  z-index: 1;
+}
+.dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -6px;
+  left: -6px;
+  width: 0;
+  height: 0;
+  border: 6px solid transparent;
+}
+.dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow-side-left::before {
+  border-left-color: var(--border);
+}
+.dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow-side-right::before {
+  border-right-color: var(--border);
+}
+.dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow-side-top::before {
+  border-top-color: var(--border);
+}
+.dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow-side-bottom::before {
+  border-bottom-color: var(--border);
+}
+
+/* Product-tour cards use a larger custom sidebar arrow because their popover is repositioned
+   after driver.js lays it out. Mirror the same one-pixel-underlay technique at that arrow's
+   17.5-by-14px dimensions so the outline is consistent with the walkthrough coachmarks. */
+.dalgo-tour.dalgo-tour-arrow-outlined #dalgo-tour-sidebar-arrow {
+  z-index: 1;
+}
+.dalgo-tour.dalgo-tour-arrow-outlined #dalgo-tour-sidebar-arrow::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -8px;
+  left: -18.5px;
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 18.5px solid var(--border);
+}
+
 .dalgo-tour .driver-popover-title {
   padding: 0;
+  font-size: 16px;
+  line-height: 1.3;
 }
 
 .dalgo-tour .driver-popover-description {
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1.55;
   color: var(--muted-foreground);
   padding: 6px 0 0 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* The Preview hint is deliberately short enough to read as one sentence on a desktop card.
+   Small screens keep normal wrapping so the text never forces the popover past the viewport. */
+@media (min-width: 400px) {
+  .dalgo-tour .dalgo-tour-description-one-line {
+    white-space: nowrap;
+  }
 }
 
 /* Progress dots + "N of total" counter, injected into the `title` slot ahead of the actual
@@ -92,8 +158,6 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 14px;
-  /* Keeps the "N of total" counter clear of the absolutely-positioned top-right ✕. */
-  padding-right: 22px;
 }
 .dalgo-tour-progress {
   display: flex;
@@ -114,15 +178,38 @@
   color: var(--muted-foreground);
 }
 .dalgo-tour-title-text {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--foreground);
   line-height: 1.3;
 }
 
+/* driver.js normally pins the close button to the card itself. The title and button are moved
+   into this shared row by tour-popover-chrome.ts so coachmark ✕ buttons align with their
+   heading and product-tour ✕ buttons align with the progress row. Image coachmarks keep the
+   illustration above the complete row instead of floating the control over the artwork. */
+.dalgo-tour-heading-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.dalgo-tour-heading-row .driver-popover-title {
+  flex: 1;
+  min-width: 0;
+}
+.dalgo-tour-heading-row .dalgo-tour-close-btn {
+  position: static;
+  flex: none;
+  margin-top: 2px;
+}
+.dalgo-tour-heading-row--product-tour .dalgo-tour-close-btn {
+  margin-top: 0;
+}
+
 /* Footer row: single primary CTA, left-aligned (the close affordance is the top-right ✕,
    not a footer link). driver.js's own rules right-align this, hence the explicit overrides. */
 .dalgo-tour .driver-popover-footer {
+  flex-shrink: 0;
   margin-top: 14px;
   display: flex;
   align-items: center;
@@ -139,19 +226,9 @@
   display: none;
 }
 
-/* INSIGHT WALKTHROUGH coachmarks (insight-walkthrough-coachmark.tsx) have no progress row to
-   reserve space for the top-right ✕, so the title itself keeps clear of it. Product-tour
-   popovers aren't affected — their progress row already carries that inset. */
-.dalgo-tour-coach .driver-popover-title {
-  padding-right: 24px;
-}
-
-/* Top-right ✕ — the dismissal on both the product tour and the walkthrough coachmarks.
-   driver.js already absolutely positions .driver-popover-close-btn at the popover's top-right
-   corner, so this only restyles it, inset to match the popover's own padding. */
+/* ✕ — the dismissal on both the product tour and the walkthrough coachmarks. Placement is
+   owned by .dalgo-tour-heading-row above; this rule only owns its visual treatment. */
 .dalgo-tour .dalgo-tour-close-btn {
-  top: 12px;
-  right: 14px;
   width: auto;
   height: auto;
   background: transparent;
@@ -165,14 +242,6 @@
 .dalgo-tour .dalgo-tour-close-btn:hover,
 .dalgo-tour .dalgo-tour-close-btn:focus {
   color: var(--foreground);
-}
-
-/* On the nudge stages that render an illustration (StageConfig.imageSrc) the ✕ sits over the
-   image, where a bare glyph can vanish into the artwork — give it its own chip there. */
-.dalgo-tour-coach:has(.dalgo-tour-stage-image) .dalgo-tour-close-btn {
-  background: var(--card);
-  border-radius: 9999px;
-  padding: 2px 5px;
 }
 
 /* Specificity note: driver.js ships `.driver-popover-footer-btn:hover { background-color:
@@ -206,7 +275,7 @@
   width: 100%;
   height: auto;
   border-radius: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 /* driver.js kills pointer-events on everything but its highlighted element

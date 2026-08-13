@@ -107,6 +107,23 @@ describe('TrialBadge rendering', () => {
     expect(screen.getByTestId('trial-days-badge')).toHaveTextContent('7 days left');
   });
 
+  it('uses the gradient stroke and subtle fill for the trial nudge', async () => {
+    renderBadge();
+
+    await screen.findByTestId('trial-subscribe-cta');
+    expect(screen.getByTestId('trial-days-badge')).toHaveClass(
+      'bg-gradient-to-r',
+      'from-primary',
+      'to-primary/20',
+      'p-[1px]'
+    );
+    expect(screen.getByTestId('trial-days-badge-surface')).toHaveClass(
+      'bg-gradient-to-r',
+      'from-background',
+      'to-primary/5'
+    );
+  });
+
   it('renders nothing for a paid org and never fetches the plan', () => {
     setOrgUser({ plan: 'Dalgo' });
 
@@ -232,6 +249,15 @@ describe('TrialBadge subscription request flow', () => {
     await user.click(screen.getByTestId('subscription-confirm-button'));
 
     expect(await screen.findByTestId('subscription-sent-modal')).toBeInTheDocument();
+    expect(screen.getByTestId('subscription-sent-modal')).toHaveClass(
+      'bg-gradient-to-b',
+      'from-primary/10',
+      'to-white'
+    );
+    expect(screen.getByTestId('subscription-sent-animation')).toHaveAttribute(
+      'src',
+      expect.stringContaining('celebration-checkmark.gif')
+    );
     expect(mockApiPost).toHaveBeenCalledTimes(1);
     expect(mockApiPost).toHaveBeenCalledWith(`${ORG_PLAN_URL}/upgrade`, {});
     expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_SENT, {

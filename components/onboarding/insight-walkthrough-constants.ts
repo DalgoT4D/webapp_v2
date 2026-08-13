@@ -71,6 +71,7 @@ export type WalkthroughStage =
   | 'chart_create'
   | 'chart_pick_table'
   | 'chart_pick_type'
+  | 'chart_continue'
   | 'chart_data_config'
   | 'chart_styling'
   | 'chart_save'
@@ -165,6 +166,7 @@ const CHART_TO_SHARE_TAIL: WalkthroughStage[] = [
   'chart_create',
   'chart_pick_table',
   'chart_pick_type',
+  'chart_continue',
   'chart_data_config',
   'chart_styling',
   'chart_save',
@@ -422,6 +424,7 @@ export const RESUME_ANCHOR_STAGES: Partial<Record<WalkthroughStage, WalkthroughS
   // at "click Create chart".
   chart_pick_table: 'chart_create',
   chart_pick_type: 'chart_create',
+  chart_continue: 'chart_create',
   chart_data_config: 'chart_create',
   chart_styling: 'chart_create',
   chart_save: 'chart_create',

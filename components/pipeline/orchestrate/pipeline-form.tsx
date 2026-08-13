@@ -49,6 +49,9 @@ interface PipelineFormProps {
   deploymentId?: string;
 }
 
+const PIPELINE_WORK_REQUIRED_MESSAGE = 'Select at least one connection or transform task.';
+const GUIDED_SCHEDULE_REQUIRED_MESSAGE = 'Choose Daily or Weekly to automate this pipeline.';
+
 // Wrapper component that handles data fetching
 export function PipelineForm({ deploymentId }: PipelineFormProps) {
   const { pipeline, isLoading: pipelineLoading } = usePipeline(deploymentId || null);
@@ -166,6 +169,9 @@ function PipelineFormContent({
 
   const [runTransformTasks, setRunTransformTasks] = useState(initialRunTransformTasks);
   const [submitting, setSubmitting] = useState(false);
+  const isGuidedAutomatePipeline = useInsightWalkthroughStore(
+    (state) => !isEditMode && state.active && state.flow === 'automate_pipeline'
+  );
 
   // Store the original active value to compare against for dirty checking
   const originalActiveValue = useMemo(() => pipeline?.isScheduleActive ?? true, []);
@@ -176,6 +182,8 @@ function PipelineFormContent({
     control,
     watch,
     setValue,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<PipelineFormData>({
     defaultValues: initialValues,
@@ -184,6 +192,9 @@ function PipelineFormContent({
   const scheduleSelected = watch('cron');
   const cronDaysOfWeek = watch('cronDaysOfWeek');
   const cronTimeOfDay = watch('cronTimeOfDay');
+  const selectedConnections = watch('connections');
+  const selectedTasks = watch('tasks');
+  const hasPipelineWork = selectedConnections.length > 0 || selectedTasks.length > 0;
 
   // Create Pipeline only lights up once the chosen frequency's required fields
   // are actually filled — manual needs nothing extra, daily needs a time, weekly
@@ -191,22 +202,25 @@ function PipelineFormContent({
   const isScheduleComplete = useMemo(() => {
     const freq = scheduleSelected?.id;
     if (!freq) return false;
-    if (freq === 'manual') return true;
+    if (freq === 'manual') return !isGuidedAutomatePipeline;
     if (freq === 'daily') return Boolean(cronTimeOfDay);
     if (freq === 'weekly') return cronDaysOfWeek.length > 0 && Boolean(cronTimeOfDay);
     return false;
-  }, [scheduleSelected, cronDaysOfWeek, cronTimeOfDay]);
+  }, [scheduleSelected, cronDaysOfWeek, cronTimeOfDay, isGuidedAutomatePipeline]);
 
   // Walkthrough: only point at Create Pipeline once it's actually clickable —
   // picking a frequency alone isn't enough for daily/weekly.
   useEffect(() => {
+    const walkthrough = useInsightWalkthroughStore.getState();
     if (
+      isGuidedAutomatePipeline &&
       isScheduleComplete &&
-      useInsightWalkthroughStore.getState().stage === 'pipeline_set_schedule'
+      hasPipelineWork &&
+      walkthrough.stage === 'pipeline_set_schedule'
     ) {
-      useInsightWalkthroughStore.getState().advanceTo('pipeline_create_it');
+      walkthrough.advanceTo('pipeline_create_it');
     }
-  }, [isScheduleComplete]);
+  }, [isGuidedAutomatePipeline, isScheduleComplete, hasPipelineWork]);
 
   // Connection options for combobox
   const connectionItems: ComboboxItem[] = useMemo(() => {
@@ -229,15 +243,18 @@ function PipelineFormContent({
     return SCHEDULE_OPTIONS.map((opt) => ({
       value: opt.id,
       label: opt.label.charAt(0).toUpperCase() + opt.label.slice(1),
+      disabled: isGuidedAutomatePipeline && opt.id === 'manual',
     }));
-  }, []);
+  }, [isGuidedAutomatePipeline]);
 
   const handleRunTransformTasksChange = useCallback(
     (checked: boolean) => {
       setRunTransformTasks(checked);
       if (checked) {
         // Pre-populate with default system tasks
-        setValue('tasks', tasks.filter(validateDefaultTasksToApplyInPipeline));
+        const defaultTasks = tasks.filter(validateDefaultTasksToApplyInPipeline);
+        setValue('tasks', defaultTasks);
+        if (defaultTasks.length > 0) clearErrors('connections');
       } else {
         setValue('tasks', []);
       }
@@ -246,7 +263,7 @@ function PipelineFormContent({
         useInsightWalkthroughStore.getState().advanceTo('pipeline_set_schedule');
       }
     },
-    [setValue, tasks]
+    [setValue, tasks, clearErrors]
   );
 
   const handleCancel = () => {
@@ -254,6 +271,25 @@ function PipelineFormContent({
   };
 
   const onSubmit = async (data: PipelineFormData) => {
+    if (data.connections.length === 0 && data.tasks.length === 0) {
+      setError('connections', {
+        type: 'validate',
+        message: PIPELINE_WORK_REQUIRED_MESSAGE,
+      });
+      return;
+    }
+
+    const walkthroughAtSubmit = useInsightWalkthroughStore.getState();
+    const isGuidedSubmission =
+      !isEditMode && walkthroughAtSubmit.active && walkthroughAtSubmit.flow === 'automate_pipeline';
+    if (isGuidedSubmission && data.cron?.id === 'manual') {
+      setError('cron', {
+        type: 'validate',
+        message: GUIDED_SCHEDULE_REQUIRED_MESSAGE,
+      });
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -326,7 +362,12 @@ function PipelineFormContent({
         toastSuccess.created('Pipeline');
 
         const walkthrough = useInsightWalkthroughStore.getState();
-        if (walkthrough.stage === 'pipeline_create_it' && walkthrough.orgSlug) {
+        if (
+          walkthrough.active &&
+          walkthrough.flow === 'automate_pipeline' &&
+          walkthrough.stage === 'pipeline_create_it' &&
+          walkthrough.orgSlug
+        ) {
           markPipelineCreated();
           // The end of this walkthrough: a scheduled pipeline IS the thing it set out to
           // build. Charting what it produces is the build-insights flow, which the user
@@ -363,7 +404,7 @@ function PipelineFormContent({
           <Button
             type="submit"
             variant="primary"
-            disabled={submitting || !isScheduleComplete}
+            disabled={submitting || !isScheduleComplete || !hasPipelineWork}
             data-testid="submit-btn"
           >
             {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -377,7 +418,17 @@ function PipelineFormContent({
         <div className="grid grid-cols-1 lg:grid-cols-5 divide-y lg:divide-y-0 lg:divide-x">
           {/* Left column - Pipeline details */}
           <div className="lg:col-span-3 p-6 space-y-6">
-            <h2 className="text-lg font-semibold text-gray-900">Pipeline Details</h2>
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-lg font-semibold text-gray-900">Pipeline Details</h2>
+              {!hasPipelineWork && (
+                <p className="text-xs text-muted-foreground">
+                  <span className="text-destructive" aria-hidden="true">
+                    *
+                  </span>{' '}
+                  Choose at least one: a connection or a transform task
+                </p>
+              )}
+            </div>
 
             {/* Active toggle (edit mode only) */}
             {isEditMode && (
@@ -400,7 +451,7 @@ function PipelineFormContent({
             {/* Name */}
             <div className="space-y-2">
               <Label htmlFor="name" className="text-[15px] font-medium">
-                Name <span className="text-red-500">*</span>
+                Name <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="name"
@@ -409,12 +460,14 @@ function PipelineFormContent({
                 data-testid="name"
                 className="h-10 text-[15px]"
               />
-              {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
+              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
             </div>
 
             {/* Connections */}
             <div className="space-y-2" data-testid="connections-container">
-              <Label className="text-[15px] font-medium">Connections</Label>
+              <Label htmlFor="connections-search" className="text-[15px] font-medium">
+                Connections
+              </Label>
               <p className="text-sm text-muted-foreground">
                 Connections are run in the sequence you select them.
               </p>
@@ -434,6 +487,7 @@ function PipelineFormContent({
                         })
                         .filter(Boolean) as ConnectionOption[];
                       field.onChange(newConnections);
+                      if (newConnections.length > 0) clearErrors('connections');
 
                       if (
                         newConnections.length > 0 &&
@@ -448,6 +502,11 @@ function PipelineFormContent({
                   />
                 )}
               />
+              {errors.connections && (
+                <p className="text-sm text-destructive" role="alert">
+                  {errors.connections.message}
+                </p>
+              )}
               <OptionalSettings control={control} />
             </div>
 
@@ -478,7 +537,14 @@ function PipelineFormContent({
                   name="tasks"
                   control={control}
                   render={({ field }) => (
-                    <TaskSequence value={field.value} onChange={field.onChange} options={tasks} />
+                    <TaskSequence
+                      value={field.value}
+                      onChange={(nextTasks) => {
+                        field.onChange(nextTasks);
+                        if (nextTasks.length > 0) clearErrors('connections');
+                      }}
+                      options={tasks}
+                    />
                   )}
                 />
               )}
@@ -491,8 +557,11 @@ function PipelineFormContent({
 
             {/* Schedule type */}
             <div className="space-y-2" data-testid="cron-container">
-              <Label className="text-[15px] font-medium">
-                Frequency <span className="text-red-500">*</span>
+              <Label htmlFor="cron-input" className="text-[15px] font-medium">
+                Frequency{' '}
+                <span className="text-destructive" aria-hidden="true">
+                  *
+                </span>
               </Label>
               <Controller
                 name="cron"
@@ -505,20 +574,28 @@ function PipelineFormContent({
                     onValueChange={(value) => {
                       const option = scheduleItems.find((s) => s.value === value);
                       field.onChange(option ? { id: option.value, label: option.label } : null);
+                      clearErrors('cron');
                     }}
                     placeholder="Select schedule"
                     id="cron"
                   />
                 )}
               />
-              {errors.cron && <p className="text-sm text-red-500">{errors.cron.message}</p>}
+              {isGuidedAutomatePipeline && !errors.cron && (
+                <p className="text-sm text-muted-foreground">{GUIDED_SCHEDULE_REQUIRED_MESSAGE}</p>
+              )}
+              {errors.cron && (
+                <p className="text-sm text-destructive" role="alert">
+                  {errors.cron.message}
+                </p>
+              )}
             </div>
 
             {/* Days of week (for weekly) */}
             {scheduleSelected?.id === 'weekly' && (
               <div className="space-y-2">
                 <Label className="text-[15px] font-medium">
-                  Days of the Week <span className="text-red-500">*</span>
+                  Days of the Week <span className="text-destructive">*</span>
                 </Label>
                 <Controller
                   name="cronDaysOfWeek"
@@ -544,7 +621,7 @@ function PipelineFormContent({
                   )}
                 />
                 {errors.cronDaysOfWeek && (
-                  <p className="text-sm text-red-500">{errors.cronDaysOfWeek.message}</p>
+                  <p className="text-sm text-destructive">{errors.cronDaysOfWeek.message}</p>
                 )}
               </div>
             )}
@@ -553,7 +630,7 @@ function PipelineFormContent({
             {scheduleSelected && scheduleSelected.id !== 'manual' && (
               <div className="space-y-2">
                 <Label className="text-[15px] font-medium">
-                  Time of Day <span className="text-red-500">*</span>
+                  Time of Day <span className="text-destructive">*</span>
                 </Label>
                 <div className="flex items-center gap-2">
                   <Controller
@@ -571,7 +648,7 @@ function PipelineFormContent({
                   <span className="text-sm text-gray-500">({localTimezone()})</span>
                 </div>
                 {errors.cronTimeOfDay && (
-                  <p className="text-sm text-red-500">{errors.cronTimeOfDay.message}</p>
+                  <p className="text-sm text-destructive">{errors.cronTimeOfDay.message}</p>
                 )}
               </div>
             )}

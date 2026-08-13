@@ -97,27 +97,40 @@ export function TrialBadge() {
   return (
     <>
       <div
-        className="border-primary/40 hidden items-center rounded-full border px-4 py-1.5 md:flex"
+        className="from-primary via-primary/60 to-primary/20 hidden rounded-full bg-gradient-to-r p-[1px] md:flex"
         data-testid="trial-days-badge"
       >
-        <span className="text-foreground text-sm">{label}</span>
-        {(canRequest || alreadyRequested) && <span className="text-muted-foreground mx-2">·</span>}
-        {canRequest ? (
-          <button
-            type="button"
-            onClick={openConfirm}
-            className="text-primary cursor-pointer text-sm font-bold hover:underline"
-            data-testid="trial-subscribe-cta"
-          >
-            Subscribe Now
-          </button>
-        ) : (
-          alreadyRequested && (
-            <span className="text-muted-foreground text-sm" data-testid="trial-request-sent-label">
-              Request sent
+        <div
+          className="from-background to-primary/5 flex items-center rounded-full bg-gradient-to-r px-4 py-1.5"
+          data-testid="trial-days-badge-surface"
+        >
+          <span className="text-foreground text-sm">{label}</span>
+          {(canRequest || alreadyRequested) && (
+            <span className="text-muted-foreground mx-2" aria-hidden="true">
+              ·
             </span>
-          )
-        )}
+          )}
+          {canRequest ? (
+            <button
+              type="button"
+              onClick={openConfirm}
+              className="text-primary focus-visible:ring-primary cursor-pointer rounded-sm text-sm font-bold hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+              data-testid="trial-subscribe-cta"
+            >
+              Subscribe Now
+            </button>
+          ) : (
+            alreadyRequested && (
+              <span
+                className="text-muted-foreground text-sm"
+                data-testid="trial-request-sent-label"
+                role="status"
+              >
+                Request sent
+              </span>
+            )
+          )}
+        </div>
       </div>
       <SubscriptionRequestModal
         stage={stage}

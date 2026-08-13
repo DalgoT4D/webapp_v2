@@ -12,6 +12,24 @@ export function useStreamConfig() {
   const [incrementalAllStreams, setIncrementalAllStreams] = useState(false);
   const [expandedStreams, setExpandedStreams] = useState<Set<string>>(new Set());
 
+  // Replace a discovered/loaded catalog and optionally open only its first table.
+  // The table UI is alphabetically sorted, so use the same order here to ensure
+  // the row users see first is the one that opens. Later rows remain manual.
+  const initializeStreams = useCallback((nextStreams: SourceStream[], expandFirst = false) => {
+    setStreams(nextStreams);
+    if (!expandFirst || nextStreams.length === 0) {
+      setExpandedStreams(new Set());
+      return;
+    }
+    const sortedStreams = [...nextStreams].sort((a, b) => a.name.localeCompare(b.name));
+    const firstUsableStream =
+      sortedStreams.find((stream) => stream.selected && stream.columns.length > 0) ??
+      sortedStreams.find((stream) => stream.selected) ??
+      sortedStreams[0];
+    const firstStreamName = firstUsableStream.name;
+    setExpandedStreams(new Set([firstStreamName]));
+  }, []);
+
   // Toggle a single stream's selection; resets sync/dest modes on deselect
   const toggleStream = useCallback(
     (streamName: string) => {
@@ -253,6 +271,7 @@ export function useStreamConfig() {
   return {
     streams,
     setStreams,
+    initializeStreams,
     streamSearch,
     setStreamSearch,
     incrementalAllStreams,

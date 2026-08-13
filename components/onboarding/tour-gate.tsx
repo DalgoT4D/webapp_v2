@@ -30,6 +30,9 @@ import { FeatureNudgeCoachmark } from './feature-nudge-coachmark';
 import { GetStartedModal, type GetStartedEntry, type GetStartedScreen } from './get-started-modal';
 import {
   getTourProgress,
+  getPendingPostTourScreen,
+  savePendingPostTourScreen,
+  clearPendingPostTourScreen,
   hasSeenIntentModal,
   markIntentModalSeen,
   hasShownIntentModalThisSession,
@@ -135,6 +138,9 @@ export function TourGate() {
   const tourRef = useRef<ProductTourHandle>(null);
   const hasOpenedModalRef = useRef(false);
   const hasResumedTourRef = useRef(false);
+  // A pending post-tour chooser reopens once per mount. Closing it is a valid dismissal for
+  // this visit; only a refresh should restore it (DALGO-1637).
+  const restoredPostTourForOrgRef = useRef<string | null>(null);
   const [intentModalOpen, setIntentModalOpen] = useState(false);
   const [intentVariant, setIntentVariant] = useState<TourIntentVariant>('first_time');
   // One dialog instance, three entry points (tour finish, the Get Started widget, and
@@ -167,6 +173,31 @@ export function TourGate() {
   // Skipped entirely for non-trial users — this component can't early-return before its
   // hooks run, so the enabled flag is what keeps the request off every other page load.
   const { walkthroughState, isLoading: walkthroughLoading } = useTrialWalkthrough(isTrialOrg);
+
+  // Finishing the tour and closing the journey chooser does not resolve that choice. Restore
+  // the exact chooser screen after a page reload instead of falling back to the generic
+  // Getting Started widget. The screen is cleared only when a real journey is selected.
+  useEffect(() => {
+    if (!isTrialOrg || !orgSlug || walkthroughLoading) return;
+    if (restoredPostTourForOrgRef.current === orgSlug) return;
+    const pendingScreen = getPendingPostTourScreen(orgSlug);
+    if (!pendingScreen) return;
+    const insightStillOpen = !isFlowCompleted(walkthroughState, 'insights');
+    const pipelineStillOpen = !isFlowCompleted(walkthroughState, 'automate_pipeline');
+    if (!insightStillOpen && !pipelineStillOpen) {
+      clearPendingPostTourScreen(orgSlug);
+      restoredPostTourForOrgRef.current = orgSlug;
+      return;
+    }
+    // A flow may have been completed in another browser since this screen was stored. Never
+    // restore the insight fork once insights is already done; return to the journey chooser,
+    // which will display only the still-relevant pipeline row.
+    const screen = pendingScreen === 'insight' && !insightStillOpen ? 'choice' : pendingScreen;
+    if (screen !== pendingScreen) savePendingPostTourScreen(orgSlug, screen);
+    restoredPostTourForOrgRef.current = orgSlug;
+    setIntentModalOpen(false);
+    setGetStartedModal({ open: true, screen, entry: 'post_tour' });
+  }, [isTrialOrg, orgSlug, walkthroughLoading, walkthroughState]);
 
   const runTour = useCallback((startIndex = 0) => {
     setTourRunning(true);
@@ -233,6 +264,9 @@ export function TourGate() {
     ) {
       return;
     }
+    // The post-tour journey chooser is more specific than this generic welcome prompt. Its
+    // own restore effect above opens it on refresh.
+    if (getPendingPostTourScreen(orgSlug)) return;
     // Already landed this session — a refresh or a walk back to /impact isn't a new arrival.
     if (hasShownIntentModalThisSession(orgSlug)) return;
     // A trial lifecycle nudge (7 / 1 / 0 days left, see NudgeCenter) is an unrouted auto-opening
@@ -448,9 +482,14 @@ export function TourGate() {
   const openInsightFork = useCallback(
     (entry: GetStartedEntry) => {
       ensureWalkthroughStarted();
+      // If this org still has an unresolved post-tour choice, preserve that the user moved
+      // into Build Insight even when they reopened it through the widget.
+      if (orgSlug && getPendingPostTourScreen(orgSlug)) {
+        savePendingPostTourScreen(orgSlug, 'insight');
+      }
       setGetStartedModal({ open: true, screen: 'insight', entry });
     },
-    [ensureWalkthroughStarted]
+    [ensureWalkthroughStarted, orgSlug]
   );
 
   /**
@@ -494,6 +533,7 @@ export function TourGate() {
     // pushing /charts here would satisfy its own route-advance instantly, skipping the beat.
     // Clicking Charts is the step.
     if (hasConnectedRealData()) {
+      clearPendingPostTourScreen(orgSlug);
       useInsightWalkthroughStore.getState().startChartFlow(orgSlug);
       return;
     }
@@ -504,6 +544,7 @@ export function TourGate() {
 
   const handleAutomatePipelineClick = useCallback(() => {
     if (!orgSlug) return;
+    clearPendingPostTourScreen(orgSlug);
     const path = getStoredPath('automate_pipeline');
     if (path === 'automate_pipeline') {
       if (resumeStoredFlow('automate_pipeline')) return;
@@ -520,6 +561,8 @@ export function TourGate() {
 
   const chooseFork = useCallback(
     (fork: 'sample' | 'own_data') => {
+      if (!orgSlug) return;
+      clearPendingPostTourScreen(orgSlug);
       // Covers the post-tour 'choice' screen, which reaches the fork without going through
       // openInsightFork — the store needs an orgSlug before chooseSample/chooseOwnData run.
       ensureWalkthroughStarted();
@@ -531,7 +574,7 @@ export function TourGate() {
         router.push('/ingest');
       }
     },
-    [ensureWalkthroughStarted, router]
+    [ensureWalkthroughStarted, orgSlug, router]
   );
 
   // Which post-tour follow-ups are still worth offering. The tour is freely re-runnable, so a
@@ -563,9 +606,11 @@ export function TourGate() {
         orgSlug={orgSlug}
         canOfferPostTourChoice={canOfferInsight || canOfferPipeline}
         onTourEnd={() => setTourRunning(false)}
-        onOfferPostTourChoice={() =>
-          setGetStartedModal({ open: true, screen: 'choice', entry: 'post_tour' })
-        }
+        onOfferPostTourChoice={() => {
+          savePendingPostTourScreen(orgSlug, 'choice');
+          restoredPostTourForOrgRef.current = orgSlug;
+          setGetStartedModal({ open: true, screen: 'choice', entry: 'post_tour' });
+        }}
       />
       <InsightWalkthroughCoachmark />
       {/* Belongs to no flow — a one-shot explainer on /reports, /alerts and /metrics, which
@@ -585,7 +630,13 @@ export function TourGate() {
         showInsightOption={canOfferInsight}
         showPipelineOption={canOfferPipeline}
         onOpenChange={(open) => setGetStartedModal((prev) => ({ ...prev, open }))}
+        onScreenChange={(screen) => {
+          if (getStartedModal.entry === 'post_tour') {
+            savePendingPostTourScreen(orgSlug, screen);
+          }
+        }}
         onSelectPipeline={() => {
+          clearPendingPostTourScreen(orgSlug);
           // Deliberately no router.push — the flow's first stage is the Ingest sidebar nudge.
           useInsightWalkthroughStore.getState().startAutomatePipeline(orgSlug);
         }}

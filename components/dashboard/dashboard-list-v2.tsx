@@ -915,6 +915,8 @@ export function DashboardListV2() {
                 size="icon"
                 className="h-8 w-8 p-0 hover:bg-gray-100"
                 onClick={() => handleShareDashboard(dashboard)}
+                aria-label={`Share dashboard: ${dashboard.title || dashboard.id}`}
+                data-testid={`dashboard-share-table-${dashboard.id}`}
               >
                 <Share2 className="w-4 h-4 text-gray-600" />
               </Button>
@@ -1117,6 +1119,8 @@ export function DashboardListV2() {
                   e.preventDefault();
                   handleShareDashboard(dashboard);
                 }}
+                aria-label={`Share dashboard: ${dashboard.title || dashboard.id}`}
+                data-testid={`dashboard-share-card-${dashboard.id}`}
               >
                 <Share2 className="w-3 h-3" />
               </Button>
@@ -1447,6 +1451,8 @@ export function DashboardListV2() {
                   size="icon"
                   className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
                   onClick={() => handleShareDashboard(dashboard)}
+                  aria-label={`Share dashboard: ${dashboard.title || dashboard.id}`}
+                  data-testid={`dashboard-share-mobile-${dashboard.id}`}
                 >
                   <Share2 className="w-4 h-4 text-gray-700" />
                 </Button>
