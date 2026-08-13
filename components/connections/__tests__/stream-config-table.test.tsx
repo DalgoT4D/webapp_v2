@@ -17,6 +17,11 @@ const stream = (name: string, supportsIncremental: boolean): SourceStream => ({
   primaryKeyConfig: { sourceDefinedPrimaryKey: false, selected: [], all: [] },
 });
 
+const unselectedStream = (name: string): SourceStream => ({
+  ...stream(name, true),
+  selected: false,
+});
+
 const baseProps = {
   streams: [stream('form_one', true)],
   filteredStreams: [stream('form_one', true)],
@@ -92,6 +97,25 @@ describe('StreamConfigTable progressive disclosure', () => {
     expect(screen.getByText('col_a')).toBeInTheDocument();
     expect(screen.getByText('string')).toBeInTheDocument();
     expect(screen.getByTestId('cast-type-form_one-col_a')).toBeInTheDocument();
+  });
+
+  it('shows an auto-expanded first table before it is selected, with mutations disabled', () => {
+    const first = unselectedStream('form_one');
+    render(
+      <StreamConfigTable
+        {...baseProps}
+        streams={[first]}
+        filteredStreams={[first]}
+        allSelected={false}
+        advancedOpen
+        expandedStreams={new Set(['form_one'])}
+        onToggleAdvanced={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('expand-columns-form_one')).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('col_a')).toBeInTheDocument();
+    expect(screen.getByTestId('col-toggle-form_one-col_a')).toBeDisabled();
   });
 
   it('shows advanced columns when advancedOpen is true', () => {

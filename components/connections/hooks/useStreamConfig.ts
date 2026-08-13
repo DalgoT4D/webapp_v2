@@ -22,11 +22,10 @@ export function useStreamConfig() {
       return;
     }
     const sortedStreams = [...nextStreams].sort((a, b) => a.name.localeCompare(b.name));
-    const firstUsableStream =
-      sortedStreams.find((stream) => stream.selected && stream.columns.length > 0) ??
-      sortedStreams.find((stream) => stream.selected) ??
-      sortedStreams[0];
-    const firstStreamName = firstUsableStream.name;
+    // Expansion is for inspecting a table, not for choosing whether it syncs.
+    // Always target the first visible row so create and edit behave identically,
+    // even when discovery leaves every table unselected.
+    const firstStreamName = sortedStreams[0].name;
     setExpandedStreams(new Set([firstStreamName]));
   }, []);
 

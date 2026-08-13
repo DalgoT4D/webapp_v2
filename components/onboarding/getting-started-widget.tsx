@@ -12,14 +12,14 @@
  * though the pill stays available to reopen it manually.
  */
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, Check, ChevronRight, Circle, Minus, Play, Rocket } from 'lucide-react';
+import { ArrowUpRight, Check, ChevronRight, Circle, Minus, Rocket } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { BOOK_A_CALL_URL, DALGO_DOCS_URL } from '@/constants/trial';
+import { ProductVideoPlayer } from './product-video-player';
 
-const PRODUCT_VIDEO_ID = 'R-JJNgp8xYM';
-const PRODUCT_VIDEO_EMBED_URL = `https://www.youtube-nocookie.com/embed/${PRODUCT_VIDEO_ID}?autoplay=1&rel=0`;
-const PRODUCT_VIDEO_THUMBNAIL_URL = `https://i.ytimg.com/vi/${PRODUCT_VIDEO_ID}/hqdefault.jpg`;
+const PRODUCT_VIDEO_SRC = '/branding/dalgo-product-overview.mp4';
+const PRODUCT_VIDEO_POSTER_SRC = '/branding/dalgo-product-overview-poster.jpg';
 
 interface GettingStartedWidgetProps {
   /**
@@ -61,7 +61,7 @@ export function GettingStartedWidget({
   // Starts true (collapsed) so the full panel never flashes open before the effect below
   // settles it.
   const [minimized, setMinimized] = useState(true);
-  const [videoStarted, setVideoStarted] = useState(false);
+  const [videoSession, setVideoSession] = useState(0);
 
   useEffect(() => {
     // Re-derived on arrival (and whenever a walkthrough starts or ends) rather than
@@ -69,17 +69,16 @@ export function GettingStartedWidget({
     // visit, and a running flow keeps it minimized wherever the user goes.
     const shouldMinimize = walkthroughActive || !defaultOpen;
     setMinimized(shouldMinimize);
-    if (shouldMinimize) setVideoStarted(false);
+    if (shouldMinimize) setVideoSession((session) => session + 1);
   }, [defaultOpen, walkthroughActive]);
 
   const minimizeWidget = () => {
     setMinimized(true);
-    setVideoStarted(false);
+    setVideoSession((session) => session + 1);
   };
 
   const handlePlayVideo = () => {
     trackEvent(ANALYTICS_EVENTS.GETTING_STARTED_VIDEO_PLAYED);
-    setVideoStarted(true);
   };
 
   const handleStartTour = () => {
@@ -168,29 +167,15 @@ export function GettingStartedWidget({
             data-testid="getting-started-widget-video"
             className="mt-4 aspect-video overflow-hidden rounded-xl bg-primary/10"
           >
-            {videoStarted ? (
-              <iframe
-                data-testid="getting-started-widget-video-iframe"
-                src={PRODUCT_VIDEO_EMBED_URL}
-                title="Dalgo product overview"
-                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                allowFullScreen
-                className="h-full w-full border-0"
-              />
-            ) : (
-              <button
-                type="button"
-                aria-label="Play Dalgo product overview video"
-                data-testid="getting-started-widget-video-play"
-                onClick={handlePlayVideo}
-                className="flex h-full w-full items-center justify-center bg-cover bg-center"
-                style={{ backgroundImage: `url(${PRODUCT_VIDEO_THUMBNAIL_URL})` }}
-              >
-                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-background shadow">
-                  <Play className="h-5 w-5 text-primary" fill="currentColor" />
-                </span>
-              </button>
-            )}
+            <ProductVideoPlayer
+              key={videoSession}
+              videoSrc={PRODUCT_VIDEO_SRC}
+              posterSrc={PRODUCT_VIDEO_POSTER_SRC}
+              title="Dalgo product overview video"
+              testIdPrefix="getting-started-widget-video"
+              onFirstPlay={handlePlayVideo}
+              playButtonSize="compact"
+            />
           </div>
 
           {allComplete ? (

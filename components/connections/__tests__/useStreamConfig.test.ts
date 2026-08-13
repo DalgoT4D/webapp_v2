@@ -40,7 +40,7 @@ describe('useStreamConfig initialization', () => {
     expect(result.current.expandedStreams).toEqual(new Set());
   });
 
-  it('skips an unusable first row and expands the first selected table with columns', () => {
+  it('expands the first visible table even when it is not selected yet', () => {
     const { result } = renderHook(() => useStreamConfig());
 
     act(() =>
@@ -55,7 +55,7 @@ describe('useStreamConfig initialization', () => {
       'beta',
       'zebra',
     ]);
-    expect(result.current.expandedStreams).toEqual(new Set(['zebra']));
+    expect(result.current.expandedStreams).toEqual(new Set(['alpha']));
   });
 
   it('clears an old expansion when a different source is initialized', () => {

@@ -89,6 +89,8 @@ const CREDS_STORAGE_KEY = 'dalgo_trial_creds';
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+  jest.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
   mockTaskId = 'task-123';
   mockSwrData = undefined;
   sessionStorage.clear();
@@ -100,6 +102,7 @@ beforeEach(() => {
 // after it, so restore unconditionally here instead.
 afterEach(() => {
   jest.useRealTimers();
+  jest.restoreAllMocks();
 });
 
 describe('TrialProgressPage', () => {
@@ -120,7 +123,7 @@ describe('TrialProgressPage', () => {
     expect(screen.getByTestId('trial-step-2')).toHaveAttribute('data-state', 'pending');
   });
 
-  it('shows the provisioning video and loads YouTube only after Play is clicked', () => {
+  it('shows the self-hosted provisioning video with simple play and pause controls', async () => {
     mockSwrData = {
       task_id: 'task-123',
       status: 'running',
@@ -129,13 +132,17 @@ describe('TrialProgressPage', () => {
 
     render(<TrialProgressPage />);
 
-    expect(screen.queryByTestId('trial-provisioning-video-iframe')).not.toBeInTheDocument();
+    expect(screen.getByTestId('trial-provisioning-video-video')).toHaveAttribute(
+      'src',
+      '/branding/dalgo-product-overview.mp4'
+    );
+    expect(screen.getByTestId('trial-provisioning-video-video')).not.toHaveAttribute('controls');
     fireEvent.click(screen.getByTestId('trial-provisioning-video-play'));
 
-    expect(screen.getByTestId('trial-provisioning-video-iframe')).toHaveAttribute(
-      'src',
-      'https://www.youtube-nocookie.com/embed/R-JJNgp8xYM?autoplay=1&rel=0'
-    );
+    expect(
+      await screen.findByRole('button', { name: 'Pause Dalgo product overview video' })
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('trial-provisioning-video-video')).toHaveClass('pointer-events-none');
     expect(mockTrackEvent).toHaveBeenCalledWith('trial:provisioning_video_played');
   });
 

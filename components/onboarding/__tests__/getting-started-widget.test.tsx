@@ -10,7 +10,13 @@ jest.mock('@/lib/analytics', () => ({
 describe('GettingStartedWidget', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+    jest.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
     localStorage.clear();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('opens the panel when defaultOpen is set (the /impact case), pill always present too', () => {
@@ -177,7 +183,13 @@ describe('GettingStartedWidget checklist', () => {
     expect(
       screen.getByRole('button', { name: 'Play Dalgo product overview video' })
     ).toBeInTheDocument();
-    expect(screen.queryByTestId('getting-started-widget-video-iframe')).not.toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget-video-video')).toHaveAttribute(
+      'src',
+      '/branding/dalgo-product-overview.mp4'
+    );
+    expect(screen.getByTestId('getting-started-widget-video-video')).not.toHaveAttribute(
+      'controls'
+    );
     const items = screen.getAllByTestId(/getting-started-widget-item-/);
     expect(items.map((el) => el.getAttribute('data-testid'))).toEqual([
       'getting-started-widget-item-build-insight',
@@ -185,7 +197,7 @@ describe('GettingStartedWidget checklist', () => {
     ]);
   });
 
-  it('loads and plays the YouTube video only after the user clicks play', async () => {
+  it('plays and pauses the self-hosted video with the Dalgo controls', async () => {
     const user = userEvent.setup();
     render(
       <GettingStartedWidget
@@ -199,14 +211,16 @@ describe('GettingStartedWidget checklist', () => {
       />
     );
 
-    expect(screen.queryByTestId('getting-started-widget-video-iframe')).not.toBeInTheDocument();
     await user.click(screen.getByTestId('getting-started-widget-video-play'));
 
-    expect(screen.getByTestId('getting-started-widget-video-iframe')).toHaveAttribute(
-      'src',
-      'https://www.youtube-nocookie.com/embed/R-JJNgp8xYM?autoplay=1&rel=0'
-    );
+    expect(screen.getByTestId('getting-started-widget-video-video')).toBeInTheDocument();
     expect(trackEvent).toHaveBeenCalledWith('onboarding:getting_started_video_played');
+
+    await user.click(screen.getByTestId('getting-started-widget-video-toggle'));
+    expect(
+      screen.getByRole('button', { name: 'Play Dalgo product overview video' })
+    ).toBeInTheDocument();
+    expect(trackEvent).toHaveBeenCalledTimes(1);
   });
 
   it('stops the video when the widget is minimized and requires another click after reopening', async () => {
@@ -224,12 +238,12 @@ describe('GettingStartedWidget checklist', () => {
     );
 
     await user.click(screen.getByTestId('getting-started-widget-video-play'));
-    expect(screen.getByTestId('getting-started-widget-video-iframe')).toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget-video-toggle')).toBeInTheDocument();
 
     await user.click(screen.getByTestId('getting-started-widget-minimize'));
     await user.click(screen.getByTestId('getting-started-widget-pill'));
 
-    expect(screen.queryByTestId('getting-started-widget-video-iframe')).not.toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget-video-video')).toBeInTheDocument();
     expect(screen.getByTestId('getting-started-widget-video-play')).toBeInTheDocument();
   });
 

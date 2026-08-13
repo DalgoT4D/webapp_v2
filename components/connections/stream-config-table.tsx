@@ -499,9 +499,8 @@ export function StreamConfigTable({
                         {stream.columns.length > 0 && (
                           <button
                             type="button"
-                            onClick={() => isSelected && onToggleStreamExpand(stream.name)}
-                            disabled={!isSelected}
-                            className="p-1 hover:bg-gray-100 rounded cursor-pointer disabled:opacity-30 disabled:cursor-default"
+                            onClick={() => onToggleStreamExpand(stream.name)}
+                            className="p-1 hover:bg-gray-100 rounded cursor-pointer"
                             data-testid={`expand-columns-${stream.name}`}
                             aria-label={`${expandedStreams.has(stream.name) ? 'Hide' : 'Show'} columns for ${stream.name}`}
                             aria-expanded={expandedStreams.has(stream.name)}
@@ -519,7 +518,6 @@ export function StreamConfigTable({
                   {/* Expanded column selection — vertical list */}
                   {showColumnsControl &&
                     expandedStreams.has(stream.name) &&
-                    isSelected &&
                     stream.columns.length > 0 && (
                       <tr key={`cols-${stream.name}`} className="bg-muted/30">
                         <td colSpan={colCount} className="px-4 py-2">
@@ -557,7 +555,9 @@ export function StreamConfigTable({
                                         onCheckedChange={() =>
                                           onToggleColumn(stream.name, col.name)
                                         }
-                                        disabled={disabled || isSaving || isProtected}
+                                        disabled={
+                                          disabled || isSaving || !isSelected || isProtected
+                                        }
                                         className="scale-75"
                                         data-testid={`col-toggle-${stream.name}-${col.name}`}
                                       />
@@ -587,7 +587,12 @@ export function StreamConfigTable({
                                               v === '__none__' ? null : v
                                             )
                                           }
-                                          disabled={disabled || isSaving || !col.selected}
+                                          disabled={
+                                            disabled || isSaving || !isSelected || !col.selected
+                                          }
+                                          aria-disabled={
+                                            disabled || isSaving || !isSelected || !col.selected
+                                          }
                                         >
                                           <SelectTrigger
                                             className="h-6 text-xs w-full"
