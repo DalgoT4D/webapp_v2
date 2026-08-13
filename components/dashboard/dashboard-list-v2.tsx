@@ -45,7 +45,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
-import { AccessBadge } from '@/components/ui/access-badge';
 // import {
 //   Command,
 //   CommandEmpty,
@@ -877,15 +876,12 @@ export function DashboardListV2() {
               </Button>
             )}
             <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <Link
-                  href={getNavigationUrl()}
-                  className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
-                >
-                  {dashboard.title || dashboard.dashboard_title}
-                </Link>
-                <AccessBadge level={dashboard.access_level} />
-              </div>
+              <Link
+                href={getNavigationUrl()}
+                className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
+              >
+                {dashboard.title || dashboard.dashboard_title}
+              </Link>
               {(isPersonalLanding || isOrgDefault || isLocked) && (
                 <div className="flex items-center gap-2 mt-1">
                   {isPersonalLanding && (
@@ -2127,6 +2123,7 @@ export function DashboardListV2() {
             is_public: selectedDashboard.is_public,
             public_access_count: selectedDashboard.public_access_count,
           }}
+          initialIsPrivate={selectedDashboard.is_private ?? false}
           getShareStatus={getDashboardSharingStatus}
           updateSharing={updateDashboardSharing}
         />

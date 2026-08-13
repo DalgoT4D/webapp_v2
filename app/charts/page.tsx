@@ -72,7 +72,6 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
-import { AccessBadge } from '@/components/ui/access-badge';
 import { bulkAddGrant } from '@/hooks/api/useAccess';
 import {
   Dialog,
@@ -868,15 +867,12 @@ export default function ChartsPage() {
               )}
             </Button>
             <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <Link
-                  href={hasPermission(PERMISSIONS.CAN_VIEW_CHARTS) ? `/charts/${chart.id}` : '#'}
-                  className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
-                >
-                  {chart.title}
-                </Link>
-                <AccessBadge level={chart.access_level} />
-              </div>
+              <Link
+                href={hasPermission(PERMISSIONS.CAN_VIEW_CHARTS) ? `/charts/${chart.id}` : '#'}
+                className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
+              >
+                {chart.title}
+              </Link>
             </div>
           </div>
         </TableCell>
@@ -1503,6 +1499,7 @@ export default function ChartsPage() {
           entityLabel={shareChart.title || 'Chart'}
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
+          initialIsPrivate={shareChart.is_private ?? false}
         />
       )}
 

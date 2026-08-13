@@ -8,6 +8,7 @@ interface ShareViaLinkDialogProps {
   reportTitle?: string;
   isOpen: boolean;
   onClose: () => void;
+  initialIsPrivate?: boolean;
 }
 
 export function ShareViaLinkDialog({
@@ -15,6 +16,7 @@ export function ShareViaLinkDialog({
   reportTitle,
   isOpen,
   onClose,
+  initialIsPrivate = false,
 }: ShareViaLinkDialogProps) {
   return (
     <ShareModal
@@ -25,6 +27,7 @@ export function ShareViaLinkDialog({
       onClose={onClose}
       getShareStatus={getReportSharingStatus}
       updateSharing={updateReportSharing}
+      initialIsPrivate={initialIsPrivate}
     />
   );
 }

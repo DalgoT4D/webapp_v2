@@ -24,6 +24,7 @@ import {
   Users,
   Target,
   Palette,
+  CreditCard,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';

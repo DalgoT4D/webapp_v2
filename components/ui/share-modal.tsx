@@ -99,10 +99,11 @@ export function ShareModal({
 }: ShareModalProps) {
   const entityLabelLower = entityLabel.toLowerCase();
 
-  // Data sources
-  const { people } = usePeople();
-  const { groups } = useUserGroups();
-  const { roles } = useRoles();
+  // Data sources — only fetch when modal is open to avoid firing these APIs
+  // on every page mount where a ShareModal is present.
+  const { people } = usePeople(isOpen);
+  const { groups } = useUserGroups(isOpen);
+  const { roles } = useRoles(isOpen);
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
   const currentOrgUser = getCurrentOrgUser();
   const isAdmin = currentOrgUser
@@ -142,6 +143,12 @@ export function ShareModal({
   // Private toggle state
   const [isPrivate, setIsPrivate] = useState(initialIsPrivate);
   const [isPrivateLoading, setIsPrivateLoading] = useState(false);
+  // Re-sync when parent's initialIsPrivate changes (e.g., after mutate refreshes
+  // the resource). Without this the toggle keeps its stale local state across
+  // modal open/close cycles.
+  useEffect(() => {
+    setIsPrivate(initialIsPrivate);
+  }, [initialIsPrivate]);
 
   // Cascade confirmation state (dashboard grants only)
   const [pendingAction, setPendingAction] = useState<

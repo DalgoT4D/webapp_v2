@@ -33,6 +33,7 @@ export interface Dashboard {
   access_level?: 'view' | 'edit';
   // Sharing fields
   is_public: boolean;
+  is_private?: boolean;
   public_share_token?: string;
   public_shared_at?: string;
   public_disabled_at?: string;

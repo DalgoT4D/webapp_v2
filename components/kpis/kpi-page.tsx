@@ -512,6 +512,7 @@ export function KPIPageComponent() {
           isOpen={shareModalKpi !== null}
           onClose={() => setShareModalKpi(null)}
           onUpdate={mutate}
+          initialIsPrivate={shareModalKpi.is_private ?? false}
         />
       )}
     </div>

@@ -53,7 +53,6 @@ import { CreateSnapshotDialog } from '@/components/reports/create-snapshot-dialo
 import { formatCreatedOn } from '@/components/reports/utils';
 import { ReportShareMenu } from '@/components/reports/report-share-menu';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
-import { AccessBadge } from '@/components/ui/access-badge';
 
 // Debounce delay in ms before sending filter to API
 const FILTER_DEBOUNCE_MS = 400;
@@ -579,12 +578,9 @@ export default function ReportsPage() {
                           onClick={() => router.push(`/reports/${snapshot.id}`)}
                         >
                           <TableCell className="py-4">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-lg text-gray-900">
-                                {snapshot.title}
-                              </span>
-                              <AccessBadge level={snapshot.access_level} />
-                            </div>
+                            <span className="font-medium text-lg text-gray-900">
+                              {snapshot.title}
+                            </span>
                           </TableCell>
                           <TableCell className="py-4 text-base text-gray-700">
                             {snapshot.dashboard_title || '—'}
@@ -613,6 +609,7 @@ export default function ReportsPage() {
                                 <ReportShareMenu
                                   snapshotId={snapshot.id}
                                   reportTitle={snapshot.title}
+                                  isPrivate={snapshot.is_private ?? false}
                                 />
                               )}
                               <DropdownMenu>

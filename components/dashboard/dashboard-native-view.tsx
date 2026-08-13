@@ -968,6 +968,7 @@ export function DashboardNativeView({
                   onDelete={handleDelete}
                   onRefresh={handleRefresh}
                   canEdit={canEdit && !isLockedByOther}
+                  canShare={canEdit}
                   isDeleting={isDeleting}
                   isRefreshing={isRefreshing}
                   dashboardTitle={dashboard?.title}
@@ -1174,6 +1175,7 @@ export function DashboardNativeView({
                     onDelete={handleDelete}
                     onRefresh={handleRefresh}
                     canEdit={canEdit && !isLockedByOther}
+                    canShare={canEdit}
                     isDeleting={isDeleting}
                     isRefreshing={isRefreshing}
                     dashboardTitle={dashboard?.title}
@@ -1483,6 +1485,7 @@ export function DashboardNativeView({
             is_public: dashboard.is_public,
             public_access_count: dashboard.public_access_count,
           }}
+          initialIsPrivate={dashboard.is_private ?? false}
           getShareStatus={getDashboardSharingStatus}
           updateSharing={updateDashboardSharing}
         />

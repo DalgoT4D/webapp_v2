@@ -20,6 +20,7 @@ export interface ReportSnapshot {
   created_at: string;
   updated_at: string;
   access_level?: 'view' | 'edit';
+  is_private?: boolean;
 }
 
 export interface FrozenChartConfig {
@@ -45,12 +46,14 @@ export interface ReportMetadata {
   last_modified_by?: string;
   dashboard_title: string;
   dashboard_id?: number;
+  is_private?: boolean;
 }
 
 export interface SnapshotViewData {
   dashboard_data: Dashboard;
   report_metadata: ReportMetadata;
   frozen_chart_configs: Record<string, FrozenChartConfig>;
+  access_level?: 'view' | 'edit';
 }
 
 export interface DiscoveredDatetimeColumn {

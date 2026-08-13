@@ -99,6 +99,7 @@ export interface Chart {
   created_at: string;
   updated_at: string;
   access_level?: 'view' | 'edit';
+  is_private?: boolean;
 }
 
 export interface ChartCreate {

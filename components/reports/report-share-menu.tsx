@@ -17,9 +17,10 @@ import { toastError } from '@/lib/toast';
 interface ReportShareMenuProps {
   snapshotId: number;
   reportTitle?: string;
+  isPrivate?: boolean;
 }
 
-export function ReportShareMenu({ snapshotId, reportTitle }: ReportShareMenuProps) {
+export function ReportShareMenu({ snapshotId, reportTitle, isPrivate }: ReportShareMenuProps) {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
@@ -77,6 +78,7 @@ export function ReportShareMenu({ snapshotId, reportTitle }: ReportShareMenuProp
         reportTitle={reportTitle}
         isOpen={linkDialogOpen}
         onClose={() => setLinkDialogOpen(false)}
+        initialIsPrivate={isPrivate ?? false}
       />
       <ShareViaEmailDialog
         snapshotId={snapshotId}

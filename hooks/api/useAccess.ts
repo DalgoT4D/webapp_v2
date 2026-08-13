@@ -10,9 +10,9 @@ import type {
 } from '@/types/user-groups';
 import type { ShareRow, AddGrantsPayload, UpdateGrantPayload, AccessLevel } from '@/types/access';
 
-export function usePeople() {
+export function usePeople(enabled: boolean = true) {
   const { data, error, isLoading, mutate } = useSWR<PersonRow[]>(
-    '/api/v1/organizations/people',
+    enabled ? '/api/v1/organizations/people' : null,
     apiGet
   );
 
@@ -24,9 +24,9 @@ export function usePeople() {
   };
 }
 
-export function useUserGroups() {
+export function useUserGroups(enabled: boolean = true) {
   const { data, error, isLoading, mutate } = useSWR<GroupListRow[]>(
-    '/api/v1/organizations/user_groups',
+    enabled ? '/api/v1/organizations/user_groups' : null,
     apiGet
   );
 

@@ -17,6 +17,7 @@ export interface Chart {
   access_level?: 'view' | 'edit';
   is_favorite?: boolean;
   data_source?: string;
+  is_private?: boolean;
 }
 
 export interface ChartListResponse {
