@@ -198,7 +198,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
 
     let authOk = true;
     if (isGoogleSheets && !authSatisfied) {
-      setAuthError('Choose an authentication method to continue');
+      setAuthError('Paste a service-account key, or tick “Use Dalgo’s service account”');
       authOk = false;
     }
 
