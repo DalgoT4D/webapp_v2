@@ -245,9 +245,7 @@ describe('ConnectionFormBody split help + custom view', () => {
     );
 
     const tooltip = await screen.findByRole('tooltip');
-    expect(tooltip).toHaveTextContent(
-      'Turns raw synced data into query-ready warehouse tables after each sync.'
-    );
+    expect(tooltip).toHaveTextContent('Renames columns to an SQL-compliant format.');
   });
 
   it('explains Destination Schema beside its right-aligned input', async () => {
@@ -282,7 +280,12 @@ describe('ConnectionFormBody split help + custom view', () => {
 
     await user.click(screen.getByRole('button', { name: 'Collapse table settings help' }));
     expect(screen.queryByTestId('connection-help-panel')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open table settings help' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open table settings help' })).toHaveTextContent(
+      'What these options mean'
+    );
+    expect(screen.getByTestId('connection-help-expand-label')).not.toHaveClass(
+      '[writing-mode:vertical-rl]'
+    );
 
     await user.click(screen.getByRole('button', { name: 'Columns header' }));
     expect(screen.getByTestId('connection-help-panel')).toBeInTheDocument();

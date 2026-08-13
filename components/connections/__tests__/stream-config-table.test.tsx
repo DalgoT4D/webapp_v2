@@ -97,6 +97,11 @@ describe('StreamConfigTable progressive disclosure', () => {
     expect(screen.getByText('col_a')).toBeInTheDocument();
     expect(screen.getByText('string')).toBeInTheDocument();
     expect(screen.getByTestId('cast-type-form_one-col_a')).toBeInTheDocument();
+    expect(screen.getByTestId('columns-detail-table-form_one')).toHaveClass(
+      'w-[42rem]',
+      'table-fixed'
+    );
+    expect(screen.getByRole('columnheader', { name: 'Type' })).toHaveClass('text-left');
   });
 
   it('shows an auto-expanded first table before it is selected, with mutations disabled', () => {
@@ -116,6 +121,7 @@ describe('StreamConfigTable progressive disclosure', () => {
     expect(screen.getByTestId('expand-columns-form_one')).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('col_a')).toBeInTheDocument();
     expect(screen.getByTestId('col-toggle-form_one-col_a')).toBeDisabled();
+    expect(screen.getByTestId('columns-detail-table-form_one')).toHaveClass('w-[32rem]');
   });
 
   it('shows advanced columns when advancedOpen is true', () => {

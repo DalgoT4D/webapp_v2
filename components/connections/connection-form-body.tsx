@@ -513,7 +513,7 @@ export function ConnectionFormBody({
             </button>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-xs text-xs font-normal">
-            Turns raw synced data into query-ready warehouse tables after each sync.
+            Renames columns to an SQL-compliant format.
           </TooltipContent>
         </Tooltip>
       </div>
@@ -568,7 +568,7 @@ export function ConnectionFormBody({
             showHelpPanel
               ? helpPanelOpen
                 ? 'md:grid-cols-[62fr_38fr]'
-                : 'md:grid-cols-[minmax(0,1fr)_3.5rem]'
+                : 'md:grid-cols-[minmax(0,1fr)_11rem]'
               : ''
           }`}
         >
@@ -740,11 +740,14 @@ export function ConnectionFormBody({
                     aria-label="Open table settings help"
                     data-testid="connection-help-expand"
                     onClick={() => setHelpPanelOpen(true)}
-                    className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-xl border bg-muted/30 px-2 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex w-full items-center gap-2 rounded-xl border bg-muted/30 p-3 text-left text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                    <CircleHelp className="h-4 w-4" aria-hidden="true" />
-                    <span className="text-sm font-semibold [writing-mode:vertical-rl] rotate-180">
+                    <ChevronLeft className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                    <CircleHelp className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                    <span
+                      data-testid="connection-help-expand-label"
+                      className="text-sm font-semibold leading-tight"
+                    >
                       What these options mean
                     </span>
                   </button>

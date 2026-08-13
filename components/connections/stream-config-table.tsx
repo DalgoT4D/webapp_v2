@@ -521,18 +521,25 @@ export function StreamConfigTable({
                     stream.columns.length > 0 && (
                       <tr key={`cols-${stream.name}`} className="bg-muted/30">
                         <td colSpan={colCount} className="px-4 py-2">
-                          <table className="w-full">
+                          <table
+                            data-testid={`columns-detail-table-${stream.name}`}
+                            className={
+                              showCastColumn
+                                ? 'w-[42rem] max-w-full table-fixed'
+                                : 'w-[32rem] max-w-full table-fixed'
+                            }
+                          >
                             <thead>
                               <tr className="border-b border-muted">
                                 <th className="py-1 px-2 w-10" />
                                 <th className="py-1 px-2 text-left text-xs font-medium text-muted-foreground">
                                   Column
                                 </th>
-                                <th className="py-1 px-2 text-right text-xs font-medium text-muted-foreground">
+                                <th className="w-28 py-1 px-2 text-left text-xs font-medium text-muted-foreground">
                                   Type
                                 </th>
                                 {showCastColumn && (
-                                  <th className="py-1 px-2 text-right text-xs font-medium text-muted-foreground w-36">
+                                  <th className="w-36 py-1 px-2 text-left text-xs font-medium text-muted-foreground">
                                     Cast to
                                   </th>
                                 )}
@@ -571,13 +578,13 @@ export function StreamConfigTable({
                                         {col.name}
                                       </span>
                                     </td>
-                                    <td className="py-1.5 px-2 text-right">
+                                    <td className="w-28 py-1.5 px-2 text-left">
                                       <span className="text-xs text-muted-foreground">
                                         {col.data_type}
                                       </span>
                                     </td>
                                     {showCastColumn && (
-                                      <td className="py-1.5 px-2 text-right w-36">
+                                      <td className="w-36 py-1.5 px-2 text-left">
                                         <Select
                                           value={col.cast_to_type ?? undefined}
                                           onValueChange={(v) =>
