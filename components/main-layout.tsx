@@ -134,37 +134,43 @@ export const getNavItems = (
       href: '/pipeline',
       icon: Database,
       isActive: false,
-      visibleToRoles: DATA_SECTION_ROLES,
+      // Data parent visible to everyone; staff-only children carry their own
+      // visibleToRoles so Members only see Metrics + Alerts (per resource-sharing spec).
       children: [
         {
           title: 'Overview',
           href: '/pipeline',
           icon: PipelineOverviewIcon,
           isActive: currentPath.startsWith('/pipeline'),
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         {
           title: 'Ingest',
           href: '/ingest',
           icon: IngestIcon,
           isActive: currentPath.startsWith('/ingest'),
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         {
           title: 'Transform',
           href: '/transform',
           icon: TransformIcon,
           isActive: currentPath.startsWith('/transform'),
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         {
           title: 'Orchestrate',
           href: '/orchestrate',
           icon: OrchestrateIcon,
           isActive: currentPath.startsWith('/orchestrate'),
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         {
           title: 'Explore',
           href: '/explore',
           icon: ExploreIcon,
           isActive: currentPath.startsWith('/explore'),
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         {
           title: 'Metrics',
@@ -173,21 +179,22 @@ export const getNavItems = (
           isActive: currentPath.startsWith('/metrics'),
         },
         {
+          title: 'Alerts',
+          href: '/alerts',
+          icon: AlertTriangle,
+          isActive: currentPath.startsWith('/alerts'),
+        },
+        {
           title: 'Quality',
           href: '/data-quality',
           icon: DataQualityIcon,
           isActive: currentPath.startsWith('/data-quality'),
+          visibleToRoles: DATA_SECTION_ROLES,
           hide:
             !isFeatureFlagEnabled(FeatureFlagKeys.DATA_QUALITY) ||
             transformType === TransformType.UI,
         },
       ],
-    },
-    {
-      title: 'Alerts',
-      href: '/alerts',
-      icon: AlertTriangle,
-      isActive: currentPath.startsWith('/alerts'),
     },
     {
       title: 'Settings',
