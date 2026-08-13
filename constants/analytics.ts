@@ -25,7 +25,6 @@ export const ANALYTICS_EVENTS = {
   // clicked. What it then does (open the fork dialog, resume, start a flow) depends on
   // walkthrough state and is covered by that flow's own events.
   GETTING_STARTED_ITEM_CLICKED: 'onboarding:getting_started_item_clicked',
-  GETTING_STARTED_VIDEO_PLAYED: 'onboarding:getting_started_video_played',
   // The "Schedule a call with us" / "Book a call" link out to the Dalgo team's booking page.
   // Carries { source: 'widget' | 'nudge' } — the widget row vs the trial nudge modals, which
   // fire at very different moments of the trial and convert differently.
@@ -63,6 +62,7 @@ export const ANALYTICS_EVENTS = {
   // Verification link re-sent from the check-your-email card (re-POSTs signup).
   TRIAL_LINK_RESENT: 'trial:link_resent',
   TRIAL_ACTIVATED: 'trial:trial_activated',
+  TRIAL_PROVISIONING_VIDEO_PLAYED: 'trial:provisioning_video_played',
   // A failed clone was re-enqueued. Carries { from: 'failed' | 'timeout' } — which
   // fallback card the user retried from.
   TRIAL_RETRY_TRIGGERED: 'trial:retry_triggered',

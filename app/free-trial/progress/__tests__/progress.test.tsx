@@ -120,6 +120,25 @@ describe('TrialProgressPage', () => {
     expect(screen.getByTestId('trial-step-2')).toHaveAttribute('data-state', 'pending');
   });
 
+  it('shows the provisioning video and loads YouTube only after Play is clicked', () => {
+    mockSwrData = {
+      task_id: 'task-123',
+      status: 'running',
+      progress: [{ step: 1, message: 'Creating your workspace', status: 'in_progress' }],
+    };
+
+    render(<TrialProgressPage />);
+
+    expect(screen.queryByTestId('trial-provisioning-video-iframe')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('trial-provisioning-video-play'));
+
+    expect(screen.getByTestId('trial-provisioning-video-iframe')).toHaveAttribute(
+      'src',
+      'https://www.youtube-nocookie.com/embed/R-JJNgp8xYM?autoplay=1&rel=0'
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial:provisioning_video_played');
+  });
+
   it('shows the FIRST step (not all-done) when the history has only a "queued" marker', () => {
     // A freshly enqueued or just-retried clone has progress=[{queued}] — no numeric step and
     // no label match. The old fallback clamped to the LAST index, rendering every step as

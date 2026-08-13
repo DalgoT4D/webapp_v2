@@ -6,10 +6,10 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { TrialSplitCard } from '@/app/free-trial/_components/TrialSplitCard';
 import { TrialNoticeCard } from '@/app/free-trial/_components/TrialNoticeCard';
-import { TrialMarketingPanel } from '@/app/free-trial/_components/TrialMarketingPanel';
+import { TrialProvisioningVideoPanel } from '@/app/free-trial/_components/TrialProvisioningVideoPanel';
 import { TrialBrandHeader } from '@/app/free-trial/_components/TrialBrandHeader';
 import { CloneProgress } from '@/app/free-trial/_components/CloneProgress';
-import { TRIAL_MARKETING_PANELS, TRIAL_SUPPORT_EMAIL } from '@/app/free-trial/_lib/constants';
+import { TRIAL_SUPPORT_EMAIL } from '@/app/free-trial/_lib/constants';
 import { apiPost, apiPublicPost } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -190,10 +190,7 @@ function ProgressCard() {
   // Figma frame 2453:3089.
   if (failed) {
     return (
-      <TrialSplitCard
-        testId="trial-progress-failed"
-        aside={<TrialMarketingPanel panel={TRIAL_MARKETING_PANELS.provisioning} />}
-      >
+      <TrialSplitCard testId="trial-progress-failed" aside={<TrialProvisioningVideoPanel />}>
         <div className="space-y-8">
           <TrialBrandHeader
             title="Workspace setup interrupted"
@@ -269,10 +266,7 @@ function ProgressCard() {
   // wrapper — it re-renders every second, and re-rendering this card's hooks resets
   // the SWR poller's interval before it can fire (see the notes above).
   return (
-    <TrialSplitCard
-      testId="trial-progress-card"
-      aside={<TrialMarketingPanel panel={TRIAL_MARKETING_PANELS.provisioning} />}
-    >
+    <TrialSplitCard testId="trial-progress-card" aside={<TrialProvisioningVideoPanel />}>
       <div className="space-y-8">
         <TrialBrandHeader
           title="Creating workspace"
