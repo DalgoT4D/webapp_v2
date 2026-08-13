@@ -79,6 +79,14 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const [tableChartPage, setTableChartPage] = useState(1);
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
 
+  // Viewer's column-header sort click — session-only, never persisted to the chart's
+  // saved config. Overrides chart.extra_config.sort in the query payload below, so the
+  // backend does the actual ORDER BY and server-side pagination keeps working per page.
+  const [viewerSort, setViewerSort] = useState<{
+    column: string;
+    direction: 'asc' | 'desc';
+  } | null>(null);
+
   // ✅ ADD: Drill-down state management for table charts
   const [tableDrillDownState, setTableDrillDownState] = useState<{
     currentLevel: number; // 0 = first dimension, 1 = second dimension, etc.
@@ -184,13 +192,13 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   : []),
               ],
               pagination: chart.extra_config?.pagination,
-              sort: chart.extra_config?.sort,
+              sort: viewerSort ? [viewerSort] : chart.extra_config?.sort,
               time_grain: chart.extra_config?.time_grain,
               table_columns: chart.extra_config?.table_columns,
             },
           }
         : null,
-    [chart, tableDrillDownState]
+    [chart, tableDrillDownState, viewerSort]
   );
 
   // For non-map charts (including tables), use the standard chart data hook
@@ -200,7 +208,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     isLoading: dataLoading,
   } = useChartData(chart?.chart_type !== 'map' ? chartDataPayload : null);
 
-  // For table charts, use data preview API with pagination
+  // For table charts, use data preview API with server-side pagination — `chartDataPayload`
+  // already carries `viewerSort` (see above), so clicking a header re-fetches this with the
+  // new sort applied, and subsequent pages continue in that same sorted order.
   const {
     data: tableData,
     error: tableError,
@@ -220,6 +230,13 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const handleTableChartPageSizeChange = useCallback((newPageSize: number) => {
     setTableChartPageSize(newPageSize);
     setTableChartPage(1); // Reset to first page when page size changes
+  }, []);
+
+  // Handle column-header sort clicks — updates viewerSort, which flows into
+  // chartDataPayload.extra_config.sort above and re-fetches page 1 server-side.
+  const handleTableSort = useCallback((column: string, direction: 'asc' | 'desc' | null) => {
+    setViewerSort(direction ? { column, direction } : null);
+    setTableChartPage(1);
   }, []);
 
   // Handle table row click for drill-down
@@ -815,14 +832,6 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   : undefined
               }
               pivotExtraConfig={chart.extra_config}
-              tableData={
-                chart.chart_type === 'table' && tableData
-                  ? {
-                      data: tableData.data || [],
-                      columns: tableData.columns || [],
-                    }
-                  : undefined
-              }
               tableElement={
                 chart.chart_type === 'table' || chart.chart_type === 'pivot_table'
                   ? chartContentRef.current
@@ -907,6 +916,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                       data={Array.isArray(tableData?.data) ? tableData.data : []}
                       config={{
                         table_columns: (() => {
+                          // Backend-computed columns win: extra_config.table_columns can go
+                          // stale relative to the chart's actual dimensions/metrics (e.g. after
+                          // editing dimensions without re-saving table_columns).
                           const cols =
                             tableData?.columns || chart.extra_config?.table_columns || [];
                           const order = chart.extra_config?.customizations?.columnOrder;
@@ -922,7 +934,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                         column_formatting: mergeTableColumnFormatting(
                           chart.extra_config?.customizations
                         ),
-                        sort: chart.extra_config?.sort || [],
+                        sort: viewerSort ? [viewerSort] : chart.extra_config?.sort || [],
                         pagination: chart.extra_config?.pagination || {
                           enabled: true,
                           page_size: 20,
@@ -948,6 +960,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                             }
                           : undefined
                       }
+                      onSort={handleTableSort}
                       onRowClick={handleTableRowClick}
                       drillDownEnabled={chart.extra_config?.dimensions?.some(
                         (dim: any) => dim.enable_drill_down === true

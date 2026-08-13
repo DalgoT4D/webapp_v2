@@ -2,8 +2,7 @@
 
 import { useMemo, useState, useCallback } from 'react';
 import {
-  ChevronUp,
-  ChevronDown,
+  Triangle,
   Loader2,
   AlertCircle,
   ChevronFirst,
@@ -83,7 +82,10 @@ interface TableChartProps {
     freezeFirstColumn?: boolean;
     theme?: string;
   };
-  onSort?: (column: string, direction: 'asc' | 'desc') => void;
+  // direction is null on the 3rd click (clears back to the chart's default order).
+  // The parent owns the actual sort — it re-fetches with the new sort applied
+  // server-side and passes the already-sorted `data` + updated `config.sort` back down.
+  onSort?: (column: string, direction: 'asc' | 'desc' | null) => void;
   isLoading?: boolean;
   error?: any;
   pagination?: {
@@ -138,10 +140,11 @@ export function TableChart({
     return [];
   }, [data, table_columns]);
 
-  // Calculate paginated data
+  // Sorting is applied server-side (the parent re-fetches with `sort` included in the
+  // query, so `data` arrives already sorted) — this just paginates whatever it's given.
   const paginatedData = useMemo(() => {
     if (isServerSidePagination) {
-      // For server-side pagination, data is already paginated
+      // For server-side pagination, data is already paginated (and sorted)
       return data;
     }
 
@@ -347,19 +350,17 @@ export function TableChart({
     [search.matches]
   );
 
-  // Get sort direction for a column
-  const getSortDirection = (column: string) => {
-    const sortConfig = sort.find((s) => s.column === column);
-    return sortConfig?.direction;
-  };
+  // `sort` is fully controlled by the parent (it reflects whatever was actually
+  // applied server-side), so the arrow just mirrors it — no local sort state here.
+  const getSortDirection = (column: string) => sort.find((s) => s.column === column)?.direction;
 
-  // Handle column header click for sorting
+  // Click cycle per column: 1st click → asc, 2nd → desc, 3rd → clear (back to default
+  // order). The parent owns re-fetching with the new sort and resetting to page 1.
   const handleSort = (column: string) => {
     if (!onSort) return;
-
-    const currentDirection = getSortDirection(column);
-    const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
-    onSort(column, newDirection);
+    const current = getSortDirection(column);
+    const next = current === 'asc' ? 'desc' : current === 'desc' ? null : 'asc';
+    onSort(column, next);
   };
 
   // Handle loading state
@@ -433,6 +434,8 @@ export function TableChart({
             <TableRow>
               {columns.map((column) => {
                 const sortDirection = getSortDirection(column);
+                // Sortable only when the parent actually wires up onSort (it re-fetches
+                // server-side with the new sort applied — no-op otherwise).
                 const canSort = !!onSort;
 
                 return (
@@ -455,15 +458,27 @@ export function TableChart({
                         size="sm"
                         className="h-auto p-0 font-semibold hover:bg-transparent"
                         onClick={() => handleSort(column)}
+                        data-testid={`table-column-sort-${column}`}
                       >
-                        <span className="mr-1">{column}</span>
-                        {sortDirection === 'asc' ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : sortDirection === 'desc' ? (
-                          <ChevronDown className="h-3 w-3" />
-                        ) : (
-                          <div className="h-3 w-3" />
-                        )}
+                        <span>{column}</span>
+                        <span className="flex flex-col gap-0.5">
+                          <Triangle
+                            className={
+                              sortDirection === 'asc'
+                                ? 'size-1.5 text-foreground'
+                                : 'size-1.5 text-muted-foreground'
+                            }
+                            fill={sortDirection === 'asc' ? 'currentColor' : 'none'}
+                          />
+                          <Triangle
+                            className={
+                              sortDirection === 'desc'
+                                ? 'size-1.5 rotate-180 text-foreground'
+                                : 'size-1.5 rotate-180 text-muted-foreground'
+                            }
+                            fill={sortDirection === 'desc' ? 'currentColor' : 'none'}
+                          />
+                        </span>
                       </Button>
                     ) : (
                       column

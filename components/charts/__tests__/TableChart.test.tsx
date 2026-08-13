@@ -174,21 +174,31 @@ describe('TableChart', () => {
     });
   });
 
+  // Sorting is applied server-side: the parent owns `sort` state, refetches
+  // already-sorted data, and passes it back down via `config.sort` + a new `data`
+  // array. TableChart only relays clicks via `onSort` and mirrors `config.sort` in
+  // the header arrow — it never reorders rows itself.
   describe('Sorting', () => {
-    const onSort = jest.fn();
+    it('renders headers as plain text (no click handler) when onSort is not provided', () => {
+      render(<TableChart data={mockData} config={defaultConfig} />);
+      expect(screen.getByText('name').closest('button')).not.toBeInTheDocument();
+    });
 
-    it('should render sortable headers and handle clicks', async () => {
+    it('cycles the click state per column: 1st click asc, 2nd desc, 3rd clears to null', async () => {
+      const onSort = jest.fn();
       const user = userEvent.setup();
       const { rerender } = render(
         <TableChart data={mockData} config={defaultConfig} onSort={onSort} />
       );
 
-      const nameHeader = screen.getByText('name').closest('button');
-      expect(nameHeader).toBeInTheDocument();
+      const nameHeader = screen.getByText('name').closest('button')!;
+      expect(nameHeader).toHaveAttribute('data-testid', 'table-column-sort-name');
 
-      await user.click(nameHeader!);
-      expect(onSort).toHaveBeenCalledWith('name', 'asc');
+      await user.click(nameHeader);
+      expect(onSort).toHaveBeenLastCalledWith('name', 'asc');
 
+      // The parent is the source of truth for `sort` — simulate it applying the
+      // new sort and re-rendering with the result, as it would in production.
       rerender(
         <TableChart
           data={mockData}
@@ -196,19 +206,8 @@ describe('TableChart', () => {
           onSort={onSort}
         />
       );
-      await user.click(nameHeader!);
-      expect(onSort).toHaveBeenCalledWith('name', 'desc');
-    });
-
-    it('should show sort icons', () => {
-      const { container, rerender } = render(
-        <TableChart
-          data={mockData}
-          config={{ ...defaultConfig, sort: [{ column: 'name', direction: 'asc' }] }}
-          onSort={onSort}
-        />
-      );
-      expect(container.querySelector('.lucide-chevron-up')).toBeInTheDocument();
+      await user.click(nameHeader);
+      expect(onSort).toHaveBeenLastCalledWith('name', 'desc');
 
       rerender(
         <TableChart
@@ -217,7 +216,60 @@ describe('TableChart', () => {
           onSort={onSort}
         />
       );
-      expect(container.querySelector('.lucide-chevron-down')).toBeInTheDocument();
+      await user.click(nameHeader);
+      expect(onSort).toHaveBeenLastCalledWith('name', null);
+    });
+
+    it('never reorders rows itself — sorting is the parent’s responsibility', async () => {
+      const user = userEvent.setup();
+      const onSort = jest.fn();
+      // Original order (Bob, Zoe, Amy) is neither ascending nor descending.
+      const data = [{ name: 'Bob' }, { name: 'Zoe' }, { name: 'Amy' }];
+      render(<TableChart data={data} config={{ table_columns: ['name'] }} onSort={onSort} />);
+
+      await user.click(screen.getByText('name').closest('button')!);
+
+      const visibleNames = screen
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => row.textContent?.trim());
+      expect(visibleNames).toEqual(['Bob', 'Zoe', 'Amy']);
+      expect(onSort).toHaveBeenCalledWith('name', 'asc');
+    });
+
+    it('shows both direction icons unfilled when unsorted', () => {
+      render(<TableChart data={mockData} config={defaultConfig} onSort={jest.fn()} />);
+      const [upIcon, downIcon] = screen
+        .getByText('name')
+        .closest('button')!
+        .querySelectorAll('.lucide-triangle');
+      expect(upIcon).toHaveAttribute('fill', 'none');
+      expect(downIcon).toHaveAttribute('fill', 'none');
+    });
+
+    it('fills the up icon when sorted asc, and the down icon when sorted desc', () => {
+      const { rerender } = render(
+        <TableChart
+          data={mockData}
+          config={{ ...defaultConfig, sort: [{ column: 'name', direction: 'asc' }] }}
+          onSort={jest.fn()}
+        />
+      );
+      const nameHeader = screen.getByText('name').closest('button')!;
+      const [upAsc, downAsc] = nameHeader.querySelectorAll('.lucide-triangle');
+      expect(upAsc).toHaveAttribute('fill', 'currentColor');
+      expect(downAsc).toHaveAttribute('fill', 'none');
+
+      rerender(
+        <TableChart
+          data={mockData}
+          config={{ ...defaultConfig, sort: [{ column: 'name', direction: 'desc' }] }}
+          onSort={jest.fn()}
+        />
+      );
+      const [upDesc, downDesc] = nameHeader.querySelectorAll('.lucide-triangle');
+      expect(upDesc).toHaveAttribute('fill', 'none');
+      expect(downDesc).toHaveAttribute('fill', 'currentColor');
     });
   });
 

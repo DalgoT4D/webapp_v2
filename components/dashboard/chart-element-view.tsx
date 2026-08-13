@@ -183,6 +183,15 @@ export function ChartElementView({
   const [tablePage, setTablePage] = useState(1);
   const [tablePageSize, setTablePageSize] = useState(20);
 
+  // Viewer's column-header sort click — session-only, never persisted to the chart's
+  // saved config. Overrides it in chartDataPayload.extra_config.sort below, so the
+  // backend does the actual ORDER BY (works for authenticated + public dashboard view;
+  // Reports fetch table data via a separate payload-less GET and are out of scope here).
+  const [viewerSort, setViewerSort] = useState<{
+    column: string;
+    direction: 'asc' | 'desc';
+  } | null>(null);
+
   // ✅ ADD: Drill-down state management for table charts
   const [tableDrillDownState, setTableDrillDownState] = useState<{
     currentLevel: number; // 0 = first dimension, 1 = second dimension, etc.
@@ -454,14 +463,14 @@ export function ChartElementView({
                   : []),
               ],
               pagination: effectiveChart.extra_config?.pagination,
-              sort: effectiveChart.extra_config?.sort,
+              sort: viewerSort ? [viewerSort] : effectiveChart.extra_config?.sort,
             },
             // Dashboard filters are sent via the `dashboard_filters` query
             // string and resolved server-side (same as the chart-data and
             // table-preview endpoints), so they are not injected here.
           }
         : null,
-    [effectiveChart, tableDrillDownState, resolvedDashboardFilters, dashboardFilters]
+    [effectiveChart, tableDrillDownState, resolvedDashboardFilters, dashboardFilters, viewerSort]
   );
 
   // Report/frozen mode: fetch chart data via POST with inline config (no chart ID needed)
@@ -624,6 +633,13 @@ export function ChartElementView({
     setTablePageSize(newPageSize);
     setTablePage(1); // Reset to first page when page size changes
   };
+
+  // Handle column-header sort clicks — updates viewerSort, which flows into
+  // chartDataPayload.extra_config.sort above and re-fetches page 1 server-side.
+  const handleTableSort = useCallback((column: string, direction: 'asc' | 'desc' | null) => {
+    setViewerSort(direction ? { column, direction } : null);
+    setTablePage(1);
+  }, []);
 
   // Handle table row click for drill-down
   const handleTableRowClick = useCallback(
@@ -1940,7 +1956,7 @@ export function ChartElementView({
                 column_formatting: mergeTableColumnFormatting(
                   effectiveChart?.extra_config?.customizations
                 ),
-                sort: effectiveChart?.extra_config?.sort || [],
+                sort: viewerSort ? [viewerSort] : effectiveChart?.extra_config?.sort || [],
                 pagination: effectiveChart?.extra_config?.pagination || {
                   enabled: true,
                   page_size: 20,
@@ -1967,6 +1983,9 @@ export function ChartElementView({
                     }
                   : undefined
               }
+              // Reports fetch table data via a frozen, payload-less GET (no way to inject
+              // a sort override), so headers stay non-interactive there.
+              onSort={isPublicReport ? undefined : handleTableSort}
               onRowClick={handleTableRowClick}
               drillDownEnabled={effectiveChart?.extra_config?.dimensions?.some(
                 (dim: ChartDimension) => dim.enable_drill_down === true

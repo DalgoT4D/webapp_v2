@@ -178,6 +178,14 @@ function ConfigureChartPageContent() {
   const [tableChartPage, setTableChartPage] = useState(1);
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
 
+  // Viewer's column-header sort click — session-only, never persisted to formData.sort
+  // (which is what gets saved on Save). Overrides it in the query payload below, so the
+  // backend does the actual ORDER BY and server-side pagination keeps working per page.
+  const [viewerSort, setViewerSort] = useState<{
+    column: string;
+    direction: 'asc' | 'desc';
+  } | null>(null);
+
   // Unsaved changes detection state
   const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
@@ -420,7 +428,7 @@ function ConfigureChartPageContent() {
                   : []),
               ],
               pagination: formData.pagination,
-              sort: formData.sort,
+              sort: viewerSort ? [viewerSort] : formData.sort,
               time_grain: formData.time_grain,
             },
           }
@@ -450,6 +458,7 @@ function ConfigureChartPageContent() {
       formData.time_grain,
       formData.extra_config,
       tableDrillDownState,
+      viewerSort,
     ]
   );
 
@@ -691,6 +700,13 @@ function ConfigureChartPageContent() {
     setTableChartPageSize(newPageSize);
     setTableChartPage(1); // Reset to first page when page size changes
   };
+
+  // Handle column-header sort clicks — updates viewerSort, which flows into
+  // chartDataPayload.extra_config.sort above and re-fetches page 1 server-side.
+  const handleTableSort = useCallback((column: string, direction: 'asc' | 'desc' | null) => {
+    setViewerSort(direction ? { column, direction } : null);
+    setTableChartPage(1);
+  }, []);
 
   // Handle table row click for drill-down
   const handleTableRowClick = useCallback(
@@ -1232,7 +1248,7 @@ function ConfigureChartPageContent() {
                               });
                             })(),
                             column_formatting: mergeTableColumnFormatting(formData.customizations),
-                            sort: formData.sort || [],
+                            sort: viewerSort ? [viewerSort] : formData.sort || [],
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
                             conditionalFormatting:
                               formData.customizations?.conditionalFormatting || [],
@@ -1250,6 +1266,7 @@ function ConfigureChartPageContent() {
                             onPageChange: setTableChartPage,
                             onPageSizeChange: handleTableChartPageSizeChange,
                           }}
+                          onSort={handleTableSort}
                           onRowClick={handleTableRowClick}
                           drillDownEnabled={formData.dimensions?.some(
                             (dim) => dim.enable_drill_down === true
