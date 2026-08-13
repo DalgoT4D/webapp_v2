@@ -752,20 +752,17 @@ export function ShareModal({
               )}
 
               {/* People with access */}
-              <div className="space-y-2">
-                <Label>People with access</Label>
-                <div className="border rounded-md max-h-56 overflow-y-auto">
-                  {(shares ?? []).length === 0 ? (
-                    <div className="text-sm text-muted-foreground text-center py-4">
-                      Only the owner has access right now.
-                    </div>
-                  ) : (
-                    shares!.map((s, idx) => (
-                      <div
-                        key={s.share_id ?? `cascade-${idx}`}
-                        className={`flex items-center gap-3 px-3 py-2 ${idx > 0 ? 'border-t' : ''}`}
-                      >
-                        <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-gray-900">People with access</Label>
+                {(shares ?? []).length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    Only the owner has access right now.
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                    {shares!.map((s, idx) => (
+                      <div key={s.share_id ?? `cascade-${idx}`} className="flex items-center gap-3">
+                        <span className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary">
                           {s.principal_type === 'group' ? (
                             <UsersIcon className="h-4 w-4" />
                           ) : s.status === 'pending' ? (
@@ -774,55 +771,57 @@ export function ShareModal({
                             <UserIcon className="h-4 w-4" />
                           )}
                         </span>
-                        <span className="flex-1 text-sm text-gray-900 truncate">{s.label}</span>
+                        <span className="text-sm text-gray-900 truncate">{s.label}</span>
                         {s.role_or_group && (
-                          <Badge variant="secondary" className="text-xs">
+                          <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
                             {s.role_or_group}
-                          </Badge>
+                          </span>
                         )}
                         {s.status === 'pending' && (
-                          <Badge variant="secondary" className="text-xs">
+                          <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
                             Pending
-                          </Badge>
+                          </span>
                         )}
-                        <Select
-                          value={s.access_level}
-                          onValueChange={(v) => {
-                            if (v === 'transfer') {
-                              setTransferTarget(s);
-                              return;
-                            }
-                            handleRowLevelChange(s, v as AccessLevel);
-                          }}
-                          disabled={rowBusyId === s.share_id}
-                        >
-                          <SelectTrigger className="w-28 h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="view">View</SelectItem>
-                            <SelectItem value="edit">Edit</SelectItem>
-                            {isOwnerOrAdmin &&
-                              s.principal_type === 'user' &&
-                              s.principal_id != null && (
-                                <SelectItem value="transfer">Transfer ownership</SelectItem>
-                              )}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 p-0"
-                          onClick={() => handleRowRemove(s)}
-                          disabled={rowBusyId === s.share_id || s.share_id === null}
-                          aria-label={`Remove ${s.label}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="ml-auto flex items-center gap-1">
+                          <Select
+                            value={s.access_level}
+                            onValueChange={(v) => {
+                              if (v === 'transfer') {
+                                setTransferTarget(s);
+                                return;
+                              }
+                              handleRowLevelChange(s, v as AccessLevel);
+                            }}
+                            disabled={rowBusyId != null && rowBusyId === s.share_id}
+                          >
+                            <SelectTrigger className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-50 focus:ring-0 focus-visible:ring-0">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="view">View</SelectItem>
+                              <SelectItem value="edit">Edit</SelectItem>
+                              {isOwnerOrAdmin &&
+                                s.principal_type === 'user' &&
+                                s.principal_id != null && (
+                                  <SelectItem value="transfer">Transfer ownership</SelectItem>
+                                )}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
+                            onClick={() => handleRowRemove(s)}
+                            disabled={rowBusyId === s.share_id || s.share_id === null}
+                            aria-label={`Remove ${s.label}`}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    ))
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </>
           )}

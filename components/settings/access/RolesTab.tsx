@@ -36,8 +36,7 @@ const LEVEL_LABEL: Record<Level, string> = {
 
 interface RoleRow {
   role: string;
-  description: string;
-  dataPipelineAccess: string;
+  systemSummary: string;
   resources: {
     editable: boolean;
     value: Level;
@@ -105,20 +104,17 @@ export function RolesTab() {
   const rows: RoleRow[] = [
     {
       role: 'Admins',
-      description: 'Run the organisation, manage people, settings and data.',
-      dataPipelineAccess: 'All access',
+      systemSummary: 'Full access across all datasets, pipelines and settings',
       resources: { editable: false, value: 'edit' },
     },
     {
       role: 'Analysts',
-      description: 'Build and maintain dashboards, charts and reports.',
-      dataPipelineAccess: 'View only',
+      systemSummary: 'Can view pipelines, create & edit; metrics, alerts and groups',
       resources: { editable: true, value: analystLevel },
     },
     {
       role: 'Members',
-      description: 'Work with the shared dashboards and reports',
-      dataPipelineAccess: 'No access',
+      systemSummary: 'Can query datasets & view alerts. No pipeline access.',
       resources: { editable: true, value: memberLevel },
     },
   ];
@@ -145,25 +141,26 @@ export function RolesTab() {
         <div className="border rounded-lg mt-4">
           <Table>
             <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead className="w-[45%]">Role</TableHead>
-                <TableHead className="w-[27%]">Data &amp; Pipeline access</TableHead>
-                <TableHead className="w-[28%]">Resources access</TableHead>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[20%] text-gray-700 font-semibold">Role</TableHead>
+                <TableHead className="w-[52%] text-gray-700 font-semibold">
+                  System summary
+                </TableHead>
+                <TableHead className="w-[28%] text-right text-gray-700 font-semibold">
+                  Visualisations
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((row) => (
                 <TableRow key={row.role}>
-                  <TableCell className="py-4">
+                  <TableCell className="py-5">
                     <div className="font-semibold text-gray-900">{row.role}</div>
-                    <div className="text-sm text-muted-foreground">{row.description}</div>
                   </TableCell>
-                  <TableCell className="py-4">
-                    <span className="inline-flex items-center rounded-md bg-gray-100 px-3 py-1 text-sm text-gray-600">
-                      {row.dataPipelineAccess}
-                    </span>
+                  <TableCell className="py-5">
+                    <span className="text-sm text-gray-700">{row.systemSummary}</span>
                   </TableCell>
-                  <TableCell className="py-4">
+                  <TableCell className="py-5 text-right">
                     {row.resources.editable ? (
                       <Select
                         value={row.resources.value}
@@ -171,13 +168,13 @@ export function RolesTab() {
                         disabled={!canEdit}
                       >
                         <SelectTrigger
-                          className="w-40"
+                          className="w-[160px] ml-auto"
                           data-testid={`resource-select-${row.role.toLowerCase()}`}
                         >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {(['no_access', 'view', 'edit'] as Level[]).map((lvl) => {
+                          {(['edit', 'view', 'no_access'] as Level[]).map((lvl) => {
                             const disabled =
                               row.role === 'Members' && LEVEL_RANK[lvl] > LEVEL_RANK[analystLevel];
                             return (
@@ -189,9 +186,9 @@ export function RolesTab() {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <span className="inline-flex items-center gap-2 rounded-md bg-gray-100 px-3 py-1 text-sm text-gray-600">
-                        All access
-                        <Lock className="h-3 w-3" />
+                      <span className="inline-flex items-center justify-between gap-2 w-[160px] rounded-md border border-input bg-background px-3 py-2 text-sm text-gray-700 ml-auto">
+                        Full access
+                        <Lock className="h-3.5 w-3.5 text-gray-500" />
                       </span>
                     )}
                   </TableCell>
