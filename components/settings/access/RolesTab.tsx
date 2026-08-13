@@ -25,10 +25,13 @@ import { updateAccessDefaults, type AccessDefaults } from '@/hooks/api/useAccess
 
 type Level = 'view' | 'edit' | 'no_access';
 
+// UI-only rebrand — backend, API, and DB continue to use no_access / view / edit
+// internally. All access-control semantics unchanged; only the label users see
+// in Settings > Access > Roles is different.
 const LEVEL_LABEL: Record<Level, string> = {
-  no_access: 'No access',
-  view: 'View only',
-  edit: 'Edit',
+  no_access: 'Create only',
+  view: 'Create & View',
+  edit: 'Create & Edit',
 };
 
 interface RoleRow {
