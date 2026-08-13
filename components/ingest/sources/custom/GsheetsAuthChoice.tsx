@@ -55,14 +55,28 @@ function EmailChip({ email }: { email: string }) {
   );
 }
 
-/** The four steps that grant the service account access. `lead` sets the framing. */
-function ShareSteps({ email, lead, testId }: { email: string; lead: ReactNode; testId: string }) {
+/**
+ * The four steps that grant the service account access. `lead` sets the framing; `footer` is for
+ * anything that only makes sense once the steps have been read (e.g. how to switch key instead).
+ */
+function ShareSteps({
+  email,
+  lead,
+  testId,
+  footer,
+}: {
+  email: string;
+  lead: ReactNode;
+  testId: string;
+  footer?: ReactNode;
+}) {
   return (
     <div
       className="space-y-3 rounded-md border border-primary/40 bg-primary/5 p-4"
       data-testid={testId}
     >
-      <p className="text-sm">{lead}</p>
+      {/* A div, not a <p>: the edit-mode lead is a short block with its own list. */}
+      <div className="space-y-2 text-sm">{lead}</div>
       <EmailChip email={email} />
       <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
         <li>Open your spreadsheet in Google Sheets</li>
@@ -72,6 +86,7 @@ function ShareSteps({ email, lead, testId }: { email: string; lead: ReactNode; t
         <li>Paste the address above and set the role to Viewer</li>
         <li>Untick &ldquo;Notify people&rdquo;, then click Share</li>
       </ol>
+      {footer && <div className="text-sm">{footer}</div>}
     </div>
   );
 }
@@ -141,10 +156,11 @@ export function GsheetsAuthChoice({
             <Label htmlFor="gsheets-use-managed" className="cursor-pointer font-medium">
               Use Dalgo&apos;s service account
             </Label>
+            {/* The choice only. What sharing involves, and how far the access reaches, is stated
+                once — in the panel below, next to the address it applies to. */}
             <p className="text-sm text-muted-foreground">
-              Recommended if you don&apos;t have your own service-account key. Instead of pasting
-              one, you share your spreadsheet with Dalgo&apos;s address — read-only, and only the
-              sheets you share.
+              Quickest way to get your sheet set up. Untick to use your own service-account key
+              instead.
             </p>
           </div>
         </div>
@@ -164,10 +180,24 @@ export function GsheetsAuthChoice({
           testId="gsheets-saved-key-note"
           lead={
             <>
-              <span className="font-medium">If this source uses Dalgo&apos;s service account</span>,
-              the address below needs Viewer access on the spreadsheet — do these steps too. If you
-              are using your own key, share the sheet with your own account&apos;s address instead.
-              To switch, clear the field above.
+              <p className="font-medium text-foreground">
+                This source already has a service-account key saved.
+              </p>
+              <p>
+                If you are using Dalgo&apos;s service account rather than your own key, share your
+                spreadsheet with this address:
+              </p>
+            </>
+          }
+          // After the steps, not before them: it's the alternative to doing them.
+          // The field is named rather than called "the field above" — on a form this long,
+          // "above" isn't obvious.
+          footer={
+            <>
+              To change how this source authenticates, clear the{' '}
+              <span className="font-medium text-foreground">Service Account Information</span> field
+              above — the &ldquo;Use Dalgo&apos;s service account&rdquo; choice comes back, and you
+              can either tick it or paste a different key.
             </>
           }
         />

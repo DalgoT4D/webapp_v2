@@ -238,19 +238,29 @@ describe('GoogleSheetsForm', () => {
       mockManaged = { email: MANAGED_EMAIL };
     });
 
-    it('replaces Google sign-in with the key field plus a checkbox under it', () => {
+    it('replaces Google sign-in with the choice, ticked, and the key stand-in', () => {
       render(<Harness />);
 
       expect(screen.getByTestId('gsheets-auth-choice')).toBeInTheDocument();
-      expect(screen.getByTestId('gsheets-key-field')).toBeInTheDocument();
-      expect(screen.getByTestId('gsheets-use-managed-checkbox')).toBeInTheDocument();
+      expect(screen.getByTestId('gsheets-use-managed-checkbox')).toBeChecked();
+      // Ticked by default on create, so the field shows its stand-in rather than an empty input.
+      expect(screen.getByTestId('gsheets-managed-placeholder')).toBeInTheDocument();
       expect(screen.queryByTestId('gsheets-oauth-connect-btn')).not.toBeInTheDocument();
     });
 
-    it('is unsatisfied until either a key is pasted or the box is ticked', async () => {
+    it("defaults to Dalgo's key on create, so auth is satisfied with nothing typed", () => {
       const onAuthSatisfiedChange = jest.fn();
       render(<Harness onAuthSatisfiedChange={onAuthSatisfiedChange} />);
 
+      expect(screen.getByTestId('gsheets-managed-steps')).toBeInTheDocument();
+      expect(onAuthSatisfiedChange).toHaveBeenLastCalledWith(true);
+    });
+
+    it('is unsatisfied once the box is unticked, until a key is pasted', async () => {
+      const onAuthSatisfiedChange = jest.fn();
+      render(<Harness onAuthSatisfiedChange={onAuthSatisfiedChange} />);
+
+      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
       expect(onAuthSatisfiedChange).toHaveBeenLastCalledWith(false);
 
       await userEvent.type(screen.getByRole('textbox', { name: /Service Account/i }), '{{"a":1}');
@@ -260,18 +270,21 @@ describe('GoogleSheetsForm', () => {
     it('keeps the checkbox visible on create even once a key is typed', async () => {
       render(<Harness />);
 
+      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
       await userEvent.type(screen.getByRole('textbox', { name: /Service Account/i }), '{{"a":1}');
 
       expect(screen.getByTestId('gsheets-use-managed-checkbox')).toBeInTheDocument();
     });
 
-    it('ticking shows the share steps and a stand-in, and satisfies auth', async () => {
+    it('re-ticking shows the share steps and a stand-in, and satisfies auth', async () => {
       const onAuthSatisfiedChange = jest.fn();
       let authType: unknown;
       render(
         <Harness onAuthSatisfiedChange={onAuthSatisfiedChange} onAuthType={(v) => (authType = v)} />
       );
 
+      // Off and back on, so this still exercises the tick itself rather than the create default.
+      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
       await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
 
       expect(screen.getByTestId('gsheets-managed-steps')).toBeInTheDocument();
@@ -288,6 +301,7 @@ describe('GoogleSheetsForm', () => {
       render(<Harness onServiceValue={(v) => values.push(v)} />);
 
       await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
 
       expect(values.every((v) => !String(v ?? '').includes('*'))).toBe(true);
       expect(values.at(-1) ?? '').toBe('');
@@ -296,6 +310,8 @@ describe('GoogleSheetsForm', () => {
     it('gives a typed key back when the box is unticked', async () => {
       render(<Harness />);
       const field = () => screen.getByRole('textbox', { name: /Service Account/i });
+      // Untick to get at the field, type their own key, tick, untick again.
+      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
       await userEvent.type(field(), '{{"a":1}');
 
       await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));

@@ -11,9 +11,10 @@
  *    fastest route to value. It reappears once per session until they have completed both
  *    the build-insight and automate-pipeline walkthroughs (see tour-gate.tsx).
  *
- * Only the "Explore the platform" option is wired to real behavior (starts the driver.js
- * tour via `onStartTour`); the other two just close the modal for now — decided with
- * Himanshu as out of scope for this pass.
+ * All three options start the thing they name — the owner (tour-gate.tsx) supplies the same
+ * handlers the Get Started checklist rows use, so picking a journey here behaves exactly like
+ * picking it there (including resuming one already in progress rather than restarting it).
+ * The tour is not a journey and stays a re-runnable helper link in that widget.
  */
 import Image from 'next/image';
 import { BarChart3, Map, Workflow } from 'lucide-react';
@@ -28,6 +29,14 @@ interface TourIntentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onStartTour: () => void;
+  /**
+   * "Build your first insight" — rolls straight into that walkthrough (its sample-vs-own-data
+   * question, or a resume if one is already part-way through). Same handler as the checklist
+   * row, so the two entry points can't diverge.
+   */
+  onSelectInsight: () => void;
+  /** "Setup an automated data pipeline" — same deal, for that flow. */
+  onSelectPipeline: () => void;
   /** Which heading block to render. Defaults to the original first-visit copy. */
   variant?: TourIntentVariant;
   /** Whole days left in the trial — only read by the 'returning' variant's heading. */
@@ -66,6 +75,8 @@ export function TourIntentModal({
   open,
   onOpenChange,
   onStartTour,
+  onSelectInsight,
+  onSelectPipeline,
   variant = 'first_time',
   trialDaysLeft = 0,
 }: TourIntentModalProps) {
@@ -74,7 +85,14 @@ export function TourIntentModal({
     onOpenChange(false);
     if (option.id === 'tour') {
       onStartTour();
+      return;
     }
+    // Deferred a tick. Both journeys can open a Dialog of their own (the insight fork), and
+    // mounting one while THIS click is still bubbling to `document` makes Radix's outside-click
+    // listener treat that same click as a dismissal — the new dialog closes before it is ever
+    // seen. Letting the current event finish first avoids that.
+    const start = option.id === 'insight' ? onSelectInsight : onSelectPipeline;
+    setTimeout(start, 0);
   };
 
   const isReturning = variant === 'returning';

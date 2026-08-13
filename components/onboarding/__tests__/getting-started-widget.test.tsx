@@ -90,6 +90,98 @@ describe('GettingStartedWidget', () => {
     expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
   });
 
+  it('opens off the auto-open page when an item is ticked off, so the user sees it happen', () => {
+    // Both flows END somewhere that isn't /impact — a saved dashboard, the pipeline list — so
+    // defaultOpen is false there. Without this the item ticked behind a collapsed pill and the
+    // completion looked like nothing had happened.
+    const props = {
+      defaultOpen: false,
+      hasBuiltFirstInsight: false,
+      hasAutomatedPipeline: false,
+      onStartTour: jest.fn(),
+      onBuildInsightClick: jest.fn(),
+      onAutomatePipelineClick: jest.fn(),
+    };
+    const { rerender } = render(
+      <GettingStartedWidget {...props} walkthroughActive revealSignal={0} />
+    );
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+
+    // The flow ends: it goes inactive and the backend records the completion in the same beat.
+    rerender(
+      <GettingStartedWidget
+        {...props}
+        hasBuiltFirstInsight
+        walkthroughActive={false}
+        revealSignal={1}
+      />
+    );
+
+    const panel = screen.getByTestId('getting-started-widget');
+    expect(within(panel).getAllByTestId('getting-started-widget-complete-icon')).toHaveLength(1);
+  });
+
+  it('animates the row whose tick just appeared, and only that one', () => {
+    const props = {
+      defaultOpen: true,
+      hasAutomatedPipeline: false,
+      onStartTour: jest.fn(),
+      onBuildInsightClick: jest.fn(),
+      onAutomatePipelineClick: jest.fn(),
+      walkthroughActive: false,
+    };
+    const { rerender } = render(
+      <GettingStartedWidget {...props} hasBuiltFirstInsight={false} revealSignal={0} />
+    );
+    rerender(<GettingStartedWidget {...props} hasBuiltFirstInsight revealSignal={1} />);
+
+    expect(screen.getByTestId('getting-started-widget-item-build-insight')).toHaveClass(
+      'checklist-item-complete'
+    );
+    expect(screen.getByTestId('getting-started-widget-item-automate-pipeline')).not.toHaveClass(
+      'checklist-item-complete'
+    );
+  });
+
+  it('does not animate a tick that was already there when the panel mounted', () => {
+    // A cold load starts with the flags settled — replaying the celebration on every arrival
+    // would read as the task completing again.
+    render(
+      <GettingStartedWidget
+        defaultOpen
+        walkthroughActive={false}
+        hasBuiltFirstInsight
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+        onBuildInsightClick={jest.fn()}
+        onAutomatePipelineClick={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('getting-started-widget-item-build-insight')).not.toHaveClass(
+      'checklist-item-complete'
+    );
+  });
+
+  it('a reveal does not pin the panel open — the next page still collapses it', () => {
+    const props = {
+      defaultOpen: false,
+      hasBuiltFirstInsight: true,
+      hasAutomatedPipeline: false,
+      onStartTour: jest.fn(),
+      onBuildInsightClick: jest.fn(),
+      onAutomatePipelineClick: jest.fn(),
+      walkthroughActive: false,
+    };
+    const { rerender } = render(<GettingStartedWidget {...props} revealSignal={0} />);
+    rerender(<GettingStartedWidget {...props} revealSignal={1} />);
+    expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
+
+    // Same signal from here on — the route-derived rule is back in charge.
+    rerender(<GettingStartedWidget {...props} revealSignal={1} walkthroughActive />);
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+  });
+
   it('minimizing hides the panel but keeps the pill visible', async () => {
     const user = userEvent.setup();
     render(

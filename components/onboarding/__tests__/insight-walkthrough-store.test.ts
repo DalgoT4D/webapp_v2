@@ -300,6 +300,37 @@ describe('insightWalkthroughStore', () => {
     expect(getStoredTrackedConnection('insights')).toBe('conn-123');
   });
 
+  it('untrackConnection() rewinds to the ingest step while the first sync is still awaited', () => {
+    // The connection was deleted mid-wait (typically to start over after a failure). The ingest
+    // stage is silent while a connection is tracked, so dropping the tracking is what puts
+    // "connect your data" back on screen.
+    store().start(ORG_A);
+    store().chooseOwnData();
+    store().trackConnection('conn-123');
+    store().advanceTo('sync_running');
+
+    store().untrackConnection();
+
+    expect(store().trackedConnectionId).toBeNull();
+    expect(store().stage).toBe('own_data_ingest');
+  });
+
+  it('untrackConnection() leaves a flow that is already past ingest where it is', () => {
+    // Regression: this rewind was unconditional, so losing sight of a connection that had
+    // ALREADY synced (deleted afterwards, or simply missing from a stale list) sent a user who
+    // was building charts back to "connect your data" — the ingestion they had just finished
+    // looked like it never happened.
+    store().start(ORG_A);
+    store().chooseOwnData();
+    store().trackConnection('conn-123');
+    store().advanceTo('chart_intro');
+
+    store().untrackConnection();
+
+    expect(store().trackedConnectionId).toBeNull();
+    expect(store().stage).toBe('chart_intro');
+  });
+
   it("records the completion, then wipes that flow's local scratch space", async () => {
     store().start(ORG_A);
     store().chooseOwnData();

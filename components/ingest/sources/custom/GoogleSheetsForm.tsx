@@ -166,6 +166,20 @@ export function GoogleSheetsForm({
     [serviceValue, servicePath, setValue]
   );
 
+  // A NEW source defaults to Dalgo's key — it's the only route most trial users can finish
+  // without going and minting a service account first. Applied in an effect rather than as the
+  // initial state because the deployment key's email arrives async, so the first render can't
+  // know the option exists. Runs once, and never on edit: there, a saved key is present and the
+  // checkbox isn't even offered (see GsheetsAuthChoice). A key already typed wins too — that's
+  // the user having chosen their own, so don't clear it out from under them.
+  const managedDefaultAppliedRef = useRef(false);
+  useEffect(() => {
+    if (mode !== 'create' || !useManagedChoice || managedDefaultAppliedRef.current) return;
+    managedDefaultAppliedRef.current = true;
+    if (serviceProvided) return;
+    setUseManagedKey(true);
+  }, [mode, useManagedChoice, serviceProvided]);
+
   // Deliberate escape hatch off an already-connected OAuth source: the service
   // field stays disabled while connected (see serviceDisabled below), so typing
   // alone can't switch away — the discriminator effect just fights it, since
