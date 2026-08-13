@@ -220,6 +220,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       await updateSource(sourceId, {
         name: sourceName,
         sourceDefId: selectedDefId!,
+        sourceName: selectedName,
         config,
         sourceId,
       });
@@ -339,7 +340,13 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     const config = buildConfig();
     setSetupLogs([]);
     setLoading(true);
-    sendOrQueue({ name: sourceName, sourceDefId: selectedDefId, config, sourceId });
+    sendOrQueue({
+      name: sourceName,
+      sourceDefId: selectedDefId,
+      sourceName: selectedName,
+      config,
+      sourceId,
+    });
   }, [
     validateHostFields,
     parsedSpec,
