@@ -139,6 +139,13 @@ describe('FeatureNudgeCoachmark', () => {
     await waitFor(() => expect(dismissButton()).not.toBeNull());
     expect(dismissButton()!.textContent).toBe('✕');
     expect(dismissButton()!.style.display).toBe('block');
+    expect(dismissButton()!.parentElement).toBe(
+      document.querySelector('.driver-popover-title')?.parentElement
+    );
+    expect(dismissButton()!.parentElement).toHaveClass(
+      'dalgo-tour-heading-row',
+      'dalgo-tour-heading-row--coachmark'
+    );
   });
 
   it('keeps the page clickable while the nudge is up, and cleans up on unmount', async () => {

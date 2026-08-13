@@ -68,6 +68,7 @@ jest.mock('../hooks/useStreamConfig', () => ({
   useStreamConfig: (): Record<string, unknown> => ({
     streams: mockStreams,
     setStreams: jest.fn(),
+    initializeStreams: jest.fn(),
     streamSearch: '',
     setStreamSearch: jest.fn(),
     incrementalAllStreams: false,
@@ -209,6 +210,31 @@ describe('ConnectionFormBody split help + custom view', () => {
     expect(screen.getByTestId('advanced-options-toggle')).toBeInTheDocument();
     // collapsed by default
     expect(screen.queryByTestId('destination-schema-input')).not.toBeInTheDocument();
+  });
+
+  it('explains what normalization does and its sync impact', async () => {
+    const user = userEvent.setup();
+    render(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="src-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByTestId('advanced-options-toggle'));
+    await user.hover(
+      screen.getByRole('button', {
+        name: 'About Normalize data after sync',
+      })
+    );
+
+    const tooltip = await screen.findByRole('tooltip');
+    expect(tooltip).toHaveTextContent(
+      'Organizes the raw records copied from your source into structured warehouse tables'
+    );
+    expect(tooltip).toHaveTextContent('adds an extra processing step after each sync');
   });
 
   it('reports header info (not a body chip) for a custom source in create', () => {

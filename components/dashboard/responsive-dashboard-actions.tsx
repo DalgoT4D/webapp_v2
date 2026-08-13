@@ -69,6 +69,7 @@ export function ResponsiveDashboardActions({
           variant="outline"
           size="sm"
           onClick={onShare}
+          aria-label="Share dashboard"
           data-testid={suppressShareTestId ? undefined : 'dashboard-share-btn'}
         >
           <Share2 className="w-4 h-4" />

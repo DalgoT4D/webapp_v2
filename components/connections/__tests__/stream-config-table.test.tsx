@@ -44,12 +44,100 @@ describe('StreamConfigTable progressive disclosure', () => {
     render(<StreamConfigTable {...baseProps} advancedOpen={false} onToggleAdvanced={jest.fn()} />);
     expect(screen.getByTestId('stream-toggle-form_one')).toBeInTheDocument();
     expect(screen.queryByTestId('stream-incremental-form_one')).not.toBeInTheDocument();
+    expect(screen.queryByText('Columns')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('expand-columns-form_one')).not.toBeInTheDocument();
     expect(screen.getByTestId('advanced-streams-toggle')).toBeInTheDocument();
+  });
+
+  it('keeps Google Sheets columns accessible while advanced settings are closed', async () => {
+    const user = userEvent.setup();
+    const onConceptFocus = jest.fn();
+    render(
+      <StreamConfigTable
+        {...baseProps}
+        advancedOpen={false}
+        showCastColumn
+        showIncremental={false}
+        onConceptFocus={onConceptFocus}
+        onToggleAdvanced={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Columns')).toBeInTheDocument();
+    expect(screen.getByTestId('expand-columns-form_one')).toBeInTheDocument();
+    expect(screen.queryByText('Destination')).not.toBeInTheDocument();
+    expect(screen.queryByText('Incremental?')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cursor Field')).not.toBeInTheDocument();
+    expect(screen.queryByText('Primary Key')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('concept-header-columns'));
+    expect(onConceptFocus).toHaveBeenCalledWith('columns');
+  });
+
+  it('shows Google Sheets column names, detected types, and casts while advanced is closed', () => {
+    render(
+      <StreamConfigTable
+        {...baseProps}
+        advancedOpen={false}
+        showCastColumn
+        showIncremental={false}
+        expandedStreams={new Set(['form_one'])}
+        onToggleAdvanced={jest.fn()}
+      />
+    );
+
+    expect(screen.getByRole('columnheader', { name: 'Column' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Type' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Cast to' })).toBeInTheDocument();
+    expect(screen.getByText('col_a')).toBeInTheDocument();
+    expect(screen.getByText('string')).toBeInTheDocument();
+    expect(screen.getByTestId('cast-type-form_one-col_a')).toBeInTheDocument();
   });
 
   it('shows advanced columns when advancedOpen is true', () => {
     render(<StreamConfigTable {...baseProps} advancedOpen onToggleAdvanced={jest.fn()} />);
     expect(screen.getByTestId('stream-incremental-form_one')).toBeInTheDocument();
+  });
+
+  it('keeps the full advanced table readable inside a horizontal scroll region', () => {
+    render(<StreamConfigTable {...baseProps} advancedOpen onToggleAdvanced={jest.fn()} />);
+
+    expect(screen.getByRole('region', { name: 'Advanced per-table settings' })).toHaveClass(
+      'overflow-x-auto'
+    );
+    expect(screen.getByTestId('streams-table')).toHaveClass('min-w-[1080px]');
+  });
+
+  it('uses a smaller horizontal scroll width for Google Sheets advanced settings', () => {
+    render(
+      <StreamConfigTable
+        {...baseProps}
+        advancedOpen
+        showCastColumn
+        showIncremental={false}
+        onToggleAdvanced={jest.fn()}
+      />
+    );
+
+    expect(screen.getByRole('region', { name: 'Advanced per-table settings' })).toHaveClass(
+      'overflow-x-auto'
+    );
+    expect(screen.getByTestId('streams-table')).toHaveClass('min-w-[760px]');
+    expect(screen.getByTestId('streams-table')).not.toHaveClass('min-w-[1080px]');
+  });
+
+  it('does not force a wide table when no crowded advanced columns are present', () => {
+    render(
+      <StreamConfigTable
+        {...baseProps}
+        advancedOpen
+        showIncremental={false}
+        onToggleAdvanced={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('streams-table')).not.toHaveClass('min-w-[760px]');
+    expect(screen.getByTestId('streams-table')).not.toHaveClass('min-w-[1080px]');
   });
 
   it('uses the streamNoun for the column header', () => {
@@ -117,6 +205,9 @@ describe('StreamConfigTable progressive disclosure', () => {
     );
     await user.click(screen.getByTestId('concept-header-cursor'));
     expect(onConceptFocus).toHaveBeenCalledWith('cursor');
+
+    await user.click(screen.getByTestId('concept-header-sync'));
+    expect(onConceptFocus).toHaveBeenCalledWith('sync');
   });
 
   it('renders the "Select your" heading using the given streamNoun', () => {

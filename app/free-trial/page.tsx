@@ -120,7 +120,7 @@ export default function FreeTrialPage() {
                 rel="noopener noreferrer"
                 data-testid="trial-open-email-app"
               >
-                Open email app
+                Check email
               </a>
             </Button>
           ) : null}
@@ -172,7 +172,7 @@ export default function FreeTrialPage() {
               id="email"
               type="email"
               autoComplete="email"
-              placeholder="eg xycemail.com"
+              placeholder="e.g. name@example.org"
               aria-invalid={!!errors.email}
               data-testid="trial-signup-email-input"
               {...register('email', {

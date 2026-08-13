@@ -90,7 +90,7 @@ const WEBMAIL_INBOX_URLS: Readonly<Record<string, string>> = {
 };
 
 /**
- * Resolve the "Open email app" target for an address, or null when we can't.
+ * Resolve the "Check email" target for an address, or null when we can't.
  *
  * Returning null is meaningful: the caller hides the button rather than rendering one
  * that goes nowhere. Most NGO users are on a custom domain, so this shortcut is a

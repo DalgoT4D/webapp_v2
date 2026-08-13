@@ -37,6 +37,13 @@ import {
   clearTourProgress,
   type TourStep,
 } from './tour-constants';
+import {
+  clampPopoverLeftToViewport,
+  clampPopoverTopToViewport,
+  hasVisibleArea,
+  sidebarTargetScrollDelta,
+} from './product-tour-positioning';
+import { alignPopoverCloseWithHeader, outlinePopoverArrow } from './tour-popover-chrome';
 import { saveTrialWalkthroughFlow } from '@/hooks/api/useTrialWalkthrough';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
@@ -56,7 +63,7 @@ interface ProductTourProps {
    */
   onOfferPostTourChoice: () => void;
   /**
-   * False once BOTH post-tour flows (insights, automate-pipeline) are already decided —
+   * False once BOTH post-tour flows (insights, automate-pipeline) are already completed —
    * the modal would have nothing left to offer, so it's suppressed. The tour itself stays
    * freely re-runnable; only this follow-up prompt stops appearing.
    */
@@ -171,6 +178,8 @@ const POPOVER_VIEWPORT_MARGIN_PX = 12;
 // points at wherever the popover ends up, clamped to its own bounds) reads as pointing at that
 // other item instead. A little overlap with the spotlight is preferred over that.
 const POPOVER_MAX_PUSH_UP_PX = 72;
+// Space around the ringed sidebar item when the nav must scroll to reveal a lower tour step.
+const SIDEBAR_TARGET_MARGIN_PX = 6;
 // Tooltip triangle dimensions, matching the Figma spec (17.5px point length, 14px tall).
 const ARROW_WIDTH_PX = 17.5;
 const ARROW_HEIGHT_PX = 14;
@@ -393,8 +402,33 @@ function positionSpotlightElement(
  * window-resize handler, or our own `refresh()` call) snaps it back to the default slot.
  */
 function anchorPopoverToSidebar(popover: PopoverDOM, step: TourStep): void {
-  const sidebarEl = document.querySelector(`a[href="${step.route}"]`);
-  if (!sidebarEl) return;
+  const sidebarRoot = document.getElementById('main-layout-sidebar');
+  const sidebarEl = sidebarRoot?.querySelector(`a[href="${step.route}"]`);
+  if (
+    !sidebarRoot ||
+    !sidebarEl ||
+    !hasVisibleArea(sidebarRoot.getBoundingClientRect()) ||
+    !hasVisibleArea(sidebarEl.getBoundingClientRect())
+  ) {
+    // Tablet layouts keep the desktop sidebar mounted but hidden. In that mode driver.js's
+    // own collision-aware placement around the content spotlight is the truthful target;
+    // remove the desktop-only arrow instead of pointing at an invisible navigation item.
+    document.getElementById(ARROW_ELEMENT_ID)?.remove();
+    popover.arrow.style.display = '';
+    return;
+  }
+  const sidebarScroller = document.getElementById('main-layout-sidebar-nav');
+  if (sidebarScroller?.contains(sidebarEl)) {
+    const scrollerRect = sidebarScroller.getBoundingClientRect();
+    const targetRect = sidebarEl.getBoundingClientRect();
+    sidebarScroller.scrollTop += sidebarTargetScrollDelta(
+      targetRect.top,
+      targetRect.bottom,
+      scrollerRect.top,
+      scrollerRect.bottom,
+      SIDEBAR_TARGET_MARGIN_PX
+    );
+  }
   const sidebarRect = sidebarEl.getBoundingClientRect();
   const popoverRect = popover.wrapper.getBoundingClientRect();
 
@@ -408,10 +442,33 @@ function anchorPopoverToSidebar(popover: PopoverDOM, step: TourStep): void {
     const clearedTop = spotlightRect.top - POPOVER_SPOTLIGHT_GAP_PX - popoverRect.height;
     top = Math.min(top, Math.max(clearedTop, sidebarRect.top - POPOVER_MAX_PUSH_UP_PX));
   }
-  top = Math.max(POPOVER_VIEWPORT_MARGIN_PX, top);
+  // Sidebar items near the bottom of a short laptop viewport (Metrics is the common case)
+  // can otherwise put the footer and Next button below the screen. Preserve the preferred
+  // sidebar-aligned position when it fits, but move the whole card up far enough to keep both
+  // edges inside the visual viewport. The custom arrow is clamped separately below, so it
+  // continues to point toward the sidebar item even after this larger safety shift.
+  const viewportTop = window.visualViewport?.offsetTop ?? 0;
+  const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+  top = clampPopoverTopToViewport(
+    top,
+    popoverRect.height,
+    viewportTop,
+    viewportHeight,
+    POPOVER_VIEWPORT_MARGIN_PX
+  );
+
+  const viewportLeft = window.visualViewport?.offsetLeft ?? 0;
+  const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+  const left = clampPopoverLeftToViewport(
+    sidebarRect.right + POPOVER_SIDEBAR_GAP_PX,
+    popoverRect.width,
+    viewportLeft,
+    viewportWidth,
+    POPOVER_VIEWPORT_MARGIN_PX
+  );
 
   popover.wrapper.style.top = `${top}px`;
-  popover.wrapper.style.left = `${sidebarRect.right + POPOVER_SIDEBAR_GAP_PX}px`;
+  popover.wrapper.style.left = `${left}px`;
   popover.wrapper.style.right = 'auto';
   popover.wrapper.style.bottom = 'auto';
 
@@ -432,14 +489,15 @@ function anchorPopoverToSidebar(popover: PopoverDOM, step: TourStep): void {
  * Module-level because it touches no component state beyond the step it's handed.
  */
 function decoratePopover(popover: PopoverDOM, step: TourStep): void {
-  // Close is a top-right "✕" (driver.js's own default position, which the CSS keeps rather
-  // than overriding), and the primary CTA sits at the footer's left. Clicking ✕ runs the same
-  // path as any other exit — finish('skipped') — so it records the skip on the backend, not
-  // just locally.
+  // Close is an "✕" aligned with the progress row, and the primary CTA sits at the footer's
+  // left. Clicking ✕ runs the same path as any other exit — finish('skipped') — so it records
+  // the skip on the backend, not just locally.
   popover.closeButton.textContent = '✕';
   popover.closeButton.setAttribute('aria-label', 'Skip tour');
   popover.closeButton.classList.add('dalgo-tour-close-btn');
   popover.nextButton.classList.add('dalgo-tour-next-btn');
+  outlinePopoverArrow(popover);
+  alignPopoverCloseWithHeader(popover, 'product-tour');
 
   // The popover's target is the synthetic spotlight band (for the stage cutout), but the
   // popover itself must sit beside the SIDEBAR item, not the content. Deferred a frame:
@@ -523,7 +581,7 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
       saveTourProgress(orgSlug, index);
       const step = TOUR_STEPS[index];
       const isLast = index === TOUR_STEPS.length - 1;
-      const sidebarSelector = `a[href="${step.route}"]`;
+      const sidebarSelector = `#main-layout-sidebar a[href="${step.route}"]`;
 
       // Wrapped so ANY failure here (a thrown error, a page that never settles) always
       // clears renderingIndexRef — without this, one bad step permanently wedges the guard
@@ -574,8 +632,13 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
         // survives navigation, but the tour can be resumed onto a freshly mounted layout.
         setChromeLifted(true);
         ringedElRef.current?.classList.remove(RING_CLASS);
-        (sidebarEl as HTMLElement).classList.add(RING_CLASS);
-        ringedElRef.current = sidebarEl as HTMLElement;
+        const sidebarTargetVisible = hasVisibleArea(sidebarEl.getBoundingClientRect());
+        if (sidebarTargetVisible) {
+          (sidebarEl as HTMLElement).classList.add(RING_CLASS);
+          ringedElRef.current = sidebarEl as HTMLElement;
+        } else {
+          ringedElRef.current = null;
+        }
 
         const spotlightEl = getOrCreateSpotlightElement();
         positionSpotlightElement(
@@ -747,7 +810,8 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
         contentEl,
         step.spotlightFull ?? false,
         step.spotlightRowOnly ?? false,
-        step.spotlightRowCount ?? 1
+        step.spotlightRowCount ?? 1,
+        step.rowSelector
       );
       driverRef.current?.refresh();
       const popover = driverRef.current?.getState('popover') as PopoverDOM | undefined;

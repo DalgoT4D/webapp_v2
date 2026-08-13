@@ -4,12 +4,13 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { ReadyState } from 'react-use-websocket';
-import { Loader2 } from 'lucide-react';
+import { Info, Loader2 } from 'lucide-react';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Combobox, highlightText, type ComboboxItem } from '@/components/ui/combobox';
 import { useSources } from '@/hooks/api/useSources';
 import {
@@ -154,8 +155,9 @@ export function ConnectionFormBody({
       getConnectionHelp({
         supportsIncremental: connectionView ? connectionView.supportsIncremental : true,
         allowsDedup: connectionView ? allowsDedup(connectionView.allowedDestModes) : true,
+        supportsColumnCasting: showCastColumn,
       }),
-    [connectionView]
+    [connectionView, showCastColumn]
   );
 
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
@@ -174,7 +176,7 @@ export function ConnectionFormBody({
 
   const {
     streams,
-    setStreams,
+    initializeStreams,
     streamSearch,
     setStreamSearch,
     incrementalAllStreams,
@@ -232,17 +234,18 @@ export function ConnectionFormBody({
         };
       });
 
-      setStreams(
+      initializeStreams(
         connectionView
           ? withCasts.map((s) =>
               connectionView.allowedDestModes.includes(s.destinationSyncMode as DestinationSyncMode)
                 ? s
                 : { ...s, destinationSyncMode: connectionView.allowedDestModes[0] }
             )
-          : withCasts
+          : withCasts,
+        true
       );
     }
-  }, [connection, isCreate, connectionView]);
+  }, [connection, isCreate, connectionView, initializeStreams]);
 
   // Handle schema discovery WebSocket response
   const handleDiscoveryMessage = useCallback(
@@ -260,7 +263,10 @@ export function ConnectionFormBody({
               ? connectionView.allowedDestModes[0]
               : DestinationSyncMode.OVERWRITE,
           };
-          setStreams(catalog.streams.map((s) => parseCatalogStream(s, discoveryDefaults)));
+          initializeStreams(
+            catalog.streams.map((s) => parseCatalogStream(s, discoveryDefaults)),
+            true
+          );
           setDiscoveredCatalog(catalog);
           if (response.data.result.catalogId) {
             setCatalogId(response.data.result.catalogId);
@@ -272,7 +278,7 @@ export function ConnectionFormBody({
         setIsDiscovering(false);
       }
     },
-    [setStreams, connectionView]
+    [initializeStreams, connectionView]
   );
 
   // WebSocket for schema discovery — stays open in create mode
@@ -291,11 +297,14 @@ export function ConnectionFormBody({
     }
   }, [selectedSourceId, readyState, isCreate, sendJsonMessage]);
 
-  const handleSourceChange = useCallback((sourceId: string) => {
-    setSelectedSourceId(sourceId);
-    setStreams([]);
-    setDiscoveredCatalog(null);
-  }, []);
+  const handleSourceChange = useCallback(
+    (sourceId: string) => {
+      setSelectedSourceId(sourceId);
+      initializeStreams([]);
+      setDiscoveredCatalog(null);
+    },
+    [initializeStreams]
+  );
 
   // Required-field check. Returns validity and sets the inline error map; nothing
   // is submitted unless every required field is satisfied.
@@ -470,14 +479,31 @@ export function ConnectionFormBody({
     </div>
   );
 
-  // Normalize toggle — same sharing rationale as destinationSchemaField. Unlike
-  // the other advanced fields it has no help-panel card, so the label is a plain
-  // label rather than a concept trigger.
+  // Normalize uses compact inline help because it has no help-panel concept card.
   const normalizeToggleField = (
     <div className="flex items-center justify-between">
-      <label htmlFor="normalize-toggle" className="text-base font-medium">
-        Normalize data after sync
-      </label>
+      <div className="flex items-center gap-1.5">
+        <label htmlFor="normalize-toggle" className="text-base font-medium">
+          Normalize data after sync
+        </label>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label="About Normalize data after sync"
+              data-testid="normalize-help-tooltip-trigger"
+              className="inline-flex size-5 flex-shrink-0 cursor-help items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Info className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs text-xs font-normal leading-relaxed">
+            Organizes the raw records copied from your source into structured warehouse tables, with
+            fields split into columns with defined data types. This makes the data easier to query
+            and transform, but adds an extra processing step after each sync.
+          </TooltipContent>
+        </Tooltip>
+      </div>
       <Switch
         id="normalize-toggle"
         checked={normalize}
@@ -715,7 +741,11 @@ export function ConnectionFormBody({
           {showHelpPanel && (
             <div className="relative hidden min-h-0 md:block">
               <div className="absolute inset-0">
-                <ConnectionHelpPanel activeConcept={activeConcept} concepts={helpConcepts} />
+                <ConnectionHelpPanel
+                  activeConcept={activeConcept}
+                  concepts={helpConcepts}
+                  onConceptChange={setActiveConcept}
+                />
               </div>
             </div>
           )}

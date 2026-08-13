@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useId } from 'react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { copyUrlToClipboard } from '@/lib/clipboard';
 import { Share2, Copy, Shield, AlertTriangle, Mail, X, Loader2, Send } from 'lucide-react';
@@ -59,6 +59,7 @@ export function ShareModal({
   const [recipientEmails, setRecipientEmails] = useState<string[]>([]);
   const [personalMessage, setPersonalMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const publicAccessId = useId();
 
   const entityLabelLower = entityLabel.toLowerCase();
 
@@ -209,13 +210,16 @@ export function ShareModal({
                   <div className="flex items-center gap-3">
                     <Share2 className="h-5 w-5 text-green-600" />
                     <div className="flex-1">
-                      <Label className="text-sm font-medium">Public Access</Label>
+                      <Label htmlFor={publicAccessId} className="text-sm font-medium">
+                        Public Access
+                      </Label>
                       <p className="text-xs text-muted-foreground">
                         Anyone with the link can view this {entityLabelLower}
                       </p>
                     </div>
                   </div>
                   <Switch
+                    id={publicAccessId}
                     data-testid="share-toggle"
                     checked={shareStatus.is_public}
                     onCheckedChange={handleToggleSharing}

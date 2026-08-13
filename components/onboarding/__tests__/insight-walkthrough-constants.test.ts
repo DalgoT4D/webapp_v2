@@ -296,12 +296,13 @@ describe('insight-walkthrough-constants', () => {
         'chart_create',
         'chart_pick_table',
         'chart_pick_type',
+        'chart_continue',
         'chart_data_config',
         'chart_styling',
         'chart_save',
         'chart_dashboard_nudge',
       ];
-      expect(order.slice(order.indexOf('chart_intro'), order.indexOf('chart_intro') + 8)).toEqual(
+      expect(order.slice(order.indexOf('chart_intro'), order.indexOf('chart_intro') + 9)).toEqual(
         sequence
       );
     });
@@ -383,6 +384,7 @@ describe('insight-walkthrough-constants', () => {
       for (const stage of [
         'chart_pick_table',
         'chart_pick_type',
+        'chart_continue',
         'chart_data_config',
         'chart_styling',
         'chart_save',

@@ -42,7 +42,7 @@ import {
 } from '@/components/onboarding/subscription-request-modal';
 import { TwoPaneNudgeDialog } from './two-pane-nudge-dialog';
 
-const ILLUSTRATION_SRC = '/branding/trial-countdown-illustration.jpg';
+const ILLUSTRATION_SRC = '/branding/trial-ending-soon-illustration.jpg';
 
 export function TrialDayNudgeModal() {
   const router = useRouter();

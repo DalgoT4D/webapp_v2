@@ -58,14 +58,16 @@ jest.mock('next/link', () => {
 });
 
 jest.mock('next/image', () => {
-  // `priority` is consumed by the real next/image and never reaches the DOM. Strip it
-  // here too, otherwise React logs "Received `true` for a non-boolean attribute" and
-  // buries any genuine warning this suite might surface.
+  // `priority` and `fill` are consumed by the real next/image and never reach the DOM.
+  // Strip them here too, otherwise React logs non-boolean attribute warnings that bury
+  // any genuine warning this suite might surface.
   function MockImage({
     priority,
+    fill,
     ...props
-  }: ImgHTMLAttributes<HTMLImageElement> & { priority?: boolean }) {
+  }: ImgHTMLAttributes<HTMLImageElement> & { priority?: boolean; fill?: boolean }) {
     void priority;
+    void fill;
     // eslint-disable-next-line @next/next/no-img-element -- test stub, not the real app
     return <img alt="" {...props} />;
   }
@@ -176,6 +178,16 @@ describe('FreeTrialPage', () => {
 });
 
 describe('FreeTrialPage — check-your-email screen actions', () => {
+  it('labels the webmail shortcut "Check email" without changing its destination', async () => {
+    mockApiPublicPost.mockResolvedValueOnce({ status: 'ok' });
+    render(<FreeTrialPage />);
+    await fillAndSubmit('jane@gmail.com');
+
+    const emailLink = await screen.findByRole('link', { name: 'Check email' });
+    expect(emailLink).toHaveAttribute('href', 'https://mail.google.com/mail/u/0/#inbox');
+    expect(emailLink).toHaveAttribute('target', '_blank');
+  });
+
   it('re-sends the verification link with the same payload from the confirmation screen', async () => {
     mockApiPublicPost.mockResolvedValue({ status: 'ok' });
     render(<FreeTrialPage />);

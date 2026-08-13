@@ -40,21 +40,21 @@ interface PendingActivation {
 const DATA_HANDLING_NOTICES = [
   {
     icon: Clock,
-    title: '14-day trial, then deleted',
+    title: 'Data deletion',
     description:
       'This account is valid for two weeks following which the account and underlying data will be deleted.',
   },
   {
     icon: Database,
-    title: 'Stored in a Dalgo warehouse',
+    title: 'Data Storage',
     description:
       'All the data you connect to Dalgo during this trial is stored in a Dalgo provisioned data warehouse. This can be edited in warehouse settings.',
   },
   {
     icon: ShieldCheck,
-    title: 'Avoid sensitive or personal data',
+    title: 'Data privacy and protection',
     description:
-      "Avoid uploading sensitive/private information to the Dalgo warehouse during this trial. As per the DPDP Act, you are liable as the data fiduciary for your team's and beneficiaries' data.",
+      'By creating this trial account, you consent to the collection, processing, and regulatory-compliant use of your personal and sensitive information.',
   },
 ];
 
@@ -132,10 +132,7 @@ export default function TrialConsentPage() {
 
   return (
     <TrialCenteredCard testId="trial-consent-card" width="wide">
-      <TrialBrandHeader
-        title="How we handle your trial data"
-        subtitle="A few things to know while we set up your workspace."
-      />
+      <TrialBrandHeader title="A few things to know before we setup your trial workspace" />
 
       {passwordRejection && (
         <div
@@ -188,7 +185,7 @@ export default function TrialConsentPage() {
           data-testid="trial-consent-checkbox"
         />
         <label htmlFor="trial-consent-checkbox" className="text-sm text-muted-foreground">
-          I&apos;ve read and accept the{' '}
+          I have read and accept the{' '}
           <a
             href="https://dalgo.org/privacy"
             target="_blank"
@@ -197,7 +194,8 @@ export default function TrialConsentPage() {
             data-testid="trial-consent-privacy-policy-link"
           >
             Privacy Policy
-          </a>
+          </a>{' '}
+          and terms of data collection and use.
         </label>
       </div>
 

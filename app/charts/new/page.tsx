@@ -148,6 +148,14 @@ function NewChartPageContent() {
     if (walkthrough.active) walkthrough.advanceIfBefore('chart_pick_type');
   };
 
+  const handleChartTypeSelect = (chartType: string) => {
+    setSelectedChartType(chartType);
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'chart_pick_type') {
+      walkthrough.advanceTo('chart_continue');
+    }
+  };
+
   const handleCancel = () => {
     if (isFromDashboard) {
       router.back();
@@ -241,11 +249,11 @@ function NewChartPageContent() {
                         role="radio"
                         aria-checked={isSelected}
                         tabIndex={0}
-                        onClick={() => setSelectedChartType(chart.id)}
+                        onClick={() => handleChartTypeSelect(chart.id)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            setSelectedChartType(chart.id);
+                            handleChartTypeSelect(chart.id);
                           }
                         }}
                       >
@@ -279,6 +287,7 @@ function NewChartPageContent() {
           Cancel
         </Button>
         <Button
+          data-testid="chart-type-continue-button"
           onClick={handleContinue}
           variant="primary"
           disabled={!canProceed}

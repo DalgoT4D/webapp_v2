@@ -24,6 +24,7 @@ import {
   INGEST_STAGES,
   type WalkthroughStage,
 } from './insight-walkthrough-constants';
+import { alignPopoverCloseWithHeader, outlinePopoverArrow } from './tour-popover-chrome';
 
 /** Shared by both forks' "now build a dashboard" nudges. */
 const DASHBOARD_NUDGE_IMAGE = '/branding/dashboard-nudge-graph.jpg';
@@ -49,7 +50,7 @@ const DASHBOARD_NUDGE_IMAGE = '/branding/dashboard-nudge-graph.jpg';
 const PICK_SOURCE_STAGE: StageConfig = {
   route: '/ingest', // the wizard is a dialog rendered on the Ingest page
   selector: '[data-testid="source-picker-body"]',
-  title: 'Pick a platform',
+  title: 'Pick a data source',
   description: 'Get started quickly with a google sheet',
   // No `ring`: any source in the picker is a valid choice, and outlining the whole panel
   // read as "click the panel". The popover pointing at it is the whole highlight here.
@@ -72,7 +73,7 @@ const SOURCE_NEXT_STAGE: StageConfig = {
   route: '/ingest',
   selector: '[data-testid="wizard-select-next-btn"]',
   title: 'Now set it up',
-  description: 'Click Next and we’ll ask for the details Dalgo needs to connect to it.',
+  description: 'Click Next to provide the credentials required to connect to the data source.',
   ring: true,
   // Beside the button, not above it: a 'top' popover sat over the dialog body and covered the
   // source cards the user had just picked from. The dialog is centred and narrow
@@ -266,6 +267,8 @@ interface StageConfig {
   deferWhileDropdownOpen?: boolean;
   /** Illustration rendered above the title inside the popover (public/ path). */
   imageSrc?: string;
+  /** Keep short supporting copy on one line when the viewport has room for the full card. */
+  singleLineDescription?: boolean;
   title: string;
   description: string;
   /**
@@ -301,10 +304,9 @@ const ROUTE_ADVANCES: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
   pipeline_ingest_nudge: 'pipeline_ingest',
   chart_intro: 'chart_create',
   chart_create: 'chart_pick_table',
-  // Picking a type doesn't leave /charts/new on its own — the user still has to click Next.
-  // Reaching the configure route is what proves both were done, and it holds whether they
-  // clicked a type card or kept the default.
-  chart_pick_type: 'chart_data_config',
+  // Selecting a type moves the guide to Continue. Reaching the configure route proves the
+  // actual navigation happened and unlocks the configuration guidance.
+  chart_continue: 'chart_data_config',
   chart_dashboard_nudge: 'dashboard_intro',
   pipeline_transform_intro: 'pipeline_workflow_intro',
   pipeline_workflow_intro: 'pipeline_pick_table',
@@ -336,7 +338,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="kpi-form-metric-field"]',
     title: 'Pick a metric',
     description:
-      'The measure this KPI tracks, for example a count of beneficiaries. Choose the suggested one to get started.',
+      'The measure this KPI tracks, for example a count of beneficiaries. Choose any metric to get started.',
   },
   // Everything after this stage lives on the wizard's step 2, so this button is the gate that
   // puts those targets in the DOM at all — the walkthrough has to wait on it rather than
@@ -452,7 +454,8 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     route: '/dashboards/create',
     selector: '[data-testid="dashboard-preview-btn"]',
     title: 'Preview it first',
-    description: 'Saved! Take a quick look the way your team will see it',
+    description: 'See what your team will see.',
+    singleLineDescription: true,
     side: 'bottom',
   },
   share: {
@@ -580,6 +583,14 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Select the relevant type',
     description: 'Pick the type of visualisation you wish to build. Try a bar chart to start',
   },
+  chart_continue: {
+    ring: true,
+    route: '/charts/new',
+    selector: '[data-testid="chart-type-continue-button"]',
+    title: 'Continue to configure your chart',
+    description: 'Your chart type is selected. Click Continue to set up the data and styling.',
+    side: 'top',
+  },
   chart_data_config: {
     route: '/charts/new/configure',
     nextOnInteraction: 'chart_styling',
@@ -635,7 +646,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     ring: true,
     route: '/dashboards/create',
     selector: '[data-testid="add-kpi-btn"]',
-    title: 'Add your KPI',
+    title: 'Add sample KPIs',
     // Own-data tail, so there is no KPI the user built earlier — the design points at the
     // sample KPIs instead. Deliberately different from builder_add_kpi (sample fork), which
     // does follow a KPI the user made.
@@ -845,7 +856,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="cron-container"]',
     title: 'Set a schedule',
     description:
-      'Select when and how often you want this pipeline to run based on your program needs.',
+      'Choose Daily or Weekly so this pipeline runs automatically based on your program needs.',
     // Frequency sits in the right-hand column, flush with the page edge — 'right' clamps.
     side: 'left',
     align: 'start',
@@ -855,10 +866,8 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     route: '/orchestrate/create',
     selector: '[data-testid="submit-btn"]',
     title: 'Create it',
-    // Figma's copy reads "configured to your meet your requirements" and "Click create" — the
-    // duplicated word is a typo, and the button is labelled CREATE PIPELINE.
     description:
-      'That’s everything — your data pipeline is configured to meet your requirements. Click Create Pipeline to save it.',
+      'Once you’ve added a connection or transform task and set a schedule, click Create Pipeline to save it.',
   },
 };
 
@@ -1058,6 +1067,7 @@ export function InsightWalkthroughCoachmark(): null {
           // tore the coachmark down.
           allowClose: false,
           onPopoverRender: (popover) => {
+            outlinePopoverArrow(popover);
             if (config.imageSrc) {
               // driver.js builds the popover DOM itself, so the illustration is injected
               // rather than passed as config — same approach the old fork2 popover used.
@@ -1065,6 +1075,9 @@ export function InsightWalkthroughCoachmark(): null {
                 'beforebegin',
                 `<img src="${config.imageSrc}" alt="" class="dalgo-tour-stage-image" />`
               );
+            }
+            if (config.singleLineDescription) {
+              popover.description.classList.add('dalgo-tour-description-one-line');
             }
             // Top-right ✕ on every coachmark (same affordance as ProductTour) rather than a
             // worded "Skip"/"Later" link — it ends the whole walkthrough, not just this stage
@@ -1075,6 +1088,7 @@ export function InsightWalkthroughCoachmark(): null {
             popover.closeButton.setAttribute('aria-label', 'Skip walkthrough');
             popover.closeButton.setAttribute('data-testid', 'walkthrough-skip-btn');
             popover.closeButton.classList.add('dalgo-tour-close-btn');
+            alignPopoverCloseWithHeader(popover, 'coachmark');
           },
           onCloseClick: () => {
             useInsightWalkthroughStore.getState().skip();

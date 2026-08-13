@@ -1,7 +1,7 @@
 /**
  * Unit tests for the free-trial feature helpers.
  *
- * Covers: client-side password rules (which stand in for Django's live validators)
+ * Covers: the two password rules checked offline before Django's live validation
  * and the backend step → display index mapping moved out of the progress page.
  */
 
@@ -31,23 +31,10 @@ describe('validateTrialPassword', () => {
     expect(validateTrialPassword('otter12345')).toBeNull();
   });
 
-  // Mirrors Django's CommonPasswordValidator. Without this the server returns a 400
-  // the client cannot distinguish from an expired link.
-  it('rejects a common password', () => {
-    expect(validateTrialPassword('password1')).toBe(
-      'This password is too common. Please choose a different one'
-    );
-  });
-
-  it('matches common passwords case-insensitively', () => {
-    expect(validateTrialPassword('PassWord1')).toBe(
-      'This password is too common. Please choose a different one'
-    );
-  });
-
-  it('only rejects common entries that would otherwise pass the other rules', () => {
-    // "sunshine" is 8 chars and not numeric, so it reaches the common-password check.
-    expect(validateTrialPassword('sunshine')).not.toBeNull();
+  it('leaves Django-only common-password validation to the backend pre-flight', () => {
+    expect(validateTrialPassword('password1')).toBeNull();
+    expect(validateTrialPassword('PassWord1')).toBeNull();
+    expect(validateTrialPassword('sunshine')).toBeNull();
   });
 });
 

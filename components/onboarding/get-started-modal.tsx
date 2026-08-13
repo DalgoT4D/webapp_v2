@@ -45,8 +45,8 @@ export type GetStartedEntry = 'post_tour' | 'widget' | 'resume';
 
 interface GetStartedModalProps {
   open: boolean;
-  /** Which screen to show when it opens. The back arrow only exists on 'insight' when the
-   *  user got there from 'choice' within this session of the dialog. */
+  /** Which screen to show when it opens. The back arrow exists on 'insight' when the user
+   *  got there from the post-tour choice, including when that choice is restored on refresh. */
   initialScreen: GetStartedScreen;
   entry: GetStartedEntry;
   /**
@@ -58,6 +58,8 @@ interface GetStartedModalProps {
   showInsightOption?: boolean;
   showPipelineOption?: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Persists movement inside the post-tour chooser so a refresh restores the same screen. */
+  onScreenChange: (screen: GetStartedScreen) => void;
   /** Start the automate-pipeline flow and navigate — owner also handles the store write. */
   onSelectPipeline: () => void;
   onSelectSample: () => void;
@@ -101,6 +103,7 @@ export function GetStartedModal({
   showInsightOption = true,
   showPipelineOption = true,
   onOpenChange,
+  onScreenChange,
   onSelectPipeline,
   onSelectSample,
   onSelectOwnData,
@@ -113,7 +116,10 @@ export function GetStartedModal({
   useEffect(() => {
     if (!open) return;
     setScreen(initialScreen);
-    setCameFromChoice(false);
+    // A restored post-tour insight screen still belongs to the journey chooser, so its back
+    // arrow must survive the refresh too. Widget/resume entry points open the same screen
+    // directly and intentionally have no journey list behind them.
+    setCameFromChoice(initialScreen === 'insight' && entry === 'post_tour');
     trackEvent(
       initialScreen === 'choice'
         ? ANALYTICS_EVENTS.POST_TOUR_MODAL_VIEWED
@@ -126,7 +132,14 @@ export function GetStartedModal({
     trackEvent(ANALYTICS_EVENTS.POST_TOUR_MODAL_DISMISSED, { choice: 'insight' });
     setCameFromChoice(true);
     setScreen('insight');
+    onScreenChange('insight');
     trackEvent(ANALYTICS_EVENTS.INSIGHT_FORK_MODAL_VIEWED, { entry: 'post_tour' });
+  };
+
+  const returnToChoiceScreen = () => {
+    setScreen('choice');
+    setCameFromChoice(false);
+    onScreenChange('choice');
   };
 
   const handlePipeline = () => {
@@ -171,7 +184,8 @@ export function GetStartedModal({
             {screen === 'choice' ? (
               <>
                 <DialogTitle className="text-2xl leading-tight font-bold">
-                  You’ve completed Dalgo’s product tour. Lets get to building!
+                  You’ve completed Dalgo’s product tour.
+                  <span className="block">Let’s get to building!</span>
                 </DialogTitle>
                 <DialogDescription className="text-muted-foreground text-base">
                   We’ve setup some samples to make this easier for you, you can connect your own
@@ -206,7 +220,7 @@ export function GetStartedModal({
                       type="button"
                       aria-label="Back"
                       data-testid="get-started-back-btn"
-                      onClick={() => setScreen('choice')}
+                      onClick={returnToChoiceScreen}
                       className="text-muted-foreground hover:text-foreground"
                     >
                       <ArrowLeft className="h-5 w-5" />
@@ -237,8 +251,10 @@ export function GetStartedModal({
               </>
             )}
           </div>
-          <div className="relative hidden sm:block">
-            <Image src={ILLUSTRATION_SRC} alt="" fill className="object-cover" priority />
+          <div className="hidden p-4 sm:block" data-testid="get-started-modal-illustration-pane">
+            <div className="relative h-full overflow-hidden rounded-xl">
+              <Image src={ILLUSTRATION_SRC} alt="" fill className="object-cover" priority />
+            </div>
           </div>
         </div>
       </DialogContent>

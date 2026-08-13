@@ -22,6 +22,7 @@ import {
   type TrialWalkthroughState,
 } from '@/hooks/api/useTrialWalkthrough';
 import { getFeatureNudgeForRoute } from './feature-nudge-constants';
+import { alignPopoverCloseWithHeader, outlinePopoverArrow } from './tour-popover-chrome';
 
 /** Set on <body> (where driver.js puts `driver-active`) so the page stays clickable — tour.css. */
 const PASSTHROUGH_CLASS = 'dalgo-tour-passthrough';
@@ -153,10 +154,12 @@ export function FeatureNudgeCoachmark({
         // dismissals, which would end the nudge without recording it.
         allowClose: false,
         onPopoverRender: (popover) => {
+          outlinePopoverArrow(popover);
           popover.closeButton.textContent = '✕';
           popover.closeButton.setAttribute('aria-label', `Dismiss ${nudge.title} tip`);
           popover.closeButton.setAttribute('data-testid', 'feature-nudge-dismiss-btn');
           popover.closeButton.classList.add('dalgo-tour-close-btn');
+          alignPopoverCloseWithHeader(popover, 'coachmark');
         },
         onCloseClick: () => {
           // Optimistic: tear down now, persist in the background. A failed write only means
