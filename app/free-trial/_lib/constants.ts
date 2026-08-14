@@ -31,17 +31,6 @@ export const TRIAL_MARKETING_PANELS = {
     activeDot: null,
     textPosition: 'top',
   },
-  provisioning: {
-    // TODO: placeholder. Swap for the Figma export of node 2452:222 (the Dashboards
-    // screenshot) once design hands over the asset — ideally WebP alongside the PNG.
-    imageSrc: '/branding/bar_chart_preview.png',
-    imageAlt: 'A preview of Dalgo charts built from sample programme data',
-    headline: '',
-    subline:
-      "Dalgo brings all your NGO's scattered data into one unified view. You are moments away from leaving manual spreadsheets behind and tracking your true impact.",
-    activeDot: null,
-    textPosition: 'bottom',
-  },
 } as const satisfies Record<string, TrialMarketingPanelConfig>;
 
 // Target for the "Contact support" link on the failed-setup screen (Figma 2453:3089).

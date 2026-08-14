@@ -499,9 +499,8 @@ export function StreamConfigTable({
                         {stream.columns.length > 0 && (
                           <button
                             type="button"
-                            onClick={() => isSelected && onToggleStreamExpand(stream.name)}
-                            disabled={!isSelected}
-                            className="p-1 hover:bg-gray-100 rounded cursor-pointer disabled:opacity-30 disabled:cursor-default"
+                            onClick={() => onToggleStreamExpand(stream.name)}
+                            className="p-1 hover:bg-gray-100 rounded cursor-pointer"
                             data-testid={`expand-columns-${stream.name}`}
                             aria-label={`${expandedStreams.has(stream.name) ? 'Hide' : 'Show'} columns for ${stream.name}`}
                             aria-expanded={expandedStreams.has(stream.name)}
@@ -519,22 +518,28 @@ export function StreamConfigTable({
                   {/* Expanded column selection — vertical list */}
                   {showColumnsControl &&
                     expandedStreams.has(stream.name) &&
-                    isSelected &&
                     stream.columns.length > 0 && (
                       <tr key={`cols-${stream.name}`} className="bg-muted/30">
                         <td colSpan={colCount} className="px-4 py-2">
-                          <table className="w-full">
+                          <table
+                            data-testid={`columns-detail-table-${stream.name}`}
+                            className={
+                              showCastColumn
+                                ? 'w-[42rem] max-w-full table-fixed'
+                                : 'w-[32rem] max-w-full table-fixed'
+                            }
+                          >
                             <thead>
                               <tr className="border-b border-muted">
                                 <th className="py-1 px-2 w-10" />
                                 <th className="py-1 px-2 text-left text-xs font-medium text-muted-foreground">
                                   Column
                                 </th>
-                                <th className="py-1 px-2 text-right text-xs font-medium text-muted-foreground">
+                                <th className="w-28 py-1 px-2 text-left text-xs font-medium text-muted-foreground">
                                   Type
                                 </th>
                                 {showCastColumn && (
-                                  <th className="py-1 px-2 text-right text-xs font-medium text-muted-foreground w-36">
+                                  <th className="w-36 py-1 px-2 text-left text-xs font-medium text-muted-foreground">
                                     Cast to
                                   </th>
                                 )}
@@ -557,7 +562,9 @@ export function StreamConfigTable({
                                         onCheckedChange={() =>
                                           onToggleColumn(stream.name, col.name)
                                         }
-                                        disabled={disabled || isSaving || isProtected}
+                                        disabled={
+                                          disabled || isSaving || !isSelected || isProtected
+                                        }
                                         className="scale-75"
                                         data-testid={`col-toggle-${stream.name}-${col.name}`}
                                       />
@@ -571,13 +578,13 @@ export function StreamConfigTable({
                                         {col.name}
                                       </span>
                                     </td>
-                                    <td className="py-1.5 px-2 text-right">
+                                    <td className="w-28 py-1.5 px-2 text-left">
                                       <span className="text-xs text-muted-foreground">
                                         {col.data_type}
                                       </span>
                                     </td>
                                     {showCastColumn && (
-                                      <td className="py-1.5 px-2 text-right w-36">
+                                      <td className="w-36 py-1.5 px-2 text-left">
                                         <Select
                                           value={col.cast_to_type ?? undefined}
                                           onValueChange={(v) =>
@@ -587,7 +594,12 @@ export function StreamConfigTable({
                                               v === '__none__' ? null : v
                                             )
                                           }
-                                          disabled={disabled || isSaving || !col.selected}
+                                          disabled={
+                                            disabled || isSaving || !isSelected || !col.selected
+                                          }
+                                          aria-disabled={
+                                            disabled || isSaving || !isSelected || !col.selected
+                                          }
                                         >
                                           <SelectTrigger
                                             className="h-6 text-xs w-full"

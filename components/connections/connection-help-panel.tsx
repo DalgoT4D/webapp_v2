@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { ChevronRight } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
@@ -15,6 +16,7 @@ interface ConnectionHelpPanelProps {
   onConceptChange: (concept: ConnectionConceptId | null) => void;
   // Source-tailored cards. Defaults to the generic full set when omitted.
   concepts?: ConnectionConcept[];
+  onCollapse: () => void;
 }
 
 // Right-side documentation panel for the connection form. Explains each sync
@@ -24,6 +26,7 @@ export function ConnectionHelpPanel({
   activeConcept,
   onConceptChange,
   concepts = CONNECTION_HELP,
+  onCollapse,
 }: ConnectionHelpPanelProps) {
   const activeRef = useRef<HTMLDivElement | null>(null);
 
@@ -36,7 +39,19 @@ export function ConnectionHelpPanel({
       className="h-full overflow-y-auto rounded-xl border bg-muted/30 p-6"
       data-testid="connection-help-panel"
     >
-      <h3 className="text-lg font-semibold">What these options mean</h3>
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-lg font-semibold">What these options mean</h3>
+        <button
+          type="button"
+          aria-label="Collapse table settings help"
+          data-testid="connection-help-collapse"
+          onClick={onCollapse}
+          className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Hide
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
       <p className="mt-1 text-sm text-muted-foreground">
         A quick guide to the terms in the table on the left. Click any column heading or field label
         to jump to its explanation.

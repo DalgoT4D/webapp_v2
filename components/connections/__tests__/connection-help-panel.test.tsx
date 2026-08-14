@@ -5,7 +5,13 @@ import { CONNECTION_HELP, getConnectionHelp } from '../constants';
 
 describe('ConnectionHelpPanel', () => {
   it('renders every concept as a collapsed accordion heading', () => {
-    render(<ConnectionHelpPanel activeConcept={null} onConceptChange={jest.fn()} />);
+    render(
+      <ConnectionHelpPanel
+        activeConcept={null}
+        onConceptChange={jest.fn()}
+        onCollapse={jest.fn()}
+      />
+    );
 
     CONNECTION_HELP.forEach((c) => {
       expect(screen.getByTestId(`concept-card-${c.id}`)).toBeInTheDocument();
@@ -18,7 +24,13 @@ describe('ConnectionHelpPanel', () => {
   });
 
   it('opens and highlights the active concept', () => {
-    render(<ConnectionHelpPanel activeConcept="dest-mode" onConceptChange={jest.fn()} />);
+    render(
+      <ConnectionHelpPanel
+        activeConcept="dest-mode"
+        onConceptChange={jest.fn()}
+        onCollapse={jest.fn()}
+      />
+    );
 
     expect(screen.getByTestId('concept-card-dest-mode')).toHaveAttribute('data-active', 'true');
     expect(screen.getByTestId('concept-card-stream')).toHaveAttribute('data-active', 'false');
@@ -33,13 +45,23 @@ describe('ConnectionHelpPanel', () => {
     const user = userEvent.setup();
     const onConceptChange = jest.fn();
     const { rerender } = render(
-      <ConnectionHelpPanel activeConcept={null} onConceptChange={onConceptChange} />
+      <ConnectionHelpPanel
+        activeConcept={null}
+        onConceptChange={onConceptChange}
+        onCollapse={jest.fn()}
+      />
     );
 
     await user.click(screen.getByRole('button', { name: 'Columns' }));
     expect(onConceptChange).toHaveBeenCalledWith('columns');
 
-    rerender(<ConnectionHelpPanel activeConcept="columns" onConceptChange={onConceptChange} />);
+    rerender(
+      <ConnectionHelpPanel
+        activeConcept="columns"
+        onConceptChange={onConceptChange}
+        onCollapse={jest.fn()}
+      />
+    );
     await user.click(screen.getByRole('button', { name: 'Columns' }));
     expect(onConceptChange).toHaveBeenLastCalledWith(null);
   });
@@ -48,13 +70,39 @@ describe('ConnectionHelpPanel', () => {
     const concepts = getConnectionHelp();
     const destination = concepts.find((concept) => concept.id === 'dest-mode');
     const columns = concepts.find((concept) => concept.id === 'columns');
-    const schema = concepts.find((concept) => concept.id === 'schema');
 
     expect(destination).toMatchObject({ title: 'Destination' });
     expect(destination?.body).toContain('Under Advanced per-table settings');
     expect(columns?.body).toContain('Turn on Advanced per-table settings');
     expect(columns?.body).toContain('chevron at the right of a table row');
-    expect(schema?.body).toContain('Under Advanced options');
+    expect(concepts.some((concept) => concept.title === 'Destination Schema')).toBe(false);
+  });
+
+  it('collapses the entire help panel from its header control', async () => {
+    const user = userEvent.setup();
+    const onCollapse = jest.fn();
+    render(
+      <ConnectionHelpPanel
+        activeConcept={null}
+        onConceptChange={jest.fn()}
+        onCollapse={onCollapse}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Collapse table settings help' }));
+    expect(onCollapse).toHaveBeenCalledTimes(1);
+  });
+
+  it('labels the collapse control so it reads as a control rather than a bare chevron', () => {
+    render(
+      <ConnectionHelpPanel
+        activeConcept={null}
+        onConceptChange={jest.fn()}
+        onCollapse={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('connection-help-collapse')).toHaveTextContent('Hide');
   });
 
   it('explains that Google Sheets columns and casts work without advanced settings', () => {

@@ -12,18 +12,15 @@
  * though the pill stays available to reopen it manually.
  */
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Check, ChevronRight, Circle, Minus, Play, Rocket } from 'lucide-react';
+import { ArrowUpRight, Check, ChevronRight, Circle, Minus, Rocket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { BOOK_A_CALL_URL, DALGO_DOCS_URL } from '@/constants/trial';
+import { BOOK_A_CALL_URL, DALGO_DOCS_URL, PRODUCT_VIDEO_ID } from '@/constants/trial';
+import { YouTubeVideoPlayer } from './youtube-video-player';
 
 /** Kept in sync with .checklist-item-complete's animation duration in globals.css. */
 const COMPLETION_ANIMATION_MS = 1400;
-
-const PRODUCT_VIDEO_ID = 'R-JJNgp8xYM';
-const PRODUCT_VIDEO_EMBED_URL = `https://www.youtube-nocookie.com/embed/${PRODUCT_VIDEO_ID}?autoplay=1&rel=0`;
-const PRODUCT_VIDEO_THUMBNAIL_URL = `https://i.ytimg.com/vi/${PRODUCT_VIDEO_ID}/hqdefault.jpg`;
 
 interface GettingStartedWidgetProps {
   /**
@@ -74,7 +71,7 @@ export function GettingStartedWidget({
   // Starts true (collapsed) so the full panel never flashes open before the effect below
   // settles it.
   const [minimized, setMinimized] = useState(true);
-  const [videoStarted, setVideoStarted] = useState(false);
+  const [videoSession, setVideoSession] = useState(0);
 
   // Last `revealSignal` acted on. A ref rather than a dep-diff because the effect below has
   // to tell "this render is a fresh completion" from "this render is any other change".
@@ -88,7 +85,7 @@ export function GettingStartedWidget({
     if (revealSignal !== lastRevealRef.current) {
       lastRevealRef.current = revealSignal;
       setMinimized(false);
-      setVideoStarted(false);
+      setVideoSession((session) => session + 1);
       return;
     }
     // Re-derived on arrival (and whenever a walkthrough starts or ends) rather than
@@ -96,7 +93,7 @@ export function GettingStartedWidget({
     // visit, and a running flow keeps it minimized wherever the user goes.
     const shouldMinimize = walkthroughActive || !defaultOpen;
     setMinimized(shouldMinimize);
-    if (shouldMinimize) setVideoStarted(false);
+    if (shouldMinimize) setVideoSession((session) => session + 1);
   }, [defaultOpen, walkthroughActive, revealSignal]);
 
   /**
@@ -124,12 +121,11 @@ export function GettingStartedWidget({
 
   const minimizeWidget = () => {
     setMinimized(true);
-    setVideoStarted(false);
+    setVideoSession((session) => session + 1);
   };
 
   const handlePlayVideo = () => {
     trackEvent(ANALYTICS_EVENTS.GETTING_STARTED_VIDEO_PLAYED);
-    setVideoStarted(true);
   };
 
   const handleStartTour = () => {
@@ -186,7 +182,15 @@ export function GettingStartedWidget({
       {!minimized && (
         <div
           data-testid="getting-started-widget"
-          className="fixed right-6 bottom-24 z-40 w-[calc(100vw-3rem)] max-w-[520px] rounded-2xl border bg-card p-6 shadow-xl"
+          className={cn(
+            'fixed right-6 bottom-24 z-40 rounded-2xl border bg-card p-6 shadow-xl',
+            // 499x629 per the Figma frame. Fixed rather than content-sized so the panel is the
+            // same card in all three heading states, instead of growing and shrinking as items
+            // get ticked off. The max-* pair keeps it on screen on a small or short viewport
+            // (bottom-24 = the 96px the pill below it occupies), and the scroll is the safety
+            // valve for the states that do run past 629 — never a clipped, unreachable CTA.
+            'min-h-[629px] w-[499px] max-h-[calc(100vh-8rem)] max-w-[calc(100vw-3rem)] overflow-y-auto'
+          )}
         >
           <div className="flex items-start justify-between">
             <div className="min-w-0 flex-1">
@@ -218,33 +222,23 @@ export function GettingStartedWidget({
             data-testid="getting-started-widget-video"
             className="mt-4 aspect-video overflow-hidden rounded-xl bg-primary/10"
           >
-            {videoStarted ? (
-              <iframe
-                data-testid="getting-started-widget-video-iframe"
-                src={PRODUCT_VIDEO_EMBED_URL}
-                title="Dalgo product overview"
-                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                allowFullScreen
-                className="h-full w-full border-0"
-              />
-            ) : (
-              <button
-                type="button"
-                aria-label="Play Dalgo product overview video"
-                data-testid="getting-started-widget-video-play"
-                onClick={handlePlayVideo}
-                className="flex h-full w-full items-center justify-center bg-cover bg-center"
-                style={{ backgroundImage: `url(${PRODUCT_VIDEO_THUMBNAIL_URL})` }}
-              >
-                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-background shadow">
-                  <Play className="h-5 w-5 text-primary" fill="currentColor" />
-                </span>
-              </button>
-            )}
+            {/* Remounted on `videoSession` so minimizing (or a checklist reveal) drops the
+                iframe and returns to the thumbnail, rather than leaving audio playing
+                behind a collapsed pill. */}
+            <YouTubeVideoPlayer
+              key={videoSession}
+              videoId={PRODUCT_VIDEO_ID}
+              title="Dalgo product overview video"
+              testIdPrefix="getting-started-widget-video"
+              onPlay={handlePlayVideo}
+              playButtonSize="compact"
+            />
           </div>
 
-          {allComplete ? (
-            /* Figma 2863:2415 — replaces the tour link once both flows are done. */
+          {/* Figma 2863:2415 adds the docs link once both flows are done. It ADDS to the tour
+              link rather than replacing it: the tour is the one way back to a guided run of the
+              product, and a user who finished both flows is still allowed to take it. */}
+          {allComplete && (
             <p className="mt-4 text-sm text-muted-foreground">
               Need help &amp; guides?{' '}
               <a
@@ -259,17 +253,17 @@ export function GettingStartedWidget({
                 <ArrowUpRight className="h-4 w-4 shrink-0" />
               </a>
             </p>
-          ) : (
-            <button
-              type="button"
-              data-testid="getting-started-widget-tour-link"
-              onClick={handleStartTour}
-              className="mt-4 text-sm text-muted-foreground"
-            >
-              New to dalgo?{' '}
-              <span className="font-medium text-primary hover:underline">Take a 2 min tour</span>
-            </button>
           )}
+
+          <button
+            type="button"
+            data-testid="getting-started-widget-tour-link"
+            onClick={handleStartTour}
+            className={cn('block text-sm text-muted-foreground', allComplete ? 'mt-2' : 'mt-4')}
+          >
+            New to dalgo?{' '}
+            <span className="font-medium text-primary hover:underline">Take a 2 min tour</span>
+          </button>
 
           <ul className="mt-4 divide-y">
             {items.map((item) => {

@@ -65,7 +65,13 @@
   max-height: calc(100dvh - 24px);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* Deliberately NOT `overflow: hidden`. Both pointer triangles — driver.js's own
+     `.driver-popover-arrow` (positioned at `left: 100%` / `right: 100%` etc.) and the product
+     tour's custom `#dalgo-tour-sidebar-arrow` (`left: -17.5px`) — are absolutely-positioned
+     children that sit OUTSIDE this box, so clipping the card silently deletes the arrow from
+     every coachmark. Tall content is kept in bounds by the description's own `overflow-y: auto`
+     (plus `min-height: 0` on it) against this max-height, which needs no clipping here. */
+  overflow: visible;
   padding: 16px 18px;
   font-family:
     var(--font-anek-latin),
@@ -75,48 +81,104 @@
   border: 1px solid var(--border);
 }
 
+/* The coachmark triangle, at the SAME 17.5-by-14px Figma spec the product tour draws by hand
+   (see ARROW_WIDTH_PX / ARROW_HEIGHT_PX in product-tour.tsx). driver.js's own arrow is a 10px
+   stub in hardcoded #fff — too small to read as a pointer at all next to a 320px card, and the
+   card colour only by coincidence in the light theme.
+
+   Each side restates all four border widths rather than only the visible one: driver.js sets
+   `border: 5px solid`, so leaving the OPPOSITE border at 5px would keep padding the element
+   and push the triangle off the card's edge. Zeroing it makes the apex land exactly on the
+   element's far edge, which is what driver.js's `left: 100%` / `bottom: 100%` etc. pin to.
+
+   No nudge is needed to hide the seam: driver.js pins the arrow with `left: 100%` and friends,
+   and those percentages resolve against the card's PADDING box, so the base already lands on
+   top of the card's own 1px border rather than butting against it.
+
+   Class-on-class (0-2-0) so these outrank the library's single-class rules whatever the
+   stylesheet order. */
+.dalgo-tour .driver-popover-arrow-side-left {
+  border-width: 7px 0 7px 17.5px;
+  border-left-color: var(--card);
+}
+.dalgo-tour .driver-popover-arrow-side-right {
+  border-width: 7px 17.5px 7px 0;
+  border-right-color: var(--card);
+}
+.dalgo-tour .driver-popover-arrow-side-top {
+  border-width: 17.5px 7px 0 7px;
+  border-top-color: var(--card);
+}
+.dalgo-tour .driver-popover-arrow-side-bottom {
+  border-width: 0 7px 17.5px 7px;
+  border-bottom-color: var(--card);
+}
+
 /* Continue the card's 1px outline around driver.js's pointer triangle. The library's arrow
    is itself a zero-size element made from borders, so a normal border cannot be added to it;
    a second triangle, one pixel larger and painted behind the first, supplies the missing edge
-   on every side/position without changing driver.js's geometry. */
-.dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow {
-  z-index: 1;
-}
+   on every side/position without changing driver.js's geometry.
+
+   The arrow deliberately gets NO `z-index` of its own. With one it forms a stacking context,
+   and inside a stacking context the element's OWN borders paint first and negative-z children
+   paint after — so the grey underlay landed on top and the whole triangle rendered grey. Left
+   at `z-index: auto` the arrow doesn't form a context, so the underlay joins the card's
+   stacking context instead: above the card's background (step 2), below the arrow itself
+   (step 6, a positioned descendant). Fill white, 1px grey rim, which is the intent. */
 .dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow::before {
   content: '';
   position: absolute;
   z-index: -1;
-  top: -6px;
-  left: -6px;
   width: 0;
   height: 0;
-  border: 6px solid transparent;
+  border-style: solid;
+  border-color: transparent;
 }
+/* The offsets are measured from the ARROW'S PADDING BOX (its containing block, the arrow being
+   absolutely positioned), which sits at (border-left, border-top) inside its border box. Each
+   pair therefore lands the underlay's border box 1px outside the triangle on the two pointed
+   edges while its flat base stays flush — that's the whole outline, minus the base, which is
+   covered by the card it butts against. */
 .dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow-side-left::before {
+  top: -8px;
+  left: -18.5px;
+  border-width: 8px 0 8px 18.5px;
   border-left-color: var(--border);
 }
 .dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow-side-right::before {
+  top: -8px;
+  left: -1px;
+  border-width: 8px 18.5px 8px 0;
   border-right-color: var(--border);
 }
 .dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow-side-top::before {
+  top: -18.5px;
+  left: -8px;
+  border-width: 18.5px 8px 0 8px;
   border-top-color: var(--border);
 }
 .dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow-side-bottom::before {
+  top: -1px;
+  left: -8px;
+  border-width: 0 8px 18.5px 8px;
   border-bottom-color: var(--border);
 }
 
 /* Product-tour cards use a larger custom sidebar arrow because their popover is repositioned
    after driver.js lays it out. Mirror the same one-pixel-underlay technique at that arrow's
    17.5-by-14px dimensions so the outline is consistent with the walkthrough coachmarks. */
-.dalgo-tour.dalgo-tour-arrow-outlined #dalgo-tour-sidebar-arrow {
-  z-index: 1;
-}
+/* Same stacking rule as the coachmark arrow above: no `z-index` here, or this triangle's own
+   border paints under its grey underlay and the whole arrow turns grey. */
 .dalgo-tour.dalgo-tour-arrow-outlined #dalgo-tour-sidebar-arrow::before {
   content: '';
   position: absolute;
   z-index: -1;
+  /* `left: -1px`, not `-18.5px`: this element has NO left border (product-tour.tsx sets only
+     top/bottom/right), so its padding box — the origin these offsets are measured from — sits
+     at its border box's left edge, and a full arrow-width offset put the outline triangle
+     beside the arrow instead of behind it. */
   top: -8px;
-  left: -18.5px;
+  left: -1px;
   width: 0;
   height: 0;
   border-top: 8px solid transparent;

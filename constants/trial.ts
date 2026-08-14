@@ -117,6 +117,10 @@ export const BOOK_A_CALL_URL = 'https://calendly.com/priyesh-projecttech4dev/30m
 // all-done state.
 export const DALGO_DOCS_URL = 'https://docs.dalgo.org/intro';
 
+// The Dalgo product overview, shown on the provisioning screen and in the getting-started
+// widget. One constant so swapping the video is a single edit rather than one per surface.
+export const PRODUCT_VIDEO_ID = 'R-JJNgp8xYM';
+
 // Status polling cadence for the progress screen (ms). Kept above the SWRProvider's
 // dedupingInterval (2000ms in lib/swr.tsx). The hook also sets refreshWhenHidden so
 // polling continues even if the tab is backgrounded — this is a provisioning screen

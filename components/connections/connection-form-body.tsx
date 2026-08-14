@@ -4,7 +4,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { ReadyState } from 'react-use-websocket';
-import { Info, Loader2 } from 'lucide-react';
+import { ChevronLeft, CircleHelp, Info, Loader2 } from 'lucide-react';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -147,6 +147,7 @@ export function ConnectionFormBody({
   );
   const showCastColumn = sourceDefName ? isCastSupportedSource(sourceDefName) : false;
   const [activeConcept, setActiveConcept] = useState<ConnectionConceptId | null>(null);
+  const [helpPanelOpen, setHelpPanelOpen] = useState(true);
 
   // Help-panel cards tailored to this source's capabilities. Custom sources
   // (Sheets/Kobo) only show the concepts that apply; everything else gets the
@@ -161,7 +162,6 @@ export function ConnectionFormBody({
     [connectionView, showCastColumn]
   );
 
-  const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
   const [advancedStreamsOpen, setAdvancedStreamsOpen] = useState(false);
 
   const [name, setName] = useState('');
@@ -460,28 +460,43 @@ export function ConnectionFormBody({
     });
   }, [name, selectedSourceId, hasSelectedStreams]);
 
-  // Destination Schema field — shared between the always-visible (generic
-  // source) and Advanced-options-collapsed (custom source) layouts.
+  const handleConceptFocus = useCallback((concept: ConnectionConceptId | null) => {
+    setActiveConcept(concept);
+    if (concept) setHelpPanelOpen(true);
+  }, []);
+
+  // Connection-wide settings stay visible and compact. They are independent of
+  // the per-table Advanced settings switch below.
   const destinationSchemaField = (
-    <div>
-      <button
-        type="button"
-        onClick={() => setActiveConcept('schema')}
-        className="cursor-pointer text-base font-medium decoration-dotted underline-offset-2 hover:underline"
-      >
-        <label htmlFor="dest-schema" className="cursor-pointer">
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center gap-1.5">
+        <label htmlFor="dest-schema" className="text-base font-medium">
           Destination Schema
         </label>
-      </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label="About Destination Schema"
+              data-testid="destination-schema-help-tooltip-trigger"
+              className="inline-flex size-5 flex-shrink-0 cursor-help items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Info className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs text-xs font-normal">
+            The warehouse folder where synced tables are created. Defaults to staging.
+          </TooltipContent>
+        </Tooltip>
+      </div>
       <Input
         id="dest-schema"
         data-testid="destination-schema-input"
         value={destinationSchema}
         onChange={(e) => setDestinationSchema(e.target.value)}
-        onFocus={() => setActiveConcept('schema')}
         placeholder="e.g., public"
         disabled={disabled || isSaving}
-        className="mt-1.5"
+        className="w-48"
       />
     </div>
   );
@@ -504,10 +519,8 @@ export function ConnectionFormBody({
               <Info className="h-4 w-4" aria-hidden="true" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-xs text-xs font-normal leading-relaxed">
-            Organizes the raw records copied from your source into structured warehouse tables, with
-            fields split into columns with defined data types. This makes the data easier to query
-            and transform, but adds an extra processing step after each sync.
+          <TooltipContent side="top" className="max-w-xs text-xs font-normal">
+            Renames columns to an SQL-compliant format.
           </TooltipContent>
         </Tooltip>
       </div>
@@ -521,38 +534,10 @@ export function ConnectionFormBody({
     </div>
   );
 
-  // Advanced-options section (Destination Schema + Normalize behind a switch),
-  // shared by every connection. Rendered below the stream picker so the primary
-  // flow reads source → name → streams, with rarely-touched settings last.
-  const advancedOptionsSection = (
-    <div>
-      <div className="flex items-center gap-2.5">
-        <Switch
-          id="advanced-options"
-          data-testid="advanced-options-toggle"
-          checked={advancedOptionsOpen}
-          onCheckedChange={(next) => {
-            setAdvancedOptionsOpen(next);
-            if (next) {
-              trackEvent(ANALYTICS_EVENTS.CONNECTION_ADVANCED_OPTIONS_EXPANDED, {
-                source_type: sourceDefName,
-              });
-            }
-          }}
-        />
-        <label
-          htmlFor="advanced-options"
-          className="cursor-pointer text-sm font-medium text-muted-foreground"
-        >
-          Advanced options
-        </label>
-      </div>
-      {advancedOptionsOpen && (
-        <div className="mt-3 space-y-6">
-          {destinationSchemaField}
-          {normalizeToggleField}
-        </div>
-      )}
+  const connectionSettings = (
+    <div className="space-y-4 rounded-md border bg-muted/20 p-3">
+      {destinationSchemaField}
+      {normalizeToggleField}
     </div>
   );
 
@@ -587,7 +572,11 @@ export function ConnectionFormBody({
             to auto and let the column overflow the modal instead of scrolling. */}
         <div
           className={`grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] gap-6 ${
-            showHelpPanel ? 'md:grid-cols-[62fr_38fr]' : ''
+            showHelpPanel
+              ? helpPanelOpen
+                ? 'md:grid-cols-[62fr_38fr]'
+                : 'md:grid-cols-[minmax(0,1fr)_11rem]'
+              : ''
           }`}
         >
           {/* The whole left column is the single scroll container: the streams
@@ -685,10 +674,7 @@ export function ConnectionFormBody({
               ) : null}
             </div>
 
-            {/* Advanced options (Destination Schema + Normalize) above the
-                stream picker, for every connection (source → name → advanced →
-                streams). */}
-            <div className="flex-shrink-0">{advancedOptionsSection}</div>
+            <div className="flex-shrink-0">{connectionSettings}</div>
 
             {/* Streams region grows to its natural height; the whole left column
                 owns the scroll, so users scroll the full side to see every
@@ -728,7 +714,7 @@ export function ConnectionFormBody({
                   streamNoun={connectionView?.streamNoun}
                   showIncremental={connectionView ? connectionView.supportsIncremental : true}
                   allowedDestModes={connectionView?.allowedDestModes}
-                  onConceptFocus={setActiveConcept}
+                  onConceptFocus={handleConceptFocus}
                   advancedOpen={advancedStreamsOpen}
                   onToggleAdvanced={() => setAdvancedStreamsOpen((o) => !o)}
                 />
@@ -748,11 +734,31 @@ export function ConnectionFormBody({
           {showHelpPanel && (
             <div className="relative hidden min-h-0 md:block">
               <div className="absolute inset-0">
-                <ConnectionHelpPanel
-                  activeConcept={activeConcept}
-                  concepts={helpConcepts}
-                  onConceptChange={setActiveConcept}
-                />
+                {helpPanelOpen ? (
+                  <ConnectionHelpPanel
+                    activeConcept={activeConcept}
+                    concepts={helpConcepts}
+                    onConceptChange={setActiveConcept}
+                    onCollapse={() => setHelpPanelOpen(false)}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    aria-label="Open table settings help"
+                    data-testid="connection-help-expand"
+                    onClick={() => setHelpPanelOpen(true)}
+                    className="flex w-full items-center gap-2 rounded-xl border bg-muted/30 p-3 text-left text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <ChevronLeft className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                    <CircleHelp className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                    <span
+                      data-testid="connection-help-expand-label"
+                      className="text-sm font-semibold leading-tight"
+                    >
+                      What these options mean
+                    </span>
+                  </button>
+                )}
               </div>
             </div>
           )}

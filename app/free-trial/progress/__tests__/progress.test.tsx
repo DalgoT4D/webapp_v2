@@ -89,6 +89,8 @@ const CREDS_STORAGE_KEY = 'dalgo_trial_creds';
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+  jest.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
   mockTaskId = 'task-123';
   mockSwrData = undefined;
   sessionStorage.clear();
@@ -100,6 +102,7 @@ beforeEach(() => {
 // after it, so restore unconditionally here instead.
 afterEach(() => {
   jest.useRealTimers();
+  jest.restoreAllMocks();
 });
 
 describe('TrialProgressPage', () => {
@@ -118,6 +121,27 @@ describe('TrialProgressPage', () => {
     expect(screen.getByTestId('trial-step-0')).toHaveAttribute('data-state', 'done');
     expect(screen.getByTestId('trial-step-1')).toHaveAttribute('data-state', 'in-progress');
     expect(screen.getByTestId('trial-step-2')).toHaveAttribute('data-state', 'pending');
+  });
+
+  it('loads the provisioning video from YouTube only after the user clicks play', () => {
+    mockSwrData = {
+      task_id: 'task-123',
+      status: 'running',
+      progress: [{ step: 1, message: 'Creating your workspace', status: 'in_progress' }],
+    };
+
+    render(<TrialProgressPage />);
+
+    // Provisioning can sit on screen for minutes; the embed should not load itself.
+    expect(screen.queryByTestId('trial-provisioning-video-iframe')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('trial-provisioning-video-play'));
+
+    expect(screen.getByTestId('trial-provisioning-video-iframe')).toHaveAttribute(
+      'src',
+      'https://www.youtube-nocookie.com/embed/R-JJNgp8xYM?autoplay=1&rel=0'
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial:provisioning_video_played');
   });
 
   it('shows the FIRST step (not all-done) when the history has only a "queued" marker', () => {

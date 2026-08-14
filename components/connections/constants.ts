@@ -7,8 +7,7 @@ export type ConnectionConceptId =
   | 'sync-mode'
   | 'dest-mode'
   | 'cursor'
-  | 'primary-key'
-  | 'schema';
+  | 'primary-key';
 
 export interface ConnectionConcept {
   id: ConnectionConceptId;
@@ -112,15 +111,8 @@ export function getConnectionHelp(opts: HelpOptions = {}): ConnectionConcept[] {
     });
   }
 
-  cards.push({
-    id: 'schema',
-    title: 'Destination Schema',
-    body: "Under Advanced options, Destination schema selects the schema — a folder inside your warehouse — where these tables are created. It defaults to 'staging'.",
-    impact: 'Keeps freshly ingested data separate from your cleaned, transformed models.',
-  });
-
-  // The "Normalize data after sync" toggle in Advanced options uses compact
-  // inline help beside the setting instead of taking up a full panel card.
+  // Connection-wide Destination schema and Normalize settings use compact
+  // inline help beside each setting instead of taking up full panel cards.
 
   return cards;
 }

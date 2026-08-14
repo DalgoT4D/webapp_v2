@@ -63,6 +63,7 @@ export const ANALYTICS_EVENTS = {
   // Verification link re-sent from the check-your-email card (re-POSTs signup).
   TRIAL_LINK_RESENT: 'trial:link_resent',
   TRIAL_ACTIVATED: 'trial:trial_activated',
+  TRIAL_PROVISIONING_VIDEO_PLAYED: 'trial:provisioning_video_played',
   // A failed clone was re-enqueued. Carries { from: 'failed' | 'timeout' } — which
   // fallback card the user retried from.
   TRIAL_RETRY_TRIGGERED: 'trial:retry_triggered',
@@ -144,7 +145,6 @@ export const ANALYTICS_EVENTS = {
   CONNECTION_SYNC_CANCELLED: 'connection:sync_cancelled',
   CONNECTION_SCHEMA_CHANGES_APPLIED: 'connection:schema_changes_applied',
   CONNECTION_LOG_SUMMARY_REQUESTED: 'connection:log_summary_requested',
-  CONNECTION_ADVANCED_OPTIONS_EXPANDED: 'connection:advanced_options_expanded',
   SOURCE_CREATED: 'source:source_created',
   SOURCE_UPDATED: 'source:source_updated',
   SOURCE_DELETED: 'source:source_deleted',

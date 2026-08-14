@@ -12,7 +12,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { driver, type Driver } from 'driver.js';
+import { driver, type Driver, type PopoverDOM } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import './tour.css';
 import { trackEvent } from '@/lib/analytics';
@@ -23,6 +23,8 @@ import {
 } from '@/hooks/api/useTrialWalkthrough';
 import { getFeatureNudgeForRoute } from './feature-nudge-constants';
 import { alignPopoverCloseWithHeader, outlinePopoverArrow } from './tour-popover-chrome';
+import { revealElementInScrollParents } from './tour-reveal';
+import { ensurePopoverArrow } from './tour-arrow';
 
 /** Set on <body> (where driver.js puts `driver-active`) so the page stays clickable — tour.css. */
 const PASSTHROUGH_CLASS = 'dalgo-tour-passthrough';
@@ -81,6 +83,9 @@ export function FeatureNudgeCoachmark({
   const pathname = usePathname();
   const driverRef = useRef<Driver | null>(null);
   const watchFrameRef = useRef<number>(0);
+  // Captured in onPopoverRender (driver.js rebuilds the popover DOM per highlight) so the
+  // watch loop can keep the pointer triangle attached — see ensurePopoverArrow.
+  const popoverRef = useRef<PopoverDOM | null>(null);
 
   const nudge = getFeatureNudgeForRoute(pathname);
   // Reduced to a primitive on purpose: `walkthroughState` is SWR's response object, whose
@@ -116,6 +121,9 @@ export function FeatureNudgeCoachmark({
           return;
         }
         driverRef.current?.refresh();
+        // After the refresh: that's what re-runs driver.js's arrow placement, including the
+        // `arrow-none` case this restores a triangle for.
+        ensurePopoverArrow(popoverRef.current, el);
         watchFrameRef.current = requestAnimationFrame(tick);
         return;
       };
@@ -154,6 +162,7 @@ export function FeatureNudgeCoachmark({
         // dismissals, which would end the nudge without recording it.
         allowClose: false,
         onPopoverRender: (popover) => {
+          popoverRef.current = popover;
           outlinePopoverArrow(popover);
           popover.closeButton.textContent = '✕';
           popover.closeButton.setAttribute('aria-label', `Dismiss ${nudge.title} tip`);
@@ -171,9 +180,14 @@ export function FeatureNudgeCoachmark({
         },
         onDestroyed: () => {
           driverRef.current = null;
+          popoverRef.current = null;
         },
       });
       driverRef.current = d;
+      // driver.js only scrolls a target that's outside the WINDOW; one clipped by an ancestor
+      // scroller (sidebar nav, scrolling dialog) stays hidden, which is what happens to the
+      // lower nav items under browser zoom. Do that reveal ourselves, before the measurement.
+      revealElementInScrollParents(el as HTMLElement);
       d.highlight({
         element: el as HTMLElement,
         popover: {
@@ -187,6 +201,9 @@ export function FeatureNudgeCoachmark({
           showButtons: ['close'],
         },
       });
+      // Immediately as well as in the watch loop, so the card's first painted frame already
+      // carries its triangle.
+      ensurePopoverArrow(popoverRef.current, el);
       trackEvent(ANALYTICS_EVENTS.FEATURE_NUDGE_VIEWED, { nudge: nudge.key });
       watchForTeardown(el);
     };

@@ -44,6 +44,7 @@ import {
   sidebarTargetScrollDelta,
 } from './product-tour-positioning';
 import { alignPopoverCloseWithHeader, outlinePopoverArrow } from './tour-popover-chrome';
+import { ensurePopoverArrow } from './tour-arrow';
 import { saveTrialWalkthroughFlow } from '@/hooks/api/useTrialWalkthrough';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
@@ -415,6 +416,9 @@ function anchorPopoverToSidebar(popover: PopoverDOM, step: TourStep): void {
     // remove the desktop-only arrow instead of pointing at an invisible navigation item.
     document.getElementById(ARROW_ELEMENT_ID)?.remove();
     popover.arrow.style.display = '';
+    // driver.js hides its own arrow outright when the card fits on no side of the spotlight —
+    // likelier here than anywhere, since the spotlight band is nearly as wide as the page.
+    ensurePopoverArrow(popover, document.getElementById(SPOTLIGHT_ELEMENT_ID));
     return;
   }
   const sidebarScroller = document.getElementById('main-layout-sidebar-nav');
