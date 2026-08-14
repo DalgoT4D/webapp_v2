@@ -596,9 +596,7 @@ function ConfigureChartPageContent() {
     setFormData((prev) => ({ ...prev, ...updates }));
   }, []);
 
-  // Sync the live table-chart preview with the Pagination Configuration section —
-  // tableChartPageSize/tableChartPage are separate local state driving the preview's
-  // own page-size selector, so they don't pick up a change made here otherwise.
+  // Sync tableChartPageSize — separate local state that doesn't auto-update otherwise.
   useEffect(() => {
     if (formData.pagination?.page_size) {
       setTableChartPageSize(formData.pagination.page_size);

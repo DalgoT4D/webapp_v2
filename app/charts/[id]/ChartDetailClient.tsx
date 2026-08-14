@@ -79,9 +79,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const [tableChartPage, setTableChartPage] = useState(1);
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
 
-  // Sync the live table preview's page size with the chart's saved pagination config —
-  // tableChartPageSize starts at a hardcoded default and otherwise never reflects what
-  // was actually saved (chart loads asynchronously, after the initial state is set).
+  // Sync tableChartPageSize from the saved config — it starts at a hardcoded default otherwise.
   useEffect(() => {
     if (chart?.extra_config?.pagination?.page_size) {
       setTableChartPageSize(chart.extra_config.pagination.page_size);

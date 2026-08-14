@@ -166,9 +166,7 @@ export function ChartElementV2({
     error: chartFetchError,
   } = useChart(chartId);
 
-  // Sync the table's page size with the chart's saved pagination config — tablePageSize
-  // starts at a hardcoded default and otherwise never reflects what was actually saved
-  // (chart loads asynchronously, after the initial state is set).
+  // Sync tablePageSize from the saved config — it starts at a hardcoded default otherwise.
   useEffect(() => {
     if (chart?.extra_config?.pagination?.page_size) {
       setTablePageSize(chart.extra_config.pagination.page_size);
