@@ -14,7 +14,7 @@
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { driver, type Driver, type Popover } from 'driver.js';
+import { driver, type Driver, type Popover, type PopoverDOM } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import './tour.css';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
@@ -25,6 +25,8 @@ import {
   type WalkthroughStage,
 } from './insight-walkthrough-constants';
 import { alignPopoverCloseWithHeader, outlinePopoverArrow } from './tour-popover-chrome';
+import { revealElementInScrollParents } from './tour-reveal';
+import { ensurePopoverArrow } from './tour-arrow';
 
 /** Shared by both forks' "now build a dashboard" nudges. */
 const DASHBOARD_NUDGE_IMAGE = '/branding/dashboard-nudge-graph.jpg';
@@ -898,6 +900,11 @@ export function InsightWalkthroughCoachmark(): null {
   // isn't guaranteed to still find the same node we ringed.
   const ringedElRef = useRef<HTMLElement | null>(null);
 
+  // driver.js rebuilds the popover DOM on every highlight, so this is captured in
+  // onPopoverRender rather than looked up — the tracking loop needs it to keep the pointer
+  // triangle attached to the right edge (see ensurePopoverArrow).
+  const popoverRef = useRef<PopoverDOM | null>(null);
+
   // Keeps a highlight glued to its target while layout is still moving under it —
   // a sidebar collapsing, a canvas pan/zoom settling, dagre re-laying nodes out —
   // none of which fire the window 'resize' event driver.js listens for on its own.
@@ -917,6 +924,9 @@ export function InsightWalkthroughCoachmark(): null {
         return;
       }
       d.refresh();
+      // After the refresh, since that's what re-runs driver.js's own arrow placement (and can
+      // drop it to `arrow-none` when the card no longer fits on any side).
+      ensurePopoverArrow(popoverRef.current, baseEl);
       trackingFrameRef.current = requestAnimationFrame(tick);
     };
     trackingFrameRef.current = requestAnimationFrame(tick);
@@ -1067,6 +1077,7 @@ export function InsightWalkthroughCoachmark(): null {
           // tore the coachmark down.
           allowClose: false,
           onPopoverRender: (popover) => {
+            popoverRef.current = popover;
             outlinePopoverArrow(popover);
             if (config.imageSrc) {
               // driver.js builds the popover DOM itself, so the illustration is injected
@@ -1096,6 +1107,7 @@ export function InsightWalkthroughCoachmark(): null {
           },
           onDestroyed: () => {
             driverRef.current = null;
+            popoverRef.current = null;
           },
         });
         driverRef.current = d;
@@ -1119,7 +1131,16 @@ export function InsightWalkthroughCoachmark(): null {
           }),
           ...(onDismiss && { nextBtnText: 'Got it', onNextClick: onDismiss }),
         };
+        // Before the highlight, so driver.js measures the target where it will actually be
+        // drawn. Covers the case driver.js's own scroll doesn't: a target hidden by an ANCESTOR
+        // scroller (the sidebar nav's `overflow-y: auto`, a scrolling dialog body) rather than
+        // by the window — the common shape at browser zoom, where the lower nav items fall
+        // below the sidebar's fold.
+        revealElementInScrollParents(el as HTMLElement);
         highlightKeepingFocus(d, el as HTMLElement, popover);
+        // Immediately as well as in the tracking loop below, so the first painted frame already
+        // has the triangle rather than showing an arrow-less card for one frame.
+        ensurePopoverArrow(popoverRef.current, el);
         // Ring only the major targets (see StageConfig.ring). Cleared first because show() is
         // re-entrant — the recovery loop can land on a DIFFERENT node than the one ringed on
         // the previous pass, and leaving that one outlined would show two rings at once.

@@ -12,13 +12,21 @@ import Image from 'next/image';
 import { X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { trackEvent } from '@/lib/analytics';
 import type { AnalyticsEvent } from '@/constants/analytics';
 
 // Animated tick shown at the top of every celebration modal.
 const CELEBRATION_ANIMATION_SRC = '/branding/celebration-checkmark.gif';
-// The GIF's native size (150x150). Rendered 1:1 so it stays crisp and doesn't resample.
+/** The GIF's native size (150x150). Rendered 1:1 so it stays crisp and doesn't resample. */
 const CELEBRATION_ANIMATION_SIZE = 150;
+/**
+ * Every celebration modal is the SAME card: 600x440. Fixed rather than content-sized so the
+ * four call sites (chart, KPI, dashboard, pipeline) don't each render a differently-shaped
+ * dialog off the back of how long their copy happens to be. Content is centred inside it, so
+ * shorter copy sits in the middle instead of riding the top edge.
+ */
+const CELEBRATION_MODAL_SIZE_CLASS = 'h-[440px] w-[600px] max-w-[calc(100vw-2rem)]';
 
 interface CelebrationModalProps {
   open: boolean;
@@ -62,7 +70,13 @@ export function CelebrationModal({
       <DialogContent
         data-testid={testId}
         showCloseButton={false}
-        className="overflow-hidden border-none bg-gradient-to-b from-[#e8f8f0] to-white p-0 sm:max-w-md"
+        className={cn(
+          'overflow-hidden border-none bg-gradient-to-b from-[#e8f8f0] to-white p-0',
+          // Beats DialogContent's own `sm:max-w-lg`, which would otherwise cap the card at
+          // 512px on desktop.
+          CELEBRATION_MODAL_SIZE_CLASS,
+          'sm:max-w-[600px]'
+        )}
       >
         <button
           type="button"
@@ -74,7 +88,7 @@ export function CelebrationModal({
           <X className="h-5 w-5" />
         </button>
 
-        <div className="flex flex-col items-center gap-4 px-10 pt-12 pb-10 text-center">
+        <div className="flex h-full flex-col items-center justify-center gap-3 px-8 py-6 text-center">
           {/* Animated tick. `unoptimized` is required — Next's image optimizer re-encodes
               GIFs to a single still frame, which would silently kill the animation. */}
           <Image
@@ -86,12 +100,14 @@ export function CelebrationModal({
             priority
             data-testid={`${testId}-animation`}
           />
-          <DialogTitle className="text-2xl font-bold">{title}</DialogTitle>
-          <DialogDescription className="text-muted-foreground text-base">
+          <DialogTitle className="text-3xl font-bold">{title}</DialogTitle>
+          <DialogDescription className="text-muted-foreground text-lg">
             {description}
           </DialogDescription>
           <Button
             variant="primary"
+            size="lg"
+            className="mt-1 text-base"
             data-testid={`${testId}-cta`}
             onClick={() => {
               close('cta');
