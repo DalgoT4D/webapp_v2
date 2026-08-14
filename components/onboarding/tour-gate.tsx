@@ -73,6 +73,23 @@ const IMPACT_PATH = '/impact';
 const NEW_CONNECTION_APPEAR_GRACE_MS = 2 * 60 * 1000;
 const NEW_CONNECTION_POLL_MS = 3000;
 
+/**
+ * How long a tracked connection may sit with no lock and no run at all before that's read as
+ * "its first sync was never triggered" rather than "the trigger is still in flight".
+ *
+ * The trigger goes out immediately after the create call returns (connection-form-body.tsx), so
+ * seconds would do; two minutes keeps it comfortably clear of a slow request while still
+ * resolving inside the same visit.
+ */
+const SYNC_START_GRACE_MS = 2 * 60 * 1000;
+
+/**
+ * Stand-in run id for a connection that has no run to point at, so a "Got it" on that failure
+ * is remembered like any other (dismissals are keyed by run — see getDismissedSyncRun). Any
+ * real Airbyte job id is numeric, so this can't collide with one.
+ */
+const NO_SYNC_RUN_ID = 'no-sync-triggered';
+
 interface GetStartedModalState {
   open: boolean;
   screen: GetStartedScreen;
@@ -342,9 +359,14 @@ export function TourGate() {
   } = useConnectionsList();
   // Pending "has the new connection shown up yet?" poll — see the checkpoint effect.
   const appearRetryRef = useRef<number | null>(null);
+  // Pending "has this connection's first sync started yet?" re-check, and the tick it bumps to
+  // re-run the checkpoint — nothing else wakes it for a connection holding no lock.
+  const stallRetryRef = useRef<number | null>(null);
+  const [syncStallTick, setSyncStallTick] = useState(0);
   useEffect(
     () => () => {
       if (appearRetryRef.current) window.clearTimeout(appearRetryRef.current);
+      if (stallRetryRef.current) window.clearTimeout(stallRetryRef.current);
     },
     []
   );
@@ -358,6 +380,11 @@ export function TourGate() {
   const trackedConnectionId = useInsightWalkthroughStore((s) => s.trackedConnectionId);
   useEffect(() => {
     if (!orgSlug) return;
+    // Re-armed below if still needed; cleared here so re-runs can't stack timers.
+    if (stallRetryRef.current) {
+      window.clearTimeout(stallRetryRef.current);
+      stallRetryRef.current = null;
+    }
     const { active, path, stage, flow } = useInsightWalkthroughStore.getState();
     if (!active || !flow || !trackedConnectionId) return;
     // Only the two forks that ingest real data. Belt-and-braces against a stale tracked
@@ -440,13 +467,33 @@ export function TourGate() {
       if (stage !== 'sync_running') useInsightWalkthroughStore.getState().advanceTo('sync_running');
       return;
     }
-    if (outcome !== 'failed') return;
+
+    // 'unknown' — the connection exists but has no lock and no run at all, so no sync was ever
+    // triggered on it. Silent for the grace window, since that's also the split second between
+    // the create call returning and its trigger landing (classifySync's reason for staying
+    // quiet). Past that there is no sync coming, and staying quiet was leaving the flow parked
+    // on "connect your data" forever, watching a connection that would never report anything —
+    // nothing re-polls a connection holding no lock. So report it as the failed first sync it
+    // is: the coachmark's "run the sync again, or connect a different source" is exactly right,
+    // and the flow still doesn't advance until something actually succeeds.
+    if (outcome === 'unknown') {
+      const trackedAt = getTrackedConnectionAt(flow);
+      const sinceTracked = trackedAt === null ? Number.POSITIVE_INFINITY : Date.now() - trackedAt;
+      if (sinceTracked < SYNC_START_GRACE_MS) {
+        stallRetryRef.current = window.setTimeout(
+          () => setSyncStallTick((tick) => tick + 1),
+          SYNC_START_GRACE_MS - sinceTracked
+        );
+        return;
+      }
+    }
 
     // Keyed by RUN, not by a plain dismissed flag: the same failure must never nag twice (the
     // acknowledgement is persisted, so this holds across reloads), while a retry that fails
-    // again is a different job id and does speak up.
-    const runId = conn.lastRun ? String(conn.lastRun.job_id) : null;
-    if (runId && getDismissedSyncRun(flow) === runId) return;
+    // again is a different job id and does speak up. A never-triggered sync has no run to key
+    // on, so it borrows a fixed id — one dismissal, and it stays dismissed.
+    const runId = conn.lastRun ? String(conn.lastRun.job_id) : NO_SYNC_RUN_ID;
+    if (getDismissedSyncRun(flow) === runId) return;
     // Recorded before the stage moves so the coachmark's "Got it" knows which failure it is
     // acknowledging (see dismissSyncFailure).
     useInsightWalkthroughStore.getState().setSyncFailedRunId(runId);
@@ -459,6 +506,9 @@ export function TourGate() {
     orgSlug,
     walkthroughActive,
     trackedConnectionId,
+    // Bumped by the stall timer above — the one thing that re-runs this for a connection
+    // holding no lock, which nothing else polls.
+    syncStallTick,
   ]);
 
   /**
@@ -521,26 +571,31 @@ export function TourGate() {
     [orgSlug, router]
   );
 
-  const handleBuildInsightClick = useCallback(() => {
-    if (!orgSlug) return;
-    const path = getStoredPath('insights');
-    if ((path === 'sample' || path === 'own_data') && resumeStoredFlow('insights')) return;
-    // Nothing to resume. If the user's own data is already in the platform — they automated a
-    // pipeline, or connected a source some other way — the fork's question has no useful
-    // branch left, so skip it and start the chart flow.
-    //
-    // Deliberately no navigation: the opening stage points at the sidebar's Charts link, and
-    // pushing /charts here would satisfy its own route-advance instantly, skipping the beat.
-    // Clicking Charts is the step.
-    if (hasConnectedRealData()) {
-      clearPendingPostTourScreen(orgSlug);
-      useInsightWalkthroughStore.getState().startChartFlow(orgSlug);
-      return;
-    }
-    // Never started, or started and then skipped (which clears the stage) — ask again which
-    // way they want to build it.
-    openInsightFork('widget');
-  }, [orgSlug, resumeStoredFlow, openInsightFork]);
+  // `entry` is analytics only — it records whether the journey was picked from the checklist
+  // row or from the landing-page intent modal, which now shares this handler.
+  const handleBuildInsightClick = useCallback(
+    (entry: GetStartedEntry = 'widget') => {
+      if (!orgSlug) return;
+      const path = getStoredPath('insights');
+      if ((path === 'sample' || path === 'own_data') && resumeStoredFlow('insights')) return;
+      // Nothing to resume. If the user's own data is already in the platform — they automated a
+      // pipeline, or connected a source some other way — the fork's question has no useful
+      // branch left, so skip it and start the chart flow.
+      //
+      // Deliberately no navigation: the opening stage points at the sidebar's Charts link, and
+      // pushing /charts here would satisfy its own route-advance instantly, skipping the beat.
+      // Clicking Charts is the step.
+      if (hasConnectedRealData()) {
+        clearPendingPostTourScreen(orgSlug);
+        useInsightWalkthroughStore.getState().startChartFlow(orgSlug);
+        return;
+      }
+      // Never started, or started and then skipped (which clears the stage) — ask again which
+      // way they want to build it.
+      openInsightFork(entry);
+    },
+    [orgSlug, resumeStoredFlow, openInsightFork]
+  );
 
   const handleAutomatePipelineClick = useCallback(() => {
     if (!orgSlug) return;
@@ -592,6 +647,51 @@ export function TourGate() {
   // build-insights next is precisely the intended follow-up.
   const canOfferInsight = !isFlowCompleted(walkthroughState, 'insights');
   const canOfferPipeline = !isFlowCompleted(walkthroughState, 'automate_pipeline');
+
+  /**
+   * Opens the checklist panel whenever a walkthrough ENDS in this session — finished or
+   * skipped, either way the run is over and the checklist is what comes next. Needed because
+   * both flows end away from /impact (a saved dashboard, the pipeline list, wherever the user
+   * hit ✕), where the panel is a collapsed pill: the item ticked behind it and the end of the
+   * flow looked like nothing had happened.
+   *
+   * Two triggers, deliberately, because they fire at different moments:
+   *  - the store going inactive, which is immediate and covers a skip (no tick to wait for);
+   *  - the backend's `completed` flag flipping, which is what the tick itself reads. It lands a
+   *    beat later (saveTrialWalkthroughFlow's PUT, then a cache refresh), so on a finish the
+   *    panel is already open and the tick appears in it.
+   * Bumping twice is harmless — the panel is already open by the second one.
+   *
+   * The first settled read of each is only a baseline: on a cold load the completed flags go
+   * false -> true as the fetch lands, which is not an ending and must not open the panel on
+   * every page.
+   */
+  const [checklistRevealSignal, setChecklistRevealSignal] = useState(0);
+  const revealChecklist = useCallback(() => setChecklistRevealSignal((signal) => signal + 1), []);
+
+  const wasWalkthroughActiveRef = useRef(false);
+  useEffect(() => {
+    if (!isTrialOrg) return;
+    const wasActive = wasWalkthroughActiveRef.current;
+    wasWalkthroughActiveRef.current = walkthroughActive;
+    if (wasActive && !walkthroughActive) revealChecklist();
+  }, [isTrialOrg, walkthroughActive, revealChecklist]);
+
+  const completedFlowsRef = useRef<Record<'insights' | 'automate_pipeline', boolean> | null>(null);
+  useEffect(() => {
+    if (!isTrialOrg || walkthroughLoading) return;
+    const current = {
+      insights: isFlowCompleted(walkthroughState, 'insights'),
+      automate_pipeline: isFlowCompleted(walkthroughState, 'automate_pipeline'),
+    };
+    const previous = completedFlowsRef.current;
+    completedFlowsRef.current = current;
+    if (!previous) return;
+    const justCompleted =
+      (current.insights && !previous.insights) ||
+      (current.automate_pipeline && !previous.automate_pipeline);
+    if (justCompleted) revealChecklist();
+  }, [isTrialOrg, walkthroughLoading, walkthroughState, revealChecklist]);
 
   if (!isTrialOrg || !orgSlug) return null;
 
@@ -650,6 +750,7 @@ export function TourGate() {
         <GettingStartedWidget
           defaultOpen={pathname === IMPACT_PATH}
           walkthroughActive={walkthroughActive}
+          revealSignal={checklistRevealSignal}
           // Both ticks read the backend, the only permanent record — the local flags are
           // scratch space wiped once a flow resolves (see the store's finish/skip).
           // Only the insights flow builds an insight. The pipeline walkthrough stops at the
@@ -679,6 +780,11 @@ export function TourGate() {
             }
           }}
           onStartTour={startTour}
+          // Same handlers as the Get Started checklist rows: picking a journey here starts it
+          // (or resumes one already part-way through) instead of just closing onto the widget,
+          // which read as the modal doing nothing.
+          onSelectInsight={() => handleBuildInsightClick('intent_modal')}
+          onSelectPipeline={handleAutomatePipelineClick}
           variant={intentVariant}
           trialDaysLeft={planEndDate ? Math.max(0, trialDaysRemaining(planEndDate)) : 0}
         />

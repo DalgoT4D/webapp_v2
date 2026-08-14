@@ -11,8 +11,9 @@
  * (`walkthroughActive`) overrides both and keeps it out of the way until the flow ends,
  * though the pill stays available to reopen it manually.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Check, ChevronRight, Circle, Minus, Rocket } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { BOOK_A_CALL_URL, DALGO_DOCS_URL } from '@/constants/trial';
@@ -20,6 +21,9 @@ import { ProductVideoPlayer } from './product-video-player';
 
 const PRODUCT_VIDEO_SRC = '/branding/dalgo-product-overview.mp4';
 const PRODUCT_VIDEO_POSTER_SRC = '/branding/dalgo-product-overview-poster.jpg';
+
+/** Kept in sync with .checklist-item-complete's animation duration in globals.css. */
+const COMPLETION_ANIMATION_MS = 1400;
 
 interface GettingStartedWidgetProps {
   /**
@@ -30,6 +34,14 @@ interface GettingStartedWidgetProps {
   defaultOpen: boolean;
   /** A guided walkthrough is mid-flow — keep the panel out of the way until it finishes. */
   walkthroughActive: boolean;
+  /**
+   * Bumped by the owner (see tour-gate) the moment a checklist item is ticked off in this
+   * session. Both flows END somewhere that isn't /impact — a saved dashboard, the pipeline
+   * list — so `defaultOpen` is false there and the item the user just finished would tick
+   * behind a collapsed pill, where nobody sees it. Any change to this value opens the panel
+   * once, wherever the user happens to be.
+   */
+  revealSignal?: number;
   hasBuiltFirstInsight: boolean;
   hasAutomatedPipeline: boolean;
   onStartTour: () => void;
@@ -52,6 +64,7 @@ interface ChecklistItem {
 export function GettingStartedWidget({
   defaultOpen,
   walkthroughActive,
+  revealSignal = 0,
   hasBuiltFirstInsight,
   hasAutomatedPipeline,
   onStartTour,
@@ -63,14 +76,51 @@ export function GettingStartedWidget({
   const [minimized, setMinimized] = useState(true);
   const [videoSession, setVideoSession] = useState(0);
 
+  // Last `revealSignal` acted on. A ref rather than a dep-diff because the effect below has
+  // to tell "this render is a fresh completion" from "this render is any other change".
+  const lastRevealRef = useRef(revealSignal);
+
   useEffect(() => {
+    // An item ticked off just now outranks the route-derived rule below — the whole point of
+    // the panel opening here is to show that tick. Checked first, and returns, so the
+    // walkthrough-just-ended pass (`walkthroughActive` flipping false in the same beat) can't
+    // minimize it straight back.
+    if (revealSignal !== lastRevealRef.current) {
+      lastRevealRef.current = revealSignal;
+      setMinimized(false);
+      setVideoSession((session) => session + 1);
+      return;
+    }
     // Re-derived on arrival (and whenever a walkthrough starts or ends) rather than
     // persisted: returning to /impact re-opens the panel even if it was minimized last
     // visit, and a running flow keeps it minimized wherever the user goes.
     const shouldMinimize = walkthroughActive || !defaultOpen;
     setMinimized(shouldMinimize);
     if (shouldMinimize) setVideoSession((session) => session + 1);
-  }, [defaultOpen, walkthroughActive]);
+  }, [defaultOpen, walkthroughActive, revealSignal]);
+
+  /**
+   * The task whose tick appeared just now, animated for one beat (see .checklist-item-complete
+   * in globals.css). Derived here rather than passed in: the owner already hands down the two
+   * booleans, and a flip from false to true while mounted IS the completion — a cold load
+   * starts with them settled, so nothing animates on arrival.
+   */
+  const [justCompletedKey, setJustCompletedKey] = useState<ChecklistItem['key'] | null>(null);
+  const previousChecksRef = useRef({ hasBuiltFirstInsight, hasAutomatedPipeline });
+  useEffect(() => {
+    const previous = previousChecksRef.current;
+    previousChecksRef.current = { hasBuiltFirstInsight, hasAutomatedPipeline };
+    const flipped: ChecklistItem['key'] | null =
+      hasBuiltFirstInsight && !previous.hasBuiltFirstInsight
+        ? 'build-insight'
+        : hasAutomatedPipeline && !previous.hasAutomatedPipeline
+          ? 'automate-pipeline'
+          : null;
+    if (!flipped) return undefined;
+    setJustCompletedKey(flipped);
+    const timer = setTimeout(() => setJustCompletedKey(null), COMPLETION_ANIMATION_MS);
+    return () => clearTimeout(timer);
+  }, [hasBuiltFirstInsight, hasAutomatedPipeline]);
 
   const minimizeWidget = () => {
     setMinimized(true);
@@ -209,14 +259,23 @@ export function GettingStartedWidget({
           <ul className="mt-4 divide-y">
             {items.map((item) => {
               const testId = `getting-started-widget-item-${item.key}`;
-              const rowClass = 'flex w-full items-start gap-3 py-3 text-left';
+              const justCompleted = justCompletedKey === item.key;
+              const rowClass = cn(
+                'flex w-full items-start gap-3 py-3 text-left rounded-md px-2 -mx-2',
+                justCompleted && 'checklist-item-complete'
+              );
               const body = (
                 <>
                   {item.checked ? (
                     <span
                       aria-hidden="true"
                       data-testid="getting-started-widget-complete-icon"
-                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+                      className={cn(
+                        'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground',
+                        // Pops in only on the transition, so a tick that was already there when
+                        // the panel opened doesn't re-animate on every render.
+                        justCompleted && 'animate-in zoom-in-50 duration-500'
+                      )}
                     >
                       <Check className="h-3.5 w-3.5 stroke-[3]" />
                     </span>

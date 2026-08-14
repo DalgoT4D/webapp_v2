@@ -20,6 +20,7 @@ import {
   triggerSync,
 } from '@/hooks/api/useConnections';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { CONNECTION_WATCH_STAGES } from '@/components/onboarding/insight-walkthrough-constants';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import {
   SyncMode,
@@ -373,11 +374,16 @@ export function ConnectionFormBody({
         // Own-data / automate-pipeline walkthrough checkpoint: track this connection so
         // a later page load (possibly a new session, if the first sync outlasts the tab)
         // can tell once THIS connection — not just any connection in the org — has synced.
+        //
+        // Gated on the stage as well as the flow: only a connection made AT the step that asked
+        // for one is the flow's connection (see CONNECTION_WATCH_STAGES). A source the user adds
+        // later must not silently take over the watch from the one that is already syncing.
         const walkthrough = useInsightWalkthroughStore.getState();
-        if (
+        const isWatchingNewConnection =
           walkthrough.active &&
-          (walkthrough.path === 'own_data' || walkthrough.path === 'automate_pipeline')
-        ) {
+          (walkthrough.path === 'own_data' || walkthrough.path === 'automate_pipeline') &&
+          Boolean(walkthrough.stage && CONNECTION_WATCH_STAGES.includes(walkthrough.stage));
+        if (isWatchingNewConnection) {
           walkthrough.trackConnection(created.connectionId);
         }
 
@@ -395,10 +401,11 @@ export function ConnectionFormBody({
           // lock and no lastRun — indistinguishable from the split second between being created
           // and its sync starting, so tour-gate's checkpoint deliberately stays quiet on that
           // shape (see classifySync). Report it from here, where we actually know.
-          if (
-            walkthrough.active &&
-            (walkthrough.path === 'own_data' || walkthrough.path === 'automate_pipeline')
-          ) {
+          //
+          // Only when this is the connection the flow is actually watching: a source the user
+          // added on their own, mid-flow, failing to start its sync says nothing about the
+          // walkthrough's own connection and must not drag them to "that sync didn't finish".
+          if (isWatchingNewConnection) {
             useInsightWalkthroughStore.getState().advanceTo('sync_failed');
           }
         }

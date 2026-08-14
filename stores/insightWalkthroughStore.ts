@@ -25,6 +25,7 @@ import {
   clearActiveWalkthroughFlow,
   saveDismissedSyncRun,
   SYNC_RETRY_STAGE_FOR,
+  SYNC_WAIT_STAGES,
 } from '@/components/onboarding/insight-walkthrough-constants';
 
 interface InsightWalkthroughState {
@@ -243,13 +244,20 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
    * that stage visible again (it's silenced precisely while a connection is being watched).
    * Without this the walkthrough sat on a holding stage forever, waiting on a connection that
    * was never coming back and pointing its coachmark at a table row that no longer rendered.
+   *
+   * The rewind happens ONLY while the flow is still waiting on that first sync. Past that point
+   * the connection has already done its job — the user is on transform, or building a chart —
+   * and losing sight of it (deleted after it synced, or simply absent from a stale list) is no
+   * reason to send them back to "connect your data", which is what made a finished ingest look
+   * like it had never happened.
    */
   untrackConnection: () => {
-    const { flow, path } = get();
+    const { flow, path, stage } = get();
     if (!flow) return;
     clearTrackedConnection(flow);
     set({ trackedConnectionId: null, syncFailedRunId: null });
-    if (path === 'own_data' || path === 'automate_pipeline') {
+    const stillAwaitingFirstSync = Boolean(stage && SYNC_WAIT_STAGES.includes(stage));
+    if (stillAwaitingFirstSync && (path === 'own_data' || path === 'automate_pipeline')) {
       get().advanceTo(SYNC_RETRY_STAGE_FOR[path]);
     }
   },

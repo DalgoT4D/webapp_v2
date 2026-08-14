@@ -152,6 +152,17 @@ describe('TourGate', () => {
     sessionStorage.clear();
     mockPathname = '/impact';
     mockTourProps.current = null;
+    // The walkthrough store is module state and outlives a test. A live flow left behind
+    // suppresses the intent modal (it owns the screen) for every test after, so reset it here
+    // as the checklist block below already does.
+    useInsightWalkthroughStore.setState({
+      active: false,
+      orgSlug: null,
+      flow: null,
+      stage: null,
+      path: null,
+      trackedConnectionId: null,
+    });
     // Default: no flow decided on the backend, so gating falls to localStorage as before.
     // Individual tests override this to exercise the backend gate.
     mockApiGet.mockImplementation((path: string) =>
@@ -324,6 +335,52 @@ describe('TourGate', () => {
     await user.click(await screen.findByTestId('tour-intent-option-tour'));
 
     expect(mockStartTour).toHaveBeenCalledTimes(1);
+  });
+
+  it('rolls straight into the insight fork when that intent option is picked', async () => {
+    // Regression (DALGO trial UAT): both journey options used to just close the modal, dropping
+    // the user onto the Get Started checklist they had effectively already chosen from — the
+    // modal read as doing nothing.
+    const user = userEvent.setup();
+    setupAuthStore(buildOrgUser());
+    renderGate();
+
+    await user.click(await screen.findByTestId('tour-intent-option-insight'));
+
+    // The fork's own question — sample data or your own — not the two-journey chooser.
+    expect(await screen.findByTestId('get-started-option-sample')).toBeInTheDocument();
+    expect(screen.getByTestId('get-started-option-own-data')).toBeInTheDocument();
+    expect(useInsightWalkthroughStore.getState().stage).toBe('fork2');
+  });
+
+  it('starts the pipeline walkthrough when that intent option is picked', async () => {
+    const user = userEvent.setup();
+    setupAuthStore(buildOrgUser());
+    renderGate();
+
+    await user.click(await screen.findByTestId('tour-intent-option-pipeline'));
+
+    // No fork to ask about, and no navigation: it opens on the Ingest sidebar nudge.
+    await waitFor(() =>
+      expect(useInsightWalkthroughStore.getState().stage).toBe('pipeline_ingest_nudge')
+    );
+    expect(useInsightWalkthroughStore.getState().path).toBe('automate_pipeline');
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('resumes an insight flow in progress from the intent modal instead of re-asking the fork', async () => {
+    // "If I exit the build insight flow I should be able to resume it" — from either entry
+    // point, the checklist row or this modal.
+    const user = userEvent.setup();
+    setupAuthStore(buildOrgUser());
+    savePath('insights', 'sample');
+    saveWalkthroughStage('insights', 'kpi_intro');
+    renderGate();
+
+    await user.click(await screen.findByTestId('tour-intent-option-insight'));
+
+    await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_intro'));
+    expect(screen.queryByTestId('get-started-option-sample')).not.toBeInTheDocument();
   });
 
   it('hides the getting-started widget while the tour runs, and restores it when it ends', async () => {
@@ -741,6 +798,49 @@ describe('TourGate — Get Started checklist actions', () => {
     );
   });
 
+  it('opens the checklist panel when a walkthrough finishes away from /impact', async () => {
+    // The flow ends on a saved dashboard, where the panel is a collapsed pill — the tick landed
+    // behind it and finishing looked like nothing had happened.
+    mockPathname = '/dashboards/12';
+    setupAuthStore(buildOrgUser());
+    renderGate();
+
+    await screen.findByTestId('getting-started-widget-pill');
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+
+    // Two acts, not one: batched into a single render the store would go active and back in
+    // the same commit, and nothing would ever observe the run as live. A real flow renders many
+    // times in between.
+    await act(async () => {
+      useInsightWalkthroughStore.getState().start('trial-org');
+    });
+    await act(async () => {
+      useInsightWalkthroughStore.getState().finish();
+    });
+
+    expect(await screen.findByTestId('getting-started-widget')).toBeInTheDocument();
+  });
+
+  it('opens it on a skip too — the run is over either way', async () => {
+    mockPathname = '/dashboards/12';
+    setupAuthStore(buildOrgUser());
+    renderGate();
+
+    await screen.findByTestId('getting-started-widget-pill');
+
+    // Two acts, not one: batched into a single render the store would go active and back in
+    // the same commit, and nothing would ever observe the run as live. A real flow renders many
+    // times in between.
+    await act(async () => {
+      useInsightWalkthroughStore.getState().start('trial-org');
+    });
+    await act(async () => {
+      useInsightWalkthroughStore.getState().skip();
+    });
+
+    expect(await screen.findByTestId('getting-started-widget')).toBeInTheDocument();
+  });
+
   it('"Build your first insight" opens the fork dialog when no fork has been picked', async () => {
     const user = userEvent.setup();
     setupAuthStore(buildOrgUser());
@@ -1053,6 +1153,59 @@ describe('TourGate — Get Started checklist actions', () => {
     await waitFor(() => expect(useInsightWalkthroughStore.getState().active).toBe(true));
     expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_ingest');
     expect(hasConnectedRealData()).toBe(false);
+  });
+
+  it('reports a first sync that was never triggered instead of waiting on it forever', async () => {
+    // Same shape as the test above — no lock, no run — but tracked long ago rather than
+    // seconds ago, so the trigger is not merely in flight: it never happened. Nothing re-polls
+    // a connection holding no lock, so staying quiet left the walkthrough parked on "connect
+    // your data" watching a connection that would never report anything. The coachmark's "run
+    // the sync again, or connect a different source" is the way out, and the flow still does
+    // not advance until a sync actually succeeds.
+    setupAuthStore(buildOrgUser());
+    savePath('automate_pipeline', 'automate_pipeline');
+    saveWalkthroughStage('automate_pipeline', 'pipeline_source_next');
+    saveTrackedConnection('automate_pipeline', 'conn-1');
+    ageTrackedConnection();
+    mockApiGet.mockImplementation((path: string) => {
+      if (path === '/api/userpreferences/') {
+        return Promise.resolve({ success: true, res: { trial_walkthrough: {} } });
+      }
+      if (path === '/api/airbyte/v1/connections') {
+        return Promise.resolve([{ connectionId: 'conn-1', lock: null, lastRun: null }]);
+      }
+      return undefined;
+    });
+
+    renderGate();
+
+    await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('sync_failed'));
+    expect(hasConnectedRealData()).toBe(false);
+  });
+
+  it('stays quiet about a never-triggered sync once that failure has been acknowledged', async () => {
+    // Dismissals are keyed by run, and this shape has no run — so it borrows a fixed id.
+    // Without one, "Got it" was forgotten on the next poll and the same coachmark came back.
+    setupAuthStore(buildOrgUser());
+    savePath('automate_pipeline', 'automate_pipeline');
+    saveWalkthroughStage('automate_pipeline', 'pipeline_ingest');
+    saveTrackedConnection('automate_pipeline', 'conn-1');
+    ageTrackedConnection();
+    saveDismissedSyncRun('automate_pipeline', 'no-sync-triggered');
+    mockApiGet.mockImplementation((path: string) => {
+      if (path === '/api/userpreferences/') {
+        return Promise.resolve({ success: true, res: { trial_walkthrough: {} } });
+      }
+      if (path === '/api/airbyte/v1/connections') {
+        return Promise.resolve([{ connectionId: 'conn-1', lock: null, lastRun: null }]);
+      }
+      return undefined;
+    });
+
+    renderGate();
+
+    await waitFor(() => expect(useInsightWalkthroughStore.getState().active).toBe(true));
+    expect(useInsightWalkthroughStore.getState().stage).toBe('pipeline_ingest');
   });
 
   it('resumes a sidebar-anchored stage in place, without rewinding the chart flow', async () => {

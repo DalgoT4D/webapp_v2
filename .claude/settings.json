@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git stash *)",
+      "Bash(NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging npx jest components/onboarding/__tests__/tour-gate.test.tsx components/onboarding/__tests__/getting-started-widget.test.tsx components/onboarding/__tests__/insight-walkthrough-store.test.ts)",
+      "Bash(NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging npx jest components/onboarding components/connections)",
+      "Bash(NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging npx jest components/onboarding)",
+      "Bash(NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging npx jest components/onboarding/__tests__/tour-gate.test.tsx)",
+      "Bash(NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging npx jest components/onboarding components/connections components/ingest)",
+      "Bash(NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging npx jest components/onboarding/__tests__/tour-gate.test.tsx -t \"opens the checklist panel when a walkthrough finishes\")",
+      "Bash(NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging npx jest components/ingest)",
+      "Bash(NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging npx jest components/ingest/sources/custom/__tests__/google-sheets-form.test.tsx)",
+      "Bash(NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging npx jest components/ingest/sources/custom)",
+      "Bash(NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging npx jest components/ingest components/connections components/onboarding)"
+    ],
+    "additionalDirectories": [
+      "/Users/himanshut4d/Documents/Tech4dev/Dalgo/webapp_v2-trial-resend"
+    ]
+  }
+}

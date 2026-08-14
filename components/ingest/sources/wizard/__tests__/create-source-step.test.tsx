@@ -68,6 +68,9 @@ jest.mock('@/hooks/api/useSources', () => ({
   useSourceSpec: () => ({ data: mockSourceSpec, isLoading: false }),
   getSourceOAuthConsent: jest.fn(),
   createOAuthSource: jest.fn(),
+  // MANAGED-SA bridge off: no deployment-managed key, so the form keeps the OAuth UI these
+  // tests assert on. Coverage of the managed path lives in google-sheets-form.test.tsx.
+  useManagedServiceAccount: () => ({ managed: null, isLoading: false }),
 }));
 const mockSave = jest.fn();
 jest.mock('@/hooks/useSourceSave', () => ({

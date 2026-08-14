@@ -41,7 +41,7 @@ const ILLUSTRATION_SRC = '/branding/get-started-illustration.jpg';
 
 export type GetStartedScreen = 'choice' | 'insight';
 /** Where the dialog was opened from — analytics only. */
-export type GetStartedEntry = 'post_tour' | 'widget' | 'resume';
+export type GetStartedEntry = 'post_tour' | 'widget' | 'resume' | 'intent_modal';
 
 interface GetStartedModalProps {
   open: boolean;

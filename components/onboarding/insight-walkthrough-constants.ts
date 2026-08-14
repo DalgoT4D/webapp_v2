@@ -297,6 +297,23 @@ export const SYNC_WAIT_STAGES: WalkthroughStage[] = [
 ];
 
 /**
+ * The only stages at which a newly created connection becomes the one the walkthrough WATCHES
+ * (see connection-form-body.tsx).
+ *
+ * The flow follows exactly one connection — the one it asked the user to make — through to its
+ * first sync. Any connection created outside these stages is the user doing their own thing:
+ * a second source added while an earlier one is still syncing, or anything added after the flow
+ * moved on to transform. Letting one of those take over the watch is how the walkthrough ended
+ * up parked on "connect your data" with data already in the warehouse — the new connection's
+ * own sync may never be triggered, and the old, successful one was no longer being watched.
+ *
+ * 'sync_failed' IS included: its coachmark explicitly offers "connect a different source", and
+ * that replacement has to become the watched connection for the promise to hold. 'sync_running'
+ * is not — something is already being watched there.
+ */
+export const CONNECTION_WATCH_STAGES: WalkthroughStage[] = [...INGEST_STAGES, 'sync_failed'];
+
+/**
  * Is `stage` earlier than `target` in this fork's order? Used to keep progress monotonic:
  * a checkpoint can then say "move to X unless we're already past it", which is what lets a
  * user who skipped a hint (left a defaulted dropdown alone, clicked past a field) rejoin the

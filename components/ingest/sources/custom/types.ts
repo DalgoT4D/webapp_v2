@@ -28,6 +28,9 @@ export interface CustomSourceFormProps {
   mode: 'create' | 'edit';
   /** Supplied only for Google Sheets; other forms ignore it. */
   oauth?: CustomSourceOAuth;
+  /** Google Sheets only. The host can't infer this from the config: the managed option leaves
+   *  credentials empty on purpose, so empty means "backend fills it in", not "nothing chosen". */
+  onAuthSatisfiedChange?: (satisfied: boolean) => void;
 }
 
 // Per-source config for the friendly connection view. Drives stream relabeling
