@@ -93,6 +93,18 @@ describe('ConnectionHelpPanel', () => {
     expect(onCollapse).toHaveBeenCalledTimes(1);
   });
 
+  it('labels the collapse control so it reads as a control rather than a bare chevron', () => {
+    render(
+      <ConnectionHelpPanel
+        activeConcept={null}
+        onConceptChange={jest.fn()}
+        onCollapse={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('connection-help-collapse')).toHaveTextContent('Hide');
+  });
+
   it('explains that Google Sheets columns and casts work without advanced settings', () => {
     const columns = getConnectionHelp({ supportsColumnCasting: true }).find(
       (concept) => concept.id === 'columns'

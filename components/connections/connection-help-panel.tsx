@@ -46,8 +46,9 @@ export function ConnectionHelpPanel({
           aria-label="Collapse table settings help"
           data-testid="connection-help-collapse"
           onClick={onCollapse}
-          className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
+          Hide
           <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
