@@ -69,7 +69,7 @@ it('save() success: WS check succeeds → createSource is called and onSaved fir
     sourceDefId: 'pg-def',
     // The connector's definition name rides along so the backend can tell whether to fill in
     // Dalgo's managed Google service-account key. Sent on every source, not just Sheets.
-    sourceName: 'Postgres',
+    sourceDefName: 'Postgres',
     config: { host: 'db.example', port: 5432 },
   });
   expect(result.current.loading).toBe(true);
@@ -86,7 +86,7 @@ it('save() success: WS check succeeds → createSource is called and onSaved fir
     expect(createSource).toHaveBeenCalledWith({
       name: 'My Source',
       sourceDefId: 'pg-def',
-      sourceName: 'Postgres',
+      sourceDefName: 'Postgres',
       config: { host: 'db.example', port: 5432 },
     })
   );
