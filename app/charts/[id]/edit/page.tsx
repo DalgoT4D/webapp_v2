@@ -677,6 +677,13 @@ function EditChartPageContent() {
     // reset the chart data page size and limit when pagination changes
     setDataPreviewPageSize(25);
     setDataPreviewPage(1);
+    // Also sync the live table-chart preview — tableChartPageSize/tableChartPage are
+    // separate local state driving the preview's own page-size selector, so they
+    // don't pick up a change made here in the Pagination Configuration section otherwise.
+    if (formData.pagination?.page_size) {
+      setTableChartPageSize(formData.pagination.page_size);
+    }
+    setTableChartPage(1);
   }, [formData.pagination?.page_size, formData.pagination?.enabled]);
 
   // Drill-down functionality for maps - fetch regions

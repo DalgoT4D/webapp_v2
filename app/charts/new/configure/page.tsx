@@ -596,6 +596,16 @@ function ConfigureChartPageContent() {
     setFormData((prev) => ({ ...prev, ...updates }));
   }, []);
 
+  // Sync the live table-chart preview with the Pagination Configuration section —
+  // tableChartPageSize/tableChartPage are separate local state driving the preview's
+  // own page-size selector, so they don't pick up a change made here otherwise.
+  useEffect(() => {
+    if (formData.pagination?.page_size) {
+      setTableChartPageSize(formData.pagination.page_size);
+    }
+    setTableChartPage(1);
+  }, [formData.pagination?.page_size, formData.pagination?.enabled]);
+
   // Auto-prefill when columns are loaded
   useEffect(() => {
     if (columns && formData.schema_name && formData.table_name && formData.chart_type) {

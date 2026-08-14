@@ -882,45 +882,35 @@ export function ChartDataConfigurationV3({
         />
       )}
 
-      {/* Pagination Section — not applicable to map, number, or pivot table charts */}
-      {formData.chart_type !== 'map' &&
-        formData.chart_type !== 'number' &&
-        formData.chart_type !== 'pivot_table' && (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-900">Pagination</Label>
-            <Select
-              value={
-                formData.pagination?.enabled
-                  ? (formData.pagination?.page_size || 50).toString()
-                  : '__none__'
-              }
-              onValueChange={(value) => {
-                if (value === '__none__') {
-                  onChange({ pagination: { enabled: false, page_size: 50 } });
-                } else {
-                  onChange({
-                    pagination: {
-                      enabled: true,
-                      page_size: parseInt(value),
-                    },
-                  });
-                }
-              }}
-              disabled={disabled}
-            >
-              <SelectTrigger className="h-8 w-full">
-                <SelectValue placeholder="Select pagination" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">No pagination</SelectItem>
-                <SelectItem value="20">20 items</SelectItem>
-                <SelectItem value="50">50 items</SelectItem>
-                <SelectItem value="100">100 items</SelectItem>
-                <SelectItem value="200">200 items</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+      {/* Pagination Section — table charts only (always enabled, just a page-size pick) */}
+      {formData.chart_type === 'table' && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-gray-900">Pagination</Label>
+          <Select
+            value={(formData.pagination?.page_size || 50).toString()}
+            onValueChange={(value) => {
+              onChange({
+                pagination: {
+                  enabled: true,
+                  page_size: parseInt(value),
+                },
+              });
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger className="h-8 w-full">
+              <SelectValue placeholder="Select pagination" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10 items</SelectItem>
+              <SelectItem value="20">20 items</SelectItem>
+              <SelectItem value="50">50 items</SelectItem>
+              <SelectItem value="100">100 items</SelectItem>
+              <SelectItem value="200">200 items</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Sort Section — not shown for pivot tables (v1 has no pivot sort) */}
       {formData.chart_type !== 'map' &&

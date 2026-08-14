@@ -166,6 +166,15 @@ export function ChartElementV2({
     error: chartFetchError,
   } = useChart(chartId);
 
+  // Sync the table's page size with the chart's saved pagination config — tablePageSize
+  // starts at a hardcoded default and otherwise never reflects what was actually saved
+  // (chart loads asynchronously, after the initial state is set).
+  useEffect(() => {
+    if (chart?.extra_config?.pagination?.page_size) {
+      setTablePageSize(chart.extra_config.pagination.page_size);
+    }
+  }, [chart?.extra_config?.pagination?.page_size]);
+
   // Handle table row click for drill-down (defined after chart is fetched)
   const handleTableRowClick = useCallback(
     (rowData: Record<string, any>, columnName: string) => {

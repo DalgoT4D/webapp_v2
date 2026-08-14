@@ -312,6 +312,15 @@ export function ChartElementView({
   // Use frozen config in report mode, public metadata in public mode, or chart in private mode
   const effectiveChart = frozenChartConfig || (isPublicMode ? publicChartMetadata : chart);
 
+  // Sync the table's page size with the chart's saved pagination config — tablePageSize
+  // starts at a hardcoded default and otherwise never reflects what was actually saved
+  // (effectiveChart loads asynchronously, after the initial state is set).
+  useEffect(() => {
+    if (effectiveChart?.extra_config?.pagination?.page_size) {
+      setTablePageSize(effectiveChart.extra_config.pagination.page_size);
+    }
+  }, [effectiveChart?.extra_config?.pagination?.page_size]);
+
   // Determine chart type using effective chart
   const isTableChart = effectiveChart?.chart_type === ChartTypes.TABLE;
   const isPivotTableChart = effectiveChart?.chart_type === ChartTypes.PIVOT_TABLE;
