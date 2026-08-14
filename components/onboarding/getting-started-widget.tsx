@@ -16,11 +16,8 @@ import { ArrowUpRight, Check, ChevronRight, Circle, Minus, Rocket } from 'lucide
 import { cn } from '@/lib/utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { BOOK_A_CALL_URL, DALGO_DOCS_URL } from '@/constants/trial';
-import { ProductVideoPlayer } from './product-video-player';
-
-const PRODUCT_VIDEO_SRC = '/branding/dalgo-product-overview.mp4';
-const PRODUCT_VIDEO_POSTER_SRC = '/branding/dalgo-product-overview-poster.jpg';
+import { BOOK_A_CALL_URL, DALGO_DOCS_URL, PRODUCT_VIDEO_ID } from '@/constants/trial';
+import { YouTubeVideoPlayer } from './youtube-video-player';
 
 /** Kept in sync with .checklist-item-complete's animation duration in globals.css. */
 const COMPLETION_ANIMATION_MS = 1400;
@@ -185,7 +182,15 @@ export function GettingStartedWidget({
       {!minimized && (
         <div
           data-testid="getting-started-widget"
-          className="fixed right-6 bottom-24 z-40 w-[calc(100vw-3rem)] max-w-[520px] rounded-2xl border bg-card p-6 shadow-xl"
+          className={cn(
+            'fixed right-6 bottom-24 z-40 rounded-2xl border bg-card p-6 shadow-xl',
+            // 499x629 per the Figma frame. Fixed rather than content-sized so the panel is the
+            // same card in all three heading states, instead of growing and shrinking as items
+            // get ticked off. The max-* pair keeps it on screen on a small or short viewport
+            // (bottom-24 = the 96px the pill below it occupies), and the scroll is the safety
+            // valve for the states that do run past 629 — never a clipped, unreachable CTA.
+            'min-h-[629px] w-[499px] max-h-[calc(100vh-8rem)] max-w-[calc(100vw-3rem)] overflow-y-auto'
+          )}
         >
           <div className="flex items-start justify-between">
             <div className="min-w-0 flex-1">
@@ -217,19 +222,23 @@ export function GettingStartedWidget({
             data-testid="getting-started-widget-video"
             className="mt-4 aspect-video overflow-hidden rounded-xl bg-primary/10"
           >
-            <ProductVideoPlayer
+            {/* Remounted on `videoSession` so minimizing (or a checklist reveal) drops the
+                iframe and returns to the thumbnail, rather than leaving audio playing
+                behind a collapsed pill. */}
+            <YouTubeVideoPlayer
               key={videoSession}
-              videoSrc={PRODUCT_VIDEO_SRC}
-              posterSrc={PRODUCT_VIDEO_POSTER_SRC}
+              videoId={PRODUCT_VIDEO_ID}
               title="Dalgo product overview video"
               testIdPrefix="getting-started-widget-video"
-              onFirstPlay={handlePlayVideo}
+              onPlay={handlePlayVideo}
               playButtonSize="compact"
             />
           </div>
 
-          {allComplete ? (
-            /* Figma 2863:2415 — replaces the tour link once both flows are done. */
+          {/* Figma 2863:2415 adds the docs link once both flows are done. It ADDS to the tour
+              link rather than replacing it: the tour is the one way back to a guided run of the
+              product, and a user who finished both flows is still allowed to take it. */}
+          {allComplete && (
             <p className="mt-4 text-sm text-muted-foreground">
               Need help &amp; guides?{' '}
               <a
@@ -244,17 +253,17 @@ export function GettingStartedWidget({
                 <ArrowUpRight className="h-4 w-4 shrink-0" />
               </a>
             </p>
-          ) : (
-            <button
-              type="button"
-              data-testid="getting-started-widget-tour-link"
-              onClick={handleStartTour}
-              className="mt-4 text-sm text-muted-foreground"
-            >
-              New to dalgo?{' '}
-              <span className="font-medium text-primary hover:underline">Take a 2 min tour</span>
-            </button>
           )}
+
+          <button
+            type="button"
+            data-testid="getting-started-widget-tour-link"
+            onClick={handleStartTour}
+            className={cn('block text-sm text-muted-foreground', allComplete ? 'mt-2' : 'mt-4')}
+          >
+            New to dalgo?{' '}
+            <span className="font-medium text-primary hover:underline">Take a 2 min tour</span>
+          </button>
 
           <ul className="mt-4 divide-y">
             {items.map((item) => {

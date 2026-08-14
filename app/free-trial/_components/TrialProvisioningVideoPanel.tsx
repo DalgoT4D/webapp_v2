@@ -2,10 +2,8 @@
 
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { ProductVideoPlayer } from '@/components/onboarding/product-video-player';
-
-const PRODUCT_VIDEO_SRC = '/branding/dalgo-product-overview.mp4';
-const PRODUCT_VIDEO_POSTER_SRC = '/branding/dalgo-product-overview-poster.jpg';
+import { PRODUCT_VIDEO_ID } from '@/constants/trial';
+import { YouTubeVideoPlayer } from '@/components/onboarding/youtube-video-player';
 
 export function TrialProvisioningVideoPanel() {
   const handlePlay = () => {
@@ -24,12 +22,11 @@ export function TrialProvisioningVideoPanel() {
 
       <div className="relative flex flex-1 items-center justify-center">
         <div className="aspect-video w-full max-w-[520px] overflow-hidden rounded-lg border-4 border-black bg-primary/10 shadow-2xl">
-          <ProductVideoPlayer
-            videoSrc={PRODUCT_VIDEO_SRC}
-            posterSrc={PRODUCT_VIDEO_POSTER_SRC}
+          <YouTubeVideoPlayer
+            videoId={PRODUCT_VIDEO_ID}
             title="Dalgo product overview video"
             testIdPrefix="trial-provisioning-video"
-            onFirstPlay={handlePlay}
+            onPlay={handlePlay}
           />
         </div>
       </div>

@@ -32,9 +32,12 @@ describe('GettingStartedWidget', () => {
       />
     );
 
+    // The Figma panel size, with the small-viewport caps that keep it on screen.
     expect(screen.getByTestId('getting-started-widget')).toHaveClass(
-      'w-[calc(100vw-3rem)]',
-      'max-w-[520px]'
+      'w-[499px]',
+      'min-h-[629px]',
+      'max-w-[calc(100vw-3rem)]',
+      'max-h-[calc(100vh-8rem)]'
     );
     expect(screen.getByTestId('getting-started-widget-title')).toHaveClass('sm:whitespace-nowrap');
     expect(screen.getByTestId('getting-started-widget-subtitle')).toHaveClass(
@@ -275,13 +278,8 @@ describe('GettingStartedWidget checklist', () => {
     expect(
       screen.getByRole('button', { name: 'Play Dalgo product overview video' })
     ).toBeInTheDocument();
-    expect(screen.getByTestId('getting-started-widget-video-video')).toHaveAttribute(
-      'src',
-      '/branding/dalgo-product-overview.mp4'
-    );
-    expect(screen.getByTestId('getting-started-widget-video-video')).not.toHaveAttribute(
-      'controls'
-    );
+    // Nothing from YouTube is loaded until the user asks for it.
+    expect(screen.queryByTestId('getting-started-widget-video-iframe')).not.toBeInTheDocument();
     const items = screen.getAllByTestId(/getting-started-widget-item-/);
     expect(items.map((el) => el.getAttribute('data-testid'))).toEqual([
       'getting-started-widget-item-build-insight',
@@ -289,7 +287,7 @@ describe('GettingStartedWidget checklist', () => {
     ]);
   });
 
-  it('plays and pauses the self-hosted video with the Dalgo controls', async () => {
+  it('mounts the YouTube embed only once the user clicks play, and reports it once', async () => {
     const user = userEvent.setup();
     render(
       <GettingStartedWidget
@@ -305,13 +303,13 @@ describe('GettingStartedWidget checklist', () => {
 
     await user.click(screen.getByTestId('getting-started-widget-video-play'));
 
-    expect(screen.getByTestId('getting-started-widget-video-video')).toBeInTheDocument();
+    // The privacy-preserving host and autoplay-on-click are the behaviour, not incidental:
+    // the embed is what the user asked for, so it should start without a second click.
+    expect(screen.getByTestId('getting-started-widget-video-iframe')).toHaveAttribute(
+      'src',
+      'https://www.youtube-nocookie.com/embed/R-JJNgp8xYM?autoplay=1&rel=0'
+    );
     expect(trackEvent).toHaveBeenCalledWith('onboarding:getting_started_video_played');
-
-    await user.click(screen.getByTestId('getting-started-widget-video-toggle'));
-    expect(
-      screen.getByRole('button', { name: 'Play Dalgo product overview video' })
-    ).toBeInTheDocument();
     expect(trackEvent).toHaveBeenCalledTimes(1);
   });
 
@@ -330,12 +328,14 @@ describe('GettingStartedWidget checklist', () => {
     );
 
     await user.click(screen.getByTestId('getting-started-widget-video-play'));
-    expect(screen.getByTestId('getting-started-widget-video-toggle')).toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget-video-iframe')).toBeInTheDocument();
 
     await user.click(screen.getByTestId('getting-started-widget-minimize'));
     await user.click(screen.getByTestId('getting-started-widget-pill'));
 
-    expect(screen.getByTestId('getting-started-widget-video-video')).toBeInTheDocument();
+    // The iframe is torn down rather than hidden — otherwise its audio would keep playing
+    // behind the collapsed pill.
+    expect(screen.queryByTestId('getting-started-widget-video-iframe')).not.toBeInTheDocument();
     expect(screen.getByTestId('getting-started-widget-video-play')).toBeInTheDocument();
   });
 
@@ -412,6 +412,23 @@ describe('GettingStartedWidget checklist', () => {
 
     expect(onStartTour).toHaveBeenCalledTimes(1);
     expect(trackEvent).toHaveBeenCalledWith('onboarding:getting_started_tour_link_clicked');
+  });
+
+  it('keeps the tour link available once both flows are complete, alongside the docs link', () => {
+    render(
+      <GettingStartedWidget
+        defaultOpen
+        walkthroughActive={false}
+        hasBuiltFirstInsight
+        hasAutomatedPipeline
+        onStartTour={jest.fn()}
+        onBuildInsightClick={jest.fn()}
+        onAutomatePipelineClick={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('getting-started-widget-docs-link')).toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget-tour-link')).toBeInTheDocument();
   });
 
   it('shows "Build your first insight" as checked when hasBuiltFirstInsight is true', () => {
