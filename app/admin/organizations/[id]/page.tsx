@@ -7,7 +7,6 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -36,14 +35,13 @@ export default function AdminOrganizationDetailPage() {
   const params = useParams<{ id: string }>();
   const orgId = Number(params.id);
   const { org, isLoading, mutate } = useAdminOrg(Number.isNaN(orgId) ? null : orgId);
-  const { updateOrg, deactivateOrg, reactivateOrg } = useAdminOrgActions();
+  const { updateOrg } = useAdminOrgActions();
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [vizUrl, setVizUrl] = useState('');
   const [basePlan, setBasePlan] = useState('Free Trial');
   const [saving, setSaving] = useState(false);
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (org) {
@@ -90,22 +88,6 @@ export default function AdminOrganizationDetailPage() {
     }
   };
 
-  const onToggleActive = async () => {
-    setBusy(true);
-    try {
-      if (org.is_active) {
-        await deactivateOrg(org.id);
-      } else {
-        await reactivateOrg(org.id);
-      }
-      await mutate();
-    } catch {
-      // toast already surfaced
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div className="p-8">
       <Link
@@ -119,9 +101,6 @@ export default function AdminOrganizationDetailPage() {
       <div className="mb-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold">{org.name}</h1>
-          <Badge variant={org.is_active ? 'default' : 'secondary'}>
-            {org.is_active ? 'Active' : 'Inactive'}
-          </Badge>
         </div>
         <div className="flex gap-2">
           {!editing && (
@@ -129,13 +108,6 @@ export default function AdminOrganizationDetailPage() {
               Edit
             </Button>
           )}
-          <Button
-            variant={org.is_active ? 'destructive' : 'default'}
-            disabled={busy}
-            onClick={onToggleActive}
-          >
-            {org.is_active ? 'Deactivate' : 'Reactivate'}
-          </Button>
         </div>
       </div>
 
@@ -208,7 +180,6 @@ export default function AdminOrganizationDetailPage() {
                   <Fact label="Slug">{org.slug ?? '—'}</Fact>
                   <Fact label="Plan">{org.base_plan ?? '—'}</Fact>
                   <Fact label="Users">{org.user_count}</Fact>
-                  <Fact label="Status">{org.is_active ? 'Active' : 'Inactive'}</Fact>
                 </div>
               )}
             </CardContent>

@@ -22,8 +22,6 @@ beforeEach(() => {
   (useAdminPortal.useAdminOrgUserActions as jest.Mock).mockReturnValue({
     inviteUser: mockInvite,
     changeRole: jest.fn(),
-    deactivateUser: jest.fn(),
-    reactivateUser: jest.fn(),
     removeUser: jest.fn(),
     cancelInvitation: jest.fn(),
   });

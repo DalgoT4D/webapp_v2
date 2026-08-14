@@ -1,6 +1,5 @@
 /**
- * AdminOrganizationsPage tests — the org list: rendering, search filter, and the
- * row deactivate/reactivate action.
+ * AdminOrganizationsPage tests — the org list: rendering and the search filter.
  */
 
 import React from 'react';
@@ -17,12 +16,10 @@ jest.mock('next/navigation', () => ({
 }));
 
 const orgs = [
-  { id: 1, name: 'Akshara', slug: 'akshara', base_plan: 'Dalgo', is_active: true, user_count: 5 },
-  { id: 2, name: 'Bhumi', slug: 'bhumi', base_plan: 'Free Trial', is_active: false, user_count: 2 },
+  { id: 1, name: 'Akshara', slug: 'akshara', base_plan: 'Dalgo', user_count: 5 },
+  { id: 2, name: 'Bhumi', slug: 'bhumi', base_plan: 'Free Trial', user_count: 2 },
 ];
 
-const mockDeactivate = jest.fn().mockResolvedValue({});
-const mockReactivate = jest.fn().mockResolvedValue({});
 const mockMutate = jest.fn().mockResolvedValue(undefined);
 
 beforeEach(() => {
@@ -35,18 +32,14 @@ beforeEach(() => {
   (useAdminPortal.useAdminOrgActions as jest.Mock).mockReturnValue({
     createOrg: jest.fn(),
     updateOrg: jest.fn(),
-    deactivateOrg: mockDeactivate,
-    reactivateOrg: mockReactivate,
   });
 });
 
 describe('AdminOrganizationsPage', () => {
-  it('renders a row per org with status badges', () => {
+  it('renders a row per org', () => {
     render(<AdminOrganizationsPage />);
     expect(screen.getByText('Akshara')).toBeInTheDocument();
     expect(screen.getByText('Bhumi')).toBeInTheDocument();
-    expect(screen.getByText('Active')).toBeInTheDocument();
-    expect(screen.getByText('Inactive')).toBeInTheDocument();
   });
 
   it('filters the list by the search box', async () => {
@@ -55,19 +48,5 @@ describe('AdminOrganizationsPage', () => {
     await user.type(screen.getByPlaceholderText('Search by name or slug'), 'bhumi');
     expect(screen.queryByText('Akshara')).not.toBeInTheDocument();
     expect(screen.getByText('Bhumi')).toBeInTheDocument();
-  });
-
-  it('deactivates an active org via the row action', async () => {
-    const user = userEvent.setup();
-    render(<AdminOrganizationsPage />);
-    await user.click(screen.getByRole('button', { name: 'Deactivate' }));
-    expect(mockDeactivate).toHaveBeenCalledWith(1);
-  });
-
-  it('reactivates an inactive org via the row action', async () => {
-    const user = userEvent.setup();
-    render(<AdminOrganizationsPage />);
-    await user.click(screen.getByRole('button', { name: 'Reactivate' }));
-    expect(mockReactivate).toHaveBeenCalledWith(2);
   });
 });

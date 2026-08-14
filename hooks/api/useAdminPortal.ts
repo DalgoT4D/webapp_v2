@@ -13,7 +13,6 @@ export interface AdminOrg {
   slug: string | null;
   viz_url: string | null;
   base_plan: string | null;
-  is_active: boolean;
   user_count: number;
 }
 
@@ -102,7 +101,7 @@ export function useAdminOrg(orgId: number | null) {
   };
 }
 
-/** Create / edit / deactivate / reactivate actions for orgs. */
+/** Create / edit actions for orgs. */
 export function useAdminOrgActions() {
   const createOrg = async (data: CreateAdminOrgForm): Promise<AdminOrg> => {
     try {
@@ -126,29 +125,7 @@ export function useAdminOrgActions() {
     }
   };
 
-  const deactivateOrg = async (orgId: number): Promise<AdminOrg> => {
-    try {
-      const org = (await apiPost(`/api/v1/admin/orgs/${orgId}/deactivate`, {})) as AdminOrg;
-      toastSuccess.generic('Organization deactivated');
-      return org;
-    } catch (error: any) {
-      toastError.api(error, 'Failed to deactivate organization');
-      throw error;
-    }
-  };
-
-  const reactivateOrg = async (orgId: number): Promise<AdminOrg> => {
-    try {
-      const org = (await apiPost(`/api/v1/admin/orgs/${orgId}/reactivate`, {})) as AdminOrg;
-      toastSuccess.generic('Organization reactivated');
-      return org;
-    } catch (error: any) {
-      toastError.api(error, 'Failed to reactivate organization');
-      throw error;
-    }
-  };
-
-  return { createOrg, updateOrg, deactivateOrg, reactivateOrg };
+  return { createOrg, updateOrg };
 }
 
 // ===========================================================================
@@ -161,8 +138,6 @@ export interface AdminOrgUser {
   orguser_id: number;
   email: string;
   new_role_slug: string | null;
-  /** per-org active flag (OrgUser.is_active) — NOT the global User.is_active */
-  is_active: boolean;
 }
 
 export interface AdminInvitation {
@@ -194,7 +169,7 @@ export interface AdminInviteUserForm {
   invited_role_uuid: string;
 }
 
-/** List an org's members (with per-org status) plus its pending invitations. */
+/** List an org's members plus its pending invitations. */
 export function useAdminOrgUsers(orgId: number | null) {
   const { data, error, isLoading, mutate } = useSWR<AdminOrgUsers>(
     orgId != null ? `/api/v1/admin/orgs/${orgId}/users` : null,
@@ -220,7 +195,7 @@ export async function getRemovalImpact(orgId: number, orgUserId: number): Promis
   )) as RemovalImpact;
 }
 
-/** Invite / change-role / (de)activate / remove / cancel-invite for an org's users. */
+/** Invite / change-role / remove / cancel-invite for an org's users. */
 export function useAdminOrgUserActions() {
   const inviteUser = async (orgId: number, data: AdminInviteUserForm): Promise<void> => {
     try {
@@ -240,26 +215,6 @@ export function useAdminOrgUserActions() {
       toastSuccess.generic('Role updated');
     } catch (error: any) {
       toastError.api(error, 'Failed to update role');
-      throw error;
-    }
-  };
-
-  const deactivateUser = async (orgId: number, orgUserId: number): Promise<void> => {
-    try {
-      await apiPost(`/api/v1/admin/orgs/${orgId}/users/${orgUserId}/deactivate`, {});
-      toastSuccess.generic('User deactivated in this organization');
-    } catch (error: any) {
-      toastError.api(error, 'Failed to deactivate user');
-      throw error;
-    }
-  };
-
-  const reactivateUser = async (orgId: number, orgUserId: number): Promise<void> => {
-    try {
-      await apiPost(`/api/v1/admin/orgs/${orgId}/users/${orgUserId}/reactivate`, {});
-      toastSuccess.generic('User reactivated in this organization');
-    } catch (error: any) {
-      toastError.api(error, 'Failed to reactivate user');
       throw error;
     }
   };
@@ -287,8 +242,6 @@ export function useAdminOrgUserActions() {
   return {
     inviteUser,
     changeRole,
-    deactivateUser,
-    reactivateUser,
     removeUser,
     cancelInvitation,
   };

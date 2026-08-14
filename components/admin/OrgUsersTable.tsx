@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -26,35 +25,19 @@ interface OrgUsersTableProps {
 }
 
 /**
- * The Users tab for an org in the admin portal: current members (with per-org
- * status and role/deactivate/remove actions) plus pending invitations (with
- * cancel). All actions are org-parameterized — the org id is threaded through,
- * not read from the current-org header.
+ * The Users tab for an org in the admin portal: current members (with
+ * role-change/remove actions) plus pending invitations (with cancel). All
+ * actions are org-parameterized — the org id is threaded through, not read
+ * from the current-org header.
  */
 export function OrgUsersTable({ orgId }: OrgUsersTableProps) {
   const { users, invitations, isLoading, mutate } = useAdminOrgUsers(orgId);
-  const { deactivateUser, reactivateUser, cancelInvitation } = useAdminOrgUserActions();
+  const { cancelInvitation } = useAdminOrgUserActions();
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [roleTarget, setRoleTarget] = useState<AdminOrgUser | null>(null);
   const [removeTarget, setRemoveTarget] = useState<AdminOrgUser | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
-
-  const onToggleActive = async (user: AdminOrgUser) => {
-    setBusyId(user.orguser_id);
-    try {
-      if (user.is_active) {
-        await deactivateUser(orgId, user.orguser_id);
-      } else {
-        await reactivateUser(orgId, user.orguser_id);
-      }
-      await mutate();
-    } catch {
-      // toast surfaced in the hook
-    } finally {
-      setBusyId(null);
-    }
-  };
 
   const onCancelInvite = async (invitationId: number) => {
     setBusyId(invitationId);
@@ -86,14 +69,13 @@ export function OrgUsersTable({ orgId }: OrgUsersTableProps) {
           <TableRow>
             <TableHead>Email</TableHead>
             <TableHead>Role</TableHead>
-            <TableHead>Status</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {(!users || users.length === 0) && (
             <TableRow>
-              <TableCell colSpan={4} className="text-center text-muted-foreground">
+              <TableCell colSpan={3} className="text-center text-muted-foreground">
                 No members yet. Invite the first user to get started.
               </TableCell>
             </TableRow>
@@ -102,11 +84,6 @@ export function OrgUsersTable({ orgId }: OrgUsersTableProps) {
             <TableRow key={user.orguser_id} data-testid={`org-user-row-${user.orguser_id}`}>
               <TableCell>{user.email}</TableCell>
               <TableCell>{user.new_role_slug ?? '—'}</TableCell>
-              <TableCell>
-                <Badge variant={user.is_active ? 'default' : 'secondary'}>
-                  {user.is_active ? 'Active' : 'Inactive'}
-                </Badge>
-              </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
                   <Button
@@ -116,15 +93,6 @@ export function OrgUsersTable({ orgId }: OrgUsersTableProps) {
                     data-testid={`org-user-role-${user.orguser_id}`}
                   >
                     Change role
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={busyId === user.orguser_id}
-                    onClick={() => onToggleActive(user)}
-                    data-testid={`org-user-toggle-${user.orguser_id}`}
-                  >
-                    {user.is_active ? 'Deactivate' : 'Reactivate'}
                   </Button>
                   <Button
                     variant="destructive"

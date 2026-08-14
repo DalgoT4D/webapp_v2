@@ -1,5 +1,5 @@
 /**
- * OrgUsersTable — the admin Users tab: members (with per-org status + actions)
+ * OrgUsersTable — the admin Users tab: members (with role-change/remove actions)
  * and pending invitations (with cancel). Verifies rendering and that the row
  * actions call the org-parameterized hooks with the org id threaded through.
  */
@@ -19,8 +19,8 @@ jest.mock('@/hooks/api/useUserManagement', () => ({
 const ORG_ID = 42;
 
 const users = [
-  { orguser_id: 1, email: 'active@akshara.org', new_role_slug: 'account-manager', is_active: true },
-  { orguser_id: 2, email: 'off@akshara.org', new_role_slug: 'guest', is_active: false },
+  { orguser_id: 1, email: 'active@akshara.org', new_role_slug: 'account-manager' },
+  { orguser_id: 2, email: 'off@akshara.org', new_role_slug: 'guest' },
 ];
 const invitations = [
   {
@@ -32,8 +32,6 @@ const invitations = [
 ];
 
 const mockMutate = jest.fn().mockResolvedValue(undefined);
-const mockDeactivate = jest.fn().mockResolvedValue(undefined);
-const mockReactivate = jest.fn().mockResolvedValue(undefined);
 const mockCancel = jest.fn().mockResolvedValue(undefined);
 
 beforeEach(() => {
@@ -47,20 +45,16 @@ beforeEach(() => {
   (useAdminPortal.useAdminOrgUserActions as jest.Mock).mockReturnValue({
     inviteUser: jest.fn(),
     changeRole: jest.fn(),
-    deactivateUser: mockDeactivate,
-    reactivateUser: mockReactivate,
     removeUser: jest.fn(),
     cancelInvitation: mockCancel,
   });
 });
 
 describe('OrgUsersTable', () => {
-  it('renders a member row per user with role and per-org status', () => {
+  it('renders a member row per user with role', () => {
     render(<OrgUsersTable orgId={ORG_ID} />);
     expect(screen.getByText('active@akshara.org')).toBeInTheDocument();
     expect(screen.getByText('off@akshara.org')).toBeInTheDocument();
-    expect(screen.getByText('Active')).toBeInTheDocument();
-    expect(screen.getByText('Inactive')).toBeInTheDocument();
     expect(screen.getByText('account-manager')).toBeInTheDocument();
   });
 
@@ -68,21 +62,6 @@ describe('OrgUsersTable', () => {
     render(<OrgUsersTable orgId={ORG_ID} />);
     expect(screen.getByText('pending@akshara.org')).toBeInTheDocument();
     expect(screen.getByTestId('org-invite-cancel-9')).toBeInTheDocument();
-  });
-
-  it('deactivates an active member via the row action (org id threaded through)', async () => {
-    const user = userEvent.setup();
-    render(<OrgUsersTable orgId={ORG_ID} />);
-    await user.click(screen.getByTestId('org-user-toggle-1'));
-    expect(mockDeactivate).toHaveBeenCalledWith(ORG_ID, 1);
-    await waitFor(() => expect(mockMutate).toHaveBeenCalled());
-  });
-
-  it('reactivates an inactive member via the row action', async () => {
-    const user = userEvent.setup();
-    render(<OrgUsersTable orgId={ORG_ID} />);
-    await user.click(screen.getByTestId('org-user-toggle-2'));
-    expect(mockReactivate).toHaveBeenCalledWith(ORG_ID, 2);
   });
 
   it('cancels a pending invitation scoped to this org', async () => {

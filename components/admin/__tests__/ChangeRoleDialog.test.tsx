@@ -26,7 +26,6 @@ const orgUser = {
   orguser_id: 7,
   email: 'priya@akshara.org',
   new_role_slug: 'guest',
-  is_active: true,
 };
 
 beforeEach(() => {
@@ -34,8 +33,6 @@ beforeEach(() => {
   (useAdminPortal.useAdminOrgUserActions as jest.Mock).mockReturnValue({
     inviteUser: jest.fn(),
     changeRole: mockChangeRole,
-    deactivateUser: jest.fn(),
-    reactivateUser: jest.fn(),
     removeUser: jest.fn(),
     cancelInvitation: jest.fn(),
   });

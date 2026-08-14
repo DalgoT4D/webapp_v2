@@ -20,7 +20,6 @@ const orgUser = {
   orguser_id: 7,
   email: 'priya@akshara.org',
   new_role_slug: 'guest',
-  is_active: true,
 };
 
 beforeEach(() => {
@@ -30,8 +29,6 @@ beforeEach(() => {
     removeUser: mockRemoveUser,
     inviteUser: jest.fn(),
     changeRole: jest.fn(),
-    deactivateUser: jest.fn(),
-    reactivateUser: jest.fn(),
     cancelInvitation: jest.fn(),
   });
 });
