@@ -65,7 +65,7 @@ export function useSourceSave({
       setSetupLogs([]);
       setPendingName(name);
       setLoading(true);
-      sendOrQueue({ name, sourceDefId, sourceName: sourceDefName, config: getConfig() });
+      sendOrQueue({ name, sourceDefId, sourceDefName, config: getConfig() });
     },
     [sourceDefId, sourceDefName, getConfig, sendOrQueue]
   );
@@ -84,7 +84,7 @@ export function useSourceSave({
           const created = await createSource({
             name: pendingName!,
             sourceDefId: sourceDefId!,
-            sourceName: sourceDefName,
+            sourceDefName,
             config: getConfig(),
           });
           toastSuccess.created('Source');

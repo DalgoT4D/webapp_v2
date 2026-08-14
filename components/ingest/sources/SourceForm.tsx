@@ -220,7 +220,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       await updateSource(sourceId, {
         name: sourceName,
         sourceDefId: selectedDefId!,
-        sourceName: selectedName,
+        sourceDefName: selectedName,
         config,
         sourceId,
       });
@@ -357,7 +357,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     sendOrQueue({
       name: sourceName,
       sourceDefId: selectedDefId,
-      sourceName: selectedName,
+      sourceDefName: selectedName,
       config,
       sourceId,
     });

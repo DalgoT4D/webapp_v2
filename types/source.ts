@@ -22,7 +22,7 @@ export interface CreateSourcePayload {
   config: Record<string, unknown>;
   /** Source-DEFINITION name (e.g. "Google Sheets"). Tells the backend whether to fill in
    *  Dalgo's managed service-account key. */
-  sourceName: string;
+  sourceDefName: string;
 }
 
 export interface UpdateSourcePayload {
@@ -32,7 +32,7 @@ export interface UpdateSourcePayload {
   sourceId: string;
   /** Source-DEFINITION name (e.g. "Google Sheets"). Tells the backend whether to fill in
    *  Dalgo's managed service-account key. */
-  sourceName: string;
+  sourceDefName: string;
 }
 
 /** Response from starting the Google OAuth flow (Variant A): the Google consent URL
