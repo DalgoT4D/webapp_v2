@@ -25,6 +25,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
 import { ShareModal } from '@/components/ui/share-modal';
+import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -466,7 +467,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   // Chart refs for export
   const [chartElement, setChartElement] = useState<HTMLElement | null>(null);
   const [chartInstance, setChartInstance] = useState<echarts.ECharts | null>(null);
-  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const { initialOpen: shouldAutoOpenShare, clearParam: clearShareDeepLink } =
+    useOpenShareDeepLink();
+  const [shareModalOpen, setShareModalOpen] = useState(shouldAutoOpenShare);
 
   // Handle share (mirrors dashboard-native-view)
   const handleShare = () => {
@@ -475,6 +478,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
 
   const handleShareModalClose = () => {
     setShareModalOpen(false);
+    clearShareDeepLink();
   };
   const chartContentRef = useRef<HTMLDivElement>(null);
 

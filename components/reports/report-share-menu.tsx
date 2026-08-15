@@ -13,6 +13,7 @@ import { ShareViaLinkDialog } from '@/components/reports/share-via-link-dialog';
 import { ShareViaEmailDialog } from '@/components/reports/share-via-email-dialog';
 import { getReportSharingStatus } from '@/hooks/api/useReports';
 import { toastError } from '@/lib/toast';
+import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 
 interface ReportShareMenuProps {
   snapshotId: number;
@@ -21,7 +22,9 @@ interface ReportShareMenuProps {
 }
 
 export function ReportShareMenu({ snapshotId, reportTitle, isPrivate }: ReportShareMenuProps) {
-  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const { initialOpen: shouldAutoOpenShare, clearParam: clearShareDeepLink } =
+    useOpenShareDeepLink();
+  const [linkDialogOpen, setLinkDialogOpen] = useState(shouldAutoOpenShare);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
   const checkShareAccess = useCallback(async (): Promise<boolean> => {
@@ -77,7 +80,10 @@ export function ReportShareMenu({ snapshotId, reportTitle, isPrivate }: ReportSh
         snapshotId={snapshotId}
         reportTitle={reportTitle}
         isOpen={linkDialogOpen}
-        onClose={() => setLinkDialogOpen(false)}
+        onClose={() => {
+          setLinkDialogOpen(false);
+          clearShareDeepLink();
+        }}
         initialIsPrivate={isPrivate ?? false}
       />
       <ShareViaEmailDialog

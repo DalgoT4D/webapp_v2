@@ -187,7 +187,9 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
         }
       }
 
-      throw new Error(errorMessage);
+      const err = new Error(errorMessage) as Error & { status: number };
+      err.status = response.status;
+      throw err;
     }
 
     return data;

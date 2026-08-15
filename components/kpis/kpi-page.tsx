@@ -39,6 +39,7 @@ import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useK
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { ShareModal } from '@/components/ui/share-modal';
+import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
 import { KPIDeleteDialog } from './kpi-delete-dialog';
@@ -175,6 +176,9 @@ export function KPIPageComponent() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [alertKpiId, setAlertKpiId] = useState<number | null>(null);
   const [shareModalKpi, setShareModalKpi] = useState<KPI | null>(null);
+  const { initialOpen: shouldAutoOpenShare, clearParam: clearShareDeepLink } = useOpenShareDeepLink(
+    ['kpiId']
+  );
 
   const { hasPermission } = useRbac();
   // Create/edit/delete affordances are hidden for view-only roles (members) and
@@ -220,6 +224,20 @@ export function KPIPageComponent() {
       router.replace(qs ? `/kpis?${qs}` : '/kpis', { scroll: false });
     }
   }, [searchParams, kpis, router]);
+
+  // Auto-open share modal when ?openShare=true&kpiId={id} is in the URL —
+  // deep link from an access-request notification.
+  useEffect(() => {
+    if (!shouldAutoOpenShare || kpis.length === 0) return;
+    const kpiId = searchParams.get('kpiId');
+    if (!kpiId) return;
+    const kpi = kpis.find((k) => k.id === parseInt(kpiId));
+    if (kpi) {
+      setShareModalKpi(kpi);
+    }
+    clearShareDeepLink();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldAutoOpenShare, kpis]);
 
   // Strip `?create=true` after consuming it on mount so a refresh doesn't
   // re-open the create form.
@@ -510,7 +528,10 @@ export function KPIPageComponent() {
           entityId={shareModalKpi.id}
           entityLabel={shareModalKpi.name}
           isOpen={shareModalKpi !== null}
-          onClose={() => setShareModalKpi(null)}
+          onClose={() => {
+            setShareModalKpi(null);
+            clearShareDeepLink();
+          }}
           onUpdate={mutate}
           initialIsPrivate={shareModalKpi.is_private ?? false}
         />

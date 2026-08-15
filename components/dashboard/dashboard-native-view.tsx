@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 import GridLayoutLib, {
   Responsive as ResponsiveGridLayout,
   WidthProvider as GridLayoutWidthProvider,
@@ -265,6 +266,8 @@ export function DashboardNativeView({
   autoOpenCommentChartId,
 }: DashboardNativeViewProps) {
   const router = useRouter();
+  const { initialOpen: initialShareModalOpen, clearParam: clearShareDeepLink } =
+    useOpenShareDeepLink();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>(() => {
     // In report mode, dashboardData is pre-fetched so filters are available immediately.
     // Compute defaults synchronously to avoid a double-render cycle with empty filters.
@@ -282,7 +285,7 @@ export function DashboardNativeView({
     typeof window !== 'undefined' ? window.innerWidth : 1200
   );
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
-  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(initialShareModalOpen);
   const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
   // Filters panel collapse state
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
@@ -513,6 +516,7 @@ export function DashboardNativeView({
   // Handle share modal close
   const handleShareModalClose = () => {
     setShareModalOpen(false);
+    clearShareDeepLink();
   };
 
   // Handle dashboard update after sharing changes
