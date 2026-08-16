@@ -120,9 +120,27 @@ export interface AccessDefaults {
   allow_public_sharing: boolean;
 }
 
+export type GeneralAccessMode = 'everyone' | 'private' | 'public';
+
+export interface GeneralAccessState {
+  mode: GeneralAccessMode;
+  supports_public: boolean;
+  allow_public_sharing: boolean;
+  public_url?: string | null;
+  public_access_count: number;
+  last_public_accessed?: string | null;
+}
+
+export interface OwnerInfo {
+  email: string;
+  role_name?: string | null;
+}
+
 interface GrantsResponse {
   shares: ShareRow[];
   caller_is_owner: boolean;
+  general_access: GeneralAccessState;
+  owner?: OwnerInfo | null;
 }
 
 export function useResourceGrants(rtype: string | null, resourceId: number | string | null) {
@@ -131,6 +149,8 @@ export function useResourceGrants(rtype: string | null, resourceId: number | str
   return {
     shares: data?.shares,
     callerIsOwner: data?.caller_is_owner ?? false,
+    generalAccess: data?.general_access,
+    owner: data?.owner ?? null,
     isLoading,
     error,
     mutate,
@@ -192,16 +212,26 @@ export async function transferOwnership(
   }
 }
 
-export async function toggleResourcePrivate(
+export interface UpdateGeneralAccessResponse {
+  mode: GeneralAccessMode;
+  is_private: boolean;
+  is_public: boolean;
+  public_url?: string;
+  public_share_token?: string;
+}
+
+export async function updateGeneralAccess(
   rtype: string,
   resourceId: number,
-  isPrivate: boolean
-): Promise<void> {
+  mode: GeneralAccessMode
+): Promise<UpdateGeneralAccessResponse> {
   try {
-    await apiPatch(`/api/access/${rtype}/${resourceId}/private`, { is_private: isPrivate });
-    toast.success(isPrivate ? 'Resource set to private' : 'Resource set to public');
+    const res = (await apiPatch(`/api/access/${rtype}/${resourceId}/general-access`, {
+      mode,
+    })) as UpdateGeneralAccessResponse;
+    return res;
   } catch (error: any) {
-    toast.error(error?.message || 'Failed to update privacy');
+    toast.error(error?.message || 'Failed to update access');
     throw error;
   }
 }

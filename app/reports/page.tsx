@@ -609,7 +609,6 @@ export default function ReportsPage() {
                                 <ReportShareMenu
                                   snapshotId={snapshot.id}
                                   reportTitle={snapshot.title}
-                                  isPrivate={snapshot.is_private ?? false}
                                 />
                               )}
                               <DropdownMenu>

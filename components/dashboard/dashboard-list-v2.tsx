@@ -89,13 +89,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format, formatDistanceToNow } from 'date-fns';
-import {
-  useDashboards,
-  deleteDashboard,
-  duplicateDashboard,
-  getDashboardSharingStatus,
-  updateDashboardSharing,
-} from '@/hooks/api/useDashboards';
+import { useDashboards, deleteDashboard, duplicateDashboard } from '@/hooks/api/useDashboards';
 import { ShareModal } from '@/components/ui/share-modal';
 import { bulkAddGrant } from '@/hooks/api/useAccess';
 import {
@@ -2119,13 +2113,6 @@ export function DashboardListV2() {
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
-          initialShareStatus={{
-            is_public: selectedDashboard.is_public,
-            public_access_count: selectedDashboard.public_access_count,
-          }}
-          initialIsPrivate={selectedDashboard.is_private ?? false}
-          getShareStatus={getDashboardSharingStatus}
-          updateSharing={updateDashboardSharing}
         />
       )}
 

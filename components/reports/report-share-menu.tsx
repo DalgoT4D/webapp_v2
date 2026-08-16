@@ -9,47 +9,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ShareViaLinkDialog } from '@/components/reports/share-via-link-dialog';
+import { ShareModal } from '@/components/ui/share-modal';
 import { ShareViaEmailDialog } from '@/components/reports/share-via-email-dialog';
-import { getReportSharingStatus } from '@/hooks/api/useReports';
-import { toastError } from '@/lib/toast';
 import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 
 interface ReportShareMenuProps {
   snapshotId: number;
   reportTitle?: string;
-  isPrivate?: boolean;
 }
 
-export function ReportShareMenu({ snapshotId, reportTitle, isPrivate }: ReportShareMenuProps) {
+export function ReportShareMenu({ snapshotId, reportTitle }: ReportShareMenuProps) {
   const { initialOpen: shouldAutoOpenShare, clearParam: clearShareDeepLink } =
     useOpenShareDeepLink();
   const [linkDialogOpen, setLinkDialogOpen] = useState(shouldAutoOpenShare);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
-  const checkShareAccess = useCallback(async (): Promise<boolean> => {
-    try {
-      await getReportSharingStatus(snapshotId);
-      return true;
-    } catch (error) {
-      toastError.load(error, 'sharing status');
-      return false;
-    }
-  }, [snapshotId]);
-
-  const handleOpenLinkDialog = useCallback(async () => {
-    const hasAccess = await checkShareAccess();
-    if (hasAccess) {
-      setLinkDialogOpen(true);
-    }
-  }, [checkShareAccess]);
-
-  const handleOpenEmailDialog = useCallback(async () => {
-    const hasAccess = await checkShareAccess();
-    if (hasAccess) {
-      setEmailDialogOpen(true);
-    }
-  }, [checkShareAccess]);
+  const handleOpenLinkDialog = useCallback(() => setLinkDialogOpen(true), []);
+  const handleOpenEmailDialog = useCallback(() => setEmailDialogOpen(true), []);
 
   return (
     <>
@@ -76,15 +52,15 @@ export function ReportShareMenu({ snapshotId, reportTitle, isPrivate }: ReportSh
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <ShareViaLinkDialog
-        snapshotId={snapshotId}
-        reportTitle={reportTitle}
+      <ShareModal
+        rtype="report"
+        entityId={snapshotId}
+        entityLabel={reportTitle || 'Report'}
         isOpen={linkDialogOpen}
         onClose={() => {
           setLinkDialogOpen(false);
           clearShareDeepLink();
         }}
-        initialIsPrivate={isPrivate ?? false}
       />
       <ShareViaEmailDialog
         snapshotId={snapshotId}

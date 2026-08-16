@@ -194,11 +194,7 @@ export default function SnapshotViewerPage() {
               )}
             </Button>
             {canShare && (
-              <ReportShareMenu
-                snapshotId={parsedId}
-                reportTitle={report_metadata.title}
-                isPrivate={report_metadata.is_private ?? false}
-              />
+              <ReportShareMenu snapshotId={parsedId} reportTitle={report_metadata.title} />
             )}
           </div>
         </div>

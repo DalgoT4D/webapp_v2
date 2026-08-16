@@ -1017,7 +1017,6 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           entityLabel={chart.title || 'Chart'}
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
-          initialIsPrivate={chart.is_private ?? false}
         />
       )}
     </div>

@@ -533,7 +533,6 @@ export function KPIPageComponent() {
             clearShareDeepLink();
           }}
           onUpdate={mutate}
-          initialIsPrivate={shareModalKpi.is_private ?? false}
         />
       )}
     </div>

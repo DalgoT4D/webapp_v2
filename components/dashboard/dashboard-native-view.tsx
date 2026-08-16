@@ -73,7 +73,6 @@ import {
 } from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
 import { ShareModal } from '@/components/ui/share-modal';
-import { getDashboardSharingStatus, updateDashboardSharing } from '@/hooks/api/useDashboards';
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -1485,13 +1484,6 @@ export function DashboardNativeView({
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
-          initialShareStatus={{
-            is_public: dashboard.is_public,
-            public_access_count: dashboard.public_access_count,
-          }}
-          initialIsPrivate={dashboard.is_private ?? false}
-          getShareStatus={getDashboardSharingStatus}
-          updateSharing={updateDashboardSharing}
         />
       )}
     </div>

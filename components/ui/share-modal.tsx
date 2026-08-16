@@ -5,13 +5,10 @@ import { copyUrlToClipboard } from '@/lib/clipboard';
 import {
   AlertTriangle,
   Copy,
-  Lock,
   Loader2,
   Mail,
   Send,
-  Share2,
   Shield,
-  Trash2,
   User as UserIcon,
   Users as UsersIcon,
   X,
@@ -20,7 +17,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -34,17 +30,17 @@ import {
 import { toastError, toastSuccess } from '@/lib/toast';
 import {
   respondToAccessRequest,
-  toggleResourcePrivate,
   transferOwnership,
+  updateGeneralAccess,
   useAccessRequests,
   usePeople,
   useResourceGrantActions,
   useResourceGrants,
   useUserGroups,
+  type GeneralAccessMode,
 } from '@/hooks/api/useAccess';
 import { useRoles } from '@/hooks/api/useUserManagement';
 import type { AccessLevel, PrincipalType, ShareRow } from '@/types/access';
-import type { ShareStatus } from '@/types/reports';
 import { useAuthStore } from '@/stores/authStore';
 import { ADMIN_ROLES } from '@/lib/rbac';
 
@@ -63,25 +59,18 @@ interface StagedChip {
 
 interface ShareModalProps {
   /** The resource type identifier (e.g. "dashboard"). When provided, enables
-   * the chip typeahead + "People with access" section that hits the grants API.
-   * Legacy callers (Reports) omit this and rely on the public/email sections. */
+   * the chip typeahead + "People with access" + "General access" sections. */
   rtype?: string;
   entityId: number;
   entityLabel: string;
   isOpen: boolean;
   onClose: () => void;
   onUpdate?: () => void;
-  /** Public-sharing bits — kept for existing dashboard/report callers. */
-  initialShareStatus?: Partial<ShareStatus>;
-  getShareStatus?: (id: number) => Promise<ShareStatus>;
-  updateSharing?: (id: number, data: { is_public: boolean }) => Promise<ShareStatus>;
   /** Reports still use this legacy path. */
   onShareViaEmail?: (data: {
     recipient_emails: string[];
     message?: string;
   }) => Promise<{ recipients_count: number; message: string }>;
-  /** Private toggle — when true, resource is hidden from org floor access. */
-  initialIsPrivate?: boolean;
 }
 
 export function ShareModal({
@@ -91,11 +80,7 @@ export function ShareModal({
   isOpen,
   onClose,
   onUpdate,
-  initialShareStatus,
-  getShareStatus,
-  updateSharing,
   onShareViaEmail,
-  initialIsPrivate = false,
 }: ShareModalProps) {
   const entityLabelLower = entityLabel.toLowerCase();
 
@@ -113,6 +98,8 @@ export function ShareModal({
   const {
     shares,
     callerIsOwner,
+    generalAccess,
+    owner,
     mutate: mutateGrants,
   } = useResourceGrants(isOpen && rtype ? rtype : null, isOpen && rtype ? entityId : null);
   const isOwnerOrAdmin = callerIsOwner || isAdmin;
@@ -133,22 +120,8 @@ export function ShareModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rowBusyId, setRowBusyId] = useState<number | null>(null);
 
-  // Public-sharing state (kept for existing callers)
-  const [isPublicLoading, setIsPublicLoading] = useState(false);
-  const [shareStatus, setShareStatus] = useState<ShareStatus>({
-    is_public: initialShareStatus?.is_public ?? false,
-    public_access_count: initialShareStatus?.public_access_count ?? 0,
-  });
-
-  // Private toggle state
-  const [isPrivate, setIsPrivate] = useState(initialIsPrivate);
-  const [isPrivateLoading, setIsPrivateLoading] = useState(false);
-  // Re-sync when parent's initialIsPrivate changes (e.g., after mutate refreshes
-  // the resource). Without this the toggle keeps its stale local state across
-  // modal open/close cycles.
-  useEffect(() => {
-    setIsPrivate(initialIsPrivate);
-  }, [initialIsPrivate]);
+  // General access
+  const [modeChanging, setModeChanging] = useState(false);
 
   // Cascade confirmation state (dashboard grants only)
   const [pendingAction, setPendingAction] = useState<
@@ -166,20 +139,6 @@ export function ShareModal({
   const [recipientEmails, setRecipientEmails] = useState<string[]>([]);
   const [personalMessage, setPersonalMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
-
-  const fetchShareStatus = useCallback(async () => {
-    if (!getShareStatus) return;
-    try {
-      const status = await getShareStatus(entityId);
-      setShareStatus(status);
-    } catch (error) {
-      toastError.load(error, 'sharing status');
-    }
-  }, [entityId, getShareStatus]);
-
-  useEffect(() => {
-    if (isOpen && entityId) fetchShareStatus();
-  }, [isOpen, entityId, fetchShareStatus]);
 
   // Reset staging when modal closes
   useEffect(() => {
@@ -480,54 +439,30 @@ export function ShareModal({
     }
   };
 
-  // -------- Private toggle --------
+  // -------- General access (Everyone / Private / Public) --------
 
-  const handleTogglePrivate = async (next: boolean) => {
-    if (!rtype) return;
-    setIsPrivateLoading(true);
+  const handleModeChange = async (next: GeneralAccessMode) => {
+    if (!rtype || !generalAccess || next === generalAccess.mode) return;
+    if (next === 'public' && !generalAccess.allow_public_sharing) return;
+    setModeChanging(true);
     try {
-      await toggleResourcePrivate(rtype, entityId, next);
-      setIsPrivate(next);
+      const res = await updateGeneralAccess(rtype, entityId, next);
+      if (next === 'public' && res.public_url) {
+        toastSuccess.generic(`${entityLabel} is now public`);
+        await copyUrlToClipboard(res.public_url);
+      }
+      mutateGrants();
       onUpdate?.();
     } catch {
       // handled in hook
     } finally {
-      setIsPrivateLoading(false);
+      setModeChanging(false);
     }
   };
 
-  // -------- Public sharing (legacy pass-through) --------
-
-  const handleTogglePublic = useCallback(
-    async (nextPublic: boolean) => {
-      if (!updateSharing) return;
-      setIsPublicLoading(true);
-      try {
-        const response = await updateSharing(entityId, { is_public: nextPublic });
-        setShareStatus((prev) => ({
-          ...prev,
-          is_public: response.is_public,
-          public_url: response.public_url,
-        }));
-        if (nextPublic && response.public_url) {
-          toastSuccess.generic(`${entityLabel} is now public`);
-          await copyUrlToClipboard(response.public_url);
-        } else {
-          toastSuccess.generic(`${entityLabel} sharing disabled`);
-        }
-        onUpdate?.();
-      } catch (error) {
-        toastError.share(error);
-      } finally {
-        setIsPublicLoading(false);
-      }
-    },
-    [entityId, entityLabel, updateSharing, onUpdate]
-  );
-
-  const handleCopyUrl = useCallback(async () => {
-    if (shareStatus.public_url) await copyUrlToClipboard(shareStatus.public_url);
-  }, [shareStatus.public_url]);
+  const handleCopyPublicUrl = useCallback(async () => {
+    if (generalAccess?.public_url) await copyUrlToClipboard(generalAccess.public_url);
+  }, [generalAccess?.public_url]);
 
   // -------- Legacy email share (Reports) --------
 
@@ -579,13 +514,12 @@ export function ShareModal({
       );
       setRecipientEmails([]);
       setPersonalMessage('');
-      fetchShareStatus();
     } catch {
       toastError.api('Failed to send emails');
     } finally {
       setIsSending(false);
     }
-  }, [onShareViaEmail, recipientEmails, personalMessage, fetchShareStatus, entityLabel]);
+  }, [onShareViaEmail, recipientEmails, personalMessage, entityLabel]);
 
   // -------- Render --------
 
@@ -593,10 +527,7 @@ export function ShareModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent data-testid="share-modal" className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Share2 className="h-5 w-5" />
-            Share &quot;{entityLabel}&quot;
-          </DialogTitle>
+          <DialogTitle>Share &quot;{entityLabel}&quot;</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5">
@@ -657,13 +588,13 @@ export function ShareModal({
 
               {/* Staged items (users/groups/pending emails to be shared with on Share) */}
               {chips.length > 0 && (
-                <div className="border rounded-md">
-                  {chips.map((chip, idx) => (
+                <div className="space-y-1">
+                  {chips.map((chip) => (
                     <div
                       key={chip.key}
-                      className={`flex items-center gap-3 px-3 py-2 ${idx > 0 ? 'border-t' : ''}`}
+                      className="flex items-center gap-3 rounded-md bg-gray-50 px-3 py-2"
                     >
-                      <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary">
+                      <span className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary">
                         {chip.kind === 'group' ? (
                           <UsersIcon className="h-4 w-4" />
                         ) : chip.kind === 'email' ? (
@@ -672,28 +603,36 @@ export function ShareModal({
                           <UserIcon className="h-4 w-4" />
                         )}
                       </span>
-                      <span className="flex-1 text-sm text-gray-900 truncate">{chip.label}</span>
-                      <Select
-                        value={chip.access_level}
-                        onValueChange={(v) => setChipLevel(chip.key, v as AccessLevel)}
-                      >
-                        <SelectTrigger className="w-24 h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="view">View</SelectItem>
-                          <SelectItem value="edit">Edit</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 p-0"
-                        onClick={() => removeChip(chip.key)}
-                        aria-label={`Remove ${chip.label}`}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      <span className="text-sm text-gray-900 truncate">{chip.label}</span>
+                      {chip.kind === 'user' &&
+                        activeUserByEmail.get(chip.label.toLowerCase())?.role_name && (
+                          <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600 shrink-0">
+                            {activeUserByEmail.get(chip.label.toLowerCase())?.role_name}
+                          </span>
+                        )}
+                      <div className="ml-auto flex items-center gap-1">
+                        <Select
+                          value={chip.access_level}
+                          onValueChange={(v) => setChipLevel(chip.key, v as AccessLevel)}
+                        >
+                          <SelectTrigger className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-100 focus:ring-0 focus-visible:ring-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="view">View</SelectItem>
+                            <SelectItem value="edit">Edit</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
+                          onClick={() => removeChip(chip.key)}
+                          aria-label={`Remove ${chip.label}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -754,96 +693,169 @@ export function ShareModal({
               {/* People with access */}
               <div className="space-y-3">
                 <Label className="text-sm font-medium text-gray-900">People with access</Label>
-                {(shares ?? []).length === 0 ? (
-                  <div className="text-sm text-muted-foreground">
-                    Only the owner has access right now.
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                    {shares!.map((s, idx) => (
-                      <div key={s.share_id ?? `cascade-${idx}`} className="flex items-center gap-3">
-                        <span className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary">
-                          {s.principal_type === 'group' ? (
-                            <UsersIcon className="h-4 w-4" />
-                          ) : s.status === 'pending' ? (
-                            <Mail className="h-4 w-4" />
-                          ) : (
-                            <UserIcon className="h-4 w-4" />
-                          )}
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                  {owner && (
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary">
+                        <UserIcon className="h-4 w-4" />
+                      </span>
+                      <span className="text-sm text-gray-900 truncate">{owner.email}</span>
+                      {owner.role_name && (
+                        <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                          {owner.role_name}
                         </span>
-                        <span className="text-sm text-gray-900 truncate">{s.label}</span>
-                        {s.role_or_group && (
-                          <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                            {s.role_or_group}
-                          </span>
+                      )}
+                      <span className="ml-auto text-sm text-gray-500">Owner</span>
+                    </div>
+                  )}
+                  {(shares ?? []).length === 0 && !owner && (
+                    <div className="text-sm text-muted-foreground">
+                      Only the owner has access right now.
+                    </div>
+                  )}
+                  {(shares ?? []).map((s, idx) => (
+                    <div key={s.share_id ?? `cascade-${idx}`} className="flex items-center gap-3">
+                      <span className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary">
+                        {s.principal_type === 'group' ? (
+                          <UsersIcon className="h-4 w-4" />
+                        ) : s.status === 'pending' ? (
+                          <Mail className="h-4 w-4" />
+                        ) : (
+                          <UserIcon className="h-4 w-4" />
                         )}
-                        {s.status === 'pending' && (
-                          <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
-                            Pending
-                          </span>
-                        )}
-                        <div className="ml-auto flex items-center gap-1">
-                          <Select
-                            value={s.access_level}
-                            onValueChange={(v) => {
-                              if (v === 'transfer') {
-                                setTransferTarget(s);
-                                return;
-                              }
-                              handleRowLevelChange(s, v as AccessLevel);
-                            }}
-                            disabled={rowBusyId != null && rowBusyId === s.share_id}
-                          >
-                            <SelectTrigger className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-50 focus:ring-0 focus-visible:ring-0">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="view">View</SelectItem>
-                              <SelectItem value="edit">Edit</SelectItem>
-                              {isOwnerOrAdmin &&
-                                s.principal_type === 'user' &&
-                                s.principal_id != null && (
-                                  <SelectItem value="transfer">Transfer ownership</SelectItem>
-                                )}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
-                            onClick={() => handleRowRemove(s)}
-                            disabled={rowBusyId === s.share_id || s.share_id === null}
-                            aria-label={`Remove ${s.label}`}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
+                      </span>
+                      <span className="text-sm text-gray-900 truncate">{s.label}</span>
+                      {s.role_or_group && (
+                        <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                          {s.role_or_group}
+                        </span>
+                      )}
+                      {s.status === 'pending' && (
+                        <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
+                          Pending
+                        </span>
+                      )}
+                      <div className="ml-auto flex items-center gap-1">
+                        <Select
+                          value={s.access_level}
+                          onValueChange={(v) => {
+                            if (v === 'transfer') {
+                              setTransferTarget(s);
+                              return;
+                            }
+                            handleRowLevelChange(s, v as AccessLevel);
+                          }}
+                          disabled={rowBusyId != null && rowBusyId === s.share_id}
+                        >
+                          <SelectTrigger className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-50 focus:ring-0 focus-visible:ring-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="view">View</SelectItem>
+                            <SelectItem value="edit">Edit</SelectItem>
+                            {isOwnerOrAdmin &&
+                              s.principal_type === 'user' &&
+                              s.principal_id != null && (
+                                <SelectItem value="transfer">Transfer ownership</SelectItem>
+                              )}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
+                          onClick={() => handleRowRemove(s)}
+                          disabled={rowBusyId === s.share_id || s.share_id === null}
+                          aria-label={`Remove ${s.label}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </>
           )}
 
-          {/* Private toggle */}
-          {rtype && (
-            <div className="flex items-center justify-between py-2 border-t">
-              <div className="flex items-center gap-2">
-                <Lock className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Private</p>
-                  <p className="text-xs text-muted-foreground">
-                    Only people explicitly shared with can access this {entityLabelLower}
-                  </p>
+          {/* General access — Everyone / Private / Public */}
+          {rtype && generalAccess && (
+            <div className="rounded-md border p-4">
+              <div className="flex items-start gap-3">
+                <Shield className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">General access</p>
+                      <p className="text-xs text-muted-foreground">
+                        {generalAccess.mode === 'everyone' &&
+                          'Everyone in your organisation can access this, based on their role'}
+                        {generalAccess.mode === 'private' &&
+                          `Only people you share with can access this ${entityLabelLower}`}
+                        {generalAccess.mode === 'public' &&
+                          (generalAccess.allow_public_sharing
+                            ? 'Everyone in your organisation, plus anyone with the link.'
+                            : 'Public sharing is turned off by your admin')}
+                      </p>
+                    </div>
+                    <Select
+                      value={generalAccess.mode}
+                      onValueChange={(v) => handleModeChange(v as GeneralAccessMode)}
+                      disabled={modeChanging}
+                    >
+                      <SelectTrigger className="w-28 h-8" data-testid="general-access-select">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="everyone">Everyone</SelectItem>
+                        <SelectItem value="private">Private</SelectItem>
+                        {generalAccess.supports_public && (
+                          <SelectItem value="public" disabled={!generalAccess.allow_public_sharing}>
+                            Public
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {generalAccess.mode === 'public' && generalAccess.allow_public_sharing && (
+                    <>
+                      <div className="mt-3 flex items-start gap-2 rounded-md border border-orange-200 bg-orange-50 p-3">
+                        <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                        <div className="text-xs text-orange-800">
+                          <strong>Security Notice:</strong> Your data is now exposed to the
+                          internet. Anyone with this link can access your {entityLabelLower} data
+                          without authentication.
+                        </div>
+                      </div>
+
+                      {generalAccess.public_url && (
+                        <Button
+                          variant="outline"
+                          onClick={handleCopyPublicUrl}
+                          className="mt-3 w-full"
+                          data-testid="copy-link-btn"
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          COPY PUBLIC LINK
+                        </Button>
+                      )}
+
+                      {generalAccess.public_access_count > 0 && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          <p>Public access count: {generalAccess.public_access_count}</p>
+                          {generalAccess.last_public_accessed && (
+                            <p>
+                              Last accessed:{' '}
+                              {new Date(generalAccess.last_public_accessed).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
-              <Switch
-                checked={isPrivate}
-                onCheckedChange={handleTogglePrivate}
-                disabled={isPrivateLoading}
-                data-testid="private-toggle"
-              />
             </div>
           )}
 
@@ -898,68 +910,6 @@ export function ShareModal({
                 </div>
               </DialogContent>
             </Dialog>
-          )}
-
-          {/* Public sharing (kept for existing callers) */}
-          {updateSharing && !isPrivate && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Shield className="h-5 w-5 text-green-600" />
-                      <div>
-                        <Label className="text-sm font-medium">Public sharing</Label>
-                        <p className="text-xs text-muted-foreground">
-                          Anyone with the link can view this {entityLabelLower}
-                        </p>
-                      </div>
-                    </div>
-                    <Switch
-                      data-testid="share-toggle"
-                      checked={shareStatus.is_public}
-                      onCheckedChange={handleTogglePublic}
-                      disabled={isPublicLoading}
-                    />
-                  </div>
-
-                  {shareStatus.is_public && (
-                    <div className="flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-md">
-                      <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                      <div className="text-xs text-orange-800">
-                        <strong>Security Notice:</strong> Your data is now exposed to the internet.
-                        Anyone with this link can access your {entityLabelLower} data without
-                        authentication.
-                      </div>
-                    </div>
-                  )}
-
-                  {shareStatus.is_public && shareStatus.public_url && (
-                    <Button
-                      variant="outline"
-                      onClick={handleCopyUrl}
-                      className="w-full"
-                      data-testid="copy-link-btn"
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy Public Link
-                    </Button>
-                  )}
-
-                  {shareStatus.is_public && shareStatus.public_access_count > 0 && (
-                    <div className="text-xs text-muted-foreground">
-                      <p>Public access count: {shareStatus.public_access_count}</p>
-                      {shareStatus.last_public_accessed && (
-                        <p>
-                          Last accessed:{' '}
-                          {new Date(shareStatus.last_public_accessed).toLocaleString()}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
           )}
 
           {/* Legacy email share (Reports) */}
@@ -1106,7 +1056,7 @@ export function ShareModal({
 
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={onClose} data-testid="share-close-btn">
-              Cancel
+              CANCEL
             </Button>
             <Button
               variant="primary"
@@ -1114,7 +1064,7 @@ export function ShareModal({
               disabled={isSubmitting || chips.length === 0}
               data-testid="share-submit-btn"
             >
-              {isSubmitting ? 'Sharing…' : 'Share'}
+              {isSubmitting ? 'SHARING…' : 'SHARE'}
             </Button>
           </div>
         </div>

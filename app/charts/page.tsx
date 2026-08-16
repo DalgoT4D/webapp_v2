@@ -1499,7 +1499,6 @@ export default function ChartsPage() {
           entityLabel={shareChart.title || 'Chart'}
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
-          initialIsPrivate={shareChart.is_private ?? false}
         />
       )}
 
