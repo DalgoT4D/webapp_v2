@@ -251,4 +251,42 @@ describe('StreamConfigTable progressive disclosure', () => {
     );
     expect(screen.getByText(/Select your sheets/)).toBeInTheDocument();
   });
+
+  it('hides the scroll hint when there is only one stream', () => {
+    render(<StreamConfigTable {...baseProps} advancedOpen={false} onToggleAdvanced={jest.fn()} />);
+    expect(screen.queryByTestId('streams-scroll-hint')).not.toBeInTheDocument();
+  });
+
+  it('tells the user to scroll for the tables below the fold', () => {
+    const streams = [
+      stream('form_one', true),
+      stream('form_two', true),
+      stream('form_three', true),
+    ];
+    render(
+      <StreamConfigTable
+        {...baseProps}
+        streams={streams}
+        filteredStreams={streams}
+        advancedOpen={false}
+        onToggleAdvanced={jest.fn()}
+      />
+    );
+    expect(screen.getByTestId('streams-scroll-hint')).toHaveTextContent('Scroll to see all tables');
+  });
+
+  it('uses the streamNoun in the scroll hint', () => {
+    const streams = [stream('form_one', true), stream('form_two', true)];
+    render(
+      <StreamConfigTable
+        {...baseProps}
+        streams={streams}
+        filteredStreams={streams}
+        streamNoun="Sheets"
+        advancedOpen={false}
+        onToggleAdvanced={jest.fn()}
+      />
+    );
+    expect(screen.getByTestId('streams-scroll-hint')).toHaveTextContent('Scroll to see all sheets');
+  });
 });

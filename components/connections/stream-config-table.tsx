@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ChevronDown, SlidersHorizontal } from 'lucide-react';
+import { ChevronDown, ChevronsDown, SlidersHorizontal } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -33,6 +33,9 @@ const CURSOR_PK_COLUMN_COUNT = 2;
 // containing region scroll horizontally instead of squeezing every field.
 const FULL_ADVANCED_TABLE_WIDTH_CLASS = 'min-w-[1080px]';
 const CAST_ADVANCED_TABLE_WIDTH_CLASS = 'min-w-[760px]';
+// The dialog only ever shows the first row or two before the fold, so with more
+// than one table the list is guaranteed to be cut off and needs a scroll hint.
+const SCROLL_HINT_MIN_STREAMS = 2;
 
 interface StreamConfigTableProps {
   streams: SourceStream[];
@@ -162,11 +165,22 @@ export function StreamConfigTable({
   return (
     <div className="flex flex-col">
       {/* Header with stream count + shared advanced toggle */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold">
-          {`Select your ${streamNoun.toLowerCase()} (${selectedCount}/${streams.length} selected)`}
-        </h3>
-        <div className="flex items-center gap-2.5 rounded-md border px-2.5 py-1.5 text-sm font-medium text-muted-foreground">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-base font-semibold">
+            {`Select your ${streamNoun.toLowerCase()} (${selectedCount}/${streams.length} selected)`}
+          </h3>
+          {streams.length >= SCROLL_HINT_MIN_STREAMS && (
+            <p
+              className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground"
+              data-testid="streams-scroll-hint"
+            >
+              <ChevronsDown className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+              {`Scroll to see all ${streamNoun.toLowerCase()}`}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-2.5 rounded-md border px-2.5 py-1.5 text-sm font-medium text-muted-foreground">
           <SlidersHorizontal className="h-3.5 w-3.5" />
           <label htmlFor="advanced-streams" className="cursor-pointer">
             {`Advanced per-${nounSingular} settings`}
