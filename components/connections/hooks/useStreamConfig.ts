@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { SyncMode, DestinationSyncMode } from '@/constants/connections';
 import { toastError } from '@/lib/toast';
-import type { SourceStream } from '@/types/connections';
+import type { SourceStream, StreamColumn } from '@/types/connections';
 
 // Manages stream selection, sync modes, columns, and filtering for connection setup
 export function useStreamConfig() {
@@ -26,7 +26,7 @@ export function useStreamConfig() {
             }
             return { ...s, selected: true };
           }
-          // When deselecting, reset syncMode and destMode like v1
+          // When deselecting, reset syncMode, destMode and cast types
           return {
             ...s,
             selected: false,
@@ -35,6 +35,7 @@ export function useStreamConfig() {
               s.destinationSyncMode !== DestinationSyncMode.OVERWRITE
                 ? DestinationSyncMode.OVERWRITE
                 : s.destinationSyncMode,
+            columns: s.columns.map((c): StreamColumn => ({ ...c, cast_to_type: null })),
           };
         })
       );
@@ -67,6 +68,7 @@ export function useStreamConfig() {
             s.destinationSyncMode !== DestinationSyncMode.OVERWRITE
               ? DestinationSyncMode.OVERWRITE
               : s.destinationSyncMode,
+          columns: s.columns.map((c): StreamColumn => ({ ...c, cast_to_type: null })),
         };
       })
     );
@@ -134,7 +136,8 @@ export function useStreamConfig() {
     );
   }, []);
 
-  // Toggle a column's selection; prevents deselecting cursor or primary key columns
+  // Toggle a column's selection; prevents deselecting cursor or primary key columns.
+  // Clears cast_to_type when a column is deselected.
   const toggleColumn = useCallback((streamName: string, columnName: string) => {
     setStreams((prev) =>
       prev.map((s) => {
@@ -145,13 +148,37 @@ export function useStreamConfig() {
 
         return {
           ...s,
-          columns: s.columns.map((c) =>
-            c.name === columnName ? { ...c, selected: !c.selected } : c
-          ),
+          columns: s.columns.map((c) => {
+            if (c.name !== columnName) return c;
+            const nowSelected = !c.selected;
+            return {
+              ...c,
+              selected: nowSelected,
+              cast_to_type: nowSelected ? c.cast_to_type : null,
+            };
+          }),
         };
       })
     );
   }, []);
+
+  // Set cast target type for a column; null clears the cast
+  const updateCastType = useCallback(
+    (streamName: string, columnName: string, castType: string | null) => {
+      setStreams((prev) =>
+        prev.map((s) => {
+          if (s.name !== streamName) return s;
+          return {
+            ...s,
+            columns: s.columns.map((c) =>
+              c.name === columnName ? { ...c, cast_to_type: castType } : c
+            ),
+          };
+        })
+      );
+    },
+    []
+  );
 
   // Expand or collapse a stream's detail view
   const toggleStreamExpand = useCallback((streamName: string) => {
@@ -237,6 +264,7 @@ export function useStreamConfig() {
     updateStreamCursorField,
     updateStreamPrimaryKey,
     toggleColumn,
+    updateCastType,
     toggleStreamExpand,
     handleIncrementalAllToggle,
     filteredStreams,

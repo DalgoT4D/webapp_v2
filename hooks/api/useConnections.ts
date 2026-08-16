@@ -119,6 +119,7 @@ export async function createConnection(payload: {
   normalize: boolean;
   syncCatalog?: unknown;
   catalogId?: string;
+  post_sync_transform?: unknown;
 }): Promise<Connection> {
   return apiPost(`${'/api/airbyte/v1/connections'}/`, payload);
 }
@@ -133,6 +134,7 @@ export async function updateConnection(
     destinationSchema?: string;
     syncCatalog?: unknown;
     catalogId?: string;
+    post_sync_transform?: unknown;
   }
 ): Promise<Connection> {
   return apiPut(`${'/api/airbyte/v1/connections'}/${connectionId}/update`, payload);

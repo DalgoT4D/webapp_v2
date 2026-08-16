@@ -12,7 +12,7 @@ const stream = (name: string, supportsIncremental: boolean): SourceStream => ({
   destinationSyncMode: DestinationSyncMode.OVERWRITE,
   cursorField: '',
   primaryKey: [],
-  columns: [{ name: 'col_a', data_type: 'string', selected: true }],
+  columns: [{ name: 'col_a', data_type: 'string', selected: true, cast_to_type: null }],
   cursorFieldConfig: { sourceDefinedCursor: false, selected: [], all: [] },
   primaryKeyConfig: { sourceDefinedPrimaryKey: false, selected: [], all: [] },
 });
@@ -36,6 +36,7 @@ const baseProps = {
   onUpdateStreamPrimaryKey: jest.fn(),
   onToggleStreamExpand: jest.fn(),
   onToggleColumn: jest.fn(),
+  onUpdateCastType: jest.fn(),
 };
 
 describe('StreamConfigTable progressive disclosure', () => {
