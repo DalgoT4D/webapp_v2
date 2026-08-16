@@ -7,6 +7,7 @@ import { DocsLink } from '@/components/ui/docs-link';
 import { Button } from '@/components/ui/button';
 import { EmptyWarehouseCard } from '@/components/ingest/redesign/empty-warehouse-card';
 import { EmptySourceCard } from '@/components/ingest/redesign/empty-source-card';
+import { IngestErrorCard } from '@/components/ingest/redesign/ingest-error-card';
 import { SteadyView } from '@/components/ingest/redesign/steady-view';
 import { selectIngestState } from '@/components/ingest/redesign/state';
 import { AddSourceWizard } from '@/components/ingest/sources/wizard/AddSourceWizard';
@@ -67,13 +68,18 @@ export function IngestView() {
   const [wizardNeedsWarehouse, setWizardNeedsWarehouse] = useState(false);
 
   const state = selectIngestState(
-    { data: warehouse.data, isLoading: warehouse.isLoading },
-    { data: sources.data, isLoading: sources.isLoading }
+    { data: warehouse.data, isLoading: warehouse.isLoading, isError: warehouse.isError },
+    { data: sources.data, isLoading: sources.isLoading, isError: sources.isError }
   );
 
   // First-time users (no warehouse) land straight in the wizard at its warehouse
   // step — no intermediate button. Auto-open once per mount; if they close it the
   // card behind stays and can re-open it (see openWarehouseWizard).
+  //
+  // NO_WAREHOUSE now means "the server answered, and the org has no warehouse" — a failed
+  // fetch lands on ERROR instead (see selectIngestState). Without that split, the 5s gaps
+  // between SWR's error retries read as NO_WAREHOUSE and auto-opened this wizard on orgs
+  // that already had a warehouse.
   const autoOpenedRef = useRef(false);
   useEffect(() => {
     if (state === 'NO_WAREHOUSE' && canCreateWarehouse && !autoOpenedRef.current) {
@@ -163,6 +169,15 @@ export function IngestView() {
           </div>
         )}
 
+        {state === 'ERROR' && (
+          <IngestErrorCard
+            onRetry={() => {
+              warehouse.mutate();
+              sources.mutate();
+            }}
+          />
+        )}
+
         {state === 'NO_WAREHOUSE' && <EmptyWarehouseCard onSetUp={openWarehouseWizard} />}
 
         {state === 'NO_SOURCE' && <EmptySourceCard onAddSource={openSourceWizard} />}
@@ -174,6 +189,11 @@ export function IngestView() {
         <AddSourceWizard
           open={wizardOpen}
           needsWarehouse={wizardNeedsWarehouse}
+          // Live signal, unlike the frozen needsWarehouse above: if a warehouse turns up while
+          // the wizard is sitting on its warehouse step (a retried fetch finally landing after
+          // a failed one), the wizard drops that step instead of asking for a warehouse the
+          // org already has.
+          warehouseExists={warehouse.data !== undefined}
           onClose={() => {
             setWizardOpen(false);
             rewindWalkthroughIfNoConnection();

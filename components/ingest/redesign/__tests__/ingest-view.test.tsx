@@ -106,6 +106,48 @@ describe('IngestView progressive reveal', () => {
     expect(screen.queryByTestId('warehouse-panel-dialog')).not.toBeInTheDocument();
   });
 
+  it('shows the error card — and never the warehouse wizard — when the warehouse fetch fails', () => {
+    // Regression: SWR sits at data:undefined/isLoading:false between error retries. That used
+    // to read as NO_WAREHOUSE and auto-open the wizard at "Set up your warehouse" for orgs
+    // that already had one.
+    mockWarehouse.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: new Error('500'),
+      mutate: jest.fn(),
+    });
+    mockSources.mockReturnValue({ data: [], isLoading: false, mutate: jest.fn() });
+    renderView();
+
+    expect(screen.getByTestId('ingest-error')).toBeInTheDocument();
+    expect(screen.queryByTestId('ingest-empty-warehouse')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('wizard-open')).not.toBeInTheDocument();
+  });
+
+  it('re-fetches warehouse and sources from the error card retry', () => {
+    const warehouseMutate = jest.fn();
+    const sourcesMutate = jest.fn();
+    mockWarehouse.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: new Error('500'),
+      mutate: warehouseMutate,
+    });
+    mockSources.mockReturnValue({ data: [], isLoading: false, mutate: sourcesMutate });
+    renderView();
+
+    fireEvent.click(screen.getByTestId('ingest-error-retry-btn'));
+    expect(warehouseMutate).toHaveBeenCalled();
+    expect(sourcesMutate).toHaveBeenCalled();
+  });
+
+  it('auto-opens the wizard when the server confirms the org has no warehouse', () => {
+    mockWarehouse.mockReturnValue({ data: undefined, isLoading: false, mutate: jest.fn() });
+    mockSources.mockReturnValue({ data: [], isLoading: false, mutate: jest.fn() });
+    renderView();
+    expect(screen.getByTestId('wizard-open')).toBeInTheDocument();
+  });
+
   it('hides New Source when there is no warehouse', () => {
     mockWarehouse.mockReturnValue({ data: undefined, isLoading: false, mutate: jest.fn() });
     mockSources.mockReturnValue({ data: [], isLoading: false, mutate: jest.fn() });
