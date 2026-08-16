@@ -37,11 +37,15 @@ export function SubscriptionRequestModal({
     return (
       <Dialog open onOpenChange={(open) => !open && onClose()}>
         <DialogContent
-          className="from-primary/10 overflow-hidden border-none bg-gradient-to-b to-white p-0 sm:max-w-md"
+          className="overflow-hidden border-none p-0 sm:max-w-md"
           data-testid="subscription-sent-modal"
           aria-describedby="subscription-sent-description"
         >
-          <div className="flex flex-col items-center gap-4 px-10 pt-12 pb-10 text-center">
+          {/* Gradient lives on this wrapper, not on DialogContent: tailwind-merge treats
+              `bg-gradient-to-b` and DialogContent's default `bg-background` as the same
+              utility group, so putting it above would drop the opaque base and leave the
+              modal see-through. */}
+          <div className="from-primary/10 to-background flex flex-col items-center gap-4 bg-gradient-to-b px-10 pt-12 pb-10 text-center">
             {/* Match the celebration moments elsewhere in onboarding. `unoptimized` preserves
                 the GIF animation instead of allowing Next to flatten it into a still image. */}
             <Image
