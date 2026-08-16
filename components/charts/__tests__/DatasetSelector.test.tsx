@@ -8,8 +8,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DatasetSelector } from '../DatasetSelector';
 import * as useChartHooks from '@/hooks/api/useChart';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { trackEvent } from '@/lib/analytics';
 
 jest.mock('@/hooks/api/useChart');
+jest.mock('@/lib/analytics', () => ({
+  trackEvent: jest.fn(),
+}));
 
 describe('DatasetSelector', () => {
   const mockOnDatasetChange = jest.fn();
@@ -51,6 +56,26 @@ describe('DatasetSelector', () => {
         expect(screen.getByText(expectedText)).toBeInTheDocument();
         expect(screen.queryByPlaceholderText('Search datasets...')).not.toBeInTheDocument();
       }
+    });
+
+    it('explains when datasets are unavailable because no warehouse is configured', () => {
+      (useChartHooks.useAllSchemaTables as jest.Mock).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        noWarehouse: true,
+      });
+
+      render(<DatasetSelector onDatasetChange={mockOnDatasetChange} />);
+
+      expect(
+        screen.getByText('Set up a warehouse before selecting a dataset.')
+      ).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText('Search datasets...')).not.toBeInTheDocument();
+      expect(trackEvent).toHaveBeenCalledWith(
+        ANALYTICS_EVENTS.CHART_DATASET_SELECTOR_STATE_VIEWED,
+        { state: 'no_warehouse' }
+      );
     });
   });
 

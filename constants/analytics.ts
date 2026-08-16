@@ -22,6 +22,7 @@ export const ANALYTICS_EVENTS = {
   // Selection-intent (funnel): which chart types users pick in the builder,
   // distinct from CHART_CREATED which only fires if they actually save.
   CHART_TYPE_SELECTED: 'chart:chart_type_selected',
+  CHART_DATASET_SELECTOR_STATE_VIEWED: 'chart:dataset_selector_state_viewed',
   // Dashboards (DASHBOARD_SAVED is the edit/update event)
   DASHBOARD_CREATED: 'dashboard:dashboard_created',
   DASHBOARD_SAVED: 'dashboard:dashboard_saved',
@@ -40,6 +41,10 @@ export const ANALYTICS_EVENTS = {
   DASHBOARD_TEXT_ELEMENT_ADDED: 'dashboard:text_element_added',
   DASHBOARD_TAB_CREATED: 'dashboard:tab_created',
   DASHBOARD_TAB_DELETED: 'dashboard:tab_deleted',
+  DASHBOARD_TAB_REORDERED: 'dashboard:tab_reordered',
+  DASHBOARD_WIDGET_MOVED_BETWEEN_TABS: 'dashboard:widget_moved_between_tabs',
+  DASHBOARD_RICH_TEXT_EDIT_STARTED: 'dashboard:rich_text_edit_started',
+  DASHBOARD_RICH_TEXT_FORMAT_APPLIED: 'dashboard:rich_text_format_applied',
   // Reports
   REPORT_CREATED: 'report:report_created',
   REPORT_UPDATED: 'report:report_updated',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createDashboard } from '@/hooks/api/useDashboards';
 import { toastSuccess, toastError } from '@/lib/toast';
@@ -12,7 +12,12 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 export default function CreateDashboardPage() {
   const router = useRouter();
-  const [isCreating, setIsCreating] = useState(false);
+
+  // Guards against a second POST. A ref, not state: React StrictMode invokes the
+  // mount effect twice against the same render's closure, so a state flag still
+  // reads its initial value on the second pass and creates a duplicate dashboard.
+  // Refs mutate synchronously and survive the remount simulation.
+  const hasStartedCreateRef = useRef(false);
 
   // Get user permissions — the access-denied return lives below, after all hooks,
   // to keep the hook order stable across renders (Rules of Hooks)
@@ -24,10 +29,10 @@ export default function CreateDashboardPage() {
   // remounts this page from a clean slate, so if creation itself set local
   // state instead of navigating, a refresh would create another dashboard.
   useEffect(() => {
-    if (!canCreateDashboard || isCreating) return;
+    if (!canCreateDashboard || hasStartedCreateRef.current) return;
+    hasStartedCreateRef.current = true;
 
     const initDashboard = async () => {
-      setIsCreating(true);
       try {
         const dashboard = await createDashboard({
           title: 'Untitled Dashboard',
@@ -45,7 +50,7 @@ export default function CreateDashboardPage() {
     };
 
     initDashboard();
-  }, [canCreateDashboard, isCreating, router]);
+  }, [canCreateDashboard, router]);
 
   // Check if user has create permissions (after all hooks — Rules of Hooks)
   if (!canCreateDashboard) {
