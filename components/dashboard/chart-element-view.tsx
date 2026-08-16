@@ -58,6 +58,7 @@ import {
   applyLineBarDateFormatting,
 } from '@/lib/chart-formatting-utils';
 import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
+import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ChartTypes, type ChartDataPayload, type ChartDimension } from '@/types/charts';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
@@ -730,9 +731,11 @@ export function ChartElementView({
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
 
   // Fetch geojsons for the current drill-down region - use public API for public mode
-  const { data: privateRegionGeojsons } = useRegionGeoJSONs(
-    !isPublicMode ? currentDrillDownRegionId : null
-  );
+  const {
+    data: privateRegionGeojsons,
+    error: privateRegionGeojsonsError,
+    isLoading: privateRegionGeojsonsLoading,
+  } = useRegionGeoJSONs(!isPublicMode ? currentDrillDownRegionId : null);
 
   // Use public geojsons API for public mode
   const publicGeojsonsUrl =
@@ -740,7 +743,11 @@ export function ChartElementView({
       ? `/api/v1/public/regions/${currentDrillDownRegionId}/geojsons/`
       : null;
 
-  const { data: publicRegionGeojsons } = useSWR(publicGeojsonsUrl, async (url: string) => {
+  const {
+    data: publicRegionGeojsons,
+    error: publicRegionGeojsonsError,
+    isLoading: publicRegionGeojsonsLoading,
+  } = useSWR(publicGeojsonsUrl, async (url: string) => {
     const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
     if (!response.ok) {
       throw new Error('Failed to fetch public geojsons');
@@ -749,25 +756,30 @@ export function ChartElementView({
   });
 
   const regionGeojsons = isPublicMode ? publicRegionGeojsons : privateRegionGeojsons;
+  const regionGeojsonsError = isPublicMode ? publicRegionGeojsonsError : privateRegionGeojsonsError;
+  const regionGeojsonsLoading = isPublicMode
+    ? publicRegionGeojsonsLoading
+    : privateRegionGeojsonsLoading;
 
   // For map charts, determine which geojson and data to fetch based on drill-down state
   let activeGeojsonId = null;
   let activeGeographicColumn = null;
+  const activeDrillDownLevel =
+    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1] : null;
+  const drillDownGeojsonResolution = resolveDrillDownGeoJSON({
+    isDrillDownActive: Boolean(activeDrillDownLevel),
+    regionId: currentDrillDownRegionId,
+    regionGeojsons,
+    regionGeojsonsLoading,
+    regionGeojsonsError,
+    fallbackGeojsonId: activeDrillDownLevel?.geojson_id,
+  });
 
   if (effectiveChart?.chart_type === ChartTypes.MAP) {
-    if (drillDownPath.length > 0) {
+    if (activeDrillDownLevel) {
       // We're in a drill-down state, use the first available geojson for this region
-      const lastDrillDown = drillDownPath[drillDownPath.length - 1];
-      activeGeographicColumn = lastDrillDown.geographic_column;
-
-      if (regionGeojsons && regionGeojsons.length > 0) {
-        // Use the first available geojson for this region (e.g., Karnataka districts)
-        activeGeojsonId = regionGeojsons[0].id;
-        console.log(`🗺️ Using geojson ID ${activeGeojsonId} for region ${lastDrillDown.name}`);
-      } else {
-        // Fallback to the stored geojson_id (if any)
-        activeGeojsonId = lastDrillDown.geojson_id;
-      }
+      activeGeographicColumn = activeDrillDownLevel.geographic_column;
+      activeGeojsonId = drillDownGeojsonResolution.geojsonId;
     } else if (currentLayer) {
       // Use current layer configuration (first layer)
       activeGeojsonId = currentLayer.geojson_id;
@@ -871,8 +883,10 @@ export function ChartElementView({
 
   // Use appropriate geojson data based on mode
   const geojsonData = isPublicMode ? publicGeojsonData : privateGeojsonData;
-  const geojsonError = isPublicMode ? publicGeojsonError : privateGeojsonError;
-  const geojsonLoading = isPublicMode ? publicGeojsonLoading : privateGeojsonLoading;
+  const geojsonDataError = isPublicMode ? publicGeojsonError : privateGeojsonError;
+  const geojsonDataLoading = isPublicMode ? publicGeojsonLoading : privateGeojsonLoading;
+  const geojsonError = regionGeojsonsError || geojsonDataError;
+  const geojsonLoading = drillDownGeojsonResolution.isResolving || geojsonDataLoading;
 
   // Fetch map data overlay - public vs private mode
   // Apply same payload transformation as useMapDataOverlay (handles count, builds metrics)

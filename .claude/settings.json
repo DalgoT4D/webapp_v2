@@ -11,7 +11,8 @@
       "Bash(NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging npx jest components/ingest)",
       "Bash(NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging npx jest components/ingest/sources/custom/__tests__/google-sheets-form.test.tsx)",
       "Bash(NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging npx jest components/ingest/sources/custom)",
-      "Bash(NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging npx jest components/ingest components/connections components/onboarding)"
+      "Bash(NEXT_PUBLIC_WEBAPP_ENVIRONMENT=staging npx jest components/ingest components/connections components/onboarding)",
+      "Bash(perl -0pi -e \"s{^\\(  \\(?:builder_add_kpi|builder_add_chart|builder_resize|builder_save|builder_preview|builder_add_chart_first|builder_add_kpi_second\\): \\\\{\\\\n\\(?:.*\\\\n\\)*?\\)\\(    route: '/dashboards/create',\\\\n\\)}{\\\\$1\\\\$2    routeMatch: DASHBOARD_BUILDER_ROUTE,\\\\n}gm\" components/onboarding/insight-walkthrough-coachmark.tsx)"
     ],
     "additionalDirectories": [
       "/Users/himanshut4d/Documents/Tech4dev/Dalgo/webapp_v2-trial-resend"

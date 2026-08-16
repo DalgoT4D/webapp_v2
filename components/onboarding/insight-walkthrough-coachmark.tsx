@@ -187,9 +187,33 @@ function waitForElement(selector: string, timeout = 30000): Promise<Element | nu
   });
 }
 
+// Creating a dashboard posts from /dashboards/create and immediately redirects to
+// /dashboards/{id}/edit?new=true, so the builder is never rendered under the /dashboards/create
+// pathname. Builder stages keep that route as their navigable entry point (see
+// WALKTHROUGH_STAGE_ROUTES) but match the URL the redirect actually lands on.
+const DASHBOARD_BUILDER_ROUTE = /^\/dashboards\/\d+\/edit$/;
+
+/**
+ * True when `pathname` is where this stage's target lives. Stages on a dynamic URL declare a
+ * `routeMatch` pattern; everything else compares its single static `route`.
+ */
+function matchesStageRoute(config: StageConfig, pathname: string): boolean {
+  return config.routeMatch ? config.routeMatch.test(pathname) : config.route === pathname;
+}
+
 interface StageConfig {
-  /** Route this stage's target lives on, or null if it doesn't require navigation. */
+  /**
+   * Route this stage's target lives on, or null if it doesn't require navigation. Doubles as the
+   * URL the Get Started widget navigates to when resuming, so it stays a real, enterable path
+   * even for stages whose live URL is dynamic — those add `routeMatch` for the actual gating.
+   */
   route: string | null;
+  /**
+   * Pattern the live pathname must match for this stage to show, for targets on a dynamic URL
+   * (an id in the path). When set it replaces the plain `route` equality check; `route` still
+   * supplies the navigable entry point.
+   */
+  routeMatch?: RegExp;
   /**
    * Most targets are a static data-testid string. A few (e.g. a just-created canvas
    * node, whose DOM id isn't known ahead of time) resolve from transient store state
@@ -419,6 +443,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   builder_add_kpi: {
     ring: true,
     route: '/dashboards/create',
+    routeMatch: DASHBOARD_BUILDER_ROUTE,
     selector: '[data-testid="add-kpi-btn"]',
     title: 'Add your KPI',
     description: 'Click Add KPI and pick the KPI you just built to add it to the dashboard',
@@ -427,6 +452,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   builder_add_chart: {
     ring: true,
     route: '/dashboards/create',
+    routeMatch: DASHBOARD_BUILDER_ROUTE,
     selector: '[data-testid="add-chart-btn"]',
     title: 'Add a Chart',
     description: 'Add a sample chart to your dashboard',
@@ -434,6 +460,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   builder_resize: {
     route: '/dashboards/create',
+    routeMatch: DASHBOARD_BUILDER_ROUTE,
     // Newest tile has no stable id to key a static selector on (grid items are created with
     // `chart-${Date.now()}`) — react-grid-layout always appends new widgets last in DOM order
     // (grid model: new items land at bottomY, nothing else reorders), so the last `.react-grid-item`
@@ -446,6 +473,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   builder_save: {
     ring: true,
     route: '/dashboards/create',
+    routeMatch: DASHBOARD_BUILDER_ROUTE,
     selector: '[data-testid="dashboard-save-btn"]',
     title: 'Save your dashboard',
     description: 'Once you’re ready, save your dashboard so you can share it',
@@ -454,6 +482,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   builder_preview: {
     ring: true,
     route: '/dashboards/create',
+    routeMatch: DASHBOARD_BUILDER_ROUTE,
     selector: '[data-testid="dashboard-preview-btn"]',
     title: 'Preview it first',
     description: 'See what your team will see.',
@@ -639,6 +668,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   builder_add_chart_first: {
     ring: true,
     route: '/dashboards/create',
+    routeMatch: DASHBOARD_BUILDER_ROUTE,
     selector: '[data-testid="add-chart-btn"]',
     title: 'Add a Chart',
     description: 'Click Add chart and pick the chart you just built to add it to the dashboard',
@@ -647,6 +677,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   builder_add_kpi_second: {
     ring: true,
     route: '/dashboards/create',
+    routeMatch: DASHBOARD_BUILDER_ROUTE,
     selector: '[data-testid="add-kpi-btn"]',
     title: 'Add sample KPIs',
     // Own-data tail, so there is no KPI the user built earlier — the design points at the
@@ -1015,7 +1046,7 @@ export function InsightWalkthroughCoachmark(): null {
 
       /** Re-entrant: also the recovery path when a target disappears mid-stage. */
       const show = async (): Promise<void> => {
-        if (config.route && window.location.pathname !== config.route) return;
+        if (config.route && !matchesStageRoute(config, window.location.pathname)) return;
         if (
           (stage === 'share' || stage === 'share_public_toggle' || stage === 'share_copy_link') &&
           !/^\/dashboards\/\d+$/.test(window.location.pathname)
@@ -1188,7 +1219,13 @@ export function InsightWalkthroughCoachmark(): null {
     // depending which one the user took (own-data and automate-pipeline both add
     // chart-then-KPI, since a chart already exists by this point; sample adds
     // KPI-then-chart) — can't go through the flat ROUTE_ADVANCES map for this one.
-    if (stage === 'dashboard_intro' && pathname === '/dashboards/create') {
+    // Either URL counts as "the user started building": /dashboards/create only renders a
+    // spinner before redirecting to the builder, and a slow create call (or a resumed session
+    // landing straight on the builder) means that transient pathname can be missed entirely.
+    if (
+      stage === 'dashboard_intro' &&
+      (pathname === '/dashboards/create' || DASHBOARD_BUILDER_ROUTE.test(pathname))
+    ) {
       walkthrough.advanceTo(
         walkthrough.path === 'own_data' || walkthrough.path === 'automate_pipeline'
           ? 'builder_add_chart_first'
@@ -1198,7 +1235,8 @@ export function InsightWalkthroughCoachmark(): null {
     }
 
     const next = ROUTE_ADVANCES[stage];
-    if (next && STAGE_CONFIG[next]?.route === pathname) {
+    const nextConfig = next ? STAGE_CONFIG[next] : undefined;
+    if (next && nextConfig?.route && matchesStageRoute(nextConfig, pathname)) {
       walkthrough.advanceTo(next);
     }
     // Resolves to a dynamic route (id unknown ahead of time) so it can't go through the

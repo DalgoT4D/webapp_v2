@@ -7,6 +7,10 @@ import { InsightWalkthroughCoachmark } from '../insight-walkthrough-coachmark';
 import type { WalkthroughStage } from '../insight-walkthrough-constants';
 
 let mockPathname = '/kpis';
+
+// Creating a dashboard redirects off /dashboards/create straight to the builder, so the builder
+// stages are only ever shown under this URL shape.
+const BUILDER_PATHNAME = '/dashboards/7/edit';
 jest.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
 }));
@@ -143,8 +147,8 @@ describe('InsightWalkthroughCoachmark', () => {
     });
 
     it('uses concise, single-line copy for the dashboard Preview guide', async () => {
-      mockPathname = '/dashboards/create';
-      window.history.pushState({}, '', '/dashboards/create');
+      mockPathname = BUILDER_PATHNAME;
+      window.history.pushState({}, '', BUILDER_PATHNAME);
       mountTarget('dashboard-preview-btn');
       setStage('builder_preview');
       render(<InsightWalkthroughCoachmark />);
@@ -157,8 +161,8 @@ describe('InsightWalkthroughCoachmark', () => {
     });
 
     it('labels the own-data dashboard step as sample KPIs', async () => {
-      mockPathname = '/dashboards/create';
-      window.history.pushState({}, '', '/dashboards/create');
+      mockPathname = BUILDER_PATHNAME;
+      window.history.pushState({}, '', BUILDER_PATHNAME);
       mountTarget('add-kpi-btn');
       setStage('builder_add_kpi_second', { path: 'own_data' });
       render(<InsightWalkthroughCoachmark />);
