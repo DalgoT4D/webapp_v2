@@ -220,6 +220,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       await updateSource(sourceId, {
         name: sourceName,
         sourceDefId: selectedDefId!,
+        sourceDefName: selectedName,
         config,
         sourceId,
       });
@@ -323,6 +324,15 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     onSuccess,
   ]);
 
+  // MANAGED-SA: the form reports whether auth is satisfied, because "use Dalgo's key" leaves the
+  // credentials empty on purpose — clearing the key field and saving without choosing anything
+  // would otherwise hand out Dalgo's key silently.
+  const [authSatisfied, setAuthSatisfied] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  useEffect(() => {
+    if (authSatisfied) setAuthError(null);
+  }, [authSatisfied]);
+
   // Single submit: a fresh OAuth ref is redeemed directly; otherwise the config is
   // tested over the WebSocket and saved on success.
   const onSubmit = useCallback(() => {
@@ -330,6 +340,11 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     // The spec is still in flight — nothing to build a config from yet, so swallow
     // the submit rather than sending a partial payload.
     if (!parsedSpec) return;
+
+    if (isGoogleSheetsCustom && !authSatisfied) {
+      setAuthError('Paste a service-account key, or tick “Use Dalgo’s service account”');
+      return;
+    }
 
     if (oauthRef) {
       handleUpdateOAuthSource();
@@ -339,13 +354,21 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     const config = buildConfig();
     setSetupLogs([]);
     setLoading(true);
-    sendOrQueue({ name: sourceName, sourceDefId: selectedDefId, config, sourceId });
+    sendOrQueue({
+      name: sourceName,
+      sourceDefId: selectedDefId,
+      sourceDefName: selectedName,
+      config,
+      sourceId,
+    });
   }, [
     validateHostFields,
     parsedSpec,
     sourceName,
     selectedDefId,
     oauthRef,
+    isGoogleSheetsCustom,
+    authSatisfied,
     handleUpdateOAuthSource,
     buildConfig,
     sourceId,
@@ -445,6 +468,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
                 setValue={setValue}
                 disabled={loading}
                 mode="edit"
+                onAuthSatisfiedChange={isGoogleSheetsCustom ? setAuthSatisfied : undefined}
                 oauth={
                   isGoogleSheetsCustom
                     ? ({
@@ -462,6 +486,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
                             : 'Authenticate with Google',
                         lockWhenConnected: false,
                         onClick: handleConnectGoogle,
+                        error: authError ?? undefined,
                       } satisfies CustomSourceOAuth)
                     : undefined
                 }
