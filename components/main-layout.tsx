@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { NEXT_PUBLIC_WEBAPP_ENVIRONMENT } from '@/constants/constants';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import {
@@ -675,6 +675,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           onOpenChange={setIsMobileMenuOpen}
         >
           <SheetContent id="main-layout-mobile-sidebar-content" side="left" className="p-0 w-72">
+            <SheetTitle className="sr-only">Dalgo navigation</SheetTitle>
             <div id="main-layout-mobile-sidebar-wrapper" className="flex flex-col h-full">
               <div className="p-4 border-b">
                 <div className="flex items-center gap-3">

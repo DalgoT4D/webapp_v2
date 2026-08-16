@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { DashboardBuilderV2 } from '@/components/dashboard/dashboard-builder-v2';
 import { useDashboard } from '@/hooks/api/useDashboards';
@@ -13,7 +13,9 @@ import { apiDelete } from '@/lib/api';
 export default function EditDashboardPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const dashboardId = parseInt(params.id as string);
+  const isNewDashboard = searchParams.get('new') === 'true';
 
   // Ref to access dashboard builder cleanup function
   const dashboardBuilderRef = useRef<{ cleanup: () => Promise<void> } | null>(null);
@@ -313,6 +315,7 @@ export default function EditDashboardPage() {
         isLocked: dashboard?.is_locked || false,
         lockedBy: dashboard?.locked_by,
       }}
+      isNewDashboard={isNewDashboard}
       onBack={handleBackNavigation}
       onPreview={handlePreviewMode}
       isNavigating={isNavigating}
