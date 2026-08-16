@@ -52,7 +52,9 @@ import type { ReportSnapshot } from '@/types/reports';
 import { CreateSnapshotDialog } from '@/components/reports/create-snapshot-dialog';
 import { formatCreatedOn } from '@/components/reports/utils';
 import { ReportShareMenu } from '@/components/reports/report-share-menu';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { TransferOwnershipDialog } from '@/components/ui/transfer-ownership-dialog';
+import { ADMIN_ROLES, PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useAuthStore } from '@/stores/authStore';
 
 // Debounce delay in ms before sending filter to API
 const FILTER_DEBOUNCE_MS = 400;
@@ -68,6 +70,16 @@ export default function ReportsPage() {
   const { hasPermission } = useRbac();
   const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS);
   const canDelete = hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS);
+
+  // Owner-or-admin gate for Transfer Ownership (matches backend).
+  const currentUser = useAuthStore((s) => s.getCurrentOrgUser)();
+  const isAdmin =
+    !!currentUser?.new_role_slug &&
+    ADMIN_ROLES.includes(currentUser.new_role_slug as (typeof ADMIN_ROLES)[number]);
+  const [transferSnapshot, setTransferSnapshot] = useState<ReportSnapshot | null>(null);
+  const canTransferSnapshot = (snapshot: ReportSnapshot) =>
+    isAdmin ||
+    (!!currentUser?.email && !!snapshot.created_by && snapshot.created_by === currentUser.email);
 
   // Filter input states (what the user types)
   const [titleFilter, setTitleFilter] = useState('');
@@ -631,6 +643,15 @@ export default function ReportsPage() {
                                     <FileText className="h-4 w-4 mr-2" />
                                     View Report
                                   </DropdownMenuItem>
+                                  {canTransferSnapshot(snapshot) && (
+                                    <DropdownMenuItem
+                                      data-testid={`report-transfer-${snapshot.id}`}
+                                      onClick={() => setTransferSnapshot(snapshot)}
+                                    >
+                                      <User className="h-4 w-4 mr-2" />
+                                      Transfer ownership
+                                    </DropdownMenuItem>
+                                  )}
                                   {canDelete && snapshot.access_level === 'edit' && (
                                     <DropdownMenuItem
                                       data-testid={`report-delete-${snapshot.id}`}
@@ -724,6 +745,17 @@ export default function ReportsPage() {
       </div>
 
       <DeleteDialog />
+
+      {transferSnapshot && (
+        <TransferOwnershipDialog
+          rtype="report"
+          entityId={transferSnapshot.id}
+          entityLabel={transferSnapshot.title || 'Report'}
+          isOpen={true}
+          onClose={() => setTransferSnapshot(null)}
+          onTransferred={() => mutate()}
+        />
+      )}
     </div>
   );
 }

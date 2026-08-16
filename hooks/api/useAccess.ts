@@ -212,6 +212,25 @@ export async function transferOwnership(
   }
 }
 
+export interface TransferCandidate {
+  orguser_id: number;
+  email: string;
+  role_name?: string | null;
+  access_level: 'no_access' | 'view' | 'edit';
+  is_owner: boolean;
+}
+
+export function useTransferCandidates(rtype: string | null, resourceId: number | string | null) {
+  const key = rtype && resourceId != null ? `/api/access/${rtype}/${resourceId}/candidates` : null;
+  const { data, error, isLoading, mutate } = useSWR<TransferCandidate[]>(key, apiGet);
+  return {
+    candidates: data,
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
 export interface UpdateGeneralAccessResponse {
   mode: GeneralAccessMode;
   is_private: boolean;

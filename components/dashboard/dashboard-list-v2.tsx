@@ -91,6 +91,7 @@ import { useRouter } from 'next/navigation';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useDashboards, deleteDashboard, duplicateDashboard } from '@/hooks/api/useDashboards';
 import { ShareModal } from '@/components/ui/share-modal';
+import { TransferOwnershipDialog } from '@/components/ui/transfer-ownership-dialog';
 import { bulkAddGrant } from '@/hooks/api/useAccess';
 import {
   Dialog,
@@ -103,7 +104,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { ADMIN_ROLES, PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
 import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
@@ -162,6 +163,7 @@ export function DashboardListV2() {
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [selectedDashboard, setSelectedDashboard] = useState<any>(null);
+  const [transferDashboard, setTransferDashboard] = useState<any>(null);
   // Bulk selection state
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedDashboards, setSelectedDashboards] = useState<Set<number>>(new Set());
@@ -192,6 +194,19 @@ export function DashboardListV2() {
 
   // Get user permissions
   const { hasPermission } = useRbac();
+
+  // Owner-or-admin gate for the Transfer Ownership menu item — matches the
+  // backend gate on POST /transfer-ownership. Admins can transfer any resource;
+  // non-admins can only transfer resources they created.
+  const isAdmin =
+    !!currentUser?.new_role_slug &&
+    ADMIN_ROLES.includes(currentUser.new_role_slug as (typeof ADMIN_ROLES)[number]);
+  const canTransfer = useCallback(
+    (dashboard: any) =>
+      isAdmin ||
+      (currentUser?.email && dashboard.created_by && dashboard.created_by === currentUser.email),
+    [isAdmin, currentUser?.email]
+  );
 
   // Landing page functionality
   const {
@@ -1031,6 +1046,15 @@ export function DashboardListV2() {
                         Duplicate
                       </>
                     )}
+                  </DropdownMenuItem>
+                )}
+                {canTransfer(dashboard) && (
+                  <DropdownMenuItem
+                    onClick={() => setTransferDashboard(dashboard)}
+                    className="cursor-pointer"
+                  >
+                    <User className="w-4 h-4 mr-2" />
+                    Transfer ownership
                   </DropdownMenuItem>
                 )}
                 {hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) && (
@@ -2113,6 +2137,18 @@ export function DashboardListV2() {
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
+        />
+      )}
+
+      {/* Transfer Ownership Dialog */}
+      {transferDashboard && (
+        <TransferOwnershipDialog
+          rtype="dashboard"
+          entityId={transferDashboard.id}
+          entityLabel={transferDashboard.title || 'Dashboard'}
+          isOpen={true}
+          onClose={() => setTransferDashboard(null)}
+          onTransferred={handleDashboardUpdate}
         />
       )}
 

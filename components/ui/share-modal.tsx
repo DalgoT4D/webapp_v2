@@ -24,6 +24,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -756,7 +757,10 @@ export function ShareModal({
                             {isOwnerOrAdmin &&
                               s.principal_type === 'user' &&
                               s.principal_id != null && (
-                                <SelectItem value="transfer">Transfer ownership</SelectItem>
+                                <>
+                                  <SelectSeparator />
+                                  <SelectItem value="transfer">Transfer ownership</SelectItem>
+                                </>
                               )}
                           </SelectContent>
                         </Select>

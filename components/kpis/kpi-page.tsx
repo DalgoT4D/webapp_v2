@@ -15,6 +15,7 @@ import {
   BellRing,
   ChevronLeft,
   ChevronRight,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,9 +37,11 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { DocsLink } from '@/components/ui/docs-link';
 import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { ADMIN_ROLES, PERMISSIONS, useRbac } from '@/lib/rbac';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { ShareModal } from '@/components/ui/share-modal';
+import { TransferOwnershipDialog } from '@/components/ui/transfer-ownership-dialog';
+import { useAuthStore } from '@/stores/authStore';
 import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
@@ -62,10 +65,12 @@ function KPICardWithData({
   onDelete,
   onCreateAlert,
   onShare,
+  onTransfer,
   canCreateAlert,
   canEditKpis,
   canDeleteKpis,
   canShare,
+  canTransfer,
   statusFilter,
 }: {
   kpi: KPI;
@@ -74,10 +79,12 @@ function KPICardWithData({
   onDelete: () => void;
   onCreateAlert?: () => void;
   onShare?: () => void;
+  onTransfer?: () => void;
   canCreateAlert?: boolean;
   canEditKpis?: boolean;
   canDeleteKpis?: boolean;
   canShare?: boolean;
+  canTransfer?: boolean;
   statusFilter?: string;
 }) {
   const { chartData, echartsConfig, isLoading } = useKPIData(kpi.id);
@@ -140,6 +147,12 @@ function KPICardWithData({
                 Share
               </DropdownMenuItem>
             )}
+            {canTransfer && onTransfer && (
+              <DropdownMenuItem onClick={onTransfer} className="cursor-pointer">
+                <User className="w-4 h-4 mr-2" />
+                Transfer ownership
+              </DropdownMenuItem>
+            )}
             {canDeleteKpis && (
               <>
                 <DropdownMenuSeparator />
@@ -176,6 +189,7 @@ export function KPIPageComponent() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [alertKpiId, setAlertKpiId] = useState<number | null>(null);
   const [shareModalKpi, setShareModalKpi] = useState<KPI | null>(null);
+  const [transferKpi, setTransferKpi] = useState<KPI | null>(null);
   const { initialOpen: shouldAutoOpenShare, clearParam: clearShareDeepLink } = useOpenShareDeepLink(
     ['kpiId']
   );
@@ -187,6 +201,14 @@ export function KPIPageComponent() {
   const canEditKpis = hasPermission(PERMISSIONS.CAN_EDIT_KPIS);
   const canDeleteKpis = hasPermission(PERMISSIONS.CAN_DELETE_KPIS);
   const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
+
+  // Owner-or-admin gate for Transfer Ownership (matches backend).
+  const currentUser = useAuthStore((s) => s.getCurrentOrgUser)();
+  const isAdmin =
+    !!currentUser?.new_role_slug &&
+    ADMIN_ROLES.includes(currentUser.new_role_slug as (typeof ADMIN_ROLES)[number]);
+  const canTransferKpi = (kpi: KPI) =>
+    isAdmin || (!!currentUser?.email && !!kpi.created_by && kpi.created_by === currentUser.email);
 
   const PAGE_SIZE = 10;
 
@@ -461,10 +483,12 @@ export function KPIPageComponent() {
                     onDelete={() => handleDeleteClick(kpi)}
                     onCreateAlert={() => setAlertKpiId(kpi.id)}
                     onShare={() => setShareModalKpi(kpi)}
+                    onTransfer={() => setTransferKpi(kpi)}
                     canCreateAlert={canCreateAlert}
                     canEditKpis={canEditKpis}
                     canDeleteKpis={canDeleteKpis}
                     canShare={kpi.access_level === 'edit'}
+                    canTransfer={canTransferKpi(kpi)}
                     statusFilter={statusFilter || undefined}
                   />
                 ))}
@@ -533,6 +557,17 @@ export function KPIPageComponent() {
             clearShareDeepLink();
           }}
           onUpdate={mutate}
+        />
+      )}
+
+      {transferKpi && (
+        <TransferOwnershipDialog
+          rtype="kpi"
+          entityId={transferKpi.id}
+          entityLabel={transferKpi.name}
+          isOpen={true}
+          onClose={() => setTransferKpi(null)}
+          onTransferred={() => mutate()}
         />
       )}
     </div>

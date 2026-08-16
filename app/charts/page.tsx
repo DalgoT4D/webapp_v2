@@ -32,9 +32,11 @@ import type { ChartCreate } from '@/types/charts';
 import { useDeleteChart, useBulkDeleteCharts, useCreateChart } from '@/hooks/api/useChart';
 import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
 import { ShareModal } from '@/components/ui/share-modal';
+import { TransferOwnershipDialog } from '@/components/ui/transfer-ownership-dialog';
 import { ChartExportDropdownForList } from '@/components/charts/ChartExportDropdownForList';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { ADMIN_ROLES, PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -136,6 +138,7 @@ export default function ChartsPage() {
   // Share modal state
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareChart, setShareChart] = useState<Chart | null>(null);
+  const [transferChart, setTransferChart] = useState<Chart | null>(null);
 
   const {
     data: allCharts,
@@ -152,6 +155,17 @@ export default function ChartsPage() {
 
   // Get user permissions
   const { hasPermission } = useRbac();
+
+  // Owner-or-admin gate for Transfer Ownership. Matches backend gate.
+  const currentUser = useAuthStore((s) => s.getCurrentOrgUser)();
+  const isAdmin =
+    !!currentUser?.new_role_slug &&
+    ADMIN_ROLES.includes(currentUser.new_role_slug as (typeof ADMIN_ROLES)[number]);
+  const canTransferChart = useCallback(
+    (chart: Chart) =>
+      isAdmin || (currentUser?.email && chart.created_by && chart.created_by === currentUser.email),
+    [isAdmin, currentUser?.email]
+  );
 
   // If API doesn't support pagination, implement client-side filtering and sorting
   const charts = allCharts || [];
@@ -979,6 +993,15 @@ export default function ChartsPage() {
                     chartType={chart.chart_type}
                   />
                 )}
+                {canTransferChart(chart) && (
+                  <DropdownMenuItem
+                    onClick={() => setTransferChart(chart)}
+                    className="cursor-pointer"
+                  >
+                    <User className="w-4 h-4 mr-2" />
+                    Transfer ownership
+                  </DropdownMenuItem>
+                )}
                 {hasPermission(PERMISSIONS.CAN_DELETE_CHARTS) && (
                   <>
                     <DropdownMenuSeparator />
@@ -1499,6 +1522,18 @@ export default function ChartsPage() {
           entityLabel={shareChart.title || 'Chart'}
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
+        />
+      )}
+
+      {/* Transfer Ownership Dialog */}
+      {transferChart && (
+        <TransferOwnershipDialog
+          rtype="chart"
+          entityId={transferChart.id}
+          entityLabel={transferChart.title || 'Chart'}
+          isOpen={true}
+          onClose={() => setTransferChart(null)}
+          onTransferred={mutate}
         />
       )}
 
