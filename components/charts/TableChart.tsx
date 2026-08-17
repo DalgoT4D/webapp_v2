@@ -25,10 +25,28 @@ import { formatNumber, formatDate, type NumberFormat, type DateFormat } from '@/
 import { getTableTheme } from './types/table/constants';
 import { useTableSearch } from './hooks/useTableSearch';
 import { TableSearchBar } from './TableSearchBar';
+import { useResizeObserver } from '@/hooks/useResizeObserver';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { ConditionalFormattingRule } from './types/table/types';
 
 // URL detection pattern - matches http://, https://, and www. prefixed URLs
 const URL_PATTERN = /^(https?:\/\/|www\.)/i;
+
+/**
+ * Container width (in px) below which the table switches to its narrow layout.
+ * The pagination footer alone needs ~300px for the "Showing X to Y of Z rows" text
+ * plus the page-size select, so below this the controls crush or overflow. This
+ * catches both phone viewports and narrow chart cells on a desktop dashboard.
+ */
+const NARROW_TABLE_WIDTH_PX = 480;
+
+/**
+ * Max width (in px) of a single cell in narrow layout. Without a cap, cells never
+ * truncate (the base table sets `whitespace-nowrap`) and the table's intrinsic width
+ * grows past 1500px, so users scrub sideways through a tiny window. ~140px keeps
+ * 2-3 columns visible on a 360px phone screen; full values stay available via `title`.
+ */
+const NARROW_CELL_MAX_WIDTH_PX = 140;
 
 /**
  * Check if a value is a valid URL that should be rendered as a clickable link
@@ -38,6 +56,24 @@ function isValidUrl(value: any): boolean {
     return false;
   }
   return URL_PATTERN.test(value.trim());
+}
+
+/**
+ * Caps a cell's content width in narrow layout so the column stops growing with its
+ * longest value. The clamp lives on an inner block element rather than on the `<td>`
+ * itself because `max-width` on a table cell is only a hint under `table-layout: auto`
+ * — browsers still widen the column to fit the content. On desktop this renders the
+ * children untouched (no extra element), so the desktop DOM is unchanged.
+ */
+function NarrowCellClamp({ isNarrow, children }: { isNarrow: boolean; children: React.ReactNode }) {
+  if (!isNarrow) {
+    return <>{children}</>;
+  }
+  return (
+    <div className="truncate" style={{ maxWidth: NARROW_CELL_MAX_WIDTH_PX }}>
+      {children}
+    </div>
+  );
 }
 
 /**
@@ -120,6 +156,17 @@ export function TableChart({
   // Resolve color theme
   const theme = useMemo(() => getTableTheme(config.theme), [config.theme]);
 
+  // --- Narrow (mobile / small chart cell) layout detection ---
+  // Container-based, because a chart cell on a desktop dashboard can be just as narrow
+  // as a phone. `width` is 0 until the ResizeObserver has measured, so fall back to the
+  // viewport check for the first paint (and for any container we fail to measure).
+  const { ref: containerRef, width: containerWidth } = useResizeObserver<HTMLDivElement>();
+  const isMobileViewport = useIsMobile();
+  const isNarrow = containerWidth > 0 ? containerWidth < NARROW_TABLE_WIDTH_PX : isMobileViewport;
+
+  // Pagination buttons grow to a 40px touch target in narrow layout; desktop keeps 32px.
+  const paginationButtonClass = isNarrow ? 'h-10 w-10' : 'h-8 w-8';
+
   // Determine if we're using server-side pagination (pagination prop provided) or fallback to client-side
   const isServerSidePagination = !!pagination;
 
@@ -137,6 +184,12 @@ export function TableChart({
     }
     return [];
   }, [data, table_columns]);
+
+  // Freeze the first column whenever the builder asked for it, and always in narrow layout:
+  // horizontal scrolling is the only way to read a table on a phone, and without a frozen
+  // first column the row identifier scrolls out of view. Skipped for single-column tables,
+  // where a sticky column would just eat the whole width.
+  const freezeFirstColumn = (isNarrow && columns.length > 1) || !!config.freezeFirstColumn;
 
   // Calculate paginated data
   const paginatedData = useMemo(() => {
@@ -362,9 +415,14 @@ export function TableChart({
     onSort(column, newDirection);
   };
 
-  // Handle loading state
+  // Loading / error / empty states render inside the same wrapper as the table (below)
+  // rather than returning early, so the ResizeObserver ref stays attached to a mounted
+  // node. The hook observes once on mount; an early return here would leave it with
+  // nothing to measure and the narrow layout would never activate after data arrives.
+  let stateContent: React.ReactNode = null;
+
   if (isLoading) {
-    return (
+    stateContent = (
       <div className="relative w-full h-full min-h-[300px]">
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
@@ -374,11 +432,8 @@ export function TableChart({
         </div>
       </div>
     );
-  }
-
-  // Handle error state
-  if (error) {
-    return (
+  } else if (error) {
+    stateContent = (
       <div className="relative h-full">
         <div className="absolute top-0 left-0 right-0 z-10 p-4">
           <Alert variant="warning">
@@ -391,10 +446,8 @@ export function TableChart({
         </div>
       </div>
     );
-  }
-
-  if (!data || data.length === 0) {
-    return (
+  } else if (!data || data.length === 0) {
+    stateContent = (
       <div className="flex items-center justify-center h-full p-8">
         <div className="text-center text-muted-foreground">
           <p>No data available</p>
@@ -402,10 +455,8 @@ export function TableChart({
         </div>
       </div>
     );
-  }
-
-  if (columns.length === 0) {
-    return (
+  } else if (columns.length === 0) {
+    stateContent = (
       <div className="flex items-center justify-center h-full p-8">
         <div className="text-center text-muted-foreground">
           <p>No columns configured</p>
@@ -415,8 +466,19 @@ export function TableChart({
     );
   }
 
+  // Both this return and the one below use an identical root <div>, so React reuses the
+  // same DOM node when the table swaps from loading to data — which is what keeps the
+  // ResizeObserver attached across that transition.
+  if (stateContent) {
+    return (
+      <div ref={containerRef} className="w-full h-full flex flex-col" data-testid="table-chart">
+        {stateContent}
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full h-full flex flex-col">
+    <div ref={containerRef} className="w-full h-full flex flex-col" data-testid="table-chart">
       {/* Search bar */}
       <div className="flex-shrink-0 py-1 mb-2">
         <TableSearchBar
@@ -438,8 +500,9 @@ export function TableChart({
                 return (
                   <TableHead
                     key={column}
+                    title={isNarrow ? column : undefined}
                     className={`font-semibold py-2 px-2 ${getAlignmentClass(column, data[0]?.[column])} ${
-                      config.freezeFirstColumn && columns.indexOf(column) === 0
+                      freezeFirstColumn && columns.indexOf(column) === 0
                         ? 'sticky left-0 z-10 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
                         : ''
                     }`}
@@ -449,25 +512,29 @@ export function TableChart({
                       borderColor: theme.border,
                     }}
                   >
-                    {canSort ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 font-semibold hover:bg-transparent"
-                        onClick={() => handleSort(column)}
-                      >
-                        <span className="mr-1">{column}</span>
-                        {sortDirection === 'asc' ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : sortDirection === 'desc' ? (
-                          <ChevronDown className="h-3 w-3" />
-                        ) : (
-                          <div className="h-3 w-3" />
-                        )}
-                      </Button>
-                    ) : (
-                      column
-                    )}
+                    <NarrowCellClamp isNarrow={isNarrow}>
+                      {canSort ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`font-semibold hover:bg-transparent ${
+                            isNarrow ? 'h-auto min-h-10 max-w-full p-0' : 'h-auto p-0'
+                          }`}
+                          onClick={() => handleSort(column)}
+                        >
+                          <span className={`mr-1 ${isNarrow ? 'truncate' : ''}`}>{column}</span>
+                          {sortDirection === 'asc' ? (
+                            <ChevronUp className="h-3 w-3" />
+                          ) : sortDirection === 'desc' ? (
+                            <ChevronDown className="h-3 w-3" />
+                          ) : (
+                            <div className="h-3 w-3" />
+                          )}
+                        </Button>
+                      ) : (
+                        column
+                      )}
+                    </NarrowCellClamp>
                   </TableHead>
                 );
               })}
@@ -494,15 +561,14 @@ export function TableChart({
                     if (isLink) {
                       const href = normalizeUrl(rawValue);
                       const linkAlignClass = getAlignmentClass(column, rawValue);
-                      const isLinkFrozen =
-                        config.freezeFirstColumn && columns.indexOf(column) === 0;
+                      const isLinkFrozen = freezeFirstColumn && columns.indexOf(column) === 0;
                       const linkColIdx = columns.indexOf(column);
 
                       return (
                         <TableCell
                           key={column}
                           data-search-cell={`${index}-${linkColIdx}`}
-                          className={`py-1.5 px-2 ${linkAlignClass} ${
+                          className={`px-2 ${isNarrow ? 'py-2.5' : 'py-1.5'} ${linkAlignClass} ${
                             isLinkFrozen
                               ? 'sticky left-0 z-10 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
                               : ''
@@ -529,7 +595,7 @@ export function TableChart({
                     const cellValue = formatCellValue(rawValue, column);
                     const conditionalColor = getConditionalColor(rawValue, column);
                     const alignClass = getAlignmentClass(column, rawValue);
-                    const isFrozen = config.freezeFirstColumn && columns.indexOf(column) === 0;
+                    const isFrozen = freezeFirstColumn && columns.indexOf(column) === 0;
                     const colIdx = columns.indexOf(column);
                     const matchHighlight = isSearchMatch(index, colIdx);
 
@@ -548,7 +614,9 @@ export function TableChart({
                       <TableCell
                         key={column}
                         data-search-cell={`${index}-${colIdx}`}
-                        className={`py-1.5 px-2 ${alignClass} ${
+                        // Full value stays reachable when the cell is truncated
+                        title={isNarrow ? String(cellValue) : undefined}
+                        className={`px-2 ${isNarrow ? 'py-2.5' : 'py-1.5'} ${alignClass} ${
                           isDrillDownClickable
                             ? 'text-blue-600 hover:text-blue-800 hover:underline cursor-pointer'
                             : ''
@@ -566,7 +634,7 @@ export function TableChart({
                             : undefined
                         }
                       >
-                        {cellValue}
+                        <NarrowCellClamp isNarrow={isNarrow}>{cellValue}</NarrowCellClamp>
                       </TableCell>
                     );
                   })}
@@ -579,76 +647,91 @@ export function TableChart({
 
       {/* Pagination Controls */}
       {(isServerSidePagination ? (pagination?.total || 0) > 0 : data.length > 0) && (
-        <div className="flex items-center justify-between border-t px-4 py-3">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                {isServerSidePagination ? (
-                  <>
-                    Showing {(pagination!.page - 1) * pagination!.pageSize + 1} to{' '}
-                    {Math.min(pagination!.page * pagination!.pageSize, pagination!.total)} of{' '}
-                    {pagination!.total.toLocaleString()} rows
-                  </>
-                ) : (
-                  <>
-                    Showing {(currentPage - 1) * pageSize + 1} to{' '}
-                    {Math.min(currentPage * pageSize, data.length)} of{' '}
-                    {data.length.toLocaleString()} rows
-                  </>
-                )}
-              </span>
-              {(isServerSidePagination ? pagination?.onPageSizeChange : true) && (
-                <Select
-                  value={
-                    isServerSidePagination ? pagination!.pageSize.toString() : pageSize.toString()
-                  }
-                  onValueChange={(value) => {
-                    const newPageSize = parseInt(value);
-                    if (isServerSidePagination) {
-                      pagination?.onPageSizeChange?.(newPageSize);
-                    } else {
-                      setPageSize(newPageSize);
-                      setCurrentPage(1);
+        <div
+          className={`flex flex-wrap items-center gap-2 border-t ${
+            isNarrow ? 'justify-center px-2 py-2' : 'justify-between px-4 py-3'
+          }`}
+          data-testid="table-pagination-footer"
+        >
+          {/* Row-count text and page-size picker need ~300px; they are dropped in narrow
+              layout so the prev/next controls stay usable instead of overflowing. */}
+          {!isNarrow && (
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {isServerSidePagination ? (
+                    <>
+                      Showing {(pagination!.page - 1) * pagination!.pageSize + 1} to{' '}
+                      {Math.min(pagination!.page * pagination!.pageSize, pagination!.total)} of{' '}
+                      {pagination!.total.toLocaleString()} rows
+                    </>
+                  ) : (
+                    <>
+                      Showing {(currentPage - 1) * pageSize + 1} to{' '}
+                      {Math.min(currentPage * pageSize, data.length)} of{' '}
+                      {data.length.toLocaleString()} rows
+                    </>
+                  )}
+                </span>
+                {(isServerSidePagination ? pagination?.onPageSizeChange : true) && (
+                  <Select
+                    value={
+                      isServerSidePagination ? pagination!.pageSize.toString() : pageSize.toString()
                     }
-                  }}
-                >
-                  <SelectTrigger className="h-8 w-[70px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                    <SelectItem value="200">200</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
+                    onValueChange={(value) => {
+                      const newPageSize = parseInt(value);
+                      if (isServerSidePagination) {
+                        pagination?.onPageSizeChange?.(newPageSize);
+                      } else {
+                        setPageSize(newPageSize);
+                        setCurrentPage(1);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-[70px]" data-testid="table-page-size-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                      <SelectItem value="200">200</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
+              {/* First/last jumps are dropped in narrow layout — prev/next cover the
+                  common case and every button here has to fit on one row. */}
+              {!isNarrow && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className={paginationButtonClass}
+                  data-testid="table-pagination-first-btn"
+                  onClick={() => {
+                    if (isServerSidePagination) {
+                      pagination?.onPageChange(1);
+                    } else {
+                      setCurrentPage(1);
+                    }
+                  }}
+                  disabled={isServerSidePagination ? pagination!.page === 1 : currentPage === 1}
+                >
+                  <ChevronFirst className="h-4 w-4" />
+                  <span className="sr-only">First page</span>
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (isServerSidePagination) {
-                    pagination?.onPageChange(1);
-                  } else {
-                    setCurrentPage(1);
-                  }
-                }}
-                disabled={isServerSidePagination ? pagination!.page === 1 : currentPage === 1}
-              >
-                <ChevronFirst className="h-4 w-4" />
-                <span className="sr-only">First page</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
+                className={paginationButtonClass}
+                data-testid="table-pagination-prev-btn"
                 onClick={() => {
                   if (isServerSidePagination) {
                     pagination?.onPageChange(pagination.page - 1);
@@ -664,7 +747,7 @@ export function TableChart({
             </div>
 
             <div className="flex items-center gap-1">
-              <span className="text-sm font-medium">
+              <span className="text-sm font-medium" data-testid="table-pagination-page-indicator">
                 Page {isServerSidePagination ? pagination!.page : currentPage} of {totalPages}
               </span>
             </div>
@@ -673,7 +756,8 @@ export function TableChart({
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8"
+                className={paginationButtonClass}
+                data-testid="table-pagination-next-btn"
                 onClick={() => {
                   if (isServerSidePagination) {
                     pagination?.onPageChange(pagination.page + 1);
@@ -690,26 +774,29 @@ export function TableChart({
                 <ChevronRight className="h-4 w-4" />
                 <span className="sr-only">Next page</span>
               </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (isServerSidePagination) {
-                    pagination?.onPageChange(Math.ceil(pagination.total / pagination.pageSize));
-                  } else {
-                    setCurrentPage(totalPages);
+              {!isNarrow && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className={paginationButtonClass}
+                  data-testid="table-pagination-last-btn"
+                  onClick={() => {
+                    if (isServerSidePagination) {
+                      pagination?.onPageChange(Math.ceil(pagination.total / pagination.pageSize));
+                    } else {
+                      setCurrentPage(totalPages);
+                    }
+                  }}
+                  disabled={
+                    isServerSidePagination
+                      ? pagination!.page * pagination!.pageSize >= pagination!.total
+                      : currentPage === totalPages
                   }
-                }}
-                disabled={
-                  isServerSidePagination
-                    ? pagination!.page * pagination!.pageSize >= pagination!.total
-                    : currentPage === totalPages
-                }
-              >
-                <ChevronLast className="h-4 w-4" />
-                <span className="sr-only">Last page</span>
-              </Button>
+                >
+                  <ChevronLast className="h-4 w-4" />
+                  <span className="sr-only">Last page</span>
+                </Button>
+              )}
             </div>
           </div>
         </div>
