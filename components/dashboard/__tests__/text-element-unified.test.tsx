@@ -24,6 +24,22 @@ const config: UnifiedTextConfig = {
   color: '#000000',
 };
 
+/**
+ * Clicks into the editor and waits until it is genuinely ready for keystrokes.
+ *
+ * startEditing measures the floating toolbar inside a requestAnimationFrame, and the
+ * setToolbarPosition that follows re-renders the editor. Characters typed in that window are
+ * swallowed by ProseMirror, so waiting only on `contenteditable` leaves the typing tests
+ * racing the animation frame.
+ */
+async function activateEditor(editor: HTMLElement) {
+  fireEvent.click(editor);
+  await waitFor(() => expect(editor).toHaveAttribute('contenteditable', 'true'));
+  await act(async () => {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  });
+}
+
 describe('UnifiedTextElement', () => {
   beforeAll(() => {
     // ProseMirror asks the active DOM range for geometry when it scrolls a
@@ -79,8 +95,7 @@ describe('UnifiedTextElement', () => {
     );
 
     const editor = await screen.findByTestId('dashboard-rich-text-editor');
-    fireEvent.click(editor);
-    await waitFor(() => expect(editor).toHaveAttribute('contenteditable', 'true'));
+    await activateEditor(editor);
     await user.type(editor, ' updated', { skipClick: true });
 
     act(() => {
@@ -108,8 +123,7 @@ describe('UnifiedTextElement', () => {
     );
 
     const editor = await screen.findByTestId('dashboard-rich-text-editor');
-    fireEvent.click(editor);
-    await waitFor(() => expect(editor).toHaveAttribute('contenteditable', 'true'));
+    await activateEditor(editor);
     await user.type(editor, ' keyboard edit', { skipClick: true });
     const detail = { updates: [] };
 
@@ -141,8 +155,7 @@ describe('UnifiedTextElement', () => {
     );
 
     const editor = await screen.findByTestId('dashboard-rich-text-editor');
-    fireEvent.click(editor);
-    await waitFor(() => expect(editor).toHaveAttribute('contenteditable', 'true'));
+    await activateEditor(editor);
     await user.click(editor);
     await user.type(editor, ' blurred', { skipClick: true });
     expect(editor).toHaveTextContent('blurred');
@@ -172,8 +185,7 @@ describe('UnifiedTextElement', () => {
     );
 
     const editor = await screen.findByTestId('dashboard-rich-text-editor');
-    fireEvent.click(editor);
-    await waitFor(() => expect(editor).toHaveAttribute('contenteditable', 'true'));
+    await activateEditor(editor);
     await user.click(editor);
     await user.type(editor, ' once', { skipClick: true });
     await user.click(screen.getByTestId('outside-click-target'));
@@ -243,7 +255,7 @@ describe('UnifiedTextElement', () => {
     render(<UnifiedTextElement config={boldConfig} onUpdate={jest.fn()} isEditMode />);
 
     const editor = await screen.findByTestId('dashboard-rich-text-editor');
-    fireEvent.click(editor);
+    await activateEditor(editor);
     const boldButton = await screen.findByRole('button', { name: 'Bold' });
 
     const selection = window.getSelection();

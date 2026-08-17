@@ -35,6 +35,7 @@ jest.mock('../hooks/useStreamConfig', () => ({
   useStreamConfig: (): Record<string, unknown> => ({
     streams: [],
     setStreams: jest.fn(),
+    initializeStreams: jest.fn(),
     streamSearch: '',
     setStreamSearch: jest.fn(),
     incrementalAllStreams: false,

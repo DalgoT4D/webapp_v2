@@ -227,7 +227,7 @@ export const KpiMetricStep = forwardRef<KpiMetricStepHandle, KpiMetricStepProps>
       <div className="space-y-4">
         {mode === 'select' ? (
           <div className="space-y-3">
-            <div className="space-y-1">
+            <div className="space-y-1" data-testid="kpi-form-metric-field">
               <Label>
                 Select metric <span className="text-destructive">*</span>
               </Label>

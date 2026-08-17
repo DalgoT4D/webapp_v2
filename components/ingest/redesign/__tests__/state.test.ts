@@ -27,6 +27,25 @@ describe('selectIngestState', () => {
     expect(state).toBe('NO_WAREHOUSE');
   });
 
+  it('returns ERROR — not NO_WAREHOUSE — when the warehouse fetch failed', () => {
+    // SWR sits at data:undefined, isLoading:false between error retries. Reading that as
+    // NO_WAREHOUSE is what auto-opened the warehouse wizard for orgs that HAVE a warehouse.
+    const state = selectIngestState(
+      { data: undefined, isLoading: false, isError: new Error('boom') },
+      { data: [], isLoading: false }
+    );
+    expect(state).toBe('ERROR');
+  });
+
+  it('returns ERROR when the sources fetch failed', () => {
+    // useSources defaults data to [] on error, so without isError an outage reads as NO_SOURCE.
+    const state = selectIngestState(
+      { data: { name: 'wh' } as Warehouse, isLoading: false },
+      { data: [], isLoading: false, isError: new Error('boom') }
+    );
+    expect(state).toBe('ERROR');
+  });
+
   it('returns NO_SOURCE when warehouse exists but no sources', () => {
     const state = selectIngestState(
       { data: { name: 'wh' } as Warehouse, isLoading: false },

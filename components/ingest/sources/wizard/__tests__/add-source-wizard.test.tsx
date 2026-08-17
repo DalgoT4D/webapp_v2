@@ -53,6 +53,43 @@ it('with needsWarehouse: starts a 4-step flow on the warehouse step, then advanc
   expect(screen.getByText(/step 2 of 4/i)).toBeInTheDocument();
 });
 
+it('drops the warehouse step when a warehouse turns out to exist', () => {
+  // The wizard was opened at its warehouse step off a failed /organizations/warehouses read;
+  // the retry lands and reports a warehouse. Asking again would be the bug users reported.
+  const { rerender } = render(
+    <AddSourceWizard open needsWarehouse onClose={jest.fn()} onComplete={jest.fn()} />
+  );
+  expect(screen.getByTestId('wh-save')).toBeInTheDocument();
+
+  rerender(
+    <AddSourceWizard
+      open
+      needsWarehouse
+      warehouseExists
+      onClose={jest.fn()}
+      onComplete={jest.fn()}
+    />
+  );
+
+  expect(screen.queryByTestId('wh-save')).not.toBeInTheDocument();
+  expect(screen.getByTestId('pick')).toBeInTheDocument();
+  expect(screen.getByText(/step 1 of 3/i)).toBeInTheDocument();
+});
+
+it('keeps mid-flow progress when needsWarehouse flips while the dialog is open', () => {
+  const { rerender } = render(<AddSourceWizard open onClose={jest.fn()} onComplete={jest.fn()} />);
+  fireEvent.click(screen.getByTestId('pick'));
+  fireEvent.click(screen.getByTestId('create'));
+  expect(screen.getByTestId('conn-body')).toHaveTextContent('source:src-9');
+
+  // A prop change must not re-run the open-reset and throw the user back to step 1 —
+  // the source is already created server-side by this point.
+  rerender(<AddSourceWizard open needsWarehouse onClose={jest.fn()} onComplete={jest.fn()} />);
+
+  expect(screen.getByTestId('conn-body')).toHaveTextContent('source:src-9');
+  expect(screen.queryByTestId('wh-save')).not.toBeInTheDocument();
+});
+
 it('refreshes the list (onComplete) when dismissed after the source is created', () => {
   const onClose = jest.fn();
   const onComplete = jest.fn();

@@ -21,6 +21,7 @@ import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 
 // Chart type definitions with descriptions
 const chartTypes = [
@@ -139,6 +140,20 @@ function NewChartPageContent() {
   const handleDatasetChange = (schema: string, table: string) => {
     setSelectedSchema(schema);
     setSelectedTable(table);
+    // Walkthrough checkpoint. Deliberately driven from the real selection rather than a click
+    // listener on the picker: opening the dropdown is a click too, and advancing on that moved
+    // the coachmark onto "pick a chart type" while the dataset list was still open and nothing
+    // had been chosen.
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active) walkthrough.advanceIfBefore('chart_pick_type');
+  };
+
+  const handleChartTypeSelect = (chartType: string) => {
+    setSelectedChartType(chartType);
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'chart_pick_type') {
+      walkthrough.advanceTo('chart_continue');
+    }
   };
 
   const handleCancel = () => {
@@ -181,13 +196,16 @@ function NewChartPageContent() {
             <h2 className="text-xl font-semibold">Choose a dataset</h2>
           </div>
 
-          <DatasetSelector
-            schema_name={selectedSchema}
-            table_name={selectedTable}
-            onDatasetChange={handleDatasetChange}
-            className="max-w-lg"
-            autoFocus={true}
-          />
+          {/* Wrapper carries the testid: DatasetSelector takes no testid prop, and the
+              onboarding walkthrough spotlights the picker as a whole. */}
+          <div data-testid="chart-dataset-selector" className="max-w-lg">
+            <DatasetSelector
+              schema_name={selectedSchema}
+              table_name={selectedTable}
+              onDatasetChange={handleDatasetChange}
+              autoFocus={true}
+            />
+          </div>
         </div>
 
         {/* Chart Type Selection */}
@@ -200,7 +218,12 @@ function NewChartPageContent() {
           </div>
 
           <TooltipProvider>
-            <div className="flex flex-wrap gap-4" role="radiogroup" aria-label="Chart type">
+            <div
+              className="flex flex-wrap gap-4"
+              role="radiogroup"
+              aria-label="Chart type"
+              data-testid="chart-type-grid"
+            >
               {chartTypes.map((chart) => {
                 const IconComponent = chart.icon;
                 const isSelected = selectedChartType === chart.id;
@@ -226,11 +249,11 @@ function NewChartPageContent() {
                         role="radio"
                         aria-checked={isSelected}
                         tabIndex={0}
-                        onClick={() => setSelectedChartType(chart.id)}
+                        onClick={() => handleChartTypeSelect(chart.id)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            setSelectedChartType(chart.id);
+                            handleChartTypeSelect(chart.id);
                           }
                         }}
                       >
@@ -264,6 +287,7 @@ function NewChartPageContent() {
           Cancel
         </Button>
         <Button
+          data-testid="chart-type-continue-button"
           onClick={handleContinue}
           variant="primary"
           disabled={!canProceed}

@@ -227,7 +227,7 @@ export function KpiThresholdsStep({
         />
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2" data-testid="kpi-form-type-field">
         <Label>KPI Type</Label>
         <Controller
           control={control}

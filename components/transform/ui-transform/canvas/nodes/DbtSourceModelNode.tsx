@@ -6,6 +6,7 @@ import { Handle, Position, type NodeProps, useEdges } from 'reactflow';
 import { Trash2, Database } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTransformStore } from '@/stores/transformStore';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import type { CanvasNodeRenderData } from '@/types/transform';
 import { NODE_COLORS, OperationFormAction, CanvasActionEnum } from '@/constants/transform';
@@ -61,6 +62,10 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
         type: CanvasActionEnum.OPEN_OPCONFIG_PANEL,
         data: { mode: OperationFormAction.CREATE },
       });
+
+      if (useInsightWalkthroughStore.getState().stage === 'pipeline_select_node') {
+        useInsightWalkthroughStore.getState().advanceTo('pipeline_pick_function');
+      }
     }
   }, [
     id,
