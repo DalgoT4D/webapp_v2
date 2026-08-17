@@ -26,6 +26,15 @@ import { TourGate } from '../tour-gate';
 
 // ============ Mocks ============
 
+// tour-gate computes ADVANCE_ON_SYNC_START from NEXT_PUBLIC_WEBAPP_ENVIRONMENT at module load:
+// on 'local' the sync checkpoint treats a merely-STARTED sync as a success. These tests cover
+// the staging/production path, so pin the constant instead of inheriting whatever the machine's
+// .env says — otherwise the suite passes in CI (var unset) and fails on every dev laptop.
+jest.mock('@/constants/constants', () => ({
+  ...jest.requireActual('@/constants/constants'),
+  NEXT_PUBLIC_WEBAPP_ENVIRONMENT: 'staging',
+}));
+
 const mockStartTour = jest.fn();
 // Captured so tests can assert what TourGate hands down — the post-tour choice gate lives
 // inside ProductTour (driver.js, unmountable in jsdom), so the prop is the testable seam.

@@ -11,6 +11,7 @@ import { PipelineRunHistory } from '../pipeline-run-history';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
 import { apiGet as _apiGet } from '@/lib/api';
 import { toastError as _toastError } from '@/lib/toast';
+import { FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import type { Pipeline, DeploymentRun } from '@/types/pipeline';
 
 const mockApiGet = _apiGet as jest.Mock;
@@ -28,6 +29,20 @@ jest.mock('@/lib/toast', () => ({
     load: jest.fn(),
     api: jest.fn(),
   },
+}));
+
+// The AI-summary button is gated by the LOG_SUMMARIZATION feature flag, which the component
+// reads through useFeatureFlags. Drive the flag from the test rather than leaving it to the
+// unmocked SWR call, so both the on and off paths are covered deterministically.
+const mockIsFeatureFlagEnabled = jest.fn<boolean, [string]>(() => false);
+jest.mock('@/hooks/api/useFeatureFlags', () => ({
+  ...jest.requireActual('@/hooks/api/useFeatureFlags'),
+  useFeatureFlags: () => ({
+    flags: {},
+    isLoading: false,
+    error: null,
+    isFeatureFlagEnabled: mockIsFeatureFlagEnabled,
+  }),
 }));
 
 jest.mock('@/components/ui/full-screen-modal', () => ({
@@ -380,6 +395,7 @@ describe('PipelineRunHistory', () => {
     });
 
     // AI summary disabled
+    mockIsFeatureFlagEnabled.mockReturnValue(false);
     const { rerender } = render(
       <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
     );
@@ -387,11 +403,8 @@ describe('PipelineRunHistory', () => {
     await waitFor(() => {
       expect(screen.getByTestId('logs-table')).toBeInTheDocument();
     });
-    if (process.env.NEXT_PUBLIC_ENABLE_LOG_SUMMARIES === 'true') {
-      expect(screen.queryByTestId('trigger-summary-btn')).toBeInTheDocument();
-    } else {
-      expect(screen.queryByTestId('trigger-summary-btn')).not.toBeInTheDocument();
-    }
+    expect(mockIsFeatureFlagEnabled).toHaveBeenCalledWith(FeatureFlagKeys.LOG_SUMMARIZATION);
+    expect(screen.queryByTestId('trigger-summary-btn')).not.toBeInTheDocument();
 
     // Dialog close/reopen
     rerender(
@@ -405,5 +418,20 @@ describe('PipelineRunHistory', () => {
     await waitFor(() => {
       expect(screen.getByTestId('logs-table')).toBeInTheDocument();
     });
+  });
+
+  it('shows AI summary when the LOG_SUMMARIZATION flag is on', async () => {
+    (usePipelinesHook.usePipelineHistory as jest.Mock).mockReturnValue({
+      runs: [createMockDeploymentRun()],
+      isLoading: false,
+      isError: null,
+    });
+    mockIsFeatureFlagEnabled.mockReturnValue(true);
+
+    render(
+      <PipelineRunHistory pipeline={mockPipeline} open={true} onOpenChange={mockOnOpenChange} />
+    );
+
+    expect(await screen.findByTestId('trigger-summary-btn')).toBeInTheDocument();
   });
 });

@@ -249,10 +249,13 @@ describe('TrialBadge subscription request flow', () => {
     await user.click(screen.getByTestId('subscription-confirm-button'));
 
     expect(await screen.findByTestId('subscription-sent-modal')).toBeInTheDocument();
-    expect(screen.getByTestId('subscription-sent-modal')).toHaveClass(
+    // The gradient sits on the inner wrapper, not on DialogContent — tailwind-merge would
+    // collapse it into DialogContent's `bg-background` and leave the modal see-through
+    // (see the note in subscription-request-modal.tsx).
+    expect(screen.getByTestId('subscription-sent-gradient')).toHaveClass(
       'bg-gradient-to-b',
       'from-primary/10',
-      'to-white'
+      'to-background'
     );
     expect(screen.getByTestId('subscription-sent-animation')).toHaveAttribute(
       'src',

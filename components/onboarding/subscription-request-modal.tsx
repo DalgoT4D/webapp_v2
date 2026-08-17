@@ -45,7 +45,10 @@ export function SubscriptionRequestModal({
               `bg-gradient-to-b` and DialogContent's default `bg-background` as the same
               utility group, so putting it above would drop the opaque base and leave the
               modal see-through. */}
-          <div className="from-primary/10 to-background flex flex-col items-center gap-4 bg-gradient-to-b px-10 pt-12 pb-10 text-center">
+          <div
+            data-testid="subscription-sent-gradient"
+            className="from-primary/10 to-background flex flex-col items-center gap-4 bg-gradient-to-b px-10 pt-12 pb-10 text-center"
+          >
             {/* Match the celebration moments elsewhere in onboarding. `unoptimized` preserves
                 the GIF animation instead of allowing Next to flatten it into a still image. */}
             <Image

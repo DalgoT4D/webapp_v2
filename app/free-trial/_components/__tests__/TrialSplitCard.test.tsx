@@ -27,7 +27,22 @@ jest.mock('next/image', () => {
 import { TrialSplitCard } from '../TrialSplitCard';
 import { TrialMarketingPanel } from '../TrialMarketingPanel';
 import { TrialField } from '../TrialField';
-import { TRIAL_MARKETING_PANELS } from '@/app/free-trial/_lib/constants';
+import {
+  TRIAL_MARKETING_PANELS,
+  type TrialMarketingPanelConfig,
+} from '@/app/free-trial/_lib/constants';
+
+// The headline-less, bottom-text layout is still live code in TrialMarketingPanel, but no
+// shipped panel uses it any more: the provisioning panel that did was replaced by the
+// product-video pane. Cover the branch with a local fixture instead of a config entry.
+const HEADLINE_LESS_PANEL: TrialMarketingPanelConfig = {
+  imageSrc: '/branding/bar_chart_preview.png',
+  imageAlt: 'A preview of Dalgo charts built from sample programme data',
+  headline: '',
+  subline: "Dalgo brings all your NGO's scattered data into one unified view.",
+  activeDot: null,
+  textPosition: 'bottom',
+};
 
 describe('TrialSplitCard', () => {
   it('renders the form slot under the given testId', () => {
@@ -73,9 +88,9 @@ describe('TrialMarketingPanel', () => {
   });
 
   it('renders the subline for a panel with no headline', () => {
-    render(<TrialMarketingPanel panel={TRIAL_MARKETING_PANELS.provisioning} />);
+    render(<TrialMarketingPanel panel={HEADLINE_LESS_PANEL} />);
 
-    expect(screen.getByText(TRIAL_MARKETING_PANELS.provisioning.subline)).toBeInTheDocument();
+    expect(screen.getByText(HEADLINE_LESS_PANEL.subline)).toBeInTheDocument();
     expect(screen.queryByRole('heading')).not.toBeInTheDocument();
   });
 });
