@@ -39,6 +39,7 @@ import {
 } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
+import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import {
   getApiCustomizations,
   mergeTableColumnFormatting,
@@ -217,9 +218,13 @@ function ConfigureChartPageContent() {
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null,
     drillDownPath.length > 0
   );
-  const { data: regionGeojsons } = useRegionGeoJSONs(
-    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null
-  );
+  const currentDrillDownRegionId =
+    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
+  const {
+    data: regionGeojsons,
+    error: regionGeojsonsError,
+    isLoading: regionGeojsonsLoading,
+  } = useRegionGeoJSONs(currentDrillDownRegionId);
 
   // Initialize original form data for unsaved changes detection
   useEffect(() => {
@@ -473,28 +478,36 @@ function ConfigureChartPageContent() {
 
   // Fetch GeoJSON data for maps
   // Make geojsonId drill-down aware
-  const geojsonId = useMemo(() => {
-    if (formData.chart_type !== 'map') return null;
-
-    // If we're in drill-down mode and have region geojsons, use the first one
-    if (drillDownPath.length > 0 && regionGeojsons && regionGeojsons.length > 0) {
-      return regionGeojsons[0].id;
-    }
-
-    // Otherwise use the base geojson
-    return formData.geojsonPreviewPayload?.geojsonId || null;
-  }, [
-    formData.chart_type,
-    formData.geojsonPreviewPayload?.geojsonId,
-    drillDownPath,
-    regionGeojsons,
-  ]);
+  const drillDownGeojsonResolution = useMemo(
+    () =>
+      resolveDrillDownGeoJSON({
+        isDrillDownActive: drillDownPath.length > 0,
+        regionId: currentDrillDownRegionId,
+        regionGeojsons,
+        regionGeojsonsLoading,
+        regionGeojsonsError,
+        fallbackGeojsonId:
+          drillDownPath.length > 0 ? null : formData.geojsonPreviewPayload?.geojsonId,
+      }),
+    [
+      currentDrillDownRegionId,
+      drillDownPath.length,
+      formData.geojsonPreviewPayload?.geojsonId,
+      regionGeojsons,
+      regionGeojsonsError,
+      regionGeojsonsLoading,
+    ]
+  );
+  const geojsonId =
+    formData.chart_type === ChartTypes.MAP ? drillDownGeojsonResolution.geojsonId : null;
 
   const {
     data: geojsonData,
-    error: geojsonError,
-    isLoading: geojsonLoading,
+    error: geojsonDataError,
+    isLoading: geojsonDataLoading,
   } = useGeoJSONData(geojsonId);
+  const geojsonError = regionGeojsonsError || geojsonDataError;
+  const geojsonLoading = drillDownGeojsonResolution.isResolving || geojsonDataLoading;
 
   // Fetch map data overlay
   // ✅ FIXED: Keep original data overlay logic, just make it drill-down aware
