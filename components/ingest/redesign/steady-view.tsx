@@ -27,7 +27,10 @@ import { PendingActions } from '@/components/connections/pending-actions';
 import { SchemaChangeForm } from '@/components/connections/schema-change-form';
 import { SourceForm } from '@/components/ingest/sources/SourceForm';
 import { SourceRow } from '@/components/ingest/redesign/source-row';
-import { groupConnectionsBySource } from '@/components/ingest/redesign/utils';
+import {
+  groupConnectionsBySource,
+  type ConnectionsStatus,
+} from '@/components/ingest/redesign/utils';
 import type { Connection, ClearStreamData } from '@/types/connections';
 import type { Source } from '@/types/source';
 
@@ -94,7 +97,12 @@ function compareSources(a: Source, b: Source, sort: SortOption): number {
  * forms.
  */
 export function SteadyView() {
-  const { data: connections, mutate: mutateConnections } = useConnectionsList();
+  const {
+    data: connections,
+    isLoading: connectionsLoading,
+    isError: connectionsError,
+    mutate: mutateConnections,
+  } = useConnectionsList();
   const { data: sources, mutate: mutateSources } = useSources();
   const { hasPermission } = useRbac();
   const { confirm, DialogComponent } = useConfirmationDialog();
@@ -164,6 +172,19 @@ export function SteadyView() {
       (group) => group.source.name.toLowerCase().includes(q) || group.connections.length > 0
     );
   }, [sources, connections, searchTerm, sortOption]);
+
+  // Sources and connections are separate fetches, and this view mounts as soon as
+  // sources land. Passing the connections fetch state down stops each source row
+  // reading "still loading" as "no connections" (see ConnectionsStatus).
+  const connectionsStatus: ConnectionsStatus = connectionsError
+    ? 'error'
+    : connectionsLoading
+      ? 'loading'
+      : 'ready';
+
+  const handleRetryConnections = useCallback(() => {
+    mutateConnections();
+  }, [mutateConnections]);
 
   const handleSortSources = useCallback(() => {
     setSortOption((prev) => nextSort(prev));
@@ -501,6 +522,8 @@ export function SteadyView() {
                   <SourceRow
                     key={group.source.sourceId}
                     group={group}
+                    connectionsStatus={connectionsStatus}
+                    onRetryConnections={handleRetryConnections}
                     syncingIds={syncingIds}
                     canSync={canSync}
                     canEditConnection={canEditConnection}

@@ -66,6 +66,35 @@ describe('SteadyView (smoke)', () => {
     expect(screen.getByTestId('connection-row-c1')).toBeInTheDocument();
   });
 
+  // Sources and connections are two separate fetches; sources can land first.
+  // Until connections answer, a source must not be labelled as having none.
+  it('does not show the add-connection empty state while connections are still loading', () => {
+    mockConnections.mockReturnValue({ data: [], isLoading: true, mutate: jest.fn() });
+    mockSources.mockReturnValue({ data: [source('s2', 'Sheets')], mutate: jest.fn() });
+
+    render(<SteadyView />);
+
+    expect(screen.getByTestId('source-row-s2')).toBeInTheDocument();
+    expect(screen.getByTestId('connections-loading-s2')).toBeInTheDocument();
+    expect(screen.queryByTestId('add-connection-s2')).not.toBeInTheDocument();
+  });
+
+  it('offers a retry instead of the empty state when the connections fetch failed', () => {
+    const mutate = jest.fn();
+    mockConnections.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: new Error('boom'),
+      mutate,
+    });
+    mockSources.mockReturnValue({ data: [source('s2', 'Sheets')], mutate: jest.fn() });
+
+    render(<SteadyView />);
+
+    expect(screen.queryByTestId('add-connection-s2')).not.toBeInTheDocument();
+    expect(screen.getByTestId('retry-connections-s2')).toBeInTheDocument();
+  });
+
   it('shows a source with no connections as a plain add-connection row', () => {
     mockConnections.mockReturnValue({ data: [], mutate: jest.fn() });
     mockSources.mockReturnValue({ data: [source('s2', 'Sheets')], mutate: jest.fn() });
