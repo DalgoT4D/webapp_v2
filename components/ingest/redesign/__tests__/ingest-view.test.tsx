@@ -277,6 +277,19 @@ describe('IngestView walkthrough coachmarks', () => {
     expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_ingest');
   });
 
+  it('un-suppresses the coachmark when the page unmounts with the wizard still open', () => {
+    const { unmount } = renderView();
+    fireEvent.click(screen.getByTestId('new-source-btn'));
+    expect(useInsightWalkthroughStore.getState().suppressCoachmark).toBe(true);
+
+    // Leaving the page without closing the dialog (browser back, sidebar nav). The store
+    // never resets this itself and it isn't persisted, so a latched `true` hides coachmarks
+    // on every other page until a full reload.
+    unmount();
+
+    expect(useInsightWalkthroughStore.getState().suppressCoachmark).toBe(false);
+  });
+
   it('leaves the stage alone when the wizard produced a tracked connection', () => {
     renderView();
     fireEvent.click(screen.getByTestId('new-source-btn'));

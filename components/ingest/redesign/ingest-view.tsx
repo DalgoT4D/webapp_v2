@@ -111,6 +111,17 @@ export function IngestView() {
       .setSuppressCoachmark(wizardOpen && !isWizardCoachedStage(walkthroughStage));
   }, [wizardOpen, walkthroughStage]);
 
+  // Leaving the page without closing the wizard (browser back, sidebar nav) would strand
+  // suppression at `true`: the store neither resets it nor persists it, so coachmarks stay
+  // hidden on every other page for the rest of the session and only a reload clears it.
+  // Separate from the effect above, and unmount-only, so re-running that one on a stage
+  // change can't blink the coachmark back on mid-flow.
+  useEffect(() => {
+    return () => {
+      useInsightWalkthroughStore.getState().setSuppressCoachmark(false);
+    };
+  }, []);
+
   /**
    * Leaving the wizard without a connection strands a pick-a-source stage on a card that no
    * longer exists — the coachmark would sit waiting on a selector that can't reappear until
