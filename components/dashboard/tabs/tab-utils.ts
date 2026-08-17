@@ -1,4 +1,4 @@
-import {
+import type {
   DashboardTab,
   DashboardTabsData,
   DashboardLayoutItem,
@@ -63,15 +63,36 @@ export function getNextTabNumber(tabs: DashboardTab[]): number {
  * Converts backend tabs array to frontend DashboardTabsData structure
  * Backend returns tabs as array, frontend needs {tabs, activeTabId}
  * @param tabs - Array of tabs from backend or undefined
+ * @param legacyLayout - Pre-tab dashboard layout, retained for backward compatibility
+ * @param legacyComponents - Pre-tab dashboard components, retained for backward compatibility
  * @returns DashboardTabsData with activeTabId set to first tab
  */
-export function initializeTabsData(tabs: DashboardTab[] | undefined | null): DashboardTabsData {
+export function initializeTabsData(
+  tabs: DashboardTab[] | undefined | null,
+  legacyLayout: DashboardLayoutItem[] = [],
+  legacyComponents: Record<string, DashboardComponentConfig> = {}
+): DashboardTabsData {
   if (tabs && Array.isArray(tabs) && tabs.length > 0) {
     return {
       tabs: tabs,
       activeTabId: tabs[0].id,
     };
   }
+
+  if (legacyLayout.length > 0 || Object.keys(legacyComponents).length > 0) {
+    const firstTab = createNewTab(1);
+    return {
+      tabs: [
+        {
+          ...firstTab,
+          layout_config: legacyLayout,
+          components: legacyComponents,
+        },
+      ],
+      activeTabId: firstTab.id,
+    };
+  }
+
   return getDefaultTabsConfig();
 }
 

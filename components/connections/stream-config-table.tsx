@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ChevronDown, SlidersHorizontal } from 'lucide-react';
+import { ChevronDown, ChevronsDown, SlidersHorizontal } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -19,12 +19,23 @@ import type { ConnectionConceptId } from './constants';
 
 // Base (always-visible) columns: stream name + sync toggle.
 const BASE_COLUMN_COUNT = 2;
-// Advanced columns shown for every source when advanced is open: destination
-// mode + the per-row column-expand chevron.
-const ADVANCED_CORE_COLUMN_COUNT = 2;
+// Destination remains an advanced setting. Google Sheets exposes the separate
+// Columns control even while advanced settings are closed so users can inspect
+// detected types and configure post-sync casts without revealing unrelated
+// per-table controls.
+const ADVANCED_DESTINATION_COLUMN_COUNT = 1;
+const COLUMNS_CONTROL_COLUMN_COUNT = 1;
 // Cursor field + primary key. These are incremental-only concepts, so they show
 // only when the source supports incremental sync (e.g. hidden for Google Sheets).
 const CURSOR_PK_COLUMN_COUNT = 2;
+// Seven advanced columns need more room than the left side of the connection
+// dialog can provide. A minimum table width keeps controls readable and lets the
+// containing region scroll horizontally instead of squeezing every field.
+const FULL_ADVANCED_TABLE_WIDTH_CLASS = 'min-w-[1080px]';
+const CAST_ADVANCED_TABLE_WIDTH_CLASS = 'min-w-[760px]';
+// The dialog only ever shows the first row or two before the fold, so with more
+// than one table the list is guaranteed to be cut off and needs a scroll hint.
+const SCROLL_HINT_MIN_STREAMS = 2;
 
 interface StreamConfigTableProps {
   streams: SourceStream[];
@@ -98,6 +109,13 @@ export function StreamConfigTable({
   // Cursor field + primary key are incremental-only; hide them for sources that
   // don't support incremental (e.g. Google Sheets keeps only Sync + Destination).
   const showCursorPkColumns = advancedOpen && showIncremental;
+  const showColumnsControl = advancedOpen || showCastColumn;
+  const horizontalScrollEnabled = advancedOpen && (showCursorPkColumns || showCastColumn);
+  const tableWidthClass = showCursorPkColumns
+    ? FULL_ADVANCED_TABLE_WIDTH_CLASS
+    : advancedOpen && showCastColumn
+      ? CAST_ADVANCED_TABLE_WIDTH_CLASS
+      : '';
   // Singular, lowercased noun for inline copy: "Tables"→"table".
   const nounSingular = streamNoun.replace(/s$/i, '').toLowerCase();
   const selectedCount = streams.filter((s) => s.selected).length;
@@ -117,19 +135,22 @@ export function StreamConfigTable({
     ) : (
       <>{label}</>
     );
-  // Incremental / Destination / Cursor / Primary Key columns (and the
-  // per-row column-expand chevron) render only when advanced is open. Cursor +
-  // primary key drop out when the source has no incremental support.
+  // Incremental / Destination / Cursor / Primary Key render only when advanced
+  // is open. The Columns control is also visible for cast-capable sources so
+  // Google Sheets users can inspect types and configure casts independently.
   const colCount =
     BASE_COLUMN_COUNT +
     (showIncrementalColumn ? 1 : 0) +
-    (advancedOpen ? ADVANCED_CORE_COLUMN_COUNT : 0) +
-    (showCursorPkColumns ? CURSOR_PK_COLUMN_COUNT : 0);
+    (advancedOpen ? ADVANCED_DESTINATION_COLUMN_COUNT : 0) +
+    (showCursorPkColumns ? CURSOR_PK_COLUMN_COUNT : 0) +
+    (showColumnsControl ? COLUMNS_CONTROL_COLUMN_COUNT : 0);
 
-  // Column widths per open-state, each summing to exactly 100% so the fixed
-  // table never exceeds its scroll box (no horizontal overflow/clipping).
+  // Column widths per open-state, each summing to exactly 100%. The full
+  // advanced table also has a minimum width and scrolls within its container.
   const colWidths = !advancedOpen
-    ? { stream: '84%', sync: '16%' }
+    ? showColumnsControl
+      ? { stream: '72%', sync: '14%', columns: '14%' }
+      : { stream: '84%', sync: '16%' }
     : showCursorPkColumns
       ? {
           stream: '22%',
@@ -138,17 +159,28 @@ export function StreamConfigTable({
           destination: '18%',
           cursor: '20%',
           pk: '11%',
-          chevron: '9%',
+          columns: '9%',
         }
-      : { stream: '40%', sync: '12%', destination: '38%', chevron: '10%' };
+      : { stream: '40%', sync: '12%', destination: '38%', columns: '10%' };
   return (
     <div className="flex flex-col">
       {/* Header with stream count + shared advanced toggle */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold">
-          {`Select your ${streamNoun.toLowerCase()} (${selectedCount}/${streams.length} selected)`}
-        </h3>
-        <div className="flex items-center gap-2.5 rounded-md border px-2.5 py-1.5 text-sm font-medium text-muted-foreground">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-base font-semibold">
+            {`Select your ${streamNoun.toLowerCase()} (${selectedCount}/${streams.length} selected)`}
+          </h3>
+          {streams.length >= SCROLL_HINT_MIN_STREAMS && (
+            <p
+              className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground"
+              data-testid="streams-scroll-hint"
+            >
+              <ChevronsDown className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+              {`Scroll to see all ${streamNoun.toLowerCase()}`}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-2.5 rounded-md border px-2.5 py-1.5 text-sm font-medium text-muted-foreground">
           <SlidersHorizontal className="h-3.5 w-3.5" />
           <label htmlFor="advanced-streams" className="cursor-pointer">
             {`Advanced per-${nounSingular} settings`}
@@ -166,8 +198,17 @@ export function StreamConfigTable({
       {/* Table grows to its natural height; the parent left column owns the
           scroll (overflow-y-auto), so the whole side scrolls as one and the
           sticky header pins to the column while every row stays reachable. */}
-      <div className="overflow-x-hidden rounded-md border">
-        <table className="w-full text-sm table-fixed" data-testid="streams-table">
+      <div
+        className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        data-testid="streams-table-scroll-container"
+        role={horizontalScrollEnabled ? 'region' : undefined}
+        aria-label={horizontalScrollEnabled ? `Advanced per-${nounSingular} settings` : undefined}
+        tabIndex={horizontalScrollEnabled ? 0 : undefined}
+      >
+        <table
+          className={`w-full table-fixed text-sm ${tableWidthClass}`}
+          data-testid="streams-table"
+        >
           <colgroup>
             <col style={{ width: colWidths.stream }} />
             <col style={{ width: colWidths.sync }} />
@@ -179,7 +220,7 @@ export function StreamConfigTable({
                 <col style={{ width: colWidths.pk }} />
               </>
             )}
-            {advancedOpen && <col style={{ width: colWidths.chevron }} />}
+            {showColumnsControl && <col style={{ width: colWidths.columns }} />}
           </colgroup>
           <thead className="sticky top-0 z-10">
             <tr className="border-b bg-muted">
@@ -187,7 +228,7 @@ export function StreamConfigTable({
                 {conceptLabel(streamNoun, 'stream')}
               </th>
               <th className="px-3 py-2 text-center text-sm font-medium text-muted-foreground">
-                Sync?
+                {conceptLabel('Sync?', 'sync')}
               </th>
               {showIncrementalColumn && (
                 <th className="px-3 py-2 text-center text-sm font-medium text-muted-foreground">
@@ -209,7 +250,7 @@ export function StreamConfigTable({
                   </th>
                 </>
               )}
-              {advancedOpen && (
+              {showColumnsControl && (
                 <th className="px-3 py-2 text-center text-sm font-medium text-muted-foreground">
                   {conceptLabel('Columns', 'columns')}
                 </th>
@@ -253,7 +294,7 @@ export function StreamConfigTable({
                   <td className="px-3 py-1.5" />
                 </>
               )}
-              {advancedOpen && <td className="px-3 py-1.5" />}
+              {showColumnsControl && <td className="px-3 py-1.5" />}
             </tr>
           </thead>
           <tbody>
@@ -467,16 +508,16 @@ export function StreamConfigTable({
                       </>
                     )}
                     {/* Column expand */}
-                    {advancedOpen && (
+                    {showColumnsControl && (
                       <td className="px-1 py-3 text-center">
                         {stream.columns.length > 0 && (
                           <button
                             type="button"
-                            onClick={() => isSelected && onToggleStreamExpand(stream.name)}
-                            disabled={!isSelected}
-                            className="p-1 hover:bg-gray-100 rounded cursor-pointer disabled:opacity-30 disabled:cursor-default"
+                            onClick={() => onToggleStreamExpand(stream.name)}
+                            className="p-1 hover:bg-gray-100 rounded cursor-pointer"
                             data-testid={`expand-columns-${stream.name}`}
-                            aria-label="Toggle columns"
+                            aria-label={`${expandedStreams.has(stream.name) ? 'Hide' : 'Show'} columns for ${stream.name}`}
+                            aria-expanded={expandedStreams.has(stream.name)}
                           >
                             <ChevronDown
                               className={`h-4 w-4 text-gray-500 transition-transform ${
@@ -489,24 +530,30 @@ export function StreamConfigTable({
                     )}
                   </tr>
                   {/* Expanded column selection — vertical list */}
-                  {advancedOpen &&
+                  {showColumnsControl &&
                     expandedStreams.has(stream.name) &&
-                    isSelected &&
                     stream.columns.length > 0 && (
                       <tr key={`cols-${stream.name}`} className="bg-muted/30">
                         <td colSpan={colCount} className="px-4 py-2">
-                          <table className="w-full">
+                          <table
+                            data-testid={`columns-detail-table-${stream.name}`}
+                            className={
+                              showCastColumn
+                                ? 'w-[42rem] max-w-full table-fixed'
+                                : 'w-[32rem] max-w-full table-fixed'
+                            }
+                          >
                             <thead>
                               <tr className="border-b border-muted">
                                 <th className="py-1 px-2 w-10" />
                                 <th className="py-1 px-2 text-left text-xs font-medium text-muted-foreground">
                                   Column
                                 </th>
-                                <th className="py-1 px-2 text-right text-xs font-medium text-muted-foreground">
+                                <th className="w-28 py-1 px-2 text-left text-xs font-medium text-muted-foreground">
                                   Type
                                 </th>
                                 {showCastColumn && (
-                                  <th className="py-1 px-2 text-right text-xs font-medium text-muted-foreground w-36">
+                                  <th className="w-36 py-1 px-2 text-left text-xs font-medium text-muted-foreground">
                                     Cast to
                                   </th>
                                 )}
@@ -529,7 +576,9 @@ export function StreamConfigTable({
                                         onCheckedChange={() =>
                                           onToggleColumn(stream.name, col.name)
                                         }
-                                        disabled={disabled || isSaving || isProtected}
+                                        disabled={
+                                          disabled || isSaving || !isSelected || isProtected
+                                        }
                                         className="scale-75"
                                         data-testid={`col-toggle-${stream.name}-${col.name}`}
                                       />
@@ -543,13 +592,13 @@ export function StreamConfigTable({
                                         {col.name}
                                       </span>
                                     </td>
-                                    <td className="py-1.5 px-2 text-right">
+                                    <td className="w-28 py-1.5 px-2 text-left">
                                       <span className="text-xs text-muted-foreground">
                                         {col.data_type}
                                       </span>
                                     </td>
                                     {showCastColumn && (
-                                      <td className="py-1.5 px-2 text-right w-36">
+                                      <td className="w-36 py-1.5 px-2 text-left">
                                         <Select
                                           value={col.cast_to_type ?? undefined}
                                           onValueChange={(v) =>
@@ -559,9 +608,17 @@ export function StreamConfigTable({
                                               v === '__none__' ? null : v
                                             )
                                           }
-                                          disabled={disabled || isSaving || !col.selected}
+                                          disabled={
+                                            disabled || isSaving || !isSelected || !col.selected
+                                          }
+                                          aria-disabled={
+                                            disabled || isSaving || !isSelected || !col.selected
+                                          }
                                         >
-                                          <SelectTrigger className="h-6 text-xs w-full">
+                                          <SelectTrigger
+                                            className="h-6 text-xs w-full"
+                                            data-testid={`cast-type-${stream.name}-${col.name}`}
+                                          >
                                             <SelectValue placeholder="—" />
                                           </SelectTrigger>
                                           <SelectContent>

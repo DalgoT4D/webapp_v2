@@ -16,6 +16,7 @@ import { useTableColumns } from '@/hooks/api/useWarehouse';
 import { createKPI, updateKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import type { KPI, KPICreate, KPIUpdate, KPIExtraConfig } from '@/types/kpis';
 import type { Metric } from '@/types/metrics';
 import { cn } from '@/lib/utils';
@@ -152,6 +153,42 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
   });
 
   const metricId = watch('metric_id');
+  const targetValue = watch('target_value');
+  const timeDimensionColumn = watch('time_dimension_column');
+  const metricTypeTag = watch('metric_type_tag');
+
+  // Watch-based rather than only reacting to the Select's onValueChange: if the table has
+  // exactly one date column, Radix's Select never fires onValueChange for re-selecting a
+  // value that's already current — the walkthrough would otherwise wait forever for a
+  // "change" that can't happen. Firing off the watched value itself (present on mount too,
+  // not just on future changes) advances correctly whether the user actively picked it or
+  // it was already set. Advances to kpi_continue (not kpi_type) since KPI Type now lives on
+  // step 3, only reachable once the user clicks step 2's Continue button.
+  useEffect(() => {
+    if (!timeDimensionColumn) return;
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_continue');
+  }, [timeDimensionColumn]);
+
+  // Same watch-based reasoning as the time column effect above — waiting for onBlur
+  // requires the user to lose focus on the field first, which they may not do right away
+  // (e.g. typing a value then reaching for the mouse instead of tabbing away). Reacting to
+  // the value itself advances the moment they've actually entered something.
+  useEffect(() => {
+    if (!targetValue) return;
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_direction');
+  }, [targetValue]);
+
+  // KPI Type is the walkthrough's last field, so picking one moves the coachmark onto the
+  // Create KPI button. Same watch-based approach as the two effects above; guarded on a
+  // truthy value because the type buttons toggle — clicking the selected one clears it back
+  // to '', which shouldn't count as having picked anything.
+  useEffect(() => {
+    if (!metricTypeTag) return;
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_submit');
+  }, [metricTypeTag]);
 
   const { data: metrics, mutate: mutateMetrics } = useMetrics({ pageSize: 50 });
   const { tags: existingTags } = useProgramTags();
@@ -229,6 +266,10 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
       setValue('time_dimension_column', '');
       setValue('time_grain', 'monthly');
     }
+    const walkthrough = useInsightWalkthroughStore.getState();
+    // NOT kpi_target: that field lives on step 2 and doesn't exist yet. Point the coachmark at
+    // the Continue button that gets them there.
+    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_step1_continue');
   };
 
   // Track each step as it becomes visible (fires on open too, since step resets on open)
@@ -246,6 +287,10 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
       const ok = await metricStepRef.current?.handleContinue();
       if (ok) {
         setStep(2);
+        // Step 2's fields are now mounting, so the target hint finally has something to point
+        // at. Also catches the user who created a metric inline and never touched the picker.
+        const walkthrough = useInsightWalkthroughStore.getState();
+        if (walkthrough.active) walkthrough.advanceIfBefore('kpi_target');
       } else if (!metricId) {
         setStepError('Please select a metric, or complete the new metric form');
       }
@@ -257,7 +302,13 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
   const handleStep2Continue = async () => {
     setStepError(null);
     const ok = await trigger(['name', 'target_value', 'direction', 'time_dimension_column']);
-    if (ok) setStep(3);
+    if (ok) {
+      setStep(3);
+      // Catches up anyone who skipped the step-2 hints (a defaulted dropdown left alone, a
+      // field clicked past) — advanceIfBefore only ever moves forward.
+      const walkthrough = useInsightWalkthroughStore.getState();
+      if (walkthrough.active) walkthrough.advanceIfBefore('kpi_type');
+    }
   };
 
   const handleDirectionChange = (direction: string) => {
@@ -267,6 +318,14 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
     } else {
       setValue('green_threshold_pct', '50');
       setValue('amber_threshold_pct', '80');
+    }
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active) {
+      // The selected metric may have no date/timestamp columns — the Time Column field
+      // doesn't render at all then (replaced by a "no date columns found" message), so
+      // there's nothing for the kpi_time_column stage to highlight. Skip straight to
+      // kpi_continue instead of getting stuck waiting for a field that will never appear.
+      walkthrough.advanceIfBefore(dateColumns.length === 0 ? 'kpi_continue' : 'kpi_time_column');
     }
   };
 
@@ -337,7 +396,9 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      {/* preventOutsideClose: a multi-step form with unsaved input — a stray backdrop click
+          shouldn't throw the work away. Dismissing is deliberate: the X (or Escape). */}
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto" preventOutsideClose>
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit KPI' : 'Create KPI'}</DialogTitle>
         </DialogHeader>
@@ -391,28 +452,42 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             CANCEL
           </Button>
-
           {/* Back button — step 2 in create mode, or step 3 */}
           {((!isEdit && step === 2) || step === 3) && (
-            <Button type="button" variant="outline" onClick={() => setStep((s) => (s - 1) as Step)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setStep((s) => (s - 1) as Step)}
+              data-testid="kpi-form-back-btn"
+            >
               Back
             </Button>
           )}
 
           {/* Continue / Submit */}
           {step === 1 && (
-            <Button type="button" onClick={handleStep1Continue} disabled={continuing}>
+            <Button
+              type="button"
+              onClick={handleStep1Continue}
+              disabled={continuing}
+              data-testid="kpi-form-step1-continue-btn"
+            >
               {continuing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Continue
             </Button>
           )}
           {step === 2 && (
-            <Button type="button" onClick={handleStep2Continue}>
+            <Button type="button" onClick={handleStep2Continue} data-testid="kpi-form-continue-btn">
               Continue
             </Button>
           )}
           {step === 3 && (
-            <Button type="button" onClick={handleSubmit(onSubmit)} disabled={saving}>
+            <Button
+              type="button"
+              onClick={handleSubmit(onSubmit)}
+              disabled={saving}
+              data-testid="kpi-form-submit-btn"
+            >
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {isEdit ? 'Save KPI' : 'Create KPI'}
             </Button>

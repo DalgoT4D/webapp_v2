@@ -17,6 +17,8 @@ interface SourceConfigFieldsProps {
   mode: 'create' | 'edit';
   /** Google-only OAuth wiring; forwarded to the custom form. Undefined otherwise. */
   oauth?: CustomSourceOAuth;
+  /** Google-only. See `CustomSourceFormProps.onAuthSatisfiedChange`. */
+  onAuthSatisfiedChange?: (satisfied: boolean) => void;
   /** Host-owned source-name field, rendered at the top of the custom form's left
    *  column so it lines up with the other fields (not full-width above the grid). */
   nameField?: ReactNode;
@@ -45,6 +47,7 @@ export function SourceConfigFields({
   disabled,
   mode,
   oauth,
+  onAuthSatisfiedChange,
   nameField,
   setupLogs,
   logsTestId,
@@ -63,6 +66,7 @@ export function SourceConfigFields({
             disabled={disabled}
             mode={mode}
             oauth={oauth}
+            onAuthSatisfiedChange={onAuthSatisfiedChange}
           />
         </div>
       ) : parsedSpec ? (

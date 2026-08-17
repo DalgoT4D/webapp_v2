@@ -120,7 +120,8 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
     fetchSchemas();
   }, []);
 
-  // Pre-fill form if editing an existing model
+  // Pre-fill form if editing an existing model; otherwise default to the intermediate
+  // schema and root directory (Figma "tour flow" walkthrough default choice).
   useEffect(() => {
     if (node?.data?.dbtmodel && node.data.is_last_in_chain) {
       const model = node.data.dbtmodel;
@@ -129,6 +130,9 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
       if (model.rel_dir_to_models) {
         setValue('rel_dir_to_models', model.rel_dir_to_models);
       }
+    } else {
+      setValue('dest_schema', 'intermediate');
+      setValue('rel_dir_to_models', '/');
     }
   }, [node, setValue]);
 
@@ -203,6 +207,10 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
       // Refresh canvas
       triggerRefresh();
 
+      // Walkthrough advances to 'pipeline_table_built' once the dispatched
+      // RUN_WORKFLOW action actually finishes (see useCanvasActions.ts) —
+      // not here, since the run above is fire-and-forget at this point.
+
       // Close panel
       clearAndClosePanel?.();
     } catch (error) {
@@ -215,7 +223,11 @@ export function CreateTableForm({ node, clearAndClosePanel, setLoading }: Create
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-6 space-y-6"
+      data-testid="create-table-form"
+    >
       {/* Output Name */}
       <div className="space-y-2">
         <Label htmlFor="output_name">Output Name *</Label>

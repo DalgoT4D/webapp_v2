@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import {
   Dialog,
@@ -21,12 +21,29 @@ interface Props {
   onClose: () => void;
   onComplete: () => void;
   /** No warehouse yet: prepend a warehouse step so the flow is 4 steps (warehouse
-   *  → select → configure → connection) instead of the usual 3. */
+   *  → select → configure → connection) instead of the usual 3. Read only when the
+   *  dialog opens — see hasWarehouseStep. */
   needsWarehouse?: boolean;
+  /** Live "the org has a warehouse" signal. If it flips true while we're still on the
+   *  warehouse step, that step was opened on a stale/failed read of the warehouse, so we
+   *  drop it rather than ask for a warehouse that already exists. */
+  warehouseExists?: boolean;
 }
 
-export function AddSourceWizard({ open, onClose, onComplete, needsWarehouse = false }: Props) {
+export function AddSourceWizard({
+  open,
+  onClose,
+  onComplete,
+  needsWarehouse = false,
+  warehouseExists = false,
+}: Props) {
   const [step, setStep] = useState<WizardStep>(needsWarehouse ? 'warehouse' : 'select');
+  // Whether THIS run of the wizard includes the warehouse step, captured when the dialog
+  // opens. Held separately from the prop so a mid-flow change to `needsWarehouse` can't
+  // re-enter the warehouse step and wipe the source the user already configured.
+  const [hasWarehouseStep, setHasWarehouseStep] = useState(needsWarehouse);
+  const needsWarehouseRef = useRef(needsWarehouse);
+  needsWarehouseRef.current = needsWarehouse;
   const [def, setDef] = useState<SourceDefinition | null>(null);
   const [createdSourceId, setCreatedSourceId] = useState<string | null>(null);
   // Connection step starts compact (just name + "Fetching…") and widens only
@@ -40,16 +57,32 @@ export function AddSourceWizard({ open, onClose, onComplete, needsWarehouse = fa
     streamNoun?: string;
   } | null>(null);
 
-  // Reset whenever the dialog is (re)opened, so a prior run doesn't leak in.
+  // Reset whenever the dialog is (re)opened, so a prior run doesn't leak in. Keyed on `open`
+  // ALONE — `needsWarehouse` is read through a ref here. With it in the dependency array, a
+  // change to the prop while the dialog was open re-ran this and threw the user back to step 1
+  // mid-flow, discarding the source they had already configured.
   useEffect(() => {
     if (open) {
-      setStep(needsWarehouse ? 'warehouse' : 'select');
+      setHasWarehouseStep(needsWarehouseRef.current);
+      setStep(needsWarehouseRef.current ? 'warehouse' : 'select');
       setDef(null);
       setCreatedSourceId(null);
       setConnectionExpanded(false);
       setConnectionHeaderInfo(null);
     }
-  }, [open, needsWarehouse]);
+  }, [open]);
+
+  // Self-heal a warehouse step that shouldn't be here: the org turns out to have a warehouse
+  // (a failed fetch finally succeeded on retry) while we're still showing the warehouse form.
+  // Drop the step and its slot in the stepper, and move on to picking a source. Only fires on
+  // the warehouse step, so a warehouse the user creates here (where the host deliberately does
+  // not revalidate until close) can't renumber the flow underneath them.
+  useEffect(() => {
+    if (open && warehouseExists && step === 'warehouse') {
+      setHasWarehouseStep(false);
+      setStep('select');
+    }
+  }, [open, warehouseExists, step]);
 
   // Dismissing the wizard (top-right X, Esc — i.e. Radix onOpenChange→false).
   // If a source was already created (step 3 reached), the source now exists
@@ -68,7 +101,7 @@ export function AddSourceWizard({ open, onClose, onComplete, needsWarehouse = fa
   // Wizard progress: the header shows a segmented bar + "Step N of M · label" so
   // the modal reads as a stepper. The warehouse step is prepended only when the org
   // has no warehouse yet (4 steps); otherwise it's the usual 3.
-  const STEP_ORDER: WizardStep[] = needsWarehouse
+  const STEP_ORDER: WizardStep[] = hasWarehouseStep
     ? ['warehouse', 'select', 'configure', 'connection']
     : ['select', 'configure', 'connection'];
   const STEP_LABELS: Record<WizardStep, string> = {

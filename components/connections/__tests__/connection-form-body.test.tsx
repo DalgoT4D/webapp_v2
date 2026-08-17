@@ -55,12 +55,26 @@ jest.mock('@/hooks/useBackendWebSocket', () => ({
 }));
 
 jest.mock('../stream-config-table', () => ({
-  StreamConfigTable: (_props: Record<string, unknown>) => <div data-testid="stream-config-table" />,
+  StreamConfigTable: (props: Record<string, unknown>) => (
+    <div data-testid="stream-config-table">
+      <button
+        type="button"
+        onClick={() => (props.onConceptFocus as (concept: string) => void | undefined)?.('columns')}
+      >
+        Columns header
+      </button>
+    </div>
+  ),
 }));
 
 jest.mock('../connection-help-panel', () => ({
-  ConnectionHelpPanel: (_props: Record<string, unknown>) => (
-    <div data-testid="connection-help-panel" />
+  ConnectionHelpPanel: (props: Record<string, unknown>) => (
+    <div data-testid="connection-help-panel">
+      <span data-testid="active-help-concept">{String(props.activeConcept ?? '')}</span>
+      <button type="button" onClick={props.onCollapse as () => void}>
+        Collapse table settings help
+      </button>
+    </div>
   ),
 }));
 
@@ -68,6 +82,7 @@ jest.mock('../hooks/useStreamConfig', () => ({
   useStreamConfig: (): Record<string, unknown> => ({
     streams: mockStreams,
     setStreams: jest.fn(),
+    initializeStreams: jest.fn(),
     streamSearch: '',
     setStreamSearch: jest.fn(),
     incrementalAllStreams: false,
@@ -79,6 +94,7 @@ jest.mock('../hooks/useStreamConfig', () => ({
     updateStreamCursorField: jest.fn(),
     updateStreamPrimaryKey: jest.fn(),
     toggleColumn: jest.fn(),
+    updateCastType: jest.fn(),
     toggleStreamExpand: jest.fn(),
     handleIncrementalAllToggle: jest.fn(),
     filteredStreams: mockStreams,
@@ -183,7 +199,7 @@ describe('ConnectionFormBody split help + custom view', () => {
     expect(screen.getByTestId('connection-help-panel')).toBeInTheDocument();
   });
 
-  it('tucks schema + normalize under Advanced options for a generic source too', () => {
+  it('shows connection-wide settings without an Advanced options toggle', () => {
     render(
       <ConnectionFormBody
         mode={FormMode.CREATE}
@@ -192,12 +208,12 @@ describe('ConnectionFormBody split help + custom view', () => {
         onCancel={jest.fn()}
       />
     );
-    // Every connection now uses the bottom Advanced-options section, collapsed.
-    expect(screen.getByTestId('advanced-options-toggle')).toBeInTheDocument();
-    expect(screen.queryByTestId('destination-schema-input')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('advanced-options-toggle')).not.toBeInTheDocument();
+    expect(screen.getByTestId('destination-schema-input')).toBeInTheDocument();
+    expect(screen.getByTestId('normalize-toggle')).toBeInTheDocument();
   });
 
-  it('tucks schema + normalize under Advanced options for a custom source', () => {
+  it('shows the same connection-wide settings for a custom source', () => {
     render(
       <ConnectionFormBody
         mode={FormMode.CREATE}
@@ -206,9 +222,74 @@ describe('ConnectionFormBody split help + custom view', () => {
         onCancel={jest.fn()}
       />
     );
-    expect(screen.getByTestId('advanced-options-toggle')).toBeInTheDocument();
-    // collapsed by default
-    expect(screen.queryByTestId('destination-schema-input')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('advanced-options-toggle')).not.toBeInTheDocument();
+    expect(screen.getByTestId('destination-schema-input')).toBeInTheDocument();
+    expect(screen.getByTestId('normalize-toggle')).toBeInTheDocument();
+  });
+
+  it('briefly explains what normalization does', async () => {
+    const user = userEvent.setup();
+    render(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="src-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+
+    await user.hover(
+      screen.getByRole('button', {
+        name: 'About Normalize data after sync',
+      })
+    );
+
+    const tooltip = await screen.findByRole('tooltip');
+    expect(tooltip).toHaveTextContent('Renames columns to an SQL-compliant format.');
+  });
+
+  it('explains Destination Schema beside its right-aligned input', async () => {
+    const user = userEvent.setup();
+    render(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="src-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+
+    await user.hover(screen.getByRole('button', { name: 'About Destination Schema' }));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'The warehouse folder where synced tables are created. Defaults to staging.'
+    );
+    expect(screen.getByTestId('destination-schema-input')).toHaveClass('w-48');
+  });
+
+  it('collapses help to a visible rail and reopens it when a table header is clicked', async () => {
+    const user = userEvent.setup();
+    mockStreams = [{ name: 'sheet1', selected: true }];
+    render(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="src-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Collapse table settings help' }));
+    expect(screen.queryByTestId('connection-help-panel')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open table settings help' })).toHaveTextContent(
+      'What these options mean'
+    );
+    expect(screen.getByTestId('connection-help-expand-label')).not.toHaveClass(
+      '[writing-mode:vertical-rl]'
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Columns header' }));
+    expect(screen.getByTestId('connection-help-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('active-help-concept')).toHaveTextContent('columns');
   });
 
   it('reports header info (not a body chip) for a custom source in create', () => {
@@ -275,7 +356,8 @@ describe('ConnectionFormBody split help + custom view', () => {
     // chip nor the generic read-only source box.
     expect(screen.queryByTestId('connection-source-chip')).not.toBeInTheDocument();
     expect(screen.queryByTestId('connection-source-name')).not.toBeInTheDocument();
-    expect(screen.getByTestId('advanced-options-toggle')).toBeInTheDocument();
+    expect(screen.queryByTestId('advanced-options-toggle')).not.toBeInTheDocument();
+    expect(screen.getByTestId('destination-schema-input')).toBeInTheDocument();
     expect(onHeaderInfoChange).toHaveBeenCalledWith({
       sourceName: 'My Sheet',
       streamNoun: 'Tables',
