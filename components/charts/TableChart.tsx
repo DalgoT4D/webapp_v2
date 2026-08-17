@@ -49,6 +49,15 @@ const NARROW_TABLE_WIDTH_PX = 480;
 const NARROW_CELL_MAX_WIDTH_PX = 140;
 
 /**
+ * Minimum container width (in px) at which freezing the first column helps. A frozen
+ * cell is ~156px wide (the clamp plus padding); in a container narrower than that it
+ * covers the entire scroll area, so scrolling right slides every other column behind
+ * it and they become unreachable. Below this width, scrolling freely beats keeping the
+ * row identifier pinned. Roughly 2x the cell clamp, so a second column stays visible.
+ */
+const MIN_WIDTH_FOR_FROZEN_COLUMN_PX = 300;
+
+/**
  * Check if a value is a valid URL that should be rendered as a clickable link
  */
 function isValidUrl(value: any): boolean {
@@ -185,11 +194,17 @@ export function TableChart({
     return [];
   }, [data, table_columns]);
 
-  // Freeze the first column whenever the builder asked for it, and always in narrow layout:
-  // horizontal scrolling is the only way to read a table on a phone, and without a frozen
-  // first column the row identifier scrolls out of view. Skipped for single-column tables,
-  // where a sticky column would just eat the whole width.
-  const freezeFirstColumn = (isNarrow && columns.length > 1) || !!config.freezeFirstColumn;
+  // Freeze the first column whenever the builder asked for it, and by default in narrow
+  // layout: horizontal scrolling is the only way to read a table on a phone, and without a
+  // frozen first column the row identifier scrolls out of view. Skipped for single-column
+  // tables and for containers too narrow to fit a frozen column plus part of a second one
+  // (containerWidth 0 means unmeasured, i.e. the phone-viewport fallback — always wide
+  // enough). An explicit chart setting is always honoured.
+  const freezeFirstColumn =
+    (isNarrow &&
+      columns.length > 1 &&
+      (containerWidth === 0 || containerWidth >= MIN_WIDTH_FOR_FROZEN_COLUMN_PX)) ||
+    !!config.freezeFirstColumn;
 
   // Calculate paginated data
   const paginatedData = useMemo(() => {

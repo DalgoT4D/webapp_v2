@@ -27,6 +27,8 @@ jest.mock('@/hooks/use-mobile', () => ({
 const NARROW_WIDTH = 320;
 /** Width comfortably above the narrow threshold. */
 const WIDE_WIDTH = 900;
+/** A very narrow dashboard cell — too tight to fit a frozen column plus a second one. */
+const TINY_WIDTH = 150;
 
 describe('TableChart - narrow layout', () => {
   const mockData = [
@@ -95,6 +97,24 @@ describe('TableChart - narrow layout', () => {
       expect(cell(container, 0, 0)).toHaveClass('sticky');
       expect(cell(container, 0, 1)).not.toHaveClass('sticky');
       expect(screen.getByText('region').closest('th')).toHaveClass('sticky');
+    });
+
+    it('should not freeze in a container too narrow to show a second column', () => {
+      // A frozen cell is wider than the scroll area at this size, so it would cover
+      // every other column and make them unreachable — worse than no freeze at all.
+      mockContainerWidth = TINY_WIDTH;
+      const { container } = render(<TableChart data={mockData} config={config} />);
+
+      expect(cell(container, 0, 0)).not.toHaveClass('sticky');
+    });
+
+    it('should still honour an explicit freeze setting in a very narrow container', () => {
+      mockContainerWidth = TINY_WIDTH;
+      const { container } = render(
+        <TableChart data={mockData} config={{ ...config, freezeFirstColumn: true }} />
+      );
+
+      expect(cell(container, 0, 0)).toHaveClass('sticky');
     });
 
     it('should not freeze a single-column table when narrow', () => {
