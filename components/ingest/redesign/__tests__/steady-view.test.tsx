@@ -79,6 +79,20 @@ describe('SteadyView (smoke)', () => {
     expect(screen.queryByTestId('add-connection-s2')).not.toBeInTheDocument();
   });
 
+  // A connection created in the wizard exists server-side before the connections
+  // list is revalidated, and SWR keeps the stale (connection-less) data during
+  // that revalidate — so isLoading is false and the row would otherwise tell the
+  // user to add the connection they just added.
+  it('does not show the add-connection empty state while a just-created connection is being fetched', () => {
+    mockConnections.mockReturnValue({ data: [], isLoading: false, mutate: jest.fn() });
+    mockSources.mockReturnValue({ data: [source('s2', 'Sheets')], mutate: jest.fn() });
+
+    render(<SteadyView connectionsKnownStale />);
+
+    expect(screen.getByTestId('connections-loading-s2')).toBeInTheDocument();
+    expect(screen.queryByTestId('add-connection-s2')).not.toBeInTheDocument();
+  });
+
   it('offers a retry instead of the empty state when the connections fetch failed', () => {
     const mutate = jest.fn();
     mockConnections.mockReturnValue({
