@@ -78,6 +78,16 @@ export async function deleteSnapshot(snapshotId: number): Promise<void> {
   await apiDelete(`/api/reports/${snapshotId}/`);
 }
 
+/** AI-draft an executive summary from the report's chart data. Returns the
+ * draft text only — saving stays on updateSnapshot after the user reviews. */
+export async function generateSnapshotSummary(snapshotId: number): Promise<string> {
+  const response: ApiResponse<{ summary: string }> = await apiPost(
+    `/api/reports/${snapshotId}/generate-summary/`,
+    {}
+  );
+  return response.data.summary;
+}
+
 // Datetime column discovery for create-snapshot dialog
 
 export function useDashboardDatetimeColumns(dashboardId: number | null) {

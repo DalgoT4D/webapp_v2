@@ -103,6 +103,7 @@ export const PERMISSIONS = {
   CAN_EDIT_ORG_NOTIFICATION_SETTINGS: 'can_edit_org_notification_settings',
   CAN_INITIATE_ORG_PLAN_UPGRADE: 'can_initiate_org_plan_upgrade',
   CAN_REQUEST_LLM_ANALYSIS_FEATURE: 'can_request_llm_analysis_feature',
+  CAN_USE_CHAT_WITH_DATA: 'can_use_chat_with_data',
   CAN_ACCEPT_TNC: 'can_accept_tnc',
   PUBLIC: 'public',
 

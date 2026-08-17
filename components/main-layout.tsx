@@ -19,6 +19,7 @@ import {
   Home,
   LayoutDashboard,
   ChartBarBig,
+  MessageSquareText,
   ChevronLeft,
   ChevronRight,
   Users,
@@ -36,7 +37,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { TransformTypeEnum as TransformType, useTransformType } from '@/hooks/api/useTransform';
 import Image from 'next/image';
-import { ADMIN_ROLES, DATA_SECTION_ROLES, Role, useRbac } from '@/lib/rbac';
+import { ADMIN_ROLES, DATA_SECTION_ROLES, PERMISSIONS, Role, useRbac } from '@/lib/rbac';
 import { RbacNoticeCarousel } from '@/components/onboarding/rbac-notice-carousel';
 
 // Define types for navigation items
@@ -94,7 +95,8 @@ export const getNavItems = (
   hasSupersetSetup: boolean = false,
   isFeatureFlagEnabled: (flag: FeatureFlagKeys) => boolean,
   transformType?: string,
-  roleSlug: Role | '' = ''
+  roleSlug: Role | '' = '',
+  canUseChatWithData: boolean = false
 ): NavItemType[] => {
   const allNavItems: NavItemType[] = [
     {
@@ -127,6 +129,13 @@ export const getNavItems = (
       icon: FileText,
       isActive: currentPath.startsWith('/reports'),
       hide: !isFeatureFlagEnabled(FeatureFlagKeys.REPORTS),
+    },
+    {
+      title: 'Chat with Data',
+      href: '/chat-with-data',
+      icon: MessageSquareText,
+      isActive: currentPath.startsWith('/chat-with-data'),
+      hide: !isFeatureFlagEnabled(FeatureFlagKeys.CHAT_WITH_DATA) || !canUseChatWithData,
     },
     {
       title: 'Data',
@@ -508,7 +517,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const responsive = useResponsiveLayout();
   const { currentOrg } = useAuthStore();
-  const { role } = useRbac();
+  const { role, hasPermission } = useRbac();
   const { isFeatureFlagEnabled } = useFeatureFlags();
   const { transformType } = useTransformType();
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
@@ -517,7 +526,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     hasSupersetSetup,
     isFeatureFlagEnabled,
     transformType,
-    role ?? ''
+    role ?? '',
+    hasPermission(PERMISSIONS.CAN_USE_CHAT_WITH_DATA)
   );
 
   // Auto-open a parent's submenu when the current path enters its subtree. Never auto-closes.
