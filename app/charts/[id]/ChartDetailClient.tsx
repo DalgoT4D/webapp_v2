@@ -29,6 +29,7 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type { ChartDataPayload } from '@/types/charts';
 import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@/constants/chart-types';
 import type * as echarts from 'echarts';
 
 interface ChartDetailClientProps {
@@ -77,13 +78,12 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   }, [chart]);
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
   const [tableChartPage, setTableChartPage] = useState(1);
-  const [tableChartPageSize, setTableChartPageSize] = useState(20);
+  const [tableChartPageSize, setTableChartPageSize] = useState(DEFAULT_TABLE_PAGE_SIZE);
 
   // Sync tableChartPageSize from the saved config — it starts at a hardcoded default otherwise.
   useEffect(() => {
-    if (chart?.extra_config?.pagination?.page_size) {
-      setTableChartPageSize(chart.extra_config.pagination.page_size);
-    }
+    setTableChartPageSize(chart?.extra_config?.pagination?.page_size ?? DEFAULT_TABLE_PAGE_SIZE);
+    setTableChartPage(1); // Reset to first page when the saved page size changes
   }, [chart?.extra_config?.pagination?.page_size]);
 
   // ✅ ADD: Drill-down state management for table charts

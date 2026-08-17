@@ -39,6 +39,7 @@ import {
 } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@/constants/chart-types';
 import {
   getApiCustomizations,
   mergeTableColumnFormatting,
@@ -176,7 +177,7 @@ function ConfigureChartPageContent() {
   const [rawDataPage, setRawDataPage] = useState(1);
   const [rawDataPageSize, setRawDataPageSize] = useState(20);
   const [tableChartPage, setTableChartPage] = useState(1);
-  const [tableChartPageSize, setTableChartPageSize] = useState(20);
+  const [tableChartPageSize, setTableChartPageSize] = useState(DEFAULT_TABLE_PAGE_SIZE);
 
   // Unsaved changes detection state
   const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
@@ -598,9 +599,7 @@ function ConfigureChartPageContent() {
 
   // Sync tableChartPageSize — separate local state that doesn't auto-update otherwise.
   useEffect(() => {
-    if (formData.pagination?.page_size) {
-      setTableChartPageSize(formData.pagination.page_size);
-    }
+    setTableChartPageSize(formData.pagination?.page_size ?? DEFAULT_TABLE_PAGE_SIZE);
     setTableChartPage(1);
   }, [formData.pagination?.page_size, formData.pagination?.enabled]);
 

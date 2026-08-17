@@ -37,6 +37,7 @@ import type {
   ChartFilter,
 } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@/constants/chart-types';
 
 interface ChartDataConfigurationV3Props {
   formData: ChartBuilderFormData;
@@ -370,6 +371,14 @@ export function ChartDataConfigurationV3({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.chart_type, formData.dimension_column, allColumns, columns]);
+
+  // Commit the default page size into formData, not just the selector's display.
+  React.useEffect(() => {
+    if (formData.chart_type === 'table' && !formData.pagination?.page_size) {
+      onChange({ pagination: { enabled: true, page_size: DEFAULT_TABLE_PAGE_SIZE } });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.chart_type, formData.pagination?.page_size]);
 
   // Handle chart type changes with field cleanup and auto-prefill
   const handleChartTypeChange = (newChartType: string) => {
@@ -887,7 +896,7 @@ export function ChartDataConfigurationV3({
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-900">Pagination</Label>
           <Select
-            value={(formData.pagination?.page_size || 50).toString()}
+            value={(formData.pagination?.page_size ?? DEFAULT_TABLE_PAGE_SIZE).toString()}
             onValueChange={(value) => {
               onChange({
                 pagination: {
