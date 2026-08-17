@@ -46,6 +46,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
 import { deepEqual } from '@/lib/form-utils';
+import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -691,27 +692,37 @@ function EditChartPageContent() {
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null,
     drillDownPath.length > 0
   );
-  const { data: regionGeojsons } = useRegionGeoJSONs(
-    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null
-  );
+  const currentDrillDownRegionId =
+    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
+  const {
+    data: regionGeojsons,
+    error: regionGeojsonsError,
+    isLoading: regionGeojsonsLoading,
+  } = useRegionGeoJSONs(currentDrillDownRegionId);
 
   // Dynamic GeoJSON ID based on drill-down state
-  const activeGeojsonId = useMemo(() => {
-    if (formData.chart_type !== ChartTypes.MAP) return null;
-
-    // If we're in drill-down mode and have region geojsons, use the first one
-    if (drillDownPath.length > 0 && regionGeojsons && regionGeojsons.length > 0) {
-      return regionGeojsons[0].id;
-    }
-
-    // Otherwise use the base geojson
-    return formData.geojsonPreviewPayload?.geojsonId || null;
-  }, [
-    formData.chart_type,
-    formData.geojsonPreviewPayload?.geojsonId,
-    drillDownPath.length,
-    regionGeojsons,
-  ]);
+  const drillDownGeojsonResolution = useMemo(
+    () =>
+      resolveDrillDownGeoJSON({
+        isDrillDownActive: drillDownPath.length > 0,
+        regionId: currentDrillDownRegionId,
+        regionGeojsons,
+        regionGeojsonsLoading,
+        regionGeojsonsError,
+        fallbackGeojsonId:
+          drillDownPath.length > 0 ? null : formData.geojsonPreviewPayload?.geojsonId,
+      }),
+    [
+      currentDrillDownRegionId,
+      drillDownPath.length,
+      formData.geojsonPreviewPayload?.geojsonId,
+      regionGeojsons,
+      regionGeojsonsError,
+      regionGeojsonsLoading,
+    ]
+  );
+  const activeGeojsonId =
+    formData.chart_type === ChartTypes.MAP ? drillDownGeojsonResolution.geojsonId : null;
 
   // Dynamic map data overlay payload with drill-down filters
   // Build map data overlay payload similar to view component (stable approach)
@@ -770,9 +781,11 @@ function EditChartPageContent() {
   // Fetch GeoJSON data for maps (dynamic based on drill-down state)
   const {
     data: geojsonData,
-    error: geojsonError,
-    isLoading: geojsonLoading,
+    error: geojsonDataError,
+    isLoading: geojsonDataLoading,
   } = useGeoJSONData(activeGeojsonId);
+  const geojsonError = regionGeojsonsError || geojsonDataError;
+  const geojsonLoading = drillDownGeojsonResolution.isResolving || geojsonDataLoading;
 
   // Fetch map data overlay (dynamic based on drill-down state)
   const {

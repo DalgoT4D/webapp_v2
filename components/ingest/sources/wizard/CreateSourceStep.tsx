@@ -178,10 +178,15 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   const serviceValue = useWatch({ control, name: servicePath || '__none__' }) as string | undefined;
   const serviceProvided = !!serviceValue?.trim();
 
-  // Clear the auth error the moment either auth method is satisfied.
+  // MANAGED-SA: "use Dalgo's key" leaves credentials empty on purpose, so watching form fields
+  // can't tell it from "nothing chosen" — the form reports its own verdict.
+  const [formAuthSatisfied, setFormAuthSatisfied] = useState(false);
+  const authSatisfied = !!oauthRef || serviceProvided || formAuthSatisfied;
+
+  // Clear the auth error the moment any auth method is satisfied.
   useEffect(() => {
-    if (oauthRef || serviceProvided) setAuthError(null);
-  }, [oauthRef, serviceProvided]);
+    if (authSatisfied) setAuthError(null);
+  }, [authSatisfied]);
 
   // Validate required fields, then run the appropriate create flow. Spec-driven
   // fields self-report inline via react-hook-form's `trigger`; the source name and
@@ -192,8 +197,8 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
     const fieldsOk = await trigger();
 
     let authOk = true;
-    if (isGoogleSheets && !oauthRef && !serviceProvided) {
-      setAuthError('Sign in with Google or paste a service-account JSON to continue');
+    if (isGoogleSheets && !authSatisfied) {
+      setAuthError('Paste a service-account key, or tick “Use Dalgo’s service account”');
       authOk = false;
     }
 
@@ -208,8 +213,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
     validateName,
     trigger,
     isGoogleSheets,
-    oauthRef,
-    serviceProvided,
+    authSatisfied,
     useGoogleOAuthFlow,
     handleCreateGoogle,
     save,
@@ -270,6 +274,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
               disabled={busy}
               mode="create"
               nameField={custom ? nameField : undefined}
+              onAuthSatisfiedChange={isGoogleSheets ? setFormAuthSatisfied : undefined}
               oauth={
                 isGoogleSheets
                   ? ({
