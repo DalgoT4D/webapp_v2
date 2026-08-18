@@ -3,9 +3,7 @@ import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import type {
   ApiEnvelope,
   ChatHistoryMessage,
-  ChatScopeType,
   ChatSession,
-  ChatSessionScope,
   ChatStatus,
 } from '@/types/chat-with-data';
 
@@ -32,15 +30,12 @@ export function useChatWithDataStatus() {
   };
 }
 
-export function useChatSessions(scopeType?: ChatScopeType) {
+export function useChatSessions() {
   const {
     data,
     error,
     mutate: refresh,
-  } = useSWR<ApiEnvelope<ChatSession[]>>(
-    scopeType ? `${BASE}/sessions/?scope_type=${scopeType}` : `${BASE}/sessions/`,
-    apiGet
-  );
+  } = useSWR<ApiEnvelope<ChatSession[]>>(`${BASE}/sessions/`, apiGet);
 
   return {
     sessions: data?.data || [],
@@ -68,8 +63,8 @@ export function useChatSessionMessages(sessionId: number | null) {
   };
 }
 
-export async function createChatSession(scope?: ChatSessionScope): Promise<ChatSession> {
-  const result: ApiEnvelope<ChatSession> = await apiPost(`${BASE}/sessions/`, scope ?? {});
+export async function createChatSession(): Promise<ChatSession> {
+  const result: ApiEnvelope<ChatSession> = await apiPost(`${BASE}/sessions/`, {});
   invalidateChatSessions();
   return result.data as ChatSession;
 }
