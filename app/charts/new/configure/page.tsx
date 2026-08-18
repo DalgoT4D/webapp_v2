@@ -1355,23 +1355,28 @@ function ConfigureChartPageContent() {
                     }
                     className="h-full flex flex-col"
                   >
-                    <TabsList
-                      className={`grid w-full ${formData.chart_type === 'table' || formData.chart_type === 'pivot_table' ? 'grid-cols-1' : 'grid-cols-2'}`}
-                    >
-                      {formData.chart_type !== 'table' && formData.chart_type !== 'pivot_table' && (
-                        <TabsTrigger value="chart-data" className="flex items-center gap-2">
-                          <BarChart3 className="h-4 w-4" />
-                          Chart Data
-                        </TabsTrigger>
-                      )}
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="chart-data" className="flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4" />
+                        Chart Data
+                      </TabsTrigger>
                       <TabsTrigger value="raw-data" className="flex items-center gap-2">
                         <Database className="h-4 w-4" />
                         Raw Data
                       </TabsTrigger>
                     </TabsList>
 
-                    {formData.chart_type !== 'table' && formData.chart_type !== 'pivot_table' && (
-                      <TabsContent value="chart-data" className="flex-1">
+                    <TabsContent value="chart-data" className="flex-1">
+                      {formData.chart_type === 'pivot_table' ? (
+                        <ChartPreview
+                          config={{ extra_config: formData.extra_config }}
+                          tableData={chartData?.data}
+                          isLoading={chartLoading}
+                          error={chartError}
+                          chartType={formData.chart_type}
+                          customizations={formData.customizations}
+                        />
+                      ) : (
                         <DataPreview
                           data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
                           columns={dataPreview?.columns || []}
@@ -1386,8 +1391,8 @@ function ConfigureChartPageContent() {
                             onPageSizeChange: handleDataPreviewPageSizeChange,
                           }}
                         />
-                      </TabsContent>
-                    )}
+                      )}
+                    </TabsContent>
 
                     <TabsContent value="raw-data" className="flex-1">
                       <DataPreview
