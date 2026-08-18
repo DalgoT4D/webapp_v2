@@ -1,11 +1,16 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useSourceDefinitions } from '@/hooks/api/useSources';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import {
+  PICK_SOURCE_STAGE_FOR,
+  SOURCE_NEXT_STAGE_FOR,
+} from '@/components/onboarding/insight-walkthrough-constants';
 import type { SourceDefinition } from '@/types/source';
 import { TOP_SOURCES, MAX_TOP_CARDS } from './wizard-state';
 
@@ -18,6 +23,18 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
   const { data: definitions } = useSourceDefinitions();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<SourceDefinition | null>(null);
+
+  // Onboarding walkthrough checkpoint (own-data / automate-pipeline forks): this step being
+  // on screen is what unlocks the "pick Google Sheets" coachmark, which points at a card in
+  // here. Mount is the right signal rather than the New Source click — an org with no
+  // warehouse yet never sees that button (the wizard auto-opens on its warehouse step
+  // instead), and those are exactly the trial users these forks are for. A no-op when no
+  // walkthrough is running, and one-way, so returning here via Back can't rewind anything.
+  useEffect(() => {
+    const walkthrough = useInsightWalkthroughStore.getState();
+    const pickSourceStage = walkthrough.stage ? PICK_SOURCE_STAGE_FOR[walkthrough.stage] : null;
+    if (pickSourceStage) walkthrough.advanceIfBefore(pickSourceStage);
+  }, []);
 
   // Match the popular-source names to live definitions; drop any the deployment lacks.
   const topCards = useMemo(
@@ -50,11 +67,28 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
   const isSelected = (def: SourceDefinition) =>
     selected?.sourceDefinitionId === def.sourceDefinitionId;
 
+  /**
+   * Every selection path (popular card or search result) goes through here so the walkthrough
+   * moves its coachmark off the picker and onto Next — whichever source was chosen. The
+   * coachmark can't listen for this itself: a search result row doesn't exist in the DOM until
+   * the user types, so there's no single element to attach to. advanceIfBefore keeps it
+   * one-way, so re-picking a source can't rewind a walkthrough that has moved on.
+   */
+  const select = (def: SourceDefinition) => {
+    setSelected(def);
+    const walkthrough = useInsightWalkthroughStore.getState();
+    const nextStage = walkthrough.stage ? SOURCE_NEXT_STAGE_FOR[walkthrough.stage] : null;
+    if (nextStage) walkthrough.advanceIfBefore(nextStage);
+  };
+
   return (
     <div className="flex flex-1 min-h-0 flex-col" data-testid="select-source-step">
       {/* Fixed-height body so the modal doesn't grow/shrink with the number of
           search results — the popular grid and the results list scroll inside. */}
-      <div className="h-[280px] overflow-y-auto px-6 py-5 space-y-5">
+      <div
+        className="h-[280px] overflow-y-auto px-6 py-5 space-y-5"
+        data-testid="source-picker-body"
+      >
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -77,7 +111,7 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
                     isSelected(def) && 'bg-primary/5'
                   )}
                   data-testid={`source-search-result-${def.name}`}
-                  onClick={() => setSelected(def)}
+                  onClick={() => select(def)}
                 >
                   <img
                     src={def.icon || '/icons/connection.svg'}
@@ -103,7 +137,7 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
                   key={top.name}
                   type="button"
                   data-testid={`source-card-${top.name}`}
-                  onClick={() => setSelected(def!)}
+                  onClick={() => select(def!)}
                   className={cn(
                     'flex items-center gap-3 rounded-xl border p-4 text-left transition-colors hover:border-primary hover:bg-muted/40',
                     isSelected(def!) && 'border-primary ring-1 ring-primary bg-primary/5'

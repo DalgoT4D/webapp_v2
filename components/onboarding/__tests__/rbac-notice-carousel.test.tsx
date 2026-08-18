@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TestWrapper } from '@/test-utils/render';
+import { FREE_TRIAL_PLAN_NAME } from '@/constants/trial';
 import { RbacNoticeCarousel } from '../rbac-notice-carousel';
 
 // ============ Mocks ============
@@ -80,6 +81,28 @@ describe('RbacNoticeCarousel', () => {
     renderCarousel();
 
     expect(screen.queryByTestId('rbac-notice-modal')).not.toBeInTheDocument();
+  });
+
+  it('never shows for a free-trial org, and marks nothing as seen', () => {
+    // A trial workspace is created fresh on RBAC v2 — there is no "before" for a migration
+    // notice to explain — and it has its own simplified onboarding, which this would land on
+    // top of. Nothing is persisted, so the notice survives a later conversion to a paid plan.
+    setupAuthStore(
+      buildOrgUser({ has_seen_rbac_notice: false, subscription_plan: FREE_TRIAL_PLAN_NAME })
+    );
+    renderCarousel();
+
+    expect(screen.queryByTestId('rbac-notice-modal')).not.toBeInTheDocument();
+    expect(trackEvent).not.toHaveBeenCalled();
+    expect(apiPut).not.toHaveBeenCalled();
+    expect(setOrgUsers).not.toHaveBeenCalled();
+  });
+
+  it('still shows for a paid org', () => {
+    setupAuthStore(buildOrgUser({ has_seen_rbac_notice: false, subscription_plan: 'Dalgo' }));
+    renderCarousel();
+
+    expect(screen.getByTestId('rbac-notice-modal')).toBeInTheDocument();
   });
 
   it('walks Admin -> Analyst -> Member then persists the flag on continue', async () => {

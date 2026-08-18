@@ -4,12 +4,13 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { ReadyState } from 'react-use-websocket';
-import { Loader2 } from 'lucide-react';
+import { ChevronLeft, CircleHelp, Info, Loader2 } from 'lucide-react';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Combobox, highlightText, type ComboboxItem } from '@/components/ui/combobox';
 import { useSources } from '@/hooks/api/useSources';
 import {
@@ -18,6 +19,8 @@ import {
   updateConnection,
   triggerSync,
 } from '@/hooks/api/useConnections';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { CONNECTION_WATCH_STAGES } from '@/components/onboarding/insight-walkthrough-constants';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import {
   SyncMode,
@@ -144,6 +147,7 @@ export function ConnectionFormBody({
   );
   const showCastColumn = sourceDefName ? isCastSupportedSource(sourceDefName) : false;
   const [activeConcept, setActiveConcept] = useState<ConnectionConceptId | null>(null);
+  const [helpPanelOpen, setHelpPanelOpen] = useState(true);
 
   // Help-panel cards tailored to this source's capabilities. Custom sources
   // (Sheets/Kobo) only show the concepts that apply; everything else gets the
@@ -153,11 +157,11 @@ export function ConnectionFormBody({
       getConnectionHelp({
         supportsIncremental: connectionView ? connectionView.supportsIncremental : true,
         allowsDedup: connectionView ? allowsDedup(connectionView.allowedDestModes) : true,
+        supportsColumnCasting: showCastColumn,
       }),
-    [connectionView]
+    [connectionView, showCastColumn]
   );
 
-  const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
   const [advancedStreamsOpen, setAdvancedStreamsOpen] = useState(false);
 
   const [name, setName] = useState('');
@@ -173,7 +177,7 @@ export function ConnectionFormBody({
 
   const {
     streams,
-    setStreams,
+    initializeStreams,
     streamSearch,
     setStreamSearch,
     incrementalAllStreams,
@@ -231,17 +235,18 @@ export function ConnectionFormBody({
         };
       });
 
-      setStreams(
+      initializeStreams(
         connectionView
           ? withCasts.map((s) =>
               connectionView.allowedDestModes.includes(s.destinationSyncMode as DestinationSyncMode)
                 ? s
                 : { ...s, destinationSyncMode: connectionView.allowedDestModes[0] }
             )
-          : withCasts
+          : withCasts,
+        true
       );
     }
-  }, [connection, isCreate, connectionView]);
+  }, [connection, isCreate, connectionView, initializeStreams]);
 
   // Handle schema discovery WebSocket response
   const handleDiscoveryMessage = useCallback(
@@ -259,7 +264,10 @@ export function ConnectionFormBody({
               ? connectionView.allowedDestModes[0]
               : DestinationSyncMode.OVERWRITE,
           };
-          setStreams(catalog.streams.map((s) => parseCatalogStream(s, discoveryDefaults)));
+          initializeStreams(
+            catalog.streams.map((s) => parseCatalogStream(s, discoveryDefaults)),
+            true
+          );
           setDiscoveredCatalog(catalog);
           if (response.data.result.catalogId) {
             setCatalogId(response.data.result.catalogId);
@@ -271,7 +279,7 @@ export function ConnectionFormBody({
         setIsDiscovering(false);
       }
     },
-    [setStreams, connectionView]
+    [initializeStreams, connectionView]
   );
 
   // WebSocket for schema discovery — stays open in create mode
@@ -290,11 +298,14 @@ export function ConnectionFormBody({
     }
   }, [selectedSourceId, readyState, isCreate, sendJsonMessage]);
 
-  const handleSourceChange = useCallback((sourceId: string) => {
-    setSelectedSourceId(sourceId);
-    setStreams([]);
-    setDiscoveredCatalog(null);
-  }, []);
+  const handleSourceChange = useCallback(
+    (sourceId: string) => {
+      setSelectedSourceId(sourceId);
+      initializeStreams([]);
+      setDiscoveredCatalog(null);
+    },
+    [initializeStreams]
+  );
 
   // Required-field check. Returns validity and sets the inline error map; nothing
   // is submitted unless every required field is satisfied.
@@ -360,6 +371,22 @@ export function ConnectionFormBody({
         trackEvent(ANALYTICS_EVENTS.CONNECTION_CREATED, { source_type: sourceType });
         toastSuccess.created('Connection');
 
+        // Own-data / automate-pipeline walkthrough checkpoint: track this connection so
+        // a later page load (possibly a new session, if the first sync outlasts the tab)
+        // can tell once THIS connection — not just any connection in the org — has synced.
+        //
+        // Gated on the stage as well as the flow: only a connection made AT the step that asked
+        // for one is the flow's connection (see CONNECTION_WATCH_STAGES). A source the user adds
+        // later must not silently take over the watch from the one that is already syncing.
+        const walkthrough = useInsightWalkthroughStore.getState();
+        const isWatchingNewConnection =
+          walkthrough.active &&
+          (walkthrough.path === 'own_data' || walkthrough.path === 'automate_pipeline') &&
+          Boolean(walkthrough.stage && CONNECTION_WATCH_STAGES.includes(walkthrough.stage));
+        if (isWatchingNewConnection) {
+          walkthrough.trackConnection(created.connectionId);
+        }
+
         // Kick off the first sync automatically so a freshly created connection
         // starts pulling data without a separate manual step. A sync failure
         // must not fail the create flow — the connection already exists and can
@@ -370,6 +397,17 @@ export function ConnectionFormBody({
           toastSuccess.generic('First sync started');
         } catch (syncError) {
           toastError.api(syncError, 'Connection created, but the first sync could not be started');
+          // The walkthrough can't infer this one. With no sync triggered the connection has no
+          // lock and no lastRun — indistinguishable from the split second between being created
+          // and its sync starting, so tour-gate's checkpoint deliberately stays quiet on that
+          // shape (see classifySync). Report it from here, where we actually know.
+          //
+          // Only when this is the connection the flow is actually watching: a source the user
+          // added on their own, mid-flow, failing to start its sync says nothing about the
+          // walkthrough's own connection and must not drag them to "that sync didn't finish".
+          if (isWatchingNewConnection) {
+            useInsightWalkthroughStore.getState().advanceTo('sync_failed');
+          }
         }
       } else if (connectionId) {
         await updateConnection(connectionId, {
@@ -422,40 +460,70 @@ export function ConnectionFormBody({
     });
   }, [name, selectedSourceId, hasSelectedStreams]);
 
-  // Destination Schema field — shared between the always-visible (generic
-  // source) and Advanced-options-collapsed (custom source) layouts.
+  const handleConceptFocus = useCallback((concept: ConnectionConceptId | null) => {
+    setActiveConcept(concept);
+    if (concept) setHelpPanelOpen(true);
+  }, []);
+
+  // Connection-wide settings stay visible and compact. They are independent of
+  // the per-table Advanced settings switch below.
   const destinationSchemaField = (
-    <div>
-      <button
-        type="button"
-        onClick={() => setActiveConcept('schema')}
-        className="cursor-pointer text-base font-medium decoration-dotted underline-offset-2 hover:underline"
-      >
-        <label htmlFor="dest-schema" className="cursor-pointer">
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center gap-1.5">
+        <label htmlFor="dest-schema" className="text-base font-medium">
           Destination Schema
         </label>
-      </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label="About Destination Schema"
+              data-testid="destination-schema-help-tooltip-trigger"
+              className="inline-flex size-5 flex-shrink-0 cursor-help items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Info className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs text-xs font-normal">
+            The warehouse folder where synced tables are created. Defaults to staging.
+          </TooltipContent>
+        </Tooltip>
+      </div>
       <Input
         id="dest-schema"
         data-testid="destination-schema-input"
         value={destinationSchema}
         onChange={(e) => setDestinationSchema(e.target.value)}
-        onFocus={() => setActiveConcept('schema')}
         placeholder="e.g., public"
         disabled={disabled || isSaving}
-        className="mt-1.5"
+        className="w-48"
       />
     </div>
   );
 
-  // Normalize toggle — same sharing rationale as destinationSchemaField. Unlike
-  // the other advanced fields it has no help-panel card, so the label is a plain
-  // label rather than a concept trigger.
+  // Normalize uses compact inline help because it has no help-panel concept card.
   const normalizeToggleField = (
     <div className="flex items-center justify-between">
-      <label htmlFor="normalize-toggle" className="text-base font-medium">
-        Normalize data after sync
-      </label>
+      <div className="flex items-center gap-1.5">
+        <label htmlFor="normalize-toggle" className="text-base font-medium">
+          Normalize data after sync
+        </label>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label="About Normalize data after sync"
+              data-testid="normalize-help-tooltip-trigger"
+              className="inline-flex size-5 flex-shrink-0 cursor-help items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Info className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs text-xs font-normal">
+            Renames columns to an SQL-compliant format.
+          </TooltipContent>
+        </Tooltip>
+      </div>
       <Switch
         id="normalize-toggle"
         checked={normalize}
@@ -466,38 +534,10 @@ export function ConnectionFormBody({
     </div>
   );
 
-  // Advanced-options section (Destination Schema + Normalize behind a switch),
-  // shared by every connection. Rendered below the stream picker so the primary
-  // flow reads source → name → streams, with rarely-touched settings last.
-  const advancedOptionsSection = (
-    <div>
-      <div className="flex items-center gap-2.5">
-        <Switch
-          id="advanced-options"
-          data-testid="advanced-options-toggle"
-          checked={advancedOptionsOpen}
-          onCheckedChange={(next) => {
-            setAdvancedOptionsOpen(next);
-            if (next) {
-              trackEvent(ANALYTICS_EVENTS.CONNECTION_ADVANCED_OPTIONS_EXPANDED, {
-                source_type: sourceDefName,
-              });
-            }
-          }}
-        />
-        <label
-          htmlFor="advanced-options"
-          className="cursor-pointer text-sm font-medium text-muted-foreground"
-        >
-          Advanced options
-        </label>
-      </div>
-      {advancedOptionsOpen && (
-        <div className="mt-3 space-y-6">
-          {destinationSchemaField}
-          {normalizeToggleField}
-        </div>
-      )}
+  const connectionSettings = (
+    <div className="space-y-4 rounded-md border bg-muted/20 p-3">
+      {destinationSchemaField}
+      {normalizeToggleField}
     </div>
   );
 
@@ -532,7 +572,11 @@ export function ConnectionFormBody({
             to auto and let the column overflow the modal instead of scrolling. */}
         <div
           className={`grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] gap-6 ${
-            showHelpPanel ? 'md:grid-cols-[62fr_38fr]' : ''
+            showHelpPanel
+              ? helpPanelOpen
+                ? 'md:grid-cols-[62fr_38fr]'
+                : 'md:grid-cols-[minmax(0,1fr)_11rem]'
+              : ''
           }`}
         >
           {/* The whole left column is the single scroll container: the streams
@@ -630,10 +674,7 @@ export function ConnectionFormBody({
               ) : null}
             </div>
 
-            {/* Advanced options (Destination Schema + Normalize) above the
-                stream picker, for every connection (source → name → advanced →
-                streams). */}
-            <div className="flex-shrink-0">{advancedOptionsSection}</div>
+            <div className="flex-shrink-0">{connectionSettings}</div>
 
             {/* Streams region grows to its natural height; the whole left column
                 owns the scroll, so users scroll the full side to see every
@@ -673,7 +714,7 @@ export function ConnectionFormBody({
                   streamNoun={connectionView?.streamNoun}
                   showIncremental={connectionView ? connectionView.supportsIncremental : true}
                   allowedDestModes={connectionView?.allowedDestModes}
-                  onConceptFocus={setActiveConcept}
+                  onConceptFocus={handleConceptFocus}
                   advancedOpen={advancedStreamsOpen}
                   onToggleAdvanced={() => setAdvancedStreamsOpen((o) => !o)}
                 />
@@ -693,7 +734,31 @@ export function ConnectionFormBody({
           {showHelpPanel && (
             <div className="relative hidden min-h-0 md:block">
               <div className="absolute inset-0">
-                <ConnectionHelpPanel activeConcept={activeConcept} concepts={helpConcepts} />
+                {helpPanelOpen ? (
+                  <ConnectionHelpPanel
+                    activeConcept={activeConcept}
+                    concepts={helpConcepts}
+                    onConceptChange={setActiveConcept}
+                    onCollapse={() => setHelpPanelOpen(false)}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    aria-label="Open table settings help"
+                    data-testid="connection-help-expand"
+                    onClick={() => setHelpPanelOpen(true)}
+                    className="flex w-full items-center gap-2 rounded-xl border bg-muted/30 p-3 text-left text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <ChevronLeft className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                    <CircleHelp className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                    <span
+                      data-testid="connection-help-expand-label"
+                      className="text-sm font-semibold leading-tight"
+                    >
+                      What these options mean
+                    </span>
+                  </button>
+                )}
               </div>
             </div>
           )}
