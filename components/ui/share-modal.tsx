@@ -533,6 +533,62 @@ export function ShareModal({
         </DialogHeader>
 
         <div className="space-y-5">
+          {/* Access Requests — surfaced at the top of the modal so an
+              owner/Edit-holder sees pending requests as soon as they open it. */}
+          {rtype && (requests ?? []).length > 0 && (
+            <div className="border border-input rounded-md divide-y bg-background">
+              {requests!.map((req) => (
+                <div
+                  key={req.id}
+                  className="px-3 py-2 flex items-center gap-3"
+                  data-testid={`access-request-row-${req.id}`}
+                >
+                  <span className="inline-flex items-center justify-center h-8 w-8 shrink-0 rounded-full bg-muted text-muted-foreground">
+                    <UserIcon className="h-4 w-4" />
+                  </span>
+                  <p className="text-sm text-foreground flex-1 min-w-0 truncate">
+                    <span className="font-medium">{req.requester_email}</span> wants to{' '}
+                    <span className="font-semibold">{req.requested_level}</span>
+                    {req.note ? <span className="text-muted-foreground"> — {req.note}</span> : null}
+                  </p>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs"
+                      data-testid={`access-request-deny-${req.id}`}
+                      onClick={async () => {
+                        await respondToAccessRequest(rtype, entityId, req.id, 'declined');
+                        mutateRequests();
+                      }}
+                    >
+                      Deny
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className="h-7 text-xs"
+                      data-testid={`access-request-approve-${req.id}`}
+                      onClick={async () => {
+                        await respondToAccessRequest(
+                          rtype,
+                          entityId,
+                          req.id,
+                          'approved',
+                          req.requested_level
+                        );
+                        mutateRequests();
+                        mutateGrants();
+                      }}
+                    >
+                      Approve
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {rtype && (
             <>
               {/* Search input */}
@@ -1006,57 +1062,6 @@ export function ShareModal({
                 </div>
               </CardContent>
             </Card>
-          )}
-
-          {/* Access Requests (edit-holders only) */}
-          {rtype && (requests ?? []).length > 0 && (
-            <div className="space-y-2">
-              <Label>Access Requests</Label>
-              <div className="border rounded-md divide-y">
-                {requests!.map((req) => (
-                  <div key={req.id} className="px-3 py-2 flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{req.requester_email}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Requesting {req.requested_level}
-                        {req.note ? ` — ${req.note}` : ''}
-                      </p>
-                    </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs"
-                        onClick={async () => {
-                          await respondToAccessRequest(
-                            rtype,
-                            entityId,
-                            req.id,
-                            'approved',
-                            req.requested_level
-                          );
-                          mutateRequests();
-                          mutateGrants();
-                        }}
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs"
-                        onClick={async () => {
-                          await respondToAccessRequest(rtype, entityId, req.id, 'declined');
-                          mutateRequests();
-                        }}
-                      >
-                        Decline
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           )}
 
           <div className="flex justify-end gap-3">
