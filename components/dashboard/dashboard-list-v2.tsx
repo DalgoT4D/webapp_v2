@@ -91,8 +91,6 @@ import { useRouter } from 'next/navigation';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useDashboards, deleteDashboard, duplicateDashboard } from '@/hooks/api/useDashboards';
 import { ShareModal } from '@/components/ui/share-modal';
-import { TransferOwnershipDialog } from '@/components/ui/transfer-ownership-dialog';
-import { bulkAddGrant } from '@/hooks/api/useAccess';
 import {
   Dialog,
   DialogContent,
@@ -104,7 +102,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
-import { ADMIN_ROLES, PERMISSIONS, useRbac } from '@/lib/rbac';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
 import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
@@ -163,14 +161,6 @@ export function DashboardListV2() {
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [selectedDashboard, setSelectedDashboard] = useState<any>(null);
-  const [transferDashboard, setTransferDashboard] = useState<any>(null);
-  // Bulk selection state
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedDashboards, setSelectedDashboards] = useState<Set<number>>(new Set());
-  const [bulkShareOpen, setBulkShareOpen] = useState(false);
-  const [bulkShareEmail, setBulkShareEmail] = useState('');
-  const [bulkShareLevel, setBulkShareLevel] = useState<'view' | 'edit'>('view');
-  const [isBulkSharing, setIsBulkSharing] = useState(false);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -194,19 +184,6 @@ export function DashboardListV2() {
 
   // Get user permissions
   const { hasPermission } = useRbac();
-
-  // Owner-or-admin gate for the Transfer Ownership menu item — matches the
-  // backend gate on POST /transfer-ownership. Admins can transfer any resource;
-  // non-admins can only transfer resources they created.
-  const isAdmin =
-    !!currentUser?.new_role_slug &&
-    ADMIN_ROLES.includes(currentUser.new_role_slug as (typeof ADMIN_ROLES)[number]);
-  const canTransfer = useCallback(
-    (dashboard: any) =>
-      isAdmin ||
-      (currentUser?.email && dashboard.created_by && dashboard.created_by === currentUser.email),
-    [isAdmin, currentUser?.email]
-  );
 
   // Landing page functionality
   const {
@@ -506,43 +483,6 @@ export function DashboardListV2() {
   const handleDashboardUpdate = useCallback(() => {
     mutate(); // Refresh the dashboard list
   }, [mutate]);
-
-  // Bulk selection helpers
-  const exitSelectionMode = useCallback(() => {
-    setIsSelectionMode(false);
-    setSelectedDashboards(new Set());
-  }, []);
-
-  const toggleDashboardSelection = useCallback((id: number) => {
-    setSelectedDashboards((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const handleBulkShare = useCallback(async () => {
-    if (!bulkShareEmail.trim() || selectedDashboards.size === 0) return;
-    setIsBulkSharing(true);
-    try {
-      const { shared, skipped } = await bulkAddGrant('dashboard', Array.from(selectedDashboards), {
-        pending_grants: [{ email: bulkShareEmail.trim(), access_level: bulkShareLevel }],
-      });
-      const msg =
-        skipped > 0
-          ? `Shared ${shared} dashboard${shared !== 1 ? 's' : ''}, skipped ${skipped} (no edit access)`
-          : `Shared ${shared} dashboard${shared !== 1 ? 's' : ''} successfully`;
-      toastSuccess.generic(msg);
-      setBulkShareOpen(false);
-      setBulkShareEmail('');
-      setBulkShareLevel('view');
-    } catch {
-      toastError.api(null, 'Failed to share dashboards');
-    } finally {
-      setIsBulkSharing(false);
-    }
-  }, [bulkShareEmail, bulkShareLevel, selectedDashboards]);
 
   // Landing page handlers
   const handleSetPersonalLanding = useCallback(
@@ -861,29 +801,21 @@ export function DashboardListV2() {
         {/* Name Column with Star */}
         <TableCell className="py-4">
           <div className="flex items-center gap-3">
-            {isSelectionMode ? (
-              <Checkbox
-                checked={selectedDashboards.has(dashboard.id)}
-                onCheckedChange={() => toggleDashboardSelection(dashboard.id)}
-                className="h-5 w-5"
-              />
-            ) : (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 p-0 hover:bg-yellow-50"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleToggleFavorite(dashboard.id);
-                }}
-              >
-                {isFavorited ? (
-                  <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                ) : (
-                  <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400" />
-                )}
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 p-0 hover:bg-yellow-50"
+              onClick={(e) => {
+                e.preventDefault();
+                handleToggleFavorite(dashboard.id);
+              }}
+            >
+              {isFavorited ? (
+                <Star className="w-4 h-4 text-yellow-500 fill-current" />
+              ) : (
+                <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400" />
+              )}
+            </Button>
             <div className="flex flex-col">
               <Link
                 href={getNavigationUrl()}
@@ -1046,15 +978,6 @@ export function DashboardListV2() {
                         Duplicate
                       </>
                     )}
-                  </DropdownMenuItem>
-                )}
-                {canTransfer(dashboard) && (
-                  <DropdownMenuItem
-                    onClick={() => setTransferDashboard(dashboard)}
-                    className="cursor-pointer"
-                  >
-                    <User className="w-4 h-4 mr-2" />
-                    Transfer ownership
                   </DropdownMenuItem>
                 )}
                 {hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) && (
@@ -1702,12 +1625,6 @@ export function DashboardListV2() {
           </div>
 
           <div className="flex items-center gap-2">
-            {hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS) && !isSelectionMode && (
-              <Button variant="outline" size="sm" onClick={() => setIsSelectionMode(true)}>
-                <Share2 className="w-4 h-4 mr-2" />
-                Bulk Share
-              </Button>
-            )}
             {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
               <Link id="dashboard-create-link" href="/dashboards/create">
                 <Button id="dashboard-create-button" variant="primary">
@@ -1718,30 +1635,6 @@ export function DashboardListV2() {
             )}
           </div>
         </div>
-
-        {/* Bulk action bar */}
-        {isSelectionMode && (
-          <div className="flex items-center justify-between px-6 py-3 bg-blue-50 border-b border-blue-200">
-            <div className="flex items-center gap-3">
-              <button onClick={exitSelectionMode} className="p-1 hover:bg-blue-100 rounded">
-                <X className="w-4 h-4 text-blue-600" />
-              </button>
-              <span className="text-sm font-medium text-blue-900">
-                {selectedDashboards.size} dashboard{selectedDashboards.size !== 1 ? 's' : ''}{' '}
-                selected
-              </span>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setBulkShareOpen(true)}
-              disabled={selectedDashboards.size === 0}
-            >
-              <Share2 className="w-4 h-4 mr-2" />
-              Share ({selectedDashboards.size})
-            </Button>
-          </div>
-        )}
 
         {/* Filter Summary - Only shows when filters are active to save space */}
         {getActiveFilterCount() > 0 && (
@@ -2139,83 +2032,6 @@ export function DashboardListV2() {
           onUpdate={handleDashboardUpdate}
         />
       )}
-
-      {/* Transfer Ownership Dialog */}
-      {transferDashboard && (
-        <TransferOwnershipDialog
-          rtype="dashboard"
-          entityId={transferDashboard.id}
-          entityLabel={transferDashboard.title || 'Dashboard'}
-          isOpen={true}
-          onClose={() => setTransferDashboard(null)}
-          onTransferred={handleDashboardUpdate}
-        />
-      )}
-
-      {/* Bulk Share Dialog */}
-      <Dialog
-        open={bulkShareOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setBulkShareOpen(false);
-            setBulkShareEmail('');
-            setBulkShareLevel('view');
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Share {selectedDashboards.size} Dashboard{selectedDashboards.size !== 1 ? 's' : ''}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1">
-              <Label htmlFor="bulk-dash-share-email">Email address</Label>
-              <Input
-                id="bulk-dash-share-email"
-                type="email"
-                placeholder="user@example.com"
-                value={bulkShareEmail}
-                onChange={(e) => setBulkShareEmail(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Access level</Label>
-              <Select
-                value={bulkShareLevel}
-                onValueChange={(v) => setBulkShareLevel(v as 'view' | 'edit')}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="view">Can view</SelectItem>
-                  <SelectItem value="edit">Can edit</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <p className="text-xs text-gray-500">
-              Dashboards where you don&apos;t have edit access will be skipped.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setBulkShareOpen(false);
-                setBulkShareEmail('');
-                setBulkShareLevel('view');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleBulkShare} disabled={!bulkShareEmail.trim() || isBulkSharing}>
-              {isBulkSharing ? 'Sharing…' : 'Share'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

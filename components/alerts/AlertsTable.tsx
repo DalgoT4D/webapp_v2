@@ -11,6 +11,7 @@ import {
   ChevronUp,
   ChevronDown,
   BellRing,
+  User as UserIcon,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cronToString, localTimezone } from '@/components/pipeline/utils';
@@ -97,6 +98,9 @@ interface AlertsTableProps {
   onDelete: (a: AlertListItem) => void;
   onToggle: (a: AlertListItem) => void;
   onOpenLog: (a: AlertListItem) => void;
+  /** Row-level owner-or-admin gate for the Transfer Ownership entry. */
+  canTransfer: (a: AlertListItem) => boolean;
+  onTransfer: (a: AlertListItem) => void;
 }
 
 function sourceHref(a: AlertListItem): string | null {
@@ -142,6 +146,8 @@ export function AlertsTable({
   onDelete,
   onToggle,
   onOpenLog,
+  canTransfer,
+  onTransfer,
 }: AlertsTableProps) {
   const [sortBy, setSortBy] = useState<AlertSortKey>('last_fire_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -392,6 +398,12 @@ export function AlertsTable({
                           <ListOrdered className="w-4 h-4 mr-2" />
                           Alert log
                         </DropdownMenuItem>
+                        {canTransfer(a) && (
+                          <DropdownMenuItem onClick={() => onTransfer(a)}>
+                            <UserIcon className="w-4 h-4 mr-2" />
+                            Transfer ownership
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={() => onDelete(a)}

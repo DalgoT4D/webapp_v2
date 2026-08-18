@@ -28,10 +28,12 @@ import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { CreateAlertTypeModal } from '@/components/alerts/CreateAlertTypeModal';
 import { AlertsTable, AllAlertsEmptyState } from '@/components/alerts/AlertsTable';
 import { AlertLogModal } from '@/components/alerts/AlertLogModal';
+import { AlertTransferOwnershipDialog } from '@/components/alerts/AlertTransferOwnershipDialog';
 import { DocsLink } from '@/components/ui/docs-link';
 import type { AlertListItem } from '@/types/alerts';
 import { AlertType } from '@/types/alerts';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { ADMIN_ROLES, PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useAuthStore } from '@/stores/authStore';
 
 export default function AlertsPage() {
   const { hasPermission } = useRbac();
@@ -47,6 +49,17 @@ export default function AlertsPage() {
   const [deletingAlert, setDeletingAlert] = useState<AlertListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [logModalAlert, setLogModalAlert] = useState<AlertListItem | null>(null);
+  const [transferAlert, setTransferAlert] = useState<AlertListItem | null>(null);
+
+  // Owner-or-admin gate for the row-level Transfer Ownership menu item —
+  // matches the backend gate on POST /transfer-ownership/.
+  const currentUser = useAuthStore((s) => s.getCurrentOrgUser)();
+  const isAdmin =
+    !!currentUser?.new_role_slug &&
+    ADMIN_ROLES.includes(currentUser.new_role_slug as (typeof ADMIN_ROLES)[number]);
+  const canTransferAlert = (a: AlertListItem) =>
+    isAdmin ||
+    (!!currentUser?.email && !!a.created_by_email && a.created_by_email === currentUser.email);
 
   const {
     data: alerts,
@@ -130,6 +143,8 @@ export default function AlertsPage() {
               trackEvent(ANALYTICS_EVENTS.ALERT_LOGS_VIEWED);
               setLogModalAlert(a);
             }}
+            canTransfer={canTransferAlert}
+            onTransfer={(a) => setTransferAlert(a)}
           />
         </div>
       </div>
@@ -213,6 +228,17 @@ export default function AlertsPage() {
         alertId={logModalAlert?.id ?? null}
         alertName={logModalAlert?.name}
       />
+
+      {transferAlert && (
+        <AlertTransferOwnershipDialog
+          alertId={transferAlert.id}
+          alertName={transferAlert.name}
+          currentOwnerEmail={transferAlert.created_by_email}
+          isOpen={true}
+          onClose={() => setTransferAlert(null)}
+          onTransferred={() => mutate()}
+        />
+      )}
 
       <AlertDialog open={!!deletingAlert} onOpenChange={(o) => !o && setDeletingAlert(null)}>
         <AlertDialogContent>

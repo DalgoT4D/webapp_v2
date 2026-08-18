@@ -120,6 +120,7 @@ export interface AlertResponse {
   recipients: RecipientOut[];
   created_at: string;
   updated_at: string;
+  created_by_email: string | null;
 }
 
 /** Mirrors `KpiRagContext` in alert_schema.py — drives RAG-chip tooltip math. */
@@ -145,6 +146,7 @@ export interface AlertListItem {
   is_active: boolean;
   last_fire_at: string | null;
   fire_streak: number;
+  created_by_email: string | null;
 }
 
 export interface AlertListResponse {

@@ -32,11 +32,9 @@ import type { ChartCreate } from '@/types/charts';
 import { useDeleteChart, useBulkDeleteCharts, useCreateChart } from '@/hooks/api/useChart';
 import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
 import { ShareModal } from '@/components/ui/share-modal';
-import { TransferOwnershipDialog } from '@/components/ui/transfer-ownership-dialog';
 import { ChartExportDropdownForList } from '@/components/charts/ChartExportDropdownForList';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { ADMIN_ROLES, PERMISSIONS, useRbac } from '@/lib/rbac';
-import { useAuthStore } from '@/stores/authStore';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -74,14 +72,6 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
-import { bulkAddGrant } from '@/hooks/api/useAccess';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
 
 const chartIcons = {
   bar: BarChart2,
@@ -128,17 +118,12 @@ export default function ChartsPage() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedCharts, setSelectedCharts] = useState<Set<number>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
-  const [bulkShareOpen, setBulkShareOpen] = useState(false);
-  const [bulkShareEmail, setBulkShareEmail] = useState('');
-  const [bulkShareLevel, setBulkShareLevel] = useState<'view' | 'edit'>('view');
-  const [isBulkSharing, setIsBulkSharing] = useState(false);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   // Share modal state
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareChart, setShareChart] = useState<Chart | null>(null);
-  const [transferChart, setTransferChart] = useState<Chart | null>(null);
 
   const {
     data: allCharts,
@@ -155,17 +140,6 @@ export default function ChartsPage() {
 
   // Get user permissions
   const { hasPermission } = useRbac();
-
-  // Owner-or-admin gate for Transfer Ownership. Matches backend gate.
-  const currentUser = useAuthStore((s) => s.getCurrentOrgUser)();
-  const isAdmin =
-    !!currentUser?.new_role_slug &&
-    ADMIN_ROLES.includes(currentUser.new_role_slug as (typeof ADMIN_ROLES)[number]);
-  const canTransferChart = useCallback(
-    (chart: Chart) =>
-      isAdmin || (currentUser?.email && chart.created_by && chart.created_by === currentUser.email),
-    [isAdmin, currentUser?.email]
-  );
 
   // If API doesn't support pagination, implement client-side filtering and sorting
   const charts = allCharts || [];
@@ -546,28 +520,6 @@ export default function ChartsPage() {
     mutate,
     exitSelectionMode,
   ]);
-
-  const handleBulkShare = useCallback(async () => {
-    if (!bulkShareEmail.trim() || selectedCharts.size === 0) return;
-    setIsBulkSharing(true);
-    try {
-      const { shared, skipped } = await bulkAddGrant('chart', Array.from(selectedCharts), {
-        pending_grants: [{ email: bulkShareEmail.trim(), access_level: bulkShareLevel }],
-      });
-      const msg =
-        skipped > 0
-          ? `Shared ${shared} chart${shared !== 1 ? 's' : ''}, skipped ${skipped} (no edit access)`
-          : `Shared ${shared} chart${shared !== 1 ? 's' : ''} successfully`;
-      toastSuccess.generic(msg);
-      setBulkShareOpen(false);
-      setBulkShareEmail('');
-      setBulkShareLevel('view');
-    } catch {
-      toastError.api(null, 'Failed to share charts');
-    } finally {
-      setIsBulkSharing(false);
-    }
-  }, [bulkShareEmail, bulkShareLevel, selectedCharts]);
 
   // Render sort icon for table headers
   const renderSortIcon = (column: 'title' | 'updated_at' | 'chart_type' | 'data_source') => {
@@ -993,15 +945,6 @@ export default function ChartsPage() {
                     chartType={chart.chart_type}
                   />
                 )}
-                {canTransferChart(chart) && (
-                  <DropdownMenuItem
-                    onClick={() => setTransferChart(chart)}
-                    className="cursor-pointer"
-                  >
-                    <User className="w-4 h-4 mr-2" />
-                    Transfer ownership
-                  </DropdownMenuItem>
-                )}
                 {hasPermission(PERMISSIONS.CAN_DELETE_CHARTS) && (
                   <>
                     <DropdownMenuSeparator />
@@ -1137,15 +1080,6 @@ export default function ChartsPage() {
             </div>
 
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setBulkShareOpen(true)}
-                disabled={selectedCharts.size === 0}
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                Share {selectedCharts.size > 0 ? `(${selectedCharts.size})` : ''}
-              </Button>
               {hasPermission(PERMISSIONS.CAN_DELETE_CHARTS) && (
                 <Button
                   variant="destructive"
@@ -1524,83 +1458,6 @@ export default function ChartsPage() {
           onClose={handleShareModalClose}
         />
       )}
-
-      {/* Transfer Ownership Dialog */}
-      {transferChart && (
-        <TransferOwnershipDialog
-          rtype="chart"
-          entityId={transferChart.id}
-          entityLabel={transferChart.title || 'Chart'}
-          isOpen={true}
-          onClose={() => setTransferChart(null)}
-          onTransferred={mutate}
-        />
-      )}
-
-      {/* Bulk Share Dialog */}
-      <Dialog
-        open={bulkShareOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setBulkShareOpen(false);
-            setBulkShareEmail('');
-            setBulkShareLevel('view');
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Share {selectedCharts.size} Chart{selectedCharts.size !== 1 ? 's' : ''}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1">
-              <Label htmlFor="bulk-share-email">Email address</Label>
-              <Input
-                id="bulk-share-email"
-                type="email"
-                placeholder="user@example.com"
-                value={bulkShareEmail}
-                onChange={(e) => setBulkShareEmail(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Access level</Label>
-              <Select
-                value={bulkShareLevel}
-                onValueChange={(v) => setBulkShareLevel(v as 'view' | 'edit')}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="view">Can view</SelectItem>
-                  <SelectItem value="edit">Can edit</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <p className="text-xs text-gray-500">
-              Charts where you don&apos;t have edit access will be skipped.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setBulkShareOpen(false);
-                setBulkShareEmail('');
-                setBulkShareLevel('view');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleBulkShare} disabled={!bulkShareEmail.trim() || isBulkSharing}>
-              {isBulkSharing ? 'Sharing…' : 'Share'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

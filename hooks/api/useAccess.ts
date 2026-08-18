@@ -312,26 +312,6 @@ export async function respondToAccessRequest(
   }
 }
 
-export async function bulkAddGrant(
-  rtype: string,
-  resourceIds: number[],
-  payload: AddGrantsPayload
-): Promise<{ shared: number; skipped: number }> {
-  let shared = 0;
-  let skipped = 0;
-  await Promise.all(
-    resourceIds.map(async (id) => {
-      try {
-        await (apiPost as any)(`/api/access/${rtype}/${id}/grants`, payload);
-        shared++;
-      } catch {
-        skipped++;
-      }
-    })
-  );
-  return { shared, skipped };
-}
-
 export async function updateAccessDefaults(payload: AccessDefaults) {
   try {
     await apiPut('/api/orgpreferences/access-defaults', payload);
