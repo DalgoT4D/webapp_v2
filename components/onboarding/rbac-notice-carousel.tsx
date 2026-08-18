@@ -10,6 +10,7 @@ import { apiPut } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
+import { FREE_TRIAL_PLAN_NAME } from '@/constants/trial';
 import {
   RBAC_NOTICE_HEADING,
   RBAC_NOTICE_STEPS,
@@ -28,12 +29,18 @@ const LAST_ROLE_INDEX = RBAC_ROLE_SUMMARIES.length - 1;
  * authenticated page they land on, then persists `has_seen_rbac_notice` so it
  * never re-appears. Mounted globally in MainLayout. Layout mirrors the
  * "Rbac spec A - migration notes" Figma frames.
+ *
+ * Never shown to free-trial orgs. This explains what CHANGED about access for users who
+ * lived through the old model — a trial workspace is created fresh on RBAC v2, so it has no
+ * "before" to be told about, and the trial has its own simplified onboarding. It also stops
+ * this dialog landing on top of the product tour, which auto-runs on the same first pages.
  */
 export function RbacNoticeCarousel() {
   const orgUsers = useAuthStore((s) => s.orgUsers);
   const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
   const setOrgUsers = useAuthStore((s) => s.setOrgUsers);
   const orgUser = orgUsers.find((ou) => ou.org.slug === selectedOrgSlug) ?? null;
+  const isTrialOrg = orgUser?.subscription_plan === FREE_TRIAL_PLAN_NAME;
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
@@ -41,14 +48,17 @@ export function RbacNoticeCarousel() {
 
   useEffect(() => {
     if (!orgUser || hasOpenedRef.current) return;
+    // Suppressed, NOT marked as seen: nothing is written for a trial org, so if it later
+    // converts to a paid plan the notice is still available to it.
+    if (isTrialOrg) return;
     if (orgUser.has_seen_rbac_notice) return;
     hasOpenedRef.current = true;
     setStep(0);
     setOpen(true);
     trackEvent(ANALYTICS_EVENTS.RBAC_NOTICE_VIEWED, { role: orgUser.new_role_slug });
-  }, [orgUser]);
+  }, [orgUser, isTrialOrg]);
 
-  if (!orgUser) return null;
+  if (!orgUser || isTrialOrg) return null;
 
   const persistSeen = async () => {
     // Optimistically flip the flag so the carousel never re-opens this session.

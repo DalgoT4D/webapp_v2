@@ -104,6 +104,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
+import { markDashboardShared } from '@/components/onboarding/insight-walkthrough-constants';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
 import useSWR, { mutate as swrMutate } from 'swr';
@@ -485,6 +486,18 @@ export function DashboardListV2() {
   const handleDashboardUpdate = useCallback(() => {
     mutate(); // Refresh the dashboard list
   }, [mutate]);
+
+  // Wraps updateDashboardSharing (passed to ShareModal, a components/ui/ component we don't
+  // modify) so the resume-nudge "shared" milestone is set on the actual is_public=true action,
+  // without adding onboarding logic to the shared modal itself.
+  const handleUpdateDashboardSharing = useCallback(
+    async (id: number, data: { is_public: boolean }) => {
+      const result = await updateDashboardSharing(id, data);
+      if (data.is_public) markDashboardShared();
+      return result;
+    },
+    [selectedOrgSlug]
+  );
 
   // Landing page handlers
   const handleSetPersonalLanding = useCallback(
@@ -905,6 +918,8 @@ export function DashboardListV2() {
                 size="icon"
                 className="h-8 w-8 p-0 hover:bg-gray-100"
                 onClick={() => handleShareDashboard(dashboard)}
+                aria-label={`Share dashboard: ${dashboard.title || dashboard.id}`}
+                data-testid={`dashboard-share-table-${dashboard.id}`}
               >
                 <Share2 className="w-4 h-4 text-gray-600" />
               </Button>
@@ -1107,6 +1122,8 @@ export function DashboardListV2() {
                   e.preventDefault();
                   handleShareDashboard(dashboard);
                 }}
+                aria-label={`Share dashboard: ${dashboard.title || dashboard.id}`}
+                data-testid={`dashboard-share-card-${dashboard.id}`}
               >
                 <Share2 className="w-3 h-3" />
               </Button>
@@ -1437,6 +1454,8 @@ export function DashboardListV2() {
                   size="icon"
                   className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
                   onClick={() => handleShareDashboard(dashboard)}
+                  aria-label={`Share dashboard: ${dashboard.title || dashboard.id}`}
+                  data-testid={`dashboard-share-mobile-${dashboard.id}`}
                 >
                   <Share2 className="w-4 h-4 text-gray-700" />
                 </Button>
@@ -2034,7 +2053,7 @@ export function DashboardListV2() {
             public_access_count: selectedDashboard.public_access_count,
           }}
           getShareStatus={getDashboardSharingStatus}
-          updateSharing={updateDashboardSharing}
+          updateSharing={handleUpdateDashboardSharing}
         />
       )}
     </div>

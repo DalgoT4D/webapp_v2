@@ -36,6 +36,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DocsLink } from '@/components/ui/docs-link';
 import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { useAuthStore } from '@/stores/authStore';
+import {
+  markKpiCreated,
+  isStageBefore,
+} from '@/components/onboarding/insight-walkthrough-constants';
+import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
@@ -81,7 +88,7 @@ function KPICardWithData({
   // Hide card if status filter is active and doesn't match
   if (statusFilter && !isLoading && ragStatus !== statusFilter) return null;
 
-  const lastTwo = periods.slice(-2).map((p) => p.value);
+  const lastTwo = periods.slice(-2).map((p: { value: number | null }) => p.value);
   const popChange = computePopChanges(lastTwo)[1] ?? null;
 
   const cardData: KPICardData = {
@@ -149,12 +156,17 @@ function KPICardWithData({
 export function KPIPageComponent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const orgUsers = useAuthStore((s) => s.orgUsers);
+  const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
+  const orgSlug = orgUsers.find((ou) => ou.org.slug === selectedOrgSlug)?.org.slug ?? null;
   const [search, setSearch] = useState('');
   const [metricTypeFilter, setMetricTypeFilter] = useState('');
   const [programTagFilter, setProgramTagFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [formOpen, setFormOpen] = useState(searchParams.get('create') === 'true');
+  // Walkthrough only — see handleFormSuccess.
+  const [kpiLiveModalOpen, setKpiLiveModalOpen] = useState(false);
   const [editingKpi, setEditingKpi] = useState<KPI | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedKpi, setSelectedKpi] = useState<KPI | null>(null);
@@ -224,11 +236,36 @@ export function KPIPageComponent() {
     setCurrentPage(1);
     mutate();
     globalMutate('/api/kpis/program-tags/');
-  }, [mutate, globalMutate]);
+    // Resume-nudge milestone — set regardless of whether a coachmark session is active,
+    // so a returning user's progress is accurate (see flow-resume.ts).
+    markKpiCreated();
+    const walkthrough = useInsightWalkthroughStore.getState();
+    // Whatever they skipped on the way here — an optional KPI Type, a hint they clicked past
+    // — creating the KPI is the checkpoint, so catch the walkthrough up to it.
+    if (
+      walkthrough.active &&
+      walkthrough.stage &&
+      isStageBefore(walkthrough.path, walkthrough.stage, 'dashboard_nudge')
+    ) {
+      // A full celebration dialog rather than a toast — this is where the flow hands over
+      // from KPIs to dashboards, and the handover needs a CTA, not a corner notification.
+      setKpiLiveModalOpen(true);
+      // The next stage's coachmark points at the Dashboards nav item, which is visible
+      // behind this dialog — without suppressing it, congratulations and the nudge land on
+      // screen together. Released when the dialog closes, so the nudge is what the user
+      // sees next.
+      walkthrough.setSuppressCoachmark(true);
+      walkthrough.advanceIfBefore('dashboard_nudge');
+    }
+  }, [mutate, globalMutate, orgSlug]);
 
   const handleCreate = () => {
     setEditingKpi(null);
     setFormOpen(true);
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'kpi_intro') {
+      walkthrough.advanceTo('kpi_metric');
+    }
   };
 
   const handleCardClick = (kpi: KPI) => {
@@ -288,7 +325,7 @@ export function KPIPageComponent() {
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
             <DocsLink path="/kpis">
-              <h1 className="text-3xl font-bold">KPI</h1>
+              <h1 className="text-3xl font-bold">Key Performance Indicators</h1>
             </DocsLink>
             <p className="text-muted-foreground mt-1">
               Track business objectives with measurable KPIs linked to your metrics
@@ -459,6 +496,20 @@ export function KPIPageComponent() {
         onOpenChange={setFormOpen}
         onSuccess={handleFormSuccess}
         kpi={editingKpi}
+      />
+
+      <CelebrationModal
+        open={kpiLiveModalOpen}
+        onOpenChange={(open) => {
+          setKpiLiveModalOpen(open);
+          // Whichever way it closes, the dashboard nudge is the next thing to see.
+          if (!open) useInsightWalkthroughStore.getState().setSuppressCoachmark(false);
+        }}
+        title="Congratulations, your KPI is live!"
+        description="Your insight is built, and you can now add it to a dashboard!"
+        ctaLabel="Add to Dashboard"
+        dismissEvent={ANALYTICS_EVENTS.KPI_LIVE_MODAL_DISMISSED}
+        testId="kpi-live-modal"
       />
 
       <KPIDetailDrawer

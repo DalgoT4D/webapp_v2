@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
+import { useWarehouse } from './useWarehouse';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import type {
   Chart,
@@ -154,10 +155,15 @@ export function useTables(schema: string | null) {
 // Hook to get all tables from all schemas using optimized sync_tables API
 export function useAllSchemaTables() {
   const {
+    data: warehouse,
+    isLoading: isWarehouseLoading,
+    isError: warehouseError,
+  } = useWarehouse();
+  const {
     data: syncTablesData,
-    isLoading,
-    error,
-  } = useSWR('/api/warehouse/sync_tables?fresh=1', apiGet, {
+    isLoading: isTablesLoading,
+    error: tablesError,
+  } = useSWR(warehouse ? '/api/warehouse/sync_tables?fresh=1' : null, apiGet, {
     dedupingInterval: 30000,
     revalidateOnFocus: true,
     revalidateOnReconnect: true,
@@ -179,8 +185,9 @@ export function useAllSchemaTables() {
 
   return {
     data: allTables,
-    isLoading,
-    error,
+    isLoading: isWarehouseLoading || isTablesLoading,
+    error: warehouseError || tablesError,
+    noWarehouse: !isWarehouseLoading && !warehouseError && !warehouse,
   };
 }
 
