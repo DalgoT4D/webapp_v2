@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Triangle,
   Loader2,
@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/select';
 import { formatNumber, formatDate, type NumberFormat, type DateFormat } from '@/lib/formatters';
 import { getTableTheme } from './types/table/constants';
-import { useTableSearch } from './hooks/useTableSearch';
 import { TableSearchBar } from './TableSearchBar';
 import type { ConditionalFormattingRule } from './types/table/types';
 
@@ -95,6 +94,11 @@ interface TableChartProps {
     onPageChange: (page: number) => void;
     onPageSizeChange?: (pageSize: number) => void;
   };
+  // The parent owns the search term — it re-fetches server-side with the term applied,
+  // so `data` arrives already filtered to matching rows. No search bar renders unless
+  // the parent wires this up (same gating pattern as onSort).
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
   onRowClick?: (rowData: Record<string, any>, columnName: string) => void;
   drillDownEnabled?: boolean;
   currentDimensionColumn?: string;
@@ -112,6 +116,8 @@ export function TableChart({
   isLoading,
   error,
   pagination,
+  searchQuery,
+  onSearchChange,
   onRowClick,
   drillDownEnabled = false,
   currentDimensionColumn,
@@ -325,31 +331,6 @@ export function TableChart({
     return 'text-left';
   };
 
-  // --- Search integration ---
-
-  // Build flat cell list from visible (paginated) data for search
-  const searchCells = useMemo(() => {
-    const cells: { rowIndex: number; colIndex: number; displayValue: string }[] = [];
-    paginatedData.forEach((row, rowIdx) => {
-      columns.forEach((column, colIdx) => {
-        const rawValue = row[column];
-        const displayValue = formatCellValue(rawValue, column);
-        cells.push({ rowIndex: rowIdx, colIndex: colIdx, displayValue: String(displayValue) });
-      });
-    });
-    return cells;
-  }, [paginatedData, columns, column_formatting]);
-
-  const search = useTableSearch(searchCells);
-
-  // Helper: is this cell a search match?
-  const isSearchMatch = useCallback(
-    (rowIdx: number, colIdx: number): boolean => {
-      return search.matches.some((m) => m.rowIndex === rowIdx && m.colIndex === colIdx);
-    },
-    [search.matches]
-  );
-
   // `sort` is fully controlled by the parent (it reflects whatever was actually
   // applied server-side), so the arrow just mirrors it — no local sort state here.
   const getSortDirection = (column: string) => sort.find((s) => s.column === column)?.direction;
@@ -363,10 +344,28 @@ export function TableChart({
     onSort(column, next);
   };
 
-  // Handle loading state
+  // Search bar — only when the parent wires onSearchChange (it owns re-fetching
+  // matching rows server-side, same gating pattern as onSort). Rendered from a
+  // shared variable so it also shows up on the "no rows match" empty state below —
+  // otherwise a search with zero results hides the only way back to an unfiltered view.
+  const searchBar = onSearchChange && (
+    <div className="flex-shrink-0 py-1 mb-2">
+      <TableSearchBar
+        query={searchQuery || ''}
+        onQueryChange={onSearchChange}
+        totalMatches={pagination?.total ?? paginatedData.length}
+        onClear={() => onSearchChange('')}
+      />
+    </div>
+  );
+
+  // Each branch below only computes the inner content — the search bar (searchBar,
+  // above) stays constant in the wrapper regardless of loading/error/empty/data state,
+  // so it's never hidden (e.g. a search with zero results still lets you clear it).
+  let content: React.ReactNode;
   if (isLoading) {
-    return (
-      <div className="relative w-full h-full min-h-[300px]">
+    content = (
+      <div className="relative flex-1 min-h-[300px]">
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
@@ -375,12 +374,9 @@ export function TableChart({
         </div>
       </div>
     );
-  }
-
-  // Handle error state
-  if (error) {
-    return (
-      <div className="relative h-full">
+  } else if (error) {
+    content = (
+      <div className="relative flex-1">
         <div className="absolute top-0 left-0 right-0 z-10 p-4">
           <Alert variant="warning">
             <AlertCircle className="h-4 w-4" />
@@ -392,343 +388,339 @@ export function TableChart({
         </div>
       </div>
     );
-  }
-
-  if (!data || data.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full p-8">
+  } else if (!data || data.length === 0) {
+    const isEmptyFromSearch = !!searchQuery?.trim();
+    content = (
+      <div className="flex-1 flex items-center justify-center p-8">
         <div className="text-center text-muted-foreground">
-          <p>No data available</p>
-          <p className="text-sm mt-2">Configure your table to display data</p>
+          {isEmptyFromSearch ? (
+            <>
+              <p>No rows match your search</p>
+              <p className="text-sm mt-2">Try a different term, or clear the search above.</p>
+            </>
+          ) : (
+            <>
+              <p>No data available</p>
+              <p className="text-sm mt-2">Configure your table to display data</p>
+            </>
+          )}
         </div>
       </div>
     );
-  }
-
-  if (columns.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full p-8">
+  } else if (columns.length === 0) {
+    content = (
+      <div className="flex-1 flex items-center justify-center p-8">
         <div className="text-center text-muted-foreground">
           <p>No columns configured</p>
           <p className="text-sm mt-2">Select columns to display in the table</p>
         </div>
       </div>
     );
-  }
+  } else {
+    content = (
+      <>
+        <div className="flex-1 min-h-0 overflow-auto">
+          <table className="w-full caption-bottom text-sm">
+            <TableHeader className="sticky top-0 z-20" style={{ backgroundColor: theme.header }}>
+              <TableRow>
+                {columns.map((column) => {
+                  const sortDirection = getSortDirection(column);
+                  // Sortable only when the parent actually wires up onSort (it re-fetches
+                  // server-side with the new sort applied — no-op otherwise).
+                  const canSort = !!onSort;
 
-  return (
-    <div className="w-full h-full flex flex-col">
-      {/* Search bar */}
-      <div className="flex-shrink-0 py-1 mb-2">
-        <TableSearchBar
-          query={search.query}
-          onQueryChange={search.setQuery}
-          totalMatches={search.totalMatches}
-          onClear={search.clear}
-        />
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-auto">
-        <table className="w-full caption-bottom text-sm">
-          <TableHeader className="sticky top-0 z-20" style={{ backgroundColor: theme.header }}>
-            <TableRow>
-              {columns.map((column) => {
-                const sortDirection = getSortDirection(column);
-                // Sortable only when the parent actually wires up onSort (it re-fetches
-                // server-side with the new sort applied — no-op otherwise).
-                const canSort = !!onSort;
-
+                  return (
+                    <TableHead
+                      key={column}
+                      className={`font-semibold py-2 px-2 ${getAlignmentClass(column, data[0]?.[column])} ${
+                        config.freezeFirstColumn && columns.indexOf(column) === 0
+                          ? 'sticky left-0 z-10 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+                          : ''
+                      }`}
+                      style={{
+                        color: theme.headerText,
+                        backgroundColor: theme.header,
+                        borderColor: theme.border,
+                      }}
+                    >
+                      {canSort ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto p-0 font-semibold hover:bg-transparent"
+                          onClick={() => handleSort(column)}
+                          data-testid={`table-column-sort-${column}`}
+                        >
+                          <span>{column}</span>
+                          <span className="flex flex-col gap-0.5">
+                            <Triangle
+                              className={
+                                sortDirection === 'asc'
+                                  ? 'size-1.5 text-foreground'
+                                  : 'size-1.5 text-muted-foreground'
+                              }
+                              fill={sortDirection === 'asc' ? 'currentColor' : 'none'}
+                            />
+                            <Triangle
+                              className={
+                                sortDirection === 'desc'
+                                  ? 'size-1.5 rotate-180 text-foreground'
+                                  : 'size-1.5 rotate-180 text-muted-foreground'
+                              }
+                              fill={sortDirection === 'desc' ? 'currentColor' : 'none'}
+                            />
+                          </span>
+                        </Button>
+                      ) : (
+                        column
+                      )}
+                    </TableHead>
+                  );
+                })}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedData.map((row, index) => {
+                const rowBg = config.zebraRows && index % 2 === 1 ? theme.zebraRow : theme.row;
                 return (
-                  <TableHead
-                    key={column}
-                    className={`font-semibold py-2 px-2 ${getAlignmentClass(column, data[0]?.[column])} ${
-                      config.freezeFirstColumn && columns.indexOf(column) === 0
-                        ? 'sticky left-0 z-10 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
-                        : ''
+                  <TableRow
+                    key={index}
+                    className={`hover:bg-transparent ${
+                      drillDownEnabled && currentDimensionColumn ? 'cursor-pointer' : ''
                     }`}
-                    style={{
-                      color: theme.headerText,
-                      backgroundColor: theme.header,
-                      borderColor: theme.border,
-                    }}
+                    style={{ backgroundColor: rowBg }}
                   >
-                    {canSort ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 font-semibold hover:bg-transparent"
-                        onClick={() => handleSort(column)}
-                        data-testid={`table-column-sort-${column}`}
-                      >
-                        <span>{column}</span>
-                        <span className="flex flex-col gap-0.5">
-                          <Triangle
-                            className={
-                              sortDirection === 'asc'
-                                ? 'size-1.5 text-foreground'
-                                : 'size-1.5 text-muted-foreground'
-                            }
-                            fill={sortDirection === 'asc' ? 'currentColor' : 'none'}
-                          />
-                          <Triangle
-                            className={
-                              sortDirection === 'desc'
-                                ? 'size-1.5 rotate-180 text-foreground'
-                                : 'size-1.5 rotate-180 text-muted-foreground'
-                            }
-                            fill={sortDirection === 'desc' ? 'currentColor' : 'none'}
-                          />
-                        </span>
-                      </Button>
-                    ) : (
-                      column
-                    )}
-                  </TableHead>
-                );
-              })}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedData.map((row, index) => {
-              const rowBg = config.zebraRows && index % 2 === 1 ? theme.zebraRow : theme.row;
-              return (
-                <TableRow
-                  key={index}
-                  className={`hover:bg-transparent ${
-                    drillDownEnabled && currentDimensionColumn ? 'cursor-pointer' : ''
-                  }`}
-                  style={{ backgroundColor: rowBg }}
-                >
-                  {columns.map((column) => {
-                    const isDrillDownClickable =
-                      drillDownEnabled && currentDimensionColumn === column && onRowClick;
-                    const rawValue = row[column];
-                    const isLink = !isDrillDownClickable && isValidUrl(rawValue);
+                    {columns.map((column) => {
+                      const isDrillDownClickable =
+                        drillDownEnabled && currentDimensionColumn === column && onRowClick;
+                      const rawValue = row[column];
+                      const isLink = !isDrillDownClickable && isValidUrl(rawValue);
 
-                    // Render as clickable link if value is a URL (and not a drill-down cell)
-                    if (isLink) {
-                      const href = normalizeUrl(rawValue);
-                      const linkAlignClass = getAlignmentClass(column, rawValue);
-                      const isLinkFrozen =
-                        config.freezeFirstColumn && columns.indexOf(column) === 0;
-                      const linkColIdx = columns.indexOf(column);
+                      // Render as clickable link if value is a URL (and not a drill-down cell)
+                      if (isLink) {
+                        const href = normalizeUrl(rawValue);
+                        const linkAlignClass = getAlignmentClass(column, rawValue);
+                        const isLinkFrozen =
+                          config.freezeFirstColumn && columns.indexOf(column) === 0;
+
+                        return (
+                          <TableCell
+                            key={column}
+                            className={`py-1.5 px-2 ${linkAlignClass} ${
+                              isLinkFrozen
+                                ? 'sticky left-0 z-10 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+                                : ''
+                            }`}
+                            style={{
+                              borderColor: theme.border,
+                              ...(isLinkFrozen ? { backgroundColor: rowBg } : {}),
+                            }}
+                          >
+                            <a
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              Link
+                            </a>
+                          </TableCell>
+                        );
+                      }
+
+                      // Existing logic for non-link cells
+                      const cellValue = formatCellValue(rawValue, column);
+                      const conditionalColor = getConditionalColor(rawValue, column);
+                      const alignClass = getAlignmentClass(column, rawValue);
+                      const isFrozen = config.freezeFirstColumn && columns.indexOf(column) === 0;
+
+                      const cellStyle: React.CSSProperties = {
+                        borderColor: theme.border,
+                      };
+                      if (conditionalColor) {
+                        cellStyle.backgroundColor = conditionalColor;
+                      } else if (isFrozen) {
+                        cellStyle.backgroundColor = rowBg;
+                      }
 
                       return (
                         <TableCell
                           key={column}
-                          data-search-cell={`${index}-${linkColIdx}`}
-                          className={`py-1.5 px-2 ${linkAlignClass} ${
-                            isLinkFrozen
+                          className={`py-1.5 px-2 ${alignClass} ${
+                            isDrillDownClickable
+                              ? 'text-blue-600 hover:text-blue-800 hover:underline cursor-pointer'
+                              : ''
+                          } ${
+                            isFrozen
                               ? 'sticky left-0 z-10 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
                               : ''
                           }`}
-                          style={{
-                            borderColor: theme.border,
-                            ...(isLinkFrozen ? { backgroundColor: rowBg } : {}),
-                          }}
+                          style={cellStyle}
+                          onClick={
+                            isDrillDownClickable
+                              ? () => {
+                                  onRowClick(row, column);
+                                }
+                              : undefined
+                          }
                         >
-                          <a
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 hover:underline"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Link
-                          </a>
+                          {cellValue}
                         </TableCell>
                       );
+                    })}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </table>
+        </div>
+
+        {/* Pagination Controls */}
+        {(isServerSidePagination ? (pagination?.total || 0) > 0 : data.length > 0) && (
+          <div className="flex items-center justify-between border-t px-4 py-3">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {isServerSidePagination ? (
+                    <>
+                      Showing {(pagination!.page - 1) * pagination!.pageSize + 1} to{' '}
+                      {Math.min(pagination!.page * pagination!.pageSize, pagination!.total)} of{' '}
+                      {pagination!.total.toLocaleString()} rows
+                    </>
+                  ) : (
+                    <>
+                      Showing {(currentPage - 1) * pageSize + 1} to{' '}
+                      {Math.min(currentPage * pageSize, data.length)} of{' '}
+                      {data.length.toLocaleString()} rows
+                    </>
+                  )}
+                </span>
+                {(isServerSidePagination ? pagination?.onPageSizeChange : true) && (
+                  <Select
+                    value={
+                      isServerSidePagination ? pagination!.pageSize.toString() : pageSize.toString()
                     }
-
-                    // Existing logic for non-link cells
-                    const cellValue = formatCellValue(rawValue, column);
-                    const conditionalColor = getConditionalColor(rawValue, column);
-                    const alignClass = getAlignmentClass(column, rawValue);
-                    const isFrozen = config.freezeFirstColumn && columns.indexOf(column) === 0;
-                    const colIdx = columns.indexOf(column);
-                    const matchHighlight = isSearchMatch(index, colIdx);
-
-                    const cellStyle: React.CSSProperties = {
-                      borderColor: theme.border,
-                    };
-                    if (matchHighlight) {
-                      cellStyle.backgroundColor = '#fde68a'; // amber-200 for search matches
-                    } else if (conditionalColor) {
-                      cellStyle.backgroundColor = conditionalColor;
-                    } else if (isFrozen) {
-                      cellStyle.backgroundColor = rowBg;
-                    }
-
-                    return (
-                      <TableCell
-                        key={column}
-                        data-search-cell={`${index}-${colIdx}`}
-                        className={`py-1.5 px-2 ${alignClass} ${
-                          isDrillDownClickable
-                            ? 'text-blue-600 hover:text-blue-800 hover:underline cursor-pointer'
-                            : ''
-                        } ${
-                          isFrozen
-                            ? 'sticky left-0 z-10 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
-                            : ''
-                        }`}
-                        style={cellStyle}
-                        onClick={
-                          isDrillDownClickable
-                            ? () => {
-                                onRowClick(row, column);
-                              }
-                            : undefined
-                        }
-                      >
-                        {cellValue}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </table>
-      </div>
-
-      {/* Pagination Controls */}
-      {(isServerSidePagination ? (pagination?.total || 0) > 0 : data.length > 0) && (
-        <div className="flex items-center justify-between border-t px-4 py-3">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                {isServerSidePagination ? (
-                  <>
-                    Showing {(pagination!.page - 1) * pagination!.pageSize + 1} to{' '}
-                    {Math.min(pagination!.page * pagination!.pageSize, pagination!.total)} of{' '}
-                    {pagination!.total.toLocaleString()} rows
-                  </>
-                ) : (
-                  <>
-                    Showing {(currentPage - 1) * pageSize + 1} to{' '}
-                    {Math.min(currentPage * pageSize, data.length)} of{' '}
-                    {data.length.toLocaleString()} rows
-                  </>
+                    onValueChange={(value) => {
+                      const newPageSize = parseInt(value);
+                      if (isServerSidePagination) {
+                        pagination?.onPageSizeChange?.(newPageSize);
+                      } else {
+                        setPageSize(newPageSize);
+                        setCurrentPage(1);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-[70px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                      <SelectItem value="200">200</SelectItem>
+                    </SelectContent>
+                  </Select>
                 )}
-              </span>
-              {(isServerSidePagination ? pagination?.onPageSizeChange : true) && (
-                <Select
-                  value={
-                    isServerSidePagination ? pagination!.pageSize.toString() : pageSize.toString()
-                  }
-                  onValueChange={(value) => {
-                    const newPageSize = parseInt(value);
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => {
                     if (isServerSidePagination) {
-                      pagination?.onPageSizeChange?.(newPageSize);
+                      pagination?.onPageChange(1);
                     } else {
-                      setPageSize(newPageSize);
                       setCurrentPage(1);
                     }
                   }}
+                  disabled={isServerSidePagination ? pagination!.page === 1 : currentPage === 1}
                 >
-                  <SelectTrigger className="h-8 w-[70px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                    <SelectItem value="200">200</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
+                  <ChevronFirst className="h-4 w-4" />
+                  <span className="sr-only">First page</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => {
+                    if (isServerSidePagination) {
+                      pagination?.onPageChange(pagination.page - 1);
+                    } else {
+                      setCurrentPage(currentPage - 1);
+                    }
+                  }}
+                  disabled={isServerSidePagination ? pagination!.page === 1 : currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="sr-only">Previous page</span>
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium">
+                  Page {isServerSidePagination ? pagination!.page : currentPage} of {totalPages}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => {
+                    if (isServerSidePagination) {
+                      pagination?.onPageChange(pagination.page + 1);
+                    } else {
+                      setCurrentPage(currentPage + 1);
+                    }
+                  }}
+                  disabled={
+                    isServerSidePagination
+                      ? pagination!.page * pagination!.pageSize >= pagination!.total
+                      : currentPage === totalPages
+                  }
+                >
+                  <ChevronRight className="h-4 w-4" />
+                  <span className="sr-only">Next page</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => {
+                    if (isServerSidePagination) {
+                      pagination?.onPageChange(Math.ceil(pagination.total / pagination.pageSize));
+                    } else {
+                      setCurrentPage(totalPages);
+                    }
+                  }}
+                  disabled={
+                    isServerSidePagination
+                      ? pagination!.page * pagination!.pageSize >= pagination!.total
+                      : currentPage === totalPages
+                  }
+                >
+                  <ChevronLast className="h-4 w-4" />
+                  <span className="sr-only">Last page</span>
+                </Button>
+              </div>
             </div>
           </div>
+        )}
+      </>
+    );
+  }
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (isServerSidePagination) {
-                    pagination?.onPageChange(1);
-                  } else {
-                    setCurrentPage(1);
-                  }
-                }}
-                disabled={isServerSidePagination ? pagination!.page === 1 : currentPage === 1}
-              >
-                <ChevronFirst className="h-4 w-4" />
-                <span className="sr-only">First page</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (isServerSidePagination) {
-                    pagination?.onPageChange(pagination.page - 1);
-                  } else {
-                    setCurrentPage(currentPage - 1);
-                  }
-                }}
-                disabled={isServerSidePagination ? pagination!.page === 1 : currentPage === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span className="sr-only">Previous page</span>
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-medium">
-                Page {isServerSidePagination ? pagination!.page : currentPage} of {totalPages}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (isServerSidePagination) {
-                    pagination?.onPageChange(pagination.page + 1);
-                  } else {
-                    setCurrentPage(currentPage + 1);
-                  }
-                }}
-                disabled={
-                  isServerSidePagination
-                    ? pagination!.page * pagination!.pageSize >= pagination!.total
-                    : currentPage === totalPages
-                }
-              >
-                <ChevronRight className="h-4 w-4" />
-                <span className="sr-only">Next page</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (isServerSidePagination) {
-                    pagination?.onPageChange(Math.ceil(pagination.total / pagination.pageSize));
-                  } else {
-                    setCurrentPage(totalPages);
-                  }
-                }}
-                disabled={
-                  isServerSidePagination
-                    ? pagination!.page * pagination!.pageSize >= pagination!.total
-                    : currentPage === totalPages
-                }
-              >
-                <ChevronLast className="h-4 w-4" />
-                <span className="sr-only">Last page</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+  return (
+    <div className="w-full h-full flex flex-col">
+      {searchBar}
+      {content}
     </div>
   );
 }

@@ -29,6 +29,8 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type { ChartDataPayload } from '@/types/charts';
 import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
+import { useDebounce } from '@/hooks/useDebounce';
+import { TABLE_SEARCH_DEBOUNCE_MS } from '@/constants/chart-types';
 import type * as echarts from 'echarts';
 
 interface ChartDetailClientProps {
@@ -67,14 +69,6 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     error: chartError,
     isLoading: chartLoading,
   } = useChart(canViewCharts ? chartId : null);
-  // Fire CHART_VIEWED once per mount when the chart loads (WAVO consume signal).
-  const chartViewedTracked = useRef(false);
-  useEffect(() => {
-    if (chart && !chartViewedTracked.current) {
-      trackEvent(ANALYTICS_EVENTS.CHART_VIEWED, { chart_type: chart.chart_type });
-      chartViewedTracked.current = true;
-    }
-  }, [chart]);
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
   const [tableChartPage, setTableChartPage] = useState(1);
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
@@ -87,11 +81,29 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     direction: 'asc' | 'desc';
   } | null>(null);
 
+  // Viewer's search-box text — same session-only override pattern as viewerSort.
+  // Debounced so typing doesn't refetch on every keystroke; resets to page 1 once
+  // the debounced term actually changes (see the effect below).
+  const [viewerSearch, setViewerSearch] = useState('');
+  const debouncedViewerSearch = useDebounce(viewerSearch, TABLE_SEARCH_DEBOUNCE_MS);
+  useEffect(() => {
+    setTableChartPage(1);
+  }, [debouncedViewerSearch]);
+
   // ✅ ADD: Drill-down state management for table charts
   const [tableDrillDownState, setTableDrillDownState] = useState<{
     currentLevel: number; // 0 = first dimension, 1 = second dimension, etc.
     appliedFilters: Record<string, string>; // { dimension_column: value }
   } | null>(null);
+
+  // Fire CHART_VIEWED once per mount when the chart loads (WAVO consume signal).
+  const chartViewedTracked = useRef(false);
+  useEffect(() => {
+    if (chart && !chartViewedTracked.current) {
+      trackEvent(ANALYTICS_EVENTS.CHART_VIEWED, { chart_type: chart.chart_type });
+      chartViewedTracked.current = true;
+    }
+  }, [chart]);
 
   // Stable reference for map customizations — avoids a new {} literal every render,
   // which would otherwise re-trigger MapPreview's chart-init effect in a loop via onChartReady
@@ -193,12 +205,13 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               ],
               pagination: chart.extra_config?.pagination,
               sort: viewerSort ? [viewerSort] : chart.extra_config?.sort,
+              search: debouncedViewerSearch || undefined,
               time_grain: chart.extra_config?.time_grain,
               table_columns: chart.extra_config?.table_columns,
             },
           }
         : null,
-    [chart, tableDrillDownState, viewerSort]
+    [chart, tableDrillDownState, viewerSort, debouncedViewerSearch]
   );
 
   // For non-map charts (including tables), use the standard chart data hook
@@ -961,6 +974,8 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                           : undefined
                       }
                       onSort={handleTableSort}
+                      searchQuery={viewerSearch}
+                      onSearchChange={setViewerSearch}
                       onRowClick={handleTableRowClick}
                       drillDownEnabled={chart.extra_config?.dimensions?.some(
                         (dim: any) => dim.enable_drill_down === true

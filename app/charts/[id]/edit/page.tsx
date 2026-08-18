@@ -49,6 +49,8 @@ import { deepEqual } from '@/lib/form-utils';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useDebounce } from '@/hooks/useDebounce';
+import { TABLE_SEARCH_DEBOUNCE_MS } from '@/constants/chart-types';
 import type {
   ChartCreate,
   ChartUpdate,
@@ -172,6 +174,15 @@ function EditChartPageContent() {
     column: string;
     direction: 'asc' | 'desc';
   } | null>(null);
+
+  // Viewer's search-box text — same session-only override pattern as viewerSort.
+  // Debounced so typing doesn't refetch on every keystroke; resets to page 1 once
+  // the debounced term actually changes (see the effect below).
+  const [viewerSearch, setViewerSearch] = useState('');
+  const debouncedViewerSearch = useDebounce(viewerSearch, TABLE_SEARCH_DEBOUNCE_MS);
+  useEffect(() => {
+    setTableChartPage(1);
+  }, [debouncedViewerSearch]);
 
   // ✅ ADD: Drill-down state management for table charts
   const [tableDrillDownState, setTableDrillDownState] = useState<{
@@ -589,6 +600,7 @@ function EditChartPageContent() {
               ],
               pagination: formData.pagination,
               sort: viewerSort ? [viewerSort] : formData.sort,
+              search: debouncedViewerSearch || undefined,
               time_grain: formData.time_grain,
               table_columns: formData.table_columns,
             },
@@ -620,6 +632,7 @@ function EditChartPageContent() {
       formData.extra_config,
       tableDrillDownState,
       viewerSort,
+      debouncedViewerSearch,
     ]
   );
 
@@ -1781,6 +1794,8 @@ function EditChartPageContent() {
                               : undefined
                           }
                           onSort={handleTableSort}
+                          searchQuery={viewerSearch}
+                          onSearchChange={setViewerSearch}
                           onRowClick={handleTableRowClick}
                           drillDownEnabled={formData.dimensions?.some(
                             (dim) => dim.enable_drill_down === true

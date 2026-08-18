@@ -39,6 +39,8 @@ import {
 } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
+import { useDebounce } from '@/hooks/useDebounce';
+import { TABLE_SEARCH_DEBOUNCE_MS } from '@/constants/chart-types';
 import {
   getApiCustomizations,
   mergeTableColumnFormatting,
@@ -185,6 +187,15 @@ function ConfigureChartPageContent() {
     column: string;
     direction: 'asc' | 'desc';
   } | null>(null);
+
+  // Viewer's search-box text — same session-only override pattern as viewerSort.
+  // Debounced so typing doesn't refetch on every keystroke; resets to page 1 once
+  // the debounced term actually changes (see the effect below).
+  const [viewerSearch, setViewerSearch] = useState('');
+  const debouncedViewerSearch = useDebounce(viewerSearch, TABLE_SEARCH_DEBOUNCE_MS);
+  useEffect(() => {
+    setTableChartPage(1);
+  }, [debouncedViewerSearch]);
 
   // Unsaved changes detection state
   const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
@@ -429,6 +440,7 @@ function ConfigureChartPageContent() {
               ],
               pagination: formData.pagination,
               sort: viewerSort ? [viewerSort] : formData.sort,
+              search: debouncedViewerSearch || undefined,
               time_grain: formData.time_grain,
             },
           }
@@ -459,6 +471,7 @@ function ConfigureChartPageContent() {
       formData.extra_config,
       tableDrillDownState,
       viewerSort,
+      debouncedViewerSearch,
     ]
   );
 
@@ -1267,6 +1280,8 @@ function ConfigureChartPageContent() {
                             onPageSizeChange: handleTableChartPageSizeChange,
                           }}
                           onSort={handleTableSort}
+                          searchQuery={viewerSearch}
+                          onSearchChange={setViewerSearch}
                           onRowClick={handleTableRowClick}
                           drillDownEnabled={formData.dimensions?.some(
                             (dim) => dim.enable_drill_down === true
