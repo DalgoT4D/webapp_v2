@@ -7,8 +7,7 @@ export type ConnectionConceptId =
   | 'sync-mode'
   | 'dest-mode'
   | 'cursor'
-  | 'primary-key'
-  | 'schema';
+  | 'primary-key';
 
 export interface ConnectionConcept {
   id: ConnectionConceptId;
@@ -26,6 +25,9 @@ interface HelpOptions {
   supportsIncremental?: boolean;
   // Source offers Append + Dedup (adds the primary-key concept + dedup copy).
   allowsDedup?: boolean;
+  // Source lets users inspect columns and configure warehouse casts without
+  // opening the broader per-table advanced settings (currently Google Sheets).
+  supportsColumnCasting?: boolean;
 }
 
 /**
@@ -36,14 +38,14 @@ interface HelpOptions {
  * Airbyte sources, and by tests).
  */
 export function getConnectionHelp(opts: HelpOptions = {}): ConnectionConcept[] {
-  const { supportsIncremental = true, allowsDedup = true } = opts;
+  const { supportsIncremental = true, allowsDedup = true, supportsColumnCasting = false } = opts;
 
   const cards: ConnectionConcept[] = [];
 
   // Always start with the big picture — most NGO users have never set up a sync.
   cards.push({
     id: 'sync',
-    title: 'What a sync does',
+    title: 'Sync?',
     body: 'A sync copies data from your source into your Dalgo warehouse. Each sync pulls in the latest data from your data source, so your connected dashboards stay updated.',
     impact:
       'Dalgo only reads from the source — nothing there is changed. You can re-run a sync any time.',
@@ -60,27 +62,31 @@ export function getConnectionHelp(opts: HelpOptions = {}): ConnectionConcept[] {
   cards.push({
     id: 'columns',
     title: 'Columns',
-    body: 'Open a table to see its columns — the individual fields inside it, like "district" or "submission_date". Every column comes across when the table is synced.',
-    impact: `A quick way to confirm the fields you expect are really there before you run the sync.`,
+    body: supportsColumnCasting
+      ? 'Use the chevron at the right of a sheet row to expand its columns and detected types. Cast to lets you convert a selected column to a more useful warehouse type after each sync. You can use these column settings without turning on Advanced per-table settings.'
+      : 'Turn on Advanced per-table settings, then use the chevron at the right of a table row to expand it and see its columns — the individual fields inside it, like "district" or "submission_date". Every selected column comes across when the table is synced.',
+    impact: supportsColumnCasting
+      ? 'Confirm the fields you expect and correct their warehouse types before building transformations or dashboards.'
+      : 'A quick way to confirm the fields you expect are really there before you run the sync.',
   });
 
   // Full-refresh vs incremental only makes sense where the source supports it.
   if (supportsIncremental) {
     cards.push({
       id: 'sync-mode',
-      title: 'Full refresh vs incremental',
+      title: 'Incremental?',
       body: 'Full refresh reads every row on every run. Incremental reads only the rows added or changed since the last run, tracked by a cursor field.',
       impact: `Say a table has ${EXAMPLE_ROW_COUNT} rows. Full refresh re-copies all ${EXAMPLE_ROW_COUNT} every run — dependable, but slow and heavier on the source. Incremental copies just the new ones (perhaps 50 today), so runs finish in seconds and cost far less.`,
     });
   }
 
-  // Write-mode copy depends on which modes this source actually offers.
+  // Destination copy depends on which modes this source actually offers.
   cards.push({
     id: 'dest-mode',
-    title: 'Write mode',
+    title: 'Destination',
     body: allowsDedup
-      ? 'How new data lands in the warehouse table. Overwrite replaces the whole table each run. Append adds new rows on top of what is there. Append + Dedup appends, then drops duplicate records using a primary key.'
-      : 'How new data lands in the warehouse table. Overwrite replaces the whole table each run, so it always matches the source. Append adds new rows on top of what is already there.',
+      ? 'Under Advanced per-table settings, Destination controls how new data lands in the warehouse table. Overwrite replaces the whole table each run. Append adds new rows on top of what is there. Append + Dedup appends, then drops duplicate records using a primary key.'
+      : 'Under Advanced per-table settings, Destination controls how new data lands in the warehouse table. Overwrite replaces the whole table each run, so it always matches the source. Append adds new rows on top of what is already there.',
     impact: allowsDedup
       ? 'Overwrite always mirrors the source but rewrites everything each run. Append keeps history but can pile up duplicates. Append + Dedup keeps history without duplicates — it needs incremental plus a primary key.'
       : 'Pick Overwrite when the table is edited in place and you want an exact copy each run. Pick Append when rows are only ever added and you want to keep the older ones.',
@@ -89,7 +95,7 @@ export function getConnectionHelp(opts: HelpOptions = {}): ConnectionConcept[] {
   if (supportsIncremental) {
     cards.push({
       id: 'cursor',
-      title: 'Cursor field',
+      title: 'Cursor Field',
       body: 'The column Dalgo watches to know what is new — usually a date or an ever-increasing ID, like a submission timestamp.',
       impact:
         'Required for incremental sync. Pick a column that only moves forward and is never edited backwards, otherwise new rows can be missed.',
@@ -99,22 +105,14 @@ export function getConnectionHelp(opts: HelpOptions = {}): ConnectionConcept[] {
   if (allowsDedup) {
     cards.push({
       id: 'primary-key',
-      title: 'Primary key',
+      title: 'Primary Key',
       body: 'One or more columns that uniquely identify a record — for example a submission ID.',
       impact: 'Required for Append + Dedup, so Dalgo can tell two rows apart and remove repeats.',
     });
   }
 
-  cards.push({
-    id: 'schema',
-    title: 'Destination schema',
-    body: "The schema — a folder inside your warehouse — where these tables are created. Defaults to 'staging'.",
-    impact: 'Keeps freshly ingested data separate from your cleaned, transformed models.',
-  });
-
-  // The "Normalize data after sync" toggle in Advanced options deliberately has
-  // no help card — it is a low-level Airbyte detail that the panel's audience
-  // does not need explained.
+  // Connection-wide Destination schema and Normalize settings use compact
+  // inline help beside each setting instead of taking up full panel cards.
 
   return cards;
 }

@@ -21,6 +21,9 @@ export interface GridMetrics {
   paddingY: number;
 }
 
+// Sentinel index for the dropped widget, which lives outside the `others` array.
+const MOVED_ITEM_ANCHOR = -1;
+
 function collides(a: DashboardLayoutItem, b: DashboardLayoutItem): boolean {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
@@ -63,17 +66,25 @@ export function placeItemInLayout(
     y: Math.max(0, item.y),
   };
   const others = layout.map((entry) => ({ ...entry }));
-  const queue: DashboardLayoutItem[] = [placedItem];
+  // Anchors are queued as indices into `others` (MOVED_ITEM_ANCHOR = the dropped item) so
+  // every anchor is re-read at its *current* position. Queuing snapshots instead let a
+  // stale anchor drag an already-pushed widget back up, so two widgets shoved each other
+  // up and down forever and the drop froze the browser tab.
+  const queue: number[] = [MOVED_ITEM_ANCHOR];
 
   while (queue.length > 0) {
-    const anchor = queue.shift()!;
+    const anchorIndex = queue.shift()!;
+    const anchor = anchorIndex === MOVED_ITEM_ANCHOR ? placedItem : others[anchorIndex];
     for (let index = 0; index < others.length; index += 1) {
+      if (index === anchorIndex) continue;
       const candidate = others[index];
       if (candidate.i === anchor.i) continue;
       if (!collides(anchor, candidate)) continue;
-      const pushed = { ...candidate, y: anchor.y + anchor.h };
-      others[index] = pushed;
-      queue.push(pushed);
+      // Push down only — an upward move would re-collide and could cycle forever.
+      const nextY = Math.max(candidate.y, anchor.y + anchor.h);
+      if (nextY === candidate.y) continue;
+      others[index] = { ...candidate, y: nextY };
+      queue.push(index);
     }
   }
 

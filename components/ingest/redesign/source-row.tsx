@@ -1,7 +1,8 @@
 'use client';
 
-import { Plus, MoreVertical, Pencil, Trash2, Plug } from 'lucide-react';
+import { Plus, MoreVertical, Pencil, Trash2, Plug, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody } from '@/components/ui/table';
 import {
   DropdownMenu,
@@ -143,6 +144,45 @@ function SourceMenu({
 }
 
 /**
+ * Placeholder occupying the connections column while the connections fetch is in
+ * flight. Sized to a one-connection row so the source row doesn't jump height
+ * when the real rows arrive.
+ */
+function ConnectionsLoading({ sourceId }: { sourceId: string }) {
+  return (
+    <div
+      className="flex h-full items-center gap-3 px-6 py-4"
+      data-testid={`connections-loading-${sourceId}`}
+      aria-busy="true"
+      aria-label="Loading connections"
+    >
+      <Skeleton className="h-4 w-[45%]" />
+      <Skeleton className="h-4 w-[25%]" />
+    </div>
+  );
+}
+
+/** The connections fetch failed — say so and offer a retry instead of guessing. */
+function ConnectionsError({ sourceId, onRetry }: { sourceId: string; onRetry: () => void }) {
+  return (
+    <div className="flex h-full items-center gap-2 px-6 py-4">
+      <AlertCircle className="h-4 w-4 flex-shrink-0 text-destructive" />
+      <p className="text-base text-muted-foreground">
+        Couldn&apos;t load connections.{' '}
+        <button
+          type="button"
+          onClick={onRetry}
+          data-testid={`retry-connections-${sourceId}`}
+          className="cursor-pointer font-medium text-primary underline underline-offset-2 hover:opacity-80"
+        >
+          Retry
+        </button>
+      </p>
+    </div>
+  );
+}
+
+/**
  * One source rendered as a horizontal band for the "Side-by-side" layout:
  * a fixed-width left column (source identity + 3-dots menu, which owns the
  * source-level actions incl. "Add connection"), divided by a vertical rule from
@@ -172,8 +212,14 @@ export function SourceRow({
   onAddConnection,
   onEditSource,
   onDeleteSource,
+  connectionsStatus,
+  onRetryConnections,
 }: SourceGroupProps) {
   const { source, connections } = group;
+  // Zero connections is only meaningful once the fetch has answered — before
+  // that it's absence of data, not absence of connections. Already-loaded
+  // connections keep rendering through a background revalidate.
+  const pending = connections.length === 0 && connectionsStatus !== 'ready';
 
   return (
     <div
@@ -199,7 +245,13 @@ export function SourceRow({
       {/* Right — connections stacked as full-width rows, vertically centered so a
           single connection lines up with the source block instead of sitting at the top */}
       <div className="flex-1 min-w-0 flex flex-col justify-center">
-        {connections.length === 0 ? (
+        {pending ? (
+          connectionsStatus === 'error' ? (
+            <ConnectionsError sourceId={source.sourceId} onRetry={onRetryConnections} />
+          ) : (
+            <ConnectionsLoading sourceId={source.sourceId} />
+          )
+        ) : connections.length === 0 ? (
           // Empty state — the source is connected but has no connections yet.
           // An inline sentence with a clickable "add a connection" that opens the
           // connection modal (a button reads as a hard action; this reads as guidance).

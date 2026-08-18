@@ -7,6 +7,7 @@ import { DocsLink } from '@/components/ui/docs-link';
 import { Button } from '@/components/ui/button';
 import { EmptyWarehouseCard } from '@/components/ingest/redesign/empty-warehouse-card';
 import { EmptySourceCard } from '@/components/ingest/redesign/empty-source-card';
+import { IngestErrorCard } from '@/components/ingest/redesign/ingest-error-card';
 import { SteadyView } from '@/components/ingest/redesign/steady-view';
 import { selectIngestState } from '@/components/ingest/redesign/state';
 import { AddSourceWizard } from '@/components/ingest/sources/wizard/AddSourceWizard';
@@ -14,6 +15,11 @@ import { useWarehouse } from '@/hooks/api/useWarehouse';
 import { useSources } from '@/hooks/api/useSources';
 import { useConnectionsList } from '@/hooks/api/useConnections';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import {
+  isWizardCoachedStage,
+  PICK_SOURCE_REWIND_STAGES,
+} from '@/components/onboarding/insight-walkthrough-constants';
 import type { Warehouse } from '@/types/warehouse';
 
 /**
@@ -60,15 +66,25 @@ export function IngestView() {
   // Frozen when the wizard opens so revalidating the warehouse mid-flow (after step 1)
   // doesn't drop the wizard from 4 steps to 3.
   const [wizardNeedsWarehouse, setWizardNeedsWarehouse] = useState(false);
+  // True only while the connections list is being revalidated after the wizard
+  // created a connection: it exists server-side but SWR still serves the stale
+  // list, so SteadyView must not read its source's zero connections as "none".
+  // Scoped to the revalidate promise, so it can never stick.
+  const [connectionsKnownStale, setConnectionsKnownStale] = useState(false);
 
   const state = selectIngestState(
-    { data: warehouse.data, isLoading: warehouse.isLoading },
-    { data: sources.data, isLoading: sources.isLoading }
+    { data: warehouse.data, isLoading: warehouse.isLoading, isError: warehouse.isError },
+    { data: sources.data, isLoading: sources.isLoading, isError: sources.isError }
   );
 
   // First-time users (no warehouse) land straight in the wizard at its warehouse
   // step — no intermediate button. Auto-open once per mount; if they close it the
   // card behind stays and can re-open it (see openWarehouseWizard).
+  //
+  // NO_WAREHOUSE now means "the server answered, and the org has no warehouse" — a failed
+  // fetch lands on ERROR instead (see selectIngestState). Without that split, the 5s gaps
+  // between SWR's error retries read as NO_WAREHOUSE and auto-opened this wizard on orgs
+  // that already had a warehouse.
   const autoOpenedRef = useRef(false);
   useEffect(() => {
     if (state === 'NO_WAREHOUSE' && canCreateWarehouse && !autoOpenedRef.current) {
@@ -77,6 +93,50 @@ export function IngestView() {
       setWizardOpen(true);
     }
   }, [state, canCreateWarehouse]);
+
+  // The "Connect your data" coachmark points at the New Source button — hide it once the
+  // wizard itself is open, same pattern as the KPI/chart selector modals in
+  // dashboard-builder-v2.tsx, so the coachmark doesn't sit awkwardly behind the wizard's own
+  // dialog overlay. The pick-a-source stages are the exception: their target IS inside the
+  // wizard, so suppressing them would mean they never showed at all.
+  //
+  // `walkthroughStage` is SUBSCRIBED rather than read via getState(): the move onto a
+  // pick-a-source stage comes from SelectSourceStep mounting, i.e. after wizardOpen has
+  // already flipped. With wizardOpen as the only dependency this effect would latch
+  // suppressed:true and never re-run, and the card inside would never get coached.
+  const walkthroughStage = useInsightWalkthroughStore((s) => s.stage);
+  useEffect(() => {
+    useInsightWalkthroughStore
+      .getState()
+      .setSuppressCoachmark(wizardOpen && !isWizardCoachedStage(walkthroughStage));
+  }, [wizardOpen, walkthroughStage]);
+
+  // Leaving the page without closing the wizard (browser back, sidebar nav) would strand
+  // suppression at `true`: the store neither resets it nor persists it, so coachmarks stay
+  // hidden on every other page for the rest of the session and only a reload clears it.
+  // Separate from the effect above, and unmount-only, so re-running that one on a stage
+  // change can't blink the coachmark back on mid-flow.
+  useEffect(() => {
+    return () => {
+      useInsightWalkthroughStore.getState().setSuppressCoachmark(false);
+    };
+  }, []);
+
+  /**
+   * Leaving the wizard without a connection strands a pick-a-source stage on a card that no
+   * longer exists — the coachmark would sit waiting on a selector that can't reappear until
+   * the wizard is opened again. Put the walkthrough back on the New Source button so it can.
+   *
+   * Runs on completion too, not just dismissal: the wizard can finish having created only a
+   * source (its connection step is cancellable), and this fork needs a CONNECTION — that's
+   * what the sync checkpoint in tour-gate.tsx watches.
+   */
+  const rewindWalkthroughIfNoConnection = () => {
+    const { stage, trackedConnectionId, advanceTo } = useInsightWalkthroughStore.getState();
+    if (trackedConnectionId || !stage) return;
+    const rewindTo = PICK_SOURCE_REWIND_STAGES[stage];
+    if (rewindTo) advanceTo(rewindTo);
+  };
 
   const openWarehouseWizard = () => {
     setWizardNeedsWarehouse(true);
@@ -125,30 +185,58 @@ export function IngestView() {
           </div>
         )}
 
+        {state === 'ERROR' && (
+          <IngestErrorCard
+            onRetry={() => {
+              warehouse.mutate();
+              sources.mutate();
+            }}
+          />
+        )}
+
         {state === 'NO_WAREHOUSE' && <EmptyWarehouseCard onSetUp={openWarehouseWizard} />}
 
         {state === 'NO_SOURCE' && <EmptySourceCard onAddSource={openSourceWizard} />}
 
-        {state === 'STEADY' && <SteadyView />}
+        {state === 'STEADY' && <SteadyView connectionsKnownStale={connectionsKnownStale} />}
       </div>
 
       {wizardOpen && (
         <AddSourceWizard
           open={wizardOpen}
           needsWarehouse={wizardNeedsWarehouse}
+          // Live signal, unlike the frozen needsWarehouse above: if a warehouse turns up while
+          // the wizard is sitting on its warehouse step (a retried fetch finally landing after
+          // a failed one), the wizard drops that step instead of asking for a warehouse the
+          // org already has.
+          warehouseExists={warehouse.data !== undefined}
           onClose={() => {
             setWizardOpen(false);
+            rewindWalkthroughIfNoConnection();
             // Revalidate on close (not mid-flow) so the ingest state — and the card
             // behind the dialog — only changes once the wizard is gone. A warehouse
             // may have been created even if no source was.
             warehouse.mutate();
             sources.mutate();
           }}
-          onComplete={() => {
+          onComplete={async ({ connectionCreated }) => {
             setWizardOpen(false);
+            rewindWalkthroughIfNoConnection();
             warehouse.mutate();
             sources.mutate();
-            mutateConnections();
+            // The wizard's connection step is cancellable, so a run can finish having
+            // created only a source — that case has genuinely zero connections and
+            // should show the add-connection prompt right away, not a placeholder.
+            if (!connectionCreated) {
+              mutateConnections();
+              return;
+            }
+            setConnectionsKnownStale(true);
+            try {
+              await mutateConnections();
+            } finally {
+              setConnectionsKnownStale(false);
+            }
           }}
         />
       )}

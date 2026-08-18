@@ -36,6 +36,7 @@ import {
 import { compactVertical, bottomY } from '@/lib/dashboard-animation-utils';
 import {
   Plus,
+  Save,
   Undo,
   Redo,
   Loader2,
@@ -77,6 +78,12 @@ import { moveWidgetBetweenTabs, pointerToGridPosition } from './tabs/cross-tab-d
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { useAuthStore } from '@/stores/authStore';
+import {
+  markChartAddedToDashboard,
+  markKpiAddedToDashboard,
+} from '@/components/onboarding/insight-walkthrough-constants';
 
 // Grid layout constants
 const ROW_HEIGHT = 20;
@@ -405,6 +412,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
   ) {
     const router = useRouter();
 
+    // Canvas is always driven by tab content — layout and components live inside tabs only.
+    // If tabs exist, load the first tab's canvas. Otherwise start empty (new dashboard).
+    const firstTab =
+      initialData?.tabs && Array.isArray(initialData.tabs) && initialData.tabs.length > 0
+        ? initialData.tabs[0]
+        : null;
+
+    let initialLayout = Array.isArray(firstTab?.layout_config) ? firstTab.layout_config : [];
+    const initialComponents = firstTab?.components ?? {};
+
     // Helper function to ensure text components have content constraints
     const ensureTextContentConstraints = (components: any) => {
       const updatedComponents = { ...components };
@@ -576,6 +593,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Component state
     const [showChartSelector, setShowChartSelector] = useState(false);
     const [showKPISelector, setShowKPISelector] = useState(false);
+
+    // The picker modals are plain interactions with no coachmark of their own (per design) —
+    // hide the walkthrough spotlight while either is open so its overlay doesn't darken it.
+    useEffect(() => {
+      useInsightWalkthroughStore
+        .getState()
+        .setSuppressCoachmark(showChartSelector || showKPISelector);
+    }, [showChartSelector, showKPISelector]);
     // Fetch all charts
     const { data: chartsData, isLoading: chartsLoading } = useCharts
       ? useCharts()
@@ -1553,6 +1578,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           const next = applyItemConstraints(layout);
           setState((prev) => updateActiveEditorTab(prev, { layout_config: next }));
         }
+
+        const walkthrough = useInsightWalkthroughStore.getState();
+        if (walkthrough.active && walkthrough.stage === 'builder_resize') {
+          walkthrough.advanceTo('builder_save');
+        }
       },
       [applyItemConstraints, clearCrossTabHoverTimer, publishCrossTabDrag, setState, stopAutoscroll]
     );
@@ -1590,6 +1620,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         if (!isUndoRedoOperationRef.current) {
           const next = applyItemConstraints(layout);
           setState((prev) => updateActiveEditorTab(prev, { layout_config: next }));
+        }
+
+        const walkthrough = useInsightWalkthroughStore.getState();
+        if (walkthrough.active && walkthrough.stage === 'builder_resize') {
+          walkthrough.advanceTo('builder_save');
         }
       },
       [setState, applyItemConstraints]
@@ -1653,11 +1688,23 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
         trackEvent(ANALYTICS_EVENTS.DASHBOARD_CHART_ADDED, { chart_type: chartType });
 
+        // Resume-nudge milestone — set regardless of an active coachmark session.
+        markChartAddedToDashboard();
+
         // Animate component entrance
         dashboardAnimation.animateComponent(newComponent.id, 500);
 
         // Smart scroll to show the newly added component if needed
         scrollToComponentIfNeeded(newComponent.id);
+
+        const walkthrough = useInsightWalkthroughStore.getState();
+        if (walkthrough.active && walkthrough.stage === 'builder_add_chart') {
+          walkthrough.advanceTo('builder_resize');
+        } else if (walkthrough.active && walkthrough.stage === 'builder_add_chart_first') {
+          // Own-data path adds chart-then-KPI (opposite of the sample path) — next is
+          // the KPI-add stage, not resize.
+          walkthrough.advanceTo('builder_add_kpi_second');
+        }
       } catch (error) {
         console.error('Failed to add chart');
       }
@@ -1698,8 +1745,19 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       });
 
       trackEvent(ANALYTICS_EVENTS.DASHBOARD_KPI_ADDED);
+      // Resume-nudge milestone — set regardless of an active coachmark session.
+      markKpiAddedToDashboard();
       dashboardAnimation.animateComponent(newComponent.id, 500);
       scrollToComponentIfNeeded(newComponent.id);
+
+      const walkthrough = useInsightWalkthroughStore.getState();
+      if (walkthrough.active && walkthrough.stage === 'builder_add_kpi') {
+        walkthrough.advanceTo('builder_add_chart');
+      } else if (walkthrough.active && walkthrough.stage === 'builder_add_kpi_second') {
+        // Own-data path already added its chart first — next is resize, converging
+        // back into the shared tail (resize → save → preview → share).
+        walkthrough.advanceTo('builder_resize');
+      }
     };
 
     // Add text component
@@ -2429,7 +2487,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   Add Chart
                 </Button>
 
-                <Button onClick={() => setShowKPISelector(true)} size="sm" variant="outline">
+                <Button
+                  onClick={() => setShowKPISelector(true)}
+                  size="sm"
+                  variant="outline"
+                  data-testid="add-kpi-btn"
+                >
                   <Target className="w-4 h-4 mr-2" />
                   Add KPI
                 </Button>
@@ -2569,6 +2632,27 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   </PopoverContent>
                 </Popover> */}
 
+                <Button
+                  onClick={async () => {
+                    // Fire only on explicit user save (not the autosave/title-blur/resize paths).
+                    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED);
+                    await saveDashboard();
+                    const walkthrough = useInsightWalkthroughStore.getState();
+                    if (
+                      walkthrough.active &&
+                      (walkthrough.stage === 'builder_save' ||
+                        walkthrough.stage === 'builder_resize')
+                    ) {
+                      walkthrough.advanceTo('builder_preview');
+                    }
+                  }}
+                  size="sm"
+                  data-testid="dashboard-save-btn"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  <span className="hidden lg:inline">Save</span>
+                </Button>
+
                 {/* Save changes and return to dashboard view mode. */}
                 {onPreview && (
                   <Button
@@ -2576,7 +2660,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     variant="outline"
                     onClick={onPreview}
                     disabled={isNavigating}
-                    data-testid="view-dashboard-btn"
+                    data-testid="dashboard-preview-btn"
                     className="min-w-[104px] justify-center px-4"
                     aria-label={
                       isNavigating ? 'Saving and opening dashboard view' : 'View dashboard'

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useState, useEffect, useCallback, useId } from 'react';
+import { toastSuccess, toastError } from '@/lib/toast';
 import { copyUrlToClipboard } from '@/lib/clipboard';
 import {
   AlertTriangle,
@@ -140,6 +141,7 @@ export function ShareModal({
   const [recipientEmails, setRecipientEmails] = useState<string[]>([]);
   const [personalMessage, setPersonalMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const publicAccessId = useId();
 
   // Reset staging when modal closes
   useEffect(() => {

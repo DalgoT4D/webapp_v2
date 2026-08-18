@@ -9,12 +9,24 @@ export interface SourceGroupData {
 }
 
 /**
+ * How the connections fetch is doing. Sources and connections are two separate
+ * requests, so a source row can render before its connections exist client-side.
+ * Without this, an unanswered (or failed) fetch is indistinguishable from a
+ * source that genuinely has no connections — and the row wrongly tells the user
+ * to go add one. Same trap as the warehouse/NO_WAREHOUSE split in state.ts.
+ */
+export type ConnectionsStatus = 'loading' | 'error' | 'ready';
+
+/**
  * Props for a source renderer (SourceRow). Carries one grouped source plus the
  * permission flags and action callbacks passed straight through to the reused
  * ConnectionRow and source menu.
  */
 export interface SourceGroupProps {
   group: SourceGroupData;
+  // Fetch state of the connections list (see ConnectionsStatus)
+  connectionsStatus: ConnectionsStatus;
+  onRetryConnections: () => void;
   // Connection permissions + action wiring (passed straight to ConnectionRow)
   syncingIds: string[];
   canSync: boolean;

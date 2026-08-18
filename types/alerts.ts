@@ -61,6 +61,10 @@ export interface RecipientIn {
   type: 'orguser' | 'external';
   orguser_id?: number | null;
   email?: string | null;
+  // display-only: resolved name/email carried over from RecipientOut when editing an
+  // existing alert, so the chip shows "Jane / jane@x.org" instead of "User #65".
+  // Ignored by the backend on create/update.
+  orguser_name?: string | null;
 }
 
 export interface RecipientOut {
