@@ -31,6 +31,7 @@ import type { ChartDataPayload } from '@/types/charts';
 import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 import { useDebounce } from '@/hooks/useDebounce';
 import { TABLE_SEARCH_DEBOUNCE_MS } from '@/constants/chart-types';
+import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import type * as echarts from 'echarts';
 
 interface ChartDetailClientProps {
@@ -359,26 +360,31 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
 
   // Fetch geojsons for the current drill-down region (e.g., Karnataka districts)
-  const { data: regionGeojsons } = useRegionGeoJSONs(currentDrillDownRegionId);
+  const {
+    data: regionGeojsons,
+    error: regionGeojsonsError,
+    isLoading: regionGeojsonsLoading,
+  } = useRegionGeoJSONs(currentDrillDownRegionId);
 
   // For map charts, determine which geojson and data to fetch based on drill-down state
   let activeGeojsonId = null;
   let activeGeographicColumn = null;
+  const activeDrillDownLevel =
+    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1] : null;
+  const drillDownGeojsonResolution = resolveDrillDownGeoJSON({
+    isDrillDownActive: Boolean(activeDrillDownLevel),
+    regionId: currentDrillDownRegionId,
+    regionGeojsons,
+    regionGeojsonsLoading,
+    regionGeojsonsError,
+    fallbackGeojsonId: activeDrillDownLevel?.geojson_id,
+  });
 
   if (chart?.chart_type === 'map') {
-    if (drillDownPath.length > 0) {
+    if (activeDrillDownLevel) {
       // We're in a drill-down state, use the first available geojson for this region
-      const lastDrillDown = drillDownPath[drillDownPath.length - 1];
-      activeGeographicColumn = lastDrillDown.geographic_column;
-
-      if (regionGeojsons && regionGeojsons.length > 0) {
-        // Use the first available geojson for this region (e.g., Karnataka districts)
-        activeGeojsonId = regionGeojsons[0].id;
-        console.log(`🗺️ Using geojson ID ${activeGeojsonId} for region ${lastDrillDown.name}`);
-      } else {
-        // Fallback to the stored geojson_id (if any)
-        activeGeojsonId = lastDrillDown.geojson_id;
-      }
+      activeGeographicColumn = activeDrillDownLevel.geographic_column;
+      activeGeojsonId = drillDownGeojsonResolution.geojsonId;
     } else if (currentLayer) {
       // Use current layer configuration (first layer)
       activeGeojsonId = currentLayer.geojson_id;
@@ -394,9 +400,11 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
 
   const {
     data: geojsonData,
-    error: geojsonError,
-    isLoading: geojsonLoading,
+    error: geojsonDataError,
+    isLoading: geojsonDataLoading,
   } = useGeoJSONData(activeGeojsonId);
+  const geojsonError = regionGeojsonsError || geojsonDataError;
+  const geojsonLoading = drillDownGeojsonResolution.isResolving || geojsonDataLoading;
 
   // Build data overlay payload for map charts based on current level
   // Include filters for drill-down selections - flatten all parent selections

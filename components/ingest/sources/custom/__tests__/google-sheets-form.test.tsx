@@ -4,6 +4,13 @@ import { useForm, useWatch, type FieldValues, type UseFormTrigger } from 'react-
 import { GoogleSheetsForm } from '../GoogleSheetsForm';
 import type { ParsedSpec, FieldNode } from '@/components/connectors/types';
 
+// MANAGED-SA bridge. Null = this deployment ships no managed key, which is the pre-bridge
+// behaviour every OAuth test below assumes; individual tests opt in by setting it.
+let mockManaged: { email: string | null } | null = null;
+jest.mock('@/hooks/api/useSources', () => ({
+  useManagedServiceAccount: () => ({ managed: mockManaged, isLoading: false }),
+}));
+
 const credentials: FieldNode = {
   type: 'oneOf',
   path: ['credentials'],
@@ -57,22 +64,36 @@ function Harness({
   connected = false,
   onAuthType,
   parsedSpec = spec,
+  onAuthSatisfiedChange,
+  savedKey,
+  mode = 'create',
+  onServiceValue,
 }: {
   connected?: boolean;
   onAuthType?: (v: unknown) => void;
   parsedSpec?: ParsedSpec;
+  onAuthSatisfiedChange?: (satisfied: boolean) => void;
+  /** Simulates edit mode: a source whose saved config already carries a service-account key. */
+  savedKey?: string;
+  mode?: 'create' | 'edit';
+  onServiceValue?: (v: unknown) => void;
 }) {
   const { control, setValue } = useForm<FieldValues>({
-    defaultValues: { credentials: { auth_type: 'Client' } },
+    defaultValues: savedKey
+      ? { credentials: { auth_type: 'Service', service_account_info: savedKey } }
+      : { credentials: { auth_type: 'Client' } },
   });
   const authType = useWatch({ control, name: 'credentials.auth_type' });
   onAuthType?.(authType);
+  const serviceInfo = useWatch({ control, name: 'credentials.service_account_info' });
+  onServiceValue?.(serviceInfo);
   return (
     <GoogleSheetsForm
       parsedSpec={parsedSpec}
       control={control}
       setValue={setValue}
-      mode="create"
+      mode={mode}
+      onAuthSatisfiedChange={onAuthSatisfiedChange}
       oauth={{
         connected,
         busy: false,
@@ -85,6 +106,10 @@ function Harness({
 }
 
 describe('GoogleSheetsForm', () => {
+  beforeEach(() => {
+    mockManaged = null;
+  });
+
   it('renders the spreadsheet link and a Google sign-in button, no auth dropdown', () => {
     render(<Harness />);
     expect(screen.getByText('Spreadsheet Link')).toBeInTheDocument();
@@ -200,5 +225,119 @@ describe('GoogleSheetsForm', () => {
 
     expect(isValid).toBe(true);
     expect(screen.queryByText('Service Account Information. is required')).not.toBeInTheDocument();
+  });
+
+  // MANAGED-SA bridge — remove this block along with the bridge once Google OAuth
+  // verification lands and the sign-in button comes back.
+  // MANAGED-SA bridge — remove with the bridge.
+  describe('with a Dalgo-managed service account', () => {
+    const MANAGED_EMAIL = 'dalgo-gsheets@dalgo-test.iam.gserviceaccount.com';
+    const OWN_KEY = '{"client_email":"theirs@x.iam.gserviceaccount.com"}';
+
+    beforeEach(() => {
+      mockManaged = { email: MANAGED_EMAIL };
+    });
+
+    it('replaces Google sign-in with the choice, ticked, and the key stand-in', () => {
+      render(<Harness />);
+
+      expect(screen.getByTestId('gsheets-auth-choice')).toBeInTheDocument();
+      expect(screen.getByTestId('gsheets-use-managed-checkbox')).toBeChecked();
+      // Ticked by default on create, so the field shows its stand-in rather than an empty input.
+      expect(screen.getByTestId('gsheets-managed-placeholder')).toBeInTheDocument();
+      expect(screen.queryByTestId('gsheets-oauth-connect-btn')).not.toBeInTheDocument();
+    });
+
+    it("defaults to Dalgo's key on create, so auth is satisfied with nothing typed", () => {
+      const onAuthSatisfiedChange = jest.fn();
+      render(<Harness onAuthSatisfiedChange={onAuthSatisfiedChange} />);
+
+      expect(screen.getByTestId('gsheets-managed-steps')).toBeInTheDocument();
+      expect(onAuthSatisfiedChange).toHaveBeenLastCalledWith(true);
+    });
+
+    it('is unsatisfied once the box is unticked, until a key is pasted', async () => {
+      const onAuthSatisfiedChange = jest.fn();
+      render(<Harness onAuthSatisfiedChange={onAuthSatisfiedChange} />);
+
+      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+      expect(onAuthSatisfiedChange).toHaveBeenLastCalledWith(false);
+
+      await userEvent.type(screen.getByRole('textbox', { name: /Service Account/i }), '{{"a":1}');
+      expect(onAuthSatisfiedChange).toHaveBeenLastCalledWith(true);
+    });
+
+    it('keeps the checkbox visible on create even once a key is typed', async () => {
+      render(<Harness />);
+
+      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+      await userEvent.type(screen.getByRole('textbox', { name: /Service Account/i }), '{{"a":1}');
+
+      expect(screen.getByTestId('gsheets-use-managed-checkbox')).toBeInTheDocument();
+    });
+
+    it('re-ticking shows the share steps and a stand-in, and satisfies auth', async () => {
+      const onAuthSatisfiedChange = jest.fn();
+      let authType: unknown;
+      render(
+        <Harness onAuthSatisfiedChange={onAuthSatisfiedChange} onAuthType={(v) => (authType = v)} />
+      );
+
+      // Off and back on, so this still exercises the tick itself rather than the create default.
+      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+
+      expect(screen.getByTestId('gsheets-managed-steps')).toBeInTheDocument();
+      expect(screen.getByTestId('gsheets-managed-email')).toHaveTextContent(MANAGED_EMAIL);
+      expect(screen.getByTestId('gsheets-managed-placeholder')).toBeInTheDocument();
+      expect(onAuthSatisfiedChange).toHaveBeenLastCalledWith(true);
+      expect(authType).toBe('Service');
+    });
+
+    // The asterisks are cosmetic: sending them would make the backend see a filled slot and skip
+    // the injection, handing Airbyte a key made of stars.
+    it('never puts the stand-in asterisks into the form value', async () => {
+      const values: unknown[] = [];
+      render(<Harness onServiceValue={(v) => values.push(v)} />);
+
+      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+
+      expect(values.every((v) => !String(v ?? '').includes('*'))).toBe(true);
+      expect(values.at(-1) ?? '').toBe('');
+    });
+
+    it('gives a typed key back when the box is unticked', async () => {
+      render(<Harness />);
+      const field = () => screen.getByRole('textbox', { name: /Service Account/i });
+      // Untick to get at the field, type their own key, tick, untick again.
+      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+      await userEvent.type(field(), '{{"a":1}');
+
+      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+      expect(screen.getByTestId('gsheets-managed-placeholder')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+      expect(field()).toHaveValue('{"a":1}');
+    });
+
+    // Edit mode: which key a saved source uses is not recorded, so the checkbox must not appear
+    // (it would imply we know) and the key must survive untouched.
+    it('hides the checkbox and keeps the key when a source already has one', () => {
+      render(<Harness mode="edit" savedKey={OWN_KEY} />);
+
+      expect(screen.queryByTestId('gsheets-use-managed-checkbox')).not.toBeInTheDocument();
+      expect(screen.getByTestId('gsheets-saved-key-note')).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: /Service Account/i })).toHaveValue(OWN_KEY);
+    });
+
+    it('brings the checkbox back once the saved key is cleared', async () => {
+      render(<Harness mode="edit" savedKey={OWN_KEY} />);
+
+      await userEvent.clear(screen.getByRole('textbox', { name: /Service Account/i }));
+
+      expect(screen.getByTestId('gsheets-use-managed-checkbox')).toBeInTheDocument();
+      expect(screen.queryByTestId('gsheets-saved-key-note')).not.toBeInTheDocument();
+    });
   });
 });
