@@ -56,6 +56,7 @@ import {
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
+import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { useAuthStore } from '@/stores/authStore';
 import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
@@ -924,6 +925,13 @@ export function DashboardNativeView({
 
               {/* Mobile Quick Actions */}
               <div className="flex items-center gap-1 flex-shrink-0">
+                {!isPublicMode && !isReportMode && (
+                  <RequestEditPill
+                    rtype="dashboard"
+                    resourceId={dashboard.id}
+                    resourceAccessLevel={dashboard.access_level}
+                  />
+                )}
                 {!isPublicMode && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -1150,6 +1158,13 @@ export function DashboardNativeView({
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0">
+                {!isPublicMode && !isReportMode && (
+                  <RequestEditPill
+                    rtype="dashboard"
+                    resourceId={dashboard.id}
+                    resourceAccessLevel={dashboard.access_level}
+                  />
+                )}
                 {/* Landing page controls */}
                 {!isPublicMode && (
                   <DropdownMenu>

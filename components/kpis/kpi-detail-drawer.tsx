@@ -42,6 +42,7 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
+import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
 const grainLabel: Record<string, string> = {
@@ -214,6 +215,11 @@ export function KPIDetailDrawer({
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
+              <RequestEditPill
+                rtype="kpi"
+                resourceId={kpi.id}
+                resourceAccessLevel={kpi.access_level}
+              />
               {canCreateAlert && (
                 <Button
                   variant="ghost"

@@ -13,6 +13,7 @@ import { useCommentStates } from '@/hooks/api/useComments';
 import { usePdfDownload } from '@/hooks/usePdfDownload';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { ReportShareMenu } from '@/components/reports/report-share-menu';
+import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
@@ -176,6 +177,11 @@ export default function SnapshotViewerPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <RequestEditPill
+              rtype="report"
+              resourceId={parsedId}
+              resourceAccessLevel={viewData.access_level}
+            />
             <Button
               data-testid="report-download-btn"
               variant="outline"

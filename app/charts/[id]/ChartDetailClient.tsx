@@ -25,6 +25,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
 import { ShareModal } from '@/components/ui/share-modal';
+import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
@@ -869,6 +870,11 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   ? tableDrillDownState.appliedFilters
                   : undefined
               }
+            />
+            <RequestEditPill
+              rtype="chart"
+              resourceId={chart.id}
+              resourceAccessLevel={chart.access_level}
             />
           </div>
         </div>

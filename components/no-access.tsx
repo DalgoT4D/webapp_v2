@@ -3,17 +3,7 @@
 import { useState } from 'react';
 import { Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { createAccessRequest } from '@/hooks/api/useAccess';
+import { RequestAccessDialog } from '@/components/access/request-access-dialog';
 
 interface NoAccessProps {
   /** When provided, shows a "Request Access" button. */
@@ -23,29 +13,9 @@ interface NoAccessProps {
 
 export function NoAccess({ rtype, resourceId }: NoAccessProps = {}) {
   const [requestOpen, setRequestOpen] = useState(false);
-  const [level, setLevel] = useState<'view' | 'edit'>('view');
-  const [note, setNote] = useState('');
-  const [isSending, setIsSending] = useState(false);
   const [sent, setSent] = useState(false);
 
   const canRequest = !!rtype && resourceId != null;
-
-  const handleSubmit = async () => {
-    if (!rtype || resourceId == null) return;
-    setIsSending(true);
-    try {
-      await createAccessRequest(rtype, resourceId, {
-        requested_level: level,
-        note: note || undefined,
-      });
-      setSent(true);
-      setRequestOpen(false);
-    } catch {
-      // handled in hook
-    } finally {
-      setIsSending(false);
-    }
-  };
 
   return (
     <>
@@ -68,46 +38,16 @@ export function NoAccess({ rtype, resourceId }: NoAccessProps = {}) {
         </div>
       </div>
 
-      <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Request Access</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="request-level">Access level</Label>
-              <Select value={level} onValueChange={(v) => setLevel(v as 'view' | 'edit')}>
-                <SelectTrigger id="request-level">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="view">View</SelectItem>
-                  <SelectItem value="edit">Edit</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="request-note">Note (optional)</Label>
-              <Textarea
-                id="request-note"
-                placeholder="Why do you need access?"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={3}
-                className="resize-none text-sm"
-              />
-            </div>
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setRequestOpen(false)}>
-                Cancel
-              </Button>
-              <Button variant="primary" onClick={handleSubmit} disabled={isSending}>
-                {isSending ? 'Sending…' : 'Send Request'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {canRequest && (
+        <RequestAccessDialog
+          rtype={rtype!}
+          resourceId={resourceId!}
+          defaultLevel="view"
+          isOpen={requestOpen}
+          onClose={() => setRequestOpen(false)}
+          onSubmitted={() => setSent(true)}
+        />
+      )}
     </>
   );
 }
