@@ -46,7 +46,12 @@ import {
   resolveTableColumnOrder,
 } from '@/lib/chart-payload-utils';
 import { trackEvent, trackFeatureView } from '@/lib/analytics';
-import { ANALYTICS_EVENTS, CHART_CREATE_SOURCES, FEATURES } from '@/constants/analytics';
+import {
+  ANALYTICS_EVENTS,
+  CHART_CREATE_SOURCES,
+  FEATURES,
+  METRIC_USE_SOURCES,
+} from '@/constants/analytics';
 import {
   CHART_BUILDER_TAB_ANALYTICS,
   getMetricAnalyticsProps,
@@ -1026,7 +1031,11 @@ function ConfigureChartPageContent() {
       // distinct saved metric, same as the KPI form does on its create path.
       getUsedSavedMetricIds(formData.metrics).forEach((metricId) => {
         // chart_id too — answers "which chart consumed this metric", not just how often.
-        trackEvent(ANALYTICS_EVENTS.METRIC_USED, { metric_id: metricId, chart_id: result.id });
+        trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
+          metric_id: metricId,
+          chart_id: result.id,
+          source: METRIC_USE_SOURCES.CHART,
+        });
       });
       // Reset unsaved changes state after successful save
       setOriginalFormData({ ...formData });

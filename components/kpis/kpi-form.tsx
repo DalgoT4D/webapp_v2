@@ -15,7 +15,12 @@ import { useMetrics } from '@/hooks/api/useMetrics';
 import { useTableColumns } from '@/hooks/api/useWarehouse';
 import { createKPI, updateKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import {
+  ANALYTICS_EVENTS,
+  KPI_CREATE_SOURCES,
+  METRIC_USE_SOURCES,
+  type KpiCreateSource,
+} from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import type { KPI, KPICreate, KPIUpdate, KPIExtraConfig } from '@/types/kpis';
 import type { Metric } from '@/types/metrics';
@@ -106,9 +111,19 @@ interface KPIFormProps {
   onSuccess: () => void;
   kpi?: KPI | null;
   preselectedMetricId?: number;
+  /** Analytics only — which surface opened this wizard (KPI_CREATE_SOURCES). The KPIs page
+   *  and the metrics library both open it, and KPI_CREATED cannot tell them apart without it. */
+  createSource?: KpiCreateSource;
 }
 
-export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricId }: KPIFormProps) {
+export function KPIForm({
+  open,
+  onOpenChange,
+  onSuccess,
+  kpi,
+  preselectedMetricId,
+  createSource = KPI_CREATE_SOURCES.KPIS_PAGE,
+}: KPIFormProps) {
   const isEdit = !!kpi;
 
   const [step, setStep] = useState<Step>(1);
@@ -369,7 +384,11 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
         // Re-pointing a KPI to a different metric also consumes that metric
         // (metric adoption signal) — same as the create path below.
         if (data.metric_id && data.metric_id !== kpi.metric.id) {
-          trackEvent(ANALYTICS_EVENTS.METRIC_USED, { metric_id: data.metric_id });
+          trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
+            metric_id: data.metric_id,
+            kpi_id: kpi.id,
+            source: METRIC_USE_SOURCES.KPI,
+          });
         }
       } else {
         const createData: KPICreate = {
@@ -390,10 +409,15 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
         // lets created -> viewed -> deleted be joined for one KPI.
         trackEvent(ANALYTICS_EVENTS.KPI_CREATED, {
           kpi_id: created.id,
+          source: createSource,
           metric_type_tag: data.metric_type_tag || null,
         });
         if (data.metric_id) {
-          trackEvent(ANALYTICS_EVENTS.METRIC_USED, { metric_id: data.metric_id });
+          trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
+            metric_id: data.metric_id,
+            kpi_id: created.id,
+            source: METRIC_USE_SOURCES.KPI,
+          });
         }
       }
       onSuccess();

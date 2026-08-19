@@ -413,6 +413,31 @@ export const METRIC_CREATE_SOURCES = {
 
 export type MetricCreateSource = (typeof METRIC_CREATE_SOURCES)[keyof typeof METRIC_CREATE_SOURCES];
 
+// `source` values for METRIC_USED — a metric is consumed by three different things, and
+// "which of them do metrics actually get used in" is the whole point of the event. Every
+// site also sends the consuming resource's id (chart_id / kpi_id / alert_id) where it has
+// one, so a metric can be traced to what was built on it.
+export const METRIC_USE_SOURCES = {
+  // A saved metric selected in the chart builder and saved with the chart
+  CHART: 'chart',
+  // A KPI created or re-pointed onto this metric
+  KPI: 'kpi',
+  // A metric_threshold alert created on this metric
+  ALERT: 'alert',
+} as const;
+
+export type MetricUseSource = (typeof METRIC_USE_SOURCES)[keyof typeof METRIC_USE_SOURCES];
+
+// `source` values for KPI_CREATED — the KPIs page and the metrics library both open the
+// KPI wizard, and without this they are one indistinguishable number.
+export const KPI_CREATE_SOURCES = {
+  KPIS_PAGE: 'kpis_page',
+  // Metrics library row ⋮ → Create KPI (metric preselected)
+  METRICS_LIBRARY: 'metrics_library',
+} as const;
+
+export type KpiCreateSource = (typeof KPI_CREATE_SOURCES)[keyof typeof KPI_CREATE_SOURCES];
+
 // Value actions — "creating or consuming insight" (spec §2.1). Every event here
 // is auto-stamped with `is_value_action: true` by trackEvent, so the North Star
 // ("unique users doing ≥1 value action") is one PostHog filter

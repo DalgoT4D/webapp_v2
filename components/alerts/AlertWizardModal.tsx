@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, METRIC_USE_SOURCES } from '@/constants/analytics';
 import {
   Dialog,
   DialogContent,
@@ -377,7 +377,19 @@ export function AlertWizardModal({
         recipients: notifyState.recipients,
       };
       const created = await createAlert(payload);
-      trackEvent(ANALYTICS_EVENTS.ALERT_CREATED, { alert_type: defineState.alertType });
+      trackEvent(ANALYTICS_EVENTS.ALERT_CREATED, {
+        alert_id: created?.id,
+        alert_type: defineState.alertType,
+      });
+      // A metric_threshold alert is a third way a metric gets consumed, alongside charts
+      // and KPIs — previously untracked, so metric adoption undercounted alerts entirely.
+      if (defineState.alertType === AlertType.METRIC_THRESHOLD && defineState.metricId) {
+        trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
+          metric_id: defineState.metricId,
+          alert_id: created?.id,
+          source: METRIC_USE_SOURCES.ALERT,
+        });
+      }
       toast.success('Alert created. It will run on its next scheduled time.');
       onSuccess?.(created);
       onOpenChange(false);

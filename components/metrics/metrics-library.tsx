@@ -67,7 +67,7 @@ import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, KPI_CREATE_SOURCES } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 
 export function MetricsLibrary() {
@@ -232,7 +232,9 @@ export function MetricsLibrary() {
     setIsDeleting(true);
     try {
       await deleteMetric(deletingMetric.id);
+      // Id read before the mutate() below drops the row from local state.
       trackEvent(ANALYTICS_EVENTS.METRIC_DELETED, {
+        metric_id: deletingMetric.id,
         aggregation: deletingMetric.aggregation || null,
       });
       mutate();
@@ -702,6 +704,7 @@ export function MetricsLibrary() {
           }
         }}
         preselectedMetricId={kpiPreselectedMetricId}
+        createSource={KPI_CREATE_SOURCES.METRICS_LIBRARY}
       />
 
       <AlertWizardModal

@@ -49,7 +49,12 @@ import { deepEqual } from '@/lib/form-utils';
 import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { trackEvent, trackFeatureView } from '@/lib/analytics';
-import { ANALYTICS_EVENTS, CHART_CREATE_SOURCES, FEATURES } from '@/constants/analytics';
+import {
+  ANALYTICS_EVENTS,
+  CHART_CREATE_SOURCES,
+  FEATURES,
+  METRIC_USE_SOURCES,
+} from '@/constants/analytics';
 import {
   CHART_BUILDER_TAB_ANALYTICS,
   getMetricAnalyticsProps,
@@ -1392,7 +1397,11 @@ function EditChartPageContent() {
       // unchanged chart would re-report the same metrics as freshly used.
       getNewlyUsedSavedMetricIds(formData.metrics, originalFormData?.metrics).forEach(
         (metricId) => {
-          trackEvent(ANALYTICS_EVENTS.METRIC_USED, { metric_id: metricId, chart_id: chartId });
+          trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
+            metric_id: metricId,
+            chart_id: chartId,
+            source: METRIC_USE_SOURCES.CHART,
+          });
         }
       );
 
@@ -1436,7 +1445,11 @@ function EditChartPageContent() {
         drill_down_enabled: isDrillDownEnabled(formData),
       });
       getUsedSavedMetricIds(formData.metrics).forEach((metricId) => {
-        trackEvent(ANALYTICS_EVENTS.METRIC_USED, { metric_id: metricId, chart_id: result.id });
+        trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
+          metric_id: metricId,
+          chart_id: result.id,
+          source: METRIC_USE_SOURCES.CHART,
+        });
       });
 
       toastSuccess.created(`Chart "${newTitle}"`);
