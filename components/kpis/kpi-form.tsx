@@ -272,10 +272,12 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
     if (walkthrough.active) walkthrough.advanceIfBefore('kpi_step1_continue');
   };
 
-  // Track each step as it becomes visible (fires on open too, since step resets on open)
+  // Track each step as it becomes visible (fires on open too, since step resets on open).
+  // is_edit is sent, not just depended on: the same steps render when editing, so without
+  // it an abandoned create is indistinguishable from an abandoned edit.
   useEffect(() => {
     if (open) {
-      trackEvent(ANALYTICS_EVENTS.KPI_WIZARD_STEP_VIEWED, { step });
+      trackEvent(ANALYTICS_EVENTS.KPI_WIZARD_STEP_VIEWED, { step, is_edit: isEdit });
     }
   }, [step, open, isEdit]);
 
@@ -361,6 +363,7 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
         };
         await updateKPI(kpi.id, updateData);
         trackEvent(ANALYTICS_EVENTS.KPI_UPDATED, {
+          kpi_id: kpi.id,
           metric_type_tag: data.metric_type_tag || null,
         });
         // Re-pointing a KPI to a different metric also consumes that metric
@@ -382,8 +385,11 @@ export function KPIForm({ open, onOpenChange, onSuccess, kpi, preselectedMetricI
           program_tags: data.program_tags,
           extra_config: extraConfig,
         };
-        await createKPI(createData);
+        const created = await createKPI(createData);
+        // kpi_id from the response — it is the only place the new id exists, and it is what
+        // lets created -> viewed -> deleted be joined for one KPI.
         trackEvent(ANALYTICS_EVENTS.KPI_CREATED, {
+          kpi_id: created.id,
           metric_type_tag: data.metric_type_tag || null,
         });
         if (data.metric_id) {

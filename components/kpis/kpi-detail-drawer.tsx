@@ -407,7 +407,10 @@ function NotesSection({
         snapshot_value: snapshotValue ?? undefined,
         snapshot_pop_change: snapshotPopChange ?? undefined,
       });
-      trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_CREATED, { note_type: noteType });
+      trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_CREATED, {
+        kpi_id: kpi.id,
+        note_type: noteType,
+      });
       mutate();
       setShowForm(false);
       setContent('');
@@ -423,7 +426,7 @@ function NotesSection({
   const handleDelete = async (entryId: number) => {
     try {
       await deleteAnnotation(kpi.id, entryId);
-      trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_DELETED);
+      trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_DELETED, { kpi_id: kpi.id });
       mutate();
       toastSuccess.deleted('Note');
     } catch (err: any) {
@@ -462,7 +465,10 @@ function NotesSection({
         snapshot_value: snapshotValue ?? undefined,
         snapshot_pop_change: snapshotPopChange ?? undefined,
       });
-      trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_UPDATED, { note_type: editNoteType });
+      trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_UPDATED, {
+        kpi_id: kpi.id,
+        note_type: editNoteType,
+      });
       mutate();
       setEditingId(null);
     } catch (err: any) {

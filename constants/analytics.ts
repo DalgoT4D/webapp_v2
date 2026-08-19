@@ -189,12 +189,19 @@ export const ANALYTICS_EVENTS = {
   REPORT_COMMENT_DELETED: 'report:comment_deleted',
   // KPIs & metrics
   KPI_CREATED: 'kpi:kpi_created',
+  // Opening a KPI's detail drawer. Carries `source` (KPI_VIEW_SOURCES) because the card
+  // body, the ⋮ "View KPI" item and an ?open={id} deep link all land here.
   KPI_VIEWED: 'kpi:kpi_viewed',
   KPI_UPDATED: 'kpi:kpi_updated',
   KPI_DELETED: 'kpi:kpi_deleted',
+  // Downloading a KPI card as PNG or CSV. `source` separates the KPIs page from a KPI
+  // embedded in a dashboard — the same card component serves both.
+  KPI_EXPORTED: 'kpi:kpi_exported',
   KPI_ANNOTATION_CREATED: 'kpi:annotation_created',
   KPI_ANNOTATION_UPDATED: 'kpi:annotation_updated',
   KPI_ANNOTATION_DELETED: 'kpi:annotation_deleted',
+  // Funnel through the create/edit wizard. Carries `is_edit` — the same steps are shown
+  // when editing, and without it an abandoned create looks like an abandoned edit.
   KPI_WIZARD_STEP_VIEWED: 'kpi:wizard_step_viewed',
   METRIC_USED: 'metric:metric_used',
   METRIC_CREATED: 'metric:metric_created',
@@ -331,6 +338,28 @@ export const DASHBOARD_UPDATE_SOURCES = {
 export type DashboardUpdateSource =
   (typeof DASHBOARD_UPDATE_SOURCES)[keyof typeof DASHBOARD_UPDATE_SOURCES];
 
+// `source` values for KPI_VIEWED — three affordances open the same detail drawer, and
+// knowing which one people actually use is the point of tracking it separately.
+export const KPI_VIEW_SOURCES = {
+  // Clicking the KPI card body
+  CARD: 'card',
+  // The card's ⋮ menu → View KPI
+  MENU: 'menu',
+  // Arriving on /kpis?open={id} (e.g. from an alert or notification link)
+  DEEP_LINK: 'deep_link',
+} as const;
+
+export type KpiViewSource = (typeof KPI_VIEW_SOURCES)[keyof typeof KPI_VIEW_SOURCES];
+
+// `source` values for KPI_EXPORTED — kpi-card is rendered both on the KPIs page and as a
+// dashboard element, which are different consumption contexts.
+export const KPI_EXPORT_SOURCES = {
+  KPI_PAGE: 'kpi_page',
+  DASHBOARD: 'dashboard',
+} as const;
+
+export type KpiExportSource = (typeof KPI_EXPORT_SOURCES)[keyof typeof KPI_EXPORT_SOURCES];
+
 // `source` values for REPORT_SHARED — a report can be handed out two ways, and they are
 // different behaviours (a link is passive, an email is a push to named people).
 export const REPORT_SHARE_SOURCES = {
@@ -422,6 +451,7 @@ export const VALUE_ACTION_EVENTS: ReadonlySet<AnalyticsEvent> = new Set([
   ANALYTICS_EVENTS.KPI_VIEWED,
   ANALYTICS_EVENTS.KPI_CREATED,
   ANALYTICS_EVENTS.KPI_UPDATED,
+  ANALYTICS_EVENTS.KPI_EXPORTED,
   ANALYTICS_EVENTS.KPI_ANNOTATION_CREATED,
   ANALYTICS_EVENTS.KPI_ANNOTATION_UPDATED,
   // Metrics — use (consume) / edit / create
