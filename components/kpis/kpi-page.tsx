@@ -500,7 +500,7 @@ export function KPIPageComponent() {
                     onCreateAlert={() => setAlertKpiId(kpi.id)}
                     onShare={() => setShareModalKpi(kpi)}
                     canCreateAlert={canCreateAlert}
-                    canEditKpis={canEditKpis}
+                    canEditKpis={kpi.access_level === 'edit'}
                     canDeleteKpis={canDeleteKpis}
                     canShare={kpi.access_level === 'edit'}
                     statusFilter={statusFilter || undefined}

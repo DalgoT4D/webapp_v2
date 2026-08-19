@@ -819,7 +819,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
             )}
           </div>
           <div className="flex gap-2">
-            {hasPermission(PERMISSIONS.CAN_EDIT_CHARTS) && (
+            {chart.access_level === 'edit' && (
               <Link
                 data-testid="chart-detail-edit-link"
                 href={`/charts/${chartId}/edit${isFromDashboard ? '?from=dashboard' : ''}`}

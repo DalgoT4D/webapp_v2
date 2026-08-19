@@ -132,7 +132,9 @@ export function KPIDetailDrawer({
   const [alertWizardOpen, setAlertWizardOpen] = useState(false);
   const { hasPermission } = useRbac();
   const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
-  const canEditKpis = hasPermission(PERMISSIONS.CAN_EDIT_KPIS);
+  // Per-resource access — a member granted edit has kpi.access_level === 'edit'
+  // even without the role-level can_edit_kpis slug. Backend enforces on save.
+  const canEditKpis = kpi?.access_level === 'edit';
 
   // Reset filters when KPI changes or drawer closes
   useEffect(() => {

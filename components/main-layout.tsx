@@ -24,7 +24,6 @@ import {
   Users,
   Target,
   Palette,
-  CreditCard,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -212,13 +211,6 @@ export const getNavItems = (
           visibleToRoles: ADMIN_ROLES,
         },
         {
-          title: 'Billing',
-          href: '/settings/billing',
-          icon: CreditCard,
-          isActive: currentPath.startsWith('/settings/billing'),
-          visibleToRoles: ADMIN_ROLES,
-        },
-        {
           title: 'Access',
           href: '/settings/access',
           icon: Users,
@@ -381,7 +373,6 @@ function ExpandedNavItem({
                   className={cn(
                     'flex-shrink-0',
                     child.title === 'About' ||
-                      child.title === 'Billing' ||
                       child.title === 'Branding' ||
                       child.title === 'Warehouse' ||
                       child.title === 'User Management'
@@ -482,7 +473,6 @@ function MobileNavItem({
                   className={cn(
                     'flex-shrink-0',
                     child.title === 'About' ||
-                      child.title === 'Billing' ||
                       child.title === 'Branding' ||
                       child.title === 'Warehouse' ||
                       child.title === 'User Management'
