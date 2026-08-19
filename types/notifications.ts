@@ -22,6 +22,7 @@ export interface UnreadCountResponse {
 // User preferences
 export interface UserPreferences {
   enable_email_notifications: boolean;
+  enable_schema_change_notifications: boolean;
   last_visited_transform_tab?: 'ui' | 'github' | null;
 }
 
@@ -46,8 +47,7 @@ export interface OrgPreferencesResponse {
 // Form data for preferences
 export interface NotificationPreferencesForm {
   enable_email_notifications: boolean;
-  enable_discord_notifications: boolean;
-  discord_webhook: string;
+  enable_schema_change_notifications: boolean;
 }
 
 // Bulk action payloads
