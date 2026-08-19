@@ -39,7 +39,7 @@ import { RAG_COLORS, TIME_GRAIN_OPTIONS } from '@/types/kpis';
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ALERT_CREATE_SOURCES, ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
@@ -346,6 +346,7 @@ export function KPIDetailDrawer({
         open={alertWizardOpen}
         onOpenChange={setAlertWizardOpen}
         initial={{ alertType: 'kpi_rag', kpiId: kpi?.id ?? null }}
+        createSource={ALERT_CREATE_SOURCES.KPI_DRAWER}
       />
     </Sheet>
   );

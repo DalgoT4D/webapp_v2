@@ -55,6 +55,7 @@ import type { RAGStatus } from '@/types/kpis';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import {
+  ALERT_CREATE_SOURCES,
   ANALYTICS_EVENTS,
   KPI_EXPORT_SOURCES,
   KPI_VIEW_SOURCES,
@@ -566,6 +567,7 @@ export function KPIPageComponent() {
         open={alertKpiId !== null}
         onOpenChange={(o) => !o && setAlertKpiId(null)}
         initial={{ alertType: 'kpi_rag', kpiId: alertKpiId }}
+        createSource={ALERT_CREATE_SOURCES.KPI_LIST}
       />
     </div>
   );

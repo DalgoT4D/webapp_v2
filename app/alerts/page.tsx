@@ -62,7 +62,7 @@ export default function AlertsPage() {
   const handleToggle = async (a: AlertListItem) => {
     try {
       await toggleAlert(a.id, !a.is_active);
-      trackEvent(ANALYTICS_EVENTS.ALERT_TOGGLED, { enabled: !a.is_active });
+      trackEvent(ANALYTICS_EVENTS.ALERT_TOGGLED, { alert_id: a.id, enabled: !a.is_active });
       toast.success(a.is_active ? 'Alert disabled.' : 'Alert enabled.');
       mutate();
     } catch {
@@ -75,7 +75,8 @@ export default function AlertsPage() {
     setIsDeleting(true);
     try {
       await deleteAlert(deletingAlert.id);
-      trackEvent(ANALYTICS_EVENTS.ALERT_DELETED);
+      // Id read before mutate() drops the row from local state.
+      trackEvent(ANALYTICS_EVENTS.ALERT_DELETED, { alert_id: deletingAlert.id });
       toast.success('Alert deleted.');
       setDeletingAlert(null);
       mutate();
@@ -127,7 +128,7 @@ export default function AlertsPage() {
             onDelete={(a) => setDeletingAlert(a)}
             onToggle={handleToggle}
             onOpenLog={(a) => {
-              trackEvent(ANALYTICS_EVENTS.ALERT_LOGS_VIEWED);
+              trackEvent(ANALYTICS_EVENTS.ALERT_LOGS_VIEWED, { alert_id: a.id });
               setLogModalAlert(a);
             }}
           />

@@ -67,7 +67,7 @@ import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS, KPI_CREATE_SOURCES } from '@/constants/analytics';
+import { ALERT_CREATE_SOURCES, ANALYTICS_EVENTS, KPI_CREATE_SOURCES } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 
 export function MetricsLibrary() {
@@ -714,6 +714,7 @@ export function MetricsLibrary() {
           if (!o) setAlertPreselectedMetricId(null);
         }}
         initial={{ alertType: 'metric_threshold', metricId: alertPreselectedMetricId }}
+        createSource={ALERT_CREATE_SOURCES.METRICS_LIBRARY}
       />
 
       {/* Delete Confirmation */}

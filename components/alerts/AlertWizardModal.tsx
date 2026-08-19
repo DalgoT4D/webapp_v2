@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS, METRIC_USE_SOURCES } from '@/constants/analytics';
+import {
+  ALERT_CREATE_SOURCES,
+  ANALYTICS_EVENTS,
+  METRIC_USE_SOURCES,
+  type AlertCreateSource,
+} from '@/constants/analytics';
 import {
   Dialog,
   DialogContent,
@@ -49,6 +54,8 @@ interface AlertWizardModalProps {
     metricId?: number | null;
     kpiId?: number | null;
   };
+  /** Analytics only — which surface opened the wizard (ALERT_CREATE_SOURCES). */
+  createSource?: AlertCreateSource;
 }
 
 function defaultScheduleSpec(): ScheduleSpec {
@@ -221,6 +228,7 @@ export function AlertWizardModal({
   onSuccess,
   alertId,
   initial,
+  createSource = ALERT_CREATE_SOURCES.ALERTS_PAGE,
 }: AlertWizardModalProps) {
   const isEdit = !!alertId;
   const { alert: editAlert } = useAlert(isEdit ? alertId : null);
@@ -231,6 +239,15 @@ export function AlertWizardModal({
   const [step1Errors, setStep1Errors] = useState<Record<string, string>>({});
   const [step2Errors, setStep2Errors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+
+  // Track each wizard step as it becomes visible, so abandonment between Define, Notify
+  // and Test is measurable (same shape as KPI_WIZARD_STEP_VIEWED). `is_edit` matters here
+  // too: the same three steps render when editing an existing alert.
+  useEffect(() => {
+    if (open) {
+      trackEvent(ANALYTICS_EVENTS.ALERT_WIZARD_STEP_VIEWED, { step, is_edit: isEdit });
+    }
+  }, [step, open, isEdit]);
 
   // Reset on open / close
   useEffect(() => {
@@ -352,7 +369,10 @@ export function AlertWizardModal({
           payload.slack_webhook_url = notifyState.slackWebhookUrl.trim();
         }
         const updated = await updateAlert(alertId, payload);
-        trackEvent(ANALYTICS_EVENTS.ALERT_UPDATED, { alert_type: defineState.alertType });
+        trackEvent(ANALYTICS_EVENTS.ALERT_UPDATED, {
+          alert_id: alertId,
+          alert_type: defineState.alertType,
+        });
         toast.success('Alert updated.');
         onSuccess?.(updated);
         onOpenChange(false);
@@ -380,6 +400,7 @@ export function AlertWizardModal({
       trackEvent(ANALYTICS_EVENTS.ALERT_CREATED, {
         alert_id: created?.id,
         alert_type: defineState.alertType,
+        source: createSource,
       });
       // A metric_threshold alert is a third way a metric gets consumed, alongside charts
       // and KPIs — previously untracked, so metric adoption undercounted alerts entirely.

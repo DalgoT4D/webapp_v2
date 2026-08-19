@@ -258,11 +258,18 @@ export const ANALYTICS_EVENTS = {
   EXPLORE_TABLE_SELECTION_DENIED: 'explore:table_selection_denied',
   // Warehouse table data preview pane (shared by Explore + Transform canvas)
   DATA_TABLE_DOWNLOADED: 'data:table_downloaded',
-  // Alerts
+  // Alerts. Carries `source` (ALERT_CREATE_SOURCES) — the wizard is opened from the alerts
+  // page, the metrics library, the KPI list and the KPI drawer, and an alert created next to
+  // a KPI means something different from one built from scratch.
   ALERT_CREATED: 'alert:alert_created',
   ALERT_UPDATED: 'alert:alert_updated',
   ALERT_DELETED: 'alert:alert_deleted',
   ALERT_TOGGLED: 'alert:alert_toggled',
+  // Funnel through the alert wizard (Define → Notify → Test), mirroring
+  // KPI_WIZARD_STEP_VIEWED. This is how alert-creation abandonment is measured; the
+  // dry-run on the Test step is deliberately NOT tracked because it runs automatically
+  // on mount and on every payload change, so it measures the wizard, not the user.
+  ALERT_WIZARD_STEP_VIEWED: 'alert:wizard_step_viewed',
   ALERT_SLACK_WEBHOOK_TESTED: 'alert:slack_webhook_tested',
   ALERT_LOGS_VIEWED: 'alert:logs_viewed',
   // Data quality (Elementary-based)
@@ -437,6 +444,20 @@ export const KPI_CREATE_SOURCES = {
 } as const;
 
 export type KpiCreateSource = (typeof KPI_CREATE_SOURCES)[keyof typeof KPI_CREATE_SOURCES];
+
+// `source` values for ALERT_CREATED — four surfaces open the alert wizard, and an alert set
+// up from a KPI or a metric is a different behaviour from one built on the alerts page.
+export const ALERT_CREATE_SOURCES = {
+  ALERTS_PAGE: 'alerts_page',
+  // Metrics library row ⋮ → Create alert (metric preselected)
+  METRICS_LIBRARY: 'metrics_library',
+  // KPI card ⋮ → Create alert (KPI preselected)
+  KPI_LIST: 'kpi_list',
+  // Create alert from inside the KPI detail drawer
+  KPI_DRAWER: 'kpi_drawer',
+} as const;
+
+export type AlertCreateSource = (typeof ALERT_CREATE_SOURCES)[keyof typeof ALERT_CREATE_SOURCES];
 
 // Value actions — "creating or consuming insight" (spec §2.1). Every event here
 // is auto-stamped with `is_value_action: true` by trackEvent, so the North Star
