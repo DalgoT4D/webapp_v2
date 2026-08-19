@@ -1,7 +1,7 @@
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete, apiPublicGet } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, REPORT_SHARE_SOURCES } from '@/constants/analytics';
 import type {
   ReportSnapshot,
   SnapshotViewData,
@@ -57,9 +57,10 @@ export function useSnapshotView(snapshotId: number | null) {
 
 // Mutations
 
+// REPORT_CREATED is tracked by the caller (create-snapshot-dialog's GENERATE REPORT
+// handler), not here — it needs the returned report_id, and the dialog is the only path in.
 export async function createSnapshot(data: CreateSnapshotPayload): Promise<ReportSnapshot> {
   const response: ApiResponse<ReportSnapshot> = await apiPost('/api/reports/', data);
-  trackEvent(ANALYTICS_EVENTS.REPORT_CREATED, { has_date_filter: !!data.date_column });
   return response.data;
 }
 
@@ -99,8 +100,12 @@ export async function updateReportSharing(
     `/api/reports/${snapshotId}/share/`,
     data
   );
-  // is_public lets analytics distinguish sharing from un-sharing (mirrors DASHBOARD_SHARED).
-  trackEvent(ANALYTICS_EVENTS.REPORT_SHARED, { is_public: data.is_public });
+  // Tracked here rather than at the call site because ShareViaLinkDialog wraps
+  // components/ui/share-modal, which we keep free of analytics. Only going public fires:
+  // un-sharing is not an outcome we measure (mirrors updateDashboardSharing).
+  if (data.is_public) {
+    trackEvent(ANALYTICS_EVENTS.REPORT_MADE_PUBLIC, { report_id: snapshotId });
+  }
   return response.data;
 }
 
@@ -119,7 +124,12 @@ export async function shareReportViaEmail(
     `/api/reports/${snapshotId}/share/email/`,
     data
   );
-  trackEvent(ANALYTICS_EVENTS.REPORT_SHARED);
+  // recipients_count only — recipient email addresses are PII and must never be sent.
+  trackEvent(ANALYTICS_EVENTS.REPORT_SHARED, {
+    report_id: snapshotId,
+    source: REPORT_SHARE_SOURCES.EMAIL,
+    recipients_count: data.recipient_emails.length,
+  });
   return response.data;
 }
 

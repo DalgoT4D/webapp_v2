@@ -590,13 +590,19 @@ export function DashboardNativeView({
   // Copying the link is the walkthrough's last action — the flow ends on a celebration
   // rather than a toast, and stays put so the user is looking at what they just built.
   const handleCopyLink = useCallback(() => {
+    // The share itself. Fired before the walkthrough branch so it lands on every copy,
+    // not only during onboarding. DASHBOARD_MADE_PUBLIC (from updateDashboardSharing)
+    // only means the link exists; this means the user actually handed it out.
+    // dashboard.id, not the dashboardId prop: it is what ShareModal was opened with,
+    // and it is a real id here (the modal only renders outside public mode).
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { dashboard_id: dashboard?.id });
     const walkthrough = useInsightWalkthroughStore.getState();
     if (walkthrough.active && SHARE_TAIL_STAGES.includes(walkthrough.stage!)) {
       walkthrough.finish();
       setShareModalOpen(false);
       setDashboardLiveModalOpen(true);
     }
-  }, []);
+  }, [dashboard?.id]);
 
   // Handle refresh
   const handleRefresh = async () => {
@@ -636,7 +642,7 @@ export function DashboardNativeView({
 
     try {
       await deleteDashboard(dashboardId);
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED);
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED, { dashboard_id: dashboardId });
 
       toast({
         title: 'Dashboard deleted',
@@ -1000,6 +1006,7 @@ export function DashboardNativeView({
                   <EmbedCodeDropdown
                     token={dashboard.public_share_token}
                     dashboardTitle={dashboard?.title ?? ''}
+                    dashboardId={dashboard?.id}
                   />
                 )}
               </div>
@@ -1213,6 +1220,7 @@ export function DashboardNativeView({
                   <EmbedCodeDropdown
                     token={dashboard.public_share_token}
                     dashboardTitle={dashboard?.title ?? ''}
+                    dashboardId={dashboard?.id}
                   />
                 )}
 

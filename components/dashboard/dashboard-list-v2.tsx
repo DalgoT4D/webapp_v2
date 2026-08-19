@@ -423,7 +423,8 @@ export function DashboardListV2() {
 
       try {
         await deleteDashboard(dashboardId);
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED);
+        // Id read from the handler arg, not from list state — mutate() below drops the row.
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED, { dashboard_id: dashboardId });
 
         // Refresh the dashboard list
         await mutate();
@@ -446,7 +447,12 @@ export function DashboardListV2() {
 
       try {
         const newDashboard = await duplicateDashboard(dashboardId);
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DUPLICATED);
+        // Both ids: dashboard_id is the one that was copied (which dashboards people
+        // reuse as templates), new_dashboard_id joins forward to the copy's own events.
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DUPLICATED, {
+          dashboard_id: dashboardId,
+          new_dashboard_id: newDashboard.id,
+        });
 
         // Refresh the dashboard list
         await mutate();
@@ -483,6 +489,13 @@ export function DashboardListV2() {
   const handleDashboardUpdate = useCallback(() => {
     mutate(); // Refresh the dashboard list
   }, [mutate]);
+
+  // Copying the public link is the share act itself, so it fires here too — the list row
+  // menu is a second entry point into the same dialog, and without this the event would
+  // only exist on the dashboard view page.
+  const handleCopyLink = useCallback(() => {
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { dashboard_id: selectedDashboard?.id });
+  }, [selectedDashboard?.id]);
 
   // Wraps updateDashboardSharing (passed to ShareModal, a components/ui/ component we don't
   // modify) so the resume-nudge "shared" milestone is set on the actual is_public=true action,
@@ -2045,6 +2058,7 @@ export function DashboardListV2() {
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
+          onCopyLink={handleCopyLink}
           initialShareStatus={{
             is_public: selectedDashboard.is_public,
             public_access_count: selectedDashboard.public_access_count,

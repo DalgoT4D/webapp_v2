@@ -38,6 +38,9 @@ interface DashboardCellProps {
   isResizing: boolean;
   appliedFilters: Record<string, any>;
   initialFilters: DashboardFilterConfig[];
+  /** Passed through to UnifiedTextElement for analytics. A stable number, so it does not
+   *  affect the React.memo comparison this component relies on for drag performance. */
+  dashboardId?: number;
   // Stable callback references (must be stable for React.memo to work)
   onViewChart: (chartId: number) => void;
   onEditChart: (chartId: number) => void;
@@ -56,6 +59,7 @@ function DashboardCellInner({
   isResizing,
   appliedFilters,
   initialFilters,
+  dashboardId,
   onViewChart,
   onEditChart,
   onRemove,
@@ -167,6 +171,7 @@ function DashboardCellInner({
             config={component.config as UnifiedTextConfig}
             componentId={item.i}
             isEditMode={true}
+            dashboardId={dashboardId}
           />
         )}
         {isKPI && (

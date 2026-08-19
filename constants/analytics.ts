@@ -103,18 +103,35 @@ export const ANALYTICS_EVENTS = {
   // not new intent. Fired from the chart detail page and dashboard embeds, not
   // from builder previews (there it's the author testing their own config).
   CHART_DRILLED_DOWN: 'chart:chart_drilled_down',
-  // Dashboards (DASHBOARD_SAVED is the edit/update event)
+  // Dashboards
   DASHBOARD_CREATED: 'dashboard:dashboard_created',
-  DASHBOARD_SAVED: 'dashboard:dashboard_saved',
+  // The edit event, fired from three places (see DASHBOARD_UPDATE_SOURCES): the two
+  // explicit save buttons and opening the builder via EDIT DASHBOARD. Never from the
+  // 5s autosave, which is deliberately untracked.
+  //
+  // Note the `edit_button` source writes nothing — it is an editor OPEN, so the raw
+  // event total counts opens alongside real saves. Filter `source != 'edit_button'`
+  // for a true save count; that property is the only way to separate them, so keep
+  // sending it from every call site.
+  DASHBOARD_UPDATED: 'dashboard:dashboard_updated',
   DASHBOARD_DELETED: 'dashboard:dashboard_deleted',
   DASHBOARD_DUPLICATED: 'dashboard:dashboard_duplicated',
   DASHBOARD_VIEWED: 'dashboard:dashboard_viewed',
+  // Public-access toggle turned ON. Toggling it OFF fires nothing — un-sharing is
+  // not an outcome we measure, and firing one event for both directions made the
+  // total meaningless.
+  DASHBOARD_MADE_PUBLIC: 'dashboard:dashboard_made_public',
+  // The actual share act: the user copied the public link. Distinct from
+  // DASHBOARD_MADE_PUBLIC, which only means the link now exists.
   DASHBOARD_SHARED: 'dashboard:dashboard_shared',
   // Fired on the anonymous public share route, NOT by a logged-in user. Carries
   // org_slug/org_name as event properties because there is no person and no
   // organization group to attach on a public view (see PublicDashboardView).
   PUBLIC_DASHBOARD_VIEWED: 'dashboard:public_dashboard_viewed',
   DASHBOARD_EMBED_CODE_COPIED: 'dashboard:embed_code_copied',
+  // Both landing scopes (my landing page, and the admin-only ORG DEFAULT) share this
+  // event and are told apart by `scope` from LANDING_SCOPES. Removing a landing page
+  // fires nothing — same rule as un-sharing: the off direction is not an outcome.
   DASHBOARD_SET_AS_LANDING: 'dashboard:dashboard_set_as_landing',
   DASHBOARD_CHART_ADDED: 'dashboard:chart_added',
   DASHBOARD_KPI_ADDED: 'dashboard:kpi_added',
@@ -122,20 +139,51 @@ export const ANALYTICS_EVENTS = {
   DASHBOARD_FILTER_CREATED: 'dashboard:filter_created',
   DASHBOARD_FILTER_UPDATED: 'dashboard:filter_updated',
   DASHBOARD_FILTER_DELETED: 'dashboard:filter_deleted',
+  // Consumption depth: someone hit Apply on the filter panel. The CRUD events above are
+  // the author BUILDING a filter; this is a reader USING one — the only way to tell
+  // whether shipped filters get touched (and the one interaction an anonymous public
+  // viewer can have). `context` from DASHBOARD_FILTER_CONTEXTS separates real reading
+  // from an author testing their own config in the builder.
+  //
+  // Carries counts and filter TYPES only. Never the selected values, column, table or
+  // schema names — those are warehouse data (see the PII rule).
+  DASHBOARD_FILTER_APPLIED: 'dashboard:filter_applied',
   DASHBOARD_TEXT_ELEMENT_ADDED: 'dashboard:text_element_added',
+  // All four fire from the builder's tab handlers, not from TabBar — that component has
+  // no dashboardId, and the handlers are the choke point every tab control funnels through.
   DASHBOARD_TAB_CREATED: 'dashboard:tab_created',
   DASHBOARD_TAB_DELETED: 'dashboard:tab_deleted',
+  DASHBOARD_TAB_RENAMED: 'dashboard:tab_renamed',
   DASHBOARD_TAB_REORDERED: 'dashboard:tab_reordered',
   DASHBOARD_WIDGET_MOVED_BETWEEN_TABS: 'dashboard:widget_moved_between_tabs',
   DASHBOARD_RICH_TEXT_EDIT_STARTED: 'dashboard:rich_text_edit_started',
   DASHBOARD_RICH_TEXT_FORMAT_APPLIED: 'dashboard:rich_text_format_applied',
-  // Reports
+  // Reports. Mirrors the dashboard set: one create, one share act, one made-public.
+  // Fired from the GENERATE REPORT button in create-snapshot-dialog, on the success path,
+  // so it carries the new report_id the POST returns.
   REPORT_CREATED: 'report:report_created',
-  REPORT_UPDATED: 'report:report_updated',
+  // NOT report_updated: a snapshot is frozen and can never be edited. The only mutable
+  // field is the summary text (updateSnapshot accepts `{summary}` and nothing else), so
+  // the event says exactly that.
+  REPORT_SUMMARY_UPDATED: 'report:summary_updated',
   REPORT_DELETED: 'report:report_deleted',
   REPORT_VIEWED: 'report:report_viewed',
+  // Public-access toggle turned ON. Toggling it OFF fires nothing (see
+  // DASHBOARD_MADE_PUBLIC for the reasoning).
+  REPORT_MADE_PUBLIC: 'report:report_made_public',
+  // The actual share act — the link was copied, or the report was emailed. One event,
+  // split by `source` from REPORT_SHARE_SOURCES. Distinct from REPORT_MADE_PUBLIC, which
+  // only means a link now exists.
   REPORT_SHARED: 'report:report_shared',
   REPORT_EXPORTED: 'report:report_exported',
+  // Fired on the anonymous public share route, NOT by a logged-in user. Carries org_name
+  // (the public report payload has no org_slug) because there is no person or org group
+  // to attach on a public view — same shape as PUBLIC_DASHBOARD_VIEWED.
+  PUBLIC_REPORT_VIEWED: 'report:public_report_viewed',
+  // Comments are a flat thread per target (there is no parent_id in the API), so a reply
+  // is a comment on a target that already has one — carried as `is_reply` rather than a
+  // second event name, keeping "comments added" a single number. Who commented needs no
+  // property: PostHog attaches the person. Mention COUNTS are safe, emails are not.
   REPORT_COMMENT_CREATED: 'report:comment_created',
   REPORT_COMMENT_UPDATED: 'report:comment_updated',
   REPORT_COMMENT_DELETED: 'report:comment_deleted',
@@ -267,6 +315,61 @@ export const CHART_DRILL_SOURCES = {
 
 export type ChartDrillSource = (typeof CHART_DRILL_SOURCES)[keyof typeof CHART_DRILL_SOURCES];
 
+// `source` values for DASHBOARD_UPDATED — one event, three entry points, told apart
+// by this property. Always send it: without it the save paths and the editor-open path
+// are indistinguishable after the fact.
+export const DASHBOARD_UPDATE_SOURCES = {
+  // Builder toolbar → Save (stays in the builder)
+  SAVE_BUTTON: 'save_button',
+  // Builder toolbar → View (saves via cleanup, then navigates to view mode)
+  SAVE_AND_VIEW: 'save_and_view',
+  // EDIT DASHBOARD on the dashboard view, or an Edit link in the dashboard list.
+  // Opening the builder only — nothing is persisted on this path.
+  EDIT_BUTTON: 'edit_button',
+} as const;
+
+export type DashboardUpdateSource =
+  (typeof DASHBOARD_UPDATE_SOURCES)[keyof typeof DASHBOARD_UPDATE_SOURCES];
+
+// `source` values for REPORT_SHARED — a report can be handed out two ways, and they are
+// different behaviours (a link is passive, an email is a push to named people).
+export const REPORT_SHARE_SOURCES = {
+  // Share via link dialog → COPY PUBLIC LINK
+  COPY_LINK: 'copy_link',
+  // Share via email dialog → Send. Sends recipients_count only, never the addresses.
+  EMAIL: 'email',
+} as const;
+
+export type ReportShareSource = (typeof REPORT_SHARE_SOURCES)[keyof typeof REPORT_SHARE_SOURCES];
+
+// `context` values for DASHBOARD_FILTER_APPLIED — the same panel is mounted in four
+// places, and they mean very different things. Filter to 'view'/'public' for genuine
+// consumption; 'edit' is the author trying their own filter, the same reason
+// CHART_DRILLED_DOWN ignores builder previews.
+export const DASHBOARD_FILTER_CONTEXTS = {
+  // Dashboard builder — the author testing filters they just built
+  EDIT: 'edit',
+  // Logged-in dashboard view
+  VIEW: 'view',
+  // Anonymous public share link or embed iframe
+  PUBLIC: 'public',
+  // Report snapshot, which reuses the same filter panel
+  REPORT: 'report',
+} as const;
+
+export type DashboardFilterContext =
+  (typeof DASHBOARD_FILTER_CONTEXTS)[keyof typeof DASHBOARD_FILTER_CONTEXTS];
+
+// `scope` values for DASHBOARD_SET_AS_LANDING — "my landing page" is a per-user
+// preference, ORG DEFAULT is an admin setting the whole org's home. Very different
+// actions, so the event is useless without this property.
+export const LANDING_SCOPES = {
+  PERSONAL: 'personal',
+  ORG_DEFAULT: 'org_default',
+} as const;
+
+export type LandingScope = (typeof LANDING_SCOPES)[keyof typeof LANDING_SCOPES];
+
 // `source` values for METRIC_CREATED — a metric can be born in three places.
 // Every site also sends `metric_type` ('saved' | 'calculated' | 'simple', see
 // METRIC_TYPES in components/charts/utils.ts) so one breakdown works across all.
@@ -288,7 +391,7 @@ export type MetricCreateSource = (typeof METRIC_CREATE_SOURCES)[keyof typeof MET
 // Add a new value event HERE and it's counted automatically — nothing to change
 // in PostHog. Plumbing (pipeline/connection/source/warehouse/transform), config
 // (alert toggle, set-as-landing), deletes, and granular dashboard sub-edits
-// (DASHBOARD_SAVED already covers the edit) are deliberately NOT value actions.
+// (DASHBOARD_UPDATED already covers the edit) are deliberately NOT value actions.
 // PUBLIC_DASHBOARD_VIEWED is also deliberately excluded: every event in this set
 // is fired by an identified user, but a public view is an anonymous device with
 // no person profile, so including it would add non-users to a unique-USERS count.
@@ -303,13 +406,15 @@ export const VALUE_ACTION_EVENTS: ReadonlySet<AnalyticsEvent> = new Set([
   // Dashboards — view / edit / create / share
   ANALYTICS_EVENTS.DASHBOARD_VIEWED,
   ANALYTICS_EVENTS.DASHBOARD_CREATED,
-  ANALYTICS_EVENTS.DASHBOARD_SAVED,
+  ANALYTICS_EVENTS.DASHBOARD_UPDATED,
   ANALYTICS_EVENTS.DASHBOARD_DUPLICATED,
+  ANALYTICS_EVENTS.DASHBOARD_MADE_PUBLIC,
   ANALYTICS_EVENTS.DASHBOARD_SHARED,
   // Reports — view / edit / create / share / export / comment
   ANALYTICS_EVENTS.REPORT_VIEWED,
   ANALYTICS_EVENTS.REPORT_CREATED,
-  ANALYTICS_EVENTS.REPORT_UPDATED,
+  ANALYTICS_EVENTS.REPORT_SUMMARY_UPDATED,
+  ANALYTICS_EVENTS.REPORT_MADE_PUBLIC,
   ANALYTICS_EVENTS.REPORT_SHARED,
   ANALYTICS_EVENTS.REPORT_EXPORTED,
   ANALYTICS_EVENTS.REPORT_COMMENT_CREATED,
