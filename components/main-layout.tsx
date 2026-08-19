@@ -37,7 +37,14 @@ import { useSidebarStore } from '@/stores/sidebarStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { TransformTypeEnum as TransformType, useTransformType } from '@/hooks/api/useTransform';
 import Image from 'next/image';
-import { ACCESS_PAGE_ROLES, ADMIN_ROLES, DATA_SECTION_ROLES, Role, useRbac } from '@/lib/rbac';
+import {
+  ACCESS_PAGE_ROLES,
+  ADMIN_ROLES,
+  DATA_SECTION_ROLES,
+  ROLES,
+  Role,
+  useRbac,
+} from '@/lib/rbac';
 import { RbacNoticeCarousel } from '@/components/onboarding/rbac-notice-carousel';
 import { TourGate } from '@/components/onboarding/tour-gate';
 
@@ -121,7 +128,11 @@ export const getNavItems = (
       title: 'Dashboards',
       href: '/dashboards',
       icon: LayoutDashboard,
-      isActive: currentPath === '/dashboards' || currentPath.startsWith('/dashboards/'),
+      // /dashboards/usage lives under the Settings section, not Dashboards —
+      // exclude it so the Dashboards nav item doesn't highlight when viewing it.
+      isActive:
+        (currentPath === '/dashboards' || currentPath.startsWith('/dashboards/')) &&
+        !currentPath.startsWith('/dashboards/usage'),
     },
     {
       title: 'Reports',
@@ -132,7 +143,11 @@ export const getNavItems = (
     },
     {
       title: 'Data',
-      href: '/pipeline',
+      // Parent nav item is clickable and would 404/AccessDeny anyone whose role
+      // can't view /pipeline. Route Members to /metrics (their first Data child)
+      // and staff to /pipeline. Empty roleSlug (still loading) → default to
+      // /metrics — safest for the yet-unknown role.
+      href: DATA_SECTION_ROLES.includes(roleSlug as Role) ? '/pipeline' : '/metrics',
       icon: Database,
       isActive: false,
       // Data parent visible to everyone; staff-only children carry their own
@@ -199,7 +214,10 @@ export const getNavItems = (
     },
     {
       title: 'Settings',
-      href: '/settings/branding',
+      // Members can't view /settings/branding (admin-only); their only possible
+      // Settings child is Superset Usage. Route them to /dashboards/usage so
+      // clicking Settings doesn't land on an Access-Denied page.
+      href: roleSlug === ROLES.MEMBER ? '/dashboards/usage' : '/settings/branding',
       icon: Settings,
       isActive: false,
       children: [
