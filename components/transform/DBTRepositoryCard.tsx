@@ -79,7 +79,11 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
         } else if (gitRepoChanged) {
           // Git repo changed — use the switch_git_repo endpoint
           await switchGitRepo(data.gitrepoUrl, data.gitrepoAccessToken);
-          trackEvent(ANALYTICS_EVENTS.TRANSFORM_GITHUB_REPO_UPDATED);
+          // was_managed separates "graduated off the Dalgo-managed repo onto our own"
+          // from "edited our own repo's URL/PAT" — both arrive on this same branch.
+          trackEvent(ANALYTICS_EVENTS.TRANSFORM_GITHUB_REPO_UPDATED, {
+            was_managed: !!workspace?.is_repo_managed_by_system,
+          });
           toastSuccess.updated('Git repository');
           // If schema also changed, update it separately
           if (schemaChanged) {

@@ -226,7 +226,14 @@ export const ANALYTICS_EVENTS = {
   WAREHOUSE_DELETED: 'warehouse:warehouse_deleted',
   // Transform (dbt + UI4T canvas)
   DBT_RUN_TRIGGERED: 'transform:dbt_run_triggered',
+  // A user connected THEIR OWN GitHub repo for dbt, first time only (the card's
+  // not-yet-connected branch). NOT a measure of "orgs with dbt set up": a Dalgo-managed
+  // repo is created server-side during org setup, so those orgs arrive already connected
+  // and never fire this. Read it as bring-your-own-repo adoption.
   TRANSFORM_GITHUB_CONNECTED: 'transform:github_connected',
+  // Repo swapped on an already-connected workspace. Carries `was_managed` because moving
+  // off a Dalgo-managed repo onto your own is a different act from editing your own repo's
+  // URL or PAT, and both land here.
   TRANSFORM_GITHUB_REPO_UPDATED: 'transform:github_repo_updated',
   TRANSFORM_SCHEMA_UPDATED: 'transform:schema_updated',
   TRANSFORM_SOURCE_ADDED: 'transform:source_added',
