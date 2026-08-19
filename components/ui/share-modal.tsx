@@ -170,6 +170,18 @@ export function ShareModal({
 
   const chippedKeys = useMemo(() => new Set(chips.map((c) => c.key)), [chips]);
 
+  // Render "People with access" bucketed: owner (rendered separately above),
+  // then groups, then direct user shares, then pending-email invites. Preserves
+  // original order within each bucket (stable sort).
+  const sortedShares = useMemo(() => {
+    const rank = (s: ShareRow): number => {
+      if (s.status === 'pending') return 2;
+      if (s.principal_type === 'group') return 0;
+      return 1;
+    };
+    return [...(shares ?? [])].sort((a, b) => rank(a) - rank(b));
+  }, [shares]);
+
   const activeUserByEmail = useMemo(() => {
     const m = new Map<string, { orguser_id: number; role_name: string }>();
     people?.forEach((p) => {
@@ -182,7 +194,8 @@ export function ShareModal({
 
   const suggestions = useMemo(() => {
     const q = chipInput.trim().toLowerCase();
-    if (q === '') return []; // only show suggestions after the user starts typing
+    // Empty query → show all eligible options (users + groups). Typing narrows
+    // via the includes(q) filter below.
     const userMatches = (people ?? [])
       .filter(
         (p) =>
@@ -355,6 +368,7 @@ export function ShareModal({
     setRowBusyId(share.share_id);
     try {
       await updateGrant(share.share_id, level);
+      toastSuccess.generic(`Access updated to ${level}`);
       mutateGrants();
       onUpdate?.();
     } catch {
@@ -452,6 +466,10 @@ export function ShareModal({
       if (next === 'public' && res.public_url) {
         toastSuccess.generic(`${entityLabel} is now public`);
         await copyUrlToClipboard(res.public_url);
+      } else if (next === 'everyone') {
+        toastSuccess.generic(`${entityLabel} is now visible to everyone in your org`);
+      } else if (next === 'private') {
+        toastSuccess.generic(`${entityLabel} is now private`);
       }
       mutateGrants();
       onUpdate?.();
@@ -527,12 +545,16 @@ export function ShareModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent data-testid="share-modal" className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent
+        data-testid="share-modal"
+        className="sm:max-w-lg max-h-[90vh] flex flex-col p-0"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>Share &quot;{entityLabel}&quot;</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <div className="space-y-5 flex-1 overflow-y-auto min-h-0 px-6 pb-4">
           {/* Access Requests — surfaced at the top of the modal so an
               owner/Edit-holder sees pending requests as soon as they open it. */}
           {rtype && (requests ?? []).length > 0 && (
@@ -644,9 +666,11 @@ export function ShareModal({
                 {chipError && <p className="text-sm text-red-500">{chipError}</p>}
               </div>
 
-              {/* Staged items (users/groups/pending emails to be shared with on Share) */}
+              {/* Staged items (users/groups/pending emails to be shared with on Share).
+                  Capped + scrollable so a long paste doesn't push the rest of the modal
+                  (People with access, General access, Share button) out of view. */}
               {chips.length > 0 && (
-                <div className="space-y-1">
+                <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
                   {chips.map((chip) => (
                     <div
                       key={chip.key}
@@ -751,7 +775,7 @@ export function ShareModal({
               {/* People with access */}
               <div className="space-y-3">
                 <Label className="text-sm font-medium text-gray-900">People with access</Label>
-                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
                   {owner && (
                     <div className="flex items-center gap-3">
                       <span className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary">
@@ -771,7 +795,7 @@ export function ShareModal({
                       Only the owner has access right now.
                     </div>
                   )}
-                  {(shares ?? []).map((s, idx) => (
+                  {sortedShares.map((s, idx) => (
                     <div key={s.share_id ?? `cascade-${idx}`} className="flex items-center gap-3">
                       <span className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary">
                         {s.principal_type === 'group' ? (
@@ -1063,20 +1087,22 @@ export function ShareModal({
               </CardContent>
             </Card>
           )}
+        </div>
 
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={onClose} data-testid="share-close-btn">
-              CANCEL
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleShareClick}
-              disabled={isSubmitting || chips.length === 0}
-              data-testid="share-submit-btn"
-            >
-              {isSubmitting ? 'SHARING…' : 'SHARE'}
-            </Button>
-          </div>
+        {/* Sticky footer — sits below the scrollable body so long chip lists
+            never push the SHARE button off-screen. */}
+        <div className="flex justify-end gap-3 px-6 py-4 border-t bg-background">
+          <Button variant="outline" onClick={onClose} data-testid="share-close-btn">
+            CANCEL
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleShareClick}
+            disabled={isSubmitting || chips.length === 0}
+            data-testid="share-submit-btn"
+          >
+            {isSubmitting ? 'SHARING…' : 'SHARE'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
