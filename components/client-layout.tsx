@@ -25,6 +25,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     pathname.startsWith('/share/dashboard/') ||
     pathname.startsWith('/share/report/') ||
     pathname.startsWith('/invitations/') ||
+    pathname.startsWith('/free-trial') ||
     // OAuth popup callback: it only relays the opaque ref to its opener and closes.
     // It must render bare (no AuthGuard/MainLayout) — otherwise the guard bounces the
     // popup to /login before it can post the ref back.

@@ -27,7 +27,10 @@ import { PendingActions } from '@/components/connections/pending-actions';
 import { SchemaChangeForm } from '@/components/connections/schema-change-form';
 import { SourceForm } from '@/components/ingest/sources/SourceForm';
 import { SourceRow } from '@/components/ingest/redesign/source-row';
-import { groupConnectionsBySource } from '@/components/ingest/redesign/utils';
+import {
+  groupConnectionsBySource,
+  type ConnectionsStatus,
+} from '@/components/ingest/redesign/utils';
 import type { Connection, ClearStreamData } from '@/types/connections';
 import type { Source } from '@/types/source';
 
@@ -87,14 +90,31 @@ function compareSources(a: Source, b: Source, sort: SortOption): number {
   }
 }
 
+interface SteadyViewProps {
+  /**
+   * Set by the page while it revalidates the connections list after the wizard
+   * created a connection. SWR serves the stale (connection-less) list during a
+   * revalidate — isLoading is false — so this is the only signal that a source
+   * showing zero connections might actually have one. Without it the new source
+   * renders as "add a connection" for the length of the fetch, then flips to a
+   * syncing connection.
+   */
+  connectionsKnownStale?: boolean;
+}
+
 /**
  * The steady-state Ingest surface: a control bar (search + New Source), the
  * pending-schema-change banner, and the source-grouped connection list rendered
  * as side-by-side rows. Owns its own dialog state for the connection and source
  * forms.
  */
-export function SteadyView() {
-  const { data: connections, mutate: mutateConnections } = useConnectionsList();
+export function SteadyView({ connectionsKnownStale = false }: SteadyViewProps) {
+  const {
+    data: connections,
+    isLoading: connectionsLoading,
+    isError: connectionsError,
+    mutate: mutateConnections,
+  } = useConnectionsList();
   const { data: sources, mutate: mutateSources } = useSources();
   const { hasPermission } = useRbac();
   const { confirm, DialogComponent } = useConfirmationDialog();
@@ -164,6 +184,24 @@ export function SteadyView() {
       (group) => group.source.name.toLowerCase().includes(q) || group.connections.length > 0
     );
   }, [sources, connections, searchTerm, sortOption]);
+
+  // Same staleness window as connectionsKnownStale, for connections created from
+  // this view's own form rather than the wizard. Scoped to the revalidate promise
+  // so it always clears, even if the refetch fails.
+  const [awaitingCreatedConnection, setAwaitingCreatedConnection] = useState(false);
+
+  // Sources and connections are separate fetches, and this view mounts as soon as
+  // sources land. Passing the connections fetch state down stops each source row
+  // reading "not fetched yet" as "no connections" (see ConnectionsStatus).
+  const connectionsStatus: ConnectionsStatus = connectionsError
+    ? 'error'
+    : connectionsLoading || connectionsKnownStale || awaitingCreatedConnection
+      ? 'loading'
+      : 'ready';
+
+  const handleRetryConnections = useCallback(() => {
+    mutateConnections();
+  }, [mutateConnections]);
 
   const handleSortSources = useCallback(() => {
     setSortOption((prev) => nextSort(prev));
@@ -309,11 +347,16 @@ export function SteadyView() {
     [clearDeploymentId, clearStreamConnectionId, mutateConnections]
   );
 
-  const handleConnectionFormSuccess = useCallback(() => {
+  const handleConnectionFormSuccess = useCallback(async () => {
     setFormMode(null);
     setSelectedConnectionId(null);
     setAddConnectionSourceId(undefined);
-    mutateConnections();
+    setAwaitingCreatedConnection(true);
+    try {
+      await mutateConnections();
+    } finally {
+      setAwaitingCreatedConnection(false);
+    }
   }, [mutateConnections]);
 
   // ============ Source handlers ============
@@ -501,6 +544,8 @@ export function SteadyView() {
                   <SourceRow
                     key={group.source.sourceId}
                     group={group}
+                    connectionsStatus={connectionsStatus}
+                    onRetryConnections={handleRetryConnections}
                     syncingIds={syncingIds}
                     canSync={canSync}
                     canEditConnection={canEditConnection}

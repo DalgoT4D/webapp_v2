@@ -48,6 +48,13 @@ import {
 } from '@/lib/chart-payload-utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { DashboardNameHint } from '@/components/onboarding/dashboard-name-hint';
+import { Label } from '@/components/ui/label';
+import {
+  isStageBefore,
+  markChartCreated,
+} from '@/components/onboarding/insight-walkthrough-constants';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -996,6 +1003,30 @@ function ConfigureChartPageContent() {
       // Reset unsaved changes state after successful save
       setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');
+
+      // Resume-nudge milestone — set regardless of an active coachmark session.
+      markChartCreated();
+
+      const walkthrough = useInsightWalkthroughStore.getState();
+      // Saving the chart is the checkpoint, whatever hints were clicked past on the way here
+      // (the two tab stages are read-this hints a user can skip straight over).
+      if (
+        walkthrough.active &&
+        walkthrough.stage &&
+        !isFromDashboard &&
+        isStageBefore(walkthrough.path, walkthrough.stage, 'chart_dashboard_nudge')
+      ) {
+        // Hand the celebration to the chart's own page rather than showing it here: the user
+        // should see the chart they just built behind the dialog, not the builder they're
+        // leaving. The normal redirect below carries them there.
+        walkthrough.setPendingCelebration('chart');
+        // The next stage's coachmark points at the Dashboards nav item, which would otherwise
+        // appear on the chart page underneath the dialog. Released when it closes, so the
+        // nudge is what the user sees next.
+        walkthrough.setSuppressCoachmark(true);
+        walkthrough.advanceIfBefore('chart_dashboard_nudge');
+      }
+
       if (isFromDashboard) {
         // Use replace so back button from chart detail goes to dashboard
         router.replace(`/charts/${result.id}?from=dashboard`);
@@ -1079,16 +1110,25 @@ function ConfigureChartPageContent() {
             </Button>
 
             {/* Chart Title Input */}
-            <Input
-              value={formData.title}
-              onChange={(e) => handleFormChange({ title: e.target.value })}
-              className="text-lg font-semibold border border-gray-200 shadow-sm px-4 py-2 h-11 bg-white min-w-[300px]"
-              placeholder="Untitled Chart"
-            />
+            <div className="space-y-1">
+              <Label htmlFor="chart-name" className="flex items-center gap-2">
+                Chart name
+                <DashboardNameHint id="chart-name-guidance" />
+              </Label>
+              <Input
+                id="chart-name"
+                aria-describedby="chart-name-guidance"
+                value={formData.title}
+                onChange={(e) => handleFormChange({ title: e.target.value })}
+                className="h-11 min-w-[300px] border border-gray-200 bg-white px-4 py-2 text-lg font-semibold shadow-sm"
+                placeholder="Untitled Chart"
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-4">
             <Button
+              data-testid="chart-edit-save-button"
               onClick={handleSave}
               variant="primary"
               disabled={!isFormValid() || isMutating}
@@ -1107,10 +1147,11 @@ function ConfigureChartPageContent() {
           <div className="w-[30%] border-r">
             <Tabs defaultValue="configuration" className="h-full">
               <div className="px-4 pt-4">
-                <TabsList className="grid w-full h-11 grid-cols-2">
+                <TabsList className="grid w-full h-11 grid-cols-2" data-testid="chart-config-tabs">
                   <TabsTrigger
                     value="configuration"
                     className="flex items-center justify-center gap-2 text-sm h-full"
+                    data-testid="chart-data-config-tab"
                   >
                     <BarChart3 className="h-4 w-4" />
                     Data Configuration
@@ -1118,6 +1159,7 @@ function ConfigureChartPageContent() {
                   <TabsTrigger
                     value="styling"
                     className="flex items-center justify-center gap-2 text-sm h-full"
+                    data-testid="chart-styling-tab"
                   >
                     <Database className="h-4 w-4" />
                     Chart Styling
@@ -1320,23 +1362,28 @@ function ConfigureChartPageContent() {
                     }
                     className="h-full flex flex-col"
                   >
-                    <TabsList
-                      className={`grid w-full ${formData.chart_type === 'table' || formData.chart_type === 'pivot_table' ? 'grid-cols-1' : 'grid-cols-2'}`}
-                    >
-                      {formData.chart_type !== 'table' && formData.chart_type !== 'pivot_table' && (
-                        <TabsTrigger value="chart-data" className="flex items-center gap-2">
-                          <BarChart3 className="h-4 w-4" />
-                          Chart Data
-                        </TabsTrigger>
-                      )}
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="chart-data" className="flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4" />
+                        Chart Data
+                      </TabsTrigger>
                       <TabsTrigger value="raw-data" className="flex items-center gap-2">
                         <Database className="h-4 w-4" />
                         Raw Data
                       </TabsTrigger>
                     </TabsList>
 
-                    {formData.chart_type !== 'table' && formData.chart_type !== 'pivot_table' && (
-                      <TabsContent value="chart-data" className="flex-1">
+                    <TabsContent value="chart-data" className="flex-1">
+                      {formData.chart_type === 'pivot_table' ? (
+                        <ChartPreview
+                          config={{ extra_config: formData.extra_config }}
+                          tableData={chartData?.data}
+                          isLoading={chartLoading}
+                          error={chartError}
+                          chartType={formData.chart_type}
+                          customizations={formData.customizations}
+                        />
+                      ) : (
                         <DataPreview
                           data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
                           columns={dataPreview?.columns || []}
@@ -1351,8 +1398,8 @@ function ConfigureChartPageContent() {
                             onPageSizeChange: handleDataPreviewPageSizeChange,
                           }}
                         />
-                      </TabsContent>
-                    )}
+                      )}
+                    </TabsContent>
 
                     <TabsContent value="raw-data" className="flex-1">
                       <DataPreview

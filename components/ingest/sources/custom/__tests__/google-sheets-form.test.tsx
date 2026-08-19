@@ -238,13 +238,14 @@ describe('GoogleSheetsForm', () => {
       mockManaged = { email: MANAGED_EMAIL };
     });
 
-    it('replaces Google sign-in with the choice, ticked, and the key stand-in', () => {
+    it("replaces Google sign-in with the two options, Dalgo's selected", () => {
       render(<Harness />);
 
       expect(screen.getByTestId('gsheets-auth-choice')).toBeInTheDocument();
-      expect(screen.getByTestId('gsheets-use-managed-checkbox')).toBeChecked();
-      // Ticked by default on create, so the field shows its stand-in rather than an empty input.
-      expect(screen.getByTestId('gsheets-managed-placeholder')).toBeInTheDocument();
+      expect(screen.getByTestId('gsheets-managed-option-radio')).toBeChecked();
+      expect(screen.getByTestId('gsheets-own-option-radio')).not.toBeChecked();
+      // The own-key card stays collapsed while it isn't the selected route.
+      expect(screen.queryByTestId('gsheets-key-field')).not.toBeInTheDocument();
       expect(screen.queryByTestId('gsheets-oauth-connect-btn')).not.toBeInTheDocument();
     });
 
@@ -256,87 +257,111 @@ describe('GoogleSheetsForm', () => {
       expect(onAuthSatisfiedChange).toHaveBeenLastCalledWith(true);
     });
 
-    it('is unsatisfied once the box is unticked, until a key is pasted', async () => {
+    // The whole card is the hit area, not just the label text.
+    it('selects an option when the card body is clicked, not only the label', async () => {
+      render(<Harness />);
+
+      await userEvent.click(screen.getByTestId('gsheets-own-option'));
+      expect(screen.getByTestId('gsheets-own-option-radio')).toBeChecked();
+
+      await userEvent.click(screen.getByTestId('gsheets-managed-option'));
+      expect(screen.getByTestId('gsheets-managed-option-radio')).toBeChecked();
+    });
+
+    it('is unsatisfied once the own-key option is picked, until a key is pasted', async () => {
       const onAuthSatisfiedChange = jest.fn();
       render(<Harness onAuthSatisfiedChange={onAuthSatisfiedChange} />);
 
-      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+      await userEvent.click(screen.getByTestId('gsheets-own-option-radio'));
       expect(onAuthSatisfiedChange).toHaveBeenLastCalledWith(false);
 
       await userEvent.type(screen.getByRole('textbox', { name: /Service Account/i }), '{{"a":1}');
       expect(onAuthSatisfiedChange).toHaveBeenLastCalledWith(true);
     });
 
-    it('keeps the checkbox visible on create even once a key is typed', async () => {
+    it('keeps both options visible on create even once a key is typed', async () => {
       render(<Harness />);
 
-      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+      await userEvent.click(screen.getByTestId('gsheets-own-option-radio'));
       await userEvent.type(screen.getByRole('textbox', { name: /Service Account/i }), '{{"a":1}');
 
-      expect(screen.getByTestId('gsheets-use-managed-checkbox')).toBeInTheDocument();
+      expect(screen.getByTestId('gsheets-managed-option-radio')).toBeInTheDocument();
+      expect(screen.getByTestId('gsheets-own-option-radio')).toBeChecked();
     });
 
-    it('re-ticking shows the share steps and a stand-in, and satisfies auth', async () => {
+    it("switching back to Dalgo's key shows the share steps and satisfies auth", async () => {
       const onAuthSatisfiedChange = jest.fn();
       let authType: unknown;
       render(
         <Harness onAuthSatisfiedChange={onAuthSatisfiedChange} onAuthType={(v) => (authType = v)} />
       );
 
-      // Off and back on, so this still exercises the tick itself rather than the create default.
-      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
-      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+      // Off and back on, so this exercises the selection itself rather than the create default.
+      await userEvent.click(screen.getByTestId('gsheets-own-option-radio'));
+      await userEvent.click(screen.getByTestId('gsheets-managed-option-radio'));
 
       expect(screen.getByTestId('gsheets-managed-steps')).toBeInTheDocument();
       expect(screen.getByTestId('gsheets-managed-email')).toHaveTextContent(MANAGED_EMAIL);
-      expect(screen.getByTestId('gsheets-managed-placeholder')).toBeInTheDocument();
+      expect(screen.queryByTestId('gsheets-key-field')).not.toBeInTheDocument();
       expect(onAuthSatisfiedChange).toHaveBeenLastCalledWith(true);
       expect(authType).toBe('Service');
     });
 
-    // The asterisks are cosmetic: sending them would make the backend see a filled slot and skip
-    // the injection, handing Airbyte a key made of stars.
-    it('never puts the stand-in asterisks into the form value', async () => {
+    // The managed route must send an empty slot: the backend injects its key precisely because the
+    // slot arrives empty, so nothing cosmetic may ever leak into the form value.
+    it("leaves the key slot empty on Dalgo's route", async () => {
       const values: unknown[] = [];
       render(<Harness onServiceValue={(v) => values.push(v)} />);
 
-      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
-      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+      await userEvent.click(screen.getByTestId('gsheets-own-option-radio'));
+      await userEvent.click(screen.getByTestId('gsheets-managed-option-radio'));
 
       expect(values.every((v) => !String(v ?? '').includes('*'))).toBe(true);
       expect(values.at(-1) ?? '').toBe('');
     });
 
-    it('gives a typed key back when the box is unticked', async () => {
+    it('gives a typed key back when the own-key option is picked again', async () => {
       render(<Harness />);
       const field = () => screen.getByRole('textbox', { name: /Service Account/i });
-      // Untick to get at the field, type their own key, tick, untick again.
-      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+      // Switch to own to get at the field, type their own key, go managed, come back.
+      await userEvent.click(screen.getByTestId('gsheets-own-option-radio'));
       await userEvent.type(field(), '{{"a":1}');
 
-      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
-      expect(screen.getByTestId('gsheets-managed-placeholder')).toBeInTheDocument();
+      await userEvent.click(screen.getByTestId('gsheets-managed-option-radio'));
+      expect(screen.queryByTestId('gsheets-key-field')).not.toBeInTheDocument();
 
-      await userEvent.click(screen.getByTestId('gsheets-use-managed-checkbox'));
+      await userEvent.click(screen.getByTestId('gsheets-own-option-radio'));
       expect(field()).toHaveValue('{"a":1}');
     });
 
-    // Edit mode: which key a saved source uses is not recorded, so the checkbox must not appear
+    // Edit mode: which key a saved source uses is not recorded, so the choice must not appear
     // (it would imply we know) and the key must survive untouched.
-    it('hides the checkbox and keeps the key when a source already has one', () => {
+    it('hides the choice and keeps the key when a source already has one', () => {
       render(<Harness mode="edit" savedKey={OWN_KEY} />);
 
-      expect(screen.queryByTestId('gsheets-use-managed-checkbox')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('gsheets-managed-option-radio')).not.toBeInTheDocument();
       expect(screen.getByTestId('gsheets-saved-key-note')).toBeInTheDocument();
       expect(screen.getByRole('textbox', { name: /Service Account/i })).toHaveValue(OWN_KEY);
     });
 
-    it('brings the checkbox back once the saved key is cleared', async () => {
+    // Editing the field means the key on screen is no longer the source's saved one, so the
+    // saved-key note must go and the choice must stay available.
+    it('brings the choice back as soon as the saved key is edited', async () => {
+      render(<Harness mode="edit" savedKey={OWN_KEY} />);
+
+      await userEvent.type(screen.getByRole('textbox', { name: /Service Account/i }), 'x');
+
+      expect(screen.getByTestId('gsheets-own-option-radio')).toBeChecked();
+      expect(screen.queryByTestId('gsheets-saved-key-note')).not.toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: /Service Account/i })).toHaveValue(`${OWN_KEY}x`);
+    });
+
+    it('brings the choice back once the saved key is cleared', async () => {
       render(<Harness mode="edit" savedKey={OWN_KEY} />);
 
       await userEvent.clear(screen.getByRole('textbox', { name: /Service Account/i }));
 
-      expect(screen.getByTestId('gsheets-use-managed-checkbox')).toBeInTheDocument();
+      expect(screen.getByTestId('gsheets-managed-option-radio')).toBeInTheDocument();
       expect(screen.queryByTestId('gsheets-saved-key-note')).not.toBeInTheDocument();
     });
   });

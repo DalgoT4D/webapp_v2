@@ -89,6 +89,7 @@ describe('ShareModal', () => {
 
       expect(screen.getByText('Public Access')).toBeInTheDocument();
       expect(screen.getByText(/Anyone with the link can view/)).toBeInTheDocument();
+      expect(screen.getByRole('switch', { name: 'Public Access' })).toBeInTheDocument();
     });
   });
 

@@ -49,6 +49,8 @@ function baseProps(group: SourceGroupData): SourceGroupProps {
     onAddConnection: jest.fn(),
     onEditSource: jest.fn(),
     onDeleteSource: jest.fn(),
+    connectionsStatus: 'ready',
+    onRetryConnections: jest.fn(),
   };
 }
 
@@ -92,5 +94,35 @@ describe('SourceRow', () => {
     render(<SourceRow {...baseProps(group)} canCreateConnection={false} />);
     expect(screen.queryByTestId('add-connection-s1')).not.toBeInTheDocument();
     expect(screen.getByText('No connections yet')).toBeInTheDocument();
+  });
+
+  // Connections are fetched separately from sources, so a source row can render
+  // before its connections have arrived. Zero connections must not be read as
+  // "this source has none" until the fetch has actually answered.
+  it('shows a loading placeholder instead of the add-connection CTA while connections load', () => {
+    const group: SourceGroupData = { source: source('s1', 'Kobo'), connections: [] };
+    render(<SourceRow {...baseProps(group)} connectionsStatus="loading" />);
+    expect(screen.getByTestId('connections-loading-s1')).toBeInTheDocument();
+    expect(screen.queryByTestId('add-connection-s1')).not.toBeInTheDocument();
+    expect(screen.queryByText('No connections yet')).not.toBeInTheDocument();
+  });
+
+  it('shows a retry affordance instead of the add-connection CTA when connections failed to load', () => {
+    const group: SourceGroupData = { source: source('s1', 'Kobo'), connections: [] };
+    const props = baseProps(group);
+    render(<SourceRow {...props} connectionsStatus="error" />);
+    expect(screen.queryByTestId('add-connection-s1')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('retry-connections-s1'));
+    expect(props.onRetryConnections).toHaveBeenCalledTimes(1);
+  });
+
+  it('still renders already-loaded connections while the list is revalidating', () => {
+    const group: SourceGroupData = {
+      source: source('s1', 'Kobo'),
+      connections: [conn('c1', 's1')],
+    };
+    render(<SourceRow {...baseProps(group)} connectionsStatus="loading" />);
+    expect(screen.getByTestId('connection-row-c1')).toBeInTheDocument();
+    expect(screen.queryByTestId('connections-loading-s1')).not.toBeInTheDocument();
   });
 });

@@ -25,6 +25,13 @@ export interface OrgUser {
   landing_dashboard_id?: number | null; // Personal landing page dashboard ID
   org_default_dashboard_id?: number | null; // Organization default dashboard ID
   subscription_plan?: string | null; // Org base plan, used for analytics segmentation
+  // The org plan's validity window (OrgPlans.start_date/end_date on the backend). Null for orgs
+  // with no plan row. THE source of truth for every trial day count — countdown badge, lifecycle
+  // nudges, billing page. Never substitute org.created_at: it is when the org row was made, not
+  // when its plan runs, and the two differ for any org put on a plan after creation or whose
+  // window an admin adjusted.
+  plan_start_date?: string | null;
+  plan_end_date?: string | null;
   work_domain?: string | null; // User's work function at the NGO (M&E/program/data-tech/leadership/field), self-selected at signup; sent to PostHog as the `function` segmentation property
   has_seen_rbac_notice: boolean; // Whether the user has dismissed the one-time RBAC v2 migration carousel
 }

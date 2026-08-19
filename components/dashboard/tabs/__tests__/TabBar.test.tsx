@@ -62,12 +62,11 @@ describe('TabBar', () => {
     render(<TabBar {...defaultProps} isEditMode={true} />);
     await user.click(screen.getByTestId('add-tab-btn'));
     expect(defaultProps.onTabAdd).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('add-tab-btn').parentElement).toBe(
-      screen.getByTestId('dashboard-tab-bar')
-    );
-    expect(screen.getByTestId('dashboard-tab-scroll')).not.toContainElement(
-      screen.getByTestId('add-tab-btn')
-    );
+    // add button sits inside the scroll area, immediately after the last tab
+    const scroll = screen.getByTestId('dashboard-tab-scroll');
+    const addBtn = screen.getByTestId('add-tab-btn');
+    expect(scroll).toContainElement(addBtn);
+    expect(scroll.lastElementChild).toBe(addBtn);
   });
 
   it('does not show remove button when only 1 tab', () => {

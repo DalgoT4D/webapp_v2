@@ -258,7 +258,17 @@ export async function apiPublicPost(path: string, body: any, queryParams?: URLSe
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    throw new Error(`Public API error: ${response.status} ${response.statusText}`);
+    // Append the backend's own `detail` when there is one. Several endpoints return the
+    // same status for different causes (e.g. /trial/activate 400s for both an expired
+    // token and a rejected password); without the detail the caller can only show one
+    // generic message and will name the wrong cause half the time.
+    const detail = await response
+      .json()
+      .then((payload) => (typeof payload?.detail === 'string' ? payload.detail : ''))
+      .catch(() => '');
+    throw new Error(
+      `Public API error: ${response.status} ${response.statusText}${detail ? ` - ${detail}` : ''}`
+    );
   }
   return response.json();
 }

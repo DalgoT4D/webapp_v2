@@ -22,6 +22,7 @@ import {
 } from '@/lib/columnTypeIcons';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Combobox, highlightText } from '@/components/ui/combobox';
+import { TooltipLabel } from '@/components/charts/types/shared/TooltipLabel';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
@@ -564,7 +565,9 @@ export function ChartDataConfigurationV3({
               renderItem={(item, _isSelected, searchQuery) => (
                 <div className="flex items-center gap-2 min-w-0">
                   <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
-                  <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+                  <TooltipLabel label={item.label}>
+                    {highlightText(item.label, searchQuery)}
+                  </TooltipLabel>
                 </div>
               )}
             />
@@ -749,7 +752,9 @@ export function ChartDataConfigurationV3({
             renderItem={(item, _isSelected, searchQuery) => (
               <div className="flex items-center gap-2 min-w-0">
                 {item.data_type && <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />}
-                <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+                <TooltipLabel label={item.label}>
+                  {highlightText(item.label, searchQuery)}
+                </TooltipLabel>
               </div>
             )}
           />
@@ -793,7 +798,9 @@ export function ChartDataConfigurationV3({
                     renderItem={(item, _isSelected, searchQuery) => (
                       <div className="flex items-center gap-2 min-w-0">
                         <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
-                        <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+                        <TooltipLabel label={item.label}>
+                          {highlightText(item.label, searchQuery)}
+                        </TooltipLabel>
                       </div>
                     )}
                   />
@@ -1013,10 +1020,10 @@ export function ChartDataConfigurationV3({
                       placeholder="Select column to sort"
                       compact
                       renderItem={(item, _isSelected, searchQuery) => (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           {item.type && (
                             <span
-                              className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
+                              className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium shrink-0 ${
                                 item.type === 'column'
                                   ? 'bg-blue-100 text-blue-800'
                                   : 'bg-green-100 text-green-800'
@@ -1025,7 +1032,9 @@ export function ChartDataConfigurationV3({
                               {item.type === 'column' ? 'COL' : 'METRIC'}
                             </span>
                           )}
-                          <span>{highlightText(item.label, searchQuery)}</span>
+                          <TooltipLabel label={item.label} className="flex-1">
+                            {highlightText(item.label, searchQuery)}
+                          </TooltipLabel>
                         </div>
                       )}
                     />

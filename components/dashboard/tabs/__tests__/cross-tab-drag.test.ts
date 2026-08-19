@@ -152,6 +152,76 @@ describe('cross-tab dashboard moves', () => {
     expect(result.find((item) => item.i === 'existing')).toMatchObject({ y: 4 });
   });
 
+  it('terminates when a drop cascades through stacked destination widgets', () => {
+    const layout = [
+      { i: 'c0', x: 1, y: 0, w: 8, h: 4 },
+      { i: 'c1', x: 4, y: 4, w: 3, h: 2 },
+      { i: 'c2', x: 0, y: 6, w: 12, h: 5 },
+      { i: 'c3', x: 1, y: 11, w: 2, h: 3 },
+      { i: 'c4', x: 3, y: 11, w: 5, h: 4 },
+    ];
+
+    const result = placeItemInLayout(layout, { i: 'moved', x: 8, y: 5, w: 10, h: 2 }, 12);
+
+    expect(result).toHaveLength(6);
+    // Pushed widgets only ever move down, never back up into another collision.
+    layout.forEach((original) => {
+      expect(result.find((entry) => entry.i === original.i)!.y).toBeGreaterThanOrEqual(original.y);
+    });
+    // Nothing overlaps the dropped widget at its requested position.
+    const moved = result.find((entry) => entry.i === 'moved')!;
+    result
+      .filter((entry) => entry.i !== 'moved')
+      .forEach((entry) => {
+        const overlaps =
+          moved.x < entry.x + entry.w &&
+          moved.x + moved.w > entry.x &&
+          moved.y < entry.y + entry.h &&
+          moved.y + moved.h > entry.y;
+        expect(overlaps).toBe(false);
+      });
+  });
+
+  it('always terminates and never lifts a widget upward across randomized layouts', () => {
+    // Deterministic pseudo-random layouts: a snapshot-based push queue used to spin
+    // forever on roughly a third of these, which froze the whole app on drop.
+    let seed = 1337;
+    const nextInt = (bound: number) => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed % bound;
+    };
+    const COLS = 12;
+
+    for (let trial = 0; trial < 500; trial += 1) {
+      const columnHeights = new Array(COLS).fill(0);
+      const layout = Array.from({ length: 2 + nextInt(6) }, (_unused, index) => {
+        const w = 1 + nextInt(COLS);
+        const x = nextInt(COLS - w + 1);
+        const h = 1 + nextInt(6);
+        let y = 0;
+        for (let col = x; col < x + w; col += 1) y = Math.max(y, columnHeights[col]);
+        for (let col = x; col < x + w; col += 1) columnHeights[col] = y + h;
+        return { i: `c${index}`, x, y, w, h };
+      });
+      const dropped = {
+        i: 'moved',
+        x: nextInt(COLS),
+        y: nextInt(20),
+        w: 1 + nextInt(COLS),
+        h: 1 + nextInt(6),
+      };
+
+      const result = placeItemInLayout(layout, dropped, COLS);
+
+      expect(result).toHaveLength(layout.length + 1);
+      layout.forEach((original) => {
+        expect(result.find((entry) => entry.i === original.i)!.y).toBeGreaterThanOrEqual(
+          original.y
+        );
+      });
+    }
+  });
+
   it('clamps pointer placement to the grid', () => {
     expect(
       pointerToGridPosition(
