@@ -442,6 +442,16 @@ function EditChartPageContent() {
     }
 
     if (formData.chart_type === ChartTypes.MAP) {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          formData.geographic_column &&
+          formData.selected_geojson_id &&
+          (metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       // Count(*) doesn't need a value_column, similar to other chart types
       const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
       return !!(
@@ -729,6 +739,7 @@ function EditChartPageContent() {
 
   // Dynamic map data overlay payload with drill-down filters
   // Build map data overlay payload similar to view component (stable approach)
+  const activeMapMetricKey = JSON.stringify(formData.metrics?.[0] || {});
   const activeDataOverlayPayload = useMemo(() => {
     if (formData.chart_type !== ChartTypes.MAP || !formData.schema_name || !formData.table_name)
       return null;
@@ -756,13 +767,16 @@ function EditChartPageContent() {
       }
     }
 
+    const metric = formData.metrics?.[0];
+
     return activeGeographicColumn
       ? {
           schema_name: formData.schema_name,
           table_name: formData.table_name,
           geographic_column: activeGeographicColumn,
+          metric,
           value_column: formData.aggregate_column,
-          aggregate_function: formData.aggregate_function || 'sum',
+          aggregate_function: formData.aggregate_function || (metric ? undefined : 'sum'),
           filters: filters,
           chart_filters: [] as any[],
           chart_id: chartId ? parseInt(String(chartId)) : undefined,
@@ -779,6 +793,7 @@ function EditChartPageContent() {
     formData.district_column,
     drillDownPath,
     chartId,
+    activeMapMetricKey,
   ]);
 
   // Fetch GeoJSON data for maps (dynamic based on drill-down state)

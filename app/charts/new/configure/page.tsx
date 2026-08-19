@@ -280,6 +280,16 @@ function ConfigureChartPageContent() {
     }
 
     if (formData.chart_type === 'map') {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          formData.geographic_column &&
+          formData.selected_geojson_id &&
+          (metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       return !!(
         formData.geographic_column &&
         formData.value_column &&
@@ -649,12 +659,16 @@ function ConfigureChartPageContent() {
 
   // Generate map preview payloads in create mode
   useEffect(() => {
+    const metric = formData.metrics?.[0];
+    const hasValidMetric = metric
+      ? !!(metric.column_expression || metric.aggregation)
+      : !!(formData.aggregate_column && formData.aggregate_function);
+
     if (
       formData.chart_type === 'map' &&
       formData.geographic_column &&
       formData.selected_geojson_id &&
-      formData.aggregate_column &&
-      formData.aggregate_function &&
+      hasValidMetric &&
       formData.schema_name &&
       formData.table_name
     ) {
@@ -674,6 +688,7 @@ function ConfigureChartPageContent() {
           schema_name: formData.schema_name,
           table_name: formData.table_name,
           geographic_column: formData.geographic_column,
+          metric,
           value_column: formData.aggregate_column,
           aggregate_function: formData.aggregate_function,
           selected_geojson_id: formData.selected_geojson_id,
@@ -702,6 +717,7 @@ function ConfigureChartPageContent() {
     // Stringify payloads to prevent infinite loops
     JSON.stringify(formData.geojsonPreviewPayload || {}),
     JSON.stringify(formData.dataOverlayPayload || {}),
+    JSON.stringify(formData.metrics?.[0] || {}),
   ]);
 
   const handleDataPreviewPageSizeChange = (newPageSize: number) => {
@@ -885,6 +901,16 @@ function ConfigureChartPageContent() {
     }
 
     if (formData.chart_type === 'map') {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          formData.geographic_column &&
+          formData.selected_geojson_id &&
+          (metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       // Count(*) doesn't need a value_column, similar to other chart types
       const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
       return !!(
