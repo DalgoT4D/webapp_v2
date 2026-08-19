@@ -36,6 +36,7 @@ import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { type ChartTitleConfig } from '@/lib/chart-title-utils';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@/constants/chart-types';
 import { resolveDashboardFilters, formatAsChartFilters } from '@/lib/dashboard-filter-utils';
 import {
   applyLegendPosition,
@@ -182,7 +183,7 @@ export function ChartElementView({
 
   // Table pagination state
   const [tablePage, setTablePage] = useState(1);
-  const [tablePageSize, setTablePageSize] = useState(20);
+  const [tablePageSize, setTablePageSize] = useState(DEFAULT_TABLE_PAGE_SIZE);
 
   // ✅ ADD: Drill-down state management for table charts
   const [tableDrillDownState, setTableDrillDownState] = useState<{
@@ -312,6 +313,14 @@ export function ChartElementView({
 
   // Use frozen config in report mode, public metadata in public mode, or chart in private mode
   const effectiveChart = frozenChartConfig || (isPublicMode ? publicChartMetadata : chart);
+
+  // Sync tablePageSize from the saved config — it starts at a hardcoded default otherwise.
+  useEffect(() => {
+    setTablePageSize(
+      effectiveChart?.extra_config?.pagination?.page_size ?? DEFAULT_TABLE_PAGE_SIZE
+    );
+    setTablePage(1); // Reset to first page when the saved page size changes
+  }, [effectiveChart?.extra_config?.pagination?.page_size]);
 
   // Determine chart type using effective chart
   const isTableChart = effectiveChart?.chart_type === ChartTypes.TABLE;
