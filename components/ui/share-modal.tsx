@@ -864,7 +864,7 @@ export function ShareModal({
                       onValueChange={(v) => handleModeChange(v as GeneralAccessMode)}
                       disabled={modeChanging}
                     >
-                      <SelectTrigger className="w-28 h-8" data-testid="general-access-select">
+                      <SelectTrigger className="w-32 h-8" data-testid="general-access-select">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
