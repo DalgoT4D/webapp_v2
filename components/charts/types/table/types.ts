@@ -40,7 +40,7 @@ export type ConditionalFormattingRule =
 /** Column alignment options */
 export type ColumnAlignment = 'left' | 'center' | 'right';
 
-/** Predefined color theme for table charts */
+/** Predefined color theme for table and pivot table charts */
 export interface TableTheme {
   id: string;
   label: string;
@@ -51,6 +51,8 @@ export interface TableTheme {
   border: string;
   subtotalRow: string;
   grandTotalRow: string;
+  /** Darker border used inside grand-total cells so gridlines stay visible against grandTotalRow */
+  grandTotalBorder: string;
   hoverRow: string;
 }
 

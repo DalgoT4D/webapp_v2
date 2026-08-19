@@ -15,6 +15,9 @@ import {
   FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
+import { getPivotRenderProps } from '@/components/charts/pivot-table/utils';
+import type { PivotTableResponse } from '@/types/pivot-table';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPublicPost } from '@/lib/api';
@@ -55,6 +58,7 @@ import {
   applyLineBarDateFormatting,
 } from '@/lib/chart-formatting-utils';
 import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
+import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ChartTypes, type ChartDataPayload, type ChartDimension } from '@/types/charts';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
@@ -311,6 +315,7 @@ export function ChartElementView({
 
   // Determine chart type using effective chart
   const isTableChart = effectiveChart?.chart_type === ChartTypes.TABLE;
+  const isPivotTableChart = effectiveChart?.chart_type === ChartTypes.PIVOT_TABLE;
   const isMapChart = effectiveChart?.chart_type === ChartTypes.MAP;
   const isPieChart = effectiveChart?.chart_type === ChartTypes.PIE;
   const isNumberChart = effectiveChart?.chart_type === ChartTypes.NUMBER;
@@ -726,9 +731,11 @@ export function ChartElementView({
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
 
   // Fetch geojsons for the current drill-down region - use public API for public mode
-  const { data: privateRegionGeojsons } = useRegionGeoJSONs(
-    !isPublicMode ? currentDrillDownRegionId : null
-  );
+  const {
+    data: privateRegionGeojsons,
+    error: privateRegionGeojsonsError,
+    isLoading: privateRegionGeojsonsLoading,
+  } = useRegionGeoJSONs(!isPublicMode ? currentDrillDownRegionId : null);
 
   // Use public geojsons API for public mode
   const publicGeojsonsUrl =
@@ -736,7 +743,11 @@ export function ChartElementView({
       ? `/api/v1/public/regions/${currentDrillDownRegionId}/geojsons/`
       : null;
 
-  const { data: publicRegionGeojsons } = useSWR(publicGeojsonsUrl, async (url: string) => {
+  const {
+    data: publicRegionGeojsons,
+    error: publicRegionGeojsonsError,
+    isLoading: publicRegionGeojsonsLoading,
+  } = useSWR(publicGeojsonsUrl, async (url: string) => {
     const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
     if (!response.ok) {
       throw new Error('Failed to fetch public geojsons');
@@ -745,25 +756,30 @@ export function ChartElementView({
   });
 
   const regionGeojsons = isPublicMode ? publicRegionGeojsons : privateRegionGeojsons;
+  const regionGeojsonsError = isPublicMode ? publicRegionGeojsonsError : privateRegionGeojsonsError;
+  const regionGeojsonsLoading = isPublicMode
+    ? publicRegionGeojsonsLoading
+    : privateRegionGeojsonsLoading;
 
   // For map charts, determine which geojson and data to fetch based on drill-down state
   let activeGeojsonId = null;
   let activeGeographicColumn = null;
+  const activeDrillDownLevel =
+    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1] : null;
+  const drillDownGeojsonResolution = resolveDrillDownGeoJSON({
+    isDrillDownActive: Boolean(activeDrillDownLevel),
+    regionId: currentDrillDownRegionId,
+    regionGeojsons,
+    regionGeojsonsLoading,
+    regionGeojsonsError,
+    fallbackGeojsonId: activeDrillDownLevel?.geojson_id,
+  });
 
   if (effectiveChart?.chart_type === ChartTypes.MAP) {
-    if (drillDownPath.length > 0) {
+    if (activeDrillDownLevel) {
       // We're in a drill-down state, use the first available geojson for this region
-      const lastDrillDown = drillDownPath[drillDownPath.length - 1];
-      activeGeographicColumn = lastDrillDown.geographic_column;
-
-      if (regionGeojsons && regionGeojsons.length > 0) {
-        // Use the first available geojson for this region (e.g., Karnataka districts)
-        activeGeojsonId = regionGeojsons[0].id;
-        console.log(`🗺️ Using geojson ID ${activeGeojsonId} for region ${lastDrillDown.name}`);
-      } else {
-        // Fallback to the stored geojson_id (if any)
-        activeGeojsonId = lastDrillDown.geojson_id;
-      }
+      activeGeographicColumn = activeDrillDownLevel.geographic_column;
+      activeGeojsonId = drillDownGeojsonResolution.geojsonId;
     } else if (currentLayer) {
       // Use current layer configuration (first layer)
       activeGeojsonId = currentLayer.geojson_id;
@@ -867,8 +883,10 @@ export function ChartElementView({
 
   // Use appropriate geojson data based on mode
   const geojsonData = isPublicMode ? publicGeojsonData : privateGeojsonData;
-  const geojsonError = isPublicMode ? publicGeojsonError : privateGeojsonError;
-  const geojsonLoading = isPublicMode ? publicGeojsonLoading : privateGeojsonLoading;
+  const geojsonDataError = isPublicMode ? publicGeojsonError : privateGeojsonError;
+  const geojsonDataLoading = isPublicMode ? publicGeojsonLoading : privateGeojsonLoading;
+  const geojsonError = regionGeojsonsError || geojsonDataError;
+  const geojsonLoading = drillDownGeojsonResolution.isResolving || geojsonDataLoading;
 
   // Fetch map data overlay - public vs private mode
   // Apply same payload transformation as useMapDataOverlay (handles count, builds metrics)
@@ -1523,7 +1541,8 @@ export function ChartElementView({
     };
 
     try {
-      if (isTableChart && tableRef.current) {
+      // Handle table/pivot chart export
+      if ((isTableChart || isPivotTableChart) && tableRef.current) {
         const filename = generateFilename(
           chartMetadata?.title || frozenChartConfig?.title || `table-${chartId}`,
           'png'
@@ -1554,6 +1573,27 @@ export function ChartElementView({
   // New CSV export function
   const handleDownloadCSV = async () => {
     try {
+      // Pivot tables generate the cross-tab CSV client-side from the already
+      // rendered response — the backend stream only emits flat table shapes.
+      if (isPivotTableChart) {
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+        const sanitizedTitle = (
+          chartMetadata?.title ||
+          frozenChartConfig?.title ||
+          `chart-${chartId}`
+        )
+          .replace(/[^a-z0-9]/gi, '_')
+          .replace(/_+/g, '_')
+          .toLowerCase();
+        await ChartExporter.exportPivotAsCSV(
+          chartData?.data as unknown as PivotTableResponse | undefined,
+          effectiveChart?.extra_config,
+          { filename: `${sanitizedTitle}-${timestamp}` }
+        );
+        toast.success('CSV downloaded successfully');
+        return;
+      }
+
       if (!chartDataPayload) {
         toast.error('Chart data is not available for CSV export');
         console.error('chartDataPayload is null');
@@ -1630,16 +1670,20 @@ export function ChartElementView({
   };
 
   const handleToggleFullscreen = () => {
-    if (!wrapperRef.current) return;
-    toggleFullscreen(wrapperRef.current);
+    // Use wrapper ref for stable fullscreen (prevents exit on drill down)
+    // For tables/pivots, use tableRef; for all charts (including maps), use wrapperRef
+    const targetRef = isTableChart || isPivotTableChart ? tableRef.current : wrapperRef.current;
+    if (!targetRef) return;
+
+    toggleFullscreen(targetRef);
   };
 
   // Handle chart resize when fullscreen state changes
   useEffect(() => {
     // Trigger chart resize after fullscreen change
     const resizeTimer = setTimeout(() => {
-      if (!isTableChart) {
-        // Only resize ECharts instances, not tables
+      if (!isTableChart && !isPivotTableChart) {
+        // Only resize ECharts instances, not tables/pivots
         if (chartInstance.current) {
           chartInstance.current.resize();
         }
@@ -1647,11 +1691,11 @@ export function ChartElementView({
           mapChartInstance.current.resize();
         }
       }
-      // Tables don't need explicit resize - they automatically adjust with CSS flexbox
+      // Tables/pivots don't need explicit resize - they automatically adjust with CSS flexbox
     }, 100);
 
     return () => clearTimeout(resizeTimer);
-  }, [isFullscreen, isTableChart]);
+  }, [isFullscreen, isTableChart, isPivotTableChart]);
 
   if (
     isLoading ||
@@ -1846,7 +1890,20 @@ export function ChartElementView({
       )}
 
       {/* Chart container */}
-      {isTableChart ? (
+      {isPivotTableChart ? (
+        <div ref={tableRef} className="w-full flex-1 h-full overflow-auto p-2">
+          {chartData?.data ? (
+            <PivotTableChart
+              data={chartData.data as unknown as PivotTableResponse}
+              {...getPivotRenderProps(effectiveChart?.extra_config)}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              {isLoading ? <Loader2 className="h-8 w-8 animate-spin" /> : 'No data available'}
+            </div>
+          )}
+        </div>
+      ) : isTableChart ? (
         <div
           ref={tableRef}
           className={cn(

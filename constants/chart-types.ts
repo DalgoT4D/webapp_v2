@@ -35,6 +35,12 @@ export const CHART_TYPE_COLORS = {
     className: 'text-[#6B7280]',
     bgClassName: 'bg-[#6B7280]/10',
   },
+  pivot_table: {
+    color: '#0EA5E9',
+    bgColor: '#0EA5E91A',
+    className: 'text-[#0EA5E9]',
+    bgClassName: 'bg-[#0EA5E9]/10',
+  },
 } as const;
 
 export type ChartType = keyof typeof CHART_TYPE_COLORS;

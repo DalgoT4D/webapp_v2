@@ -31,6 +31,7 @@ const customJestConfig: Config = {
     '<rootDir>/node_modules/',
     '<rootDir>/e2e/', // Exclude Playwright E2E tests
   ],
+  modulePathIgnorePatterns: ['<rootDir>/.next/'],
   collectCoverageFrom: [
     'components/**/*.{js,jsx,ts,tsx}',
     'app/**/*.{js,jsx,ts,tsx}',

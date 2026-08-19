@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { Combobox, highlightText } from '@/components/ui/combobox';
+import { TooltipLabel } from '@/components/charts/types/shared/TooltipLabel';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import type { ChartDimension } from '@/types/charts';
 import {
@@ -39,6 +40,8 @@ interface TableDimensionsSelectorProps {
   onReorderWithScopedRules?: () => void;
   /** Maps dimension column name to count of conditional formatting rules scoped to it (T9) */
   scopedRuleCountByLevel?: Record<string, number>;
+  /** Label for the add button. Defaults to the table-chart wording. */
+  addButtonLabel?: string;
 }
 
 // Sortable dimension item component
@@ -114,9 +117,9 @@ function SortableDimensionItem({
           renderItem={(item, _isSelected, searchQuery) => (
             <div className="flex items-center gap-2 min-w-0">
               <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4 flex-shrink-0" />
-              <span className="truncate" title={`${item.label} (${item.data_type})`}>
+              <TooltipLabel label={`${item.label} (${item.data_type})`}>
                 {highlightText(item.label, searchQuery)}
-              </span>
+              </TooltipLabel>
             </div>
           )}
         />
@@ -182,6 +185,7 @@ export function TableDimensionsSelector({
   hasLevelScopedRules,
   onReorderWithScopedRules,
   scopedRuleCountByLevel,
+  addButtonLabel = 'ADD DIMENSION(s)',
 }: TableDimensionsSelectorProps) {
   // Index of the dimension pending removal confirmation (T9)
   const [pendingRemoveIndex, setPendingRemoveIndex] = useState<number | null>(null);
@@ -345,7 +349,7 @@ export function TableDimensionsSelector({
         className="w-full bg-black text-white hover:bg-gray-800"
       >
         <Plus className="h-4 w-4 mr-2" />
-        ADD DIMENSION(s)
+        {addButtonLabel}
       </Button>
 
       {/* T9: Inline confirmation when removing a dimension with scoped rules */}

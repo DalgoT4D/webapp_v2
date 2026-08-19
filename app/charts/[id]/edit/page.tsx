@@ -35,6 +35,7 @@ import {
 } from '@/hooks/api/useChart';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { ChartTypes, type ChartType } from '@/types/charts';
+import { buildPivotDataFields, buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
 import {
   getApiCustomizations,
   mergeTableColumnFormatting,
@@ -45,6 +46,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
 import { deepEqual } from '@/lib/form-utils';
+import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -116,6 +118,11 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         nullValueLabel: 'No Data',
         title: '',
         showLabels: false,
+      };
+    case ChartTypes.PIVOT_TABLE:
+      return {
+        numberFormat: 'default',
+        decimalPlaces: 0,
       };
     default:
       return {};
@@ -313,6 +320,10 @@ function EditChartPageContent() {
                 ? [chart.extra_config.dimension_column]
                 : []),
         }),
+        // Include pivot table fields from extra_config when loading a pivot_table chart
+        ...(chart.chart_type === ChartTypes.PIVOT_TABLE && {
+          extra_config: buildPivotExtraConfig(chart.extra_config),
+        }),
       };
       setFormData(initialData);
       setOriginalFormData(initialData);
@@ -437,6 +448,20 @@ function EditChartPageContent() {
       return true; // Table charts just need basic schema/table selection
     }
 
+    if (formData.chart_type === 'pivot_table') {
+      // Presence alone isn't enough — each metric must be a valid definition
+      // (mirrors the create-flow pivot predicate).
+      const hasRowDimensions = (formData.extra_config?.row_dimensions || []).length > 0;
+      const hasValidMetrics =
+        (formData.metrics || []).length > 0 &&
+        formData.metrics!.every(
+          (metric) =>
+            metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
+        );
+      return hasRowDimensions && hasValidMetrics;
+    }
+
     {
       // For bar/line/table charts with multiple metrics
       if (
@@ -534,10 +559,15 @@ function EditChartPageContent() {
               }),
             // Include metrics for multiple metrics support
             ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
+            // Pivot table top-level fields — the /chart-data/ pipeline reads these off
+            // the payload root (not extra_config).
+            ...(formData.chart_type === 'pivot_table' &&
+              buildPivotDataFields(formData.extra_config)),
             // Number formatting is frontend-only - exclude from API payload
-            ...(formData.chart_type !== ChartTypes.TABLE && {
-              customizations: getApiCustomizations(formData.chart_type, formData.customizations),
-            }),
+            ...(formData.chart_type !== ChartTypes.TABLE &&
+              formData.chart_type !== ChartTypes.PIVOT_TABLE && {
+                customizations: getApiCustomizations(formData.chart_type, formData.customizations),
+              }),
             extra_config: {
               filters: [
                 ...(formData.filters || []),
@@ -657,27 +687,37 @@ function EditChartPageContent() {
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null,
     drillDownPath.length > 0
   );
-  const { data: regionGeojsons } = useRegionGeoJSONs(
-    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null
-  );
+  const currentDrillDownRegionId =
+    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
+  const {
+    data: regionGeojsons,
+    error: regionGeojsonsError,
+    isLoading: regionGeojsonsLoading,
+  } = useRegionGeoJSONs(currentDrillDownRegionId);
 
   // Dynamic GeoJSON ID based on drill-down state
-  const activeGeojsonId = useMemo(() => {
-    if (formData.chart_type !== ChartTypes.MAP) return null;
-
-    // If we're in drill-down mode and have region geojsons, use the first one
-    if (drillDownPath.length > 0 && regionGeojsons && regionGeojsons.length > 0) {
-      return regionGeojsons[0].id;
-    }
-
-    // Otherwise use the base geojson
-    return formData.geojsonPreviewPayload?.geojsonId || null;
-  }, [
-    formData.chart_type,
-    formData.geojsonPreviewPayload?.geojsonId,
-    drillDownPath.length,
-    regionGeojsons,
-  ]);
+  const drillDownGeojsonResolution = useMemo(
+    () =>
+      resolveDrillDownGeoJSON({
+        isDrillDownActive: drillDownPath.length > 0,
+        regionId: currentDrillDownRegionId,
+        regionGeojsons,
+        regionGeojsonsLoading,
+        regionGeojsonsError,
+        fallbackGeojsonId:
+          drillDownPath.length > 0 ? null : formData.geojsonPreviewPayload?.geojsonId,
+      }),
+    [
+      currentDrillDownRegionId,
+      drillDownPath.length,
+      formData.geojsonPreviewPayload?.geojsonId,
+      regionGeojsons,
+      regionGeojsonsError,
+      regionGeojsonsLoading,
+    ]
+  );
+  const activeGeojsonId =
+    formData.chart_type === ChartTypes.MAP ? drillDownGeojsonResolution.geojsonId : null;
 
   // Dynamic map data overlay payload with drill-down filters
   // Build map data overlay payload similar to view component (stable approach)
@@ -736,9 +776,11 @@ function EditChartPageContent() {
   // Fetch GeoJSON data for maps (dynamic based on drill-down state)
   const {
     data: geojsonData,
-    error: geojsonError,
-    isLoading: geojsonLoading,
+    error: geojsonDataError,
+    isLoading: geojsonDataLoading,
   } = useGeoJSONData(activeGeojsonId);
+  const geojsonError = regionGeojsonsError || geojsonDataError;
+  const geojsonLoading = drillDownGeojsonResolution.isResolving || geojsonDataLoading;
 
   // Fetch map data overlay (dynamic based on drill-down state)
   const {
@@ -752,10 +794,16 @@ function EditChartPageContent() {
     data: dataPreview,
     error: previewError,
     isLoading: previewLoading,
-  } = useChartDataPreview(chartDataPayload, dataPreviewPage, dataPreviewPageSize);
+  } = useChartDataPreview(
+    formData.chart_type !== ChartTypes.PIVOT_TABLE ? chartDataPayload : null,
+    dataPreviewPage,
+    dataPreviewPageSize
+  );
 
   // Fetch total rows for chart data preview pagination
-  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(chartDataPayload);
+  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(
+    formData.chart_type !== ChartTypes.PIVOT_TABLE ? chartDataPayload : null
+  );
 
   // Fetch raw table data
   const {
@@ -1126,6 +1174,20 @@ function EditChartPageContent() {
       return true; // Table charts only need basic fields (title, chart_type, schema, table)
     }
 
+    if (formData.chart_type === 'pivot_table') {
+      // Presence alone isn't enough — each metric must be a valid definition
+      // (mirrors the create-flow pivot predicate).
+      const hasRowDimensions = (formData.extra_config?.row_dimensions || []).length > 0;
+      const hasValidMetrics =
+        (formData.metrics || []).length > 0 &&
+        formData.metrics!.every(
+          (metric) =>
+            metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
+        );
+      return hasRowDimensions && hasValidMetrics;
+    }
+
     {
       // For bar/line/table charts with multiple metrics
       if (
@@ -1273,6 +1335,8 @@ function EditChartPageContent() {
               ? formData.dimensions.map((d) => d.column).filter(Boolean)
               : [],
         }),
+        // Pivot table extra_config fields (source of truth persisted on the chart)
+        ...(formData.chart_type === 'pivot_table' && buildPivotExtraConfig(formData.extra_config)),
       },
     };
   };
@@ -1738,7 +1802,14 @@ function EditChartPageContent() {
                     <div className="w-full h-full">
                       <ChartPreview
                         key={`${formData.schema_name}-${formData.table_name}`}
-                        config={chartData?.echarts_config || lastValidChartConfig}
+                        config={
+                          formData.chart_type === 'pivot_table'
+                            ? { extra_config: formData.extra_config }
+                            : chartData?.echarts_config || lastValidChartConfig
+                        }
+                        tableData={
+                          formData.chart_type === 'pivot_table' ? chartData?.data : undefined
+                        }
                         isLoading={chartDataLoading}
                         error={null} // Error handled by toast
                         chartType={formData.chart_type}
@@ -1753,27 +1824,35 @@ function EditChartPageContent() {
                 <div className="p-4 h-full">
                   <Tabs
                     defaultValue={
-                      formData.chart_type === ChartTypes.TABLE ? 'raw-data' : 'chart-data'
+                      formData.chart_type === ChartTypes.TABLE ||
+                      formData.chart_type === ChartTypes.PIVOT_TABLE
+                        ? 'raw-data'
+                        : 'chart-data'
                     }
                     className="h-full flex flex-col"
                   >
-                    <TabsList
-                      className={`grid w-full ${formData.chart_type === ChartTypes.TABLE ? 'grid-cols-1' : 'grid-cols-2'} flex-shrink-0`}
-                    >
-                      {formData.chart_type !== ChartTypes.TABLE && (
-                        <TabsTrigger value="chart-data" className="flex items-center gap-2">
-                          <BarChart3 className="h-4 w-4" />
-                          Chart Data
-                        </TabsTrigger>
-                      )}
+                    <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
+                      <TabsTrigger value="chart-data" className="flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4" />
+                        Chart Data
+                      </TabsTrigger>
                       <TabsTrigger value="raw-data" className="flex items-center gap-2">
                         <Database className="h-4 w-4" />
                         Raw Data
                       </TabsTrigger>
                     </TabsList>
 
-                    {formData.chart_type !== ChartTypes.TABLE && (
-                      <TabsContent value="chart-data" className="flex-1 overflow-auto">
+                    <TabsContent value="chart-data" className="flex-1 overflow-auto">
+                      {formData.chart_type === ChartTypes.PIVOT_TABLE ? (
+                        <ChartPreview
+                          config={{ extra_config: formData.extra_config }}
+                          tableData={chartData?.data}
+                          isLoading={chartDataLoading}
+                          error={null}
+                          chartType={formData.chart_type}
+                          customizations={formData.customizations}
+                        />
+                      ) : (
                         <DataPreview
                           data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
                           columns={dataPreview?.columns || []}
@@ -1788,8 +1867,8 @@ function EditChartPageContent() {
                             onPageSizeChange: handleDataPreviewPageSizeChange,
                           }}
                         />
-                      </TabsContent>
-                    )}
+                      )}
+                    </TabsContent>
 
                     <TabsContent value="raw-data" className="flex-1 overflow-auto">
                       <DataPreview

@@ -32,6 +32,8 @@ import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useUnreadCount } from '@/hooks/api/useNotifications';
 import { CreateOrgDialog } from '@/components/settings/organizations/CreateOrgDialog';
 import { OrgBrand } from '@/components/ui/org-brand';
+import { NudgeCenter } from '@/components/onboarding/nudge-center';
+import { TrialBadge } from '@/components/onboarding/trial-badge';
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -158,6 +160,9 @@ export function Header({
 
       {/* Right side actions */}
       <div className="flex items-center gap-6">
+        {/* Free-trial countdown — left of the bell, trial orgs only */}
+        {!isOrgSwitching && <TrialBadge />}
+
         {/* Notifications Bell */}
         <Button
           variant="ghost"
@@ -304,6 +309,9 @@ export function Header({
 
       {/* Create Organization Dialog */}
       <CreateOrgDialog open={showCreateOrgDialog} onOpenChange={setShowCreateOrgDialog} />
+
+      {/* Single decision point for which trial nudge (if any) shows — app-wide */}
+      <NudgeCenter />
     </div>
   );
 }

@@ -32,23 +32,22 @@ import { Loader2, MoreVertical, Play, Plus, Settings, Trash2, Lock, Clock } from
 import {
   usePrefectTasks,
   runPrefectDeployment,
-  runPrefectTask,
   fetchFlowRunStatus,
   deletePrefectTask,
 } from '@/hooks/api/usePrefectTasks';
 import { fetchFlowRunLogs } from '@/hooks/api/usePipelines';
 import { LogCard } from '@/components/pipeline/log-card';
-import { PipelineRunDisplayStatus, LockStatus } from '@/constants/pipeline';
+import {
+  PipelineRunDisplayStatus,
+  LockStatus,
+  FlowRunStatus,
+  TERMINAL_FLOW_RUN_STATES,
+} from '@/constants/pipeline';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import {
-  TASK_DBTRUN,
-  TASK_DBTTEST,
-  TASK_DOCSGENERATE,
-  FLOW_RUN_LOGS_OFFSET_LIMIT,
-} from '@/constants/dbt-tasks';
+import { FLOW_RUN_LOGS_OFFSET_LIMIT } from '@/constants/dbt-tasks';
 import type { TransformTask } from '@/types/transform';
 import { timeAgo } from '../utils';
 
@@ -131,14 +130,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
     resetLogs(task.uuid);
 
     try {
-      // Path A: Deployment-based execution (dbt-run or any task with deploymentId)
-      if (task.slug === TASK_DBTRUN || task.deploymentId) {
-        await handleDeploymentRun(task);
-      }
-      // Path B: Direct execution (dbt-test, dbt-deps, dbt-seed, etc.)
-      else {
-        await handleDirectRun(task);
-      }
+      await handleDeploymentRun(task);
     } catch (error: unknown) {
       toastError.api(error, `Failed to run ${task.label}`);
       setLogStatus(PipelineRunDisplayStatus.FAILED);
@@ -151,8 +143,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
 
   const handleDeploymentRun = async (task: TransformTask) => {
     if (!task.deploymentId) {
-      toastError.api('No deployment found for this task');
-      return;
+      throw new Error(`No deployment found for task ${task.slug} (${task.uuid})`);
     }
 
     const response = await runPrefectDeployment(task.deploymentId);
@@ -170,7 +161,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
     const DEPLOYMENT_POLL_INTERVAL_MS = 5000;
     let status = await fetchFlowRunStatus(response.flow_run_id);
 
-    while (!['COMPLETED', 'FAILED'].includes(status)) {
+    while (!TERMINAL_FLOW_RUN_STATES.includes(status)) {
       await new Promise((resolve) => setTimeout(resolve, DEPLOYMENT_POLL_INTERVAL_MS));
       fetchLogs(response.flow_run_id);
       status = await fetchFlowRunStatus(response.flow_run_id);
@@ -179,55 +170,11 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
     // Final log fetch and status
     await fetchLogs(response.flow_run_id);
     setLogStatus(
-      status === 'COMPLETED' ? PipelineRunDisplayStatus.SUCCESS : PipelineRunDisplayStatus.FAILED
+      status === FlowRunStatus.COMPLETED
+        ? PipelineRunDisplayStatus.SUCCESS
+        : PipelineRunDisplayStatus.FAILED
     );
     mutate();
-  };
-
-  const handleDirectRun = async (task: TransformTask) => {
-    const response = await runPrefectTask(task.uuid);
-
-    const isSuccess = response?.status === 'success';
-    if (isSuccess) {
-      trackEvent(ANALYTICS_EVENTS.TRANSFORM_DBT_TASK_TRIGGERED);
-      toastSuccess.generic(`${task.label} ran successfully`);
-      setLogStatus(PipelineRunDisplayStatus.SUCCESS);
-    } else {
-      toastError.api(`${task.label} failed`);
-      setLogStatus(PipelineRunDisplayStatus.FAILED);
-    }
-
-    // dbt-test special handling: if result contains a flow state object,
-    // we need a separate API call to fetch the actual logs
-    if (task.slug === TASK_DBTTEST && response?.result?.[0]) {
-      const firstResult = response.result[0];
-      if (typeof firstResult === 'object' && firstResult !== null && 'id' in firstResult) {
-        const runId = (firstResult as { state_details?: { flow_run_id?: string } })?.state_details
-          ?.flow_run_id;
-        if (runId) {
-          try {
-            const logResponse = await fetchFlowRunLogs(runId);
-            if (logResponse?.logs?.logs?.length > 0) {
-              const logsArray = logResponse.logs.logs.map((logObj) => logObj.message);
-              setLogs(logsArray);
-              logsRef.current = logsArray;
-            }
-          } catch {
-            // Log fetch failed, fall through to direct result display
-          }
-          return;
-        }
-      }
-    }
-
-    // Default: set the result array directly as logs
-    if (response?.result) {
-      const resultLogs = response.result.map((r) =>
-        typeof r === 'string' ? r : JSON.stringify(r)
-      );
-      setLogs(resultLogs);
-      logsRef.current = resultLogs;
-    }
   };
 
   const handleDeleteTask = async () => {
@@ -256,7 +203,7 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
     return runningTask === task.uuid || (task.lock?.status && task.lock.status !== 'complete');
   };
 
-  const filteredTasks = tasks?.filter((task) => task.slug !== TASK_DOCSGENERATE) ?? [];
+  const filteredTasks = tasks ?? [];
 
   return (
     <>
@@ -265,7 +212,8 @@ export function DBTTaskList({ isAnyTaskLocked, onNewTask, canCreateTask }: DBTTa
           <div>
             <CardTitle>DBT Actions</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Execute and manage your DBT transformation tasks
+              Execute and manage your DBT transformation tasks. Git pull, dbt clean, and dbt deps
+              run automatically before each task.
             </p>
           </div>
           <Button

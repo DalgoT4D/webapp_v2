@@ -18,6 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+// same list the free-trial signup offers — one source so both forms send slugs the backend accepts
+import { WORK_FUNCTION_OPTIONS } from '@/constants/trial';
 
 interface InvitationFormData {
   password: string;
@@ -63,7 +65,7 @@ function InvitationAcceptanceForm() {
         return;
       }
       if (!formData.work_domain) {
-        setError('Please select an option for work domain');
+        setError('Please select an option for your function');
         return;
       }
     }
@@ -207,23 +209,21 @@ function InvitationAcceptanceForm() {
 
               <div>
                 <Label htmlFor="work_domain">
-                  Which domain best describes the work you do at the organization?
+                  Which function best describes the work you do at the organization?
                 </Label>
                 <Select
                   value={formData.work_domain || ''}
                   onValueChange={(value) => handleInputChange('work_domain', value)}
                 >
                   <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select your domain" />
+                    <SelectValue placeholder="Select your function" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">None / Prefer not to say</SelectItem>
-                    <SelectItem value="monitoring_evaluation">Monitoring & Evaluation</SelectItem>
-                    <SelectItem value="program_manager">Program Manager</SelectItem>
-                    <SelectItem value="data_tech">Data & Tech</SelectItem>
-                    <SelectItem value="leadership">Leadership (COO, Founder, CTO etc.)</SelectItem>
-                    <SelectItem value="consultant">Consultant</SelectItem>
-                    <SelectItem value="field_worker">Field worker</SelectItem>
+                    {WORK_FUNCTION_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

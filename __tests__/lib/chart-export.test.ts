@@ -383,4 +383,50 @@ describe('ChartExporter', () => {
       });
     });
   });
+
+  describe('exportPivotAsCSV', () => {
+    // One row dim (state), one column dim (year, two leaves), one metric.
+    const pivotData = {
+      row_dimension_names: ['state'],
+      column_dimension_names: ['year'],
+      metric_headers: ['Count'],
+      column_keys: [['2024'], ['2025']],
+      column_subtotal_keys: [],
+      cells: [
+        { row_key: ['CA'], col_key: ['2024'], row_kind: 'data', col_kind: 'leaf', values: [10] },
+        { row_key: ['CA'], col_key: ['2025'], row_kind: 'data', col_kind: 'leaf', values: [20] },
+        { row_key: ['CA'], col_key: [], row_kind: 'data', col_kind: 'row_total', values: [30] },
+      ],
+    } as any;
+
+    const extraConfig = {
+      row_dimensions: ['state'],
+      column_dimensions: ['year'],
+      show_row_grand_total: true,
+      show_column_grand_total: true,
+    };
+
+    it('downloads a cross-tab CSV blob with the given filename', async () => {
+      await ChartExporter.exportPivotAsCSV(pivotData, extraConfig, { filename: 'my-pivot' });
+      expect(saveAs).toHaveBeenCalledTimes(1);
+      const [blob, name] = (saveAs as jest.Mock).mock.calls[0];
+      expect(blob).toBeInstanceOf(Blob);
+      expect(name).toBe('my-pivot.csv');
+    });
+
+    it('defaults the filename when none is provided', async () => {
+      await ChartExporter.exportPivotAsCSV(pivotData, extraConfig);
+      expect((saveAs as jest.Mock).mock.calls[0][1]).toBe('pivot-export.csv');
+    });
+
+    it('throws when there is no pivot data', async () => {
+      await expect(ChartExporter.exportPivotAsCSV(undefined, extraConfig)).rejects.toThrow(
+        /No pivot data/
+      );
+      await expect(
+        ChartExporter.exportPivotAsCSV({ cells: [] } as any, extraConfig)
+      ).rejects.toThrow(/No pivot data/);
+      expect(saveAs).not.toHaveBeenCalled();
+    });
+  });
 });

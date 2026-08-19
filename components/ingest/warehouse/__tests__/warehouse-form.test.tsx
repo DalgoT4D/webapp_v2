@@ -102,11 +102,25 @@ describe('WarehouseForm', () => {
     });
   });
 
-  it('renders create mode with correct title and disabled save button', () => {
+  // The save button stays clickable on an empty form: pressing it is what reveals
+  // the inline required-field errors, rather than a silently disabled button.
+  it('renders create mode with correct title and an enabled save button', () => {
     render(<WarehouseForm {...defaultProps} />);
 
     expect(screen.getByText('Set Up Warehouse')).toBeInTheDocument();
-    expect(screen.getByTestId('save-warehouse-btn')).toBeDisabled();
+    expect(screen.getByTestId('save-warehouse-btn')).toBeEnabled();
+  });
+
+  it('surfaces inline required-field errors when saving an empty create form', async () => {
+    const user = userEvent.setup();
+    render(<WarehouseForm {...defaultProps} />);
+
+    await user.click(screen.getByTestId('save-warehouse-btn'));
+
+    expect(await screen.findByText('Name is required')).toBeInTheDocument();
+    expect(screen.getByTestId('warehouse-type-error')).toHaveTextContent(
+      'Destination type is required'
+    );
   });
 
   it('renders edit mode with correct title and pre-filled name once spec loads', async () => {

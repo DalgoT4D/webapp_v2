@@ -13,6 +13,7 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { ChartExporter, generateFilename, type TableData } from '@/lib/chart-export';
 import { MapExportHandler } from '@/lib/map-export-handler';
+import { buildPivotDataFields } from '@/components/charts/pivot-table/utils';
 
 interface ChartExportDropdownForListProps {
   chartId: number;
@@ -47,8 +48,10 @@ export function ChartExportDropdownForList({
         backgroundColor: '#ffffff',
       };
 
-      if (format === 'csv' && chartType === 'table') {
-        // Handle table CSV export
+      if (format === 'csv' && chartType === 'pivot_table') {
+        // Pivot needs the cross-tab response, not the flat table shape.
+        await handlePivotCSVExport(chartId, exportOptions);
+      } else if (format === 'csv' && chartType === 'table') {
         await handleTableCSVExport(chartId, chartTitle, exportOptions);
       } else if (chartType === 'map') {
         // Handle map export with geojson fetching
@@ -160,6 +163,32 @@ export function ChartExportDropdownForList({
     }
   };
 
+  const handlePivotCSVExport = async (chartId: number, exportOptions: any) => {
+    const { apiGet, apiPost } = await import('@/lib/api');
+
+    const chart = await apiGet(`/api/charts/${chartId}/`);
+    if (!chart) {
+      throw new Error('Chart not found');
+    }
+
+    // Fetch the cross-tab response the pivot renders from, then build the CSV
+    // client-side (mirrors the chart-detail / dashboard export paths).
+    const response = await apiPost('/api/charts/chart-data/', {
+      chart_type: 'pivot_table',
+      computation_type: chart.computation_type,
+      schema_name: chart.schema_name,
+      table_name: chart.table_name,
+      ...(chart.extra_config?.metrics &&
+        chart.extra_config.metrics.length > 0 && { metrics: chart.extra_config.metrics }),
+      ...buildPivotDataFields(chart.extra_config),
+      extra_config: {
+        filters: chart.extra_config?.filters || [],
+      },
+    });
+
+    await ChartExporter.exportPivotAsCSV(response?.data, chart.extra_config, exportOptions);
+  };
+
   const handleTableCSVExport = async (chartId: number, title: string, exportOptions: any) => {
     try {
       // Import chart data fetching and API functions
@@ -192,6 +221,9 @@ export function ChartExportDropdownForList({
         }),
         ...(chart.extra_config?.metrics &&
           chart.extra_config.metrics.length > 0 && { metrics: chart.extra_config.metrics }),
+        // Pivot table top-level fields — the /chart-data/ pipeline reads these off
+        // the payload root (not extra_config).
+        ...(chart.chart_type === 'pivot_table' && buildPivotDataFields(chart.extra_config)),
         customizations: chart.extra_config?.customizations || {},
         extra_config: {
           filters: chart.extra_config?.filters || [],
@@ -234,8 +266,8 @@ export function ChartExportDropdownForList({
         {isExporting ? 'Exporting...' : 'Export'}
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent>
-        {chartType === 'table' ? (
-          // Table charts show CSV export
+        {chartType === 'table' || chartType === 'pivot_table' ? (
+          // Table/pivot charts show CSV export
           <DropdownMenuItem
             onClick={() => handleExport('csv')}
             className="cursor-pointer"

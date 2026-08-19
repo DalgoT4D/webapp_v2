@@ -1,0 +1,365 @@
+/* Themed driver.js popover for the guided product tour.
+   Scoped to .dalgo-tour so it never affects any other driver.js usage.
+   Uses the app's CSS vars (--primary etc.) rather than hardcoded hex. */
+
+/* THE rounded brand ring, for both the product tour and the walkthrough coachmarks. Applied
+   by JS — ProductTour puts it on the step's sidebar nav item, InsightWalkthroughCoachmark on
+   stages that opt in via `StageConfig.ring`.
+
+   Deliberately only on MAJOR targets — CTA buttons (Save, Publish, Edit workflow, Create…)
+   and sidebar nav items. Minor controls the coachmark merely points at (inputs, dropdowns,
+   tabs, checkboxes, whole panels/forms) get the popover alone: ringing those made every
+   field on a form look like the thing to click.
+
+   `outline` rather than a border/box-shadow: it takes no layout space (no reflow of the
+   ringed button), and it follows the element's OWN border-radius, so the ring is rounded
+   exactly like whatever it wraps. */
+.dalgo-tour-ring {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+}
+
+/* Product tour ONLY (see CHROME_LIFT_CLASS) — the coachmark never gets this. That tour dims
+   the page behind driver.js's overlay at z-index 10000, and the cutout only exposes the
+   content band, so the app chrome would grey out with everything else. Both the top navbar
+   and the whole sidebar are lifted above the overlay (not just the ringed nav item): per the
+   Figma frames only the LIST PAGE dims — the header and side menu stay fully legible for the
+   run, so the user keeps their bearings and can see where the tour is heading next.
+
+   `pointer-events: none` because lifting it also lifts it out of the overlay's click shield —
+   without this the chrome becomes the one live region on a page the tour has otherwise
+   frozen, and any nav click drops the user out from under the current step. The tour drives
+   its own navigation via Next. */
+.dalgo-tour-chrome-lifted {
+  position: relative;
+  z-index: 10001;
+  pointer-events: none;
+}
+
+/* Lifting the navbar above the overlay isn't enough on its own: unlike the sidebar (opaque
+   `bg-background`) the navbar is deliberately translucent + blurred — `bg-background/95`,
+   `supports-[backdrop-filter]:bg-background/60` and `backdrop-blur` in main-layout.tsx — so the
+   dim behind it showed straight THROUGH and the header still read as greyed out. Make it opaque
+   and drop the blur for the tour's duration. ID-qualified so it outranks those utility classes
+   whatever the stylesheet order (they're single-class, this is 1-1-0). */
+#main-layout-navbar.dalgo-tour-chrome-lifted {
+  background-color: var(--background);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* NOTE: the product tour's content band deliberately has NO rule here. It used to carry a
+   `box-shadow: 0 0 0 2px var(--primary)` ring, but the dim overlay's rounded cutout (see
+   stageRadius in product-tour.tsx) is the whole highlight — the rows read as lit against the
+   dimmed page, with no border. The band element itself stays transparent; it exists only as
+   the geometry driver.js cuts the hole to. */
+
+.dalgo-tour.driver-popover {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 10px 25px -5px rgba(17, 24, 39, 0.25),
+    0 8px 10px -6px rgba(17, 24, 39, 0.2);
+  max-width: 320px;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  display: flex;
+  flex-direction: column;
+  /* Deliberately NOT `overflow: hidden`. Both pointer triangles — driver.js's own
+     `.driver-popover-arrow` (positioned at `left: 100%` / `right: 100%` etc.) and the product
+     tour's custom `#dalgo-tour-sidebar-arrow` (`left: -17.5px`) — are absolutely-positioned
+     children that sit OUTSIDE this box, so clipping the card silently deletes the arrow from
+     every coachmark. Tall content is kept in bounds by the description's own `overflow-y: auto`
+     (plus `min-height: 0` on it) against this max-height, which needs no clipping here. */
+  overflow: visible;
+  padding: 16px 18px;
+  font-family:
+    var(--font-anek-latin),
+    system-ui,
+    -apple-system,
+    sans-serif;
+  border: 1px solid var(--border);
+}
+
+/* The coachmark triangle, at the SAME 17.5-by-14px Figma spec the product tour draws by hand
+   (see ARROW_WIDTH_PX / ARROW_HEIGHT_PX in product-tour.tsx). driver.js's own arrow is a 10px
+   stub in hardcoded #fff — too small to read as a pointer at all next to a 320px card, and the
+   card colour only by coincidence in the light theme.
+
+   Each side restates all four border widths rather than only the visible one: driver.js sets
+   `border: 5px solid`, so leaving the OPPOSITE border at 5px would keep padding the element
+   and push the triangle off the card's edge. Zeroing it makes the apex land exactly on the
+   element's far edge, which is what driver.js's `left: 100%` / `bottom: 100%` etc. pin to.
+
+   No nudge is needed to hide the seam: driver.js pins the arrow with `left: 100%` and friends,
+   and those percentages resolve against the card's PADDING box, so the base already lands on
+   top of the card's own 1px border rather than butting against it.
+
+   Class-on-class (0-2-0) so these outrank the library's single-class rules whatever the
+   stylesheet order. */
+.dalgo-tour .driver-popover-arrow-side-left {
+  border-width: 7px 0 7px 17.5px;
+  border-left-color: var(--card);
+}
+.dalgo-tour .driver-popover-arrow-side-right {
+  border-width: 7px 17.5px 7px 0;
+  border-right-color: var(--card);
+}
+.dalgo-tour .driver-popover-arrow-side-top {
+  border-width: 17.5px 7px 0 7px;
+  border-top-color: var(--card);
+}
+.dalgo-tour .driver-popover-arrow-side-bottom {
+  border-width: 0 7px 17.5px 7px;
+  border-bottom-color: var(--card);
+}
+
+/* Continue the card's 1px outline around driver.js's pointer triangle. The library's arrow
+   is itself a zero-size element made from borders, so a normal border cannot be added to it;
+   a second triangle, one pixel larger and painted behind the first, supplies the missing edge
+   on every side/position without changing driver.js's geometry.
+
+   The arrow deliberately gets NO `z-index` of its own. With one it forms a stacking context,
+   and inside a stacking context the element's OWN borders paint first and negative-z children
+   paint after — so the grey underlay landed on top and the whole triangle rendered grey. Left
+   at `z-index: auto` the arrow doesn't form a context, so the underlay joins the card's
+   stacking context instead: above the card's background (step 2), below the arrow itself
+   (step 6, a positioned descendant). Fill white, 1px grey rim, which is the intent. */
+.dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-color: transparent;
+}
+/* The offsets are measured from the ARROW'S PADDING BOX (its containing block, the arrow being
+   absolutely positioned), which sits at (border-left, border-top) inside its border box. Each
+   pair therefore lands the underlay's border box 1px outside the triangle on the two pointed
+   edges while its flat base stays flush — that's the whole outline, minus the base, which is
+   covered by the card it butts against. */
+.dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow-side-left::before {
+  top: -8px;
+  left: -18.5px;
+  border-width: 8px 0 8px 18.5px;
+  border-left-color: var(--border);
+}
+.dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow-side-right::before {
+  top: -8px;
+  left: -1px;
+  border-width: 8px 18.5px 8px 0;
+  border-right-color: var(--border);
+}
+.dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow-side-top::before {
+  top: -18.5px;
+  left: -8px;
+  border-width: 18.5px 8px 0 8px;
+  border-top-color: var(--border);
+}
+.dalgo-tour.dalgo-tour-arrow-outlined .driver-popover-arrow-side-bottom::before {
+  top: -1px;
+  left: -8px;
+  border-width: 0 8px 18.5px 8px;
+  border-bottom-color: var(--border);
+}
+
+/* Product-tour cards use a larger custom sidebar arrow because their popover is repositioned
+   after driver.js lays it out. Mirror the same one-pixel-underlay technique at that arrow's
+   17.5-by-14px dimensions so the outline is consistent with the walkthrough coachmarks. */
+/* Same stacking rule as the coachmark arrow above: no `z-index` here, or this triangle's own
+   border paints under its grey underlay and the whole arrow turns grey. */
+.dalgo-tour.dalgo-tour-arrow-outlined #dalgo-tour-sidebar-arrow::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  /* `left: -1px`, not `-18.5px`: this element has NO left border (product-tour.tsx sets only
+     top/bottom/right), so its padding box — the origin these offsets are measured from — sits
+     at its border box's left edge, and a full arrow-width offset put the outline triangle
+     beside the arrow instead of behind it. */
+  top: -8px;
+  left: -1px;
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 18.5px solid var(--border);
+}
+
+.dalgo-tour .driver-popover-title {
+  padding: 0;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.dalgo-tour .driver-popover-description {
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+  padding: 6px 0 0 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* The Preview hint is deliberately short enough to read as one sentence on a desktop card.
+   Small screens keep normal wrapping so the text never forces the popover past the viewport. */
+@media (min-width: 400px) {
+  .dalgo-tour .dalgo-tour-description-one-line {
+    white-space: nowrap;
+  }
+}
+
+/* Progress dots + "N of total" counter, injected into the `title` slot ahead of the actual
+   title text (see popoverHeaderHtml in product-tour.tsx) — Figma puts this row above the
+   title, not below the content. The tooltip triangle pointing at the sidebar nav item is a
+   separate custom element (getOrCreateSidebarArrow), not styled here — driver.js's own arrow
+   depends on its internal auto-positioning, which doesn't know about our manual popover
+   placement, so it's built and positioned entirely via inline styles instead. */
+.dalgo-tour-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.dalgo-tour-progress {
+  display: flex;
+  gap: 4px;
+}
+.dalgo-tour-progress span {
+  height: 4px;
+  width: 20px;
+  border-radius: 9999px;
+  background: var(--border);
+}
+.dalgo-tour-progress span.is-active {
+  background: var(--primary);
+}
+.dalgo-tour-progress-count {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+.dalgo-tour-title-text {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--foreground);
+  line-height: 1.3;
+}
+
+/* driver.js normally pins the close button to the card itself. The title and button are moved
+   into this shared row by tour-popover-chrome.ts so coachmark ✕ buttons align with their
+   heading and product-tour ✕ buttons align with the progress row. Image coachmarks keep the
+   illustration above the complete row instead of floating the control over the artwork. */
+.dalgo-tour-heading-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.dalgo-tour-heading-row .driver-popover-title {
+  flex: 1;
+  min-width: 0;
+}
+.dalgo-tour-heading-row .dalgo-tour-close-btn {
+  position: static;
+  flex: none;
+  margin-top: 2px;
+}
+.dalgo-tour-heading-row--product-tour .dalgo-tour-close-btn {
+  margin-top: 0;
+}
+
+/* Footer row: single primary CTA, left-aligned (the close affordance is the top-right ✕,
+   not a footer link). driver.js's own rules right-align this, hence the explicit overrides. */
+.dalgo-tour .driver-popover-footer {
+  flex-shrink: 0;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+.dalgo-tour .driver-popover-navigation-btns {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  justify-content: flex-start;
+}
+.dalgo-tour .driver-popover-progress-text {
+  display: none;
+}
+
+/* ✕ — the dismissal on both the product tour and the walkthrough coachmarks. Placement is
+   owned by .dalgo-tour-heading-row above; this rule only owns its visual treatment. */
+.dalgo-tour .dalgo-tour-close-btn {
+  width: auto;
+  height: auto;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.dalgo-tour .dalgo-tour-close-btn:hover,
+.dalgo-tour .dalgo-tour-close-btn:focus {
+  color: var(--foreground);
+}
+
+/* Specificity note: driver.js ships `.driver-popover-footer-btn:hover { background-color:
+   #f7f7f7 }`, which ties with a bare `.dalgo-tour-next-btn:hover` (both 0-2-0) and can win
+   on source order — that's what turned the CTA into white-on-near-white on hover. Qualifying
+   with the `.dalgo-tour` ancestor (0-3-0) settles it, and the hover state restates its own
+   background rather than relying only on opacity so nothing can bleed through. */
+.dalgo-tour .dalgo-tour-next-btn {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.dalgo-tour .dalgo-tour-next-btn:hover,
+.dalgo-tour .dalgo-tour-next-btn:focus {
+  background: var(--primary);
+  color: white;
+  opacity: 0.9;
+}
+
+/* A stage's illustration (StageConfig.imageSrc), injected ahead of the popover title. Fills
+   the popover's content width; height follows the asset's own aspect ratio. */
+.dalgo-tour-stage-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin-bottom: 0;
+}
+
+/* driver.js kills pointer-events on everything but its highlighted element
+   (`.driver-active * { pointer-events: none }`). That's right for a dimmed page-level
+   spotlight, but the walkthrough coachmarks have no dim at all — the highlight is a pointer,
+   not a gate, and the user still has to use the rest of the page/form. Every coachmark stage
+   sets this class, so clicks pass through; the overlay itself stays click-through, exactly as
+   driver.js has it. The class goes on <body>, where driver.js puts its own `driver-active` —
+   matching on <html> silently never applies. */
+body.driver-active.dalgo-tour-passthrough * {
+  pointer-events: auto;
+}
+/* The overlay must include its <path> child, and must be !important: driver.js sets
+   `pointer-events: auto` INLINE on that path (it's how the library's own overlay-click
+   detection works), and no class selector beats an inline style. Targeting only the <svg>
+   left the full-viewport path hit-testable — pointer-events:none on a parent doesn't stop a
+   descendant that opts back in — so every click outside the spotlight cutout was swallowed
+   even on passthrough stages. That went unnoticed while every stage highlighted the exact
+   control the user had to click next (it sits inside the cutout); own_data_pick_source is the
+   first stage that highlights one element (the Google Sheets card) and then needs a click on
+   another (the wizard's Next button). */
+body.driver-active.dalgo-tour-passthrough .driver-overlay,
+body.driver-active.dalgo-tour-passthrough .driver-overlay * {
+  pointer-events: none !important;
+}

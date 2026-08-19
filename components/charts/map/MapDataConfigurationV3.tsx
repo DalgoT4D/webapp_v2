@@ -304,6 +304,8 @@ export function MapDataConfigurationV3({
         disabled={disabled}
         chartType="map"
         maxMetrics={1}
+        schemaName={formData.schema_name}
+        tableName={formData.table_name}
       />
 
       {/* Filters Section */}

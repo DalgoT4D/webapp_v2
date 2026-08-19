@@ -15,6 +15,7 @@ import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigura
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExitDialog';
+import { buildPivotDataFields, buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
 import {
   useChartData,
   useChartDataPreview,
@@ -38,6 +39,7 @@ import {
 } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
+import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import {
   getApiCustomizations,
   mergeTableColumnFormatting,
@@ -45,6 +47,13 @@ import {
 } from '@/lib/chart-payload-utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { DashboardNameHint } from '@/components/onboarding/dashboard-name-hint';
+import { Label } from '@/components/ui/label';
+import {
+  isStageBefore,
+  markChartCreated,
+} from '@/components/onboarding/insight-walkthrough-constants';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -101,6 +110,11 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         showLegend: true,
         nullValueLabel: 'No Data',
         title: '',
+      };
+    case ChartTypes.PIVOT_TABLE:
+      return {
+        numberFormat: 'default',
+        decimalPlaces: 0,
       };
     default:
       return {};
@@ -203,9 +217,13 @@ function ConfigureChartPageContent() {
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null,
     drillDownPath.length > 0
   );
-  const { data: regionGeojsons } = useRegionGeoJSONs(
-    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null
-  );
+  const currentDrillDownRegionId =
+    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
+  const {
+    data: regionGeojsons,
+    error: regionGeojsonsError,
+    isLoading: regionGeojsonsLoading,
+  } = useRegionGeoJSONs(currentDrillDownRegionId);
 
   // Initialize original form data for unsaved changes detection
   useEffect(() => {
@@ -284,6 +302,20 @@ function ConfigureChartPageContent() {
       return false;
     }
 
+    if (formData.chart_type === 'pivot_table') {
+      // Match the save-time pivot predicate (isFormValid) — presence alone isn't
+      // enough; each metric must be a valid definition.
+      const hasRowDimensions = (formData.extra_config?.row_dimensions || []).length > 0;
+      const hasValidMetrics =
+        (formData.metrics || []).length > 0 &&
+        formData.metrics!.every(
+          (metric) =>
+            metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
+        );
+      return hasRowDimensions && hasValidMetrics;
+    }
+
     {
       // For bar/line charts with multiple metrics
       if (
@@ -330,6 +362,10 @@ function ConfigureChartPageContent() {
             }),
             // Multiple metrics for bar/line charts
             ...(formData.metrics && { metrics: formData.metrics }),
+            // Pivot table top-level fields — the /chart-data/ pipeline reads these off
+            // the payload root (not extra_config).
+            ...(formData.chart_type === 'pivot_table' &&
+              buildPivotDataFields(formData.extra_config)),
             // For table charts, include dimensions array with drill-down support
             ...(formData.chart_type === 'table' &&
               formData.dimensions &&
@@ -379,9 +415,10 @@ function ConfigureChartPageContent() {
               }),
             }),
             // Number formatting is frontend-only - exclude from API payload
-            ...(formData.chart_type !== ChartTypes.TABLE && {
-              customizations: getApiCustomizations(formData.chart_type, formData.customizations),
-            }),
+            ...(formData.chart_type !== ChartTypes.TABLE &&
+              formData.chart_type !== ChartTypes.PIVOT_TABLE && {
+                customizations: getApiCustomizations(formData.chart_type, formData.customizations),
+              }),
             extra_config: {
               filters: [
                 ...(formData.filters || []),
@@ -439,28 +476,36 @@ function ConfigureChartPageContent() {
 
   // Fetch GeoJSON data for maps
   // Make geojsonId drill-down aware
-  const geojsonId = useMemo(() => {
-    if (formData.chart_type !== 'map') return null;
-
-    // If we're in drill-down mode and have region geojsons, use the first one
-    if (drillDownPath.length > 0 && regionGeojsons && regionGeojsons.length > 0) {
-      return regionGeojsons[0].id;
-    }
-
-    // Otherwise use the base geojson
-    return formData.geojsonPreviewPayload?.geojsonId || null;
-  }, [
-    formData.chart_type,
-    formData.geojsonPreviewPayload?.geojsonId,
-    drillDownPath,
-    regionGeojsons,
-  ]);
+  const drillDownGeojsonResolution = useMemo(
+    () =>
+      resolveDrillDownGeoJSON({
+        isDrillDownActive: drillDownPath.length > 0,
+        regionId: currentDrillDownRegionId,
+        regionGeojsons,
+        regionGeojsonsLoading,
+        regionGeojsonsError,
+        fallbackGeojsonId:
+          drillDownPath.length > 0 ? null : formData.geojsonPreviewPayload?.geojsonId,
+      }),
+    [
+      currentDrillDownRegionId,
+      drillDownPath.length,
+      formData.geojsonPreviewPayload?.geojsonId,
+      regionGeojsons,
+      regionGeojsonsError,
+      regionGeojsonsLoading,
+    ]
+  );
+  const geojsonId =
+    formData.chart_type === ChartTypes.MAP ? drillDownGeojsonResolution.geojsonId : null;
 
   const {
     data: geojsonData,
-    error: geojsonError,
-    isLoading: geojsonLoading,
+    error: geojsonDataError,
+    isLoading: geojsonDataLoading,
   } = useGeoJSONData(geojsonId);
+  const geojsonError = regionGeojsonsError || geojsonDataError;
+  const geojsonLoading = drillDownGeojsonResolution.isResolving || geojsonDataLoading;
 
   // Fetch map data overlay
   // ✅ FIXED: Keep original data overlay logic, just make it drill-down aware
@@ -519,10 +564,16 @@ function ConfigureChartPageContent() {
     data: dataPreview,
     error: previewError,
     isLoading: previewLoading,
-  } = useChartDataPreview(chartDataPayload, dataPreviewPage, dataPreviewPageSize);
+  } = useChartDataPreview(
+    formData.chart_type !== 'pivot_table' ? chartDataPayload : null,
+    dataPreviewPage,
+    dataPreviewPageSize
+  );
 
   // Fetch total rows for chart data preview pagination
-  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(chartDataPayload);
+  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(
+    formData.chart_type !== 'pivot_table' ? chartDataPayload : null
+  );
 
   // Fetch table chart data for table charts with server-side pagination
   const {
@@ -832,6 +883,19 @@ function ConfigureChartPageContent() {
       return true; // Tables just need schema, table, title which are already checked above
     }
 
+    if (formData.chart_type === 'pivot_table') {
+      // Pivot tables need at least one row dimension and one metric
+      const hasRowDimensions = (formData.extra_config?.row_dimensions || []).length > 0;
+      const hasMetrics =
+        (formData.metrics || []).length > 0 &&
+        formData.metrics!.every(
+          (metric) =>
+            metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
+        );
+      return hasRowDimensions && hasMetrics;
+    }
+
     {
       // For bar/line/table charts with multiple metrics
       if (
@@ -921,6 +985,8 @@ function ConfigureChartPageContent() {
           // Keep table_columns for backward compatibility
           table_columns: formData.table_columns,
         }),
+        // Pivot table extra_config fields (source of truth persisted on the chart)
+        ...(formData.chart_type === 'pivot_table' && buildPivotExtraConfig(formData.extra_config)),
       },
     };
 
@@ -930,6 +996,30 @@ function ConfigureChartPageContent() {
       // Reset unsaved changes state after successful save
       setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');
+
+      // Resume-nudge milestone — set regardless of an active coachmark session.
+      markChartCreated();
+
+      const walkthrough = useInsightWalkthroughStore.getState();
+      // Saving the chart is the checkpoint, whatever hints were clicked past on the way here
+      // (the two tab stages are read-this hints a user can skip straight over).
+      if (
+        walkthrough.active &&
+        walkthrough.stage &&
+        !isFromDashboard &&
+        isStageBefore(walkthrough.path, walkthrough.stage, 'chart_dashboard_nudge')
+      ) {
+        // Hand the celebration to the chart's own page rather than showing it here: the user
+        // should see the chart they just built behind the dialog, not the builder they're
+        // leaving. The normal redirect below carries them there.
+        walkthrough.setPendingCelebration('chart');
+        // The next stage's coachmark points at the Dashboards nav item, which would otherwise
+        // appear on the chart page underneath the dialog. Released when it closes, so the
+        // nudge is what the user sees next.
+        walkthrough.setSuppressCoachmark(true);
+        walkthrough.advanceIfBefore('chart_dashboard_nudge');
+      }
+
       if (isFromDashboard) {
         // Use replace so back button from chart detail goes to dashboard
         router.replace(`/charts/${result.id}?from=dashboard`);
@@ -1013,16 +1103,25 @@ function ConfigureChartPageContent() {
             </Button>
 
             {/* Chart Title Input */}
-            <Input
-              value={formData.title}
-              onChange={(e) => handleFormChange({ title: e.target.value })}
-              className="text-lg font-semibold border border-gray-200 shadow-sm px-4 py-2 h-11 bg-white min-w-[300px]"
-              placeholder="Untitled Chart"
-            />
+            <div className="space-y-1">
+              <Label htmlFor="chart-name" className="flex items-center gap-2">
+                Chart name
+                <DashboardNameHint id="chart-name-guidance" />
+              </Label>
+              <Input
+                id="chart-name"
+                aria-describedby="chart-name-guidance"
+                value={formData.title}
+                onChange={(e) => handleFormChange({ title: e.target.value })}
+                className="h-11 min-w-[300px] border border-gray-200 bg-white px-4 py-2 text-lg font-semibold shadow-sm"
+                placeholder="Untitled Chart"
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-4">
             <Button
+              data-testid="chart-edit-save-button"
               onClick={handleSave}
               variant="primary"
               disabled={!isFormValid() || isMutating}
@@ -1041,10 +1140,11 @@ function ConfigureChartPageContent() {
           <div className="w-[30%] border-r">
             <Tabs defaultValue="configuration" className="h-full">
               <div className="px-4 pt-4">
-                <TabsList className="grid w-full h-11 grid-cols-2">
+                <TabsList className="grid w-full h-11 grid-cols-2" data-testid="chart-config-tabs">
                   <TabsTrigger
                     value="configuration"
                     className="flex items-center justify-center gap-2 text-sm h-full"
+                    data-testid="chart-data-config-tab"
                   >
                     <BarChart3 className="h-4 w-4" />
                     Data Configuration
@@ -1052,6 +1152,7 @@ function ConfigureChartPageContent() {
                   <TabsTrigger
                     value="styling"
                     className="flex items-center justify-center gap-2 text-sm h-full"
+                    data-testid="chart-styling-tab"
                   >
                     <Database className="h-4 w-4" />
                     Chart Styling
@@ -1074,12 +1175,14 @@ function ConfigureChartPageContent() {
                       formData={formData}
                       onChange={handleFormChange}
                       disabled={false}
+                      isNewChart
                     />
                   ) : (
                     <ChartDataConfigurationV3
                       formData={formData}
                       onChange={handleFormChange}
                       disabled={false}
+                      isNewChart
                     />
                   )}
                 </div>
@@ -1224,7 +1327,14 @@ function ConfigureChartPageContent() {
                     <div className="w-full h-full">
                       <ChartPreview
                         key={`${formData.schema_name}-${formData.table_name}`}
-                        config={chartData?.echarts_config}
+                        config={
+                          formData.chart_type === 'pivot_table'
+                            ? { extra_config: formData.extra_config }
+                            : chartData?.echarts_config
+                        }
+                        tableData={
+                          formData.chart_type === 'pivot_table' ? chartData?.data : undefined
+                        }
                         isLoading={chartLoading}
                         error={chartError}
                         chartType={formData.chart_type}
@@ -1238,26 +1348,35 @@ function ConfigureChartPageContent() {
               <TabsContent value="data" className="h-[calc(100%-73px)] overflow-y-auto">
                 <div className="p-4">
                   <Tabs
-                    defaultValue={formData.chart_type === 'table' ? 'raw-data' : 'chart-data'}
+                    defaultValue={
+                      formData.chart_type === 'table' || formData.chart_type === 'pivot_table'
+                        ? 'raw-data'
+                        : 'chart-data'
+                    }
                     className="h-full flex flex-col"
                   >
-                    <TabsList
-                      className={`grid w-full ${formData.chart_type === 'table' ? 'grid-cols-1' : 'grid-cols-2'}`}
-                    >
-                      {formData.chart_type !== 'table' && (
-                        <TabsTrigger value="chart-data" className="flex items-center gap-2">
-                          <BarChart3 className="h-4 w-4" />
-                          Chart Data
-                        </TabsTrigger>
-                      )}
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="chart-data" className="flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4" />
+                        Chart Data
+                      </TabsTrigger>
                       <TabsTrigger value="raw-data" className="flex items-center gap-2">
                         <Database className="h-4 w-4" />
                         Raw Data
                       </TabsTrigger>
                     </TabsList>
 
-                    {formData.chart_type !== 'table' && (
-                      <TabsContent value="chart-data" className="flex-1">
+                    <TabsContent value="chart-data" className="flex-1">
+                      {formData.chart_type === 'pivot_table' ? (
+                        <ChartPreview
+                          config={{ extra_config: formData.extra_config }}
+                          tableData={chartData?.data}
+                          isLoading={chartLoading}
+                          error={chartError}
+                          chartType={formData.chart_type}
+                          customizations={formData.customizations}
+                        />
+                      ) : (
                         <DataPreview
                           data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
                           columns={dataPreview?.columns || []}
@@ -1272,8 +1391,8 @@ function ConfigureChartPageContent() {
                             onPageSizeChange: handleDataPreviewPageSizeChange,
                           }}
                         />
-                      </TabsContent>
-                    )}
+                      )}
+                    </TabsContent>
 
                     <TabsContent value="raw-data" className="flex-1">
                       <DataPreview

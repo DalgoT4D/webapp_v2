@@ -9,6 +9,7 @@ import userEvent from '@testing-library/user-event';
 import { ChartDataConfigurationV3 } from '../ChartDataConfigurationV3';
 import * as useChartHooks from '@/hooks/api/useChart';
 import * as chartAutoPrefill from '@/lib/chartAutoPrefill';
+import type { ChartMetric } from '@/types/charts';
 
 jest.mock('@/hooks/api/useChart');
 jest.mock('@/lib/chartAutoPrefill', () => ({
@@ -19,7 +20,7 @@ jest.mock('../ChartTypeSelector', () => ({
   ChartTypeSelector: ({ value, onChange, disabled }: any) => (
     <div data-testid="chart-type-selector">
       <span data-testid="current-chart-type">{value}</span>
-      {['bar', 'line', 'pie', 'number', 'map', 'table'].map((type) => (
+      {['bar', 'line', 'pie', 'number', 'map', 'table', 'pivot_table'].map((type) => (
         <button
           key={type}
           data-testid={`change-to-${type}`}
@@ -241,6 +242,87 @@ describe('ChartDataConfigurationV3', () => {
 
       await user.click(screen.getByTestId('change-to-pie'));
       expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ chart_type: 'pie' }));
+    });
+
+    it('preserves the selected metric when switching to a map chart (not reset to default count)', async () => {
+      const user = userEvent.setup();
+      // Auto-prefill would seed a default count metric; the user's metric must win.
+      (chartAutoPrefill.generateAutoPrefilledConfig as jest.Mock).mockReturnValue({
+        geographic_column: 'state_name',
+        aggregate_function: 'count',
+        metrics: [{ column: null, aggregation: 'count', alias: 'Total Count' }],
+      });
+      const formData = {
+        ...baseFormData,
+        metrics: [
+          {
+            saved_metric_id: 7,
+            column: null,
+            aggregation: null,
+            column_expression: 'avg(pop)',
+            alias: 'Avg Pop',
+          },
+        ],
+      };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      await user.click(screen.getByTestId('change-to-map'));
+
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          chart_type: 'map',
+          metrics: [expect.objectContaining({ alias: 'Avg Pop', column_expression: 'avg(pop)' })],
+        })
+      );
+    });
+
+    it('preserves calculated/saved metrics when switching to a pivot table', async () => {
+      const user = userEvent.setup();
+      // Pivot supports multiple metrics; a simple + a calculated/saved one must both survive.
+      const metrics: ChartMetric[] = [
+        { column: 'id', aggregation: 'count', alias: 'Count' },
+        {
+          saved_metric_id: 7,
+          column: null,
+          aggregation: null,
+          column_expression: 'avg(pop)',
+          alias: 'Avg Pop',
+        },
+      ];
+      const formData = { ...baseFormData, metrics };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      await user.click(screen.getByTestId('change-to-pivot_table'));
+
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          chart_type: 'pivot_table',
+          metrics: [
+            expect.objectContaining({ alias: 'Count' }),
+            expect.objectContaining({ alias: 'Avg Pop', column_expression: 'avg(pop)' }),
+          ],
+        })
+      );
+    });
+
+    it('keeps the auto-prefilled default metric when switching to map with no existing metric', async () => {
+      const user = userEvent.setup();
+      (chartAutoPrefill.generateAutoPrefilledConfig as jest.Mock).mockReturnValue({
+        geographic_column: 'state_name',
+        metrics: [{ column: null, aggregation: 'count', alias: 'Total Count' }],
+      });
+      const formData = { ...baseFormData, metrics: [] };
+
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      await user.click(screen.getByTestId('change-to-map'));
+
+      // With no metric to preserve, the auto-prefilled default must stand (not an empty section).
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          chart_type: 'map',
+          metrics: [expect.objectContaining({ alias: 'Total Count' })],
+        })
+      );
     });
   });
 

@@ -8,6 +8,79 @@ export const ANALYTICS_EVENTS = {
   ORG_SWITCHED: 'auth:org_switched',
   RBAC_NOTICE_VIEWED: 'onboarding:rbac_notice_viewed',
   RBAC_NOTICE_DISMISSED: 'onboarding:rbac_notice_dismissed',
+  // Guided product tour (driver.js) for trial-plan orgs — see components/onboarding/tour-gate.tsx
+  TOUR_INTENT_MODAL_VIEWED: 'onboarding:tour_intent_modal_viewed',
+  // Carries { choice: 'tour' | 'insight' | 'pipeline' | 'close' } — which option was picked.
+  TOUR_INTENT_MODAL_DISMISSED: 'onboarding:tour_intent_modal_dismissed',
+  TOUR_STARTED: 'onboarding:tour_started',
+  // Carries { step, title } — 1-based step number.
+  TOUR_STEP_VIEWED: 'onboarding:tour_step_viewed',
+  // Carries { step } — the step the user was on when they clicked Skip.
+  TOUR_SKIPPED: 'onboarding:tour_skipped',
+  TOUR_COMPLETED: 'onboarding:tour_completed',
+  GETTING_STARTED_TOUR_LINK_CLICKED: 'onboarding:getting_started_tour_link_clicked',
+  // The docs link that replaces the tour link in the widget's all-done state.
+  GETTING_STARTED_DOCS_LINK_CLICKED: 'onboarding:getting_started_docs_link_clicked',
+  // Carries { item: 'build-insight' | 'automate-pipeline' } — which checklist row was
+  // clicked. What it then does (open the fork dialog, resume, start a flow) depends on
+  // walkthrough state and is covered by that flow's own events.
+  GETTING_STARTED_ITEM_CLICKED: 'onboarding:getting_started_item_clicked',
+  GETTING_STARTED_VIDEO_PLAYED: 'onboarding:getting_started_video_played',
+  // The "Schedule a call with us" / "Book a call" link out to the Dalgo team's booking page.
+  // Carries { source: 'widget' | 'nudge' } — the widget row vs the trial nudge modals, which
+  // fire at very different moments of the trial and convert differently.
+  BOOK_A_CALL_CLICKED: 'onboarding:book_a_call_clicked',
+  // The GetStartedModal's 'choice' screen — shown only when the tour is finished via its
+  // last step's "Finish Tour" button, not on Skip.
+  POST_TOUR_MODAL_VIEWED: 'onboarding:post_tour_modal_viewed',
+  // Carries { choice: 'insight' | 'pipeline' | 'close' } — which option was picked.
+  POST_TOUR_MODAL_DISMISSED: 'onboarding:post_tour_modal_dismissed',
+  // The GetStartedModal's 'insight' screen (sample vs own data). Carries
+  // { entry: 'post_tour' | 'widget' | 'resume' } — how the user got to it.
+  INSIGHT_FORK_MODAL_VIEWED: 'onboarding:insight_fork_modal_viewed',
+  // Carries { choice: 'sample' | 'own_data' } — which fork was taken.
+  INSIGHT_FORK_CHOSEN: 'onboarding:insight_fork_chosen',
+  // The two walkthrough celebration dialogs (see celebration-modal.tsx). Both carry
+  // { choice: 'cta' | 'close' }.
+  KPI_LIVE_MODAL_DISMISSED: 'onboarding:kpi_live_modal_dismissed',
+  CHART_LIVE_MODAL_DISMISSED: 'onboarding:chart_live_modal_dismissed',
+  PIPELINE_LIVE_MODAL_DISMISSED: 'onboarding:pipeline_live_modal_dismissed',
+  DASHBOARD_LIVE_MODAL_DISMISSED: 'onboarding:dashboard_live_modal_dismissed',
+  // Sample-data insight walkthrough (Fork2 -> KPI created -> dashboard shared)
+  INSIGHT_WALKTHROUGH_STARTED: 'onboarding:insight_walkthrough_started',
+  // Carries { stage } — the stage that was just shown.
+  INSIGHT_WALKTHROUGH_STEP_VIEWED: 'onboarding:insight_walkthrough_step_viewed',
+  INSIGHT_WALKTHROUGH_COMPLETED: 'onboarding:insight_walkthrough_completed',
+  // Carries { stage } — the stage the user was on when they skipped.
+  INSIGHT_WALKTHROUGH_SKIPPED: 'onboarding:insight_walkthrough_skipped',
+  // One-shot feature coachmarks on /reports, /alerts and /metrics — no flow, no ordering.
+  // Both carry { nudge: 'reports_nudge' | 'alerts_nudge' | 'metrics_nudge' }. VIEWED can
+  // fire on repeat visits (the nudge returns until dismissed); DISMISSED fires once.
+  FEATURE_NUDGE_VIEWED: 'onboarding:feature_nudge_viewed',
+  FEATURE_NUDGE_DISMISSED: 'onboarding:feature_nudge_dismissed',
+  // Free trial onboarding
+  TRIAL_SIGNUP_SUBMITTED: 'trial:signup_submitted',
+  // Verification link re-sent from the check-your-email card (re-POSTs signup).
+  TRIAL_LINK_RESENT: 'trial:link_resent',
+  TRIAL_ACTIVATED: 'trial:trial_activated',
+  TRIAL_PROVISIONING_VIDEO_PLAYED: 'trial:provisioning_video_played',
+  // A failed clone was re-enqueued. Carries { from: 'failed' | 'timeout' } — which
+  // fallback card the user retried from.
+  TRIAL_RETRY_TRIGGERED: 'trial:retry_triggered',
+  TRIAL_CLONE_COMPLETED: 'trial:clone_completed',
+  TRIAL_CLONE_FAILED: 'trial:clone_failed',
+  // Clone succeeded but auto-login could not run (login call failed, or the
+  // stashed creds were missing e.g. after a reload) — user must log in manually.
+  TRIAL_MANUAL_LOGIN_REQUIRED: 'trial:manual_login_required',
+  // Status polling gave up (too many consecutive failures or hard timeout) before
+  // a terminal clone status arrived — screen fell back from the spinner.
+  TRIAL_POLL_TIMEOUT: 'trial:poll_timeout',
+  // An upgrade CTA opened the confirm modal. Carries { days_left, source } — `source` is the
+  // surface it was opened from ('header_badge' | 'trial_nudge'), which is what tells us which
+  // one converts now that the Settings → Billing page is gone.
+  SUBSCRIPTION_REQUEST_OPENED: 'trial:subscription_request_opened',
+  // The request POST succeeded. Carries { days_left, already_requested, source }.
+  SUBSCRIPTION_REQUEST_SENT: 'trial:subscription_request_sent',
   // Breadth — every menu / submenu / tab
   FEATURE_VIEWED: 'feature:viewed',
   // Charts (CHART_SAVED is the edit/update event)
@@ -19,6 +92,10 @@ export const ANALYTICS_EVENTS = {
   CHARTS_BULK_DELETED: 'chart:charts_bulk_deleted',
   CHART_SAVED_AS_NEW: 'chart:chart_saved_as_new',
   CHART_EXPORTED: 'chart:chart_exported',
+  // Selection-intent (funnel): which chart types users pick in the builder,
+  // distinct from CHART_CREATED which only fires if they actually save.
+  CHART_TYPE_SELECTED: 'chart:chart_type_selected',
+  CHART_DATASET_SELECTOR_STATE_VIEWED: 'chart:dataset_selector_state_viewed',
   // Dashboards (DASHBOARD_SAVED is the edit/update event)
   DASHBOARD_CREATED: 'dashboard:dashboard_created',
   DASHBOARD_SAVED: 'dashboard:dashboard_saved',
@@ -37,6 +114,10 @@ export const ANALYTICS_EVENTS = {
   DASHBOARD_TEXT_ELEMENT_ADDED: 'dashboard:text_element_added',
   DASHBOARD_TAB_CREATED: 'dashboard:tab_created',
   DASHBOARD_TAB_DELETED: 'dashboard:tab_deleted',
+  DASHBOARD_TAB_REORDERED: 'dashboard:tab_reordered',
+  DASHBOARD_WIDGET_MOVED_BETWEEN_TABS: 'dashboard:widget_moved_between_tabs',
+  DASHBOARD_RICH_TEXT_EDIT_STARTED: 'dashboard:rich_text_edit_started',
+  DASHBOARD_RICH_TEXT_FORMAT_APPLIED: 'dashboard:rich_text_format_applied',
   // Reports
   REPORT_CREATED: 'report:report_created',
   REPORT_UPDATED: 'report:report_updated',
@@ -55,6 +136,7 @@ export const ANALYTICS_EVENTS = {
   KPI_ANNOTATION_CREATED: 'kpi:annotation_created',
   KPI_ANNOTATION_UPDATED: 'kpi:annotation_updated',
   KPI_ANNOTATION_DELETED: 'kpi:annotation_deleted',
+  KPI_WIZARD_STEP_VIEWED: 'kpi:wizard_step_viewed',
   METRIC_USED: 'metric:metric_used',
   METRIC_CREATED: 'metric:metric_created',
   METRIC_UPDATED: 'metric:metric_updated',
@@ -71,6 +153,8 @@ export const ANALYTICS_EVENTS = {
   SOURCE_CREATED: 'source:source_created',
   SOURCE_UPDATED: 'source:source_updated',
   SOURCE_DELETED: 'source:source_deleted',
+  SOURCE_OAUTH_STARTED: 'source:oauth_started',
+  SOURCE_OAUTH_CONNECTED: 'source:oauth_connected',
   WAREHOUSE_CREATED: 'warehouse:warehouse_created',
   WAREHOUSE_UPDATED: 'warehouse:warehouse_updated',
   WAREHOUSE_DELETED: 'warehouse:warehouse_deleted',
@@ -128,7 +212,6 @@ export const ANALYTICS_EVENTS = {
   USER_ROLE_CHANGED: 'settings:user_role_changed',
   USER_DELETED: 'settings:user_deleted',
   ORG_CREATED: 'settings:org_created',
-  BILLING_UPGRADE_REQUESTED: 'settings:billing_upgrade_requested',
   // Auth / account
   PASSWORD_CHANGED: 'auth:password_changed',
   // Notifications
@@ -199,11 +282,16 @@ export const FEATURES = {
   DATA_QUALITY: 'data_quality',
   ALERTS: 'alerts',
   NOTIFICATIONS: 'notifications',
-  SETTINGS_BILLING: 'settings_billing',
   SETTINGS_USER_MANAGEMENT: 'settings_user_management',
-  SETTINGS_ABOUT: 'settings_about',
   SETTINGS_SUPERSET_USAGE: 'settings_superset_usage',
   SETTINGS_BRANDING: 'settings_branding',
+  // Pre-auth free-trial screens. Three separate features (not one `free_trial`)
+  // because useFeatureTracking dedupes on the FEATURE, not the pathname — a single
+  // id would make the three screens indistinguishable and destroy the funnel.
+  FREE_TRIAL_SIGNUP: 'free_trial_signup',
+  FREE_TRIAL_ACTIVATE: 'free_trial_activate',
+  FREE_TRIAL_CONSENT: 'free_trial_consent',
+  FREE_TRIAL_PROGRESS: 'free_trial_progress',
 } as const;
 
 export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
@@ -227,10 +315,12 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/data-quality', feature: FEATURES.DATA_QUALITY },
   { prefix: '/alerts', feature: FEATURES.ALERTS },
   { prefix: '/notifications', feature: FEATURES.NOTIFICATIONS },
-  { prefix: '/settings/billing', feature: FEATURES.SETTINGS_BILLING },
   { prefix: '/settings/user-management', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
-  { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
   { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
+  { prefix: '/free-trial/activate', feature: FEATURES.FREE_TRIAL_ACTIVATE },
+  { prefix: '/free-trial/consent', feature: FEATURES.FREE_TRIAL_CONSENT },
+  { prefix: '/free-trial/progress', feature: FEATURES.FREE_TRIAL_PROGRESS },
+  { prefix: '/free-trial', feature: FEATURES.FREE_TRIAL_SIGNUP },
 ];
 
 export function featureForPathname(pathname: string): Feature | null {
