@@ -79,9 +79,11 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
         } else if (gitRepoChanged) {
           // Git repo changed — use the switch_git_repo endpoint
           await switchGitRepo(data.gitrepoUrl, data.gitrepoAccessToken);
-          // was_managed separates "graduated off the Dalgo-managed repo onto our own"
-          // from "edited our own repo's URL/PAT" — both arrive on this same branch.
+          // One event for every repo change from this card. was_managed separates
+          // "graduated off the Dalgo-managed repo onto our own" from "edited our own
+          // repo's URL/PAT", since both arrive on this branch.
           trackEvent(ANALYTICS_EVENTS.TRANSFORM_GITHUB_REPO_UPDATED, {
+            is_first_connection: false,
             was_managed: !!workspace?.is_repo_managed_by_system,
           });
           toastSuccess.updated('Git repository');
@@ -102,7 +104,13 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
         if (data.defaultSchema) {
           await updateSchema(data.defaultSchema);
         }
-        trackEvent(ANALYTICS_EVENTS.TRANSFORM_GITHUB_CONNECTED);
+        // Same event as the update branch above — one name for "dbt now points at this
+        // repo", with is_first_connection carrying what a separate *_connected event used
+        // to say. was_managed is false by definition: there was no repo before this.
+        trackEvent(ANALYTICS_EVENTS.TRANSFORM_GITHUB_REPO_UPDATED, {
+          is_first_connection: true,
+          was_managed: false,
+        });
         toastSuccess.generic('Git repository connected successfully');
       }
 
