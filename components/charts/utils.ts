@@ -1,4 +1,4 @@
-import type { ChartMetric } from '@/types/charts';
+import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
 
 // Chart-builder tab values → stable analytics labels. The raw Radix tab values
 // ('configuration', 'chart', …) are UI details that could be renamed; these
@@ -52,6 +52,31 @@ export function getMetricAnalyticsProps(metrics?: ChartMetric[] | null) {
   };
 }
 
+// Was drill-down configured on this chart? Answers "do authors set it up", which is
+// a different question from CHART_DRILLED_DOWN ("do viewers use it") — join the two
+// to find charts configured for drill-down that nobody ever drills.
+//
+// Both drillable chart types are covered, they just store the config differently:
+//   map   → the existing `drill_down_enabled` config field (simplified/legacy system)
+//           OR geographic_hierarchy.drill_down_levels (dynamic system). This is the
+//           same expression the payload builder uses in ChartBuilder.tsx — kept
+//           identical on purpose so the event can never disagree with what was saved.
+//   table → extra_config.dimensions[].enable_drill_down (per-dimension toggle, and
+//           tables have no `drill_down_enabled` field of their own).
+// Non-drillable types (bar/line/pie/number/pivot) always report false.
+export function isDrillDownEnabled(formData: ChartBuilderFormData): boolean {
+  if (formData.chart_type === 'map') {
+    return Boolean(
+      formData.drill_down_enabled ||
+        (formData.geographic_hierarchy?.drill_down_levels?.length || 0) > 0
+    );
+  }
+  if (formData.chart_type === 'table') {
+    return Boolean(formData.dimensions?.some((dimension) => dimension.enable_drill_down === true));
+  }
+  return false;
+}
+
 // Distinct saved-metric ids a chart consumes — one METRIC_USED per id.
 // Deduped because the same saved metric can be added to a chart twice.
 export function getUsedSavedMetricIds(metrics?: ChartMetric[] | null): number[] {
@@ -62,4 +87,16 @@ export function getUsedSavedMetricIds(metrics?: ChartMetric[] | null): number[] 
         .filter((id): id is number => id != null)
     )
   );
+}
+
+// Saved metrics newly attached by this edit — pass `previous` when updating an
+// existing chart so re-saving (e.g. after only a colour tweak) doesn't re-fire
+// METRIC_USED for metrics that were already on the chart. Mirrors the KPI form,
+// which fires METRIC_USED only when the KPI is pointed at a different metric.
+export function getNewlyUsedSavedMetricIds(
+  metrics?: ChartMetric[] | null,
+  previous?: ChartMetric[] | null
+): number[] {
+  const before = new Set(getUsedSavedMetricIds(previous));
+  return getUsedSavedMetricIds(metrics).filter((id) => !before.has(id));
 }

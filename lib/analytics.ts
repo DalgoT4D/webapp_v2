@@ -29,7 +29,13 @@ export function trackEvent(
   const props = VALUE_ACTION_EVENTS.has(event)
     ? { ...properties, is_value_action: true }
     : properties;
-  posthog.capture(event, props, options?.sendInstantly ? { send_instantly: true } : undefined);
+  // Only pass a third argument when there is one — posthog treats an explicit
+  // `undefined` fine, but omitting it keeps the common call two arguments wide.
+  if (options?.sendInstantly) {
+    posthog.capture(event, props, { send_instantly: true });
+    return;
+  }
+  posthog.capture(event, props);
 }
 
 // Breadth event for feature-adoption: one fixed event, the feature/tab vary as

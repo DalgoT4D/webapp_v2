@@ -83,19 +83,26 @@ export const ANALYTICS_EVENTS = {
   SUBSCRIPTION_REQUEST_SENT: 'trial:subscription_request_sent',
   // Breadth — every menu / submenu / tab
   FEATURE_VIEWED: 'feature:viewed',
-  // Charts (CHART_SAVED is the edit/update event)
+  // Charts. Lifecycle is exactly three events: created / updated / deleted.
+  // CHART_CREATED covers EVERY way a chart row comes into existence (new build,
+  // save-as-new, duplicate) — the path is the `source` property, not a separate
+  // event name (see CHART_CREATE_SOURCES). That keeps "how many charts were
+  // created" a single number while still allowing a per-path breakdown.
   CHART_CREATED: 'chart:chart_created',
-  CHART_VIEWED: 'chart:chart_viewed',
-  CHART_SAVED: 'chart:chart_saved',
+  CHART_UPDATED: 'chart:chart_updated',
   CHART_DELETED: 'chart:chart_deleted',
-  CHART_DUPLICATED: 'chart:chart_duplicated',
+  CHART_VIEWED: 'chart:chart_viewed',
   CHARTS_BULK_DELETED: 'chart:charts_bulk_deleted',
-  CHART_SAVED_AS_NEW: 'chart:chart_saved_as_new',
   CHART_EXPORTED: 'chart:chart_exported',
   // Selection-intent (funnel): which chart types users pick in the builder,
   // distinct from CHART_CREATED which only fires if they actually save.
   CHART_TYPE_SELECTED: 'chart:chart_type_selected',
   CHART_DATASET_SELECTOR_STATE_VIEWED: 'chart:dataset_selector_state_viewed',
+  // Consumption depth: the viewer drilled INTO the data (map region click, table
+  // dimension click). Only drilling down fires — drill-up/home is backtracking,
+  // not new intent. Fired from the chart detail page and dashboard embeds, not
+  // from builder previews (there it's the author testing their own config).
+  CHART_DRILLED_DOWN: 'chart:chart_drilled_down',
   // Dashboards (DASHBOARD_SAVED is the edit/update event)
   DASHBOARD_CREATED: 'dashboard:dashboard_created',
   DASHBOARD_SAVED: 'dashboard:dashboard_saved',
@@ -103,6 +110,10 @@ export const ANALYTICS_EVENTS = {
   DASHBOARD_DUPLICATED: 'dashboard:dashboard_duplicated',
   DASHBOARD_VIEWED: 'dashboard:dashboard_viewed',
   DASHBOARD_SHARED: 'dashboard:dashboard_shared',
+  // Fired on the anonymous public share route, NOT by a logged-in user. Carries
+  // org_slug/org_name as event properties because there is no person and no
+  // organization group to attach on a public view (see PublicDashboardView).
+  PUBLIC_DASHBOARD_VIEWED: 'dashboard:public_dashboard_viewed',
   DASHBOARD_EMBED_CODE_COPIED: 'dashboard:embed_code_copied',
   DASHBOARD_SET_AS_LANDING: 'dashboard:dashboard_set_as_landing',
   DASHBOARD_CHART_ADDED: 'dashboard:chart_added',
@@ -221,6 +232,55 @@ export const ANALYTICS_EVENTS = {
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
 
+// `source` values for CHART_CREATED — which path produced the chart. One event
+// with this property (instead of one event per path) means the total is a plain
+// event count and the split is a single PostHog breakdown. Adding a new create
+// path later = a new value here; existing insights pick it up automatically.
+export const CHART_CREATE_SOURCES = {
+  // Charts list → CREATE CHART → picker → configure → Save Chart
+  NEW: 'new',
+  // Dashboard builder → add chart → /charts/new?from=dashboard → Save Chart
+  NEW_FROM_DASHBOARD: 'new_from_dashboard',
+  // Chart edit → Save Chart → SAVE AS NEW CHART
+  SAVE_AS_NEW: 'save_as_new',
+  // Charts list row action → Duplicate
+  DUPLICATE: 'duplicate',
+} as const;
+
+export type ChartCreateSource = (typeof CHART_CREATE_SOURCES)[keyof typeof CHART_CREATE_SOURCES];
+
+// `source` values for CHART_EXPORTED — the two export dropdowns are separate
+// components, so without this the event can't tell list exports from detail ones.
+export const CHART_EXPORT_SOURCES = {
+  CHART_DETAIL: 'chart_detail',
+  CHARTS_LIST: 'charts_list',
+} as const;
+
+export type ChartExportSource = (typeof CHART_EXPORT_SOURCES)[keyof typeof CHART_EXPORT_SOURCES];
+
+// `source` values for CHART_DRILLED_DOWN — the same chart can be drilled from its
+// own page or from inside a dashboard, and those are different viewing contexts.
+export const CHART_DRILL_SOURCES = {
+  CHART_DETAIL: 'chart_detail',
+  DASHBOARD: 'dashboard',
+} as const;
+
+export type ChartDrillSource = (typeof CHART_DRILL_SOURCES)[keyof typeof CHART_DRILL_SOURCES];
+
+// `source` values for METRIC_CREATED — a metric can be born in three places.
+// Every site also sends `metric_type` ('saved' | 'calculated' | 'simple', see
+// METRIC_TYPES in components/charts/utils.ts) so one breakdown works across all.
+export const METRIC_CREATE_SOURCES = {
+  METRICS_PAGE: 'metrics_page',
+  // "Save to library" inside MetricsSelector while building a chart.
+  CHART_BUILDER: 'chart_builder',
+  // Step 1 of the Create KPI wizard (components/kpis/KpiMetricStep.tsx) — the
+  // inline "create" mode, as opposed to picking an existing metric.
+  KPI_WIZARD: 'kpi_wizard',
+} as const;
+
+export type MetricCreateSource = (typeof METRIC_CREATE_SOURCES)[keyof typeof METRIC_CREATE_SOURCES];
+
 // Value actions — "creating or consuming insight" (spec §2.1). Every event here
 // is auto-stamped with `is_value_action: true` by trackEvent, so the North Star
 // ("unique users doing ≥1 value action") is one PostHog filter
@@ -229,13 +289,16 @@ export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EV
 // in PostHog. Plumbing (pipeline/connection/source/warehouse/transform), config
 // (alert toggle, set-as-landing), deletes, and granular dashboard sub-edits
 // (DASHBOARD_SAVED already covers the edit) are deliberately NOT value actions.
+// PUBLIC_DASHBOARD_VIEWED is also deliberately excluded: every event in this set
+// is fired by an identified user, but a public view is an anonymous device with
+// no person profile, so including it would add non-users to a unique-USERS count.
+// Public reach is measured on its own (views + unique orgs), and the value credit
+// for sharing already lands on the sharer via DASHBOARD_SHARED.
 export const VALUE_ACTION_EVENTS: ReadonlySet<AnalyticsEvent> = new Set([
-  // Charts — view / edit / create / export
+  // Charts — view / create (all paths) / update / export
   ANALYTICS_EVENTS.CHART_VIEWED,
   ANALYTICS_EVENTS.CHART_CREATED,
-  ANALYTICS_EVENTS.CHART_SAVED,
-  ANALYTICS_EVENTS.CHART_SAVED_AS_NEW,
-  ANALYTICS_EVENTS.CHART_DUPLICATED,
+  ANALYTICS_EVENTS.CHART_UPDATED,
   ANALYTICS_EVENTS.CHART_EXPORTED,
   // Dashboards — view / edit / create / share
   ANALYTICS_EVENTS.DASHBOARD_VIEWED,
