@@ -163,10 +163,10 @@ describe('identifyOrg', () => {
     });
   });
 
-  it('registers the org as super properties so every event carries it without group analytics', () => {
-    // The `organization` group is a paid PostHog addon this project does not have, so the
-    // group() call above is unreadable in insights. These super properties are what actually
-    // makes "trial orgs", "trial users" and any per-org breakdown queryable.
+  it('registers the org as super properties so a per-org filter needs no group join', () => {
+    // The group above stays the canonical org dimension (existing metrics aggregate on
+    // $group_0). These are the convenience layer: plain event properties, so a trial-only
+    // or single-org filter is a one-liner in any insight.
     identifyOrg('ngo-slug', { name: 'NGO Name', plan: 'Free Trial' });
     expect(mockRegister).toHaveBeenCalledWith({
       org_slug: 'ngo-slug',

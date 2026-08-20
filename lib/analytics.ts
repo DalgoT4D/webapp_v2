@@ -82,16 +82,19 @@ export function identifyUser(
 // (Free Trial | Dalgo | Internal) is the segmentation dimension; it subsumes the
 // old is_demo boolean, which the data model never actually sets.
 //
-// Sent three ways, because only one of them is actually queryable here:
-//  - org_slug/org_name/org_plan as SUPER PROPERTIES — this is the one that works. They ride
-//    every event, so per-org breakdowns, "how many trial orgs", and "how many trial users"
-//    are plain event queries. Re-registered on every org switch, so a multi-org user's
-//    events always carry the org that was selected when they fired.
-//  - the `organization` GROUP — group analytics is a paid PostHog addon this project does
-//    not have, so this is unreadable in insights today. Kept because it costs nothing and
-//    starts working the day the addon is bought.
-//  - current_org_* PERSON properties — profile visibility only; they show the user's latest
-//    org, not the org of any given event.
+// Sent three ways, each with a different job — do NOT drop any of them:
+//  - the `organization` GROUP is the CANONICAL org dimension. It puts $group_0 on every
+//    event, and the existing org metrics are built on it (unique_group aggregation, group
+//    property filters on subscription_plan, and HogQL joins to `groups`). New org metrics
+//    belong here too, or they stop being comparable with those.
+//  - org_slug/org_name/org_plan as SUPER PROPERTIES — a convenience layer, not a second
+//    source of truth. They ride every event as plain properties, which makes a quick
+//    per-org or trial-only filter a one-liner with no group join. Re-registered on every
+//    org switch (synchronously, unlike setPersonProperties), so a multi-org user's events
+//    carry the org that was selected when they fired.
+//  - current_org_* PERSON properties — profile visibility, and the only org signal on
+//    events captured before the super properties existed. They show the user's LATEST org,
+//    so prefer the group or the super properties for per-event questions.
 export function identifyOrg(
   slug: string,
   {
