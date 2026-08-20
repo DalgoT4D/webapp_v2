@@ -16,7 +16,7 @@ import { SelectSourceStep } from './SelectSourceStep';
 import { CreateSourceStep } from './CreateSourceStep';
 import type { WizardStep } from './wizard-state';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, WAREHOUSE_CREATE_SOURCES } from '@/constants/analytics';
 
 interface Props {
   open: boolean;
@@ -216,6 +216,7 @@ export function AddSourceWizard({
           {step === 'warehouse' && (
             <WarehouseFormBody
               submitLabel="Save & Continue"
+              createSource={WAREHOUSE_CREATE_SOURCES.ADD_SOURCE_WIZARD}
               onCancel={handleDismiss}
               onSuccess={() => {
                 // Warehouse now exists server-side. Advance to the source picker.

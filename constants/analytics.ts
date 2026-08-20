@@ -230,6 +230,10 @@ export const ANALYTICS_EVENTS = {
   // Funnel through the Add Source wizard (warehouse? → select → create → connection), so
   // the step people abandon on is visible. Carries `step` and `has_warehouse_step`.
   SOURCE_WIZARD_STEP_VIEWED: 'source:wizard_step_viewed',
+  // A warehouse can be created from its Settings page or from the extra first step of the
+  // Add Source wizard — very different moments (deliberate setup vs unblocking a first
+  // source), so `source` from WAREHOUSE_CREATE_SOURCES separates them. All three carry
+  // warehouse_type; no id, since an org has exactly one warehouse.
   WAREHOUSE_CREATED: 'warehouse:warehouse_created',
   WAREHOUSE_UPDATED: 'warehouse:warehouse_updated',
   WAREHOUSE_DELETED: 'warehouse:warehouse_deleted',
@@ -381,6 +385,17 @@ export const KPI_EXPORT_SOURCES = {
 } as const;
 
 export type KpiExportSource = (typeof KPI_EXPORT_SOURCES)[keyof typeof KPI_EXPORT_SOURCES];
+
+// `source` values for WAREHOUSE_CREATED. The wizard path means the user hit the warehouse
+// requirement on the way to their first source; the settings path means they went to set one
+// up deliberately. Same outcome, different intent.
+export const WAREHOUSE_CREATE_SOURCES = {
+  SETTINGS: 'settings',
+  ADD_SOURCE_WIZARD: 'add_source_wizard',
+} as const;
+
+export type WarehouseCreateSource =
+  (typeof WAREHOUSE_CREATE_SOURCES)[keyof typeof WAREHOUSE_CREATE_SOURCES];
 
 // `auth_mode` values for SOURCE_CREATED on Google Sheets. The three routes cost the user
 // very different amounts of effort, so which one they finish on is the whole question:
@@ -564,6 +579,9 @@ export const FEATURES = {
   SETTINGS_USER_MANAGEMENT: 'settings_user_management',
   SETTINGS_SUPERSET_USAGE: 'settings_superset_usage',
   SETTINGS_BRANDING: 'settings_branding',
+  // The warehouse moved out of the ingest page onto its own Settings route; without an
+  // entry here (and in PATHNAME_TO_FEATURE) that page fired no feature:viewed at all.
+  SETTINGS_WAREHOUSE: 'settings_warehouse',
   // Pre-auth free-trial screens. Three separate features (not one `free_trial`)
   // because useFeatureTracking dedupes on the FEATURE, not the pathname — a single
   // id would make the three screens indistinguishable and destroy the funnel.
@@ -596,6 +614,7 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/notifications', feature: FEATURES.NOTIFICATIONS },
   { prefix: '/settings/user-management', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
   { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
+  { prefix: '/settings/warehouse', feature: FEATURES.SETTINGS_WAREHOUSE },
   { prefix: '/free-trial/activate', feature: FEATURES.FREE_TRIAL_ACTIVATE },
   { prefix: '/free-trial/consent', feature: FEATURES.FREE_TRIAL_CONSENT },
   { prefix: '/free-trial/progress', feature: FEATURES.FREE_TRIAL_PROGRESS },
