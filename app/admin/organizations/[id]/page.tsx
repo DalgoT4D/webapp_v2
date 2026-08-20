@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAdminOrg, useAdminOrgActions } from '@/hooks/api/useAdminPortal';
 import { OrgUsersTable } from '@/components/admin/OrgUsersTable';
+import { DeleteOrgDialog } from '@/components/admin/DeleteOrgDialog';
 
 const BASE_PLANS = ['Free Trial', 'Dalgo', 'Internal'];
 
@@ -33,6 +34,7 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 
 export default function AdminOrganizationDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const orgId = Number(params.id);
   const { org, isLoading, mutate } = useAdminOrg(Number.isNaN(orgId) ? null : orgId);
   const { updateOrg } = useAdminOrgActions();
@@ -42,6 +44,7 @@ export default function AdminOrganizationDetailPage() {
   const [vizUrl, setVizUrl] = useState('');
   const [basePlan, setBasePlan] = useState('Free Trial');
   const [saving, setSaving] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     if (org) {
@@ -104,9 +107,18 @@ export default function AdminOrganizationDetailPage() {
         </div>
         <div className="flex gap-2">
           {!editing && (
-            <Button variant="outline" onClick={() => setEditing(true)}>
-              Edit
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => setEditing(true)}>
+                Edit
+              </Button>
+              <Button
+                variant="destructive"
+                data-testid="delete-org-button"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                Delete organization
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -190,6 +202,13 @@ export default function AdminOrganizationDetailPage() {
           <OrgUsersTable orgId={org.id} />
         </TabsContent>
       </Tabs>
+
+      <DeleteOrgDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        org={org}
+        onSuccess={() => router.push('/admin/organizations')}
+      />
     </div>
   );
 }

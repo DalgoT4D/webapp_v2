@@ -101,7 +101,29 @@ export function useAdminOrg(orgId: number | null) {
   };
 }
 
-/** Create / edit actions for orgs. */
+/**
+ * What deleting an org would destroy (drives the DeleteOrgDialog warning). Unlike
+ * RemovalImpact (SET_NULL, content kept), every count here is a hard CASCADE delete.
+ */
+export interface OrgDeletionImpact {
+  user_count: number;
+  warehouse_count: number;
+  connection_count: number;
+  pipeline_count: number;
+  dashboard_count: number;
+  chart_count: number;
+  report_count: number;
+}
+
+/**
+ * Fetch the deletion impact for an org on demand (not via SWR — it is fetched when
+ * the DeleteOrgDialog opens, and must be shown BEFORE deletion is allowed).
+ */
+export async function getOrgDeletionImpact(orgId: number): Promise<OrgDeletionImpact> {
+  return (await apiGet(`/api/v1/admin/orgs/${orgId}/delete-impact`)) as OrgDeletionImpact;
+}
+
+/** Create / edit / delete actions for orgs. */
 export function useAdminOrgActions() {
   const createOrg = async (data: CreateAdminOrgForm): Promise<AdminOrg> => {
     try {
@@ -125,7 +147,17 @@ export function useAdminOrgActions() {
     }
   };
 
-  return { createOrg, updateOrg };
+  const deleteOrg = async (orgId: number): Promise<void> => {
+    try {
+      await apiDelete(`/api/v1/admin/orgs/${orgId}`);
+      toastSuccess.generic('Organization deleted');
+    } catch (error: any) {
+      toastError.api(error, 'Failed to delete organization');
+      throw error;
+    }
+  };
+
+  return { createOrg, updateOrg, deleteOrg };
 }
 
 // ===========================================================================
