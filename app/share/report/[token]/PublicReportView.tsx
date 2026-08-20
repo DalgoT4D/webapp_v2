@@ -25,9 +25,10 @@ export function PublicReportView({ token, printMode = false }: PublicReportViewP
   const { viewData, isLoading, isError } = usePublicReport(token);
 
   // Public views are anonymous: no identified person and no organization group to attach,
-  // so org_name rides along as an event property (the documented exception to "don't put
-  // org on events"). Unlike the public dashboard payload this one carries no org_slug, so
-  // org_name is the only breakdown key available here.
+  // so the org rides along as event properties (the documented exception to "don't put org
+  // on events"). org_slug is the one that can actually be joined on — org_name is a display
+  // name and can be renamed — and it matches the slug used for the organization group
+  // everywhere else, so public reads line up with the rest of the org's numbers.
   //
   // printMode is excluded on purpose: `?print=true` renders this same component for the
   // PDF-capture pass, so counting it would log a machine fetch as a human read every time
@@ -39,12 +40,14 @@ export function PublicReportView({ token, printMode = false }: PublicReportViewP
     if (trackedTokenRef.current === token) return;
     trackedTokenRef.current = token;
     trackEvent(ANALYTICS_EVENTS.PUBLIC_REPORT_VIEWED, {
+      org_slug: viewData.org_slug,
       org_name: viewData.org_name,
       report_id: viewData.report_metadata?.snapshot_id,
     });
   }, [
     printMode,
     viewData?.is_valid,
+    viewData?.org_slug,
     viewData?.org_name,
     viewData?.report_metadata?.snapshot_id,
     token,
