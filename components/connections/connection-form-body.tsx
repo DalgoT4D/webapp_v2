@@ -334,19 +334,13 @@ export function ConnectionFormBody({
     return ops.length > 0 ? { ops } : null;
   }, [streams, destinationSchema]);
 
-  // Counts only — column names are warehouse data and must never reach PostHog. Casting is
-  // offered for cast-supported sources only, so this answers whether the feature gets used.
-  const castSummary = useCallback(() => {
-    const castColumns = streams
-      .filter((s) => s.selected)
-      .reduce((total, s) => total + s.columns.filter((c) => c.cast_to_type).length, 0);
-    return { casting_used: castColumns > 0, cast_column_count: castColumns };
-  }, [streams]);
-
   const handleSave = useCallback(async () => {
     if (!validate()) return;
 
     setIsSaving(true);
+    // Built once and reused for both the payload and the event, so what analytics reports
+    // is literally what was sent — not a second, separately-derived guess at it.
+    const postSyncTransform = buildPostSyncTransform();
     try {
       // Backend expects columns as [{name, data_type, selected}] and
       // converts to Airbyte's fieldSelectionEnabled format internally
@@ -375,12 +369,12 @@ export function ConnectionFormBody({
           normalize,
           syncCatalog: discoveredCatalog!,
           catalogId: catalogId || undefined,
-          post_sync_transform: buildPostSyncTransform(),
+          post_sync_transform: postSyncTransform,
         });
         trackEvent(ANALYTICS_EVENTS.CONNECTION_CREATED, {
           connection_id: created.connectionId,
           source_type: sourceType,
-          ...castSummary(),
+          has_post_sync_transform: postSyncTransform !== null,
         });
         toastSuccess.created('Connection');
 
@@ -431,12 +425,12 @@ export function ConnectionFormBody({
           destinationSchema: destinationSchema || undefined,
           syncCatalog: connection?.syncCatalog,
           catalogId: catalogId || undefined,
-          post_sync_transform: buildPostSyncTransform(),
+          post_sync_transform: postSyncTransform,
         });
         trackEvent(ANALYTICS_EVENTS.CONNECTION_UPDATED, {
           connection_id: connectionId,
           source_type: connection?.source?.sourceName,
-          ...castSummary(),
+          has_post_sync_transform: postSyncTransform !== null,
         });
         toastSuccess.updated('Connection');
       }
@@ -460,7 +454,6 @@ export function ConnectionFormBody({
     connection,
     connectionView,
     buildPostSyncTransform,
-    castSummary,
     onSuccess,
   ]);
 

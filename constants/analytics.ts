@@ -208,10 +208,10 @@ export const ANALYTICS_EVENTS = {
   METRIC_UPDATED: 'metric:metric_updated',
   METRIC_DELETED: 'metric:metric_deleted',
   // Ingest
-  // Both carry `casting_used` + `cast_column_count`: post-sync column casting is offered only
-  // for cast-supported sources (see isCastSupportedSource), and whether people actually cast
-  // anything is the adoption question for that feature. Counts only — never column names,
-  // which are warehouse data.
+  // Both carry `has_post_sync_transform`: whether the connection was saved with any post-sync
+  // transform (column casting, offered only for cast-supported sources — see
+  // isCastSupportedSource). A plain boolean taken from the payload that was actually sent;
+  // the transform's contents are column names and types, i.e. warehouse data, and never go out.
   CONNECTION_CREATED: 'connection:connection_created',
   CONNECTION_UPDATED: 'connection:connection_updated',
   CONNECTION_DELETED: 'connection:connection_deleted',

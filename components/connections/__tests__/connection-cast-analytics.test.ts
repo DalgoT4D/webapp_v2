@@ -2,40 +2,48 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * Column casting is offered only for cast-supported sources, so "does anyone actually cast
- * anything" is the adoption question for the feature — and the answer has to ride on the
- * connection events, since casting is saved as part of the connection's post_sync_transform.
+ * Column casting is saved as the connection's post_sync_transform, so the connection events
+ * are where "was this connection created with a transform or not" has to be answered.
  *
- * Guards the shape rather than re-running the form: the cast values are column names and
- * types, i.e. warehouse data, so the event must carry counts only. A future change that
- * starts sending the cast map itself would be a PII leak, and this fails on it.
+ * Guards the shape rather than re-running the form: the transform's contents are column names
+ * and cast types, i.e. warehouse data. A change that starts sending the transform itself
+ * instead of a boolean would be a PII leak, and this fails on it.
  */
 const BODY = fs.readFileSync(path.join(__dirname, '..', 'connection-form-body.tsx'), 'utf8');
 
-describe('connection casting analytics', () => {
-  it('sends the cast summary on both create and update', () => {
-    const createBlock = BODY.slice(BODY.indexOf('ANALYTICS_EVENTS.CONNECTION_CREATED'));
-    const updateBlock = BODY.slice(BODY.indexOf('ANALYTICS_EVENTS.CONNECTION_UPDATED'));
+function eventPayload(eventName: string): string {
+  const from = BODY.slice(BODY.indexOf(`ANALYTICS_EVENTS.${eventName}`));
+  return from.slice(0, from.indexOf('});'));
+}
 
-    expect(createBlock.slice(0, createBlock.indexOf('});'))).toContain('castSummary()');
-    expect(updateBlock.slice(0, updateBlock.indexOf('});'))).toContain('castSummary()');
+describe('connection post-sync transform analytics', () => {
+  it('reports has_post_sync_transform as a boolean on create and update', () => {
+    for (const event of ['CONNECTION_CREATED', 'CONNECTION_UPDATED']) {
+      expect(eventPayload(event)).toContain('has_post_sync_transform: postSyncTransform !== null');
+    }
   });
 
-  it('summarises casting as counts, never as column names or cast types', () => {
-    const summary = BODY.slice(BODY.indexOf('const castSummary'), BODY.indexOf('const handleSave'));
+  it('never sends the transform itself, only whether there was one', () => {
+    for (const event of ['CONNECTION_CREATED', 'CONNECTION_UPDATED']) {
+      const payload = eventPayload(event);
+      // The ops array carries schema/table/column names and cast types.
+      expect(payload).not.toContain('post_sync_transform: postSyncTransform,');
+      expect(payload).not.toContain('ops');
+      expect(payload).not.toContain('cast_to_type');
+    }
+  });
 
-    expect(summary).toContain('casting_used');
-    expect(summary).toContain('cast_column_count');
-    // The per-column cast map (name -> type) must not be assembled into the event payload.
-    expect(summary).not.toContain('config[c.name]');
-    expect(summary).not.toContain('cast_to_type:');
+  // The event must describe the request that was actually made, so both read one variable
+  // rather than each re-deriving the transform and risking a drift between them.
+  it('derives the flag from the same value that was sent in the payload', () => {
+    expect(BODY).toContain('const postSyncTransform = buildPostSyncTransform();');
+    // buildPostSyncTransform is invoked exactly once — at that assignment.
+    expect(BODY.match(/buildPostSyncTransform\(\)/g)).toHaveLength(1);
   });
 
   it('carries connection_id on both events so a connection can be joined across its life', () => {
-    const createBlock = BODY.slice(BODY.indexOf('ANALYTICS_EVENTS.CONNECTION_CREATED'));
-    const updateBlock = BODY.slice(BODY.indexOf('ANALYTICS_EVENTS.CONNECTION_UPDATED'));
-
-    expect(createBlock.slice(0, createBlock.indexOf('});'))).toContain('connection_id');
-    expect(updateBlock.slice(0, updateBlock.indexOf('});'))).toContain('connection_id');
+    for (const event of ['CONNECTION_CREATED', 'CONNECTION_UPDATED']) {
+      expect(eventPayload(event)).toContain('connection_id');
+    }
   });
 });
