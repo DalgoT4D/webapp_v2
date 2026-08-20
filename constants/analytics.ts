@@ -208,6 +208,10 @@ export const ANALYTICS_EVENTS = {
   METRIC_UPDATED: 'metric:metric_updated',
   METRIC_DELETED: 'metric:metric_deleted',
   // Ingest
+  // Both carry `casting_used` + `cast_column_count`: post-sync column casting is offered only
+  // for cast-supported sources (see isCastSupportedSource), and whether people actually cast
+  // anything is the adoption question for that feature. Counts only — never column names,
+  // which are warehouse data.
   CONNECTION_CREATED: 'connection:connection_created',
   CONNECTION_UPDATED: 'connection:connection_updated',
   CONNECTION_DELETED: 'connection:connection_deleted',
@@ -216,11 +220,16 @@ export const ANALYTICS_EVENTS = {
   CONNECTION_SYNC_CANCELLED: 'connection:sync_cancelled',
   CONNECTION_SCHEMA_CHANGES_APPLIED: 'connection:schema_changes_applied',
   CONNECTION_LOG_SUMMARY_REQUESTED: 'connection:log_summary_requested',
+  // Fires on the wizard's success path with source_id and, for Google Sheets, `auth_mode`
+  // from SOURCE_AUTH_MODES — which of the three routes the user actually completed.
   SOURCE_CREATED: 'source:source_created',
   SOURCE_UPDATED: 'source:source_updated',
   SOURCE_DELETED: 'source:source_deleted',
   SOURCE_OAUTH_STARTED: 'source:oauth_started',
   SOURCE_OAUTH_CONNECTED: 'source:oauth_connected',
+  // Funnel through the Add Source wizard (warehouse? → select → create → connection), so
+  // the step people abandon on is visible. Carries `step` and `has_warehouse_step`.
+  SOURCE_WIZARD_STEP_VIEWED: 'source:wizard_step_viewed',
   WAREHOUSE_CREATED: 'warehouse:warehouse_created',
   WAREHOUSE_UPDATED: 'warehouse:warehouse_updated',
   WAREHOUSE_DELETED: 'warehouse:warehouse_deleted',
@@ -372,6 +381,22 @@ export const KPI_EXPORT_SOURCES = {
 } as const;
 
 export type KpiExportSource = (typeof KPI_EXPORT_SOURCES)[keyof typeof KPI_EXPORT_SOURCES];
+
+// `auth_mode` values for SOURCE_CREATED on Google Sheets. The three routes cost the user
+// very different amounts of effort, so which one they finish on is the whole question:
+// the managed key exists precisely so a trial user doesn't have to go and mint a service
+// account first. Create-time only — Airbyte returns a stored key masked and which key a
+// source uses isn't recorded, so this cannot be reported on edit.
+export const SOURCE_AUTH_MODES = {
+  // Google sign-in (OAuth consent popup)
+  OAUTH: 'oauth',
+  // Dalgo's own service account — the user just shares the sheet with our email
+  MANAGED_KEY: 'managed_key',
+  // The user pasted their own service-account JSON
+  OWN_KEY: 'own_key',
+} as const;
+
+export type SourceAuthMode = (typeof SOURCE_AUTH_MODES)[keyof typeof SOURCE_AUTH_MODES];
 
 // `source` values for REPORT_SHARED — a report can be handed out two ways, and they are
 // different behaviours (a link is passive, an email is a push to named people).

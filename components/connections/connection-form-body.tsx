@@ -334,6 +334,15 @@ export function ConnectionFormBody({
     return ops.length > 0 ? { ops } : null;
   }, [streams, destinationSchema]);
 
+  // Counts only — column names are warehouse data and must never reach PostHog. Casting is
+  // offered for cast-supported sources only, so this answers whether the feature gets used.
+  const castSummary = useCallback(() => {
+    const castColumns = streams
+      .filter((s) => s.selected)
+      .reduce((total, s) => total + s.columns.filter((c) => c.cast_to_type).length, 0);
+    return { casting_used: castColumns > 0, cast_column_count: castColumns };
+  }, [streams]);
+
   const handleSave = useCallback(async () => {
     if (!validate()) return;
 
@@ -368,7 +377,11 @@ export function ConnectionFormBody({
           catalogId: catalogId || undefined,
           post_sync_transform: buildPostSyncTransform(),
         });
-        trackEvent(ANALYTICS_EVENTS.CONNECTION_CREATED, { source_type: sourceType });
+        trackEvent(ANALYTICS_EVENTS.CONNECTION_CREATED, {
+          connection_id: created.connectionId,
+          source_type: sourceType,
+          ...castSummary(),
+        });
         toastSuccess.created('Connection');
 
         // Own-data / automate-pipeline walkthrough checkpoint: track this connection so
@@ -421,7 +434,9 @@ export function ConnectionFormBody({
           post_sync_transform: buildPostSyncTransform(),
         });
         trackEvent(ANALYTICS_EVENTS.CONNECTION_UPDATED, {
+          connection_id: connectionId,
           source_type: connection?.source?.sourceName,
+          ...castSummary(),
         });
         toastSuccess.updated('Connection');
       }
@@ -445,6 +460,7 @@ export function ConnectionFormBody({
     connection,
     connectionView,
     buildPostSyncTransform,
+    castSummary,
     onSuccess,
   ]);
 
