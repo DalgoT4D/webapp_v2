@@ -37,7 +37,6 @@ export class PickerCancelledError extends Error {
 }
 
 const GAPI_SCRIPT_SRC = 'https://apis.google.com/js/api.js';
-const SPREADSHEET_MIME_TYPE = 'application/vnd.google-apps.spreadsheet';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
@@ -100,18 +99,31 @@ export async function pickSpreadsheet(config: GooglePickerConfig): Promise<Picke
   const picker = window.google.picker;
 
   return new Promise<PickedSpreadsheet>((resolve, reject) => {
-    const view = new picker.DocsView(picker.ViewId.SPREADSHEETS)
-      .setMimeTypes(SPREADSHEET_MIME_TYPE)
-      .setSelectFolderEnabled(false)
-      // clients keep shared sheets on shared drives; without this they are invisible here
-      .setEnableDrives(true);
+    // Two views, because `setEnableDrives(true)` re-roots a view at the list of shared drives:
+    // one view configured that way shows ONLY shared drives and hides My Drive completely.
+    // Each view becomes a tab.
+    //
+    // `setIncludeFolders(true)` is what makes either view navigable — a shared drive, and any
+    // folder inside it, is a folder, so without this the Picker lists containers it will not
+    // let you open. `setSelectFolderEnabled(false)` still keeps the answer a file.
+    //
+    // No `setMimeTypes` here: `ViewId.SPREADSHEETS` already limits the view to spreadsheets,
+    // and a mime filter on top of it also excludes folders, which is precisely what makes the
+    // view a dead end.
+    const spreadsheetsView = () =>
+      new picker.DocsView(picker.ViewId.SPREADSHEETS)
+        .setIncludeFolders(true)
+        .setSelectFolderEnabled(false)
+        .setMode(picker.DocsViewMode.LIST);
 
     const built = new picker.PickerBuilder()
       .setOAuthToken(config.accessToken)
       .setDeveloperKey(config.apiKey)
       .setAppId(config.appId)
       .setTitle('Choose the spreadsheet for Dalgo to sync')
-      .addView(view)
+      .addView(spreadsheetsView())
+      // clients keep shared sheets on shared drives; this is the second tab
+      .addView(spreadsheetsView().setEnableDrives(true))
       .enableFeature(picker.Feature.SUPPORT_DRIVES)
       .setCallback((data: any) => {
         if (data.action === picker.Action.PICKED) {

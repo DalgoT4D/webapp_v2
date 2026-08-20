@@ -6,16 +6,22 @@
 
 import { pickSpreadsheet, PickerCancelledError } from '../google-picker';
 
-interface FakePickerCalls {
+/** What one DocsView was configured with. */
+interface FakeView {
   viewId?: string;
   mimeTypes?: string;
+  includeFolders?: boolean;
   selectFolderEnabled?: boolean;
   enableDrives?: boolean;
+  mode?: string;
+}
+
+interface FakePickerCalls {
   oauthToken?: string;
   developerKey?: string;
   appId?: string;
   features: string[];
-  views: unknown[];
+  views: FakeView[];
   visible?: boolean;
   callback?: (data: unknown) => void;
 }
@@ -25,19 +31,28 @@ function installFakePicker(): FakePickerCalls {
   const calls: FakePickerCalls = { features: [], views: [] };
 
   class DocsView {
+    config: FakeView;
     constructor(viewId: string) {
-      calls.viewId = viewId;
+      this.config = { viewId };
     }
     setMimeTypes(mimeTypes: string) {
-      calls.mimeTypes = mimeTypes;
+      this.config.mimeTypes = mimeTypes;
+      return this;
+    }
+    setIncludeFolders(enabled: boolean) {
+      this.config.includeFolders = enabled;
       return this;
     }
     setSelectFolderEnabled(enabled: boolean) {
-      calls.selectFolderEnabled = enabled;
+      this.config.selectFolderEnabled = enabled;
       return this;
     }
     setEnableDrives(enabled: boolean) {
-      calls.enableDrives = enabled;
+      this.config.enableDrives = enabled;
+      return this;
+    }
+    setMode(mode: string) {
+      this.config.mode = mode;
       return this;
     }
   }
@@ -58,8 +73,8 @@ function installFakePicker(): FakePickerCalls {
     setTitle() {
       return this;
     }
-    addView(view: unknown) {
-      calls.views.push(view);
+    addView(view: DocsView) {
+      calls.views.push(view.config);
       return this;
     }
     enableFeature(feature: string) {
@@ -86,6 +101,7 @@ function installFakePicker(): FakePickerCalls {
       ViewId: { SPREADSHEETS: 'spreadsheets' },
       Feature: { SUPPORT_DRIVES: 'supportDrives' },
       Action: { PICKED: 'picked', CANCEL: 'cancel' },
+      DocsViewMode: { LIST: 'list' },
     },
   };
   return calls;
@@ -141,7 +157,9 @@ it('hands the Picker the per-flow token and this app’s identity', async () => 
   expect(calls.appId).toBe('123456789');
 });
 
-it('shows spreadsheets only, including those on shared drives', async () => {
+// Two views, not one: a view with setEnableDrives(true) is rooted at the shared drives, so on
+// its own it hides My Drive entirely. Users need both tabs.
+it('offers My Drive and shared drives as separate views', async () => {
   const calls = installFakePicker();
 
   const pending = pickSpreadsheet(CONFIG);
@@ -149,11 +167,42 @@ it('shows spreadsheets only, including those on shared drives', async () => {
   calls.callback!({ action: 'picked', docs: [DOC] });
   await pending;
 
-  expect(calls.viewId).toBe('spreadsheets');
-  expect(calls.mimeTypes).toBe('application/vnd.google-apps.spreadsheet');
-  expect(calls.selectFolderEnabled).toBe(false);
-  expect(calls.enableDrives).toBe(true);
+  expect(calls.views).toHaveLength(2);
+  expect(calls.views.every((v) => v.viewId === 'spreadsheets')).toBe(true);
+  expect(calls.views.filter((v) => v.enableDrives)).toHaveLength(1);
+  expect(calls.views.filter((v) => !v.enableDrives)).toHaveLength(1);
   expect(calls.features).toContain('supportDrives');
+});
+
+// Without folders in the view there is nothing to click through: a shared drive's contents
+// (and any nested folder) become unreachable, so the Picker lists drives and dead-ends.
+it('shows folders so the user can navigate into drives, but cannot select one', async () => {
+  const calls = installFakePicker();
+
+  const pending = pickSpreadsheet(CONFIG);
+  await Promise.resolve();
+  calls.callback!({ action: 'picked', docs: [DOC] });
+  await pending;
+
+  for (const view of calls.views) {
+    expect(view.includeFolders).toBe(true);
+    expect(view.selectFolderEnabled).toBe(false);
+  }
+});
+
+// ViewId.SPREADSHEETS already restricts the view to spreadsheets. Adding a mimeTypes filter on
+// top of it also filters out folders, which is what made the view impossible to navigate.
+it('does not filter by mime type on top of the spreadsheets view', async () => {
+  const calls = installFakePicker();
+
+  const pending = pickSpreadsheet(CONFIG);
+  await Promise.resolve();
+  calls.callback!({ action: 'picked', docs: [DOC] });
+  await pending;
+
+  for (const view of calls.views) {
+    expect(view.mimeTypes).toBeUndefined();
+  }
 });
 
 it('treats a PICKED action with no document as a cancel', async () => {
