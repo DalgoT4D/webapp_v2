@@ -6,10 +6,10 @@ import type {
   CreateSourcePayload,
   UpdateSourcePayload,
   SourceOAuthConsent,
+  SourceOAuthPickerConfig,
   CreateOAuthSourcePayload,
   UpdateOAuthSourcePayload,
   CreateOAuthSourceResponse,
-  ManagedServiceAccount,
 } from '@/types/source';
 import type { ConnectionSpecification } from '@/components/connectors/types';
 
@@ -67,17 +67,6 @@ export function useSource(sourceId: string | null) {
   return { data, isLoading, isError: error, mutate };
 }
 
-/** MANAGED-SA bridge — the address users share their spreadsheet with, or null when the
- * deployment ships no key. Fixed per deployment, so fetched once and never revalidated. */
-export function useManagedServiceAccount(enabled: boolean) {
-  const { data, isLoading } = useSWR<ManagedServiceAccount>(
-    enabled ? '/api/airbyte/sources/google_sheets/managed_service_account/' : null,
-    apiGet,
-    { revalidateOnFocus: false, revalidateIfStale: false, shouldRetryOnError: false }
-  );
-  return { managed: data ?? null, isLoading };
-}
-
 // ============ Mutation Functions ============
 
 export async function createSource(payload: CreateSourcePayload): Promise<Source> {
@@ -108,6 +97,22 @@ export async function getSourceOAuthConsent(
   sourceName: string
 ): Promise<SourceOAuthConsent> {
   return apiPost('/api/airbyte/sources/oauth/consent/', { sourceDefId, sourceName });
+}
+
+/** Fetch the Google Picker config for a `ref` this user owns: a short-lived Drive-scoped
+ * access token plus the Picker's API key and app id.
+ *
+ * Needed because the `drive.file` scope grants only the files the user picks in Google's own
+ * Picker, and the Picker runs client-side. POST, not GET — the ref is a credential and has no
+ * business in a URL or an access log. */
+export async function getSourceOAuthPickerConfig(
+  sourceName: string,
+  refreshTokenRef: string
+): Promise<SourceOAuthPickerConfig> {
+  return apiPost('/api/airbyte/sources/oauth/picker/', {
+    sourceName,
+    refresh_token_ref: refreshTokenRef,
+  });
 }
 
 /** Create a NEW source from a redeemed OAuth `ref`: the backend redeems the ref, injects

@@ -10,10 +10,18 @@ export interface CustomSourceOAuth {
   buttonLabel: string;
   /** Create: render a static confirmation once connected. Edit: keep re-auth clickable. */
   lockWhenConnected: boolean;
+  /** Whether clicking opens Google's Picker. False when re-authenticating a source that is
+   *  already OAuth-connected: it keeps the sheet it holds a grant for, and offering a file
+   *  chooser there is how a source silently ends up aimed somewhere else. */
+  picksSheet: boolean;
   onClick: () => void;
   /** Inline validation error shown under the Authentication section (e.g. neither
    *  Google sign-in nor a service-account JSON was provided). */
   error?: string;
+  /** The sheet the Picker just returned, shown as a clickable confirmation — the form holds only
+   *  the link, which is unreadable on its own. Absent for a source connected in an earlier
+   *  session (Airbyte stores no title); the form then links the saved value under a generic label. */
+  connectedSheet?: { name: string; url: string };
 }
 
 /**

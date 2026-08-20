@@ -10,6 +10,14 @@ export const GSHEETS_AUTH_DISCRIMINATOR = 'auth_type';
 export const GSHEETS_OAUTH_AUTH_TYPE = 'Client';
 export const GSHEETS_SERVICE_AUTH_TYPE = 'Service';
 
+// The auth-method radio's values — deliberately not the discriminator values above, so a spec
+// rename of either branch can't silently change which fields the form renders.
+export const GSHEETS_AUTH_METHOD_OAUTH = 'oauth';
+export const GSHEETS_AUTH_METHOD_SERVICE = 'service';
+export type GsheetsAuthMethodValue =
+  | typeof GSHEETS_AUTH_METHOD_OAUTH
+  | typeof GSHEETS_AUTH_METHOD_SERVICE;
+
 // Google Sheets field keys. These place fields (pin to primary / render with a custom
 // widget) — they are NOT an allowlist: the form renders every field the spec sends.
 export const GSHEETS_KEY_SPREADSHEET = 'spreadsheet_id';

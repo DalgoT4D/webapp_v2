@@ -20,9 +20,6 @@ export interface CreateSourcePayload {
   name: string;
   sourceDefId: string;
   config: Record<string, unknown>;
-  /** Source-DEFINITION name (e.g. "Google Sheets"). Tells the backend whether to fill in
-   *  Dalgo's managed service-account key. */
-  sourceDefName: string;
 }
 
 export interface UpdateSourcePayload {
@@ -30,15 +27,25 @@ export interface UpdateSourcePayload {
   sourceDefId: string;
   config: Record<string, unknown>;
   sourceId: string;
-  /** Source-DEFINITION name (e.g. "Google Sheets"). Tells the backend whether to fill in
-   *  Dalgo's managed service-account key. */
-  sourceDefName: string;
 }
 
 /** Response from starting the Google OAuth flow (Variant A): the Google consent URL
  * Dalgo built. The state nonce stays server-side and never reaches the browser. */
 export interface SourceOAuthConsent {
   authUrl: string;
+}
+
+/** What the browser needs to open the Google Picker, for a `ref` the caller owns.
+ *
+ * Dalgo asks Google for the `drive.file` scope, which grants only the files the user hands
+ * us through the Picker — so between consent and save the browser has to run it, and that
+ * needs a Drive-scoped access token client-side. It is short-lived, scoped to files the user
+ * selects, and fetched per flow; the refresh token never leaves the backend. */
+export interface SourceOAuthPickerConfig {
+  accessToken: string;
+  apiKey: string;
+  /** the OAuth client's Google Cloud project NUMBER */
+  appId: string;
 }
 
 /** Payload to create a NEW source from a redeemed OAuth `ref`. The backend has already
@@ -63,10 +70,4 @@ export type UpdateOAuthSourcePayload = CreateOAuthSourcePayload;
 /** Response from creating the OAuth source: the saved source's id */
 export interface CreateOAuthSourceResponse {
   sourceId: string;
-}
-
-/** MANAGED-SA bridge — the Dalgo service account users share their spreadsheet with. */
-export interface ManagedServiceAccount {
-  /** null when no usable key is configured — that IS the "bridge is off" signal. */
-  email: string | null;
 }
