@@ -99,31 +99,39 @@ export async function pickSpreadsheet(config: GooglePickerConfig): Promise<Picke
   const picker = window.google.picker;
 
   return new Promise<PickedSpreadsheet>((resolve, reject) => {
-    // Two views, because `setEnableDrives(true)` re-roots a view at the list of shared drives:
-    // one view configured that way shows ONLY shared drives and hides My Drive completely.
-    // Each view becomes a tab.
+    // Two views, one per tab, because `setEnableDrives(true)` re-roots a view at the list of
+    // shared drives — a single view configured that way hides My Drive completely.
     //
-    // `setIncludeFolders(true)` is what makes either view navigable — a shared drive, and any
-    // folder inside it, is a folder, so without this the Picker lists containers it will not
-    // let you open. `setSelectFolderEnabled(false)` still keeps the answer a file.
+    // The tabs need OPPOSITE folder settings, which is the subtle part:
     //
-    // No `setMimeTypes` here: `ViewId.SPREADSHEETS` already limits the view to spreadsheets,
-    // and a mime filter on top of it also excludes folders, which is precisely what makes the
-    // view a dead end.
-    const spreadsheetsView = () =>
-      new picker.DocsView(picker.ViewId.SPREADSHEETS)
-        .setIncludeFolders(true)
-        .setSelectFolderEnabled(false)
-        .setMode(picker.DocsViewMode.LIST);
+    // - My Drive tab: `ViewId.SPREADSHEETS` is a FLAT list of every sheet the user has, with no
+    //   hierarchy to walk. Folders here render as rows that cannot be opened (nothing to
+    //   navigate) and cannot be selected (`selectFolderEnabled(false)`) — dead ends that push
+    //   the actual sheets out of sight. So: no folders.
+    // - Shared drives tab: opening a drive IS opening a folder, so without folders the tab
+    //   lists drives it will not let you enter. So: folders on, still not selectable.
+    //
+    // No `setMimeTypes` on either: `ViewId.SPREADSHEETS` already limits the view to
+    // spreadsheets, and a mime filter on top of that also excludes folders, which breaks the
+    // shared-drives tab.
+    const myDriveView = new picker.DocsView(picker.ViewId.SPREADSHEETS).setMode(
+      picker.DocsViewMode.LIST
+    );
+
+    const sharedDrivesView = new picker.DocsView(picker.ViewId.SPREADSHEETS)
+      .setMode(picker.DocsViewMode.LIST)
+      .setIncludeFolders(true)
+      .setSelectFolderEnabled(false)
+      // clients keep shared sheets on shared drives, not in My Drive
+      .setEnableDrives(true);
 
     const built = new picker.PickerBuilder()
       .setOAuthToken(config.accessToken)
       .setDeveloperKey(config.apiKey)
       .setAppId(config.appId)
       .setTitle('Choose the spreadsheet for Dalgo to sync')
-      .addView(spreadsheetsView())
-      // clients keep shared sheets on shared drives; this is the second tab
-      .addView(spreadsheetsView().setEnableDrives(true))
+      .addView(myDriveView)
+      .addView(sharedDrivesView)
       .enableFeature(picker.Feature.SUPPORT_DRIVES)
       .setCallback((data: any) => {
         if (data.action === picker.Action.PICKED) {

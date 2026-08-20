@@ -174,9 +174,12 @@ it('offers My Drive and shared drives as separate views', async () => {
   expect(calls.features).toContain('supportDrives');
 });
 
-// Without folders in the view there is nothing to click through: a shared drive's contents
-// (and any nested folder) become unreachable, so the Picker lists drives and dead-ends.
-it('shows folders so the user can navigate into drives, but cannot select one', async () => {
+// The My Drive view is FLAT — ViewId.SPREADSHEETS lists every sheet the user has, with no
+// hierarchy to walk. Putting folders in it renders rows that cannot be opened (no navigation)
+// and cannot be selected (selectFolderEnabled false): a list of dead ends, hiding the sheets
+// below them. Folders belong only in the shared-drives view, where opening a drive IS opening
+// a folder.
+it('keeps folders out of the flat My Drive view', async () => {
   const calls = installFakePicker();
 
   const pending = pickSpreadsheet(CONFIG);
@@ -184,10 +187,21 @@ it('shows folders so the user can navigate into drives, but cannot select one', 
   calls.callback!({ action: 'picked', docs: [DOC] });
   await pending;
 
-  for (const view of calls.views) {
-    expect(view.includeFolders).toBe(true);
-    expect(view.selectFolderEnabled).toBe(false);
-  }
+  const myDrive = calls.views.find((v) => !v.enableDrives)!;
+  expect(myDrive.includeFolders).toBeUndefined();
+});
+
+it('shows folders in the shared-drives view so a drive can be opened, but not selected', async () => {
+  const calls = installFakePicker();
+
+  const pending = pickSpreadsheet(CONFIG);
+  await Promise.resolve();
+  calls.callback!({ action: 'picked', docs: [DOC] });
+  await pending;
+
+  const sharedDrives = calls.views.find((v) => v.enableDrives)!;
+  expect(sharedDrives.includeFolders).toBe(true);
+  expect(sharedDrives.selectFolderEnabled).toBe(false);
 });
 
 // ViewId.SPREADSHEETS already restricts the view to spreadsheets. Adding a mimeTypes filter on
