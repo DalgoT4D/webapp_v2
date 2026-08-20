@@ -1718,6 +1718,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         });
 
         trackEvent(ANALYTICS_EVENTS.DASHBOARD_CHART_ADDED, {
+          // Both ids: chart_type says what KIND was added, chart_id says WHICH chart — only
+          // the id answers "which charts get reused across dashboards" and "built but never
+          // placed anywhere".
+          chart_id: chartId,
           chart_type: chartType,
           dashboard_id: dashboardId,
         });
@@ -1778,7 +1782,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         });
       });
 
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_KPI_ADDED, { dashboard_id: dashboardId });
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_KPI_ADDED, {
+        kpi_id: kpiId,
+        dashboard_id: dashboardId,
+      });
       // Resume-nudge milestone — set regardless of an active coachmark session.
       markKpiAddedToDashboard();
       dashboardAnimation.animateComponent(newComponent.id, 500);
