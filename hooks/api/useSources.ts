@@ -10,7 +10,6 @@ import type {
   CreateOAuthSourcePayload,
   UpdateOAuthSourcePayload,
   CreateOAuthSourceResponse,
-  ManagedServiceAccount,
 } from '@/types/source';
 import type { ConnectionSpecification } from '@/components/connectors/types';
 
@@ -66,17 +65,6 @@ export function useSource(sourceId: string | null) {
     { revalidateOnFocus: false }
   );
   return { data, isLoading, isError: error, mutate };
-}
-
-/** MANAGED-SA bridge — the address users share their spreadsheet with, or null when the
- * deployment ships no key. Fixed per deployment, so fetched once and never revalidated. */
-export function useManagedServiceAccount(enabled: boolean) {
-  const { data, isLoading } = useSWR<ManagedServiceAccount>(
-    enabled ? '/api/airbyte/sources/google_sheets/managed_service_account/' : null,
-    apiGet,
-    { revalidateOnFocus: false, revalidateIfStale: false, shouldRetryOnError: false }
-  );
-  return { managed: data ?? null, isLoading };
 }
 
 // ============ Mutation Functions ============

@@ -20,9 +20,6 @@ export interface CreateSourcePayload {
   name: string;
   sourceDefId: string;
   config: Record<string, unknown>;
-  /** Source-DEFINITION name (e.g. "Google Sheets"). Tells the backend whether to fill in
-   *  Dalgo's managed service-account key. */
-  sourceDefName: string;
 }
 
 export interface UpdateSourcePayload {
@@ -30,9 +27,6 @@ export interface UpdateSourcePayload {
   sourceDefId: string;
   config: Record<string, unknown>;
   sourceId: string;
-  /** Source-DEFINITION name (e.g. "Google Sheets"). Tells the backend whether to fill in
-   *  Dalgo's managed service-account key. */
-  sourceDefName: string;
 }
 
 /** Response from starting the Google OAuth flow (Variant A): the Google consent URL
@@ -76,10 +70,4 @@ export type UpdateOAuthSourcePayload = CreateOAuthSourcePayload;
 /** Response from creating the OAuth source: the saved source's id */
 export interface CreateOAuthSourceResponse {
   sourceId: string;
-}
-
-/** MANAGED-SA bridge — the Dalgo service account users share their spreadsheet with. */
-export interface ManagedServiceAccount {
-  /** null when no usable key is configured — that IS the "bridge is off" signal. */
-  email: string | null;
 }

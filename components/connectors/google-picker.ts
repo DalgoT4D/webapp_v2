@@ -38,6 +38,11 @@ export class PickerCancelledError extends Error {
 
 const GAPI_SCRIPT_SRC = 'https://apis.google.com/js/api.js';
 
+/** A native Google Sheet — NOT an uploaded .xlsx/.csv, which the Sheets API cannot read. */
+const SHEET_MIME_TYPE = 'application/vnd.google-apps.spreadsheet';
+/** Drive folders. Named in the shared-drives view's filter only so drives stay navigable. */
+const FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder';
+
 // Escaping the host modal ----------------------------------------------------------------
 //
 // Every host opens the Picker from inside a Radix `Dialog`, and Radix's DismissableLayer sets
@@ -141,27 +146,25 @@ export async function pickSpreadsheet(config: GooglePickerConfig): Promise<Picke
   const relockBody = unlockBodyPointerEvents();
 
   return new Promise<PickedSpreadsheet>((resolve, reject) => {
-    // Two views, one per tab, because `setEnableDrives(true)` re-roots a view at the list of
-    // shared drives — a single view configured that way hides My Drive completely.
+    // Two views, one per tab: `setEnableDrives(true)` re-roots a view at the shared-drive list,
+    // so a single view configured that way hides My Drive entirely.
     //
-    // The tabs need OPPOSITE folder settings, which is the subtle part:
+    // Both filter to NATIVE sheets — `ViewId.SPREADSHEETS` also lists uploaded .xlsx/.csv, which
+    // the connector's Sheets API cannot read, so picking one saves fine then fails every sync.
     //
-    // - My Drive tab: `ViewId.SPREADSHEETS` is a FLAT list of every sheet the user has, with no
-    //   hierarchy to walk. Folders here render as rows that cannot be opened (nothing to
-    //   navigate) and cannot be selected (`selectFolderEnabled(false)`) — dead ends that push
-    //   the actual sheets out of sight. So: no folders.
-    // - Shared drives tab: opening a drive IS opening a folder, so without folders the tab
-    //   lists drives it will not let you enter. So: folders on, still not selectable.
-    //
-    // No `setMimeTypes` on either: `ViewId.SPREADSHEETS` already limits the view to
-    // spreadsheets, and a mime filter on top of that also excludes folders, which breaks the
-    // shared-drives tab.
-    const myDriveView = new picker.DocsView(picker.ViewId.SPREADSHEETS).setMode(
-      picker.DocsViewMode.LIST
-    );
+    // Folders are where the two tabs diverge, and a mimeTypes filter hides folders unless their
+    // mime type is named too:
+    // - My Drive is a FLAT list with no hierarchy to walk, so folders there are unopenable,
+    //   unselectable rows that push the sheets out of sight. Kept out.
+    // - Shared drives: opening a drive IS opening a folder, so without them the tab lists drives
+    //   it will not let you enter. Kept in, still not selectable.
+    const myDriveView = new picker.DocsView(picker.ViewId.SPREADSHEETS)
+      .setMode(picker.DocsViewMode.LIST)
+      .setMimeTypes(SHEET_MIME_TYPE);
 
     const sharedDrivesView = new picker.DocsView(picker.ViewId.SPREADSHEETS)
       .setMode(picker.DocsViewMode.LIST)
+      .setMimeTypes(`${SHEET_MIME_TYPE},${FOLDER_MIME_TYPE}`)
       .setIncludeFolders(true)
       .setSelectFolderEnabled(false)
       // clients keep shared sheets on shared drives, not in My Drive

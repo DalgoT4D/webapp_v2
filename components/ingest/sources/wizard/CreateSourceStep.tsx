@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useWatch } from 'react-hook-form';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,11 +15,7 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { toastError, toastSuccess } from '@/lib/toast';
 import type { SourceDefinition } from '@/types/source';
 import { SourceConfigFields } from '@/components/ingest/sources/SourceConfigFields';
-import {
-  GSHEETS_KEY_SERVICE_INFO,
-  GSHEETS_KEY_SPREADSHEET,
-  GSHEETS_SERVICE_AUTH_TYPE,
-} from '@/components/ingest/sources/custom/constants';
+import { GSHEETS_KEY_SPREADSHEET } from '@/components/ingest/sources/custom/constants';
 import { isGoogleSheetsSource } from '@/components/ingest/sources/custom/registry';
 import type { CustomSourceOAuth } from '@/components/ingest/sources/custom/types';
 
@@ -57,6 +52,9 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   // uses) — this component is remounted per source-definition, so the ref never
   // leaks across sources.
   const [oauthRef, setOauthRef] = useState<string | null>(null);
+  // The sheet the Picker returned — display only (the form value is its URL). Title and link
+  // together, so the confirmation can be a link the user opens to check the right file.
+  const [pickedSheet, setPickedSheet] = useState<{ name: string; url: string } | null>(null);
   const [authorizing, setAuthorizing] = useState(false);
   const [creatingGoogle, setCreatingGoogle] = useState(false);
   // Re-entry guards: the button's `disabled` is React state and doesn't apply until the
@@ -122,6 +120,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
         shouldDirty: true,
       });
       setOauthRef(ref);
+      setPickedSheet({ name: spreadsheet.name, url: spreadsheet.url });
       toastSuccess.generic(`Authorized with Google — syncing “${spreadsheet.name}”`);
     } catch (error) {
       toastError.api(error instanceof Error ? error.message : 'Google sign-in failed');
@@ -166,31 +165,11 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   // WS-test → createSource flow.
   const useGoogleOAuthFlow = isGoogleSheets && !!oauthRef;
 
-  // Google Sheets auth-gating: besides the (required) spreadsheet link — which the
-  // spec-driven form validates via react-hook-form — the user must supply one auth
-  // method: a Google OAuth ref (the ref state above) or a pasted service-account
-  // JSON. The service path comes from the parsed spec so it tracks the same
-  // discriminator layout GoogleSheetsForm renders.
-  const servicePath = useMemo(() => {
-    if (!isGoogleSheets || !parsedSpec) return '';
-    const credentials = parsedSpec.fields.find((f) => f.type === 'oneOf');
-    const service = credentials?.oneOfSubFields?.find(
-      (f) =>
-        f.parentValue === GSHEETS_SERVICE_AUTH_TYPE &&
-        f.path[f.path.length - 1] === GSHEETS_KEY_SERVICE_INFO
-    );
-    return service?.path.join('.') ?? '';
-  }, [isGoogleSheets, parsedSpec]);
-
-  // useWatch needs a name even when a path is unresolved; '__none__' never matches
-  // a real field, so the watched value stays undefined for non-Google sources.
-  const serviceValue = useWatch({ control, name: servicePath || '__none__' }) as string | undefined;
-  const serviceProvided = !!serviceValue?.trim();
-
-  // MANAGED-SA: "use Dalgo's key" leaves credentials empty on purpose, so watching form fields
-  // can't tell it from "nothing chosen" — the form reports its own verdict.
+  // The form owns this verdict: which auth route is selected is its state, and on the Google
+  // route the credentials are built server-side from the OAuth ref, so watching form fields
+  // can't tell "authorized" from "nothing filled in".
   const [formAuthSatisfied, setFormAuthSatisfied] = useState(false);
-  const authSatisfied = !!oauthRef || serviceProvided || formAuthSatisfied;
+  const authSatisfied = formAuthSatisfied;
 
   // Clear the auth error the moment any auth method is satisfied.
   useEffect(() => {
@@ -207,7 +186,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
 
     let authOk = true;
     if (isGoogleSheets && !authSatisfied) {
-      setAuthError('Paste a service-account key, or tick “Use Dalgo’s service account”');
+      setAuthError('Sign in with Google, or paste a service-account key');
       authOk = false;
     }
 
@@ -295,6 +274,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
                       lockWhenConnected: true,
                       onClick: handleAuthorizeGoogle,
                       error: authError ?? undefined,
+                      connectedSheet: pickedSheet ?? undefined,
                     } satisfies CustomSourceOAuth)
                   : undefined
               }

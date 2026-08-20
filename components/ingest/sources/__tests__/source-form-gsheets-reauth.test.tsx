@@ -21,8 +21,6 @@ jest.mock('@/hooks/useBackendWebSocket', () => ({
 
 jest.mock('@/hooks/api/useSources', () => ({
   ...jest.requireActual('@/hooks/api/useSources'),
-  // MANAGED-SA bridge off, so the dialog offers the Google route these tests exercise
-  useManagedServiceAccount: () => ({ managed: null, isLoading: false }),
   updateOAuthSource: jest.fn(),
 }));
 
@@ -115,7 +113,9 @@ it('re-picks the sheet and saves the newly granted link', async () => {
   await waitFor(() => expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument());
   await user.click(screen.getByTestId('gsheets-oauth-connect-btn'));
 
-  await waitFor(() => expect(screen.getByLabelText(/Spreadsheet Link/i)).toHaveValue(PICKED.url));
+  // The Google route renders no link input — the sheet the Picker returned is confirmed by
+  // name instead, and the link itself is asserted on the save payload below.
+  await waitFor(() => expect(screen.getByText(new RegExp(PICKED.name))).toBeInTheDocument());
   expect(connectGoogleSpreadsheet).toHaveBeenCalledWith('gs', 'Google Sheets');
 
   await user.click(screen.getByTestId('source-save-btn'));
@@ -141,10 +141,16 @@ it('leaves the saved sheet alone when the Google flow is abandoned', async () =>
   await waitFor(() => expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument());
   await user.click(screen.getByTestId('gsheets-oauth-connect-btn'));
 
-  await waitFor(() =>
-    expect(screen.getByLabelText(/Spreadsheet Link/i)).toHaveValue(
-      'https://docs.google.com/spreadsheets/d/old-sheet/edit'
-    )
+  await waitFor(() => expect(updateOAuthSource).not.toHaveBeenCalled());
+  // No ref was acquired, so the button stays on its un-authenticated label and nothing claims
+  // a sheet was picked.
+  expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument();
+  expect(screen.queryByText(new RegExp(PICKED.name))).not.toBeInTheDocument();
+
+  // The saved link is untouched underneath: the service-account route is the one that renders
+  // it, so switching there reveals the form's current value.
+  await user.click(screen.getByTestId('gsheets-service-option-radio'));
+  expect(screen.getByLabelText(/Spreadsheet Link/i)).toHaveValue(
+    'https://docs.google.com/spreadsheets/d/old-sheet/edit'
   );
-  expect(updateOAuthSource).not.toHaveBeenCalled();
 });

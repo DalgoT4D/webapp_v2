@@ -70,9 +70,6 @@ jest.mock('@/hooks/api/useSources', () => ({
   useSourceSpec: () => ({ data: mockSourceSpec, isLoading: false }),
   getSourceOAuthConsent: jest.fn(),
   createOAuthSource: jest.fn(),
-  // MANAGED-SA bridge off: no deployment-managed key, so the form keeps the OAuth UI these
-  // tests assert on. Coverage of the managed path lives in google-sheets-form.test.tsx.
-  useManagedServiceAccount: () => ({ managed: null, isLoading: false }),
 }));
 const mockSave = jest.fn();
 jest.mock('@/hooks/useSourceSave', () => ({
@@ -120,7 +117,9 @@ it('fills the spreadsheet link from the Google Picker and saves that link', asyn
 
   await userEvent.click(screen.getByTestId('gsheets-oauth-connect-btn'));
 
-  await waitFor(() => expect(screen.getByLabelText(/Spreadsheet Link/i)).toHaveValue(PICKED.url));
+  // The Google route renders no link input — the Picker's answer is confirmed by name, and
+  // the link itself is asserted on the create payload below.
+  await waitFor(() => expect(screen.getByText(new RegExp(PICKED.name))).toBeInTheDocument());
   expect(connectGoogleSpreadsheet).toHaveBeenCalledWith('gs', 'Google Sheets');
 
   await userEvent.click(screen.getByTestId('wizard-next-btn'));
@@ -158,7 +157,7 @@ it('keeps the wizard on the service-account path when the Google flow fails', as
   expect(createOAuthSource).not.toHaveBeenCalled();
 });
 
-it('shows the in-form Google authorize button plus a Next disabled until authorized', () => {
+it('opens on the Google route, with nothing for the user to fill in but the name', () => {
   mockSourceSpec = GSHEETS_SPEC;
   render(
     <CreateSourceStep
@@ -168,13 +167,14 @@ it('shows the in-form Google authorize button plus a Next disabled until authori
     />
   );
   expect(screen.getByTestId('google-sheets-form')).toBeInTheDocument();
+  expect(screen.getByTestId('gsheets-oauth-option-radio')).toBeChecked();
   expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument();
-  expect(screen.getByLabelText(/Spreadsheet Link/i)).toBeInTheDocument();
-  // No auth-mode dropdown anymore.
-  expect(screen.queryByTestId('gsheets-auth-mode')).not.toBeInTheDocument();
+  // Both belong to the service-account route, which is not the selected one.
+  expect(screen.queryByLabelText(/Spreadsheet Link/i)).not.toBeInTheDocument();
+  expect(screen.queryByLabelText(/Service Account Information/i)).not.toBeInTheDocument();
 });
 
-it('keeps the service-account field behind Advanced and never renders raw OAuth creds', async () => {
+it('keeps the service-account fields on their own route and never renders raw OAuth creds', async () => {
   const user = userEvent.setup();
   mockSourceSpec = GSHEETS_SPEC;
   render(
@@ -185,13 +185,16 @@ it('keeps the service-account field behind Advanced and never renders raw OAuth 
     />
   );
 
-  // Collapsed: service field absent (Radix unmounts collapsed content).
-  expect(screen.queryByLabelText(/Service Account Information/i)).not.toBeInTheDocument();
+  await user.click(screen.getByTestId('gsheets-service-option-radio'));
 
-  await user.click(screen.getByTestId('gsheets-advanced-trigger'));
-
-  // Now the service-account field + SQL toggle show; the raw client fields never do.
+  // This route owns both inputs: no Picker exists for a service account, so the sheet is named
+  // by link here.
   expect(screen.getByLabelText(/Service Account Information/i)).toBeInTheDocument();
+  expect(screen.getByLabelText(/Spreadsheet Link/i)).toBeInTheDocument();
+  expect(screen.queryByTestId('gsheets-oauth-connect-btn')).not.toBeInTheDocument();
+
+  // Advanced keeps only genuine connector extras; the raw client fields never render at all.
+  await user.click(screen.getByTestId('gsheets-advanced-trigger'));
   expect(screen.getByText('Convert Column Names to SQL-Compliant Format')).toBeInTheDocument();
   expect(screen.queryByLabelText(/Client ID/i)).not.toBeInTheDocument();
   expect(screen.queryByLabelText(/Client Secret/i)).not.toBeInTheDocument();

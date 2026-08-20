@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
-import { useFormState, useWatch } from 'react-hook-form';
+import { useWatch } from 'react-hook-form';
 import { renderField } from '@/components/connectors/ConnectorConfigForm';
 import {
   Accordion,
@@ -10,10 +10,7 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from '@/components/ui/accordion';
-import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { FieldNode } from '@/components/connectors/types';
-import { useManagedServiceAccount } from '@/hooks/api/useSources';
 import {
   GSHEETS_KEY_CREDENTIALS,
   GSHEETS_AUTH_DISCRIMINATOR,
@@ -21,8 +18,11 @@ import {
   GSHEETS_KEY_SERVICE_INFO,
   GSHEETS_OAUTH_AUTH_TYPE,
   GSHEETS_SERVICE_AUTH_TYPE,
+  GSHEETS_AUTH_METHOD_OAUTH,
+  GSHEETS_AUTH_METHOD_SERVICE,
+  type GsheetsAuthMethodValue,
 } from './constants';
-import { GsheetsAuthChoice } from './GsheetsAuthChoice';
+import { GsheetsAuthMethod } from './GsheetsAuthMethod';
 import { partitionFields } from './partition-fields';
 import type { CustomSourceFormProps } from './types';
 
@@ -54,30 +54,15 @@ function keyOf(field: FieldNode): string {
   return field.path[field.path.length - 1];
 }
 
-/** Walks RHF's nested `dirtyFields` tree down a field path. */
-function isPathDirty(dirtyFields: Record<string, unknown>, path: string[]): boolean {
-  let node: unknown = dirtyFields;
-  for (const segment of path) {
-    if (!node || typeof node !== 'object') return false;
-    node = (node as Record<string, unknown>)[segment];
-  }
-  return !!node;
-}
-
 /**
- * Google Sheets custom form. Primary shows the spreadsheet link + a Google OAuth
- * button; Advanced holds everything else, including the service-account JSON. The
- * raw OAuth credential fields are never rendered — the popup fills them server-side.
- * OAuth wins over service: connecting clears any service JSON.
+ * Google Sheets form: two auth routes, each owning the fields it needs. Google sign-in takes the
+ * sheet from the Picker (`drive.file` grants only files chosen there, so a typed link would 403);
+ * a service-account key has no Picker, so that route takes a typed link too.
  *
- * Spec-driven like the Kobo form: every field the connector spec sends is rendered
- * somewhere (primary if the spec marks it required, Advanced otherwise), so a field
- * added in a future Google Sheets connector version shows up without a code change.
- * The only field held back is the `credentials` oneOf, which the sign-in button and
- * the service-account field below stand in for.
- *
- * MANAGED-SA bridge: with a deployment key configured, the sign-in button is replaced by a
- * two-way radio choice — Dalgo's key or your own. Delete with the bridge.
+ * Spec-driven like the Kobo form — required fields to primary, the rest to Advanced — so a field
+ * from a future connector version renders without a code change. Held back: the `credentials`
+ * oneOf (the radio and key field stand in for it, keeping raw client_id/secret out of the form)
+ * and the spreadsheet link, rendered by the service-account card.
  */
 export function GoogleSheetsForm({
   parsedSpec,
@@ -88,9 +73,8 @@ export function GoogleSheetsForm({
   oauth,
   onAuthSatisfiedChange,
 }: CustomSourceFormProps) {
-  // Matched on the discriminator first (the spec's own shape) and on the well-known key
-  // as a fallback, so a renamed discriminator still can't leak raw client_id/secret
-  // inputs into the form.
+  // Discriminator first, well-known key as fallback: a spec rename must not leak raw
+  // client_id/secret inputs into the form.
   const credentialsField = useMemo(
     () =>
       parsedSpec.fields.find(
@@ -101,36 +85,31 @@ export function GoogleSheetsForm({
     [parsedSpec]
   );
 
+  const spreadsheetField = useMemo(
+    () => parsedSpec.fields.find((f) => keyOf(f) === GSHEETS_KEY_SPREADSHEET) ?? null,
+    [parsedSpec]
+  );
+
   const { primary, advanced } = useMemo(
     () =>
       partitionFields(parsedSpec.fields, {
-        // The spreadsheet link leads the form even if a future spec drops its required flag.
-        pinned: [GSHEETS_KEY_SPREADSHEET],
-        exclude: credentialsField ? [keyOf(credentialsField)] : [],
+        // Both belong to the auth cards below.
+        exclude: [
+          ...(credentialsField ? [keyOf(credentialsField)] : []),
+          ...(spreadsheetField ? [keyOf(spreadsheetField)] : []),
+        ],
       }),
-    [parsedSpec, credentialsField]
+    [parsedSpec, credentialsField, spreadsheetField]
   );
 
   const serviceField = credentialsField?.oneOfSubFields?.find(
-    (f) =>
-      f.parentValue === GSHEETS_SERVICE_AUTH_TYPE &&
-      f.path[f.path.length - 1] === GSHEETS_KEY_SERVICE_INFO
+    (f) => f.parentValue === GSHEETS_SERVICE_AUTH_TYPE && keyOf(f) === GSHEETS_KEY_SERVICE_INFO
   );
-  // The parser marks this required from its own oneOf branch's schema alone — it has
-  // no notion of "only when this branch is actually selected" (spec-parser.ts's
-  // `optionRequired`, applied unconditionally per branch). Every other oneOf field
-  // dodges this because OneOfField only ever mounts the active branch's Controllers;
-  // this one is always mounted (so the OAuth button can sit next to it), so its RHF
-  // rule fires even while disabled and unused, blocking submit outright. The real
-  // "provide one of the two" invariant is already enforced correctly elsewhere
-  // (CreateSourceStep's authError check, driven by actual oauthRef/serviceProvided
-  // state) — so this field itself is never RHF-required.
+  // spec-parser marks this required per oneOf branch, with no notion of "only when selected".
+  // The real "one of the two" invariant is reported by `onAuthSatisfiedChange` below.
   const serviceFieldForRender = serviceField ? { ...serviceField, required: false } : undefined;
-  // Every field belonging to the OAuth (Client) branch — cleared when the user
-  // deliberately switches to a service-account key, the same generic sibling-clear
-  // OneOfField.tsx does for every other connector's oneOf. Without this, stale
-  // client_id/client_secret/refresh_token would ride along next to
-  // service_account_info and fail Airbyte's additionalProperties:false schema.
+  // Cleared when the service route is chosen — Airbyte's additionalProperties:false rejects a
+  // config matching two oneOf branches. Same sibling-clear OneOfField.tsx does generically.
   const clientBranchFields = useMemo(
     () =>
       credentialsField?.oneOfSubFields?.filter((f) => f.parentValue === GSHEETS_OAUTH_AUTH_TYPE) ??
@@ -143,277 +122,156 @@ export function GoogleSheetsForm({
   const servicePath = serviceField?.path.join('.') ?? '__no_service__';
   const serviceValue = useWatch({ control, name: servicePath }) as string | undefined;
   const serviceProvided = !!serviceValue?.trim();
-  // Has the user touched the key since the form was populated? On edit, the host seeds the saved
-  // config with `reset()`, which re-baselines RHF's defaults — so "dirty" means exactly "changed
-  // from what this source has saved", which is what tells a freshly pasted key apart from the
-  // stored one. (Also true after switching to Dalgo's key, which clears the field.)
-  const { dirtyFields } = useFormState({ control, name: servicePath });
-  const keyEdited = serviceField ? isPathDirty(dirtyFields, serviceField.path) : false;
 
   const connected = !!oauth?.connected;
 
-  // MANAGED-SA bridge. Sign-in stays hidden until our OAuth client is verified, so with a key
-  // configured this form offers only the two service-account options. No carve-out for a
-  // connected OAuth source — none can exist, sign-in was never released. Unset the key and the
-  // OAuth code below takes over again, untouched.
-  const { managed } = useManagedServiceAccount(true);
-  const managedEmail = managed?.email ?? null;
-  const useManagedChoice = !!managedEmail;
-  // Opting into Dalgo's key. Never seeded from the saved config — which key a source uses is
-  // not recorded, and Airbyte returns the stored one masked, so on edit this stays false and the
-  // choice is simply not offered while a key is present.
-  const [useManagedKey, setUseManagedKey] = useState(false);
+  // New source: Google sign-in. Existing: the route it saved with — `connected` is the host's
+  // read of stored `auth_type === 'Client'`. A plain initializer is safe because both hosts
+  // withhold the form until the source has loaded.
+  const [authMethod, setAuthMethod] = useState<GsheetsAuthMethodValue>(() => {
+    if (!oauth) return GSHEETS_AUTH_METHOD_SERVICE;
+    if (mode === 'create') return GSHEETS_AUTH_METHOD_OAUTH;
+    return connected ? GSHEETS_AUTH_METHOD_OAUTH : GSHEETS_AUTH_METHOD_SERVICE;
+  });
+  const usingOAuth = authMethod === GSHEETS_AUTH_METHOD_OAUTH;
 
-  // A key typed before ticking is parked here, so unticking gives it back rather than eating it.
-  const parkedKey = useRef<string | undefined>(undefined);
-  const handleUseManagedKeyChange = useCallback(
-    (next: boolean) => {
-      if (next) {
-        // The backend fills the slot precisely because it arrives empty, so clear it for real when
-        // the user switches to Dalgo's key.
-        parkedKey.current = serviceValue;
-        if (serviceValue) setValue(servicePath, undefined);
-      } else if (parkedKey.current) {
-        setValue(servicePath, parkedKey.current);
-        parkedKey.current = undefined;
-      }
-      setUseManagedKey(next);
-    },
-    [serviceValue, servicePath, setValue]
-  );
-
-  // A NEW source defaults to Dalgo's key — it's the only route most trial users can finish
-  // without going and minting a service account first. Applied in an effect rather than as the
-  // initial state because the deployment key's email arrives async, so the first render can't
-  // know the option exists. Runs once, and never on edit: there, a saved key is present and the
-  // choice isn't even offered (see GsheetsAuthChoice). A key already typed wins too — that's
-  // the user having chosen their own, so don't clear it out from under them.
-  const managedDefaultAppliedRef = useRef(false);
-  useEffect(() => {
-    if (mode !== 'create' || !useManagedChoice || managedDefaultAppliedRef.current) return;
-    managedDefaultAppliedRef.current = true;
-    if (serviceProvided) return;
-    setUseManagedKey(true);
-  }, [mode, useManagedChoice, serviceProvided]);
-
-  // Deliberate escape hatch off an already-connected OAuth source: the service
-  // field stays disabled while connected (see serviceDisabled below), so typing
-  // alone can't switch away — the discriminator effect just fights it, since
-  // `connected` reflects real persisted/session state and never changes on its
-  // own. Clicking "Use a service-account key instead" flips this once, telling
-  // the effect below to stop forcing Client for the rest of the session.
-  const [serviceUnlocked, setServiceUnlocked] = useState(false);
-  const effectiveConnected = connected && !serviceUnlocked;
-
-  // Keep the discriminator consistent with the active path. OAuth wins by
-  // default: while effectively connected, any service JSON is cleared and
-  // auth_type is pinned to Client. Once unlocked (or never connected), typing a
-  // service JSON flips auth_type to Service and strips the stale Client-branch
-  // fields so the config only ever matches one oneOf branch at a time.
+  // Exactly one oneOf branch may be populated when the config reaches Airbyte.
   useEffect(() => {
     if (!discriminatorPath) return;
 
-    // MANAGED-SA: both options are the Service branch. Managed sends the discriminator and no
-    // key — the backend reads that empty slot as "use ours".
-    if (useManagedChoice) {
-      for (const field of clientBranchFields) {
-        setValue(field.path.join('.'), undefined);
-      }
-      setValue(discriminatorPath, GSHEETS_SERVICE_AUTH_TYPE);
-      return;
-    }
-
-    if (effectiveConnected) {
-      if (serviceValue) setValue(servicePath, undefined);
+    if (usingOAuth) {
+      if (serviceValue) setValue(servicePath, '');
       setValue(discriminatorPath, GSHEETS_OAUTH_AUTH_TYPE);
-    } else {
-      if (serviceValue) {
-        for (const field of clientBranchFields) {
-          setValue(field.path.join('.'), undefined);
-        }
-      }
-      setValue(
-        discriminatorPath,
-        serviceValue ? GSHEETS_SERVICE_AUTH_TYPE : GSHEETS_OAUTH_AUTH_TYPE
-      );
-    }
-  }, [
-    effectiveConnected,
-    serviceValue,
-    servicePath,
-    discriminatorPath,
-    clientBranchFields,
-    setValue,
-    useManagedChoice,
-  ]);
-
-  // The host can't infer this: "use Dalgo's key" leaves credentials empty on purpose, so an
-  // empty config is a valid choice rather than a missing one.
-  useEffect(() => {
-    if (!onAuthSatisfiedChange) return;
-    if (useManagedChoice) {
-      onAuthSatisfiedChange(useManagedKey || serviceProvided);
       return;
     }
-    onAuthSatisfiedChange(connected || serviceProvided);
-  }, [onAuthSatisfiedChange, useManagedChoice, useManagedKey, serviceProvided, connected]);
 
-  const serviceDisabled = disabled || effectiveConnected;
-
-  // Block the OAuth button while a service-account key is already present and no
-  // OAuth connection exists yet — switching methods is deliberate (clear the key
-  // first), not a silent one-click overwrite of a working credential.
-  const oauthBlocked = !connected && serviceProvided;
-
-  // Under the `drive.file` scope the spreadsheet link is not free text: Google only grants
-  // Dalgo the sheet the user selects in its own Picker, which the connect flow fills in here.
-  // So once connected the field is the Picker's answer and locked — typing another link would
-  // name a sheet we hold no grant for, and the sync would 403 at the first attempt. Before a
-  // connect it stays editable, because the service-account path does take a typed link.
-  const spreadsheetLocked = connected;
-  const showPickerHint = !!oauth && !useManagedChoice && !connected;
-
-  // Auto-open Advanced once, whichever reason surfaces it first: an existing
-  // service key blocking the OAuth button, or the user unlocking the service
-  // field on a connected source. Never auto-closes after that — the user's own
-  // toggling wins from here on.
-  const [advancedValue, setAdvancedValue] = useState('');
-  const autoOpenedRef = useRef(false);
-  useEffect(() => {
-    if ((oauthBlocked || serviceUnlocked) && !autoOpenedRef.current) {
-      autoOpenedRef.current = true;
-      setAdvancedValue('advanced');
+    for (const field of clientBranchFields) {
+      setValue(field.path.join('.'), undefined);
     }
-  }, [oauthBlocked, serviceUnlocked]);
+    setValue(discriminatorPath, GSHEETS_SERVICE_AUTH_TYPE);
+  }, [usingOAuth, serviceValue, servicePath, discriminatorPath, clientBranchFields, setValue]);
+
+  // Hosts can't infer this: on the Google route credentials are built server-side from the
+  // OAuth ref, so an empty credentials block is expected, not missing.
+  useEffect(() => {
+    onAuthSatisfiedChange?.(usingOAuth ? connected : serviceProvided);
+  }, [onAuthSatisfiedChange, usingOAuth, connected, serviceProvided]);
+
+  const handleMethodChange = useCallback((next: GsheetsAuthMethodValue) => {
+    setAuthMethod(next);
+  }, []);
+
+  // The synced sheet as an openable link, so the user can verify the right file was picked.
+  // A pick this session has both title and link; an older source has only the saved
+  // `spreadsheet_id` (Airbyte never stores the title), hence the generic label. That field also
+  // accepts a bare id, which would make a dead relative href — so non-URLs get no link.
+  const spreadsheetPath = spreadsheetField?.path.join('.') ?? '__no_spreadsheet__';
+  const savedLink = useWatch({ control, name: spreadsheetPath }) as string | undefined;
+  const sheetHref = oauth?.connectedSheet?.url ?? savedLink;
+  const linkable = !!sheetHref && /^https?:\/\//.test(sheetHref);
+  const connectedSheet = linkable ? (
+    <a
+      href={sheetHref}
+      target="_blank"
+      rel="noopener noreferrer"
+      data-testid="gsheets-sheet-link"
+      className="font-medium underline decoration-dotted underline-offset-2 hover:decoration-solid"
+    >
+      {oauth?.connectedSheet?.name ?? 'Open the connected sheet'}
+    </a>
+  ) : (
+    oauth?.connectedSheet?.name && (
+      <span className="font-medium">“{oauth.connectedSheet.name}”</span>
+    )
+  );
+
+  const oauthSlot = oauth ? (
+    <div className="space-y-2">
+      {connected && oauth.lockWhenConnected ? (
+        <div
+          data-testid="gsheets-oauth-connected"
+          className="flex w-full items-center gap-3 rounded-md border border-green-600/40 bg-green-600/5 px-4 py-3 text-sm dark:border-green-400/40"
+        >
+          <Check className="h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
+          <span className="min-w-0 font-medium text-green-600 dark:text-green-400">
+            {oauth.buttonLabel}
+            {connectedSheet && <span className="ml-1 font-normal">— syncing {connectedSheet}</span>}
+          </span>
+        </div>
+      ) : (
+        <>
+          <button
+            type="button"
+            data-testid="gsheets-oauth-connect-btn"
+            onClick={oauth.onClick}
+            disabled={disabled || oauth.busy}
+            className="flex w-full cursor-pointer items-center gap-3 rounded-md border bg-background px-4 py-3 text-left text-sm transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {connected ? (
+              <Check className="h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
+            ) : (
+              <GoogleIcon className="h-5 w-5 flex-shrink-0" />
+            )}
+            <span
+              className={
+                connected ? 'font-medium text-green-600 dark:text-green-400' : 'font-medium'
+              }
+            >
+              {oauth.buttonLabel}
+            </span>
+            {oauth.busy && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
+          </button>
+          {/* Hosts that keep re-auth clickable still need to confirm which sheet came back. */}
+          {connectedSheet ? (
+            <p
+              className="text-xs text-green-600 dark:text-green-400"
+              data-testid="gsheets-picked-sheet"
+            >
+              Now syncing {connectedSheet}.
+            </p>
+          ) : (
+            // Re-authenticating re-picks the sheet, which is how a source is moved to a
+            // different one — worth saying, since "re-authenticate" sounds like a no-op.
+            connected && (
+              <p className="text-xs text-muted-foreground" data-testid="gsheets-repick-hint">
+                Re-authenticating lets you choose a different sheet.
+              </p>
+            )
+          )}
+        </>
+      )}
+    </div>
+  ) : null;
+
+  const serviceSlot = (
+    <div className="space-y-4" data-testid="gsheets-service-fields">
+      {/* Typed only here: a service account has no Picker to name the sheet. */}
+      {spreadsheetField && renderField(spreadsheetField, control, setValue, disabled)}
+      {serviceFieldForRender && renderField(serviceFieldForRender, control, setValue, disabled)}
+    </div>
+  );
 
   return (
     <div className="space-y-4" data-testid="google-sheets-form">
       {primary.map((field) => (
-        <div key={field.path.join('.')} className="space-y-1">
-          {renderField(
-            field,
-            control,
-            setValue,
-            disabled || (keyOf(field) === GSHEETS_KEY_SPREADSHEET && spreadsheetLocked)
-          )}
-          {keyOf(field) === GSHEETS_KEY_SPREADSHEET && showPickerHint && (
-            <p className="text-xs text-muted-foreground" data-testid="gsheets-picker-hint">
-              Sign in with Google below and pick the sheet there — Dalgo can only read the
-              spreadsheet you choose in Google&apos;s own picker, so a link pasted here will not
-              sync.
-            </p>
-          )}
-        </div>
+        <div key={field.path.join('.')}>{renderField(field, control, setValue, disabled)}</div>
       ))}
 
-      {/* MANAGED-SA: with a key configured, the two options replace sign-in entirely. */}
-      {useManagedChoice && managedEmail ? (
-        <GsheetsAuthChoice
-          email={managedEmail}
-          useManagedKey={useManagedKey}
-          onUseManagedKeyChange={handleUseManagedKeyChange}
-          hasKey={serviceProvided}
-          keyEdited={keyEdited}
-          mode={mode}
+      {oauth ? (
+        <GsheetsAuthMethod
+          method={authMethod}
+          onMethodChange={handleMethodChange}
           disabled={disabled}
-          error={oauth?.error}
-          keyField={
-            serviceFieldForRender
-              ? renderField(serviceFieldForRender, control, setValue, disabled)
-              : null
-          }
+          error={oauth.error}
+          oauthSlot={oauthSlot}
+          serviceSlot={serviceSlot}
         />
       ) : (
-        oauth && (
-          <div className="space-y-2">
-            <Label>
-              Authentication <span className="text-destructive">*</span>
-            </Label>
-            {connected && oauth.lockWhenConnected ? (
-              <div
-                data-testid="gsheets-oauth-connected"
-                className="flex w-full items-center gap-3 rounded-md border border-green-600/40 bg-green-600/5 px-4 py-3 text-sm dark:border-green-400/40"
-              >
-                <Check className="h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
-                <span className="font-medium text-green-600 dark:text-green-400">
-                  {oauth.buttonLabel}
-                </span>
-              </div>
-            ) : oauthBlocked ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="block">
-                    <button
-                      type="button"
-                      data-testid="gsheets-oauth-connect-btn"
-                      disabled
-                      className="flex w-full cursor-not-allowed items-center gap-3 rounded-md border px-4 py-3 text-left text-sm opacity-60"
-                    >
-                      <GoogleIcon className="h-5 w-5 flex-shrink-0" />
-                      <span className="font-medium">Authenticate with Google</span>
-                    </button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent data-testid="gsheets-oauth-blocked-tooltip">
-                  Remove the service-account key below to authenticate with Google instead.
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <button
-                type="button"
-                data-testid="gsheets-oauth-connect-btn"
-                onClick={oauth.onClick}
-                disabled={disabled || oauth.busy}
-                className="flex w-full cursor-pointer items-center gap-3 rounded-md border px-4 py-3 text-left text-sm transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {connected ? (
-                  <Check className="h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
-                ) : (
-                  <GoogleIcon className="h-5 w-5 flex-shrink-0" />
-                )}
-                <span
-                  className={
-                    connected ? 'font-medium text-green-600 dark:text-green-400' : 'font-medium'
-                  }
-                >
-                  {oauth.buttonLabel}
-                </span>
-                {oauth.busy && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
-              </button>
-            )}
-            {connected && !serviceUnlocked && (
-              <button
-                type="button"
-                onClick={() => setServiceUnlocked(true)}
-                data-testid="gsheets-use-service-key-btn"
-                className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-              >
-                Use a service-account key instead
-              </button>
-            )}
-            {serviceUnlocked && (
-              <p className="text-xs text-muted-foreground" data-testid="gsheets-unlock-note">
-                Paste a service-account key below — saving will replace your Google connection with
-                it.
-              </p>
-            )}
-            {oauth.error && (
-              <p className="text-xs text-destructive mt-1" data-testid="gsheets-auth-error">
-                {oauth.error}
-              </p>
-            )}
-          </div>
-        )
+        serviceSlot
       )}
 
-      {(advanced.length > 0 || (serviceField && !useManagedChoice)) && (
-        <Accordion
-          type="single"
-          collapsible
-          value={advancedValue}
-          onValueChange={setAdvancedValue}
-          data-testid="gsheets-advanced"
-        >
+      {advanced.length > 0 && (
+        <Accordion type="single" collapsible data-testid="gsheets-advanced">
           <AccordionItem value="advanced" className="border-none">
             <AccordionTrigger
               className="text-sm font-semibold text-muted-foreground uppercase tracking-wider py-2 hover:no-underline"
@@ -423,19 +281,6 @@ export function GoogleSheetsForm({
             </AccordionTrigger>
             <AccordionContent className="space-y-4">
               {advanced.map((field) => renderField(field, control, setValue, disabled))}
-              {/* MANAGED-SA: on the managed path this renders under the "own key" radio. */}
-              {serviceField && !useManagedChoice && (
-                <div
-                  className={effectiveConnected ? 'opacity-60' : undefined}
-                  data-testid="gsheets-service-field"
-                >
-                  <p className="mb-2 text-xs text-muted-foreground">
-                    Prefer not to use Google sign-in? Paste a service-account JSON key instead.
-                    {effectiveConnected && ' (Disabled — you are already signed in with Google.)'}
-                  </p>
-                  {renderField(serviceFieldForRender, control, setValue, serviceDisabled)}
-                </div>
-              )}
             </AccordionContent>
           </AccordionItem>
         </Accordion>

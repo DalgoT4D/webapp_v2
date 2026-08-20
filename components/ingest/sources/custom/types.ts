@@ -14,6 +14,10 @@ export interface CustomSourceOAuth {
   /** Inline validation error shown under the Authentication section (e.g. neither
    *  Google sign-in nor a service-account JSON was provided). */
   error?: string;
+  /** The sheet the Picker just returned, shown as a clickable confirmation — the form holds only
+   *  the link, which is unreadable on its own. Absent for a source connected in an earlier
+   *  session (Airbyte stores no title); the form then links the saved value under a generic label. */
+  connectedSheet?: { name: string; url: string };
 }
 
 /**

@@ -296,9 +296,11 @@ it('shows folders in the shared-drives view so a drive can be opened, but not se
   expect(sharedDrives.selectFolderEnabled).toBe(false);
 });
 
-// ViewId.SPREADSHEETS already restricts the view to spreadsheets. Adding a mimeTypes filter on
-// top of it also filters out folders, which is what made the view impossible to navigate.
-it('does not filter by mime type on top of the spreadsheets view', async () => {
+// ViewId.SPREADSHEETS is broader than it sounds: it lists uploaded .xlsx and .csv files
+// alongside native Google Sheets. The Airbyte connector reads through the Sheets API, which
+// only works on native sheets — so picking an upload yields a source that saves and then fails
+// every sync. The mime filter is what keeps them off the list.
+it('offers native Google Sheets only, never uploaded xlsx or csv', async () => {
   const calls = installFakePicker();
 
   const pending = pickSpreadsheet(CONFIG);
@@ -307,8 +309,38 @@ it('does not filter by mime type on top of the spreadsheets view', async () => {
   await pending;
 
   for (const view of calls.views) {
-    expect(view.mimeTypes).toBeUndefined();
+    expect(view.mimeTypes).toContain('application/vnd.google-apps.spreadsheet');
   }
+});
+
+// The catch that made this filter look impossible the first time: a mimeTypes list also
+// filters FOLDERS out, and in the shared-drives view opening a drive is opening a folder — so
+// filtering to sheets alone leaves a tab listing drives it will not let you enter. Naming the
+// folder mime type alongside the sheet one keeps the tab navigable while still hiding uploads.
+it('keeps folders listed in the shared-drives view so a drive can still be opened', async () => {
+  const calls = installFakePicker();
+
+  const pending = pickSpreadsheet(CONFIG);
+  await Promise.resolve();
+  calls.callback!({ action: 'picked', docs: [DOC] });
+  await pending;
+
+  const sharedDrives = calls.views.find((v) => v.enableDrives)!;
+  expect(sharedDrives.mimeTypes).toContain('application/vnd.google-apps.folder');
+});
+
+// My Drive's view is flat, so it has no folders to preserve — and letting them through here
+// would only add rows that cannot be opened or selected.
+it('does not let folders into the flat My Drive view through the mime filter', async () => {
+  const calls = installFakePicker();
+
+  const pending = pickSpreadsheet(CONFIG);
+  await Promise.resolve();
+  calls.callback!({ action: 'picked', docs: [DOC] });
+  await pending;
+
+  const myDrive = calls.views.find((v) => !v.enableDrives)!;
+  expect(myDrive.mimeTypes).toBe('application/vnd.google-apps.spreadsheet');
 });
 
 it('treats a PICKED action with no document as a cancel', async () => {

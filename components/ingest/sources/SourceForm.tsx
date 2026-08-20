@@ -88,6 +88,10 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   // the user clicks "Save Changes And Test".
   const [oauthConnecting, setOauthConnecting] = useState(false);
   const [oauthRef, setOauthRef] = useState<string | null>(null);
+  // The sheet the Picker just returned — display only (the form value is its URL). Null on a
+  // source connected in an earlier session: Airbyte stores the link, not the title, so the form
+  // links the saved link under a generic label until the user re-picks.
+  const [pickedSheet, setPickedSheet] = useState<{ name: string; url: string } | null>(null);
   // Inline required-field errors, surfaced on submit (same pattern as the
   // add-source wizard and the connection form: the button stays clickable and
   // pressing it reveals what's missing, rather than a silently disabled button).
@@ -210,6 +214,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
         shouldDirty: true,
       });
       setOauthRef(ref);
+      setPickedSheet({ name: spreadsheet.name, url: spreadsheet.url });
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
       toastSuccess.generic(
         `Authorized with Google for “${spreadsheet.name}” — click Save Changes And Test to apply`
@@ -229,7 +234,6 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       await updateSource(sourceId, {
         name: sourceName,
         sourceDefId: selectedDefId!,
-        sourceDefName: selectedName,
         config,
         sourceId,
       });
@@ -333,9 +337,9 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     onSuccess,
   ]);
 
-  // MANAGED-SA: the form reports whether auth is satisfied, because "use Dalgo's key" leaves the
-  // credentials empty on purpose — clearing the key field and saving without choosing anything
-  // would otherwise hand out Dalgo's key silently.
+  // The form reports whether auth is satisfied: which route is selected is its own state, and
+  // on the Google route the credentials are built server-side from the OAuth ref, so an empty
+  // credentials block in the form is the expected state rather than a missing one.
   const [authSatisfied, setAuthSatisfied] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   useEffect(() => {
@@ -351,7 +355,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     if (!parsedSpec) return;
 
     if (isGoogleSheetsCustom && !authSatisfied) {
-      setAuthError('Paste a service-account key, or tick “Use Dalgo’s service account”');
+      setAuthError('Sign in with Google, or paste a service-account key');
       return;
     }
 
@@ -366,7 +370,6 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     sendOrQueue({
       name: sourceName,
       sourceDefId: selectedDefId,
-      sourceDefName: selectedName,
       config,
       sourceId,
     });
@@ -496,6 +499,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
                         lockWhenConnected: false,
                         onClick: handleConnectGoogle,
                         error: authError ?? undefined,
+                        connectedSheet: pickedSheet ?? undefined,
                       } satisfies CustomSourceOAuth)
                     : undefined
                 }

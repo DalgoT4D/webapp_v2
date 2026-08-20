@@ -16,8 +16,7 @@ const AIRBYTE_CHECK_SUCCEEDED = 'succeeded';
 interface UseSourceSaveArgs {
   /** Selected source-definition id, or null before the user picks a source type */
   sourceDefId: string | null;
-  /** Selected source-definition NAME (e.g. "Google Sheets") — only needed for the
-   *  Google OAuth connect flow, the OAuth registry's lookup key */
+  /** Source-definition NAME (e.g. "Google Sheets") — the Google OAuth registry's lookup key */
   sourceDefName: string;
   /** Returns the cleaned connector config to send on save/connect */
   getConfig: () => Record<string, unknown>;
@@ -66,9 +65,9 @@ export function useSourceSave({
       setSetupLogs([]);
       setPendingName(name);
       setLoading(true);
-      sendOrQueue({ name, sourceDefId, sourceDefName, config: getConfig() });
+      sendOrQueue({ name, sourceDefId, config: getConfig() });
     },
-    [sourceDefId, sourceDefName, getConfig, sendOrQueue]
+    [sourceDefId, getConfig, sendOrQueue]
   );
 
   useEffect(() => {
@@ -85,7 +84,6 @@ export function useSourceSave({
           const created = await createSource({
             name: pendingName!,
             sourceDefId: sourceDefId!,
-            sourceDefName,
             config: getConfig(),
           });
           toastSuccess.created('Source');
