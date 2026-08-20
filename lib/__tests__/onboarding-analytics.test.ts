@@ -152,6 +152,23 @@ describe('exitOnboardingPath', () => {
     });
   });
 
+  it('carries the stage position when the caller knows it', () => {
+    exitOnboardingPath(ONBOARDING_PATHS.WALKTHROUGH, '/dashboards', { stageIndex: 2 });
+    expect(mockCapture).toHaveBeenLastCalledWith('onboarding:path_exited', {
+      path: 'walkthrough',
+      stage: '/dashboards',
+      stage_index: 2,
+    });
+  });
+
+  it('keeps stage_index off the event for a stage outside the path order', () => {
+    exitOnboardingPath(ONBOARDING_PATHS.PIPELINE, 'sync_failed', { stageIndex: undefined });
+    expect(mockCapture).toHaveBeenLastCalledWith('onboarding:path_exited', {
+      path: 'pipeline',
+      stage: 'sync_failed',
+    });
+  });
+
   it('sends a null stage through as null rather than dropping the property', () => {
     exitOnboardingPath(ONBOARDING_PATHS.WALKTHROUGH, null);
     expect(mockCapture).toHaveBeenCalledWith('onboarding:path_exited', {

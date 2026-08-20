@@ -91,12 +91,23 @@ export function completeOnboardingPath(path: OnboardingPath): void {
   });
 }
 
-/** Abandoned deliberately (Skip, close). `stage` is where they were when they quit. */
-export function exitOnboardingPath(path: OnboardingPath, stage: string | null): void {
+/**
+ * Abandoned deliberately (Skip, close). `stage` is where they were when they quit, and
+ * `stageIndex` its position in that path's order — the same pair trackOnboardingPathStage
+ * sends, so "quit on step 3 of 5" reads off this one event rather than needing the stage
+ * order client-side or a join back to the stage events. Omitted (not 0) when the stage sits
+ * outside the path's order, e.g. the sync holding stages.
+ */
+export function exitOnboardingPath(
+  path: OnboardingPath,
+  stage: string | null,
+  opts?: { stageIndex?: number }
+): void {
   const durationSeconds = consumeDurationSeconds(path);
   trackEvent(ANALYTICS_EVENTS.PATH_EXITED, {
     path,
     stage,
+    ...(opts?.stageIndex === undefined ? {} : { stage_index: opts.stageIndex }),
     ...(durationSeconds === null ? {} : { duration_seconds: durationSeconds }),
   });
 }

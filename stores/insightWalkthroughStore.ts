@@ -358,7 +358,10 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
       clearTrackedConnection(flow);
       clearActiveWalkthroughFlow();
       trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_SKIPPED, { stage });
-      if (path) exitOnboardingPath(ANALYTICS_PATH_FOR[path], stage);
+      if (path)
+        exitOnboardingPath(ANALYTICS_PATH_FOR[path], stage, {
+          stageIndex: stage ? stageIndexFor(path, stage) : undefined,
+        });
       void resolveFlow(flow, 'skipped');
     }
     // Abandoning the flow cancels any celebration queued for it — congratulating someone on

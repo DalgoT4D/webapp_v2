@@ -23,6 +23,7 @@ jest.mock('@/lib/onboarding-analytics', () => ({
 jest.mock('@/lib/analytics', () => ({ trackEvent: jest.fn() }));
 
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { stageOrderFor } from '../insight-walkthrough-constants';
 import { mockApiPut } from '@/test-utils/api';
 import { setWalkthroughScope, USER_A, ORG_A } from './walkthrough-scope-utils';
 
@@ -155,7 +156,9 @@ describe('insight walkthrough path analytics', () => {
 
       store().skip();
 
-      expect(mockExitPath).toHaveBeenCalledWith('insight_sample', 'kpi_metric');
+      expect(mockExitPath).toHaveBeenCalledWith('insight_sample', 'kpi_metric', {
+        stageIndex: stageOrderFor('sample').indexOf('kpi_metric'),
+      });
       expect(mockCompletePath).not.toHaveBeenCalled();
     });
 

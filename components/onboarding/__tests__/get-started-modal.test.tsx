@@ -109,6 +109,10 @@ describe('GetStartedModal', () => {
     expect(trackEvent).toHaveBeenCalledWith('onboarding:insight_fork_chosen', {
       choice: 'sample',
     });
+    expect(trackEvent).toHaveBeenCalledWith('onboarding:insight_fork_modal_dismissed', {
+      choice: 'sample',
+      entry: 'widget',
+    });
   });
 
   it('"Connect my own data" fires the own-data choice', async () => {
@@ -122,6 +126,10 @@ describe('GetStartedModal', () => {
     expect(trackEvent).toHaveBeenCalledWith('onboarding:insight_fork_chosen', {
       choice: 'own_data',
     });
+    expect(trackEvent).toHaveBeenCalledWith('onboarding:insight_fork_modal_dismissed', {
+      choice: 'own_data',
+      entry: 'widget',
+    });
   });
 
   it('the pipeline option closes the dialog and starts that flow', async () => {
@@ -132,6 +140,10 @@ describe('GetStartedModal', () => {
 
     expect(handlers.onSelectPipeline).toHaveBeenCalledTimes(1);
     expect(handlers.onOpenChange).toHaveBeenCalledWith(false);
+    expect(trackEvent).toHaveBeenCalledWith('onboarding:post_tour_modal_dismissed', {
+      choice: 'pipeline',
+      entry: 'post_tour',
+    });
   });
 
   it('closing is a plain dismiss — no fork is chosen', async () => {
@@ -143,9 +155,50 @@ describe('GetStartedModal', () => {
     expect(handlers.onOpenChange).toHaveBeenCalledWith(false);
     expect(handlers.onSelectSample).not.toHaveBeenCalled();
     expect(handlers.onSelectOwnData).not.toHaveBeenCalled();
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:post_tour_modal_dismissed', {
+    // The FORK screen was the one on show, so its own dismissal is what fires — not the
+    // choice screen's, which this entry point never rendered.
+    expect(trackEvent).toHaveBeenCalledWith('onboarding:insight_fork_modal_dismissed', {
       choice: 'close',
-      screen: 'insight',
+      entry: 'widget',
     });
+    expect(trackEvent).not.toHaveBeenCalledWith(
+      'onboarding:post_tour_modal_dismissed',
+      expect.anything()
+    );
+  });
+
+  it('reports one dismissal per screen visit when the user moves choice -> fork -> close', async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByTestId('get-started-option-insight'));
+    await user.click(screen.getByRole('button', { name: /close/i }));
+
+    const dismissals = trackEvent.mock.calls.filter(([event]) =>
+      String(event).endsWith('_modal_dismissed')
+    );
+    expect(dismissals).toEqual([
+      ['onboarding:post_tour_modal_dismissed', { choice: 'insight', entry: 'post_tour' }],
+      ['onboarding:insight_fork_modal_dismissed', { choice: 'close', entry: 'post_tour' }],
+    ]);
+  });
+
+  it('pairs a viewed with a dismissed on each screen when the back arrow is used', async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByTestId('get-started-option-insight'));
+    await user.click(screen.getByTestId('get-started-back-btn'));
+
+    const lifecycle = trackEvent.mock.calls.filter(([event]) =>
+      /_modal_(viewed|dismissed)$/.test(String(event))
+    );
+    expect(lifecycle).toEqual([
+      ['onboarding:post_tour_modal_viewed', { entry: 'post_tour' }],
+      ['onboarding:post_tour_modal_dismissed', { choice: 'insight', entry: 'post_tour' }],
+      ['onboarding:insight_fork_modal_viewed', { entry: 'post_tour' }],
+      ['onboarding:insight_fork_modal_dismissed', { choice: 'back', entry: 'post_tour' }],
+      ['onboarding:post_tour_modal_viewed', { entry: 'post_tour' }],
+    ]);
   });
 });

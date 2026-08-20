@@ -32,13 +32,24 @@ export const ANALYTICS_EVENTS = {
   BOOK_A_CALL_CLICKED: 'onboarding:book_a_call_clicked',
   // The GetStartedModal's 'choice' screen — shown only when the tour is finished via its
   // last step's "Finish Tour" button, not on Skip.
+  //
+  // One Dialog hosts both this screen and the fork below, but each screen owns its own
+  // viewed/dismissed PAIR, fired per screen VISIT. Sharing one dismissal across both used to
+  // log a choice-screen dismissal for a close that happened on the fork (a screen the user may
+  // never have seen), and double-counted it whenever they went choice -> fork -> close.
   POST_TOUR_MODAL_VIEWED: 'onboarding:post_tour_modal_viewed',
-  // Carries { choice: 'insight' | 'pipeline' | 'close' } — which option was picked.
+  // Carries { choice: 'insight' | 'pipeline' | 'close', entry } — which option was picked.
   POST_TOUR_MODAL_DISMISSED: 'onboarding:post_tour_modal_dismissed',
   // The GetStartedModal's 'insight' screen (sample vs own data). Carries
-  // { entry: 'post_tour' | 'widget' | 'resume' } — how the user got to it.
+  // { entry: 'post_tour' | 'widget' | 'resume' | 'intent_modal' } — how the user got to it.
   INSIGHT_FORK_MODAL_VIEWED: 'onboarding:insight_fork_modal_viewed',
-  // Carries { choice: 'sample' | 'own_data' } — which fork was taken.
+  // Carries { choice: 'sample' | 'own_data' | 'back' | 'close', entry } — how the fork screen
+  // ended. One event for every exit (see the pairing note above), so the total is fork-screen
+  // visits resolved and take-rate is a breakdown; 'back' is a return to the choice screen, not
+  // an abandonment, so filter it out when counting drop-off.
+  INSIGHT_FORK_MODAL_DISMISSED: 'onboarding:insight_fork_modal_dismissed',
+  // Carries { choice: 'sample' | 'own_data' } — which fork was taken. Kept alongside the
+  // dismissal above (existing insights depend on it), same as the legacy tour_* events.
   INSIGHT_FORK_CHOSEN: 'onboarding:insight_fork_chosen',
   // The two walkthrough celebration dialogs (see celebration-modal.tsx). Both carry
   // { choice: 'cta' | 'close' }.
@@ -68,7 +79,9 @@ export const ANALYTICS_EVENTS = {
   // sessions, so it is NOT the same thing as PostHog's own $session_duration; it is absent
   // when no start time was recorded (see lib/onboarding-analytics.ts).
   PATH_COMPLETED: 'onboarding:path_completed',
-  // Carries { path, stage, duration_seconds? } — abandoned deliberately (Skip / close).
+  // Carries { path, stage, stage_index?, duration_seconds? } — abandoned deliberately
+  // (Skip / close). `stage_index` mirrors PATH_STAGE_VIEWED so "they quit on step 3" reads off
+  // this one event instead of needing the stage order or a join back to the stage events.
   // A silent abandon fires nothing by design: derive it as started - completed - exited.
   PATH_EXITED: 'onboarding:path_exited',
   // One-shot feature coachmarks on /reports, /alerts and /metrics — no flow, no ordering.

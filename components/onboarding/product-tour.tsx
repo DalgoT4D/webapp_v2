@@ -578,7 +578,8 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
       } else {
         exitOnboardingPath(
           ONBOARDING_PATHS.WALKTHROUGH,
-          TOUR_STEPS[stepIndexRef.current]?.route ?? null
+          TOUR_STEPS[stepIndexRef.current]?.route ?? null,
+          { stageIndex: stepIndexRef.current }
         );
       }
       void saveTrialWalkthroughFlow('product_tour', reason);

@@ -129,7 +129,9 @@ it('exits the walkthrough path with the step quit on when the user closes the to
 
   await userEvent.click(closeButton() as HTMLElement);
 
-  expect(mockExitPath).toHaveBeenCalledWith('walkthrough', TOUR_STEPS[0].route);
+  expect(mockExitPath).toHaveBeenCalledWith('walkthrough', TOUR_STEPS[0].route, {
+    stageIndex: 0,
+  });
   expect(mockCompletePath).not.toHaveBeenCalled();
 });
 
