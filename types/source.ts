@@ -41,6 +41,19 @@ export interface SourceOAuthConsent {
   authUrl: string;
 }
 
+/** What the browser needs to open the Google Picker, for a `ref` the caller owns.
+ *
+ * Dalgo asks Google for the `drive.file` scope, which grants only the files the user hands
+ * us through the Picker — so between consent and save the browser has to run it, and that
+ * needs a Drive-scoped access token client-side. It is short-lived, scoped to files the user
+ * selects, and fetched per flow; the refresh token never leaves the backend. */
+export interface SourceOAuthPickerConfig {
+  accessToken: string;
+  apiKey: string;
+  /** the OAuth client's Google Cloud project NUMBER */
+  appId: string;
+}
+
 /** Payload to create a NEW source from a redeemed OAuth `ref`. The backend has already
  * exchanged the code and stashed the refresh token server-side under `ref`; here it
  * redeems the ref, injects the credentials, and creates the source — no credentials or

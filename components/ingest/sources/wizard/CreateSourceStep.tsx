@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { extractSpecDefaults } from '@/components/connectors/utils';
-import { getSourceOAuthConsent, createOAuthSource } from '@/hooks/api/useSources';
-import { openOAuthPopup } from '@/components/connectors/oauth-popup';
+import { createOAuthSource } from '@/hooks/api/useSources';
+import { connectGoogleSpreadsheet } from '@/components/connectors/google-oauth-connect';
 import { useSourceSave } from '@/hooks/useSourceSave';
 import { useSourceConfigForm } from '@/hooks/useSourceConfigForm';
 import { trackEvent } from '@/lib/analytics';
@@ -18,6 +18,7 @@ import type { SourceDefinition } from '@/types/source';
 import { SourceConfigFields } from '@/components/ingest/sources/SourceConfigFields';
 import {
   GSHEETS_KEY_SERVICE_INFO,
+  GSHEETS_KEY_SPREADSHEET,
   GSHEETS_SERVICE_AUTH_TYPE,
 } from '@/components/ingest/sources/custom/constants';
 import { isGoogleSheetsSource } from '@/components/ingest/sources/custom/registry';
@@ -102,7 +103,12 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
     },
   });
 
-  // Phase 1: open Google consent, stash the redeem ref. No source is created yet.
+  // Phase 1: Google consent, then the Picker, then stash the redeem ref. No source yet.
+  //
+  // The Picker is where the `drive.file` grant is actually created, so its answer is written
+  // straight into the spreadsheet field: the connector must sync the sheet the user granted,
+  // not whatever the field happened to hold. A flow that ends without a pick leaves no ref,
+  // which keeps the wizard on the "not authorized yet" branch.
   const handleAuthorizeGoogle = useCallback(async () => {
     if (authorizingRef.current) return; // a sign-in is already in progress — ignore re-entry
     if (!validateName()) return;
@@ -110,17 +116,20 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
     setAuthorizing(true);
     try {
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_STARTED, { source_type: 'Google Sheets' });
-      const { authUrl } = await getSourceOAuthConsent(def.sourceDefinitionId, def.name);
-      const { ref } = await openOAuthPopup(authUrl);
+      const { ref, spreadsheet } = await connectGoogleSpreadsheet(def.sourceDefinitionId, def.name);
+      setValue(GSHEETS_KEY_SPREADSHEET, spreadsheet.url, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
       setOauthRef(ref);
-      toastSuccess.generic('Authorized with Google');
+      toastSuccess.generic(`Authorized with Google — syncing “${spreadsheet.name}”`);
     } catch (error) {
       toastError.api(error instanceof Error ? error.message : 'Google sign-in failed');
     } finally {
       authorizingRef.current = false;
       setAuthorizing(false);
     }
-  }, [validateName, def.sourceDefinitionId, def.name]);
+  }, [validateName, def.sourceDefinitionId, def.name, setValue]);
 
   // Phase 2: create the source from the redeemed ref and advance.
   const handleCreateGoogle = useCallback(async () => {

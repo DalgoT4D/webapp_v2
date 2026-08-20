@@ -265,6 +265,14 @@ export function GoogleSheetsForm({
   // first), not a silent one-click overwrite of a working credential.
   const oauthBlocked = !connected && serviceProvided;
 
+  // Under the `drive.file` scope the spreadsheet link is not free text: Google only grants
+  // Dalgo the sheet the user selects in its own Picker, which the connect flow fills in here.
+  // So once connected the field is the Picker's answer and locked — typing another link would
+  // name a sheet we hold no grant for, and the sync would 403 at the first attempt. Before a
+  // connect it stays editable, because the service-account path does take a typed link.
+  const spreadsheetLocked = connected;
+  const showPickerHint = !!oauth && !useManagedChoice && !connected;
+
   // Auto-open Advanced once, whichever reason surfaces it first: an existing
   // service key blocking the OAuth button, or the user unlocking the service
   // field on a connected source. Never auto-closes after that — the user's own
@@ -280,7 +288,23 @@ export function GoogleSheetsForm({
 
   return (
     <div className="space-y-4" data-testid="google-sheets-form">
-      {primary.map((field) => renderField(field, control, setValue, disabled))}
+      {primary.map((field) => (
+        <div key={field.path.join('.')} className="space-y-1">
+          {renderField(
+            field,
+            control,
+            setValue,
+            disabled || (keyOf(field) === GSHEETS_KEY_SPREADSHEET && spreadsheetLocked)
+          )}
+          {keyOf(field) === GSHEETS_KEY_SPREADSHEET && showPickerHint && (
+            <p className="text-xs text-muted-foreground" data-testid="gsheets-picker-hint">
+              Sign in with Google below and pick the sheet there — Dalgo can only read the
+              spreadsheet you choose in Google&apos;s own picker, so a link pasted here will not
+              sync.
+            </p>
+          )}
+        </div>
+      ))}
 
       {/* MANAGED-SA: with a key configured, the two options replace sign-in entirely. */}
       {useManagedChoice && managedEmail ? (

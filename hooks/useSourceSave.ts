@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
-import { createSource, getSourceOAuthConsent, createOAuthSource } from '@/hooks/api/useSources';
-import { openOAuthPopup } from '@/components/connectors/oauth-popup';
+import { createSource, createOAuthSource } from '@/hooks/api/useSources';
+import { connectGoogleSpreadsheet } from '@/components/connectors/google-oauth-connect';
+import { GSHEETS_KEY_SPREADSHEET } from '@/components/ingest/sources/custom/constants';
 import { toastError, toastSuccess } from '@/lib/toast';
 
 // WebSocket endpoint for source connection check — shared by SourceForm + the wizard
@@ -113,14 +114,15 @@ export function useSourceSave({
       oauthConnectingRef.current = true;
       setOauthConnecting(true);
       try {
-        const config = getConfig();
-        const { authUrl } = await getSourceOAuthConsent(sourceDefId, sourceDefName);
-        const { ref } = await openOAuthPopup(authUrl);
+        const { ref, spreadsheet } = await connectGoogleSpreadsheet(sourceDefId, sourceDefName);
         const { sourceId } = await createOAuthSource({
           sourceDefId,
           sourceName: sourceDefName,
           name,
-          config,
+          // The Picker's selection overrides whatever is in the form: under `drive.file` the
+          // grant covers only the sheet the user chose there, so that link is the only one
+          // the connector can actually read.
+          config: { ...getConfig(), [GSHEETS_KEY_SPREADSHEET]: spreadsheet.url },
           refresh_token_ref: ref,
         });
         toastSuccess.generic('Source created');

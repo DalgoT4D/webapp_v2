@@ -6,16 +6,23 @@
 
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useSourceSave } from '../useSourceSave';
-import { createSource } from '@/hooks/api/useSources';
+import { createSource, createOAuthSource } from '@/hooks/api/useSources';
+import { connectGoogleSpreadsheet } from '@/components/connectors/google-oauth-connect';
 
 jest.mock('@/hooks/api/useSources', () => ({
   createSource: jest.fn().mockResolvedValue({ sourceId: 'src-1' }),
-  getSourceOAuthConsent: jest.fn().mockResolvedValue({ authUrl: 'https://accounts.google.com/x' }),
   createOAuthSource: jest.fn().mockResolvedValue({ sourceId: 'src-oauth' }),
 }));
-jest.mock('@/components/connectors/oauth-popup', () => ({
-  openOAuthPopup: jest.fn().mockResolvedValue({ ref: 'ref-abc' }),
+// consent + popup + Google Picker, as one flow (see google-oauth-connect)
+jest.mock('@/components/connectors/google-oauth-connect', () => ({
+  connectGoogleSpreadsheet: jest.fn(),
 }));
+
+const PICKED = {
+  id: 'sheet-id',
+  name: 'Q3 enrolments',
+  url: 'https://docs.google.com/spreadsheets/d/sheet-id/edit',
+};
 
 // Controllable stand-in for the backend WebSocket: the hook reads `lastMessage` and
 // calls `sendOrQueue`. The `mock`-prefixed name lets the hoisted jest.mock factory
@@ -35,9 +42,14 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockWs.lastMessage = null;
   (createSource as jest.Mock).mockResolvedValue({ sourceId: 'src-1' });
+  (createOAuthSource as jest.Mock).mockResolvedValue({ sourceId: 'src-oauth' });
+  (connectGoogleSpreadsheet as jest.Mock).mockResolvedValue({
+    ref: 'ref-abc',
+    spreadsheet: PICKED,
+  });
 });
 
-it('connectGoogle runs consent → popup(ref) → createOAuthSource and reports the new source id', async () => {
+it('connectGoogle runs the Google connect flow → createOAuthSource and reports the new source id', async () => {
   const onSaved = jest.fn();
   const { result } = renderHook(() =>
     useSourceSave({
@@ -51,6 +63,55 @@ it('connectGoogle runs consent → popup(ref) → createOAuthSource and reports 
     await result.current.connectGoogle('My Sheet');
   });
   await waitFor(() => expect(onSaved).toHaveBeenCalledWith('src-oauth'));
+  expect(connectGoogleSpreadsheet).toHaveBeenCalledWith('gs', 'Google Sheets');
+});
+
+// The saved config must name the sheet the user actually granted us in the Picker: under
+// drive.file, anything else in this field is a sheet Dalgo cannot read.
+it('saves the picked spreadsheet as the connector’s spreadsheet_id', async () => {
+  const onSaved = jest.fn();
+  const { result } = renderHook(() =>
+    useSourceSave({
+      sourceDefId: 'gs',
+      sourceDefName: 'Google Sheets',
+      getConfig: () => ({ spreadsheet_id: 'https://typed-by-hand', names_conversion: true }),
+      onSaved,
+    })
+  );
+
+  await act(async () => {
+    await result.current.connectGoogle('My Sheet');
+  });
+
+  expect(createOAuthSource).toHaveBeenCalledWith({
+    sourceDefId: 'gs',
+    sourceName: 'Google Sheets',
+    name: 'My Sheet',
+    config: { spreadsheet_id: PICKED.url, names_conversion: true },
+    refresh_token_ref: 'ref-abc',
+  });
+});
+
+it('creates nothing when the connect flow fails (no pick, cancelled consent)', async () => {
+  (connectGoogleSpreadsheet as jest.Mock).mockRejectedValue(
+    new Error('No spreadsheet selected — choose one to finish connecting Google')
+  );
+  const onSaved = jest.fn();
+  const { result } = renderHook(() =>
+    useSourceSave({
+      sourceDefId: 'gs',
+      sourceDefName: 'Google Sheets',
+      getConfig: () => ({}),
+      onSaved,
+    })
+  );
+
+  await act(async () => {
+    await result.current.connectGoogle('My Sheet');
+  });
+
+  expect(createOAuthSource).not.toHaveBeenCalled();
+  expect(onSaved).not.toHaveBeenCalled();
 });
 
 it('save() success: WS check succeeds → createSource is called and onSaved fires with the new id', async () => {

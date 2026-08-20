@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CreateSourceStep } from '../CreateSourceStep';
+import { createOAuthSource } from '@/hooks/api/useSources';
+import { connectGoogleSpreadsheet } from '@/components/connectors/google-oauth-connect';
 
 // A realistic Google Sheets spec: `spreadsheet_id` (title "Spreadsheet Link"), the
 // `credentials` oneOf (OAuth Client + Service branches), and the SQL-conversion toggle.
@@ -80,10 +82,80 @@ jest.mock('@/hooks/useSourceSave', () => ({
     setupLogs: [],
   }),
 }));
+// consent + popup + Google Picker as one flow (see google-oauth-connect)
+jest.mock('@/components/connectors/google-oauth-connect', () => ({
+  connectGoogleSpreadsheet: jest.fn(),
+}));
+
+const PICKED = {
+  id: 'sheet-id',
+  name: 'Q3 enrolments',
+  url: 'https://docs.google.com/spreadsheets/d/sheet-id/edit',
+};
 
 beforeEach(() => {
   mockSourceSpec = { properties: {} };
   mockSave.mockClear();
+  (connectGoogleSpreadsheet as jest.Mock).mockReset();
+  (connectGoogleSpreadsheet as jest.Mock).mockResolvedValue({
+    ref: 'ref-abc',
+    spreadsheet: PICKED,
+  });
+  (createOAuthSource as jest.Mock).mockReset();
+  (createOAuthSource as jest.Mock).mockResolvedValue({ sourceId: 'src-oauth' });
+});
+
+// Under `drive.file` the user names the sheet inside Google's Picker, so the flow has to
+// bring that choice back into the form — and save exactly it.
+it('fills the spreadsheet link from the Google Picker and saves that link', async () => {
+  mockSourceSpec = GSHEETS_SPEC;
+  const onCreated = jest.fn();
+  render(
+    <CreateSourceStep
+      def={{ sourceDefinitionId: 'gs', name: 'Google Sheets' }}
+      onCreated={onCreated}
+      onBack={jest.fn()}
+    />
+  );
+
+  await userEvent.click(screen.getByTestId('gsheets-oauth-connect-btn'));
+
+  await waitFor(() => expect(screen.getByLabelText(/Spreadsheet Link/i)).toHaveValue(PICKED.url));
+  expect(connectGoogleSpreadsheet).toHaveBeenCalledWith('gs', 'Google Sheets');
+
+  await userEvent.click(screen.getByTestId('wizard-next-btn'));
+
+  await waitFor(() =>
+    expect(createOAuthSource).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceDefId: 'gs',
+        sourceName: 'Google Sheets',
+        refresh_token_ref: 'ref-abc',
+        config: expect.objectContaining({ spreadsheet_id: PICKED.url }),
+      })
+    )
+  );
+  await waitFor(() => expect(onCreated).toHaveBeenCalledWith('src-oauth'));
+});
+
+it('keeps the wizard on the service-account path when the Google flow fails', async () => {
+  mockSourceSpec = GSHEETS_SPEC;
+  (connectGoogleSpreadsheet as jest.Mock).mockRejectedValue(
+    new Error('No spreadsheet selected — choose one to finish connecting Google')
+  );
+  render(
+    <CreateSourceStep
+      def={{ sourceDefinitionId: 'gs', name: 'Google Sheets' }}
+      onCreated={jest.fn()}
+      onBack={jest.fn()}
+    />
+  );
+
+  await userEvent.click(screen.getByTestId('gsheets-oauth-connect-btn'));
+
+  // no ref was stashed, so the sign-in button is still on offer and nothing was created
+  await waitFor(() => expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument());
+  expect(createOAuthSource).not.toHaveBeenCalled();
 });
 
 it('shows the in-form Google authorize button plus a Next disabled until authorized', () => {

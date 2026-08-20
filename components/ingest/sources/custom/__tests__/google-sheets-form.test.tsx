@@ -117,6 +117,27 @@ describe('GoogleSheetsForm', () => {
     expect(screen.queryByTestId('gsheets-auth-mode')).not.toBeInTheDocument();
   });
 
+  // drive.file grants only the sheet the user selects in Google's Picker, so once a connect
+  // has happened the link is the Picker's answer — typing over it would name a sheet Dalgo
+  // has no grant for, and the sync would 403.
+  it('locks the spreadsheet link once connected through Google', () => {
+    render(<Harness connected />);
+
+    expect(screen.getByLabelText(/Spreadsheet Link/)).toBeDisabled();
+  });
+
+  it('leaves the spreadsheet link editable before connecting (service-account path)', () => {
+    render(<Harness />);
+
+    expect(screen.getByLabelText(/Spreadsheet Link/)).toBeEnabled();
+  });
+
+  it('tells the user the picker will fill the link in, while sign-in is still pending', () => {
+    render(<Harness />);
+
+    expect(screen.getByTestId('gsheets-picker-hint')).toBeInTheDocument();
+  });
+
   it('reveals the SQL toggle and service-account field under Advanced', async () => {
     render(<Harness />);
     await userEvent.click(screen.getByTestId('gsheets-advanced-trigger'));

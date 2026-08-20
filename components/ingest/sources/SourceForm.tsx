@@ -21,10 +21,10 @@ import {
   useSourceDefinitions,
   useSource,
   updateSource,
-  getSourceOAuthConsent,
   updateOAuthSource,
 } from '@/hooks/api/useSources';
-import { openOAuthPopup } from '@/components/connectors/oauth-popup';
+import { connectGoogleSpreadsheet } from '@/components/connectors/google-oauth-connect';
+import { GSHEETS_KEY_SPREADSHEET } from '@/components/ingest/sources/custom/constants';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { useSourceConfigForm } from '@/hooks/useSourceConfigForm';
 import { trackEvent } from '@/lib/analytics';
@@ -186,9 +186,13 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     onLoadingChange: setLoading,
   });
 
-  // "Re-authenticate": get a consent URL and run the popup. This only stashes the
-  // redeemed ref — the source is not saved until the footer "Save Changes And Test".
-  // The OAuth credentials never reach the browser.
+  // "Re-authenticate": run consent and the Google Picker. This only stashes the redeemed ref
+  // and the newly picked sheet — the source is not saved until the footer "Save Changes And
+  // Test". The OAuth credentials never reach the browser.
+  //
+  // Re-picking is not busywork: `drive.file` grants per file, so a fresh consent alone would
+  // leave the new token able to read nothing. Whatever the user picks becomes the source's
+  // spreadsheet — including a different sheet, which is the supported way to move a source.
   const handleConnectGoogle = useCallback(async () => {
     if (!selectedDefId) return;
     // Same inline treatment as submit — a missing name is a form error, not a toast.
@@ -200,17 +204,22 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     setOauthConnecting(true);
     try {
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_STARTED, { source_type: 'Google Sheets' });
-      const { authUrl } = await getSourceOAuthConsent(selectedDefId, selectedName);
-      const { ref } = await openOAuthPopup(authUrl);
+      const { ref, spreadsheet } = await connectGoogleSpreadsheet(selectedDefId, selectedName);
+      setValue(GSHEETS_KEY_SPREADSHEET, spreadsheet.url, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
       setOauthRef(ref);
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
-      toastSuccess.generic('Authorized with Google — click Save Changes And Test to apply');
+      toastSuccess.generic(
+        `Authorized with Google for “${spreadsheet.name}” — click Save Changes And Test to apply`
+      );
     } catch (error) {
       toastError.api(error instanceof Error ? error.message : 'Google sign-in failed');
     } finally {
       setOauthConnecting(false);
     }
-  }, [selectedDefId, selectedName, sourceName]);
+  }, [selectedDefId, selectedName, sourceName, setValue]);
 
   // WS check succeeded → persist the update (v1 pattern: test, then auto-save).
   const handleSaveSource = useCallback(async () => {
