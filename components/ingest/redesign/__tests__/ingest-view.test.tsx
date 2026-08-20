@@ -1,31 +1,55 @@
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { IngestView } from '../ingest-view';
 import { useWarehouse } from '@/hooks/api/useWarehouse';
 import { useSources } from '@/hooks/api/useSources';
+import { useConnectionsList } from '@/hooks/api/useConnections';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import * as rbac from '@/lib/rbac';
 
 jest.mock('next/navigation', () => ({ useRouter: () => ({ push: jest.fn() }) }));
 jest.mock('@/hooks/api/useWarehouse');
 jest.mock('@/hooks/api/useSources');
+jest.mock('@/hooks/api/useConnections');
 jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
-// Keep this test focused on state routing — stub the heavy steady subtree.
+// Keep this test focused on state routing — stub the heavy steady subtree. The
+// stale flag is surfaced as an attribute so the wizard-completion test can assert
+// what gets handed down.
 jest.mock('../steady-view', () => ({
-  SteadyView: () => <div data-testid="ingest-steady-view" />,
+  SteadyView: ({ connectionsKnownStale }: { connectionsKnownStale?: boolean }) => (
+    <div
+      data-testid="ingest-steady-view"
+      data-connections-stale={String(!!connectionsKnownStale)}
+    />
+  ),
 }));
 // The wizard has its own tests; here we only assert the header wires it up. onClose is
-// exposed as a button so the walkthrough tests below can dismiss it.
+// exposed as a button so the walkthrough tests below can dismiss it, and onComplete so
+// the connection-created handoff can be exercised.
 jest.mock('@/components/ingest/sources/wizard/AddSourceWizard', () => ({
-  AddSourceWizard: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
+  AddSourceWizard: ({
+    open,
+    onClose,
+    onComplete,
+  }: {
+    open: boolean;
+    onClose: () => void;
+    onComplete: (result: { connectionCreated: boolean }) => void;
+  }) =>
     open ? (
       <div data-testid="wizard-open">
         <button type="button" data-testid="wizard-close" onClick={onClose} />
+        <button
+          type="button"
+          data-testid="wizard-complete-with-connection"
+          onClick={() => onComplete({ connectionCreated: true })}
+        />
       </div>
     ) : null,
 }));
 
 const mockWarehouse = useWarehouse as jest.Mock;
 const mockSources = useSources as jest.Mock;
+const mockConnections = useConnectionsList as jest.Mock;
 const mockPermissions = rbac.useRbac as jest.Mock;
 
 function renderView() {
@@ -35,6 +59,41 @@ function renderView() {
 describe('IngestView progressive reveal', () => {
   beforeEach(() => {
     mockPermissions.mockReturnValue({ hasPermission: () => true });
+    mockConnections.mockReturnValue({ data: [], isLoading: false, mutate: jest.fn() });
+  });
+
+  // The wizard creates the connection server-side, then the list is revalidated.
+  // SteadyView must be told the list is stale for exactly that window, or the new
+  // source renders as "add a connection" until the fetch lands.
+  it('marks connections stale while revalidating after the wizard creates one', async () => {
+    let resolveMutate!: () => void;
+    const mutate = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveMutate = resolve;
+        })
+    );
+    mockConnections.mockReturnValue({ data: [], isLoading: false, mutate });
+    mockWarehouse.mockReturnValue({ data: { name: 'wh' }, isLoading: false, mutate: jest.fn() });
+    mockSources.mockReturnValue({
+      data: [{ sourceId: 's1' }],
+      isLoading: false,
+      mutate: jest.fn(),
+    });
+    renderView();
+
+    const steady = () => screen.getByTestId('ingest-steady-view');
+    expect(steady()).toHaveAttribute('data-connections-stale', 'false');
+
+    fireEvent.click(screen.getByTestId('new-source-btn'));
+    fireEvent.click(screen.getByTestId('wizard-complete-with-connection'));
+
+    expect(steady()).toHaveAttribute('data-connections-stale', 'true');
+
+    await act(async () => {
+      resolveMutate();
+    });
+    await waitFor(() => expect(steady()).toHaveAttribute('data-connections-stale', 'false'));
   });
 
   it('shows the empty-warehouse card when there is no warehouse', () => {
@@ -216,6 +275,19 @@ describe('IngestView walkthrough coachmarks', () => {
     // The Google Sheets card is gone with the dialog; leaving the stage on it would strand
     // the walkthrough waiting for a selector that can't come back on its own.
     expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_ingest');
+  });
+
+  it('un-suppresses the coachmark when the page unmounts with the wizard still open', () => {
+    const { unmount } = renderView();
+    fireEvent.click(screen.getByTestId('new-source-btn'));
+    expect(useInsightWalkthroughStore.getState().suppressCoachmark).toBe(true);
+
+    // Leaving the page without closing the dialog (browser back, sidebar nav). The store
+    // never resets this itself and it isn't persisted, so a latched `true` hides coachmarks
+    // on every other page until a full reload.
+    unmount();
+
+    expect(useInsightWalkthroughStore.getState().suppressCoachmark).toBe(false);
   });
 
   it('leaves the stage alone when the wizard produced a tracked connection', () => {

@@ -66,6 +66,11 @@ export function IngestView() {
   // Frozen when the wizard opens so revalidating the warehouse mid-flow (after step 1)
   // doesn't drop the wizard from 4 steps to 3.
   const [wizardNeedsWarehouse, setWizardNeedsWarehouse] = useState(false);
+  // True only while the connections list is being revalidated after the wizard
+  // created a connection: it exists server-side but SWR still serves the stale
+  // list, so SteadyView must not read its source's zero connections as "none".
+  // Scoped to the revalidate promise, so it can never stick.
+  const [connectionsKnownStale, setConnectionsKnownStale] = useState(false);
 
   const state = selectIngestState(
     { data: warehouse.data, isLoading: warehouse.isLoading, isError: warehouse.isError },
@@ -105,6 +110,17 @@ export function IngestView() {
       .getState()
       .setSuppressCoachmark(wizardOpen && !isWizardCoachedStage(walkthroughStage));
   }, [wizardOpen, walkthroughStage]);
+
+  // Leaving the page without closing the wizard (browser back, sidebar nav) would strand
+  // suppression at `true`: the store neither resets it nor persists it, so coachmarks stay
+  // hidden on every other page for the rest of the session and only a reload clears it.
+  // Separate from the effect above, and unmount-only, so re-running that one on a stage
+  // change can't blink the coachmark back on mid-flow.
+  useEffect(() => {
+    return () => {
+      useInsightWalkthroughStore.getState().setSuppressCoachmark(false);
+    };
+  }, []);
 
   /**
    * Leaving the wizard without a connection strands a pick-a-source stage on a card that no
@@ -182,7 +198,7 @@ export function IngestView() {
 
         {state === 'NO_SOURCE' && <EmptySourceCard onAddSource={openSourceWizard} />}
 
-        {state === 'STEADY' && <SteadyView />}
+        {state === 'STEADY' && <SteadyView connectionsKnownStale={connectionsKnownStale} />}
       </div>
 
       {wizardOpen && (
@@ -203,12 +219,24 @@ export function IngestView() {
             warehouse.mutate();
             sources.mutate();
           }}
-          onComplete={() => {
+          onComplete={async ({ connectionCreated }) => {
             setWizardOpen(false);
             rewindWalkthroughIfNoConnection();
             warehouse.mutate();
             sources.mutate();
-            mutateConnections();
+            // The wizard's connection step is cancellable, so a run can finish having
+            // created only a source — that case has genuinely zero connections and
+            // should show the add-connection prompt right away, not a placeholder.
+            if (!connectionCreated) {
+              mutateConnections();
+              return;
+            }
+            setConnectionsKnownStale(true);
+            try {
+              await mutateConnections();
+            } finally {
+              setConnectionsKnownStale(false);
+            }
           }}
         />
       )}

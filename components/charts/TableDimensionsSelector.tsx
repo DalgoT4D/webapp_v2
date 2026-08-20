@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { Combobox, highlightText } from '@/components/ui/combobox';
+import { TooltipLabel } from '@/components/charts/types/shared/TooltipLabel';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import type { ChartDimension } from '@/types/charts';
 import {
@@ -116,9 +117,9 @@ function SortableDimensionItem({
           renderItem={(item, _isSelected, searchQuery) => (
             <div className="flex items-center gap-2 min-w-0">
               <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4 flex-shrink-0" />
-              <span className="truncate" title={`${item.label} (${item.data_type})`}>
+              <TooltipLabel label={`${item.label} (${item.data_type})`}>
                 {highlightText(item.label, searchQuery)}
-              </span>
+              </TooltipLabel>
             </div>
           )}
         />

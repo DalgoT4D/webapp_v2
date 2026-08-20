@@ -1862,41 +1862,44 @@ function EditChartPageContent() {
                     }
                     className="h-full flex flex-col"
                   >
-                    <TabsList
-                      className={`grid w-full ${formData.chart_type === ChartTypes.TABLE || formData.chart_type === ChartTypes.PIVOT_TABLE ? 'grid-cols-1' : 'grid-cols-2'} flex-shrink-0`}
-                    >
-                      {formData.chart_type !== ChartTypes.TABLE &&
-                        formData.chart_type !== ChartTypes.PIVOT_TABLE && (
-                          <TabsTrigger value="chart-data" className="flex items-center gap-2">
-                            <BarChart3 className="h-4 w-4" />
-                            Chart Data
-                          </TabsTrigger>
-                        )}
+                    <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
+                      <TabsTrigger value="chart-data" className="flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4" />
+                        Chart Data
+                      </TabsTrigger>
                       <TabsTrigger value="raw-data" className="flex items-center gap-2">
                         <Database className="h-4 w-4" />
                         Raw Data
                       </TabsTrigger>
                     </TabsList>
 
-                    {formData.chart_type !== ChartTypes.TABLE &&
-                      formData.chart_type !== ChartTypes.PIVOT_TABLE && (
-                        <TabsContent value="chart-data" className="flex-1 overflow-auto">
-                          <DataPreview
-                            data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
-                            columns={dataPreview?.columns || []}
-                            columnTypes={dataPreview?.column_types || {}}
-                            isLoading={previewLoading}
-                            error={previewError}
-                            pagination={{
-                              page: dataPreviewPage,
-                              pageSize: dataPreviewPageSize,
-                              total: chartDataTotalRows || 0,
-                              onPageChange: setDataPreviewPage,
-                              onPageSizeChange: handleDataPreviewPageSizeChange,
-                            }}
-                          />
-                        </TabsContent>
+                    <TabsContent value="chart-data" className="flex-1 overflow-auto">
+                      {formData.chart_type === ChartTypes.PIVOT_TABLE ? (
+                        <ChartPreview
+                          config={{ extra_config: formData.extra_config }}
+                          tableData={chartData?.data}
+                          isLoading={chartDataLoading}
+                          error={null}
+                          chartType={formData.chart_type}
+                          customizations={formData.customizations}
+                        />
+                      ) : (
+                        <DataPreview
+                          data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
+                          columns={dataPreview?.columns || []}
+                          columnTypes={dataPreview?.column_types || {}}
+                          isLoading={previewLoading}
+                          error={previewError}
+                          pagination={{
+                            page: dataPreviewPage,
+                            pageSize: dataPreviewPageSize,
+                            total: chartDataTotalRows || 0,
+                            onPageChange: setDataPreviewPage,
+                            onPageSizeChange: handleDataPreviewPageSizeChange,
+                          }}
+                        />
                       )}
+                    </TabsContent>
 
                     <TabsContent value="raw-data" className="flex-1 overflow-auto">
                       <DataPreview

@@ -19,7 +19,12 @@ import type { WizardStep } from './wizard-state';
 interface Props {
   open: boolean;
   onClose: () => void;
-  onComplete: () => void;
+  /**
+   * The run finished and the list needs refreshing. `connectionCreated` tells the host
+   * whether a connection now exists server-side — it decides whether a source showing
+   * zero connections is genuinely empty or just waiting on the refetch.
+   */
+  onComplete: (result: { connectionCreated: boolean }) => void;
   /** No warehouse yet: prepend a warehouse step so the flow is 4 steps (warehouse
    *  → select → configure → connection) instead of the usual 3. Read only when the
    *  dialog opens — see hasWarehouseStep. */
@@ -92,7 +97,7 @@ export function AddSourceWizard({
   // created yet, just close.
   const handleDismiss = () => {
     if (createdSourceId) {
-      onComplete();
+      onComplete({ connectionCreated: false });
     } else {
       onClose();
     }
@@ -242,11 +247,11 @@ export function AddSourceWizard({
               onCancel={() => {
                 // Source is already created — closing here just keeps it with
                 // 0 connections and lets the list refresh to show it.
-                onComplete();
+                onComplete({ connectionCreated: false });
                 onClose();
               }}
               onSuccess={() => {
-                onComplete();
+                onComplete({ connectionCreated: true });
                 onClose();
               }}
             />
