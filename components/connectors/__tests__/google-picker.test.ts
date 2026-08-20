@@ -116,6 +116,98 @@ const DOC = {
 
 afterEach(() => {
   delete window.google;
+  document.body.style.pointerEvents = '';
+  document.getElementById('dalgo-picker-pointer-events')?.remove();
+});
+
+/**
+ * Every host that opens the Picker does so from inside a Radix modal dialog, and Radix's
+ * DismissableLayer sets `document.body { pointer-events: none }` for as long as one is open,
+ * re-enabling it only inside its own layer. The Picker appends its DOM to document.body,
+ * outside that layer, so it inherits the lock: it renders correctly and then swallows every
+ * click and wheel event. These tests pin the escape.
+ */
+describe('inside a Radix modal (body pointer-events locked)', () => {
+  beforeEach(() => {
+    document.body.style.pointerEvents = 'none';
+  });
+
+  it('lets pointer events through to the Picker while it is open', async () => {
+    const calls = installFakePicker();
+
+    const pending = pickSpreadsheet(CONFIG);
+    await Promise.resolve();
+
+    expect(document.body.style.pointerEvents).toBe('auto');
+
+    calls.callback!({ action: 'picked', docs: [DOC] });
+    await pending;
+  });
+
+  // Belt and braces: a rule scoped to the Picker's own containers keeps it clickable even if
+  // something re-locks the body mid-flow. `pointer-events: auto` on a descendant overrides an
+  // inherited `none`.
+  it('scopes a pointer-events rule to the Picker containers', async () => {
+    const calls = installFakePicker();
+
+    const pending = pickSpreadsheet(CONFIG);
+    await Promise.resolve();
+    calls.callback!({ action: 'picked', docs: [DOC] });
+    await pending;
+
+    const style = document.getElementById('dalgo-picker-pointer-events');
+    expect(style?.textContent).toContain('.picker-dialog');
+    expect(style?.textContent).toContain('.picker-dialog-bg');
+    expect(style?.textContent).toContain('pointer-events: auto');
+  });
+
+  it('restores the modal lock once a sheet is picked', async () => {
+    const calls = installFakePicker();
+
+    const pending = pickSpreadsheet(CONFIG);
+    await Promise.resolve();
+    calls.callback!({ action: 'picked', docs: [DOC] });
+    await pending;
+
+    expect(document.body.style.pointerEvents).toBe('none');
+  });
+
+  it('restores the modal lock when the Picker is cancelled', async () => {
+    const calls = installFakePicker();
+
+    const pending = pickSpreadsheet(CONFIG);
+    await Promise.resolve();
+    calls.callback!({ action: 'cancel' });
+    await expect(pending).rejects.toBeInstanceOf(PickerCancelledError);
+
+    expect(document.body.style.pointerEvents).toBe('none');
+  });
+
+  // If the host dialog closed while the Picker was open, Radix already cleared its own lock on
+  // unmount. Re-imposing ours would leave the whole page dead to clicks.
+  it('does not re-lock the body if the host dialog already released it', async () => {
+    const calls = installFakePicker();
+
+    const pending = pickSpreadsheet(CONFIG);
+    await Promise.resolve();
+    document.body.style.pointerEvents = ''; // Radix unmounted and restored
+    calls.callback!({ action: 'picked', docs: [DOC] });
+    await pending;
+
+    expect(document.body.style.pointerEvents).toBe('');
+  });
+});
+
+it('leaves the body alone when there is no modal lock to escape', async () => {
+  const calls = installFakePicker();
+
+  const pending = pickSpreadsheet(CONFIG);
+  await Promise.resolve();
+  expect(document.body.style.pointerEvents).toBe('');
+
+  calls.callback!({ action: 'picked', docs: [DOC] });
+  await pending;
+  expect(document.body.style.pointerEvents).toBe('');
 });
 
 it('resolves with the picked spreadsheet', async () => {

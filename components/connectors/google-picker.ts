@@ -38,6 +38,45 @@ export class PickerCancelledError extends Error {
 
 const GAPI_SCRIPT_SRC = 'https://apis.google.com/js/api.js';
 
+// Escaping the host modal ----------------------------------------------------------------
+//
+// Every host opens the Picker from inside a Radix `Dialog`, and Radix's DismissableLayer sets
+// `document.body { pointer-events: none }` for as long as a modal layer is open, re-enabling
+// it only inside its own layer. The Picker appends its DOM straight to document.body — outside
+// that layer — so it inherits the lock and silently swallows every click and wheel event: the
+// file list renders, and nothing in it responds.
+//
+// Two defences, because a stuck `pointer-events: none` is invisible and maddening to debug:
+//  1. A stylesheet scoped to the Picker's own containers. `pointer-events: auto` on a
+//     descendant overrides an inherited `none`, so the Picker stays live no matter what the
+//     body says, with no timing dependency on when Google creates its DOM.
+//  2. Unlock the body for as long as the Picker is up, then put the lock back. This one does
+//     not depend on Google's class names holding still.
+const PICKER_POINTER_EVENTS_STYLE_ID = 'dalgo-picker-pointer-events';
+const PICKER_CONTAINER_SELECTORS = '.picker-dialog, .picker-dialog-bg';
+
+function ensurePickerPointerEventsStyle(): void {
+  if (document.getElementById(PICKER_POINTER_EVENTS_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = PICKER_POINTER_EVENTS_STYLE_ID;
+  style.textContent = `${PICKER_CONTAINER_SELECTORS} { pointer-events: auto !important; }`;
+  document.head.appendChild(style);
+}
+
+/** Lift a modal's body-level pointer-events lock; returns the undo. No-op when unlocked. */
+function unlockBodyPointerEvents(): () => void {
+  const { body } = document;
+  const locked = body.style.pointerEvents;
+  if (locked !== 'none') return () => {};
+  body.style.pointerEvents = 'auto';
+  return () => {
+    // Only re-lock if our own value is still in place. If the host dialog closed while the
+    // Picker was open, Radix already restored the body on unmount — re-imposing the lock then
+    // would leave the entire page dead to clicks with nothing on screen to explain why.
+    if (body.style.pointerEvents === 'auto') body.style.pointerEvents = locked;
+  };
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
   interface Window {
@@ -98,6 +137,9 @@ export async function pickSpreadsheet(config: GooglePickerConfig): Promise<Picke
   await loadPicker();
   const picker = window.google.picker;
 
+  ensurePickerPointerEventsStyle();
+  const relockBody = unlockBodyPointerEvents();
+
   return new Promise<PickedSpreadsheet>((resolve, reject) => {
     // Two views, one per tab, because `setEnableDrives(true)` re-roots a view at the list of
     // shared drives — a single view configured that way hides My Drive completely.
@@ -134,19 +176,29 @@ export async function pickSpreadsheet(config: GooglePickerConfig): Promise<Picke
       .addView(sharedDrivesView)
       .enableFeature(picker.Feature.SUPPORT_DRIVES)
       .setCallback((data: any) => {
+        // PICKED and CANCEL are the only terminal actions; LOADED and others fire while the
+        // dialog is still up, so the lock goes back only on the ones that settle the promise.
         if (data.action === picker.Action.PICKED) {
           const doc = data.docs?.[0];
+          relockBody();
           if (!doc) {
             reject(new PickerCancelledError());
             return;
           }
           resolve({ id: doc.id, name: doc.name, url: doc.url });
         } else if (data.action === picker.Action.CANCEL) {
+          relockBody();
           reject(new PickerCancelledError());
         }
       })
       .build();
 
-    built.setVisible(true);
+    try {
+      built.setVisible(true);
+    } catch (err) {
+      // never leave the host modal unlocked because the Picker failed to open
+      relockBody();
+      throw err;
+    }
   });
 }
