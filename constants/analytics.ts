@@ -394,6 +394,10 @@ export const SOURCE_AUTH_MODES = {
   MANAGED_KEY: 'managed_key',
   // The user pasted their own service-account JSON
   OWN_KEY: 'own_key',
+  // EDIT ONLY. On edit the two service-account routes are indistinguishable: Airbyte returns
+  // a stored key masked and which key a source uses isn't recorded, so the choice isn't even
+  // offered while a key is present. Reported as-is rather than guessed at.
+  SERVICE_ACCOUNT: 'service_account',
 } as const;
 
 export type SourceAuthMode = (typeof SOURCE_AUTH_MODES)[keyof typeof SOURCE_AUTH_MODES];
