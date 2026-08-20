@@ -19,11 +19,14 @@ import { MapPreview } from '@/components/charts/map/MapPreview';
 import type { PivotTableResponse } from '@/types/pivot-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Edit, Lock, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit, Lock, Loader2, Share2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
+import { ShareModal } from '@/components/ui/share-modal';
+import { RequestEditPill } from '@/components/access/request-edit-pill';
+import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -476,6 +479,19 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   // Chart refs for export
   const [chartElement, setChartElement] = useState<HTMLElement | null>(null);
   const [chartInstance, setChartInstance] = useState<echarts.ECharts | null>(null);
+  const { initialOpen: shouldAutoOpenShare, clearParam: clearShareDeepLink } =
+    useOpenShareDeepLink();
+  const [shareModalOpen, setShareModalOpen] = useState(shouldAutoOpenShare);
+
+  // Handle share (mirrors dashboard-native-view)
+  const handleShare = () => {
+    setShareModalOpen(true);
+  };
+
+  const handleShareModalClose = () => {
+    setShareModalOpen(false);
+    clearShareDeepLink();
+  };
   const chartContentRef = useRef<HTMLDivElement>(null);
 
   // Update chart element ref when content is rendered
@@ -803,7 +819,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
             )}
           </div>
           <div className="flex gap-2">
-            {hasPermission(PERMISSIONS.CAN_EDIT_CHARTS) && (
+            {chart.access_level === 'edit' && (
               <Link
                 data-testid="chart-detail-edit-link"
                 href={`/charts/${chartId}/edit${isFromDashboard ? '?from=dashboard' : ''}`}
@@ -813,6 +829,16 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   Edit Chart
                 </Button>
               </Link>
+            )}
+            {hasPermission(PERMISSIONS.CAN_SHARE_CHARTS) && (
+              <Button
+                data-testid="chart-detail-share-button"
+                variant="outline"
+                size="sm"
+                onClick={handleShare}
+              >
+                <Share2 className="w-4 h-4" />
+              </Button>
             )}
             <ChartExportDropdown
               chartTitle={chart.title}
@@ -844,6 +870,11 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   ? tableDrillDownState.appliedFilters
                   : undefined
               }
+            />
+            <RequestEditPill
+              rtype="chart"
+              resourceId={chart.id}
+              resourceAccessLevel={chart.access_level}
             />
           </div>
         </div>
@@ -1013,6 +1044,16 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
         dismissEvent={ANALYTICS_EVENTS.CHART_LIVE_MODAL_DISMISSED}
         testId="chart-live-modal"
       />
+      {/* Share Modal */}
+      {chart && (
+        <ShareModal
+          rtype="chart"
+          entityId={chart.id}
+          entityLabel={chart.title || 'Chart'}
+          isOpen={shareModalOpen}
+          onClose={handleShareModalClose}
+        />
+      )}
     </div>
   );
 }

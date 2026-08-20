@@ -35,6 +35,7 @@ function makeAlert(overrides: Partial<AlertListItem> = {}): AlertListItem {
     is_active: true,
     last_fire_at: null,
     fire_streak: 0,
+    created_by_email: null,
     ...overrides,
   };
 }
@@ -48,6 +49,8 @@ const baseProps = {
   onDelete: jest.fn(),
   onToggle: jest.fn(),
   onOpenLog: jest.fn(),
+  canTransfer: jest.fn(() => false),
+  onTransfer: jest.fn(),
 };
 
 describe('AlertsTable', () => {

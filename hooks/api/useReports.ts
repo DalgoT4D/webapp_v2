@@ -89,26 +89,6 @@ export function useDashboardDatetimeColumns(dashboardId: number | null) {
   return { columns: data?.data || [], isLoading, error };
 }
 
-// Sharing mutations
-
-export async function updateReportSharing(
-  snapshotId: number,
-  data: { is_public: boolean }
-): Promise<ShareStatus> {
-  const response: ApiResponse<ShareStatus> = await apiPut(
-    `/api/reports/${snapshotId}/share/`,
-    data
-  );
-  // is_public lets analytics distinguish sharing from un-sharing (mirrors DASHBOARD_SHARED).
-  trackEvent(ANALYTICS_EVENTS.REPORT_SHARED, { is_public: data.is_public });
-  return response.data;
-}
-
-export async function getReportSharingStatus(snapshotId: number): Promise<ShareStatus> {
-  const response: ApiResponse<ShareStatus> = await apiGet(`/api/reports/${snapshotId}/share/`);
-  return response.data;
-}
-
 // Share via email
 
 export async function shareReportViaEmail(

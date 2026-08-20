@@ -9,17 +9,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  useUserPreferences,
-  useOrgPreferences,
-  usePreferenceActions,
-} from '@/hooks/api/useNotifications';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useUserPreferences, usePreferenceActions } from '@/hooks/api/useNotifications';
+import { ADMIN_ROLES, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
@@ -35,111 +29,64 @@ export function NotificationPreferencesDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     enable_email_notifications: false,
-    enable_discord_notifications: false,
-    discord_webhook: '',
+    enable_schema_change_notifications: false,
   });
-  const [errors, setErrors] = useState<{ discord_webhook?: string }>({});
 
-  const {
-    preferences,
-    isLoading: userPrefsLoading,
-    mutate: mutateUserPrefs,
-  } = useUserPreferences();
-  const {
-    orgPreferences,
-    isLoading: orgPrefsLoading,
-    mutate: mutateOrgPrefs,
-  } = useOrgPreferences();
-  const isLoadingPrefs = userPrefsLoading || orgPrefsLoading;
-  const { updateUserPreferences, updateOrgPreferences } = usePreferenceActions();
-  const { hasPermission } = useRbac();
+  const { preferences, isLoading: isLoadingPrefs, mutate: mutateUserPrefs } = useUserPreferences();
+  const { updateUserPreferences } = usePreferenceActions();
+  const { hasRole } = useRbac();
 
-  const hasDiscordPermission = hasPermission(PERMISSIONS.CAN_EDIT_ORG_NOTIFICATION_SETTINGS);
+  const canSeeSchemaChangeToggle = hasRole(ADMIN_ROLES);
 
-  // Load existing preferences when dialog opens
   useEffect(() => {
-    if (preferences && orgPreferences) {
+    if (preferences) {
       setFormData({
         enable_email_notifications: preferences.enable_email_notifications,
-        enable_discord_notifications: orgPreferences.enable_discord_notifications,
-        discord_webhook: orgPreferences.discord_webhook || '',
+        enable_schema_change_notifications: preferences.enable_schema_change_notifications ?? false,
       });
     }
-  }, [preferences, orgPreferences]);
-
-  const validateForm = () => {
-    const newErrors: { discord_webhook?: string } = {};
-
-    if (formData.enable_discord_notifications && !formData.discord_webhook.trim()) {
-      newErrors.discord_webhook = 'Discord webhook URL is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  }, [preferences]);
 
   const resetForm = () => {
-    setErrors({});
-    if (preferences && orgPreferences) {
+    if (preferences) {
       setFormData({
         enable_email_notifications: preferences.enable_email_notifications,
-        enable_discord_notifications: orgPreferences.enable_discord_notifications,
-        discord_webhook: orgPreferences.discord_webhook || '',
+        enable_schema_change_notifications: preferences.enable_schema_change_notifications ?? false,
       });
     }
-  };
-
-  const getChangedSections = () => {
-    const emailChanged =
-      !!preferences &&
-      formData.enable_email_notifications !== preferences.enable_email_notifications;
-
-    const discordChanged =
-      hasDiscordPermission &&
-      !!orgPreferences &&
-      (formData.enable_discord_notifications !== orgPreferences.enable_discord_notifications ||
-        formData.discord_webhook !== (orgPreferences.discord_webhook || ''));
-
-    return { emailChanged, discordChanged };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!preferences) return;
 
-    const { emailChanged, discordChanged } = getChangedSections();
+    const payload: {
+      enable_email_notifications?: boolean;
+      enable_schema_change_notifications?: boolean;
+    } = {};
+    if (formData.enable_email_notifications !== preferences.enable_email_notifications) {
+      payload.enable_email_notifications = formData.enable_email_notifications;
+    }
+    if (
+      canSeeSchemaChangeToggle &&
+      formData.enable_schema_change_notifications !==
+        (preferences.enable_schema_change_notifications ?? false)
+    ) {
+      payload.enable_schema_change_notifications = formData.enable_schema_change_notifications;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      onOpenChange(false);
+      return;
+    }
 
     setIsSubmitting(true);
-
     try {
-      if (emailChanged) {
-        const success = await updateUserPreferences({
-          enable_email_notifications: formData.enable_email_notifications,
-        });
-        if (!success) return;
-      }
-
-      if (discordChanged) {
-        const success = await updateOrgPreferences({
-          enable_discord_notifications: formData.enable_discord_notifications,
-          discord_webhook: formData.discord_webhook,
-        });
-        if (!success) return;
-      }
-
-      if (emailChanged) {
-        await mutateUserPrefs();
-        toast.success('Email preferences updated');
-      }
-      if (discordChanged) {
-        await mutateOrgPrefs();
-        toast.success('Discord preferences updated');
-      }
-
-      if (emailChanged || discordChanged) {
-        trackEvent(ANALYTICS_EVENTS.NOTIFICATION_PREFERENCES_UPDATED);
-      }
-
+      const success = await updateUserPreferences(payload);
+      if (!success) return;
+      await mutateUserPrefs();
+      toast.success('Preferences updated');
+      trackEvent(ANALYTICS_EVENTS.NOTIFICATION_PREFERENCES_UPDATED);
       onOpenChange(false);
     } finally {
       setIsSubmitting(false);
@@ -162,7 +109,6 @@ export function NotificationPreferencesDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Email Notifications */}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="email-notifications">Email Notifications</Label>
@@ -181,65 +127,30 @@ export function NotificationPreferencesDialog({
             />
           </div>
 
-          <Separator />
-
-          {/* Discord Notifications */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="discord-notifications">Discord Notifications</Label>
-                <p className="text-sm text-gray-500">Send notifications to Discord channel</p>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <Switch
-                      id="discord-notifications"
-                      data-testid="discord-notifications-switch"
-                      checked={formData.enable_discord_notifications}
-                      onCheckedChange={(checked) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          enable_discord_notifications: checked,
-                        }))
-                      }
-                      disabled={!hasDiscordPermission}
-                    />
-                  </div>
-                </TooltipTrigger>
-                {!hasDiscordPermission && (
-                  <TooltipContent>
-                    Please reach out to your organization&apos;s Account Manager to enable this
-                    feature
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </div>
-
-            {formData.enable_discord_notifications && (
-              <div className="space-y-2">
-                <Label htmlFor="discord-webhook">Discord Webhook URL</Label>
-                <Input
-                  id="discord-webhook"
-                  data-testid="discord-webhook-input"
-                  type="url"
-                  placeholder="https://discord.com/api/webhooks/..."
-                  value={formData.discord_webhook}
-                  onChange={(e) =>
+          {canSeeSchemaChangeToggle && (
+            <>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="schema-change-notifications">Schema Change Notifications</Label>
+                  <p className="text-sm text-gray-500">
+                    Get alerted when source schema changes are detected for your org
+                  </p>
+                </div>
+                <Switch
+                  id="schema-change-notifications"
+                  data-testid="schema-change-notifications-switch"
+                  checked={formData.enable_schema_change_notifications}
+                  onCheckedChange={(checked) =>
                     setFormData((prev) => ({
                       ...prev,
-                      discord_webhook: e.target.value,
+                      enable_schema_change_notifications: checked,
                     }))
                   }
-                  disabled={!hasDiscordPermission}
-                  className={errors.discord_webhook ? 'border-red-500' : ''}
                 />
-                {errors.discord_webhook && (
-                  <p className="text-sm text-red-500">{errors.discord_webhook}</p>
-                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
 
           <DialogFooter>
             <Button

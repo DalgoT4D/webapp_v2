@@ -42,6 +42,7 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
+import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
 const grainLabel: Record<string, string> = {
@@ -131,7 +132,9 @@ export function KPIDetailDrawer({
   const [alertWizardOpen, setAlertWizardOpen] = useState(false);
   const { hasPermission } = useRbac();
   const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
-  const canEditKpis = hasPermission(PERMISSIONS.CAN_EDIT_KPIS);
+  // Per-resource access — a member granted edit has kpi.access_level === 'edit'
+  // even without the role-level can_edit_kpis slug. Backend enforces on save.
+  const canEditKpis = kpi?.access_level === 'edit';
 
   // Reset filters when KPI changes or drawer closes
   useEffect(() => {
@@ -214,6 +217,11 @@ export function KPIDetailDrawer({
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
+              <RequestEditPill
+                rtype="kpi"
+                resourceId={kpi.id}
+                resourceAccessLevel={kpi.access_level}
+              />
               {canCreateAlert && (
                 <Button
                   variant="ghost"

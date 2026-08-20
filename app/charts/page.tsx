@@ -24,12 +24,14 @@ import {
   Filter,
   Star,
   User,
+  Share2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
 import type { ChartCreate } from '@/types/charts';
 import { useDeleteChart, useBulkDeleteCharts, useCreateChart } from '@/hooks/api/useChart';
 import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
+import { ShareModal } from '@/components/ui/share-modal';
 import { ChartExportDropdownForList } from '@/components/charts/ChartExportDropdownForList';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
@@ -119,6 +121,9 @@ export default function ChartsPage() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  // Share modal state
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareChart, setShareChart] = useState<Chart | null>(null);
 
   const {
     data: allCharts,
@@ -446,6 +451,16 @@ export default function ChartsPage() {
 
   const deselectAllCharts = useCallback(() => {
     setSelectedCharts(new Set());
+  }, []);
+
+  const handleShareChart = useCallback((chart: Chart) => {
+    setShareChart(chart);
+    setShareModalOpen(true);
+  }, []);
+
+  const handleShareModalClose = useCallback(() => {
+    setShareModalOpen(false);
+    setShareChart(null);
   }, []);
 
   // Bulk delete function
@@ -817,7 +832,7 @@ export default function ChartsPage() {
                 <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400" />
               )}
             </Button>
-            <div className="flex flex-col">
+            <div className="flex flex-col gap-1">
               <Link
                 href={hasPermission(PERMISSIONS.CAN_VIEW_CHARTS) ? `/charts/${chart.id}` : '#'}
                 className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
@@ -878,12 +893,22 @@ export default function ChartsPage() {
         {/* Actions Column */}
         <TableCell className="py-4">
           <div className="flex items-center gap-2">
-            {hasPermission(PERMISSIONS.CAN_EDIT_CHARTS) && (
+            {chart.access_level === 'edit' && (
               <Link href={`/charts/${chart.id}/edit`}>
                 <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
                   <Edit className="w-4 h-4 text-gray-600" />
                 </Button>
               </Link>
+            )}
+            {chart.access_level === 'edit' && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+                onClick={() => handleShareChart(chart)}
+              >
+                <Share2 className="w-4 h-4 text-gray-600" />
+              </Button>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1054,21 +1079,23 @@ export default function ChartsPage() {
               </div>
             </div>
 
-            {hasPermission(PERMISSIONS.CAN_DELETE_CHARTS) && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleBulkDelete}
-                disabled={selectedCharts.size === 0 || isBulkDeleting}
-              >
-                {isBulkDeleting ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                ) : (
-                  <Trash className="w-4 h-4 mr-2" />
-                )}
-                Delete {selectedCharts.size > 0 ? `(${selectedCharts.size})` : ''}
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {hasPermission(PERMISSIONS.CAN_DELETE_CHARTS) && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={selectedCharts.size === 0 || isBulkDeleting}
+                >
+                  {isBulkDeleting ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  ) : (
+                    <Trash className="w-4 h-4 mr-2" />
+                  )}
+                  Delete {selectedCharts.size > 0 ? `(${selectedCharts.size})` : ''}
+                </Button>
+              )}
+            </div>
           </div>
         )}
 
@@ -1420,6 +1447,17 @@ export default function ChartsPage() {
         </div>
       </div>
       <DialogComponent />
+
+      {/* Share Modal */}
+      {shareChart && (
+        <ShareModal
+          rtype="chart"
+          entityId={shareChart.id}
+          entityLabel={shareChart.title || 'Chart'}
+          isOpen={shareModalOpen}
+          onClose={handleShareModalClose}
+        />
+      )}
     </div>
   );
 }

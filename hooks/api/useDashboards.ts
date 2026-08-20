@@ -27,8 +27,13 @@ export interface Dashboard {
   created_at: string;
   updated_at: string;
   filters: DashboardFilter[];
+  // The requestor's own access level on this dashboard ("view" | "edit"),
+  // computed per-request from grants + org floor + ownership. Drives whether
+  // edit affordances show. Optional: absent from public views / legacy responses.
+  access_level?: 'view' | 'edit';
   // Sharing fields
   is_public: boolean;
+  is_private?: boolean;
   public_share_token?: string;
   public_shared_at?: string;
   public_disabled_at?: string;
@@ -236,17 +241,6 @@ export async function deleteDashboardFilter(
 export async function duplicateDashboard(dashboardId: number): Promise<Dashboard> {
   // Use the backend duplicate endpoint that handles all the copying server-side
   return await apiPost(`/api/dashboards/${dashboardId}/duplicate/`, {});
-}
-
-// Dashboard sharing functions
-export async function updateDashboardSharing(dashboardId: number, data: { is_public: boolean }) {
-  const result = await apiPut(`/api/dashboards/${dashboardId}/share/`, data);
-  trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { is_public: data.is_public });
-  return result;
-}
-
-export async function getDashboardSharingStatus(dashboardId: number) {
-  return apiGet(`/api/dashboards/${dashboardId}/share/`);
 }
 
 export function usePublicDashboard(token: string) {

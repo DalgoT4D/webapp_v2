@@ -95,8 +95,12 @@ describe('UnifiedTextElement', () => {
     );
 
     const editor = await screen.findByTestId('dashboard-rich-text-editor');
-    await activateEditor(editor);
-    await user.type(editor, ' updated', { skipClick: true });
+    await user.click(editor);
+    await waitFor(() => expect(editor).toHaveAttribute('contenteditable', 'true'));
+    // Give ProseMirror one tick to finish attaching key handlers before typing —
+    // without this JSDOM would occasionally drop the first character or two.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await user.type(editor, ' updated');
 
     act(() => {
       document.dispatchEvent(

@@ -89,14 +89,15 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format, formatDistanceToNow } from 'date-fns';
-import {
-  useDashboards,
-  deleteDashboard,
-  duplicateDashboard,
-  getDashboardSharingStatus,
-  updateDashboardSharing,
-} from '@/hooks/api/useDashboards';
+import { useDashboards, deleteDashboard, duplicateDashboard } from '@/hooks/api/useDashboards';
 import { ShareModal } from '@/components/ui/share-modal';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -902,7 +903,7 @@ export function DashboardListV2() {
         {/* Actions Column */}
         <TableCell className="py-4">
           <div className="flex items-center gap-2">
-            {hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS) && (
+            {dashboard.access_level === 'edit' && (
               <Link href={`/dashboards/${dashboard.id}/edit`}>
                 <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
                   <Edit className="w-4 h-4 text-gray-600" />
@@ -1097,7 +1098,7 @@ export function DashboardListV2() {
             </TooltipProvider>
 
             {/* Edit Button */}
-            {hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS) && (
+            {dashboard.access_level === 'edit' && (
               <Link href={`/dashboards/${dashboard.id}/edit`}>
                 <Button
                   variant="outline"
@@ -1434,7 +1435,7 @@ export function DashboardListV2() {
 
             {/* Action Buttons - Edit and Share as icon-only buttons */}
             <div className="flex items-center gap-2 ml-4">
-              {hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS) && (
+              {dashboard.access_level === 'edit' && (
                 <Link href={`/dashboards/${dashboard.id}/edit`}>
                   <Button
                     variant="outline"
@@ -1642,14 +1643,16 @@ export function DashboardListV2() {
             </p>
           </div>
 
-          {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
-            <Link id="dashboard-create-link" href="/dashboards/create">
-              <Button id="dashboard-create-button" variant="primary">
-                <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
-                CREATE DASHBOARD
-              </Button>
-            </Link>
-          )}
+          <div className="flex items-center gap-2">
+            {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
+              <Link id="dashboard-create-link" href="/dashboards/create">
+                <Button id="dashboard-create-button" variant="primary">
+                  <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
+                  CREATE DASHBOARD
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Filter Summary - Only shows when filters are active to save space */}
@@ -2040,17 +2043,12 @@ export function DashboardListV2() {
       {/* Share Modal */}
       {selectedDashboard && (
         <ShareModal
+          rtype="dashboard"
           entityId={selectedDashboard.id}
-          entityLabel="Dashboard"
+          entityLabel={selectedDashboard.title || 'Dashboard'}
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
-          initialShareStatus={{
-            is_public: selectedDashboard.is_public,
-            public_access_count: selectedDashboard.public_access_count,
-          }}
-          getShareStatus={getDashboardSharingStatus}
-          updateSharing={handleUpdateDashboardSharing}
         />
       )}
     </div>

@@ -1,35 +1,73 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useId } from 'react';
+import React, { useState, useEffect, useCallback, useId, useMemo } from 'react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { copyUrlToClipboard } from '@/lib/clipboard';
-import { Share2, Copy, Shield, AlertTriangle, Mail, X, Loader2, Send } from 'lucide-react';
+import {
+  AlertTriangle,
+  Copy,
+  Loader2,
+  Mail,
+  Send,
+  Shield,
+  User as UserIcon,
+  Users as UsersIcon,
+  X,
+} from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { ShareStatus } from '@/types/reports';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  respondToAccessRequest,
+  transferOwnership,
+  updateGeneralAccess,
+  useAccessRequests,
+  usePeople,
+  useResourceGrantActions,
+  useResourceGrants,
+  useUserGroups,
+  type GeneralAccessMode,
+} from '@/hooks/api/useAccess';
+import { useRoles } from '@/hooks/api/useUserManagement';
+import type { AccessLevel, PrincipalType, ShareRow } from '@/types/access';
+import { useAuthStore } from '@/stores/authStore';
+import { ADMIN_ROLES } from '@/lib/rbac';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_RECIPIENTS = 20;
 
+interface StagedChip {
+  key: string;
+  label: string;
+  kind: 'user' | 'group' | 'email';
+  principal_type: PrincipalType | null; // null for pending emails
+  principal_id: number | null;
+  email: string | null;
+  access_level: AccessLevel;
+}
+
 interface ShareModalProps {
+  /** The resource type identifier (e.g. "dashboard"). When provided, enables
+   * the chip typeahead + "People with access" + "General access" sections. */
+  rtype?: string;
   entityId: number;
   entityLabel: string;
   isOpen: boolean;
   onClose: () => void;
   onUpdate?: () => void;
-  initialShareStatus?: Partial<ShareStatus>;
-  getShareStatus: (id: number) => Promise<ShareStatus>;
-  updateSharing: (id: number, data: { is_public: boolean }) => Promise<ShareStatus>;
-  /** Notified after the public link is copied. Additive hook for callers that need to
-   *  react to the copy itself (the trial walkthrough ends on it); no effect otherwise. */
-  onCopyLink?: () => void;
-  /** When provided, enables the "Share via Email" section */
+  /** Reports still use this legacy path. */
   onShareViaEmail?: (data: {
     recipient_emails: string[];
     message?: string;
@@ -37,85 +75,416 @@ interface ShareModalProps {
 }
 
 export function ShareModal({
+  rtype,
   entityId,
   entityLabel,
   isOpen,
   onClose,
   onUpdate,
-  initialShareStatus,
-  getShareStatus,
-  updateSharing,
-  onCopyLink,
   onShareViaEmail,
 }: ShareModalProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [shareStatus, setShareStatus] = useState<ShareStatus>({
-    is_public: initialShareStatus?.is_public ?? false,
-    public_access_count: initialShareStatus?.public_access_count ?? 0,
-  });
+  const entityLabelLower = entityLabel.toLowerCase();
 
-  // Email sharing state
+  // Data sources — only fetch when modal is open to avoid firing these APIs
+  // on every page mount where a ShareModal is present.
+  const { people } = usePeople(isOpen);
+  const { groups } = useUserGroups(isOpen);
+  const { roles } = useRoles(isOpen);
+  const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
+  const currentOrgUser = getCurrentOrgUser();
+  const isAdmin = currentOrgUser
+    ? ADMIN_ROLES.includes(currentOrgUser.new_role_slug as (typeof ADMIN_ROLES)[number])
+    : false;
+
+  const {
+    shares,
+    callerIsOwner,
+    generalAccess,
+    owner,
+    mutate: mutateGrants,
+  } = useResourceGrants(isOpen && rtype ? rtype : null, isOpen && rtype ? entityId : null);
+  const isOwnerOrAdmin = callerIsOwner || isAdmin;
+
+  const { requests, mutate: mutateRequests } = useAccessRequests(
+    isOpen && rtype ? rtype : null,
+    isOpen && rtype ? entityId : null
+  );
+  const { addGrants, updateGrant, removeGrant } = useResourceGrantActions(rtype ?? '', entityId);
+
+  // Grants staging
+  const [chipInput, setChipInput] = useState('');
+  const [chips, setChips] = useState<StagedChip[]>([]);
+  const [inviteRoleUuid, setInviteRoleUuid] = useState<string>('');
+  const [chipError, setChipError] = useState<string | null>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rowBusyId, setRowBusyId] = useState<number | null>(null);
+
+  // General access
+  const [modeChanging, setModeChanging] = useState(false);
+
+  // Cascade confirmation state (dashboard grants only)
+  const [pendingAction, setPendingAction] = useState<
+    | { kind: 'level'; share: ShareRow; level: AccessLevel }
+    | { kind: 'remove'; share: ShareRow }
+    | null
+  >(null);
+
+  // Ownership transfer state
+  const [transferTarget, setTransferTarget] = useState<ShareRow | null>(null);
+  const [isTransferring, setIsTransferring] = useState(false);
+
+  // Legacy email-share state (Reports)
   const [emailInput, setEmailInput] = useState('');
   const [recipientEmails, setRecipientEmails] = useState<string[]>([]);
   const [personalMessage, setPersonalMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const publicAccessId = useId();
 
-  const entityLabelLower = entityLabel.toLowerCase();
-
-  const fetchShareStatus = useCallback(async () => {
-    try {
-      const status = await getShareStatus(entityId);
-      setShareStatus(status);
-    } catch (error) {
-      console.error('Failed to fetch share status:', error);
-      toastError.load(error, 'sharing status');
-    }
-  }, [entityId, getShareStatus]);
-
+  // Reset staging when modal closes
   useEffect(() => {
-    if (isOpen && entityId) {
-      fetchShareStatus();
+    if (!isOpen) {
+      setChips([]);
+      setChipInput('');
+      setInviteRoleUuid('');
+      setChipError(null);
+      setRoleError(null);
+      setRecipientEmails([]);
+      setPersonalMessage('');
+      setEmailInput('');
     }
-  }, [isOpen, entityId, fetchShareStatus]);
+  }, [isOpen]);
 
-  const handleToggleSharing = useCallback(
-    async (isPublic: boolean) => {
-      setIsLoading(true);
+  // Existing shared principals (skip in suggestions)
+  const currentPrincipals = useMemo(() => {
+    const set = new Set<string>();
+    (shares ?? []).forEach((s) => {
+      if (s.principal_type === 'user' && s.principal_id != null) set.add(`user:${s.principal_id}`);
+      if (s.principal_type === 'group' && s.principal_id != null)
+        set.add(`group:${s.principal_id}`);
+      if (s.email) set.add(`email:${s.email.toLowerCase()}`);
+    });
+    return set;
+  }, [shares]);
 
-      try {
-        const response = await updateSharing(entityId, { is_public: isPublic });
+  const chippedKeys = useMemo(() => new Set(chips.map((c) => c.key)), [chips]);
 
-        setShareStatus((prev) => ({
-          ...prev,
-          is_public: response.is_public,
-          public_url: response.public_url,
-        }));
+  // Render "People with access" bucketed: owner (rendered separately above),
+  // then groups, then direct user shares, then pending-email invites. Preserves
+  // original order within each bucket (stable sort).
+  const sortedShares = useMemo(() => {
+    const rank = (s: ShareRow): number => {
+      if (s.status === 'pending') return 2;
+      if (s.principal_type === 'group') return 0;
+      return 1;
+    };
+    return [...(shares ?? [])].sort((a, b) => rank(a) - rank(b));
+  }, [shares]);
 
-        if (isPublic && response.public_url) {
-          toastSuccess.generic(`${entityLabel} is now public`);
-          await copyUrlToClipboard(response.public_url);
-        } else {
-          toastSuccess.generic(`${entityLabel} sharing disabled`);
-        }
-
-        onUpdate?.();
-      } catch (error) {
-        console.error('Failed to toggle sharing:', error);
-        toastError.share(error);
-      } finally {
-        setIsLoading(false);
+  const activeUserByEmail = useMemo(() => {
+    const m = new Map<string, { orguser_id: number; role_name: string }>();
+    people?.forEach((p) => {
+      if (p.status === 'active' && p.orguser_id != null) {
+        m.set(p.email.toLowerCase(), { orguser_id: p.orguser_id, role_name: p.role_name });
       }
-    },
-    [entityId, entityLabel, updateSharing, onUpdate]
-  );
+    });
+    return m;
+  }, [people]);
 
-  const handleCopyUrl = useCallback(async () => {
-    if (shareStatus.public_url) {
-      await copyUrlToClipboard(shareStatus.public_url);
-      onCopyLink?.();
+  const suggestions = useMemo(() => {
+    const q = chipInput.trim().toLowerCase();
+    // Empty query → show all eligible options (users + groups). Typing narrows
+    // via the includes(q) filter below.
+    const userMatches = (people ?? [])
+      .filter(
+        (p) =>
+          p.status === 'active' &&
+          p.orguser_id != null &&
+          !chippedKeys.has(`user:${p.orguser_id}`) &&
+          !currentPrincipals.has(`user:${p.orguser_id}`) &&
+          p.email.toLowerCase().includes(q)
+      )
+      .slice(0, 6)
+      .map((p) => ({
+        kind: 'user' as const,
+        id: p.orguser_id!,
+        label: p.email,
+        badge: p.role_name,
+      }));
+    const groupMatches = (groups ?? [])
+      .filter(
+        (g) =>
+          !chippedKeys.has(`group:${g.id}`) &&
+          !currentPrincipals.has(`group:${g.id}`) &&
+          g.name.toLowerCase().includes(q)
+      )
+      .slice(0, 4)
+      .map((g) => ({ kind: 'group' as const, id: g.id, label: g.name, badge: 'Group' }));
+    return [...userMatches, ...groupMatches];
+  }, [chipInput, people, groups, chippedKeys, currentPrincipals]);
+
+  const hasPendingChips = chips.some((c) => c.kind === 'email');
+  const memberOption = useMemo(() => roles?.find((r) => r.slug === 'member'), [roles]);
+
+  const clearChipError = () => setChipError(null);
+
+  const addUserChip = (orguserId: number, email: string) => {
+    const key = `user:${orguserId}`;
+    if (chippedKeys.has(key) || currentPrincipals.has(key)) return;
+    setChips((prev) => [
+      ...prev,
+      {
+        key,
+        label: email,
+        kind: 'user',
+        principal_type: 'user',
+        principal_id: orguserId,
+        email: null,
+        access_level: 'view',
+      },
+    ]);
+    setChipInput('');
+    clearChipError();
+  };
+
+  const addGroupChip = (groupId: number, name: string) => {
+    const key = `group:${groupId}`;
+    if (chippedKeys.has(key) || currentPrincipals.has(key)) return;
+    setChips((prev) => [
+      ...prev,
+      {
+        key,
+        label: name,
+        kind: 'group',
+        principal_type: 'group',
+        principal_id: groupId,
+        email: null,
+        access_level: 'view',
+      },
+    ]);
+    setChipInput('');
+    clearChipError();
+  };
+
+  const addEmailChip = (raw: string) => {
+    const email = raw.trim().toLowerCase();
+    if (!email) return;
+    if (!EMAIL_REGEX.test(email)) {
+      setChipError('Invalid email');
+      return;
     }
-  }, [shareStatus.public_url, onCopyLink]);
+    // Existing orguser? Convert to user chip.
+    const active = activeUserByEmail.get(email);
+    if (active) {
+      addUserChip(active.orguser_id, email);
+      return;
+    }
+    const key = `email:${email}`;
+    if (chippedKeys.has(key) || currentPrincipals.has(key)) {
+      setChipError('Already added');
+      return;
+    }
+    setChips((prev) => [
+      ...prev,
+      {
+        key,
+        label: email,
+        kind: 'email',
+        principal_type: null,
+        principal_id: null,
+        email,
+        access_level: 'view',
+      },
+    ]);
+    setChipInput('');
+    clearChipError();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addEmailChip(chipInput);
+    } else if (e.key === 'Backspace' && !chipInput && chips.length > 0) {
+      setChips((prev) => prev.slice(0, -1));
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text');
+    if (/[,;\s]/.test(text)) {
+      e.preventDefault();
+      text.split(/[,;\s]+/).forEach((t) => addEmailChip(t));
+    }
+  };
+
+  const removeChip = (key: string) => {
+    setChips((prev) => prev.filter((c) => c.key !== key));
+  };
+
+  const setChipLevel = (key: string, level: AccessLevel) => {
+    setChips((prev) => prev.map((c) => (c.key === key ? { ...c, access_level: level } : c)));
+  };
+
+  const handleShareClick = async () => {
+    if (chipInput.trim()) addEmailChip(chipInput);
+    if (chips.length === 0) return;
+
+    if (hasPendingChips && !inviteRoleUuid) {
+      setRoleError('Choose a role for new invites');
+      return;
+    }
+    setRoleError(null);
+
+    setIsSubmitting(true);
+    try {
+      await addGrants({
+        principals: chips
+          .filter((c) => c.principal_type != null && c.principal_id != null)
+          .map((c) => ({
+            principal_type: c.principal_type as PrincipalType,
+            principal_id: c.principal_id as number,
+            access_level: c.access_level,
+          })),
+        pending_grants: chips
+          .filter((c) => c.kind === 'email')
+          .map((c) => ({ email: c.email as string, access_level: c.access_level })),
+        invite_role_uuid: hasPendingChips ? inviteRoleUuid : null,
+      });
+      setChips([]);
+      setInviteRoleUuid('');
+      mutateGrants();
+      onUpdate?.();
+      onClose();
+    } catch {
+      // handled in hook
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const doRowLevelChange = async (share: ShareRow, level: AccessLevel) => {
+    if (share.access_level === level) return;
+    setRowBusyId(share.share_id);
+    try {
+      await updateGrant(share.share_id, level);
+      toastSuccess.generic(`Access updated to ${level}`);
+      mutateGrants();
+      onUpdate?.();
+    } catch {
+      // handled in hook
+    } finally {
+      setRowBusyId(null);
+    }
+  };
+
+  const doRowRemove = async (share: ShareRow) => {
+    setRowBusyId(share.share_id);
+    try {
+      await removeGrant(share.share_id);
+      mutateGrants();
+      onUpdate?.();
+    } catch {
+      // handled in hook
+    } finally {
+      setRowBusyId(null);
+    }
+  };
+
+  const LEVEL_RANK: Record<string, number> = { no_access: 0, view: 1, edit: 2 };
+
+  const cascadeBlockMessage = (share: ShareRow) => {
+    const titles =
+      share.cascade_sources?.map((cs) => cs.dashboard_title).join(', ') || 'a dashboard';
+    return `Access on this resource is inherited from: ${titles} — change permissions from there`;
+  };
+
+  const handleRowLevelChange = (share: ShareRow, level: AccessLevel) => {
+    if (share.access_level === level) return;
+    if (rtype === 'dashboard') {
+      setPendingAction({ kind: 'level', share, level });
+      return;
+    }
+    if (share.share_id === null) {
+      toastError.api(cascadeBlockMessage(share));
+      return;
+    }
+    if (share.cascade_sources?.length > 0 && LEVEL_RANK[level] < LEVEL_RANK[share.access_level]) {
+      toastError.api(cascadeBlockMessage(share));
+      return;
+    }
+    doRowLevelChange(share, level);
+  };
+
+  const handleRowRemove = (share: ShareRow) => {
+    if (rtype === 'dashboard') {
+      setPendingAction({ kind: 'remove', share });
+      return;
+    }
+    if (share.share_id === null) {
+      toastError.api(cascadeBlockMessage(share));
+      return;
+    }
+    doRowRemove(share);
+  };
+
+  const handleCascadeConfirm = async () => {
+    if (!pendingAction) return;
+    if (pendingAction.kind === 'level') {
+      await doRowLevelChange(pendingAction.share, pendingAction.level);
+    } else {
+      await doRowRemove(pendingAction.share);
+    }
+    setPendingAction(null);
+  };
+
+  // -------- Ownership transfer --------
+
+  const handleTransferConfirm = async () => {
+    if (!transferTarget || !rtype || transferTarget.principal_id == null) return;
+    setIsTransferring(true);
+    try {
+      await transferOwnership(rtype, entityId, transferTarget.principal_id);
+      mutateGrants();
+      onUpdate?.();
+      setTransferTarget(null);
+    } catch {
+      // handled in hook
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
+  // -------- General access (Everyone / Private / Public) --------
+
+  const handleModeChange = async (next: GeneralAccessMode) => {
+    if (!rtype || !generalAccess || next === generalAccess.mode) return;
+    if (next === 'public' && !generalAccess.allow_public_sharing) return;
+    setModeChanging(true);
+    try {
+      const res = await updateGeneralAccess(rtype, entityId, next);
+      if (next === 'public' && res.public_url) {
+        toastSuccess.generic(`${entityLabel} is now public`);
+        await copyUrlToClipboard(res.public_url);
+      } else if (next === 'everyone') {
+        toastSuccess.generic(`${entityLabel} is now visible to everyone in your org`);
+      } else if (next === 'private') {
+        toastSuccess.generic(`${entityLabel} is now private`);
+      }
+      mutateGrants();
+      onUpdate?.();
+    } catch {
+      // handled in hook
+    } finally {
+      setModeChanging(false);
+    }
+  };
+
+  const handleCopyPublicUrl = useCallback(async () => {
+    if (generalAccess?.public_url) await copyUrlToClipboard(generalAccess.public_url);
+  }, [generalAccess?.public_url]);
+
+  // -------- Legacy email share (Reports) --------
 
   const handleAddEmail = useCallback(() => {
     const email = emailInput.trim();
@@ -136,7 +505,7 @@ export function ShareModal({
     setEmailInput('');
   }, [emailInput, recipientEmails]);
 
-  const handleRemoveEmail = useCallback((email: string) => {
+  const handleRemoveRecipient = useCallback((email: string) => {
     setRecipientEmails((prev) => prev.filter((e) => e !== email));
   }, []);
 
@@ -159,118 +528,476 @@ export function ShareModal({
         message: personalMessage || undefined,
       });
       toastSuccess.generic(
-        `Report is being sent to ${result.recipients_count} recipient${result.recipients_count > 1 ? 's' : ''}`
+        `${entityLabel} is being sent to ${result.recipients_count} recipient${
+          result.recipients_count > 1 ? 's' : ''
+        }`
       );
       setRecipientEmails([]);
       setPersonalMessage('');
-      // Refresh share status since is_public may have been enabled
-      fetchShareStatus();
-    } catch (error) {
+    } catch {
       toastError.api('Failed to send emails');
     } finally {
       setIsSending(false);
     }
-  }, [onShareViaEmail, recipientEmails, personalMessage, fetchShareStatus]);
+  }, [onShareViaEmail, recipientEmails, personalMessage, entityLabel]);
+
+  // -------- Render --------
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent data-testid="share-modal" className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Share2 className="h-5 w-5" />
-            Share {entityLabel}
-          </DialogTitle>
+      <DialogContent
+        data-testid="share-modal"
+        className="sm:max-w-lg max-h-[90vh] flex flex-col p-0"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        <DialogHeader className="px-6 pt-6 pb-2">
+          <DialogTitle>Share &quot;{entityLabel}&quot;</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Organization Access (Default) */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Shield className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <Label className="text-sm font-medium">Organization Access</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Users in your organization with proper permissions can access this{' '}
-                      {entityLabelLower}
-                    </p>
-                  </div>
-                </div>
-                <Badge variant="secondary">Default</Badge>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Public Sharing Toggle */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Share2 className="h-5 w-5 text-green-600" />
-                    <div className="flex-1">
-                      <Label htmlFor={publicAccessId} className="text-sm font-medium">
-                        Public Access
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Anyone with the link can view this {entityLabelLower}
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    id={publicAccessId}
-                    data-testid="share-toggle"
-                    checked={shareStatus.is_public}
-                    onCheckedChange={handleToggleSharing}
-                    disabled={isLoading}
-                  />
-                </div>
-
-                {/* Security Warning */}
-                {shareStatus.is_public && (
-                  <div className="flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-md">
-                    <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                    <div className="text-xs text-orange-800">
-                      <strong>Security Notice:</strong> Your data is now exposed to the internet.
-                      Anyone with this link can access your {entityLabelLower} data without
-                      authentication.
-                    </div>
-                  </div>
-                )}
-
-                {/* Copy URL Button */}
-                {shareStatus.is_public && shareStatus.public_url && (
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">Share this {entityLabelLower}:</Label>
+        <div className="space-y-5 flex-1 overflow-y-auto min-h-0 px-6 pb-4">
+          {/* Access Requests — surfaced at the top of the modal so an
+              owner/Edit-holder sees pending requests as soon as they open it. */}
+          {rtype && (requests ?? []).length > 0 && (
+            <div className="border border-input rounded-md divide-y bg-background">
+              {requests!.map((req) => (
+                <div
+                  key={req.id}
+                  className="px-3 py-2 flex items-center gap-3"
+                  data-testid={`access-request-row-${req.id}`}
+                >
+                  <span className="inline-flex items-center justify-center h-8 w-8 shrink-0 rounded-full bg-muted text-muted-foreground">
+                    <UserIcon className="h-4 w-4" />
+                  </span>
+                  <p className="text-sm text-foreground flex-1 min-w-0 truncate">
+                    <span className="font-medium">{req.requester_email}</span> wants to{' '}
+                    <span className="font-semibold">{req.requested_level}</span>
+                    {req.note ? <span className="text-muted-foreground"> — {req.note}</span> : null}
+                  </p>
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     <Button
-                      data-testid="copy-link-btn"
-                      variant="outline"
-                      onClick={handleCopyUrl}
-                      className="w-full"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs"
+                      data-testid={`access-request-deny-${req.id}`}
+                      onClick={async () => {
+                        await respondToAccessRequest(rtype, entityId, req.id, 'declined');
+                        mutateRequests();
+                      }}
                     >
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy Public Link
+                      Deny
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className="h-7 text-xs"
+                      data-testid={`access-request-approve-${req.id}`}
+                      onClick={async () => {
+                        await respondToAccessRequest(
+                          rtype,
+                          entityId,
+                          req.id,
+                          'approved',
+                          req.requested_level
+                        );
+                        mutateRequests();
+                        mutateGrants();
+                      }}
+                    >
+                      Approve
                     </Button>
                   </div>
-                )}
+                </div>
+              ))}
+            </div>
+          )}
 
-                {/* Analytics */}
-                {shareStatus.is_public && shareStatus.public_access_count > 0 && (
-                  <div className="text-xs text-muted-foreground">
-                    <p>Public access count: {shareStatus.public_access_count}</p>
-                    {shareStatus.last_public_accessed && (
-                      <p>
-                        Last accessed: {new Date(shareStatus.last_public_accessed).toLocaleString()}
-                      </p>
+          {rtype && (
+            <>
+              {/* Search input */}
+              <div className="space-y-2">
+                <Label htmlFor="share-input">Search for people, group or add emails</Label>
+                <div className="relative">
+                  <Input
+                    id="share-input"
+                    className={chipError ? 'border-red-500' : ''}
+                    value={chipInput}
+                    onChange={(e) => {
+                      setChipInput(e.target.value);
+                      setShowSuggestions(true);
+                      clearChipError();
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                    onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
+                    placeholder="Type or paste emails…"
+                    data-testid="share-chip-input"
+                  />
+
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-md border bg-white shadow-md max-h-64 overflow-y-auto">
+                      {suggestions.map((s) => (
+                        <button
+                          type="button"
+                          key={`${s.kind}:${s.id}`}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            if (s.kind === 'user') addUserChip(s.id, s.label);
+                            else addGroupChip(s.id, s.label);
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50"
+                        >
+                          <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary">
+                            {s.kind === 'user' ? (
+                              <UserIcon className="h-4 w-4" />
+                            ) : (
+                              <UsersIcon className="h-4 w-4" />
+                            )}
+                          </span>
+                          <span className="flex-1 text-sm text-gray-900">{s.label}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {s.badge}
+                          </Badge>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {chipError && <p className="text-sm text-red-500">{chipError}</p>}
+              </div>
+
+              {/* Staged items (users/groups/pending emails to be shared with on Share).
+                  Capped + scrollable so a long paste doesn't push the rest of the modal
+                  (People with access, General access, Share button) out of view. */}
+              {chips.length > 0 && (
+                <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                  {chips.map((chip) => (
+                    <div
+                      key={chip.key}
+                      className="flex items-center gap-3 rounded-md bg-gray-50 px-3 py-2"
+                    >
+                      <span className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary">
+                        {chip.kind === 'group' ? (
+                          <UsersIcon className="h-4 w-4" />
+                        ) : chip.kind === 'email' ? (
+                          <Mail className="h-4 w-4" />
+                        ) : (
+                          <UserIcon className="h-4 w-4" />
+                        )}
+                      </span>
+                      <span className="text-sm text-gray-900 truncate">{chip.label}</span>
+                      {chip.kind === 'user' &&
+                        activeUserByEmail.get(chip.label.toLowerCase())?.role_name && (
+                          <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600 shrink-0">
+                            {activeUserByEmail.get(chip.label.toLowerCase())?.role_name}
+                          </span>
+                        )}
+                      <div className="ml-auto flex items-center gap-1">
+                        <Select
+                          value={chip.access_level}
+                          onValueChange={(v) => setChipLevel(chip.key, v as AccessLevel)}
+                        >
+                          <SelectTrigger className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-100 focus:ring-0 focus-visible:ring-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="view">View</SelectItem>
+                            <SelectItem value="edit">Edit</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
+                          onClick={() => removeChip(chip.key)}
+                          aria-label={`Remove ${chip.label}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Warning + invite-role selector for pending chips */}
+              {hasPendingChips && (
+                <>
+                  <div className="flex items-start gap-2 rounded-md border border-orange-200 bg-orange-50 p-3">
+                    <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-xs text-orange-800">
+                      <strong>
+                        {chips.filter((c) => c.kind === 'email').length === 1
+                          ? `${chips.find((c) => c.kind === 'email')?.email} isn't on Dalgo yet.`
+                          : `${chips.filter((c) => c.kind === 'email').length} emails aren't on Dalgo yet.`}
+                      </strong>
+                      <div>Assign new invites a role before sharing the resource.</div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="invite-role">Invite new users as</Label>
+                    <Select
+                      value={inviteRoleUuid}
+                      onValueChange={(v) => {
+                        setInviteRoleUuid(v);
+                        setRoleError(null);
+                      }}
+                    >
+                      <SelectTrigger
+                        id="invite-role"
+                        className={roleError ? 'border-red-500' : ''}
+                        data-testid="share-invite-role"
+                      >
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roles?.map((role) => (
+                          <SelectItem key={role.uuid} value={role.uuid}>
+                            {role.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {roleError && <p className="text-sm text-red-500">{roleError}</p>}
+                    {!inviteRoleUuid && memberOption && (
+                      <button
+                        type="button"
+                        className="text-xs text-primary hover:underline"
+                        onClick={() => setInviteRoleUuid(memberOption.uuid)}
+                      >
+                        Use Member (default)
+                      </button>
                     )}
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                </>
+              )}
 
-          {/* Share via Email (opt-in via prop) */}
+              {/* People with access */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-gray-900">People with access</Label>
+                <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+                  {owner && (
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary">
+                        <UserIcon className="h-4 w-4" />
+                      </span>
+                      <span className="text-sm text-gray-900 truncate">{owner.email}</span>
+                      {owner.role_name && (
+                        <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                          {owner.role_name}
+                        </span>
+                      )}
+                      <span className="ml-auto text-sm text-gray-500">Owner</span>
+                    </div>
+                  )}
+                  {(shares ?? []).length === 0 && !owner && (
+                    <div className="text-sm text-muted-foreground">
+                      Only the owner has access right now.
+                    </div>
+                  )}
+                  {sortedShares.map((s, idx) => (
+                    <div key={s.share_id ?? `cascade-${idx}`} className="flex items-center gap-3">
+                      <span className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary">
+                        {s.principal_type === 'group' ? (
+                          <UsersIcon className="h-4 w-4" />
+                        ) : s.status === 'pending' ? (
+                          <Mail className="h-4 w-4" />
+                        ) : (
+                          <UserIcon className="h-4 w-4" />
+                        )}
+                      </span>
+                      <span className="text-sm text-gray-900 truncate">{s.label}</span>
+                      {s.role_or_group && (
+                        <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                          {s.role_or_group}
+                        </span>
+                      )}
+                      {s.status === 'pending' && (
+                        <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
+                          Pending
+                        </span>
+                      )}
+                      <div className="ml-auto flex items-center gap-1">
+                        <Select
+                          value={s.access_level}
+                          onValueChange={(v) => {
+                            if (v === 'transfer') {
+                              setTransferTarget(s);
+                              return;
+                            }
+                            handleRowLevelChange(s, v as AccessLevel);
+                          }}
+                          disabled={rowBusyId != null && rowBusyId === s.share_id}
+                        >
+                          <SelectTrigger className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-50 focus:ring-0 focus-visible:ring-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="view">View</SelectItem>
+                            <SelectItem value="edit">Edit</SelectItem>
+                            {isOwnerOrAdmin &&
+                              s.principal_type === 'user' &&
+                              s.principal_id != null && (
+                                <>
+                                  <SelectSeparator />
+                                  <SelectItem value="transfer">Transfer ownership</SelectItem>
+                                </>
+                              )}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
+                          onClick={() => handleRowRemove(s)}
+                          disabled={rowBusyId === s.share_id || s.share_id === null}
+                          aria-label={`Remove ${s.label}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* General access — Everyone / Private / Public */}
+          {rtype && generalAccess && (
+            <div className="rounded-md border p-4">
+              <div className="flex items-start gap-3">
+                <Shield className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">General access</p>
+                      <p className="text-xs text-muted-foreground">
+                        {generalAccess.mode === 'everyone' &&
+                          'Everyone in your organisation can access this, based on their role'}
+                        {generalAccess.mode === 'private' &&
+                          `Only people you share with can access this ${entityLabelLower}`}
+                        {generalAccess.mode === 'public' &&
+                          (generalAccess.allow_public_sharing
+                            ? 'Everyone in your organisation, plus anyone with the link.'
+                            : 'Public sharing is turned off by your admin')}
+                      </p>
+                    </div>
+                    <Select
+                      value={generalAccess.mode}
+                      onValueChange={(v) => handleModeChange(v as GeneralAccessMode)}
+                      disabled={modeChanging}
+                    >
+                      <SelectTrigger className="w-32 h-8" data-testid="general-access-select">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="everyone">Everyone</SelectItem>
+                        <SelectItem value="private">Private</SelectItem>
+                        {generalAccess.supports_public && (
+                          <SelectItem value="public" disabled={!generalAccess.allow_public_sharing}>
+                            Public
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {generalAccess.mode === 'public' && generalAccess.allow_public_sharing && (
+                    <>
+                      <div className="mt-3 flex items-start gap-2 rounded-md border border-orange-200 bg-orange-50 p-3">
+                        <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                        <div className="text-xs text-orange-800">
+                          <strong>Security Notice:</strong> Your data is now exposed to the
+                          internet. Anyone with this link can access your {entityLabelLower} data
+                          without authentication.
+                        </div>
+                      </div>
+
+                      {generalAccess.public_url && (
+                        <Button
+                          variant="outline"
+                          onClick={handleCopyPublicUrl}
+                          className="mt-3 w-full"
+                          data-testid="copy-link-btn"
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          COPY PUBLIC LINK
+                        </Button>
+                      )}
+
+                      {generalAccess.public_access_count > 0 && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          <p>Public access count: {generalAccess.public_access_count}</p>
+                          {generalAccess.last_public_accessed && (
+                            <p>
+                              Last accessed:{' '}
+                              {new Date(generalAccess.last_public_accessed).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cascade confirmation dialog (dashboard only) */}
+          {pendingAction && (
+            <Dialog open onOpenChange={() => setPendingAction(null)}>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-orange-500" />
+                    Update dashboard permissions?
+                  </DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                  Changing or removing permissions on a dashboard may affect access to its inner
+                  charts and KPIs. Chart access follows the dashboard share.
+                </p>
+                <div className="flex justify-end gap-3 mt-2">
+                  <Button variant="outline" onClick={() => setPendingAction(null)}>
+                    Cancel
+                  </Button>
+                  <Button variant="primary" onClick={handleCascadeConfirm}>
+                    Continue
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {/* Ownership transfer confirmation dialog */}
+          {transferTarget && (
+            <Dialog open onOpenChange={() => setTransferTarget(null)}>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Transfer ownership to {transferTarget.label}?</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                  You will lose owner status on &quot;{entityLabel}&quot;. Your access will revert
+                  to your role permissions or any direct share you hold.
+                </p>
+                <div className="flex justify-end gap-3 mt-2">
+                  <Button variant="outline" onClick={() => setTransferTarget(null)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleTransferConfirm}
+                    disabled={isTransferring}
+                  >
+                    {isTransferring ? 'Transferring…' : 'Transfer'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {/* Legacy email share (Reports) */}
           {onShareViaEmail && (
             <Card>
               <CardContent className="p-4">
@@ -286,10 +1013,8 @@ export function ShareModal({
                     </div>
                   </div>
 
-                  {/* Email input + Add button */}
                   <div className="flex gap-2">
                     <Input
-                      data-testid="share-email-input"
                       type="email"
                       placeholder="Enter email address"
                       value={emailInput}
@@ -299,7 +1024,6 @@ export function ShareModal({
                       className="flex-1"
                     />
                     <Button
-                      data-testid="share-email-add-btn"
                       variant="outline"
                       size="sm"
                       onClick={handleAddEmail}
@@ -309,7 +1033,6 @@ export function ShareModal({
                     </Button>
                   </div>
 
-                  {/* Email chips */}
                   {recipientEmails.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
                       {recipientEmails.map((email) => (
@@ -320,8 +1043,7 @@ export function ShareModal({
                           {email}
                           <button
                             type="button"
-                            data-testid={`share-email-remove-${email}`}
-                            onClick={() => handleRemoveEmail(email)}
+                            onClick={() => handleRemoveRecipient(email)}
                             disabled={isSending}
                             className="hover:text-destructive"
                             aria-label={`Remove ${email}`}
@@ -333,9 +1055,7 @@ export function ShareModal({
                     </div>
                   )}
 
-                  {/* Personal message */}
                   <Textarea
-                    data-testid="share-email-message"
                     placeholder="Add a personal message (optional)"
                     value={personalMessage}
                     onChange={(e) => setPersonalMessage(e.target.value)}
@@ -344,9 +1064,7 @@ export function ShareModal({
                     className="resize-none text-sm"
                   />
 
-                  {/* Send button */}
                   <Button
-                    data-testid="share-email-send-btn"
                     onClick={handleSendEmails}
                     disabled={isSending || recipientEmails.length === 0}
                     className="w-full"
@@ -360,20 +1078,31 @@ export function ShareModal({
                     <span>
                       {isSending
                         ? 'Sending...'
-                        : `Send to ${recipientEmails.length} recipient${recipientEmails.length !== 1 ? 's' : ''}`}
+                        : `Send to ${recipientEmails.length} recipient${
+                            recipientEmails.length !== 1 ? 's' : ''
+                          }`}
                     </span>
                   </Button>
                 </div>
               </CardContent>
             </Card>
           )}
+        </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3">
-            <Button data-testid="share-close-btn" variant="outline" onClick={onClose}>
-              Close
-            </Button>
-          </div>
+        {/* Sticky footer — sits below the scrollable body so long chip lists
+            never push the SHARE button off-screen. */}
+        <div className="flex justify-end gap-3 px-6 py-4 border-t bg-background">
+          <Button variant="outline" onClick={onClose} data-testid="share-close-btn">
+            CANCEL
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleShareClick}
+            disabled={isSubmitting || chips.length === 0}
+            data-testid="share-submit-btn"
+          >
+            {isSubmitting ? 'SHARING…' : 'SHARE'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
