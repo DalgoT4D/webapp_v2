@@ -99,6 +99,20 @@ export const ANALYTICS_EVENTS = {
   SUBSCRIPTION_REQUEST_OPENED: 'trial:subscription_request_opened',
   // The request POST succeeded. Carries { days_left, already_requested, source }.
   SUBSCRIPTION_REQUEST_SENT: 'trial:subscription_request_sent',
+  // The confirm dialog was closed WITHOUT sending (Cancel, ✕, Esc, outside click). Carries
+  // { days_left, source }. Without it, OPENED -> SENT has an invisible drop-off step, and that
+  // gap is exactly "who bounced off subscribing". Never fires after a successful send — closing
+  // the success screen is not an abandonment.
+  SUBSCRIPTION_REQUEST_ABANDONED: 'trial:subscription_request_abandoned',
+  // The trial lifecycle nudges (7 / 2 / 1 days LEFT — see TRIAL_NUDGE_DAYS). Both carry `day`,
+  // so each day's nudge is measured on its own: they are separate prompts with separate copy
+  // and separate dismissal state, and the day is what makes "shown -> converted" answerable
+  // per nudge instead of as one blended number.
+  TRIAL_NUDGE_VIEWED: 'trial:nudge_viewed',
+  // Carries { day, choice: 'cta' | 'close' }. ONE event for both exits, same shape as the
+  // celebration modals: two separate events would make the total meaningless and the
+  // take-rate a hand-computed ratio.
+  TRIAL_NUDGE_DISMISSED: 'trial:nudge_dismissed',
   // Breadth — every menu / submenu / tab
   FEATURE_VIEWED: 'feature:viewed',
   // Charts. Lifecycle is exactly three events: created / updated / deleted.
@@ -330,6 +344,33 @@ export const ANALYTICS_EVENTS = {
 } as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
+
+// `source` values shared by the three SUBSCRIPTION_REQUEST_* events — which surface the
+// upgrade was started from. Both surfaces run the same one-per-org POST, so `source` is the
+// only thing that tells you which one converts.
+export const SUBSCRIPTION_REQUEST_SOURCES = {
+  /** The days-left pill in the header. */
+  HEADER_BADGE: 'header_badge',
+  /** The 2-days-left / 1-day-left lifecycle nudge modal. */
+  TRIAL_NUDGE: 'trial_nudge',
+} as const;
+
+export type SubscriptionRequestSource =
+  (typeof SUBSCRIPTION_REQUEST_SOURCES)[keyof typeof SUBSCRIPTION_REQUEST_SOURCES];
+
+// `entry` values for the insight walkthrough — which surface sent the user into the fork.
+// Without this, a walkthrough begun from a trial nudge is indistinguishable from one begun in
+// the getting-started widget or the post-tour modal.
+export const WALKTHROUGH_ENTRIES = {
+  /** The GetStartedModal's insight screen — the normal sample-vs-own-data fork. */
+  FORK_MODAL: 'fork_modal',
+  /** The 7-days-left nudge's "Start with sample data" button. */
+  TRIAL_NUDGE: 'trial_nudge',
+  /** Entered straight at the chart tail, with real data already in place. */
+  CHART: 'chart',
+} as const;
+
+export type WalkthroughEntry = (typeof WALKTHROUGH_ENTRIES)[keyof typeof WALKTHROUGH_ENTRIES];
 
 // `path` values for the PATH_* events — the onboarding walkthroughs a user can run.
 // Four values, not three: the two insight forks (sample data vs your own data) are

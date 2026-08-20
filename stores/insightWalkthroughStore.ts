@@ -8,7 +8,13 @@ import {
   completeOnboardingPath,
   exitOnboardingPath,
 } from '@/lib/onboarding-analytics';
-import { ANALYTICS_EVENTS, ONBOARDING_PATHS, type OnboardingPath } from '@/constants/analytics';
+import {
+  ANALYTICS_EVENTS,
+  ONBOARDING_PATHS,
+  WALKTHROUGH_ENTRIES,
+  type OnboardingPath,
+  type WalkthroughEntry,
+} from '@/constants/analytics';
 import { saveTrialWalkthroughFlow } from '@/hooks/api/useTrialWalkthrough';
 import {
   type WalkthroughStage,
@@ -114,8 +120,9 @@ interface InsightWalkthroughState {
   /** advanceTo, but never backwards — see isStageBefore. */
   advanceIfBefore: (stage: WalkthroughStage) => void;
   setTargetNodeId: (nodeId: string | null) => void;
-  chooseSample: () => void;
-  chooseOwnData: () => void;
+  /** @param opts.entry - which surface sent them here (see WALKTHROUGH_ENTRIES). */
+  chooseSample: (opts?: { entry?: WalkthroughEntry }) => void;
+  chooseOwnData: (opts?: { entry?: WalkthroughEntry }) => void;
   /** Build-insights entered with real data already in place — see the action below. */
   startChartFlow: (orgSlug: string) => void;
   startAutomatePipeline: (orgSlug: string) => void;
@@ -203,25 +210,25 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
     get().advanceTo(stage);
   },
 
-  chooseSample: () => {
+  chooseSample: (opts) => {
     const orgSlug = get().orgSlug;
     if (!orgSlug) return;
     savePath('insights', 'sample');
     saveWalkthroughStage('insights', 'kpi_intro');
     trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_STEP_VIEWED, { stage: 'kpi_intro' });
     // The fork choice is where this path's clock starts — start() has no path to attribute to.
-    startOnboardingPath(ONBOARDING_PATHS.INSIGHT_SAMPLE);
+    startOnboardingPath(ONBOARDING_PATHS.INSIGHT_SAMPLE, opts);
     reportStage('sample', 'kpi_intro');
     set({ flow: 'insights', path: 'sample', stage: 'kpi_intro' });
   },
 
-  chooseOwnData: () => {
+  chooseOwnData: (opts) => {
     const orgSlug = get().orgSlug;
     if (!orgSlug) return;
     savePath('insights', 'own_data');
     saveWalkthroughStage('insights', 'own_data_ingest');
     trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_STEP_VIEWED, { stage: 'own_data_ingest' });
-    startOnboardingPath(ONBOARDING_PATHS.INSIGHT_OWN_DATA);
+    startOnboardingPath(ONBOARDING_PATHS.INSIGHT_OWN_DATA, opts);
     reportStage('own_data', 'own_data_ingest');
     set({ flow: 'insights', path: 'own_data', stage: 'own_data_ingest' });
   },
@@ -240,7 +247,9 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
     savePath('insights', 'own_data');
     saveWalkthroughStage('insights', CHART_ENTRY_STAGE);
     trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_STARTED, { path: 'own_data', entry: 'chart' });
-    startOnboardingPath(ONBOARDING_PATHS.INSIGHT_OWN_DATA, { entry: 'chart' });
+    startOnboardingPath(ONBOARDING_PATHS.INSIGHT_OWN_DATA, {
+      entry: WALKTHROUGH_ENTRIES.CHART,
+    });
     set({
       active: true,
       orgSlug,

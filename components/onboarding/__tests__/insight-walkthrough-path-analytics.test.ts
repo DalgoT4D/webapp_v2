@@ -51,16 +51,19 @@ describe('insight walkthrough path analytics', () => {
       expect(mockStartPath).not.toHaveBeenCalled();
     });
 
+    // The fork actions forward their opts straight through, so a caller that names no entry
+    // surface passes undefined. The emitted event is the same either way — trackOnboardingPathStage
+    // omits `entry` when there isn't one (see the onboarding-analytics tests).
     it('starts the sample path when the sample fork is chosen', () => {
       store().start(ORG_A);
       store().chooseSample();
-      expect(mockStartPath).toHaveBeenCalledWith('insight_sample');
+      expect(mockStartPath).toHaveBeenCalledWith('insight_sample', undefined);
     });
 
     it('starts the own-data path when the own-data fork is chosen', () => {
       store().start(ORG_A);
       store().chooseOwnData();
-      expect(mockStartPath).toHaveBeenCalledWith('insight_own_data');
+      expect(mockStartPath).toHaveBeenCalledWith('insight_own_data', undefined);
     });
 
     it('starts the own-data path with entry "chart" when the chart tail is entered directly', () => {
@@ -71,6 +74,18 @@ describe('insight walkthrough path analytics', () => {
     it('starts the pipeline path from startAutomatePipeline', () => {
       store().startAutomatePipeline(ORG_A);
       expect(mockStartPath).toHaveBeenCalledWith('pipeline');
+    });
+
+    it('carries the entry surface through the fork, so a nudge-started run is attributable', () => {
+      store().start(ORG_A);
+      store().chooseSample({ entry: 'trial_nudge' });
+      expect(mockStartPath).toHaveBeenCalledWith('insight_sample', { entry: 'trial_nudge' });
+    });
+
+    it('carries the entry surface on the own-data fork too', () => {
+      store().start(ORG_A);
+      store().chooseOwnData({ entry: 'fork_modal' });
+      expect(mockStartPath).toHaveBeenCalledWith('insight_own_data', { entry: 'fork_modal' });
     });
   });
 

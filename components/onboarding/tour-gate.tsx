@@ -18,6 +18,7 @@ import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { useConnectionsList } from '@/hooks/api/useConnections';
 import { SyncStatus } from '@/constants/connections';
 import { NEXT_PUBLIC_WEBAPP_ENVIRONMENT } from '@/constants/constants';
+import { WALKTHROUGH_ENTRIES } from '@/constants/analytics';
 import type { Connection } from '@/types/connections';
 import { ProductTour, type ProductTourHandle } from './product-tour';
 import { TourIntentModal, type TourIntentVariant } from './tour-intent-modal';
@@ -622,10 +623,14 @@ export function TourGate() {
       // openInsightFork — the store needs an orgSlug before chooseSample/chooseOwnData run.
       ensureWalkthroughStarted();
       if (fork === 'sample') {
-        useInsightWalkthroughStore.getState().chooseSample();
+        useInsightWalkthroughStore
+          .getState()
+          .chooseSample({ entry: WALKTHROUGH_ENTRIES.FORK_MODAL });
         router.push('/kpis');
       } else {
-        useInsightWalkthroughStore.getState().chooseOwnData();
+        useInsightWalkthroughStore
+          .getState()
+          .chooseOwnData({ entry: WALKTHROUGH_ENTRIES.FORK_MODAL });
         router.push('/ingest');
       }
     },
