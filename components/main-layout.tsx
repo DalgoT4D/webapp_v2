@@ -37,14 +37,7 @@ import { useSidebarStore } from '@/stores/sidebarStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { TransformTypeEnum as TransformType, useTransformType } from '@/hooks/api/useTransform';
 import Image from 'next/image';
-import {
-  ACCESS_PAGE_ROLES,
-  ADMIN_ROLES,
-  DATA_SECTION_ROLES,
-  ROLES,
-  Role,
-  useRbac,
-} from '@/lib/rbac';
+import { ACCESS_PAGE_ROLES, ADMIN_ROLES, DATA_SECTION_ROLES, Role, useRbac } from '@/lib/rbac';
 import { RbacNoticeCarousel } from '@/components/onboarding/rbac-notice-carousel';
 import { TourGate } from '@/components/onboarding/tour-gate';
 
@@ -214,12 +207,14 @@ export const getNavItems = (
     },
     {
       title: 'Settings',
-      // Members can't view /settings/branding (admin-only); their only possible
-      // Settings child is Superset Usage. Route them to /dashboards/usage so
-      // clicking Settings doesn't land on an Access-Denied page.
-      href: roleSlug === ROLES.MEMBER ? '/dashboards/usage' : '/settings/branding',
+      href: '/settings/branding',
       icon: Settings,
       isActive: false,
+      // Every Settings child requires Analyst+ or a role-gated feature flag —
+      // hide the whole section from Members. (Superset Usage under Settings
+      // has its own feature-flag + viz_url gate; if any of those cases opens
+      // up for Members later, relax this.)
+      visibleToRoles: ACCESS_PAGE_ROLES,
       children: [
         {
           title: 'Branding',
