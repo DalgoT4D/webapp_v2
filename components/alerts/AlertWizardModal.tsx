@@ -5,9 +5,9 @@ import { trackEvent } from '@/lib/analytics';
 import {
   ALERT_CREATE_SOURCES,
   ANALYTICS_EVENTS,
-  METRIC_USE_SOURCES,
   type AlertCreateSource,
 } from '@/constants/analytics';
+import { alertConsumptionEvents } from './utils';
 import {
   Dialog,
   DialogContent,
@@ -402,14 +402,16 @@ export function AlertWizardModal({
         alert_type: defineState.alertType,
         source: createSource,
       });
-      // A metric_threshold alert is a third way a metric gets consumed, alongside charts
-      // and KPIs — previously untracked, so metric adoption undercounted alerts entirely.
-      if (defineState.alertType === AlertType.METRIC_THRESHOLD && defineState.metricId) {
-        trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
-          metric_id: defineState.metricId,
-          alert_id: created?.id,
-          source: METRIC_USE_SOURCES.ALERT,
-        });
+      // An alert is built ON a metric or a KPI, and that consumption is the adoption signal
+      // for the resource — see alertConsumptionEvents for which type reports what. It is also
+      // the only place the alert can be joined back to its source: ALERT_CREATED carries the
+      // alert's own id and type, not the metric/KPI it watches.
+      for (const { event, properties } of alertConsumptionEvents(
+        defineState.alertType,
+        { metricId: defineState.metricId, kpiId: defineState.kpiId },
+        created?.id
+      )) {
+        trackEvent(event, properties);
       }
       toast.success('Alert created. It will run on its next scheduled time.');
       onSuccess?.(created);

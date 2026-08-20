@@ -221,6 +221,10 @@ export const ANALYTICS_EVENTS = {
   REPORT_COMMENT_DELETED: 'report:comment_deleted',
   // KPIs & metrics
   KPI_CREATED: 'kpi:kpi_created',
+  // A KPI was CONSUMED by something built on it. The mirror of METRIC_USED: without it,
+  // "which KPIs do people actually build on" had no answer and KPI adoption undercounted
+  // alerts entirely. Carries the KPI's id, the consuming resource's id, and `source`.
+  KPI_USED: 'kpi:kpi_used',
   // Opening a KPI's detail drawer. Carries `source` (KPI_VIEW_SOURCES) because the card
   // body, the ⋮ "View KPI" item and an ?open={id} deep link all land here.
   KPI_VIEWED: 'kpi:kpi_viewed',
@@ -561,6 +565,17 @@ export const METRIC_USE_SOURCES = {
 
 export type MetricUseSource = (typeof METRIC_USE_SOURCES)[keyof typeof METRIC_USE_SOURCES];
 
+// `source` values for KPI_USED — what consumed the KPI. One value today; it exists so a
+// second consumer is a new value here rather than a new event, exactly as METRIC_USE_SOURCES
+// does. (Adding a KPI to a dashboard is NOT here — `dashboard:kpi_added` already covers that
+// surface with its dashboard_id, and duplicating it would double-count adoption.)
+export const KPI_USE_SOURCES = {
+  // A kpi_rag alert created on this KPI
+  ALERT: 'alert',
+} as const;
+
+export type KpiUseSource = (typeof KPI_USE_SOURCES)[keyof typeof KPI_USE_SOURCES];
+
 // `source` values for KPI_CREATED — the KPIs page and the metrics library both open the
 // KPI wizard, and without this they are one indistinguishable number.
 export const KPI_CREATE_SOURCES = {
@@ -626,6 +641,7 @@ export const VALUE_ACTION_EVENTS: ReadonlySet<AnalyticsEvent> = new Set([
   ANALYTICS_EVENTS.KPI_EXPORTED,
   ANALYTICS_EVENTS.KPI_ANNOTATION_CREATED,
   ANALYTICS_EVENTS.KPI_ANNOTATION_UPDATED,
+  ANALYTICS_EVENTS.KPI_USED,
   // Metrics — use (consume) / edit / create
   ANALYTICS_EVENTS.METRIC_USED,
   ANALYTICS_EVENTS.METRIC_CREATED,

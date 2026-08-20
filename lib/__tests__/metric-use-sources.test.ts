@@ -10,11 +10,15 @@ import { METRIC_USE_SOURCES } from '@/constants/analytics';
  */
 const REPO = path.resolve(__dirname, '../..');
 
+// The alert wizard reports its consumption through a pure helper (alertConsumptionEvents)
+// rather than inline in the submit handler, so that every alert type can be covered by unit
+// tests — see components/alerts/__tests__/alert-consumption.test.ts. The guard follows the
+// call, so this list names the file that actually builds the event.
 const CONSUMER_FILES = [
   'app/charts/new/configure/page.tsx',
   'app/charts/[id]/edit/page.tsx',
   'components/kpis/kpi-form.tsx',
-  'components/alerts/AlertWizardModal.tsx',
+  'components/alerts/utils.ts',
 ];
 
 function sourcesEmittedAcrossApp(): Set<string> {
@@ -36,8 +40,8 @@ describe('METRIC_USED source coverage', () => {
     expect([...emitted].sort()).toEqual([...declared].sort());
   });
 
-  it('fires METRIC_USED from the alert wizard (a metric_threshold alert consumes a metric)', () => {
-    const body = fs.readFileSync(path.join(REPO, 'components/alerts/AlertWizardModal.tsx'), 'utf8');
+  it('fires METRIC_USED for the alert wizard (a metric_threshold alert consumes a metric)', () => {
+    const body = fs.readFileSync(path.join(REPO, 'components/alerts/utils.ts'), 'utf8');
 
     expect(body).toContain('ANALYTICS_EVENTS.METRIC_USED');
     expect(body).toContain('METRIC_USE_SOURCES.ALERT');
