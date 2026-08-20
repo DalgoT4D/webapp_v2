@@ -53,6 +53,24 @@ export const ANALYTICS_EVENTS = {
   INSIGHT_WALKTHROUGH_COMPLETED: 'onboarding:insight_walkthrough_completed',
   // Carries { stage } — the stage the user was on when they skipped.
   INSIGHT_WALKTHROUGH_SKIPPED: 'onboarding:insight_walkthrough_skipped',
+  // Unified onboarding-path lifecycle. The tour and the walkthroughs each keep their own
+  // legacy events above (existing insights depend on them); these five are the cross-path
+  // set, every one carrying `path` (see ONBOARDING_PATHS) so "which walkthrough, how far,
+  // how long, where did they quit" is one query per question instead of one per flow.
+  // Carries { path, entry? }.
+  PATH_STARTED: 'onboarding:path_started',
+  // Carries { path, stage, stage_index? } — fired on each real checkpoint (a Next click or
+  // a completed action), never on automatic advancement.
+  PATH_STAGE_VIEWED: 'onboarding:path_stage_viewed',
+  // Carries { path, stage } — a stored flow picked back up on a later page load.
+  PATH_RESUMED: 'onboarding:path_resumed',
+  // Carries { path, duration_seconds? }. duration_seconds spans reloads and browser
+  // sessions, so it is NOT the same thing as PostHog's own $session_duration; it is absent
+  // when no start time was recorded (see lib/onboarding-analytics.ts).
+  PATH_COMPLETED: 'onboarding:path_completed',
+  // Carries { path, stage, duration_seconds? } — abandoned deliberately (Skip / close).
+  // A silent abandon fires nothing by design: derive it as started - completed - exited.
+  PATH_EXITED: 'onboarding:path_exited',
   // One-shot feature coachmarks on /reports, /alerts and /metrics — no flow, no ordering.
   // Both carry { nudge: 'reports_nudge' | 'alerts_nudge' | 'metrics_nudge' }. VIEWED can
   // fire on repeat visits (the nudge returns until dismissed); DISMISSED fires once.
@@ -312,6 +330,23 @@ export const ANALYTICS_EVENTS = {
 } as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
+
+// `path` values for the PATH_* events — the onboarding walkthroughs a user can run.
+// Four values, not three: the two insight forks (sample data vs your own data) are
+// different amounts of work with different drop-off, and merging them here would make the
+// split unrecoverable. Collapsing them for reporting is a PostHog-side filter.
+export const ONBOARDING_PATHS = {
+  // The driver.js guided product tour — see components/onboarding/product-tour.tsx.
+  WALKTHROUGH: 'walkthrough',
+  // Build insights on the pre-loaded sample data: KPI → dashboard → share.
+  INSIGHT_SAMPLE: 'insight_sample',
+  // Build insights on your own data: ingest → chart → dashboard → share.
+  INSIGHT_OWN_DATA: 'insight_own_data',
+  // Automate your pipeline: ingest → transform → orchestrate.
+  PIPELINE: 'pipeline',
+} as const;
+
+export type OnboardingPath = (typeof ONBOARDING_PATHS)[keyof typeof ONBOARDING_PATHS];
 
 // `source` values for CHART_CREATED — which path produced the chart. One event
 // with this property (instead of one event per path) means the total is a plain

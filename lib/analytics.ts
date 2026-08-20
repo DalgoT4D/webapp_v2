@@ -78,11 +78,20 @@ export function identifyUser(
   posthog.register({ role });
 }
 
-// Organization group — the multi-tenant analysis lens (per-NGO). subscription_plan
+// Organization context — the multi-tenant analysis lens (per-NGO). subscription_plan
 // (Free Trial | Dalgo | Internal) is the segmentation dimension; it subsumes the
 // old is_demo boolean, which the data model never actually sets.
-// The group keeps per-event org (correct for multi-org users); current_org_* are
-// person properties for profile visibility and show only the user's latest org.
+//
+// Sent three ways, because only one of them is actually queryable here:
+//  - org_slug/org_name/org_plan as SUPER PROPERTIES — this is the one that works. They ride
+//    every event, so per-org breakdowns, "how many trial orgs", and "how many trial users"
+//    are plain event queries. Re-registered on every org switch, so a multi-org user's
+//    events always carry the org that was selected when they fired.
+//  - the `organization` GROUP — group analytics is a paid PostHog addon this project does
+//    not have, so this is unreadable in insights today. Kept because it costs nothing and
+//    starts working the day the addon is bought.
+//  - current_org_* PERSON properties — profile visibility only; they show the user's latest
+//    org, not the org of any given event.
 export function identifyOrg(
   slug: string,
   {
@@ -98,6 +107,13 @@ export function identifyOrg(
     // ISO 8601 onboarding date. client_tenure (new <90d / existing) is derived from
     // this in PostHog (a cohort/filter), NOT stored — so it never goes stale.
     onboarded_date: onboardedDate ?? null,
+  });
+  posthog.register({
+    org_slug: slug,
+    org_name: name,
+    // Explicitly null (never omitted) — register() persists, so a missing key would leave
+    // the previously selected org's plan riding every event after a switch.
+    org_plan: plan ?? null,
   });
   posthog.setPersonProperties({
     current_org_slug: slug,

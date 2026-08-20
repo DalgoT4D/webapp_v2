@@ -162,6 +162,29 @@ describe('identifyOrg', () => {
       current_subscription_plan: 'Free Trial',
     });
   });
+
+  it('registers the org as super properties so every event carries it without group analytics', () => {
+    // The `organization` group is a paid PostHog addon this project does not have, so the
+    // group() call above is unreadable in insights. These super properties are what actually
+    // makes "trial orgs", "trial users" and any per-org breakdown queryable.
+    identifyOrg('ngo-slug', { name: 'NGO Name', plan: 'Free Trial' });
+    expect(mockRegister).toHaveBeenCalledWith({
+      org_slug: 'ngo-slug',
+      org_name: 'NGO Name',
+      org_plan: 'Free Trial',
+    });
+  });
+
+  it('registers a null plan rather than omitting it, so the property never goes stale on switch', () => {
+    // register() persists client-side. Omitting org_plan for a plan-less org would leave the
+    // previous org's plan riding every subsequent event.
+    identifyOrg('other-ngo', { name: 'Other NGO' });
+    expect(mockRegister).toHaveBeenCalledWith({
+      org_slug: 'other-ngo',
+      org_name: 'Other NGO',
+      org_plan: null,
+    });
+  });
 });
 
 describe('resetAnalytics', () => {

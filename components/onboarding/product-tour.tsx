@@ -28,7 +28,14 @@ import { driver, type Driver, type PopoverDOM } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import './tour.css';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import {
+  startOnboardingPath,
+  resumeOnboardingPath,
+  trackOnboardingPathStage,
+  completeOnboardingPath,
+  exitOnboardingPath,
+} from '@/lib/onboarding-analytics';
+import { ANALYTICS_EVENTS, ONBOARDING_PATHS } from '@/constants/analytics';
 import {
   TOUR_STEPS,
   TOUR_CONTENT_SELECTOR,
@@ -564,6 +571,16 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
         reason === 'completed' ? ANALYTICS_EVENTS.TOUR_COMPLETED : ANALYTICS_EVENTS.TOUR_SKIPPED,
         { step: stepIndexRef.current + 1 }
       );
+      // Cross-path lifecycle. The stage is the step's ROUTE, not its title: routes are stable
+      // identifiers, titles are copy and get rewritten.
+      if (reason === 'completed') {
+        completeOnboardingPath(ONBOARDING_PATHS.WALKTHROUGH);
+      } else {
+        exitOnboardingPath(
+          ONBOARDING_PATHS.WALKTHROUGH,
+          TOUR_STEPS[stepIndexRef.current]?.route ?? null
+        );
+      }
       void saveTrialWalkthroughFlow('product_tour', reason);
       ringedElRef.current?.classList.remove(RING_CLASS);
       ringedElRef.current = null;
@@ -693,6 +710,7 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
           },
         });
         trackEvent(ANALYTICS_EVENTS.TOUR_STEP_VIEWED, { step: index + 1, title: step.title });
+        trackOnboardingPathStage(ONBOARDING_PATHS.WALKTHROUGH, step.route, { stageIndex: index });
         // Prefetch the next step's route now, while this step is on screen, so the RSC
         // payload is already cached by the time the user clicks Next.
         const nextStep = TOUR_STEPS[index + 1];
@@ -767,7 +785,12 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
       });
       // Only a genuine start counts — a resume is the same run continuing, and firing this
       // again would inflate starts every time the user reloads mid-tour.
-      if (startIndex === 0) trackEvent(ANALYTICS_EVENTS.TOUR_STARTED);
+      if (startIndex === 0) {
+        trackEvent(ANALYTICS_EVENTS.TOUR_STARTED);
+        startOnboardingPath(ONBOARDING_PATHS.WALKTHROUGH);
+      } else {
+        resumeOnboardingPath(ONBOARDING_PATHS.WALKTHROUGH, TOUR_STEPS[startIndex]?.route ?? null);
+      }
       void renderStep(startIndex);
     },
     [renderStep, finish]
