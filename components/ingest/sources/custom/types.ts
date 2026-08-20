@@ -10,6 +10,10 @@ export interface CustomSourceOAuth {
   buttonLabel: string;
   /** Create: render a static confirmation once connected. Edit: keep re-auth clickable. */
   lockWhenConnected: boolean;
+  /** Whether clicking opens Google's Picker. False when re-authenticating a source that is
+   *  already OAuth-connected: it keeps the sheet it holds a grant for, and offering a file
+   *  chooser there is how a source silently ends up aimed somewhere else. */
+  picksSheet: boolean;
   onClick: () => void;
   /** Inline validation error shown under the Authentication section (e.g. neither
    *  Google sign-in nor a service-account JSON was provided). */

@@ -272,6 +272,8 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
                         ? 'Authenticated with Google'
                         : 'Sign in with Google to authorize Dalgo',
                       lockWhenConnected: true,
+                      // A new source holds no grant, so the Picker is where it gets one.
+                      picksSheet: true,
                       onClick: handleAuthorizeGoogle,
                       error: authError ?? undefined,
                       connectedSheet: pickedSheet ?? undefined,

@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Loader2 } from 'lucide-react';
 import { useWatch } from 'react-hook-form';
 import { renderField } from '@/components/connectors/ConnectorConfigForm';
 import {
@@ -23,32 +22,10 @@ import {
   type GsheetsAuthMethodValue,
 } from './constants';
 import { GsheetsAuthMethod } from './GsheetsAuthMethod';
+import { GsheetsOAuthCard } from './GsheetsOAuthCard';
 import { partitionFields } from './partition-fields';
 import type { CustomSourceFormProps } from './types';
-
-/** Google's multi-colour "G" mark, inlined (no external asset). */
-export function GoogleIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
-      <path
-        fill="#EA4335"
-        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-      />
-      <path
-        fill="#4285F4"
-        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-      />
-      <path
-        fill="#34A853"
-        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-      />
-    </svg>
-  );
-}
+import { useGsheetsOAuthLink } from './useGsheetsOAuthLink';
 
 function keyOf(field: FieldNode): string {
   return field.path[field.path.length - 1];
@@ -161,86 +138,58 @@ export function GoogleSheetsForm({
     setAuthMethod(next);
   }, []);
 
-  // The synced sheet as an openable link, so the user can verify the right file was picked.
-  // A pick this session has both title and link; an older source has only the saved
-  // `spreadsheet_id` (Airbyte never stores the title), hence the generic label. That field also
-  // accepts a bare id, which would make a dead relative href — so non-URLs get no link.
   const spreadsheetPath = spreadsheetField?.path.join('.') ?? '__no_spreadsheet__';
   const savedLink = useWatch({ control, name: spreadsheetPath }) as string | undefined;
-  const sheetHref = oauth?.connectedSheet?.url ?? savedLink;
-  const linkable = !!sheetHref && /^https?:\/\//.test(sheetHref);
-  const connectedSheet = linkable ? (
+  const pickedUrl = oauth?.connectedSheet?.url;
+  const pickedName = oauth?.connectedSheet?.name;
+
+  // Which link belongs to the Google route, and keeping it out of the service card's input.
+  const { oauthLink, openedOnOAuth } = useGsheetsOAuthLink({
+    mode,
+    connected,
+    usingOAuth,
+    pickedUrl,
+    savedLink,
+    spreadsheetPath,
+    hasSpreadsheetField: !!spreadsheetField,
+    setValue,
+  });
+
+  const linkable = !!oauthLink && /^https?:\/\//.test(oauthLink);
+  // Airbyte stores the link but never the title, so a source connected in an earlier session has
+  // no name to show. Titles are user-chosen and can be long: the row truncates and keeps the full
+  // name in `title` rather than pushing the button around. A bare id (also valid in this field)
+  // would make a dead relative href, so it gets no link.
+  const sheetLabel = pickedName ?? 'Open the connected sheet';
+  const sheetLink = linkable ? (
     <a
-      href={sheetHref}
+      href={oauthLink}
       target="_blank"
       rel="noopener noreferrer"
+      title={sheetLabel}
       data-testid="gsheets-sheet-link"
-      className="font-medium underline decoration-dotted underline-offset-2 hover:decoration-solid"
+      className="min-w-0 truncate font-medium text-primary underline decoration-dotted underline-offset-2 hover:decoration-solid"
     >
-      {oauth?.connectedSheet?.name ?? 'Open the connected sheet'}
+      {sheetLabel}
     </a>
-  ) : (
-    oauth?.connectedSheet?.name && (
-      <span className="font-medium">“{oauth.connectedSheet.name}”</span>
-    )
-  );
+  ) : pickedName ? (
+    <span className="min-w-0 truncate font-medium" title={pickedName}>
+      “{pickedName}”
+    </span>
+  ) : null;
+
+  // Moving over from a service-account key: the typed link earns no `drive.file` grant, so the
+  // user has to hand us that same file through the Picker. Naming it saves them guessing which
+  // of their spreadsheets this source was on.
+  const linkToRepick = !openedOnOAuth && !oauthLink && savedLink?.trim() ? savedLink : null;
 
   const oauthSlot = oauth ? (
-    <div className="space-y-2">
-      {connected && oauth.lockWhenConnected ? (
-        <div
-          data-testid="gsheets-oauth-connected"
-          className="flex w-full items-center gap-3 rounded-md border border-green-600/40 bg-green-600/5 px-4 py-3 text-sm dark:border-green-400/40"
-        >
-          <Check className="h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
-          <span className="min-w-0 font-medium text-green-600 dark:text-green-400">
-            {oauth.buttonLabel}
-            {connectedSheet && <span className="ml-1 font-normal">— syncing {connectedSheet}</span>}
-          </span>
-        </div>
-      ) : (
-        <>
-          <button
-            type="button"
-            data-testid="gsheets-oauth-connect-btn"
-            onClick={oauth.onClick}
-            disabled={disabled || oauth.busy}
-            className="flex w-full cursor-pointer items-center gap-3 rounded-md border bg-background px-4 py-3 text-left text-sm transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {connected ? (
-              <Check className="h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
-            ) : (
-              <GoogleIcon className="h-5 w-5 flex-shrink-0" />
-            )}
-            <span
-              className={
-                connected ? 'font-medium text-green-600 dark:text-green-400' : 'font-medium'
-              }
-            >
-              {oauth.buttonLabel}
-            </span>
-            {oauth.busy && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
-          </button>
-          {/* Hosts that keep re-auth clickable still need to confirm which sheet came back. */}
-          {connectedSheet ? (
-            <p
-              className="text-xs text-green-600 dark:text-green-400"
-              data-testid="gsheets-picked-sheet"
-            >
-              Now syncing {connectedSheet}.
-            </p>
-          ) : (
-            // Re-authenticating re-picks the sheet, which is how a source is moved to a
-            // different one — worth saying, since "re-authenticate" sounds like a no-op.
-            connected && (
-              <p className="text-xs text-muted-foreground" data-testid="gsheets-repick-hint">
-                Re-authenticating lets you choose a different sheet.
-              </p>
-            )
-          )}
-        </>
-      )}
-    </div>
+    <GsheetsOAuthCard
+      oauth={oauth}
+      disabled={disabled}
+      sheetLink={sheetLink}
+      linkToRepick={linkToRepick}
+    />
   ) : null;
 
   const serviceSlot = (

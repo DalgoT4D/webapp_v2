@@ -121,7 +121,7 @@ export function GsheetsAuthMethod({
           disabled={disabled}
           testId="gsheets-oauth-option"
           title="Sign in with Google"
-          description="Choose your sheet in Google's own window. Dalgo gets access to just that one file — nothing else in your Drive."
+          description="Authenticate and choose the sheet you want to add to Dalgo from the sheet picker. Dalgo gets access to just that one file — nothing else in your Drive."
           onSelect={() => onMethodChange(GSHEETS_AUTH_METHOD_OAUTH)}
           badge={
             <Badge variant="secondary" className="bg-primary/10 text-primary">
@@ -139,7 +139,7 @@ export function GsheetsAuthMethod({
           disabled={disabled}
           testId="gsheets-service-option"
           title="Use a service-account key"
-          description="Paste your own Google service-account key, and share the spreadsheet with that key's client_email address."
+          description="Paste your own Google service-account key and the sheet link to add it to Dalgo."
           onSelect={() => onMethodChange(GSHEETS_AUTH_METHOD_SERVICE)}
         >
           {serviceSlot}

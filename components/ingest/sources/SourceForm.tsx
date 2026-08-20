@@ -23,8 +23,12 @@ import {
   updateSource,
   updateOAuthSource,
 } from '@/hooks/api/useSources';
-import { connectGoogleSpreadsheet } from '@/components/connectors/google-oauth-connect';
+import {
+  connectGoogleSpreadsheet,
+  reconnectGoogle,
+} from '@/components/connectors/google-oauth-connect';
 import { GSHEETS_KEY_SPREADSHEET } from '@/components/ingest/sources/custom/constants';
+import { savedLinkPointsAt } from '@/components/ingest/sources/custom/utils';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { useSourceConfigForm } from '@/hooks/useSourceConfigForm';
 import { trackEvent } from '@/lib/analytics';
@@ -72,6 +76,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     parsedSpec,
     control,
     setValue,
+    getValues,
     reset,
     handleSubmit,
     buildConfig,
@@ -88,6 +93,13 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   // the user clicks "Save Changes And Test".
   const [oauthConnecting, setOauthConnecting] = useState(false);
   const [oauthRef, setOauthRef] = useState<string | null>(null);
+
+  // The form reports whether auth is satisfied: which route is selected is its own state, and
+  // on the Google route the credentials are built server-side from the OAuth ref, so an empty
+  // credentials block in the form is the expected state rather than a missing one. Declared here
+  // because the Google handler below reports a rejected pick through the same inline error.
+  const [authSatisfied, setAuthSatisfied] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   // The sheet the Picker just returned — display only (the form value is its URL). Null on a
   // source connected in an earlier session: Airbyte stores the link, not the title, so the form
   // links the saved link under a generic label until the user re-picks.
@@ -190,13 +202,25 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     onLoadingChange: setLoading,
   });
 
-  // "Re-authenticate": run consent and the Google Picker. This only stashes the redeemed ref
-  // and the newly picked sheet — the source is not saved until the footer "Save Changes And
-  // Test". The OAuth credentials never reach the browser.
+  // The Google button in the edit dialog. Either way it only stashes the redeemed ref — the
+  // source is not saved until the footer "Save Changes And Test", and the OAuth credentials
+  // never reach the browser.
   //
-  // Re-picking is not busywork: `drive.file` grants per file, so a fresh consent alone would
-  // leave the new token able to read nothing. Whatever the user picks becomes the source's
-  // spreadsheet — including a different sheet, which is the supported way to move a source.
+  // Which flow runs depends on what the source already holds:
+  //
+  // - Already OAuth-connected (`isConnected`): consent only, no Picker. Google's `drive.file`
+  //   grant is recorded against (client, user, file), so a fresh consent still reads the sheet
+  //   this source was given — and skipping the Picker is the point, not an optimisation. A
+  //   Picker here would let a stray click repoint the source at another spreadsheet, changing
+  //   its streams and breaking the connection built on them. Moving to a different sheet is
+  //   adding a new source.
+  //
+  // - Not connected yet (a service-account source switching over): the full flow. There is no
+  //   grant to inherit — the saved link was typed, never picked — so the user must hand us the
+  //   file through the Picker for the new token to read anything. The pick has to be the SAME
+  //   spreadsheet: this update keeps the source's id, so its connections survive it, and their
+  //   catalogs describe the tabs of the sheet it reads today. A different pick would leave those
+  //   connections pointing at streams that no longer exist.
   const handleConnectGoogle = useCallback(async () => {
     if (!selectedDefId) return;
     // Same inline treatment as submit — a missing name is a form error, not a toast.
@@ -208,7 +232,28 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     setOauthConnecting(true);
     try {
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_STARTED, { source_type: 'Google Sheets' });
+
+      if (isConnected) {
+        const { ref } = await reconnectGoogle(selectedDefId, selectedName);
+        setOauthRef(ref);
+        trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
+        toastSuccess.generic('Reconnected with Google — click Save Changes And Test to apply');
+        return;
+      }
+
+      const savedSheet = getValues(GSHEETS_KEY_SPREADSHEET) as string | undefined;
       const { ref, spreadsheet } = await connectGoogleSpreadsheet(selectedDefId, selectedName);
+
+      // Rejected rather than warned: there is no version of "yes, repoint it" that leaves the
+      // existing connections working. The ref is dropped with it — nothing is saved either way.
+      // A source with no saved sheet at all has nothing to contradict, so it is let through.
+      if (savedSheet?.trim() && !savedLinkPointsAt(savedSheet, spreadsheet.id)) {
+        setAuthError(
+          `That is a different spreadsheet (“${spreadsheet.name}”). Choose the one this source already syncs — to sync a different spreadsheet, add it as a new source instead.`
+        );
+        return;
+      }
+
       setValue(GSHEETS_KEY_SPREADSHEET, spreadsheet.url, {
         shouldValidate: true,
         shouldDirty: true,
@@ -224,7 +269,7 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     } finally {
       setOauthConnecting(false);
     }
-  }, [selectedDefId, selectedName, sourceName, setValue]);
+  }, [selectedDefId, selectedName, sourceName, isConnected, getValues, setValue]);
 
   // WS check succeeded → persist the update (v1 pattern: test, then auto-save).
   const handleSaveSource = useCallback(async () => {
@@ -337,11 +382,6 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     onSuccess,
   ]);
 
-  // The form reports whether auth is satisfied: which route is selected is its own state, and
-  // on the Google route the credentials are built server-side from the OAuth ref, so an empty
-  // credentials block in the form is the expected state rather than a missing one.
-  const [authSatisfied, setAuthSatisfied] = useState(true);
-  const [authError, setAuthError] = useState<string | null>(null);
   useEffect(() => {
     if (authSatisfied) setAuthError(null);
   }, [authSatisfied]);
@@ -497,6 +537,9 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
                             ? 'Re-authenticate with Google'
                             : 'Authenticate with Google',
                         lockWhenConnected: false,
+                        // A source already on this route keeps its sheet; one moving over from
+                        // a service-account key has no grant to inherit and must pick.
+                        picksSheet: !isConnected,
                         onClick: handleConnectGoogle,
                         error: authError ?? undefined,
                         connectedSheet: pickedSheet ?? undefined,

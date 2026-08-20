@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
@@ -83,6 +84,7 @@ function Harness({
   onServiceValue,
   connectedSheet,
   onGetValues,
+  lateLink,
 }: {
   connected?: boolean;
   onAuthType?: (v: unknown) => void;
@@ -95,8 +97,11 @@ function Harness({
   onServiceValue?: (v: unknown) => void;
   connectedSheet?: { name: string; url: string };
   onGetValues?: (get: UseFormGetValues<FieldValues>) => void;
+  /** Simulates the edit host, which populates the form with `reset()` in an effect — a commit
+   *  after the form mounts, so the saved link is absent on the first render. */
+  lateLink?: string;
 }) {
-  const { control, setValue, getValues } = useForm<FieldValues>({
+  const { control, setValue, getValues, reset } = useForm<FieldValues>({
     defaultValues: savedKey
       ? {
           spreadsheet_id: savedLink,
@@ -105,6 +110,9 @@ function Harness({
       : { spreadsheet_id: savedLink, credentials: { auth_type: 'Client' } },
   });
   onGetValues?.(getValues);
+  useEffect(() => {
+    if (lateLink) reset({ spreadsheet_id: lateLink, credentials: { auth_type: 'Client' } });
+  }, [lateLink, reset]);
   const authType = useWatch({ control, name: 'credentials.auth_type' });
   onAuthType?.(authType);
   const serviceInfo = useWatch({ control, name: 'credentials.service_account_info' });
@@ -238,10 +246,23 @@ describe('GoogleSheetsForm', () => {
   });
 
   describe('once connected through Google', () => {
+    // The confirmation and the sheet name are separate: the name sits beside the button as the
+    // answer to "which file?", so it is asserted where it renders rather than inside the pill.
     it('confirms the connection and names the sheet the picker returned', () => {
       render(<Harness connected connectedSheet={{ name: 'hobbit_pantry_2024', url: SHEET_URL }} />);
 
-      expect(screen.getByTestId('gsheets-oauth-connected')).toHaveTextContent('hobbit_pantry_2024');
+      expect(screen.getByTestId('gsheets-oauth-connected')).toBeInTheDocument();
+      expect(screen.getByTestId('gsheets-picked-sheet')).toHaveTextContent('hobbit_pantry_2024');
+    });
+
+    // A long title must not push the button around, and the user still needs the whole name.
+    it('keeps the full sheet name reachable when the visible text is truncated', () => {
+      const name = 'Quarterly programme outcomes — Northern districts — 2024 consolidated';
+      render(<Harness connected connectedSheet={{ name, url: SHEET_URL }} />);
+
+      const link = screen.getByTestId('gsheets-sheet-link');
+      expect(link).toHaveAttribute('title', name);
+      expect(link).toHaveClass('truncate');
     });
 
     // The name is the reassurance that the right file was picked, and a click confirms it —
@@ -285,6 +306,88 @@ describe('GoogleSheetsForm', () => {
 
       expect(screen.queryByLabelText(/Spreadsheet Link/)).not.toBeInTheDocument();
       expect(get!().spreadsheet_id).toBe(link);
+    });
+
+    // `drive.file` granted that link to the OAuth token, not to a service account, so offering
+    // it pre-filled on the other route promises access the key does not have.
+    it('leaves the service route link empty after a pick on the Google route', async () => {
+      render(
+        <Harness
+          connected
+          savedLink={SHEET_URL}
+          connectedSheet={{ name: 'hobbit_pantry_2024', url: SHEET_URL }}
+        />
+      );
+
+      await userEvent.click(screen.getByTestId('gsheets-service-option-radio'));
+
+      expect(screen.getByLabelText(/Spreadsheet Link/)).toHaveValue('');
+    });
+
+    // ...and the Google route must still submit the sheet it was granted after that detour.
+    it('restores the picked link when the user goes back to the Google route', async () => {
+      let get: UseFormGetValues<FieldValues> | undefined;
+      render(
+        <Harness
+          connected
+          savedLink={SHEET_URL}
+          connectedSheet={{ name: 'hobbit_pantry_2024', url: SHEET_URL }}
+          onGetValues={(g) => (get = g)}
+        />
+      );
+
+      await userEvent.click(screen.getByTestId('gsheets-service-option-radio'));
+      await userEvent.click(screen.getByTestId('gsheets-oauth-option-radio'));
+
+      expect(get!().spreadsheet_id).toBe(SHEET_URL);
+    });
+
+    // Same rule for a source that saved on the Google route in an earlier session: its link was
+    // granted to that token too, so the service card starts empty rather than pre-filled.
+    it('empties the service route link for a source that saved on the Google route', async () => {
+      render(<Harness mode="edit" connected savedLink={SHEET_URL} />);
+
+      await userEvent.click(screen.getByTestId('gsheets-service-option-radio'));
+
+      expect(screen.getByLabelText(/Spreadsheet Link/)).toHaveValue('');
+    });
+
+    // The edit host fills the form with `reset()` in an effect, so the saved link is missing on
+    // the first render. Reading it only at mount left the card with no sheet at all.
+    it('shows the sheet of an OAuth source whose link arrives after mount', async () => {
+      render(<Harness mode="edit" connected lateLink={SHEET_URL} />);
+
+      expect(await screen.findByTestId('gsheets-sheet-link')).toHaveAttribute('href', SHEET_URL);
+    });
+
+    it('empties the service route link when that late-arriving link is the OAuth one', async () => {
+      render(<Harness mode="edit" connected lateLink={SHEET_URL} />);
+      await screen.findByTestId('gsheets-sheet-link');
+
+      await userEvent.click(screen.getByTestId('gsheets-service-option-radio'));
+
+      expect(screen.getByLabelText(/Spreadsheet Link/)).toHaveValue('');
+    });
+
+    // A service-account source's link was typed, not granted — it is not an OAuth sheet, so the
+    // Google card must not offer to open it as one.
+    it('shows no connected sheet on the Google card for a service-account source', async () => {
+      render(<Harness mode="edit" savedKey={SAVED_KEY} savedLink={SHEET_URL} />);
+
+      await userEvent.click(screen.getByTestId('gsheets-oauth-option-radio'));
+
+      expect(screen.queryByTestId('gsheets-picked-sheet')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('gsheets-sheet-link')).not.toBeInTheDocument();
+    });
+
+    // The label reads as a result, not a status: the sheet is attached and clickable.
+    it('labels the picked sheet as added', () => {
+      render(<Harness connected connectedSheet={{ name: 'hobbit_pantry_2024', url: SHEET_URL }} />);
+
+      // The gap between label and name is flex spacing, not a text node.
+      expect(screen.getByTestId('gsheets-picked-sheet')).toHaveTextContent(
+        /Sheet added\s*hobbit_pantry_2024/
+      );
     });
   });
 
