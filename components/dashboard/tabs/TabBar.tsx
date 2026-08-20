@@ -447,21 +447,21 @@ export const TabBar = memo(function TabBar({
               />
             ))}
           </SortableContext>
-        </div>
 
-        {isEditMode && (
-          <Button
-            variant="ghost"
-            size="sm"
-            id="add-tab-btn"
-            data-testid="add-tab-btn"
-            className="mx-1 h-8 w-8 flex-shrink-0 p-0"
-            onClick={handleAddTab}
-            aria-label="Add new tab"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        )}
+          {isEditMode && (
+            <Button
+              variant="ghost"
+              size="sm"
+              id="add-tab-btn"
+              data-testid="add-tab-btn"
+              className="mx-1 h-8 w-8 flex-shrink-0 p-0"
+              onClick={handleAddTab}
+              aria-label="Add new tab"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
     </DndContext>
   );
