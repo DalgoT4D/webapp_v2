@@ -6,13 +6,24 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Calendar, Download, LayoutGrid, Loader2, Pencil, User } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calendar,
+  Download,
+  LayoutGrid,
+  Loader2,
+  Mail,
+  Pencil,
+  Share2,
+  User,
+} from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
 import { useCommentStates } from '@/hooks/api/useComments';
 import { usePdfDownload } from '@/hooks/usePdfDownload';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
-import { ReportShareMenu } from '@/components/reports/report-share-menu';
+import { ShareModal } from '@/components/ui/share-modal';
+import { ShareViaEmailDialog } from '@/components/reports/share-via-email-dialog';
 import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
@@ -40,6 +51,9 @@ export default function SnapshotViewerPage() {
   const { hasPermission } = useRbac();
   const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS);
   const canShare = hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS);
+
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
   // Fire REPORT_VIEWED once per mount when the report has successfully loaded
   const reportViewedTracked = useRef(false);
@@ -200,7 +214,26 @@ export default function SnapshotViewerPage() {
               )}
             </Button>
             {canShare && (
-              <ReportShareMenu snapshotId={parsedId} reportTitle={report_metadata.title} />
+              <>
+                <Button
+                  data-testid="report-share-btn"
+                  variant="outline"
+                  size="sm"
+                  aria-label="Share report"
+                  onClick={() => setShareModalOpen(true)}
+                >
+                  <Share2 className="w-4 h-4" />
+                </Button>
+                <Button
+                  data-testid="report-email-pdf-btn"
+                  variant="outline"
+                  size="sm"
+                  aria-label="Email PDF"
+                  onClick={() => setEmailDialogOpen(true)}
+                >
+                  <Mail className="w-4 h-4" />
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -307,6 +340,23 @@ export default function SnapshotViewerPage() {
           }
         />
       </div>
+
+      {shareModalOpen && (
+        <ShareModal
+          rtype="report"
+          entityId={parsedId}
+          entityLabel={viewData?.report_metadata?.title ?? 'Report'}
+          isOpen={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+        />
+      )}
+
+      <ShareViaEmailDialog
+        snapshotId={parsedId}
+        reportTitle={viewData?.report_metadata?.title}
+        isOpen={emailDialogOpen}
+        onClose={() => setEmailDialogOpen(false)}
+      />
     </div>
   );
 }

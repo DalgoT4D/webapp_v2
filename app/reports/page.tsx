@@ -25,15 +25,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ShareModal } from '@/components/ui/share-modal';
+import { ShareViaEmailDialog } from '@/components/reports/share-via-email-dialog';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { DocsLink } from '@/components/ui/docs-link';
 import {
   FileText,
   Filter,
+  Mail,
   MoreVertical,
   Plus,
+  Share2,
   Trash2,
   User,
   ChevronLeft,
@@ -51,7 +56,6 @@ import { useSnapshots, deleteSnapshot } from '@/hooks/api/useReports';
 import type { ReportSnapshot } from '@/types/reports';
 import { CreateSnapshotDialog } from '@/components/reports/create-snapshot-dialog';
 import { formatCreatedOn } from '@/components/reports/utils';
-import { ReportShareMenu } from '@/components/reports/report-share-menu';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
 // Debounce delay in ms before sending filter to API
@@ -68,6 +72,9 @@ export default function ReportsPage() {
   const { hasPermission } = useRbac();
   const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS);
   const canDelete = hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS);
+
+  const [shareSnapshot, setShareSnapshot] = useState<ReportSnapshot | null>(null);
+  const [emailSnapshot, setEmailSnapshot] = useState<ReportSnapshot | null>(null);
 
   // Filter input states (what the user types)
   const [titleFilter, setTitleFilter] = useState('');
@@ -606,10 +613,16 @@ export default function ReportsPage() {
                               onClick={(e) => e.stopPropagation()}
                             >
                               {snapshot.access_level === 'edit' && (
-                                <ReportShareMenu
-                                  snapshotId={snapshot.id}
-                                  reportTitle={snapshot.title}
-                                />
+                                <Button
+                                  data-testid={`report-share-${snapshot.id}`}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                                  aria-label="Share report"
+                                  onClick={() => setShareSnapshot(snapshot)}
+                                >
+                                  <Share2 className="w-4 h-4 text-gray-600" />
+                                </Button>
                               )}
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -631,15 +644,27 @@ export default function ReportsPage() {
                                     <FileText className="h-4 w-4 mr-2" />
                                     View Report
                                   </DropdownMenuItem>
-                                  {canDelete && snapshot.access_level === 'edit' && (
+                                  {snapshot.access_level === 'edit' && (
                                     <DropdownMenuItem
-                                      data-testid={`report-delete-${snapshot.id}`}
-                                      onClick={() => handleDelete(snapshot)}
-                                      className="text-destructive focus:text-destructive"
+                                      data-testid={`report-email-pdf-${snapshot.id}`}
+                                      onClick={() => setEmailSnapshot(snapshot)}
                                     >
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Delete
+                                      <Mail className="h-4 w-4 mr-2" />
+                                      Email PDF
                                     </DropdownMenuItem>
+                                  )}
+                                  {canDelete && snapshot.access_level === 'edit' && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        data-testid={`report-delete-${snapshot.id}`}
+                                        onClick={() => handleDelete(snapshot)}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </>
                                   )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -724,6 +749,25 @@ export default function ReportsPage() {
       </div>
 
       <DeleteDialog />
+
+      {shareSnapshot && (
+        <ShareModal
+          rtype="report"
+          entityId={shareSnapshot.id}
+          entityLabel={shareSnapshot.title}
+          isOpen={true}
+          onClose={() => setShareSnapshot(null)}
+        />
+      )}
+
+      {emailSnapshot && (
+        <ShareViaEmailDialog
+          snapshotId={emailSnapshot.id}
+          reportTitle={emailSnapshot.title}
+          isOpen={true}
+          onClose={() => setEmailSnapshot(null)}
+        />
+      )}
     </div>
   );
 }
