@@ -4,17 +4,35 @@ import { useEffect, useRef, useState } from 'react';
 import { SendHorizonal, MessageSquareText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { MessageBubble } from './MessageBubble';
-import type { ChatMessage } from '@/types/chat-with-data';
+import type { ChatMessage, ModelOption } from '@/types/chat-with-data';
 
 interface ChatPaneProps {
   messages: ChatMessage[];
   isStreaming: boolean;
   onSend: (question: string) => void;
+  /** Models the user may pick; the selector renders only when there are 2+ */
+  models?: ModelOption[];
+  selectedModel?: string;
+  onModelChange?: (modelId: string) => void;
 }
 
 /** Conversation + composer. Auto-scrolls as answers stream in. */
-export function ChatPane({ messages, isStreaming, onSend }: ChatPaneProps) {
+export function ChatPane({
+  messages,
+  isStreaming,
+  onSend,
+  models = [],
+  selectedModel,
+  onModelChange,
+}: ChatPaneProps) {
   const [draft, setDraft] = useState('');
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -77,6 +95,26 @@ export function ChatPane({ messages, isStreaming, onSend }: ChatPaneProps) {
             <SendHorizonal className="h-4 w-4" />
           </Button>
         </div>
+        {models.length > 1 && (
+          <div className="mt-2 flex justify-end">
+            <Select value={selectedModel} onValueChange={onModelChange}>
+              <SelectTrigger
+                data-testid="chat-model-select"
+                aria-label="AI model"
+                className="h-7 w-auto gap-1 border-none px-2 text-xs text-muted-foreground shadow-none"
+              >
+                <SelectValue placeholder="Model" />
+              </SelectTrigger>
+              <SelectContent>
+                {models.map((model) => (
+                  <SelectItem key={model.id} value={model.id} className="text-xs">
+                    {model.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
     </div>
   );

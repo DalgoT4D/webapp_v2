@@ -25,7 +25,7 @@ const BLOCKED_STATES: Record<
 > = {
   feature_disabled: {
     icon: MessageSquareOff,
-    heading: 'Chat with Data is not enabled',
+    heading: 'Dalgo Copilot is not enabled',
     body: 'This feature is not switched on for your organization yet. Reach out to the Dalgo team to enable it.',
   },
   llm_consent_required: {
@@ -36,7 +36,7 @@ const BLOCKED_STATES: Record<
   no_warehouse: {
     icon: Database,
     heading: 'Connect a warehouse first',
-    body: 'Chat with Data answers questions from your data warehouse. Set up your warehouse before using chat.',
+    body: 'Dalgo Copilot answers questions from your data warehouse. Set up your warehouse before using chat.',
   },
 };
 
@@ -58,11 +58,13 @@ function BlockedState({ reason }: { reason: ChatStatusReason }) {
 
 export default function ChatWithDataPage() {
   const { status, isLoading: statusLoading, isError: statusError } = useChatWithDataStatus();
-  // 'org' hides dashboard-drawer sessions from this page's sidebar
   const { sessions, mutate: refreshSessions } = useChatSessions();
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   // question typed before any session existed; sent once the new session's socket is up
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
+  // model pick applies per turn; null until the user touches the selector
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const activeModel = selectedModel ?? status?.default_model ?? undefined;
 
   const { messages: history } = useChatSessionMessages(activeSessionId);
   const initialMessages = useMemo(() => historyToChatMessages(history), [history]);
@@ -79,10 +81,10 @@ export default function ChatWithDataPage() {
 
   useEffect(() => {
     if (pendingQuestion && activeSessionId) {
-      sendMessage(pendingQuestion);
+      sendMessage(pendingQuestion, activeModel);
       setPendingQuestion(null);
     }
-  }, [pendingQuestion, activeSessionId, sendMessage]);
+  }, [pendingQuestion, activeSessionId, sendMessage, activeModel]);
 
   const handleNewChat = async () => {
     try {
@@ -97,7 +99,7 @@ export default function ChatWithDataPage() {
   const handleSend = async (question: string) => {
     trackEvent(ANALYTICS_EVENTS.CHAT_MESSAGE_SENT);
     if (activeSessionId) {
-      sendMessage(question);
+      sendMessage(question, activeModel);
       return;
     }
     try {
@@ -158,7 +160,14 @@ export default function ChatWithDataPage() {
           onDelete={handleDelete}
         />
       </div>
-      <ChatPane messages={messages} isStreaming={isStreaming} onSend={handleSend} />
+      <ChatPane
+        messages={messages}
+        isStreaming={isStreaming}
+        onSend={handleSend}
+        models={status.models ?? []}
+        selectedModel={activeModel}
+        onModelChange={setSelectedModel}
+      />
     </div>
   );
 }

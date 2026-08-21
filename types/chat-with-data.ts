@@ -9,9 +9,17 @@ export interface ApiEnvelope<T> {
 
 export type ChatStatusReason = 'ok' | 'feature_disabled' | 'llm_consent_required' | 'no_warehouse';
 
+/** A model the user may pick in the composer */
+export interface ModelOption {
+  id: string;
+  label: string;
+}
+
 export interface ChatStatus {
   enabled: boolean;
   reason: ChatStatusReason;
+  models?: ModelOption[];
+  default_model?: string | null;
 }
 
 export interface ChatSession {

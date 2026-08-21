@@ -133,7 +133,7 @@ export const getNavItems = (
       hide: !isFeatureFlagEnabled(FeatureFlagKeys.REPORTS),
     },
     {
-      title: 'Chat with Data',
+      title: 'Dalgo Copilot',
       href: '/chat-with-data',
       icon: MessageSquareText,
       isActive: currentPath.startsWith('/chat-with-data'),

@@ -196,13 +196,13 @@ export function useChatWithData(sessionId: number | null, options: UseChatWithDa
   });
 
   const sendMessage = useCallback(
-    (question: string) => {
+    (question: string, model?: string) => {
       const trimmed = question.trim();
       if (!trimmed || isStreaming) return;
       liveTurnStartedRef.current = true;
       setMessages((current) => [...current, newUserMessage(trimmed), newAssistantPlaceholder()]);
       setIsStreaming(true);
-      sendOrQueue({ action: 'send_message', message: trimmed });
+      sendOrQueue({ action: 'send_message', message: trimmed, ...(model ? { model } : {}) });
     },
     [isStreaming, sendOrQueue]
   );

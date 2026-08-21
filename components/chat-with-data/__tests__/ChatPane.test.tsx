@@ -35,4 +35,31 @@ describe('ChatPane', () => {
     render(<ChatPane messages={[]} isStreaming={false} onSend={jest.fn()} />);
     expect(screen.getByTestId('chat-empty-state')).toBeInTheDocument();
   });
+
+  it('offers a model picker only when there are at least two models', () => {
+    const { rerender } = render(
+      <ChatPane
+        messages={[]}
+        isStreaming={false}
+        onSend={jest.fn()}
+        models={[{ id: 'a', label: 'A' }]}
+      />
+    );
+    expect(screen.queryByTestId('chat-model-select')).not.toBeInTheDocument();
+
+    rerender(
+      <ChatPane
+        messages={[]}
+        isStreaming={false}
+        onSend={jest.fn()}
+        models={[
+          { id: 'claude-sonnet-5', label: 'Claude Sonnet' },
+          { id: 'gpt-5.5', label: 'OpenAI GPT' },
+        ]}
+        selectedModel="claude-sonnet-5"
+        onModelChange={jest.fn()}
+      />
+    );
+    expect(screen.getByTestId('chat-model-select')).toBeInTheDocument();
+  });
 });
