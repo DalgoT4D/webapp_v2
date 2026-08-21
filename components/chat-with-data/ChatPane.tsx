@@ -69,14 +69,15 @@ export function ChatPane({
       </div>
 
       <div className="border-t p-3">
-        <div className="flex items-end gap-2">
+        {/* One visual chatbox: textarea on top, controls row inside the same frame */}
+        <div className="rounded-lg border bg-background focus-within:ring-1 focus-within:ring-ring">
           <Textarea
             id="chat-composer-input"
             data-testid="chat-composer-input"
             value={draft}
             placeholder="Type a question about your data…"
             rows={1}
-            className="max-h-32 min-h-[2.5rem] resize-none"
+            className="max-h-32 min-h-[2.5rem] resize-none border-0 shadow-none focus-visible:ring-0"
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
@@ -85,36 +86,39 @@ export function ChatPane({
               }
             }}
           />
-          <Button
-            size="icon"
-            onClick={send}
-            disabled={isStreaming || !draft.trim()}
-            data-testid="chat-composer-send"
-            aria-label="Send"
-          >
-            <SendHorizonal className="h-4 w-4" />
-          </Button>
-        </div>
-        {models.length > 1 && (
-          <div className="mt-2 flex justify-end">
-            <Select value={selectedModel} onValueChange={onModelChange}>
-              <SelectTrigger
-                data-testid="chat-model-select"
-                aria-label="AI model"
-                className="h-7 w-auto gap-1 border-none px-2 text-xs text-muted-foreground shadow-none"
-              >
-                <SelectValue placeholder="Model" />
-              </SelectTrigger>
-              <SelectContent>
-                {models.map((model) => (
-                  <SelectItem key={model.id} value={model.id} className="text-xs">
-                    {model.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex items-center justify-between gap-2 px-2 pb-2">
+            {models.length > 1 ? (
+              <Select value={selectedModel} onValueChange={onModelChange}>
+                <SelectTrigger
+                  data-testid="chat-model-select"
+                  aria-label="AI model"
+                  className="h-7 w-auto gap-1 border-none px-2 text-xs text-muted-foreground shadow-none hover:text-foreground"
+                >
+                  <SelectValue placeholder="Model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {models.map((model) => (
+                    <SelectItem key={model.id} value={model.id} className="text-xs">
+                      {model.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <span />
+            )}
+            <Button
+              size="icon"
+              className="h-8 w-8"
+              onClick={send}
+              disabled={isStreaming || !draft.trim()}
+              data-testid="chat-composer-send"
+              aria-label="Send"
+            >
+              <SendHorizonal className="h-4 w-4" />
+            </Button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
