@@ -17,6 +17,7 @@ jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: j
 const mockDispatchCanvasAction = jest.fn();
 const mockSetSelectedNode = jest.fn();
 const mockOpenOperationPanel = jest.fn();
+let mockCanInteractWithCanvas = true;
 
 jest.mock('@/stores/transformStore', () => ({
   useTransformStore: () => ({
@@ -25,14 +26,14 @@ jest.mock('@/stores/transformStore', () => ({
     setPreviewData: jest.fn(),
     clearPreviewAction: jest.fn(),
     openOperationPanel: mockOpenOperationPanel,
-    canInteractWithCanvas: () => false,
+    canInteractWithCanvas: () => mockCanInteractWithCanvas,
   }),
 }));
 
 let mockEdges: { source: string }[] = [];
 
 jest.mock('reactflow', () => ({
-  Handle: () => null,
+  Handle: (): null => null,
   Position: { Left: 'left', Right: 'right' },
   useEdges: () => mockEdges,
 }));
@@ -60,6 +61,7 @@ describe('DbtSourceModelNode', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockEdges = [];
+    mockCanInteractWithCanvas = true;
 
     (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (perm: string) =>
@@ -130,6 +132,17 @@ describe('DbtSourceModelNode', () => {
     render(<DbtSourceModelNode {...defaultProps} />);
     await user.click(screen.getByTestId('source-model-node-node-1'));
 
+    expect(mockOpenOperationPanel).not.toHaveBeenCalled();
+  });
+
+  it('hides mutation controls and does not open create mode without the canvas lock', async () => {
+    const user = userEvent.setup();
+    mockCanInteractWithCanvas = false;
+
+    render(<DbtSourceModelNode {...defaultProps} />);
+    expect(screen.queryByTestId('delete-node-node-1')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('source-model-node-node-1'));
     expect(mockOpenOperationPanel).not.toHaveBeenCalled();
   });
 });

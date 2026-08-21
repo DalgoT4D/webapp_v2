@@ -3,12 +3,7 @@
 
 import type { Node } from 'reactflow';
 import type { CanvasNodeRenderData } from '@/types/transform';
-
-// Default node dimensions used for position calculations
-const NODE_WIDTH = 250;
-// Source/model nodes with column tables are taller than operation nodes.
-// Use a reasonable estimate that prevents overlap without excessive gaps.
-const NODE_HEIGHT = 200;
+import { getNodeDimensions } from './canvas-layout';
 
 // Minimum gap between nodes (pixels)
 const NODE_GAP = 30;
@@ -23,14 +18,12 @@ export function getNodePositionAfterDrag(
 ): { x: number; y: number } {
   let x = draggedNode.position.x;
   let y = draggedNode.position.y;
-  const draggedWidth = draggedNode.width || NODE_WIDTH;
-  const draggedHeight = draggedNode.height || NODE_HEIGHT;
+  const { width: draggedWidth, height: draggedHeight } = getNodeDimensions(draggedNode);
 
   for (const otherNode of allNodes) {
     if (otherNode.id === draggedNode.id) continue;
 
-    const otherWidth = otherNode.width || NODE_WIDTH;
-    const otherHeight = otherNode.height || NODE_HEIGHT;
+    const { width: otherWidth, height: otherHeight } = getNodeDimensions(otherNode);
 
     const xOverlap = Math.max(
       0,
@@ -63,8 +56,8 @@ export function getNodePositionAfterDrag(
 
 /**
  * After dagre calculates layout, newly added nodes may land on top of
- * existing ones (dagre uses zero-size nodes). This spreads them apart
- * by pushing new nodes below any node they collide with.
+ * existing ones. This spreads them apart by pushing new nodes below any
+ * node they collide with.
  */
 export function spreadNewNodesAfterLayout(
   nodes: Node<CanvasNodeRenderData>[],
@@ -74,12 +67,18 @@ export function spreadNewNodesAfterLayout(
     if (existingNodeIds.has(node.id)) continue; // skip existing nodes
     for (const other of nodes) {
       if (other.id === node.id) continue;
-      const dx = Math.abs(node.position.x - other.position.x);
-      const dy = Math.abs(node.position.y - other.position.y);
-      if (dx < NODE_WIDTH && dy < NODE_HEIGHT) {
+      const nodeDimensions = getNodeDimensions(node);
+      const otherDimensions = getNodeDimensions(other);
+      const xOverlap =
+        node.position.x < other.position.x + otherDimensions.width &&
+        node.position.x + nodeDimensions.width > other.position.x;
+      const yOverlap =
+        node.position.y < other.position.y + otherDimensions.height &&
+        node.position.y + nodeDimensions.height > other.position.y;
+      if (xOverlap && yOverlap) {
         node.position = {
           x: node.position.x,
-          y: other.position.y + NODE_HEIGHT + NODE_GAP,
+          y: other.position.y + otherDimensions.height + NODE_GAP,
         };
       }
     }

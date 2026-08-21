@@ -27,7 +27,8 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
 
   const edgesEmanatingOutOfNode = edges.filter((edge) => edge.source === id);
   const isLeafNode = edgesEmanatingOutOfNode.length === 0;
-  const canDelete = isLeafNode && hasPermission(PERMISSIONS.CAN_DELETE_DBT_MODEL);
+  const canEditCanvas = canInteractWithCanvas();
+  const canDelete = canEditCanvas && isLeafNode && hasPermission(PERMISSIONS.CAN_DELETE_DBT_MODEL);
 
   const schema = data?.dbtmodel?.schema || '';
   const tableName = data?.dbtmodel?.name || data?.name || 'Unknown';
@@ -56,7 +57,7 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
     setSelectedNode({ id, type, data, selected, position: { x: xPos, y: yPos } });
 
     // Only open operation panel if user has create permission
-    if (hasPermission(PERMISSIONS.CAN_CREATE_DBT_MODEL)) {
+    if (canEditCanvas && hasPermission(PERMISSIONS.CAN_CREATE_DBT_MODEL)) {
       openOperationPanel();
       dispatchCanvasAction({
         type: CanvasActionEnum.OPEN_OPCONFIG_PANEL,
@@ -82,6 +83,7 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
     openOperationPanel,
     dispatchCanvasAction,
     hasPermission,
+    canEditCanvas,
   ]);
 
   const handleDeleteClick = useCallback(
@@ -102,7 +104,7 @@ function DbtSourceModelNode({ id, type, data, selected, xPos, yPos }: DbtSourceM
         border: selected || data?.isDummy ? '2px dotted #000' : 'none',
         borderRadius: 8,
         padding: selected || data?.isDummy ? 0 : 2,
-        cursor: canInteractWithCanvas() ? 'grab' : 'pointer',
+        cursor: canEditCanvas ? 'grab' : 'pointer',
         position: 'relative',
       }}
       onClick={handleNodeClick}

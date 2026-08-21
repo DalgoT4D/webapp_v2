@@ -3,13 +3,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { apiPost, apiPut, apiDelete } from '@/lib/api';
+import { ApiError, apiPost, apiPut, apiDelete } from '@/lib/api';
 import { useTransformStore } from '@/stores/transformStore';
 import type { CanvasLockStatus } from '@/types/transform';
 
 const LOCK_ENDPOINT = '/api/transform/dbt_project/canvas/lock/';
 const LOCK_REFRESH_ENDPOINT = '/api/transform/dbt_project/canvas/lock/refresh/';
 const DEFAULT_REFRESH_INTERVAL = 30000; // 30 seconds
+const LOCK_LOST_HTTP_STATUSES = new Set([403, 404, 410, 423]);
 
 interface UseCanvasLockOptions {
   /** Auto-acquire lock on mount */
@@ -18,6 +19,22 @@ interface UseCanvasLockOptions {
   refreshInterval?: number;
   /** Callback when lock is lost */
   onLockLost?: () => void;
+}
+
+interface CanvasLockApiResponse {
+  lock_token: string;
+  expires_at: string;
+  locked_by: string;
+}
+
+function normalizeOwnedLock(status: CanvasLockApiResponse): CanvasLockStatus {
+  return {
+    locked_by: status.locked_by,
+    locked_at: null,
+    is_locked: true,
+    locked_by_current_user: true,
+    lock_id: status.lock_token,
+  };
 }
 
 interface UseCanvasLockReturn {
@@ -66,27 +83,36 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
     }
   }, []);
 
+  const transitionToLockLost = useCallback(() => {
+    if (!hasLockRef.current) return;
+
+    hasLockRef.current = false;
+    stopRefreshTimer();
+    setLockStatus(null);
+    setCanvasLockStatus(null);
+    setViewOnlyMode(true);
+    onLockLost?.();
+  }, [onLockLost, setCanvasLockStatus, setViewOnlyMode, stopRefreshTimer]);
+
   const refreshLock = useCallback(async (): Promise<CanvasLockStatus | void> => {
     try {
-      const status = (await apiPut(LOCK_REFRESH_ENDPOINT, {})) as CanvasLockStatus;
+      const apiStatus = (await apiPut(LOCK_REFRESH_ENDPOINT, {})) as CanvasLockApiResponse;
+      const status = normalizeOwnedLock(apiStatus);
+      hasLockRef.current = true;
       setLockStatus(status);
       setCanvasLockStatus(status);
-
-      // Check if we lost the lock (another user took it)
-      if (!status.locked_by_current_user && hasLockRef.current) {
-        stopRefreshTimer();
-        setViewOnlyMode(true);
-        onLockLost?.();
-      }
 
       return status;
     } catch (error) {
       console.error('Failed to refresh lock:', error);
-      // Network hiccup — don't immediately lock the user out.
-      // The server-side lock has a TTL; if refresh keeps failing,
-      // the next acquireLock or page reload will sort it out.
+
+      if (error instanceof ApiError && LOCK_LOST_HTTP_STATUSES.has(error.status)) {
+        transitionToLockLost();
+      }
+      // Network and server failures retain the local lock state so the timer
+      // can retry. The API's 403/404/410/423 responses are definitive loss.
     }
-  }, [setCanvasLockStatus, setViewOnlyMode, onLockLost, stopRefreshTimer]);
+  }, [setCanvasLockStatus, transitionToLockLost]);
 
   const startRefreshTimer = useCallback(() => {
     stopRefreshTimer();
@@ -96,7 +122,9 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
   const acquireLock = useCallback(async (): Promise<CanvasLockStatus> => {
     setIsAcquiring(true);
     try {
-      const status = (await apiPost(LOCK_ENDPOINT, {})) as CanvasLockStatus;
+      const apiStatus = (await apiPost(LOCK_ENDPOINT, {})) as CanvasLockApiResponse;
+      const status = normalizeOwnedLock(apiStatus);
+      hasLockRef.current = true;
       setLockStatus(status);
       setCanvasLockStatus(status);
 
@@ -128,6 +156,7 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
             locked_by_current_user: false,
             lock_id: null,
           };
+          hasLockRef.current = false;
           setLockStatus(lockedStatus);
           setCanvasLockStatus(lockedStatus);
           setViewOnlyMode(true);
@@ -143,20 +172,23 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
 
   const releaseLock = useCallback(async (): Promise<void> => {
     stopRefreshTimer();
+    hasLockRef.current = false;
     setIsReleasing(true);
     try {
       await apiDelete(LOCK_ENDPOINT);
       setLockStatus(null);
       setCanvasLockStatus(null);
+      setViewOnlyMode(true);
     } catch (error) {
       console.error('Failed to release lock:', error);
       // Still clear local state even if API fails
       setLockStatus(null);
       setCanvasLockStatus(null);
+      setViewOnlyMode(true);
     } finally {
       setIsReleasing(false);
     }
-  }, [setCanvasLockStatus, stopRefreshTimer]);
+  }, [setCanvasLockStatus, setViewOnlyMode, stopRefreshTimer]);
 
   // Auto-acquire on mount
   useEffect(() => {
@@ -191,8 +223,9 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
         stopRefreshTimer();
       } else if (hasLockRef.current) {
         // Page visible again, resume refresh
-        refreshLock();
-        startRefreshTimer();
+        void refreshLock().finally(() => {
+          if (hasLockRef.current) startRefreshTimer();
+        });
       }
     };
 
@@ -209,8 +242,9 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
   useEffect(() => {
     if (prevPathnameRef.current !== pathname && hasLockRef.current) {
       // User navigated away via SPA routing — release lock
+      hasLockRef.current = false;
       stopRefreshTimer();
-      apiDelete(LOCK_ENDPOINT).catch(() => {});
+      apiDelete(LOCK_ENDPOINT).catch((): void => undefined);
     }
     prevPathnameRef.current = pathname;
   }, [pathname, stopRefreshTimer]);
@@ -222,7 +256,7 @@ export function useCanvasLock(options: UseCanvasLockOptions = {}): UseCanvasLock
       // Use sendBeacon with a POST to a release endpoint for reliable delivery on unload
       // Fallback: stopping refresh timer causes lock to expire server-side
       try {
-        apiDelete(LOCK_ENDPOINT).catch(() => {});
+        apiDelete(LOCK_ENDPOINT).catch((): void => undefined);
       } catch {
         // Best-effort cleanup
       }
