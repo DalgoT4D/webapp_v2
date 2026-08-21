@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { SendHorizonal, MessageSquareText } from 'lucide-react';
+import { SendHorizonal, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -55,7 +55,7 @@ export function ChatPane({
             className="flex h-full flex-col items-center justify-center gap-2 text-center"
             data-testid="chat-empty-state"
           >
-            <MessageSquareText className="h-10 w-10 text-muted-foreground/50" />
+            <Sparkles className="h-10 w-10 text-primary/60" />
             <p className="font-medium">Ask a question about your data</p>
             <p className="max-w-sm text-sm text-muted-foreground">
               For example: &ldquo;How many surveys did we complete last month?&rdquo; or

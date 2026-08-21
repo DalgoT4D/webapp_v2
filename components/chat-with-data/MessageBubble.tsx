@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BarChart3, LayoutDashboard, AlertTriangle } from 'lucide-react';
+import { BarChart3, LayoutDashboard, AlertTriangle, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolProgress } from './ToolProgress';
 import { ResultTable } from './ResultTable';
@@ -19,9 +19,17 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
 
   return (
     <div
-      className={cn('flex w-full', isUser ? 'justify-end' : 'justify-start')}
+      className={cn('flex w-full gap-2', isUser ? 'justify-end' : 'justify-start')}
       data-testid={`chat-message-${message.id}`}
     >
+      {!isUser && (
+        <div
+          className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10"
+          aria-hidden="true"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-primary" />
+        </div>
+      )}
       <div className={cn('max-w-[85%]', isUser && 'rounded-2xl bg-primary/10 px-4 py-2')}>
         {!isUser && <ToolProgress tools={message.tools} />}
 

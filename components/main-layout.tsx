@@ -19,7 +19,7 @@ import {
   Home,
   LayoutDashboard,
   ChartBarBig,
-  MessageSquareText,
+  Sparkles,
   ChevronLeft,
   ChevronRight,
   Info,
@@ -135,7 +135,7 @@ export const getNavItems = (
     {
       title: 'Dalgo Copilot',
       href: '/chat-with-data',
-      icon: MessageSquareText,
+      icon: Sparkles,
       isActive: currentPath.startsWith('/chat-with-data'),
       hide: !isFeatureFlagEnabled(FeatureFlagKeys.CHAT_WITH_DATA) || !canUseChatWithData,
     },
