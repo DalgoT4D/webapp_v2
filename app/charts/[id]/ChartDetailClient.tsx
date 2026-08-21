@@ -31,8 +31,8 @@ import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import type { ChartDataPayload } from '@/types/charts';
 import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
-import { useDebounce } from '@/hooks/useDebounce';
-import { TABLE_SEARCH_DEBOUNCE_MS } from '@/constants/chart-types';
+import { useViewerSort } from '@/hooks/useViewerSort';
+import { useViewerSearch } from '@/hooks/useViewerSearch';
 import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import type * as echarts from 'echarts';
 
@@ -77,23 +77,6 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const [tableChartPage, setTableChartPage] = useState(1);
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
 
-  // Viewer's column-header sort click — session-only, never persisted to the chart's
-  // saved config. Overrides chart.extra_config.sort in the query payload below, so the
-  // backend does the actual ORDER BY and server-side pagination keeps working per page.
-  const [viewerSort, setViewerSort] = useState<{
-    column: string;
-    direction: 'asc' | 'desc';
-  } | null>(null);
-
-  // Viewer's search-box text — same session-only override pattern as viewerSort.
-  // Debounced so typing doesn't refetch on every keystroke; resets to page 1 once
-  // the debounced term actually changes (see the effect below).
-  const [viewerSearch, setViewerSearch] = useState('');
-  const debouncedViewerSearch = useDebounce(viewerSearch, TABLE_SEARCH_DEBOUNCE_MS);
-  useEffect(() => {
-    setTableChartPage(1);
-  }, [debouncedViewerSearch]);
-
   // ✅ ADD: Drill-down state management for table charts
   const [tableDrillDownState, setTableDrillDownState] = useState<{
     currentLevel: number; // 0 = first dimension, 1 = second dimension, etc.
@@ -118,6 +101,14 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
 
   // Fetch regions data for dynamic geojson lookup (for Indian maps)
   const { data: regions } = useRegions('IND', 'state');
+
+  const { effectiveSort, handleTableSort, clearSortIfColumnMissing } = useViewerSort({
+    savedSort: chart?.extra_config?.sort,
+    setPage: setTableChartPage,
+  });
+  const { searchQuery, debouncedSearch, onSearchChange } = useViewerSearch({
+    setPage: setTableChartPage,
+  });
 
   // Build payload for chart data - use useMemo to update when drill-down state changes
   const chartDataPayload: ChartDataPayload | null = useMemo(
@@ -208,14 +199,14 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   : []),
               ],
               pagination: chart.extra_config?.pagination,
-              sort: viewerSort ? [viewerSort] : chart.extra_config?.sort,
-              search: debouncedViewerSearch || undefined,
+              sort: effectiveSort,
+              search: debouncedSearch || undefined,
               time_grain: chart.extra_config?.time_grain,
               table_columns: chart.extra_config?.table_columns,
             },
           }
         : null,
-    [chart, tableDrillDownState, viewerSort, debouncedViewerSearch]
+    [chart, tableDrillDownState, effectiveSort, debouncedSearch]
   );
 
   // For non-map charts (including tables), use the standard chart data hook
@@ -226,8 +217,8 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   } = useChartData(chart?.chart_type !== 'map' ? chartDataPayload : null);
 
   // For table charts, use data preview API with server-side pagination — `chartDataPayload`
-  // already carries `viewerSort` (see above), so clicking a header re-fetches this with the
-  // new sort applied, and subsequent pages continue in that same sorted order.
+  // already carries the effective sort (from useViewerSort above), so clicking a header
+  // re-fetches this with the new sort applied, and subsequent pages stay in that order.
   const {
     data: tableData,
     error: tableError,
@@ -243,17 +234,16 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     chart?.chart_type === 'table' ? chartDataPayload : null
   );
 
+  // Clear a stale sort once we see the actual returned columns (dimensions + metrics)
+  // — covers both drill-down level changes and dimension/metric reconfiguration.
+  useEffect(() => {
+    clearSortIfColumnMissing(tableData?.columns);
+  }, [tableData?.columns, clearSortIfColumnMissing]);
+
   // Handler for table page size change
   const handleTableChartPageSizeChange = useCallback((newPageSize: number) => {
     setTableChartPageSize(newPageSize);
     setTableChartPage(1); // Reset to first page when page size changes
-  }, []);
-
-  // Handle column-header sort clicks — updates viewerSort, which flows into
-  // chartDataPayload.extra_config.sort above and re-fetches page 1 server-side.
-  const handleTableSort = useCallback((column: string, direction: 'asc' | 'desc' | null) => {
-    setViewerSort(direction ? { column, direction } : null);
-    setTableChartPage(1);
   }, []);
 
   // Handle table row click for drill-down
@@ -958,7 +948,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                         column_formatting: mergeTableColumnFormatting(
                           chart.extra_config?.customizations
                         ),
-                        sort: viewerSort ? [viewerSort] : chart.extra_config?.sort || [],
+                        sort: effectiveSort || [],
                         pagination: chart.extra_config?.pagination || {
                           enabled: true,
                           page_size: 20,
@@ -985,8 +975,8 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                           : undefined
                       }
                       onSort={handleTableSort}
-                      searchQuery={viewerSearch}
-                      onSearchChange={setViewerSearch}
+                      searchQuery={searchQuery}
+                      onSearchChange={onSearchChange}
                       onRowClick={handleTableRowClick}
                       drillDownEnabled={chart.extra_config?.dimensions?.some(
                         (dim: any) => dim.enable_drill_down === true

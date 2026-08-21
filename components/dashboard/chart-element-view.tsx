@@ -62,8 +62,8 @@ import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ChartTypes, type ChartDataPayload, type ChartDimension } from '@/types/charts';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
-import { useDebounce } from '@/hooks/useDebounce';
-import { TABLE_SEARCH_DEBOUNCE_MS } from '@/constants/chart-types';
+import { useViewerSort } from '@/hooks/useViewerSort';
+import { useViewerSearch } from '@/hooks/useViewerSearch';
 import { ChartExporter, generateFilename, BrandingOptions } from '@/lib/chart-export';
 import { apiPostBinary } from '@/lib/api';
 import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
@@ -185,25 +185,6 @@ export function ChartElementView({
   // Table pagination state
   const [tablePage, setTablePage] = useState(1);
   const [tablePageSize, setTablePageSize] = useState(20);
-
-  // Viewer's column-header sort click — session-only, never persisted to the chart's
-  // saved config. Overrides it in chartDataPayload.extra_config.sort below, so the
-  // backend does the actual ORDER BY (works for authenticated + public dashboard view;
-  // Reports fetch table data via a separate payload-less GET and are out of scope here).
-  const [viewerSort, setViewerSort] = useState<{
-    column: string;
-    direction: 'asc' | 'desc';
-  } | null>(null);
-
-  // Viewer's search-box text — same session-only override pattern as viewerSort.
-  // Debounced so typing doesn't refetch on every keystroke; resets to page 1 once
-  // the debounced term actually changes (see the effect below). Reports (frozen,
-  // payload-less GET) are out of scope, same as sort.
-  const [viewerSearch, setViewerSearch] = useState('');
-  const debouncedViewerSearch = useDebounce(viewerSearch, TABLE_SEARCH_DEBOUNCE_MS);
-  useEffect(() => {
-    setTablePage(1);
-  }, [debouncedViewerSearch]);
 
   // ✅ ADD: Drill-down state management for table charts
   const [tableDrillDownState, setTableDrillDownState] = useState<{
@@ -387,6 +368,15 @@ export function ChartElementView({
       ? effectiveChart.extra_config.layers[currentLevel]
       : null;
 
+  const { effectiveSort, handleTableSort, clearSortIfColumnMissing } = useViewerSort({
+    savedSort: effectiveChart?.extra_config?.sort,
+    setPage: setTablePage,
+  });
+  // Reports (frozen, payload-less GET) are out of scope for the search box, same as sort.
+  const { searchQuery, debouncedSearch, onSearchChange } = useViewerSearch({
+    setPage: setTablePage,
+  });
+
   // Build chartDataPayload for ALL chart types (for CSV export and table data) - use useMemo to update when drill-down state changes
   const chartDataPayload: ChartDataPayload | null = useMemo(
     () =>
@@ -411,7 +401,7 @@ export function ChartElementView({
                 : effectiveChart.extra_config?.aggregate_column,
             aggregate_func: effectiveChart.extra_config?.aggregate_function || 'sum',
             extra_dimension: effectiveChart.extra_config?.extra_dimension_column,
-            // ✅ FIX: Include dimensions array for table charts with drill-down support
+            // Include dimensions array for table charts with drill-down support
             ...(effectiveChart.chart_type === ChartTypes.TABLE && {
               dimensions: (() => {
                 const isDrillDownEnabled = effectiveChart.extra_config?.dimensions?.some(
@@ -476,8 +466,8 @@ export function ChartElementView({
                   : []),
               ],
               pagination: effectiveChart.extra_config?.pagination,
-              sort: viewerSort ? [viewerSort] : effectiveChart.extra_config?.sort,
-              search: debouncedViewerSearch || undefined,
+              sort: effectiveSort,
+              search: debouncedSearch || undefined,
             },
             // Dashboard filters are sent via the `dashboard_filters` query
             // string and resolved server-side (same as the chart-data and
@@ -489,8 +479,8 @@ export function ChartElementView({
       tableDrillDownState,
       resolvedDashboardFilters,
       dashboardFilters,
-      viewerSort,
-      debouncedViewerSearch,
+      effectiveSort,
+      debouncedSearch,
     ]
   );
 
@@ -655,13 +645,6 @@ export function ChartElementView({
     setTablePage(1); // Reset to first page when page size changes
   };
 
-  // Handle column-header sort clicks — updates viewerSort, which flows into
-  // chartDataPayload.extra_config.sort above and re-fetches page 1 server-side.
-  const handleTableSort = useCallback((column: string, direction: 'asc' | 'desc' | null) => {
-    setViewerSort(direction ? { column, direction } : null);
-    setTablePage(1);
-  }, []);
-
   // Handle table row click for drill-down
   const handleTableRowClick = useCallback(
     (rowData: Record<string, any>, columnName: string) => {
@@ -761,6 +744,13 @@ export function ChartElementView({
   const tableData = isPublicMode ? publicTableData : privateTableData;
   const tableError = isPublicMode ? publicTableError : privateTableError;
   const tableLoading = isPublicMode ? publicTableLoading : privateTableLoading;
+
+  // Clear a stale sort once we see the actual returned columns (dimensions + metrics)
+  // — covers both drill-down level changes and dimension/metric reconfiguration.
+  // Works the same for private and public dashboard modes since tableData is unified above.
+  useEffect(() => {
+    clearSortIfColumnMissing(tableData?.columns);
+  }, [tableData?.columns, clearSortIfColumnMissing]);
 
   // Get the current drill-down region ID for dynamic geojson fetching
   const currentDrillDownRegionId =
@@ -1988,7 +1978,7 @@ export function ChartElementView({
                 column_formatting: mergeTableColumnFormatting(
                   effectiveChart?.extra_config?.customizations
                 ),
-                sort: viewerSort ? [viewerSort] : effectiveChart?.extra_config?.sort || [],
+                sort: effectiveSort || [],
                 pagination: effectiveChart?.extra_config?.pagination || {
                   enabled: true,
                   page_size: 20,
@@ -2018,8 +2008,8 @@ export function ChartElementView({
               // Reports fetch table data via a frozen, payload-less GET (no way to inject
               // a sort override), so headers stay non-interactive there.
               onSort={isPublicReport ? undefined : handleTableSort}
-              searchQuery={viewerSearch}
-              onSearchChange={isPublicReport ? undefined : setViewerSearch}
+              searchQuery={searchQuery}
+              onSearchChange={isPublicReport ? undefined : onSearchChange}
               onRowClick={handleTableRowClick}
               drillDownEnabled={effectiveChart?.extra_config?.dimensions?.some(
                 (dim: ChartDimension) => dim.enable_drill_down === true

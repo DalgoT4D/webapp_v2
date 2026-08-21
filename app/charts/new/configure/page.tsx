@@ -39,8 +39,8 @@ import {
 } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
-import { useDebounce } from '@/hooks/useDebounce';
-import { TABLE_SEARCH_DEBOUNCE_MS } from '@/constants/chart-types';
+import { useViewerSort } from '@/hooks/useViewerSort';
+import { useViewerSearch } from '@/hooks/useViewerSearch';
 import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import {
   getApiCustomizations,
@@ -187,23 +187,6 @@ function ConfigureChartPageContent() {
   const [rawDataPageSize, setRawDataPageSize] = useState(20);
   const [tableChartPage, setTableChartPage] = useState(1);
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
-
-  // Viewer's column-header sort click — session-only, never persisted to formData.sort
-  // (which is what gets saved on Save). Overrides it in the query payload below, so the
-  // backend does the actual ORDER BY and server-side pagination keeps working per page.
-  const [viewerSort, setViewerSort] = useState<{
-    column: string;
-    direction: 'asc' | 'desc';
-  } | null>(null);
-
-  // Viewer's search-box text — same session-only override pattern as viewerSort.
-  // Debounced so typing doesn't refetch on every keystroke; resets to page 1 once
-  // the debounced term actually changes (see the effect below).
-  const [viewerSearch, setViewerSearch] = useState('');
-  const debouncedViewerSearch = useDebounce(viewerSearch, TABLE_SEARCH_DEBOUNCE_MS);
-  useEffect(() => {
-    setTableChartPage(1);
-  }, [debouncedViewerSearch]);
 
   // Unsaved changes detection state
   const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
@@ -362,6 +345,14 @@ function ConfigureChartPageContent() {
     }
   };
 
+  const { effectiveSort, handleTableSort, clearSortIfColumnMissing } = useViewerSort({
+    savedSort: formData.sort,
+    setPage: setTableChartPage,
+  });
+  const { searchQuery, debouncedSearch, onSearchChange } = useViewerSearch({
+    setPage: setTableChartPage,
+  });
+
   // Build payload for chart data - memoized to prevent infinite re-render loops
   const chartDataPayload: ChartDataPayload | null = useMemo(
     () =>
@@ -451,8 +442,8 @@ function ConfigureChartPageContent() {
                   : []),
               ],
               pagination: formData.pagination,
-              sort: viewerSort ? [viewerSort] : formData.sort,
-              search: debouncedViewerSearch || undefined,
+              sort: effectiveSort,
+              search: debouncedSearch || undefined,
               time_grain: formData.time_grain,
             },
           }
@@ -482,8 +473,8 @@ function ConfigureChartPageContent() {
       formData.time_grain,
       formData.extra_config,
       tableDrillDownState,
-      viewerSort,
-      debouncedViewerSearch,
+      effectiveSort,
+      debouncedSearch,
     ]
   );
 
@@ -607,6 +598,12 @@ function ConfigureChartPageContent() {
     tableChartPage,
     tableChartPageSize
   );
+
+  // Clear a stale sort once we see the actual returned columns (dimensions + metrics)
+  // — covers both drill-down level changes and dimension/metric reconfiguration.
+  useEffect(() => {
+    clearSortIfColumnMissing(tableChartData?.columns);
+  }, [tableChartData?.columns, clearSortIfColumnMissing]);
 
   // Fetch total rows for table chart pagination
   const { data: tableChartDataTotalRows } = useChartDataPreviewTotalRows(
@@ -733,13 +730,6 @@ function ConfigureChartPageContent() {
     setTableChartPageSize(newPageSize);
     setTableChartPage(1); // Reset to first page when page size changes
   };
-
-  // Handle column-header sort clicks — updates viewerSort, which flows into
-  // chartDataPayload.extra_config.sort above and re-fetches page 1 server-side.
-  const handleTableSort = useCallback((column: string, direction: 'asc' | 'desc' | null) => {
-    setViewerSort(direction ? { column, direction } : null);
-    setTableChartPage(1);
-  }, []);
 
   // Handle table row click for drill-down
   const handleTableRowClick = useCallback(
@@ -1316,7 +1306,7 @@ function ConfigureChartPageContent() {
                               });
                             })(),
                             column_formatting: mergeTableColumnFormatting(formData.customizations),
-                            sort: viewerSort ? [viewerSort] : formData.sort || [],
+                            sort: effectiveSort || [],
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
                             conditionalFormatting:
                               formData.customizations?.conditionalFormatting || [],
@@ -1335,8 +1325,8 @@ function ConfigureChartPageContent() {
                             onPageSizeChange: handleTableChartPageSizeChange,
                           }}
                           onSort={handleTableSort}
-                          searchQuery={viewerSearch}
-                          onSearchChange={setViewerSearch}
+                          searchQuery={searchQuery}
+                          onSearchChange={onSearchChange}
                           onRowClick={handleTableRowClick}
                           drillDownEnabled={formData.dimensions?.some(
                             (dim) => dim.enable_drill_down === true

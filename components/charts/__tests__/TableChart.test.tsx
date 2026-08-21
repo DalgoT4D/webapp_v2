@@ -184,7 +184,12 @@ describe('TableChart', () => {
       expect(screen.getByText('name').closest('button')).not.toBeInTheDocument();
     });
 
-    it('cycles the click state per column: 1st click asc, 2nd desc, 3rd clears to null', async () => {
+    it('reports only the clicked column — the parent owns the asc/desc/clear cycle', async () => {
+      // TableChart used to compute the next direction itself from `config.sort`,
+      // which can't distinguish a session override from the chart's saved default
+      // and got permanently stuck once the two coincided (see useViewerSort). It
+      // now just relays which column was clicked; nothing here should depend on
+      // what `config.sort` currently shows.
       const onSort = jest.fn();
       const user = userEvent.setup();
       const { rerender } = render(
@@ -195,20 +200,10 @@ describe('TableChart', () => {
       expect(nameHeader).toHaveAttribute('data-testid', 'table-column-sort-name');
 
       await user.click(nameHeader);
-      expect(onSort).toHaveBeenLastCalledWith('name', 'asc');
+      expect(onSort).toHaveBeenLastCalledWith('name');
 
-      // The parent is the source of truth for `sort` — simulate it applying the
-      // new sort and re-rendering with the result, as it would in production.
-      rerender(
-        <TableChart
-          data={mockData}
-          config={{ ...defaultConfig, sort: [{ column: 'name', direction: 'asc' }] }}
-          onSort={onSort}
-        />
-      );
-      await user.click(nameHeader);
-      expect(onSort).toHaveBeenLastCalledWith('name', 'desc');
-
+      // Even if `config.sort` already shows this column as desc (e.g. from a saved
+      // default the parent hasn't overridden), a click still just reports 'name'.
       rerender(
         <TableChart
           data={mockData}
@@ -217,7 +212,7 @@ describe('TableChart', () => {
         />
       );
       await user.click(nameHeader);
-      expect(onSort).toHaveBeenLastCalledWith('name', null);
+      expect(onSort).toHaveBeenLastCalledWith('name');
     });
 
     it('never reorders rows itself — sorting is the parent’s responsibility', async () => {
@@ -234,7 +229,7 @@ describe('TableChart', () => {
         .slice(1)
         .map((row) => row.textContent?.trim());
       expect(visibleNames).toEqual(['Bob', 'Zoe', 'Amy']);
-      expect(onSort).toHaveBeenCalledWith('name', 'asc');
+      expect(onSort).toHaveBeenCalledWith('name');
     });
 
     it('shows both direction icons unfilled when unsorted', () => {

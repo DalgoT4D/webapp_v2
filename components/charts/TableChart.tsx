@@ -81,10 +81,12 @@ interface TableChartProps {
     freezeFirstColumn?: boolean;
     theme?: string;
   };
-  // direction is null on the 3rd click (clears back to the chart's default order).
-  // The parent owns the actual sort — it re-fetches with the new sort applied
-  // server-side and passes the already-sorted `data` + updated `config.sort` back down.
-  onSort?: (column: string, direction: 'asc' | 'desc' | null) => void;
+  // Reports a header click only — the parent owns the entire asc/desc/clear cycle
+  // decision (it's the only one who knows whether the shown direction is a session
+  // override or the chart's saved default; this component can't tell them apart).
+  // It re-fetches with the new sort applied server-side and passes the
+  // already-sorted `data` + updated `config.sort` back down.
+  onSort?: (column: string) => void;
   isLoading?: boolean;
   error?: any;
   pagination?: {
@@ -335,13 +337,10 @@ export function TableChart({
   // applied server-side), so the arrow just mirrors it — no local sort state here.
   const getSortDirection = (column: string) => sort.find((s) => s.column === column)?.direction;
 
-  // Click cycle per column: 1st click → asc, 2nd → desc, 3rd → clear (back to default
-  // order). The parent owns re-fetching with the new sort and resetting to page 1.
+  // Just relay the click — the parent decides asc/desc/clear (see the onSort prop
+  // comment above for why that decision can't be made from `sort` here).
   const handleSort = (column: string) => {
-    if (!onSort) return;
-    const current = getSortDirection(column);
-    const next = current === 'asc' ? 'desc' : current === 'desc' ? null : 'asc';
-    onSort(column, next);
+    onSort?.(column);
   };
 
   // Search bar — only when the parent wires onSearchChange (it owns re-fetching
