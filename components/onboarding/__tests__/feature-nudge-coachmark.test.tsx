@@ -183,13 +183,13 @@ describe('FeatureNudgeCoachmark', () => {
     render(<FeatureNudgeCoachmark suppressed={false} walkthroughState={NOT_DISMISSED} />);
     await waitFor(() => expect(dismissButton()).not.toBeNull());
 
-    expect(mockTrackEvent).toHaveBeenCalledWith('onboarding:feature_nudge_viewed', {
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial_onboarding:feature_nudge_viewed', {
       nudge: 'reports_nudge',
     });
 
     await userEvent.click(dismissButton()!);
 
-    expect(mockTrackEvent).toHaveBeenCalledWith('onboarding:feature_nudge_dismissed', {
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial_onboarding:feature_nudge_dismissed', {
       nudge: 'reports_nudge',
     });
   });

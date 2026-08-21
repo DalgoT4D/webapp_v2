@@ -91,7 +91,7 @@ describe('nudge view', () => {
     await waitFor(() =>
       expect(screen.getByTestId(`trial-nudge-${daysLeft}d-modal`)).toBeInTheDocument()
     );
-    expect(mockTrackEvent).toHaveBeenCalledWith('trial:nudge_viewed', { day: daysLeft });
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial_onboarding:nudge_viewed', { day: daysLeft });
   });
 
   it('reports the view once, not on every re-render', async () => {
@@ -102,14 +102,14 @@ describe('nudge view', () => {
     rerender(<TrialDayNudgeModal />);
     rerender(<TrialDayNudgeModal />);
 
-    expect(callsFor('trial:nudge_viewed')).toHaveLength(1);
+    expect(callsFor('trial_onboarding:nudge_viewed')).toHaveLength(1);
   });
 
   it('reports nothing on a day with no nudge due', async () => {
     setTrialOrg(5);
     render(<TrialDayNudgeModal />);
     await waitFor(() => expect(screen.queryByTestId('trial-nudge-5d-modal')).toBeNull());
-    expect(callsFor('trial:nudge_viewed')).toHaveLength(0);
+    expect(callsFor('trial_onboarding:nudge_viewed')).toHaveLength(0);
   });
 
   it('reports nothing for an already-dismissed day', async () => {
@@ -117,7 +117,7 @@ describe('nudge view', () => {
     sessionStorage.setItem(`dalgo_trial_day_nudge_dismissed_1_${ORG_SLUG}`, '1');
     render(<TrialDayNudgeModal />);
     await waitFor(() => expect(screen.queryByTestId('trial-nudge-1d-modal')).toBeNull());
-    expect(callsFor('trial:nudge_viewed')).toHaveLength(0);
+    expect(callsFor('trial_onboarding:nudge_viewed')).toHaveLength(0);
   });
 });
 
@@ -130,7 +130,7 @@ describe('nudge dismissal', () => {
     await userEvent.keyboard('{Escape}');
 
     await waitFor(() =>
-      expect(mockTrackEvent).toHaveBeenCalledWith('trial:nudge_dismissed', {
+      expect(mockTrackEvent).toHaveBeenCalledWith('trial_onboarding:nudge_dismissed', {
         day: 2,
         choice: 'close',
       })
@@ -144,7 +144,7 @@ describe('nudge dismissal', () => {
 
     await userEvent.click(screen.getByTestId('trial-nudge-2d-modal-cta'));
 
-    expect(mockTrackEvent).toHaveBeenCalledWith('trial:nudge_dismissed', {
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial_onboarding:nudge_dismissed', {
       day: 2,
       choice: 'cta',
     });
@@ -157,7 +157,7 @@ describe('nudge dismissal', () => {
 
     await userEvent.click(screen.getByTestId('trial-nudge-7d-modal-cta'));
 
-    expect(callsFor('trial:nudge_dismissed')).toHaveLength(1);
+    expect(callsFor('trial_onboarding:nudge_dismissed')).toHaveLength(1);
   });
 });
 
@@ -187,7 +187,7 @@ describe('subscribe abandonment', () => {
 
     await userEvent.click(screen.getByTestId('subscription-cancel-button'));
 
-    expect(mockTrackEvent).toHaveBeenCalledWith('trial:subscription_request_abandoned', {
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial_onboarding:subscription_request_abandoned', {
       days_left: 2,
       source: SUBSCRIPTION_REQUEST_SOURCES.TRIAL_NUDGE,
     });
@@ -207,6 +207,6 @@ describe('subscribe abandonment', () => {
     // Closing the success screen is not an abandonment.
     await userEvent.keyboard('{Escape}');
 
-    expect(callsFor('trial:subscription_request_abandoned')).toHaveLength(0);
+    expect(callsFor('trial_onboarding:subscription_request_abandoned')).toHaveLength(0);
   });
 });

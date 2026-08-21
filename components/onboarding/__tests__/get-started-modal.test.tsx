@@ -34,7 +34,7 @@ describe('GetStartedModal', () => {
     expect(screen.getByTestId('get-started-option-pipeline')).toBeInTheDocument();
     expect(screen.queryByTestId('get-started-option-sample')).not.toBeInTheDocument();
     expect(screen.getByTestId('get-started-modal-illustration-pane')).toHaveClass('p-4');
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:post_tour_modal_viewed', {
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:post_tour_modal_viewed', {
       entry: 'post_tour',
     });
   });
@@ -64,7 +64,7 @@ describe('GetStartedModal', () => {
     expect(handlers.onScreenChange).toHaveBeenCalledWith('insight');
     expect(screen.getByTestId('get-started-option-sample')).toBeInTheDocument();
     expect(screen.getByTestId('get-started-option-own-data')).toBeInTheDocument();
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:insight_fork_modal_viewed', {
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:insight_fork_modal_viewed', {
       entry: 'post_tour',
     });
   });
@@ -92,7 +92,7 @@ describe('GetStartedModal', () => {
 
     expect(screen.getByTestId('get-started-option-sample')).toBeInTheDocument();
     expect(screen.queryByTestId('get-started-back-btn')).not.toBeInTheDocument();
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:insight_fork_modal_viewed', {
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:insight_fork_modal_viewed', {
       entry: 'widget',
     });
   });
@@ -106,10 +106,10 @@ describe('GetStartedModal', () => {
     expect(handlers.onSelectSample).toHaveBeenCalledTimes(1);
     expect(handlers.onSelectOwnData).not.toHaveBeenCalled();
     expect(handlers.onOpenChange).toHaveBeenCalledWith(false);
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:insight_fork_chosen', {
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:insight_fork_chosen', {
       choice: 'sample',
     });
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:insight_fork_modal_dismissed', {
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:insight_fork_modal_dismissed', {
       choice: 'sample',
       entry: 'widget',
     });
@@ -123,10 +123,10 @@ describe('GetStartedModal', () => {
 
     expect(handlers.onSelectOwnData).toHaveBeenCalledTimes(1);
     expect(handlers.onSelectSample).not.toHaveBeenCalled();
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:insight_fork_chosen', {
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:insight_fork_chosen', {
       choice: 'own_data',
     });
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:insight_fork_modal_dismissed', {
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:insight_fork_modal_dismissed', {
       choice: 'own_data',
       entry: 'widget',
     });
@@ -140,7 +140,7 @@ describe('GetStartedModal', () => {
 
     expect(handlers.onSelectPipeline).toHaveBeenCalledTimes(1);
     expect(handlers.onOpenChange).toHaveBeenCalledWith(false);
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:post_tour_modal_dismissed', {
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:post_tour_modal_dismissed', {
       choice: 'pipeline',
       entry: 'post_tour',
     });
@@ -157,12 +157,12 @@ describe('GetStartedModal', () => {
     expect(handlers.onSelectOwnData).not.toHaveBeenCalled();
     // The FORK screen was the one on show, so its own dismissal is what fires — not the
     // choice screen's, which this entry point never rendered.
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:insight_fork_modal_dismissed', {
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:insight_fork_modal_dismissed', {
       choice: 'close',
       entry: 'widget',
     });
     expect(trackEvent).not.toHaveBeenCalledWith(
-      'onboarding:post_tour_modal_dismissed',
+      'trial_onboarding:post_tour_modal_dismissed',
       expect.anything()
     );
   });
@@ -178,8 +178,8 @@ describe('GetStartedModal', () => {
       String(event).endsWith('_modal_dismissed')
     );
     expect(dismissals).toEqual([
-      ['onboarding:post_tour_modal_dismissed', { choice: 'insight', entry: 'post_tour' }],
-      ['onboarding:insight_fork_modal_dismissed', { choice: 'close', entry: 'post_tour' }],
+      ['trial_onboarding:post_tour_modal_dismissed', { choice: 'insight', entry: 'post_tour' }],
+      ['trial_onboarding:insight_fork_modal_dismissed', { choice: 'close', entry: 'post_tour' }],
     ]);
   });
 
@@ -194,11 +194,11 @@ describe('GetStartedModal', () => {
       /_modal_(viewed|dismissed)$/.test(String(event))
     );
     expect(lifecycle).toEqual([
-      ['onboarding:post_tour_modal_viewed', { entry: 'post_tour' }],
-      ['onboarding:post_tour_modal_dismissed', { choice: 'insight', entry: 'post_tour' }],
-      ['onboarding:insight_fork_modal_viewed', { entry: 'post_tour' }],
-      ['onboarding:insight_fork_modal_dismissed', { choice: 'back', entry: 'post_tour' }],
-      ['onboarding:post_tour_modal_viewed', { entry: 'post_tour' }],
+      ['trial_onboarding:post_tour_modal_viewed', { entry: 'post_tour' }],
+      ['trial_onboarding:post_tour_modal_dismissed', { choice: 'insight', entry: 'post_tour' }],
+      ['trial_onboarding:insight_fork_modal_viewed', { entry: 'post_tour' }],
+      ['trial_onboarding:insight_fork_modal_dismissed', { choice: 'back', entry: 'post_tour' }],
+      ['trial_onboarding:post_tour_modal_viewed', { entry: 'post_tour' }],
     ]);
   });
 });
