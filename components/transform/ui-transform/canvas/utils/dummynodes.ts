@@ -1,7 +1,11 @@
 // components/transform/canvas/utils/dummynodes.ts
 
 import type { Node } from 'reactflow';
-import type { CanvasNodeRenderData, CanvasNodeTypeEnum } from '@/types/transform';
+import type {
+  AnyOperationConfig,
+  CanvasNodeRenderData,
+  CanvasNodeTypeEnum,
+} from '@/types/transform';
 
 interface GenerateDummySrcModelNodeParams {
   schema: string;
@@ -35,9 +39,10 @@ export function generateDummySrcModelNode({
       output_columns: outputColumns,
       node_type: type as CanvasNodeTypeEnum,
       dbtmodel: { schema, name } as CanvasNodeRenderData['dbtmodel'],
-      operation_config: { type: '', config: {} },
+      operation_config: { type: '', config: {} as AnyOperationConfig },
       is_last_in_chain: false,
       isPublished: null,
+      position: null,
       isDummy: true,
     },
   };

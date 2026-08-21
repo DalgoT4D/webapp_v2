@@ -1,19 +1,20 @@
 // components/transform/canvas/__tests__/canvas-mock-data.ts
 // Mock data factories for Transform Canvas tests
 
-import type {
-  DbtModelResponse,
-  CanvasNodeDataResponse,
-  CanvasEdgeDataResponse,
-  DbtProjectGraphResponse,
-  CanvasLockStatus,
-  TaskProgressLog,
-  ColumnData,
-  UIOperationType,
-  GenericNode,
-  GenericEdge,
+import {
+  CanvasNodeTypeEnum,
+  type AnyOperationConfig,
+  type CanvasEdgeDataResponse,
+  type CanvasLockStatus,
+  type CanvasNodeDataResponse,
+  type ColumnData,
+  type DbtModelResponse,
+  type DbtProjectGraphResponse,
+  type GenericEdge,
+  type GenericNode,
+  type TaskProgressLog,
+  type UIOperationType,
 } from '@/types/transform';
-import { CanvasNodeTypeEnum } from '@/types/transform';
 import { TableType } from '@/constants/explore';
 import { TaskProgressStatus } from '@/constants/pipeline';
 
@@ -80,9 +81,10 @@ export function createMockCanvasNode(
     output_columns: ['id', 'name', 'value'],
     node_type: CanvasNodeTypeEnum.Model,
     dbtmodel: createMockDbtModel({ uuid }),
-    operation_config: { type: '', config: {} },
+    operation_config: { type: '', config: {} as AnyOperationConfig },
     is_last_in_chain: false,
     isPublished: true,
+    position: null,
     seq: 0,
     ...overrides,
   };
@@ -106,7 +108,7 @@ export function createMockOperationNode(
   return createMockCanvasNode({
     node_type: CanvasNodeTypeEnum.Operation,
     dbtmodel: null,
-    operation_config: { type: opType, config },
+    operation_config: { type: opType, config: config as unknown as AnyOperationConfig },
     ...overrides,
   });
 }

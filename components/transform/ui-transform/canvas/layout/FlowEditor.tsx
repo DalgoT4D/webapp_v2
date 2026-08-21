@@ -26,6 +26,7 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import { useCanvasActions } from './hooks/useCanvasActions';
 import { useRunningTasksMonitor } from './hooks/useRunningTasksMonitor';
 import { useSourceTreeActions } from './hooks/useSourceTreeActions';
+import { getRemoteCanvasSyncAction } from '../utils/remote-sync';
 
 import 'reactflow/dist/style.css';
 import 'react-resizable/css/styles.css';
@@ -90,18 +91,20 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
   const {
     sourcesModels,
     isLoadingSources,
-    graphData,
     handleTableSelect,
     handleDeleteFromCanvas,
     handleAddToCanvas,
   } = useSourceTreeActions({ isPreview });
 
   // Canvas lock - auto-acquires on mount, auto-releases on unmount
-  const { isLockedByOther } = useCanvasLock({
+  const handleLockLost = useCallback(() => {
+    closeOperationPanel();
+    toastError.api('Canvas lock was lost. Another user may have taken control.');
+  }, [closeOperationPanel]);
+
+  const { hasLock } = useCanvasLock({
     autoAcquire: !isPreview,
-    onLockLost: () => {
-      toastError.api('Canvas lock was lost. Another user may have taken control.');
-    },
+    onLockLost: handleLockLost,
   });
 
   // Git integration
@@ -114,20 +117,27 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
 
     const checkAndSync = async () => {
       const hasToken = await checkPatStatus();
-      if (hasToken) {
-        try {
-          await apiPost('/api/transform/v2/dbt_project/sync_remote_dbtproject_to_canvas/', {});
-          await mutate(CANVAS_GRAPH_KEY);
-        } catch {
-          // Sync failure is non-blocking — canvas still loads from cached graph
-        }
-      } else {
+      const syncAction = getRemoteCanvasSyncAction(hasToken, hasLock);
+
+      if (syncAction === 'open-pat-modal') {
         openPatModal();
+        return;
+      }
+
+      // The backend protects remote sync with the canvas lock. Wait for the
+      // asynchronous lock acquisition instead of treating it as a missing PAT.
+      if (syncAction === 'wait-for-lock') return;
+
+      try {
+        await apiPost('/api/transform/v2/dbt_project/sync_remote_dbtproject_to_canvas/', {});
+        await mutate(CANVAS_GRAPH_KEY);
+      } catch {
+        // Sync failure is non-blocking — canvas still loads from cached graph
       }
     };
 
     checkAndSync();
-  }, [checkPatStatus, isPreview, mutate, openPatModal]);
+  }, [checkPatStatus, hasLock, isPreview, mutate, openPatModal]);
 
   // Handle sidebar resize
   const handleSidebarResize = useCallback(
@@ -222,7 +232,7 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
         {/* Header */}
         <div className="flex-shrink-0" style={{ height: CANVAS_CONSTANTS.HEADER_HEIGHT }}>
           <CanvasHeader
-            isLocked={isLockedByOther}
+            isLocked={!hasLock}
             isWorkflowRunning={isWorkflowRunning}
             gitRepoUrl={gitRepoUrl || storeGitRepoUrl}
             isPreviewMode={isPreview}
@@ -267,8 +277,8 @@ export function FlowEditor({ isPreview = false }: FlowEditorProps) {
                     onTableSelect={handleTableSelect}
                     selectedTable={null}
                     mode={ProjectTreeMode.CANVAS}
-                    onAddToCanvas={handleAddToCanvas}
-                    onDeleteFromCanvas={handleDeleteFromCanvas}
+                    onAddToCanvas={hasLock ? handleAddToCanvas : undefined}
+                    onDeleteFromCanvas={hasLock ? handleDeleteFromCanvas : undefined}
                   />
                 </div>
               </Resizable>
