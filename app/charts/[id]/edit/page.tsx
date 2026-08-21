@@ -48,8 +48,20 @@ import { AlertCircle } from 'lucide-react';
 import { deepEqual } from '@/lib/form-utils';
 import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { trackEvent, trackFeatureView } from '@/lib/analytics';
+import {
+  ANALYTICS_EVENTS,
+  CHART_CREATE_SOURCES,
+  FEATURES,
+  METRIC_USE_SOURCES,
+} from '@/constants/analytics';
+import {
+  CHART_BUILDER_TAB_ANALYTICS,
+  getMetricAnalyticsProps,
+  getNewlyUsedSavedMetricIds,
+  getUsedSavedMetricIds,
+  isDrillDownEnabled,
+} from '@/components/charts/utils';
 import type {
   ChartCreate,
   ChartUpdate,
@@ -159,6 +171,19 @@ function EditChartPageContent() {
   const [formData, setFormData] = useState<ChartBuilderFormData>(initialFormData);
 
   const [activeTab, setActiveTab] = useState('chart');
+
+  // Builder tabs are local state, so `feature:viewed` doesn't fire on switch —
+  // report them explicitly. Fires on every switch (not once), so this answers
+  // "did they ever open Chart Styling", not "how many times".
+  const handleTabView = (tabValue: string) => {
+    trackFeatureView(FEATURES.CHARTS, { tab: CHART_BUILDER_TAB_ANALYTICS[tabValue] ?? tabValue });
+  };
+
+  const handlePreviewTabChange = (tabValue: string) => {
+    setActiveTab(tabValue);
+    handleTabView(tabValue);
+  };
+
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
   const [dataPreviewPageSize, setDataPreviewPageSize] = useState(25);
   const [rawDataPage, setRawDataPage] = useState(1);
@@ -1362,7 +1387,23 @@ function EditChartPageContent() {
         id: chartId,
         data: updateData,
       });
-      trackEvent(ANALYTICS_EVENTS.CHART_SAVED, { chart_type: chartData.chart_type });
+      trackEvent(ANALYTICS_EVENTS.CHART_UPDATED, {
+        chart_type: chartData.chart_type,
+        chart_id: chartId,
+        ...getMetricAnalyticsProps(formData.metrics),
+        drill_down_enabled: isDrillDownEnabled(formData),
+      });
+      // Only metrics this edit newly attached — otherwise every re-save of an
+      // unchanged chart would re-report the same metrics as freshly used.
+      getNewlyUsedSavedMetricIds(formData.metrics, originalFormData?.metrics).forEach(
+        (metricId) => {
+          trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
+            metric_id: metricId,
+            chart_id: chartId,
+            source: METRIC_USE_SOURCES.CHART,
+          });
+        }
+      );
 
       // Update original data to reflect saved state
       setOriginalFormData({ ...formData });
@@ -1394,7 +1435,22 @@ function EditChartPageContent() {
       };
 
       const result = await createChart(newChartData);
-      trackEvent(ANALYTICS_EVENTS.CHART_SAVED_AS_NEW, { chart_type: newChartData.chart_type });
+      // Save-as-new creates a chart, so it fires CHART_CREATED like every other
+      // create path — `source` is what distinguishes it.
+      trackEvent(ANALYTICS_EVENTS.CHART_CREATED, {
+        chart_type: newChartData.chart_type,
+        chart_id: result.id,
+        source: CHART_CREATE_SOURCES.SAVE_AS_NEW,
+        ...getMetricAnalyticsProps(formData.metrics),
+        drill_down_enabled: isDrillDownEnabled(formData),
+      });
+      getUsedSavedMetricIds(formData.metrics).forEach((metricId) => {
+        trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
+          metric_id: metricId,
+          chart_id: result.id,
+          source: METRIC_USE_SOURCES.CHART,
+        });
+      });
 
       toastSuccess.created(`Chart "${newTitle}"`);
 
@@ -1590,7 +1646,7 @@ function EditChartPageContent() {
         <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
           {/* Left Panel - 30% */}
           <div className="w-[30%] border-r">
-            <Tabs defaultValue="configuration" className="h-full">
+            <Tabs defaultValue="configuration" onValueChange={handleTabView} className="h-full">
               <div className="px-4 pt-4">
                 <TabsList className="grid w-full h-11 grid-cols-2">
                   <TabsTrigger
@@ -1652,7 +1708,7 @@ function EditChartPageContent() {
 
           {/* Right Panel - 70% */}
           <div className="w-[70%]">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
+            <Tabs value={activeTab} onValueChange={handlePreviewTabChange} className="h-full">
               <div className="px-4">
                 <TabsList className="grid grid-cols-2">
                   <TabsTrigger value="chart" className="flex items-center gap-2">

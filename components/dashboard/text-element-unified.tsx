@@ -31,6 +31,9 @@ interface UnifiedTextElementProps {
   componentId?: string;
   onRemove?: () => void;
   isEditMode?: boolean;
+  /** Analytics only, so the rich-text events can be joined to their dashboard. Absent in
+   *  report/print contexts, where isEditMode is false and those events never fire. */
+  dashboardId?: number;
 }
 
 export const DASHBOARD_WIDGET_DRAG_START_EVENT = 'dashboard:widget-drag-start';
@@ -163,6 +166,7 @@ export function UnifiedTextElement({
   onUpdate,
   componentId,
   isEditMode = true,
+  dashboardId,
 }: UnifiedTextElementProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -224,13 +228,17 @@ export function UnifiedTextElement({
     },
   });
 
-  const applyFormatting = useCallback((formatType: RichTextFormatType, command: () => boolean) => {
-    if (command()) {
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_FORMAT_APPLIED, {
-        format_type: formatType,
-      });
-    }
-  }, []);
+  const applyFormatting = useCallback(
+    (formatType: RichTextFormatType, command: () => boolean) => {
+      if (command()) {
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_FORMAT_APPLIED, {
+          dashboard_id: dashboardId,
+          format_type: formatType,
+        });
+      }
+    },
+    [dashboardId]
+  );
 
   const calculateToolbarPosition = useCallback(() => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -305,9 +313,11 @@ export function UnifiedTextElement({
     editor.setEditable(true);
     setIsEditing(true);
     editor.commands.focus('end');
-    trackEvent(ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_EDIT_STARTED);
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_EDIT_STARTED, {
+      dashboard_id: dashboardId,
+    });
     requestAnimationFrame(calculateToolbarPosition);
-  }, [calculateToolbarPosition, editor, isEditMode]);
+  }, [calculateToolbarPosition, editor, isEditMode, dashboardId]);
 
   useEffect(() => {
     if (!editor || isEditing) return;

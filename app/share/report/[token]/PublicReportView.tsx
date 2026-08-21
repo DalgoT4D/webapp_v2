@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { PoweredByDalgoImage } from '@/components/ui/powered-by-dalgo-image';
 import { Eye, ExternalLink, AlertCircle, Calendar } from 'lucide-react';
@@ -12,6 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { PoweredByDalgoFooter } from '@/components/ui/powered-by-dalgo-footer';
 import { OrgBrand } from '@/components/ui/org-brand';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface PublicReportViewProps {
   token: string;
@@ -20,6 +23,35 @@ interface PublicReportViewProps {
 
 export function PublicReportView({ token, printMode = false }: PublicReportViewProps) {
   const { viewData, isLoading, isError } = usePublicReport(token);
+
+  // Public views are anonymous: no identified person and no organization group to attach,
+  // so the org rides along as event properties (the documented exception to "don't put org
+  // on events"). org_slug is the one that can actually be joined on — org_name is a display
+  // name and can be renamed — and it matches the slug used for the organization group
+  // everywhere else, so public reads line up with the rest of the org's numbers.
+  //
+  // printMode is excluded on purpose: `?print=true` renders this same component for the
+  // PDF-capture pass, so counting it would log a machine fetch as a human read every time
+  // someone exports. Ref keyed on the token so an SWR revalidation, a re-render, or
+  // StrictMode's double effect in dev can't double-fire it.
+  const trackedTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (printMode || !viewData?.is_valid) return;
+    if (trackedTokenRef.current === token) return;
+    trackedTokenRef.current = token;
+    trackEvent(ANALYTICS_EVENTS.PUBLIC_REPORT_VIEWED, {
+      org_slug: viewData.org_slug,
+      org_name: viewData.org_name,
+      report_id: viewData.report_metadata?.snapshot_id,
+    });
+  }, [
+    printMode,
+    viewData?.is_valid,
+    viewData?.org_slug,
+    viewData?.org_name,
+    viewData?.report_metadata?.snapshot_id,
+    token,
+  ]);
 
   if (isLoading) {
     if (printMode) return null;
