@@ -112,8 +112,11 @@ export function ShareModal({
 
   const handleCopyUrl = useCallback(async () => {
     if (shareStatus.public_url) {
-      await copyUrlToClipboard(shareStatus.public_url);
-      onCopyLink?.();
+      // Only notify on a successful copy: copyUrlToClipboard reports failure via a toast
+      // instead of throwing, and callers hang analytics (and the walkthrough's final step)
+      // off this — neither should fire when the user never actually got the link.
+      const copied = await copyUrlToClipboard(shareStatus.public_url);
+      if (copied) onCopyLink?.();
     }
   }, [shareStatus.public_url, onCopyLink]);
 

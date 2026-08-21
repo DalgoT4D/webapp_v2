@@ -17,8 +17,10 @@ jest.mock('@/lib/toast', () => ({
   toastError: { share: jest.fn(), load: jest.fn() },
 }));
 
+// Resolves true: copyUrlToClipboard reports copy success with a boolean, and the modal
+// gates onCopyLink on it.
 jest.mock('@/lib/clipboard', () => ({
-  copyUrlToClipboard: jest.fn().mockResolvedValue(undefined),
+  copyUrlToClipboard: jest.fn().mockResolvedValue(true),
 }));
 
 // Mock navigator.clipboard for the component's internal copy
@@ -258,6 +260,41 @@ describe('ShareModal', () => {
       await waitFor(() => {
         expect(copyUrlToClipboard).toHaveBeenCalledWith(publicUrl);
       });
+    });
+
+    // onCopyLink is where callers hang the "report shared" event (and the onboarding
+    // walkthrough's final step), so it must reflect whether the user actually got the link.
+    it('notifies onCopyLink when the copy succeeds', async () => {
+      const user = userEvent.setup();
+      const onCopyLink = jest.fn();
+      (clipboardModule.copyUrlToClipboard as jest.Mock).mockResolvedValue(true);
+      mockGetShareStatus.mockResolvedValue(
+        createMockShareStatus({ is_public: true, public_url: 'http://test.com/report/123' })
+      );
+
+      renderShareModal({ onCopyLink });
+
+      await waitFor(() => expect(screen.getByTestId('copy-link-btn')).toBeInTheDocument());
+      await user.click(screen.getByTestId('copy-link-btn'));
+
+      await waitFor(() => expect(onCopyLink).toHaveBeenCalledTimes(1));
+    });
+
+    it('does NOT notify onCopyLink when the clipboard write fails', async () => {
+      const user = userEvent.setup();
+      const onCopyLink = jest.fn();
+      (clipboardModule.copyUrlToClipboard as jest.Mock).mockResolvedValue(false);
+      mockGetShareStatus.mockResolvedValue(
+        createMockShareStatus({ is_public: true, public_url: 'http://test.com/report/123' })
+      );
+
+      renderShareModal({ onCopyLink });
+
+      await waitFor(() => expect(screen.getByTestId('copy-link-btn')).toBeInTheDocument());
+      await user.click(screen.getByTestId('copy-link-btn'));
+
+      await waitFor(() => expect(clipboardModule.copyUrlToClipboard).toHaveBeenCalled());
+      expect(onCopyLink).not.toHaveBeenCalled();
     });
   });
 

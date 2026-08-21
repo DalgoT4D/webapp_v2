@@ -578,15 +578,29 @@ function CommentPopoverInner({
     const content = draft.trim();
     if (!content || isSubmitting) return;
 
+    // Read the thread size BEFORE posting: mutateComments below makes every comment look
+    // like a reply. There is no parent_id in the comments API — a thread is flat per
+    // target — so "reply" means this target already had a live comment on it.
+    const mentionedEmails = extractMentionedEmails(content);
+    const existingComments = comments.filter((c) => !c.is_deleted).length;
+
     setIsSubmitting(true);
     try {
       await createComment(snapshotId, {
         target_type: targetType,
         target_id: chartId,
         content,
-        mentioned_emails: extractMentionedEmails(content),
+        mentioned_emails: mentionedEmails,
       });
-      trackEvent(ANALYTICS_EVENTS.REPORT_COMMENT_CREATED, { target_type: targetType });
+      // No author property: PostHog attaches the person who fired this. Mention COUNT
+      // only — the mentioned addresses are PII and must never be sent.
+      trackEvent(ANALYTICS_EVENTS.REPORT_COMMENT_CREATED, {
+        report_id: snapshotId,
+        target_type: targetType,
+        is_reply: existingComments > 0,
+        thread_size: existingComments + 1,
+        mention_count: mentionedEmails.length,
+      });
       setDraft('');
       await mutateComments();
       // New comment is created with is_new: true — mark as read immediately so
@@ -611,6 +625,7 @@ function CommentPopoverInner({
     snapshotId,
     targetType,
     chartId,
+    comments,
     mutateComments,
     onStateChange,
     setDraft,
@@ -668,7 +683,10 @@ function CommentPopoverInner({
           content,
           mentioned_emails: extractMentionedEmails(content),
         });
-        trackEvent(ANALYTICS_EVENTS.REPORT_COMMENT_UPDATED);
+        trackEvent(ANALYTICS_EVENTS.REPORT_COMMENT_UPDATED, {
+          report_id: snapshotId,
+          target_type: targetType,
+        });
         mutateComments();
         onStateChange?.();
       } catch (error) {
@@ -676,21 +694,24 @@ function CommentPopoverInner({
         throw error;
       }
     },
-    [snapshotId, mutateComments, onStateChange]
+    [snapshotId, targetType, mutateComments, onStateChange]
   );
 
   const handleDelete = useCallback(
     async (commentId: number) => {
       try {
         await deleteComment(snapshotId, commentId);
-        trackEvent(ANALYTICS_EVENTS.REPORT_COMMENT_DELETED);
+        trackEvent(ANALYTICS_EVENTS.REPORT_COMMENT_DELETED, {
+          report_id: snapshotId,
+          target_type: targetType,
+        });
         mutateComments();
         onStateChange?.();
       } catch (error) {
         toastError.delete(error, 'comment');
       }
     },
-    [snapshotId, mutateComments, onStateChange]
+    [snapshotId, targetType, mutateComments, onStateChange]
   );
 
   const hasDraft = draft.trim().length > 0;

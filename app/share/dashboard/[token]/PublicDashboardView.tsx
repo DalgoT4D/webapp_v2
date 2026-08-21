@@ -1,12 +1,14 @@
 'use client';
 
 import type { ErrorInfo, ReactNode } from 'react';
-import React, { Component } from 'react';
+import React, { Component, useEffect, useRef } from 'react';
 import Link from 'next/link';
 
 import { Eye, ExternalLink, AlertCircle, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { usePublicDashboard } from '@/hooks/api/useDashboards';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -71,6 +73,33 @@ export function PublicDashboardView({
   embedOptions,
 }: PublicDashboardViewProps) {
   const { dashboard, isLoading, isError } = usePublicDashboard(token);
+
+  // Public views are anonymous: there is no identified person and no organization
+  // group to attach, so org_slug/org_name ride along as event properties (the one
+  // documented exception to "don't put org on events"). org_slug is the breakdown
+  // key — it matches the slug used for the organization group elsewhere, so both
+  // paths line up if group analytics is ever enabled.
+  // The ref keys on the token so a re-render or SWR revalidation can't double-fire,
+  // and React StrictMode's double effect in dev fires once.
+  const trackedTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!dashboard?.is_valid || !dashboard.org_slug) return;
+    if (trackedTokenRef.current === token) return;
+    trackedTokenRef.current = token;
+    trackEvent(ANALYTICS_EVENTS.PUBLIC_DASHBOARD_VIEWED, {
+      org_slug: dashboard.org_slug,
+      org_name: dashboard.org_name,
+      dashboard_id: dashboard.id ?? undefined,
+      is_embed: isEmbedMode,
+    });
+  }, [
+    dashboard?.is_valid,
+    dashboard?.org_slug,
+    dashboard?.org_name,
+    dashboard?.id,
+    token,
+    isEmbedMode,
+  ]);
 
   if (isLoading) {
     return (

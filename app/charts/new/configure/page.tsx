@@ -47,8 +47,19 @@ import {
   mergeTableColumnFormatting,
   resolveTableColumnOrder,
 } from '@/lib/chart-payload-utils';
-import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { trackEvent, trackFeatureView } from '@/lib/analytics';
+import {
+  ANALYTICS_EVENTS,
+  CHART_CREATE_SOURCES,
+  FEATURES,
+  METRIC_USE_SOURCES,
+} from '@/constants/analytics';
+import {
+  CHART_BUILDER_TAB_ANALYTICS,
+  getMetricAnalyticsProps,
+  getUsedSavedMetricIds,
+  isDrillDownEnabled,
+} from '@/components/charts/utils';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { DashboardNameHint } from '@/components/onboarding/dashboard-name-hint';
 import { Label } from '@/components/ui/label';
@@ -181,6 +192,19 @@ function ConfigureChartPageContent() {
   });
 
   const [activeTab, setActiveTab] = useState('chart');
+
+  // Builder tabs are local state, so `feature:viewed` doesn't fire on switch —
+  // report them explicitly. Fires on every switch (not once), so this answers
+  // "did they ever open Chart Styling", not "how many times".
+  const handleTabView = (tabValue: string) => {
+    trackFeatureView(FEATURES.CHARTS, { tab: CHART_BUILDER_TAB_ANALYTICS[tabValue] ?? tabValue });
+  };
+
+  const handlePreviewTabChange = (tabValue: string) => {
+    setActiveTab(tabValue);
+    handleTabView(tabValue);
+  };
+
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
   const [dataPreviewPageSize, setDataPreviewPageSize] = useState(20);
   const [rawDataPage, setRawDataPage] = useState(1);
@@ -1011,7 +1035,27 @@ function ConfigureChartPageContent() {
 
     try {
       const result = await createChart(chartData);
-      trackEvent(ANALYTICS_EVENTS.CHART_CREATED, { chart_type: chartData.chart_type });
+      trackEvent(ANALYTICS_EVENTS.CHART_CREATED, {
+        chart_type: chartData.chart_type,
+        chart_id: result.id,
+        // Entered from the dashboard builder vs the charts list — same page, very
+        // different intent, so they get distinct sources rather than one 'new'.
+        source: isFromDashboard
+          ? CHART_CREATE_SOURCES.NEW_FROM_DASHBOARD
+          : CHART_CREATE_SOURCES.NEW,
+        ...getMetricAnalyticsProps(formData.metrics),
+        drill_down_enabled: isDrillDownEnabled(formData),
+      });
+      // Charts are the main consumer of the metrics library — one METRIC_USED per
+      // distinct saved metric, same as the KPI form does on its create path.
+      getUsedSavedMetricIds(formData.metrics).forEach((metricId) => {
+        // chart_id too — answers "which chart consumed this metric", not just how often.
+        trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
+          metric_id: metricId,
+          chart_id: result.id,
+          source: METRIC_USE_SOURCES.CHART,
+        });
+      });
       // Reset unsaved changes state after successful save
       setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');
@@ -1157,7 +1201,7 @@ function ConfigureChartPageContent() {
         <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
           {/* Left Panel - 30% */}
           <div className="w-[30%] border-r">
-            <Tabs defaultValue="configuration" className="h-full">
+            <Tabs defaultValue="configuration" onValueChange={handleTabView} className="h-full">
               <div className="px-4 pt-4">
                 <TabsList className="grid w-full h-11 grid-cols-2" data-testid="chart-config-tabs">
                   <TabsTrigger
@@ -1229,7 +1273,7 @@ function ConfigureChartPageContent() {
 
           {/* Right Panel - 70% */}
           <div className="w-[70%]">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
+            <Tabs value={activeTab} onValueChange={handlePreviewTabChange} className="h-full">
               <div className="px-4">
                 <TabsList className="grid grid-cols-2">
                   <TabsTrigger value="chart" className="flex items-center gap-2">

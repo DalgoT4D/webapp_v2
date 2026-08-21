@@ -26,7 +26,8 @@ import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, CHART_DRILL_SOURCES } from '@/constants/analytics';
+import { useDrillDownAnalytics } from '@/components/charts/useDrillDownAnalytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import type { ChartDataPayload } from '@/types/charts';
@@ -73,6 +74,17 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     error: chartError,
     isLoading: chartLoading,
   } = useChart(canViewCharts ? chartId : null);
+  // Fire CHART_VIEWED once per mount when the chart loads (WAVO consume signal).
+  const chartViewedTracked = useRef(false);
+  useEffect(() => {
+    if (chart && !chartViewedTracked.current) {
+      trackEvent(ANALYTICS_EVENTS.CHART_VIEWED, {
+        chart_type: chart.chart_type,
+        chart_id: chartId,
+      });
+      chartViewedTracked.current = true;
+    }
+  }, [chart]);
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
   const [tableChartPage, setTableChartPage] = useState(1);
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
@@ -83,14 +95,13 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     appliedFilters: Record<string, string>; // { dimension_column: value }
   } | null>(null);
 
-  // Fire CHART_VIEWED once per mount when the chart loads (WAVO consume signal).
-  const chartViewedTracked = useRef(false);
-  useEffect(() => {
-    if (chart && !chartViewedTracked.current) {
-      trackEvent(ANALYTICS_EVENTS.CHART_VIEWED, { chart_type: chart.chart_type });
-      chartViewedTracked.current = true;
-    }
-  }, [chart]);
+  useDrillDownAnalytics({
+    chartId,
+    chartType: chart?.chart_type,
+    source: CHART_DRILL_SOURCES.CHART_DETAIL,
+    mapLevel: drillDownPath.length,
+    tableLevel: tableDrillDownState?.currentLevel ?? null,
+  });
 
   // Stable reference for map customizations — avoids a new {} literal every render,
   // which would otherwise re-trigger MapPreview's chart-init effect in a loop via onChartReady
@@ -835,6 +846,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               </Link>
             )}
             <ChartExportDropdown
+              chartId={chart.id}
               chartTitle={chart.title}
               chartElement={chartElement}
               chartInstance={chartInstance}

@@ -487,15 +487,11 @@ export function DashboardNativeView({
 
   // Allow editing in preview mode without any conditions
 
-  // Track dashboard view once per mount. Skip public (shared-link) views — those are
-  // anonymous external opens we don't track, and firing here would log dashboard_id:0.
-  useEffect(() => {
-    if (!isPublicMode) {
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_VIEWED, { dashboard_id: dashboardId });
-    }
-    // Fire once per mount — the dashboard id is stable for the view.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // DASHBOARD_VIEWED is intentionally NOT fired here. This component is shared by the
+  // live dashboard route, the impact/landing page, report snapshots, and public share
+  // views, so firing here leaked DASHBOARD_VIEWED into report and impact opens. The event
+  // now lives on the live dashboard route only (app/dashboards/[id]/page.tsx) so each page
+  // fires exactly its own view event.
 
   // Update current screen size on resize
   useEffect(() => {
@@ -594,13 +590,19 @@ export function DashboardNativeView({
   // Copying the link is the walkthrough's last action — the flow ends on a celebration
   // rather than a toast, and stays put so the user is looking at what they just built.
   const handleCopyLink = useCallback(() => {
+    // The share itself. Fired before the walkthrough branch so it lands on every copy,
+    // not only during onboarding. DASHBOARD_MADE_PUBLIC (from updateDashboardSharing)
+    // only means the link exists; this means the user actually handed it out.
+    // dashboard.id, not the dashboardId prop: it is what ShareModal was opened with,
+    // and it is a real id here (the modal only renders outside public mode).
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { dashboard_id: dashboard?.id });
     const walkthrough = useInsightWalkthroughStore.getState();
     if (walkthrough.active && SHARE_TAIL_STAGES.includes(walkthrough.stage!)) {
       walkthrough.finish();
       setShareModalOpen(false);
       setDashboardLiveModalOpen(true);
     }
-  }, []);
+  }, [dashboard?.id]);
 
   // Handle refresh
   const handleRefresh = async () => {
@@ -640,7 +642,7 @@ export function DashboardNativeView({
 
     try {
       await deleteDashboard(dashboardId);
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED);
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED, { dashboard_id: dashboardId });
 
       toast({
         title: 'Dashboard deleted',
@@ -1004,6 +1006,7 @@ export function DashboardNativeView({
                   <EmbedCodeDropdown
                     token={dashboard.public_share_token}
                     dashboardTitle={dashboard?.title ?? ''}
+                    dashboardId={dashboard?.id}
                   />
                 )}
               </div>
@@ -1217,6 +1220,7 @@ export function DashboardNativeView({
                   <EmbedCodeDropdown
                     token={dashboard.public_share_token}
                     dashboardTitle={dashboard?.title ?? ''}
+                    dashboardId={dashboard?.id}
                   />
                 )}
 

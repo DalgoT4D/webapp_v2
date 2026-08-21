@@ -60,6 +60,8 @@ import {
 import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ChartTypes, type ChartDataPayload, type ChartDimension } from '@/types/charts';
+import { CHART_DRILL_SOURCES } from '@/constants/analytics';
+import { useDrillDownAnalytics } from '@/components/charts/useDrillDownAnalytics';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { useViewerSort } from '@/hooks/useViewerSort';
@@ -314,6 +316,18 @@ export function ChartElementView({
 
   // Use frozen config in report mode, public metadata in public mode, or chart in private mode
   const effectiveChart = frozenChartConfig || (isPublicMode ? publicChartMetadata : chart);
+
+  // Drill-down engagement on a chart embedded in a dashboard. Disabled on public
+  // share links and report snapshots — those are anonymous surfaces covered by
+  // PUBLIC_DASHBOARD_VIEWED / report events, not by per-chart engagement events.
+  useDrillDownAnalytics({
+    chartId,
+    chartType: effectiveChart?.chart_type,
+    source: CHART_DRILL_SOURCES.DASHBOARD,
+    mapLevel: drillDownPath.length,
+    tableLevel: tableDrillDownState?.currentLevel ?? null,
+    enabled: !isPublicMode && !frozenChartConfig,
+  });
 
   // Determine chart type using effective chart
   const isTableChart = effectiveChart?.chart_type === ChartTypes.TABLE;
