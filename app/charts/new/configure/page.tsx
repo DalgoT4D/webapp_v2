@@ -677,7 +677,8 @@ function ConfigureChartPageContent() {
         !formData.geojsonPreviewPayload ||
         !formData.dataOverlayPayload ||
         formData.geojsonPreviewPayload.geojsonId !== formData.selected_geojson_id ||
-        formData.dataOverlayPayload.geographic_column !== formData.geographic_column;
+        formData.dataOverlayPayload.geographic_column !== formData.geographic_column ||
+        JSON.stringify(formData.dataOverlayPayload.metric || {}) !== JSON.stringify(metric || {});
 
       if (needsUpdate) {
         const geojsonPayload = {
@@ -689,7 +690,8 @@ function ConfigureChartPageContent() {
           table_name: formData.table_name,
           geographic_column: formData.geographic_column,
           metric,
-          value_column: formData.aggregate_column,
+          value_column:
+            formData.aggregate_column || formData.value_column || formData.geographic_column,
           aggregate_function: formData.aggregate_function,
           selected_geojson_id: formData.selected_geojson_id,
           filters: {},
@@ -702,6 +704,12 @@ function ConfigureChartPageContent() {
           dataOverlayPayload: dataOverlayPayload,
         }));
       }
+    } else if (formData.chart_type === 'map' && !hasValidMetric && formData.dataOverlayPayload) {
+      // Metric removed/invalid — clear the stale payload so the map stops showing old data.
+      setFormData((prev) => ({
+        ...prev,
+        dataOverlayPayload: undefined,
+      }));
     }
   }, [
     formData.chart_type,
@@ -709,6 +717,7 @@ function ConfigureChartPageContent() {
     formData.selected_geojson_id,
     formData.aggregate_column,
     formData.aggregate_function,
+    formData.value_column,
     formData.schema_name,
     formData.table_name,
     formData.filters,

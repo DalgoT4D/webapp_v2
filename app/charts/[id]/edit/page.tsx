@@ -722,13 +722,12 @@ function EditChartPageContent() {
         regionGeojsons,
         regionGeojsonsLoading,
         regionGeojsonsError,
-        fallbackGeojsonId:
-          drillDownPath.length > 0 ? null : formData.geojsonPreviewPayload?.geojsonId,
+        fallbackGeojsonId: drillDownPath.length > 0 ? null : formData.selected_geojson_id,
       }),
     [
       currentDrillDownRegionId,
       drillDownPath.length,
-      formData.geojsonPreviewPayload?.geojsonId,
+      formData.selected_geojson_id,
       regionGeojsons,
       regionGeojsonsError,
       regionGeojsonsLoading,
