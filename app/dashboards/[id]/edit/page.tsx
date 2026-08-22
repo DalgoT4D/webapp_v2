@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Lock, User, Clock, AlertTriangle, Eye, Loader2 } from 'lucide-react';
 import { apiDelete } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
 
 export default function EditDashboardPage() {
   const params = useParams();
@@ -19,7 +21,7 @@ export default function EditDashboardPage() {
   const isNewDashboard = searchParams.get('new') === 'true';
 
   // Ref to access dashboard builder cleanup function
-  const dashboardBuilderRef = useRef<{ cleanup: () => Promise<void> } | null>(null);
+  const dashboardBuilderRef = useRef<{ cleanup: () => Promise<boolean> } | null>(null);
 
   // Get current user info
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
@@ -68,6 +70,24 @@ export default function EditDashboardPage() {
     }
     return undefined;
   }, [isLockedByOther, dashboard, mutate]);
+
+  // The EDIT DASHBOARD path. Fired here rather than on the button itself so the three
+  // Edit links in the dashboard list are covered by the same code, and gated so it only
+  // fires when the builder really opens for editing:
+  //  - !isNewDashboard  — the create flow redirects here with ?new=true, and that stub is
+  //    already DASHBOARD_CREATED; firing again would make every creation an update too.
+  //  - permission / lock — a denied or locked-by-another user sees a notice, not the builder.
+  // Ref-guarded so a re-render (or the lock poll's 10s mutate) can't re-fire it.
+  const editOpenTrackedRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (isNewDashboard || !canEditDashboard || !dashboard || isLockedByOther) return;
+    if (editOpenTrackedRef.current === dashboardId) return;
+    editOpenTrackedRef.current = dashboardId;
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_UPDATED, {
+      dashboard_id: dashboardId,
+      source: DASHBOARD_UPDATE_SOURCES.EDIT_BUTTON,
+    });
+  }, [isNewDashboard, canEditDashboard, dashboard, isLockedByOther, dashboardId]);
 
   // Handle navigation back to dashboard list
   const handleBackNavigation = async () => {
@@ -166,8 +186,20 @@ export default function EditDashboardPage() {
 
     try {
       // Call cleanup function if available (this will save changes first)
+      let saved = false;
       if (dashboardBuilderRef.current?.cleanup) {
-        await dashboardBuilderRef.current.cleanup();
+        saved = await dashboardBuilderRef.current.cleanup();
+      }
+
+      // Same update event as the builder's Save button — this button saves too, so
+      // one event with a `source` keeps "dashboards updated" a single number. Gated on
+      // cleanup's result: it swallows save errors so the user can still navigate, which
+      // means an ungated call here would report updates that never persisted.
+      if (saved) {
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_UPDATED, {
+          dashboard_id: dashboardId,
+          source: DASHBOARD_UPDATE_SOURCES.SAVE_AND_VIEW,
+        });
       }
 
       // Navigate to preview mode

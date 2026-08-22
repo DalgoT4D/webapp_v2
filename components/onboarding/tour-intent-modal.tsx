@@ -16,6 +16,7 @@
  * picking it there (including resuming one already in progress rather than restarting it).
  * The tour is not a journey and stays a re-runnable helper link in that widget.
  */
+import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { BarChart3, Map, Workflow } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -95,6 +96,23 @@ export function TourIntentModal({
     setTimeout(start, 0);
   };
 
+  // The view event fires from an effect on `open`, NOT from the Dialog's onOpenChange below.
+  // tour-gate opens this modal by flipping the `open` prop, and Radix only calls onOpenChange
+  // for its own interactions (close button, Esc, overlay) — never for a controlled open — so
+  // an open handler there never runs and the modal had dismissals with no view count.
+  // Ref-guarded on `variant` so re-renders don't inflate it, while a genuine first_time ->
+  // returning reopen in the same mount still counts as a second view.
+  const viewedVariantRef = useRef<TourIntentVariant | null>(null);
+  useEffect(() => {
+    if (!open) {
+      viewedVariantRef.current = null;
+      return;
+    }
+    if (viewedVariantRef.current === variant) return;
+    viewedVariantRef.current = variant;
+    trackEvent(ANALYTICS_EVENTS.TOUR_INTENT_MODAL_VIEWED, { variant });
+  }, [open, variant]);
+
   const isReturning = variant === 'returning';
   const dayLabel = trialDaysLeft === 1 ? '1 day' : `${trialDaysLeft} days`;
 
@@ -104,8 +122,6 @@ export function TourIntentModal({
       onOpenChange={(next) => {
         if (!next) {
           trackEvent(ANALYTICS_EVENTS.TOUR_INTENT_MODAL_DISMISSED, { choice: 'close', variant });
-        } else {
-          trackEvent(ANALYTICS_EVENTS.TOUR_INTENT_MODAL_VIEWED, { variant });
         }
         onOpenChange(next);
       }}

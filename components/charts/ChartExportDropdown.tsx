@@ -16,7 +16,7 @@ import type { ChartDataPayload } from '@/types/charts';
 import type { PivotTableResponse } from '@/types/pivot-table';
 import { apiPostBinary } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, CHART_EXPORT_SOURCES } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
 
 interface ChartExportDropdownProps {
@@ -94,7 +94,14 @@ export function ChartExportDropdown({
       // rendered response — the backend stream only emits flat table shapes.
       if (format === 'csv' && chartType === 'pivot_table') {
         await ChartExporter.exportPivotAsCSV(pivotData, pivotExtraConfig, { filename });
-        trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, { format, chart_type: chartType });
+        // Early-return path (pivot CSV) — same props as the main export below, or
+        // pivot exports would be missing chart_id/source in the same event.
+        trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, {
+          format,
+          chart_type: chartType,
+          chart_id: chartId,
+          source: CHART_EXPORT_SOURCES.CHART_DETAIL,
+        });
         toast.success('CSV downloaded successfully');
         onExportComplete?.();
         return;
@@ -168,7 +175,12 @@ export function ChartExportDropdown({
         });
       }
 
-      trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, { format, chart_type: chartType });
+      trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, {
+        format,
+        chart_type: chartType,
+        chart_id: chartId,
+        source: CHART_EXPORT_SOURCES.CHART_DETAIL,
+      });
       onExportComplete?.();
     } catch (error: any) {
       console.error('Export error:', error);
