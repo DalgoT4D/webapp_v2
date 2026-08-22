@@ -820,6 +820,7 @@ export function ChartElementView({
   }
 
   const mapDataOverlayPayload = useMemo(() => {
+    const metric = effectiveChart?.extra_config?.metrics?.[0];
     return effectiveChart?.chart_type === ChartTypes.MAP &&
       effectiveChart.extra_config &&
       activeGeographicColumn
@@ -827,10 +828,12 @@ export function ChartElementView({
           schema_name: effectiveChart.schema_name,
           table_name: effectiveChart.table_name,
           geographic_column: activeGeographicColumn,
+          metric,
           value_column:
             effectiveChart.extra_config.aggregate_column ||
             effectiveChart.extra_config.value_column,
-          aggregate_function: effectiveChart.extra_config.aggregate_function || 'sum',
+          aggregate_function:
+            effectiveChart.extra_config.aggregate_function || (metric ? undefined : 'sum'),
           filters: filters, // Drill-down filters
           // In report mode, skip dashboard_filters (frozen IDs can't be resolved
           // by backend DB lookup); resolved filters go in extra_config.filters instead

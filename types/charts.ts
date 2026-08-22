@@ -383,6 +383,8 @@ export type ChartBuilderFormData = Partial<ChartCreate> & {
     schema_name: string;
     table_name: string;
     geographic_column: string;
+    // The metric driving the overlay — carries column_expression for calculated metrics.
+    metric?: ChartMetric;
     value_column?: string; // Optional for count operations, falls back to geographic_column
     aggregate_function: string;
     selected_geojson_id: number;
