@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAdminOrg, useAdminOrgActions } from '@/hooks/api/useAdminPortal';
 import { OrgUsersTable } from '@/components/admin/OrgUsersTable';
+import { OrgFlagsPanel } from '@/components/admin/OrgFlagsPanel';
 import { DeleteOrgDialog } from '@/components/admin/DeleteOrgDialog';
 
 const BASE_PLANS = ['Free Trial', 'Dalgo', 'Internal'];
@@ -131,6 +132,9 @@ export default function AdminOrganizationDetailPage() {
           <TabsTrigger value="users" data-testid="org-tab-users">
             Users
           </TabsTrigger>
+          <TabsTrigger value="flags" data-testid="org-tab-flags">
+            Feature flags
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-6">
@@ -200,6 +204,10 @@ export default function AdminOrganizationDetailPage() {
 
         <TabsContent value="users" className="mt-6">
           <OrgUsersTable orgId={org.id} />
+        </TabsContent>
+
+        <TabsContent value="flags" className="mt-6">
+          <OrgFlagsPanel orgId={org.id} />
         </TabsContent>
       </Tabs>
 

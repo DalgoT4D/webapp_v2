@@ -18,13 +18,13 @@ interface AdminNavItem {
   disabled?: boolean;
 }
 
-// Home + Organizations are live (M2, M3). Notifications + Feature Flags are deferred
-// features (plan.md "Later") shown as permanent placeholders to keep the shell shape.
+// Home + Organizations + Feature Flags are live (M2, M3). Notifications is still a
+// deferred feature (plan.md Milestone 2, not yet built) shown as a placeholder.
 const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { title: 'Home', href: '/admin', icon: Home },
   { title: 'Organizations', href: '/admin/organizations', icon: Building2 },
   { title: 'Notifications', href: '/admin/notifications', icon: Bell, disabled: true },
-  { title: 'Feature Flags', href: '/admin/feature-flags', icon: Flag, disabled: true },
+  { title: 'Feature Flags', href: '/admin/feature-flags', icon: Flag },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
