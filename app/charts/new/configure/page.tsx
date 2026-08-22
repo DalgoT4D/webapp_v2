@@ -39,6 +39,8 @@ import {
 } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { deepEqual } from '@/lib/form-utils';
+import { useViewerSort } from '@/hooks/useViewerSort';
+import { useViewerSearch } from '@/hooks/useViewerSearch';
 import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import {
   getApiCustomizations,
@@ -367,6 +369,14 @@ function ConfigureChartPageContent() {
     }
   };
 
+  const { effectiveSort, handleTableSort, clearSortIfColumnMissing } = useViewerSort({
+    savedSort: formData.sort,
+    setPage: setTableChartPage,
+  });
+  const { searchQuery, debouncedSearch, onSearchChange } = useViewerSearch({
+    setPage: setTableChartPage,
+  });
+
   // Build payload for chart data - memoized to prevent infinite re-render loops
   const chartDataPayload: ChartDataPayload | null = useMemo(
     () =>
@@ -456,7 +466,8 @@ function ConfigureChartPageContent() {
                   : []),
               ],
               pagination: formData.pagination,
-              sort: formData.sort,
+              sort: effectiveSort,
+              search: debouncedSearch || undefined,
               time_grain: formData.time_grain,
             },
           }
@@ -486,6 +497,8 @@ function ConfigureChartPageContent() {
       formData.time_grain,
       formData.extra_config,
       tableDrillDownState,
+      effectiveSort,
+      debouncedSearch,
     ]
   );
 
@@ -609,6 +622,12 @@ function ConfigureChartPageContent() {
     tableChartPage,
     tableChartPageSize
   );
+
+  // Clear a stale sort once we see the actual returned columns (dimensions + metrics)
+  // — covers both drill-down level changes and dimension/metric reconfiguration.
+  useEffect(() => {
+    clearSortIfColumnMissing(tableChartData?.columns);
+  }, [tableChartData?.columns, clearSortIfColumnMissing]);
 
   // Fetch total rows for table chart pagination
   const { data: tableChartDataTotalRows } = useChartDataPreviewTotalRows(
@@ -1331,7 +1350,7 @@ function ConfigureChartPageContent() {
                               });
                             })(),
                             column_formatting: mergeTableColumnFormatting(formData.customizations),
-                            sort: formData.sort || [],
+                            sort: effectiveSort || [],
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
                             conditionalFormatting:
                               formData.customizations?.conditionalFormatting || [],
@@ -1349,6 +1368,9 @@ function ConfigureChartPageContent() {
                             onPageChange: setTableChartPage,
                             onPageSizeChange: handleTableChartPageSizeChange,
                           }}
+                          onSort={handleTableSort}
+                          searchQuery={searchQuery}
+                          onSearchChange={onSearchChange}
                           onRowClick={handleTableRowClick}
                           drillDownEnabled={formData.dimensions?.some(
                             (dim) => dim.enable_drill_down === true

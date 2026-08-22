@@ -32,6 +32,8 @@ import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import type { ChartDataPayload } from '@/types/charts';
 import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
+import { useViewerSort } from '@/hooks/useViewerSort';
+import { useViewerSearch } from '@/hooks/useViewerSearch';
 import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import type * as echarts from 'echarts';
 
@@ -110,6 +112,14 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
 
   // Fetch regions data for dynamic geojson lookup (for Indian maps)
   const { data: regions } = useRegions('IND', 'state');
+
+  const { effectiveSort, handleTableSort, clearSortIfColumnMissing } = useViewerSort({
+    savedSort: chart?.extra_config?.sort,
+    setPage: setTableChartPage,
+  });
+  const { searchQuery, debouncedSearch, onSearchChange } = useViewerSearch({
+    setPage: setTableChartPage,
+  });
 
   // Build payload for chart data - use useMemo to update when drill-down state changes
   const chartDataPayload: ChartDataPayload | null = useMemo(
@@ -200,13 +210,14 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   : []),
               ],
               pagination: chart.extra_config?.pagination,
-              sort: chart.extra_config?.sort,
+              sort: effectiveSort,
+              search: debouncedSearch || undefined,
               time_grain: chart.extra_config?.time_grain,
               table_columns: chart.extra_config?.table_columns,
             },
           }
         : null,
-    [chart, tableDrillDownState]
+    [chart, tableDrillDownState, effectiveSort, debouncedSearch]
   );
 
   // For non-map charts (including tables), use the standard chart data hook
@@ -216,7 +227,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     isLoading: dataLoading,
   } = useChartData(chart?.chart_type !== 'map' ? chartDataPayload : null);
 
-  // For table charts, use data preview API with pagination
+  // For table charts, use data preview API with server-side pagination — `chartDataPayload`
+  // already carries the effective sort (from useViewerSort above), so clicking a header
+  // re-fetches this with the new sort applied, and subsequent pages stay in that order.
   const {
     data: tableData,
     error: tableError,
@@ -231,6 +244,12 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const { data: tableDataTotalRows } = useChartDataPreviewTotalRows(
     chart?.chart_type === 'table' ? chartDataPayload : null
   );
+
+  // Clear a stale sort once we see the actual returned columns (dimensions + metrics)
+  // — covers both drill-down level changes and dimension/metric reconfiguration.
+  useEffect(() => {
+    clearSortIfColumnMissing(tableData?.columns);
+  }, [tableData?.columns, clearSortIfColumnMissing]);
 
   // Handler for table page size change
   const handleTableChartPageSizeChange = useCallback((newPageSize: number) => {
@@ -839,14 +858,6 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   : undefined
               }
               pivotExtraConfig={chart.extra_config}
-              tableData={
-                chart.chart_type === 'table' && tableData
-                  ? {
-                      data: tableData.data || [],
-                      columns: tableData.columns || [],
-                    }
-                  : undefined
-              }
               tableElement={
                 chart.chart_type === 'table' || chart.chart_type === 'pivot_table'
                   ? chartContentRef.current
@@ -931,6 +942,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                       data={Array.isArray(tableData?.data) ? tableData.data : []}
                       config={{
                         table_columns: (() => {
+                          // Backend-computed columns win: extra_config.table_columns can go
+                          // stale relative to the chart's actual dimensions/metrics (e.g. after
+                          // editing dimensions without re-saving table_columns).
                           const cols =
                             tableData?.columns || chart.extra_config?.table_columns || [];
                           const order = chart.extra_config?.customizations?.columnOrder;
@@ -946,7 +960,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                         column_formatting: mergeTableColumnFormatting(
                           chart.extra_config?.customizations
                         ),
-                        sort: chart.extra_config?.sort || [],
+                        sort: effectiveSort || [],
                         pagination: chart.extra_config?.pagination || {
                           enabled: true,
                           page_size: 20,
@@ -972,6 +986,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                             }
                           : undefined
                       }
+                      onSort={handleTableSort}
+                      searchQuery={searchQuery}
+                      onSearchChange={onSearchChange}
                       onRowClick={handleTableRowClick}
                       drillDownEnabled={chart.extra_config?.dimensions?.some(
                         (dim: any) => dim.enable_drill_down === true

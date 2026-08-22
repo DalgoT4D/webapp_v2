@@ -64,6 +64,8 @@ import { CHART_DRILL_SOURCES } from '@/constants/analytics';
 import { useDrillDownAnalytics } from '@/components/charts/useDrillDownAnalytics';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
+import { useViewerSort } from '@/hooks/useViewerSort';
+import { useViewerSearch } from '@/hooks/useViewerSearch';
 import { ChartExporter, generateFilename, BrandingOptions } from '@/lib/chart-export';
 import { apiPostBinary } from '@/lib/api';
 import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
@@ -380,6 +382,15 @@ export function ChartElementView({
       ? effectiveChart.extra_config.layers[currentLevel]
       : null;
 
+  const { effectiveSort, handleTableSort, clearSortIfColumnMissing } = useViewerSort({
+    savedSort: effectiveChart?.extra_config?.sort,
+    setPage: setTablePage,
+  });
+  // Reports (frozen, payload-less GET) are out of scope for the search box, same as sort.
+  const { searchQuery, debouncedSearch, onSearchChange } = useViewerSearch({
+    setPage: setTablePage,
+  });
+
   // Build chartDataPayload for ALL chart types (for CSV export and table data) - use useMemo to update when drill-down state changes
   const chartDataPayload: ChartDataPayload | null = useMemo(
     () =>
@@ -404,7 +415,7 @@ export function ChartElementView({
                 : effectiveChart.extra_config?.aggregate_column,
             aggregate_func: effectiveChart.extra_config?.aggregate_function || 'sum',
             extra_dimension: effectiveChart.extra_config?.extra_dimension_column,
-            // ✅ FIX: Include dimensions array for table charts with drill-down support
+            // Include dimensions array for table charts with drill-down support
             ...(effectiveChart.chart_type === ChartTypes.TABLE && {
               dimensions: (() => {
                 const isDrillDownEnabled = effectiveChart.extra_config?.dimensions?.some(
@@ -469,14 +480,22 @@ export function ChartElementView({
                   : []),
               ],
               pagination: effectiveChart.extra_config?.pagination,
-              sort: effectiveChart.extra_config?.sort,
+              sort: effectiveSort,
+              search: debouncedSearch || undefined,
             },
             // Dashboard filters are sent via the `dashboard_filters` query
             // string and resolved server-side (same as the chart-data and
             // table-preview endpoints), so they are not injected here.
           }
         : null,
-    [effectiveChart, tableDrillDownState, resolvedDashboardFilters, dashboardFilters]
+    [
+      effectiveChart,
+      tableDrillDownState,
+      resolvedDashboardFilters,
+      dashboardFilters,
+      effectiveSort,
+      debouncedSearch,
+    ]
   );
 
   // Report/frozen mode: fetch chart data via POST with inline config (no chart ID needed)
@@ -740,6 +759,13 @@ export function ChartElementView({
   const tableError = isPublicMode ? publicTableError : privateTableError;
   const tableLoading = isPublicMode ? publicTableLoading : privateTableLoading;
 
+  // Clear a stale sort once we see the actual returned columns (dimensions + metrics)
+  // — covers both drill-down level changes and dimension/metric reconfiguration.
+  // Works the same for private and public dashboard modes since tableData is unified above.
+  useEffect(() => {
+    clearSortIfColumnMissing(tableData?.columns);
+  }, [tableData?.columns, clearSortIfColumnMissing]);
+
   // Get the current drill-down region ID for dynamic geojson fetching
   const currentDrillDownRegionId =
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
@@ -946,14 +972,12 @@ export function ChartElementView({
   const mapLoading = isPublicMode ? publicMapLoading : privateMapLoading;
   const mutateMapData = isPublicMode ? mutatePublicMapData : mutatePrivateMapData;
 
-  // Get the actual error message with improved messaging
+  // Get the actual error message with improved messaging. Table charts aren't
+  // included here — TableChart renders tableError inline itself (see the error
+  // gate above), so this message is never shown for a table-data error.
   const rawErrorMessage =
     metadataError?.message ||
-    (isTableChart
-      ? tableError?.message
-      : isMapChart
-        ? mapError?.message || geojsonError?.message
-        : isError?.message) ||
+    (isMapChart ? mapError?.message || geojsonError?.message : isError?.message) ||
     'Chart configuration needs adjustment';
 
   // Determine if this is a data-related error and provide helpful message
@@ -1716,7 +1740,8 @@ export function ChartElementView({
     (!isPublicMode && chartLoading) ||
     // In public mode, wait for chart metadata to load before evaluating chart type or data
     (isPublicMode && publicChartLoading) ||
-    (isTableChart && tableLoading) ||
+    // Table charts don't gate here — TableChart shows its own internal loading state
+    // (isLoading prop below) so the card chrome and search bar stay put during a refetch.
     (isMapChart && (mapLoading || geojsonLoading))
   ) {
     return (
@@ -1725,13 +1750,11 @@ export function ChartElementView({
           <div className="text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
             <p className="text-sm text-muted-foreground">
-              {isTableChart && tableLoading
-                ? 'Loading table data...'
-                : isMapChart && (mapLoading || geojsonLoading)
-                  ? geojsonLoading
-                    ? 'Loading map boundaries...'
-                    : 'Loading map data...'
-                  : 'Loading chart...'}
+              {isMapChart && (mapLoading || geojsonLoading)
+                ? geojsonLoading
+                  ? 'Loading map boundaries...'
+                  : 'Loading map data...'
+                : 'Loading chart...'}
             </p>
           </div>
         </div>
@@ -1742,7 +1765,8 @@ export function ChartElementView({
   if (
     isError ||
     chartError ||
-    (isTableChart && tableError) ||
+    // Table charts don't gate here either — TableChart shows its own inline error
+    // state (error prop below), keeping the card chrome and search bar in place.
     (isMapChart && (mapError || geojsonError)) ||
     (!isTableChart && !isMapChart && !chartData) ||
     (isMapChart && (!mapDataOverlay || !geojsonData))
@@ -1968,7 +1992,7 @@ export function ChartElementView({
                 column_formatting: mergeTableColumnFormatting(
                   effectiveChart?.extra_config?.customizations
                 ),
-                sort: effectiveChart?.extra_config?.sort || [],
+                sort: effectiveSort || [],
                 pagination: effectiveChart?.extra_config?.pagination || {
                   enabled: true,
                   page_size: 20,
@@ -1995,6 +2019,11 @@ export function ChartElementView({
                     }
                   : undefined
               }
+              // Reports fetch table data via a frozen, payload-less GET (no way to inject
+              // a sort override), so headers stay non-interactive there.
+              onSort={isPublicReport ? undefined : handleTableSort}
+              searchQuery={searchQuery}
+              onSearchChange={isPublicReport ? undefined : onSearchChange}
               onRowClick={handleTableRowClick}
               drillDownEnabled={effectiveChart?.extra_config?.dimensions?.some(
                 (dim: ChartDimension) => dim.enable_drill_down === true

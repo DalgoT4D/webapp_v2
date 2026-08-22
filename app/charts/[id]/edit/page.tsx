@@ -62,6 +62,8 @@ import {
   getUsedSavedMetricIds,
   isDrillDownEnabled,
 } from '@/components/charts/utils';
+import { useViewerSort } from '@/hooks/useViewerSort';
+import { useViewerSearch } from '@/hooks/useViewerSearch';
 import type {
   ChartCreate,
   ChartUpdate,
@@ -516,6 +518,14 @@ function EditChartPageContent() {
     }
   };
 
+  const { effectiveSort, handleTableSort, clearSortIfColumnMissing } = useViewerSort({
+    savedSort: formData.sort,
+    setPage: setTableChartPage,
+  });
+  const { searchQuery, debouncedSearch, onSearchChange } = useViewerSearch({
+    setPage: setTableChartPage,
+  });
+
   // Build payload for chart data - use useMemo to update when drill-down state changes
   const chartDataPayload: ChartDataPayload | null = useMemo(
     () =>
@@ -606,7 +616,8 @@ function EditChartPageContent() {
                   : []),
               ],
               pagination: formData.pagination,
-              sort: formData.sort,
+              sort: effectiveSort,
+              search: debouncedSearch || undefined,
               time_grain: formData.time_grain,
               table_columns: formData.table_columns,
             },
@@ -637,6 +648,8 @@ function EditChartPageContent() {
       formData.time_grain,
       formData.extra_config,
       tableDrillDownState,
+      effectiveSort,
+      debouncedSearch,
     ]
   );
 
@@ -852,6 +865,12 @@ function EditChartPageContent() {
     tableChartPage,
     tableChartPageSize
   );
+
+  // Clear a stale sort once we see the actual returned columns (dimensions + metrics)
+  // — covers both drill-down level changes and dimension/metric reconfiguration.
+  useEffect(() => {
+    clearSortIfColumnMissing(tableChartData?.columns);
+  }, [tableChartData?.columns, clearSortIfColumnMissing]);
 
   // Get table count for raw data pagination
   const { data: tableCount } = useTableCount(
@@ -1811,7 +1830,7 @@ function EditChartPageContent() {
                               });
                             })(),
                             column_formatting: mergeTableColumnFormatting(formData.customizations),
-                            sort: formData.sort,
+                            sort: effectiveSort,
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
                             conditionalFormatting:
                               formData.customizations?.conditionalFormatting || [],
@@ -1833,6 +1852,9 @@ function EditChartPageContent() {
                                 }
                               : undefined
                           }
+                          onSort={handleTableSort}
+                          searchQuery={searchQuery}
+                          onSearchChange={onSearchChange}
                           onRowClick={handleTableRowClick}
                           drillDownEnabled={formData.dimensions?.some(
                             (dim) => dim.enable_drill_down === true
