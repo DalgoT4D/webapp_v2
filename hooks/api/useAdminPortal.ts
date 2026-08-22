@@ -227,6 +227,107 @@ export async function getRemovalImpact(orgId: number, orgUserId: number): Promis
   )) as RemovalImpact;
 }
 
+// ===========================================================================
+// Feature flags (M3) — per-org and multi-org on/off. Reuses the org id from the
+// URL, same as the Users tab; the bulk route additionally takes a list of org ids
+// in its body. See features/admin-portal/plan.md §3.3, §4.3.
+// ===========================================================================
+
+export interface AdminFeatureFlagCatalogItem {
+  flag_name: string;
+  description: string;
+}
+
+/** One org's outcome from a bulk flag set. Deliberately success-only — no message
+ * field — so a failed org_id can never be told apart from a different failure
+ * cause (plan.md §5). */
+export interface AdminBulkFlagResult {
+  org_id: number;
+  success: boolean;
+}
+
+/** The fixed FEATURE_FLAGS registry, served from one source of truth instead of a
+ * hand-maintained TS enum. */
+export function useAdminFlagCatalog() {
+  const { data, error, isLoading } = useSWR<AdminFeatureFlagCatalogItem[]>(
+    '/api/v1/admin/flags/catalog',
+    apiGet,
+    { revalidateOnFocus: false }
+  );
+
+  return {
+    catalog: data,
+    isLoading,
+    error,
+  };
+}
+
+/** All flags for one org: global default merged with any org-specific override. */
+export function useAdminOrgFlags(orgId: number | null) {
+  const { data, error, isLoading, mutate } = useSWR<Record<string, boolean>>(
+    orgId != null ? `/api/v1/admin/orgs/${orgId}/flags` : null,
+    apiGet
+  );
+
+  return {
+    flags: data,
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
+/** Set / clear a flag for a single org, or set it for several orgs at once. */
+export function useAdminFlagActions() {
+  const setOrgFlag = async (
+    orgId: number,
+    flagName: string,
+    enabled: boolean
+  ): Promise<Record<string, boolean>> => {
+    try {
+      return (await apiPut(`/api/v1/admin/orgs/${orgId}/flags/${flagName}`, {
+        enabled,
+      })) as Record<string, boolean>;
+    } catch (error: any) {
+      toastError.api(error, 'Failed to update the flag');
+      throw error;
+    }
+  };
+
+  const clearOrgFlag = async (
+    orgId: number,
+    flagName: string
+  ): Promise<Record<string, boolean>> => {
+    try {
+      return (await apiDelete(`/api/v1/admin/orgs/${orgId}/flags/${flagName}`)) as Record<
+        string,
+        boolean
+      >;
+    } catch (error: any) {
+      toastError.api(error, 'Failed to clear the flag override');
+      throw error;
+    }
+  };
+
+  const bulkSetFlag = async (
+    flagName: string,
+    orgIds: number[],
+    enabled: boolean
+  ): Promise<AdminBulkFlagResult[]> => {
+    try {
+      return (await apiPut(`/api/v1/admin/flags/${flagName}/orgs`, {
+        org_ids: orgIds,
+        enabled,
+      })) as AdminBulkFlagResult[];
+    } catch (error: any) {
+      toastError.api(error, 'Failed to update the flag for the selected organizations');
+      throw error;
+    }
+  };
+
+  return { setOrgFlag, clearOrgFlag, bulkSetFlag };
+}
+
 /** Invite / change-role / remove / cancel-invite for an org's users. */
 export function useAdminOrgUserActions() {
   const inviteUser = async (orgId: number, data: AdminInviteUserForm): Promise<void> => {
