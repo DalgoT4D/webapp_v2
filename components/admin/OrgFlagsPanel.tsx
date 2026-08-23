@@ -2,6 +2,7 @@
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   useAdminFlagCatalog,
   useAdminOrgFlags,
@@ -40,23 +41,27 @@ export function OrgFlagsPanel({ orgId }: OrgFlagsPanelProps) {
 
   return (
     <div className="space-y-1">
-      {catalog?.map((item) => (
-        <div
-          key={item.flag_name}
-          className="flex items-center justify-between border-b py-3 last:border-b-0"
-          data-testid={`org-flag-row-${item.flag_name}`}
-        >
-          <div>
-            <p className="text-sm font-medium">{item.flag_name}</p>
-            <p className="text-xs text-muted-foreground">{item.description}</p>
+      {catalog?.map((item) => {
+        const switchId = `org-flag-switch-${item.flag_name}`;
+        return (
+          <div
+            key={item.flag_name}
+            className="flex items-center justify-between border-b py-3 last:border-b-0"
+            data-testid={`org-flag-row-${item.flag_name}`}
+          >
+            <div>
+              <Label htmlFor={switchId}>{item.flag_name}</Label>
+              <p className="text-xs text-muted-foreground">{item.description}</p>
+            </div>
+            <Switch
+              id={switchId}
+              checked={Boolean(flags?.[item.flag_name])}
+              onCheckedChange={(checked) => onToggle(item.flag_name, checked)}
+              data-testid={switchId}
+            />
           </div>
-          <Switch
-            checked={Boolean(flags?.[item.flag_name])}
-            onCheckedChange={(checked) => onToggle(item.flag_name, checked)}
-            data-testid={`org-flag-switch-${item.flag_name}`}
-          />
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
@@ -37,8 +37,11 @@ export default function FeatureFlagsPage() {
   const [applying, setApplying] = useState(false);
   const [results, setResults] = useState<AdminBulkFlagResult[] | null>(null);
 
-  const orgItems = (orgs ?? []).map((org) => ({ value: String(org.id), label: org.name }));
-  const orgNameById = new Map((orgs ?? []).map((org) => [org.id, org.name]));
+  const orgItems = useMemo(
+    () => (orgs ?? []).map((org) => ({ value: String(org.id), label: org.name })),
+    [orgs]
+  );
+  const orgNameById = useMemo(() => new Map((orgs ?? []).map((org) => [org.id, org.name])), [orgs]);
 
   const onApply = async (enabled: boolean) => {
     if (!flagName || selectedOrgIds.length === 0) return;
