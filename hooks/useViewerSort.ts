@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 
 export interface ViewerSortValue {
   column: string;
@@ -29,6 +29,16 @@ interface UseViewerSortOptions {
  */
 export function useViewerSort({ savedSort, setPage }: UseViewerSortOptions) {
   const [viewerSort, setViewerSort] = useState<SessionSort | null>(null);
+
+  // Reconfiguring the saved sort (e.g. via the chart's Sort Configuration UI) is a
+  // deliberate override and should take effect immediately — otherwise a leftover
+  // session click from earlier in the same visit would keep masking it indefinitely,
+  // since viewerSort always wins over savedSort below. Compare by content, not
+  // reference, so an unrelated re-render (new array, same values) doesn't reset it.
+  const savedSortKey = useMemo(() => JSON.stringify(savedSort ?? null), [savedSort]);
+  useEffect(() => {
+    setViewerSort(null);
+  }, [savedSortKey]);
 
   // What's actually shown for `column` right now: the session override if it targets
   // this column (including an explicit "cleared" null), else the saved default, else
@@ -80,11 +90,17 @@ export function useViewerSort({ savedSort, setPage }: UseViewerSortOptions) {
     );
   }, []);
 
-  const effectiveSort = viewerSort
-    ? viewerSort.direction
-      ? [{ column: viewerSort.column, direction: viewerSort.direction }]
-      : undefined // explicitly cleared this session — no sort, ignore the saved default
-    : savedSort || undefined;
+  // Memoized so callers depending on this value (e.g. a chartDataPayload useMemo)
+  // don't rebuild on every render — only when the sort actually changes.
+  const effectiveSort = useMemo(
+    () =>
+      viewerSort
+        ? viewerSort.direction
+          ? [{ column: viewerSort.column, direction: viewerSort.direction }]
+          : undefined // explicitly cleared this session — no sort, ignore the saved default
+        : savedSort || undefined,
+    [viewerSort, savedSort]
+  );
 
   return { effectiveSort, handleTableSort, clearSortIfColumnMissing };
 }

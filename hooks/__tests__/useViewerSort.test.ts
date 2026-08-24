@@ -126,4 +126,45 @@ describe('useViewerSort', () => {
 
     expect(result.current.effectiveSort).toEqual([{ column: 'region', direction: 'asc' }]);
   });
+
+  it('reconfiguring the saved sort overrides a leftover session click instead of being masked by it', () => {
+    // Regression guard: a header click earlier in the same visit used to keep
+    // winning over savedSort forever, since viewerSort only ever cleared via
+    // another header click or a stale-column reset — never on savedSort itself
+    // changing. That made the chart's own Sort Configuration UI look broken:
+    // picking a new column/direction there had no visible effect.
+    const setPage = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ savedSort }) => useViewerSort({ savedSort, setPage }),
+      { initialProps: { savedSort: [{ column: 'name', direction: 'asc' as const }] } }
+    );
+
+    // Viewer clicks a column header, creating a session-only override.
+    act(() => result.current.handleTableSort('name'));
+    expect(result.current.effectiveSort).toEqual([{ column: 'name', direction: 'desc' }]);
+
+    // The chart's Sort Configuration UI reconfigures the saved sort to a
+    // different column/direction — this must take effect immediately.
+    rerender({ savedSort: [{ column: 'amount', direction: 'desc' as const }] });
+
+    expect(result.current.effectiveSort).toEqual([{ column: 'amount', direction: 'desc' }]);
+  });
+
+  it('an unrelated re-render with the same savedSort content does not clear an active session click', () => {
+    const setPage = jest.fn();
+    const savedSortA = [{ column: 'name', direction: 'asc' as const }];
+    const { result, rerender } = renderHook(
+      ({ savedSort }) => useViewerSort({ savedSort, setPage }),
+      { initialProps: { savedSort: savedSortA } }
+    );
+
+    act(() => result.current.handleTableSort('region'));
+    expect(result.current.effectiveSort).toEqual([{ column: 'region', direction: 'asc' }]);
+
+    // A new array reference with identical content (e.g. a parent re-render) —
+    // not an actual reconfiguration — must not reset the session override.
+    rerender({ savedSort: [{ column: 'name', direction: 'asc' as const }] });
+
+    expect(result.current.effectiveSort).toEqual([{ column: 'region', direction: 'asc' }]);
+  });
 });
