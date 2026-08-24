@@ -379,3 +379,83 @@ export function useAdminOrgUserActions() {
     cancelInvitation,
   };
 }
+
+// ===========================================================================
+// Notifications (M2) — broadcast to the whole platform, one org, or several
+// orgs at once, with admin-chosen channels. Immediate send only: no scheduling,
+// no cancel. See features/admin-portal/plan.md §3.3, §4.3.
+// ===========================================================================
+
+/** One broadcast in admin history: audience, channels, time, recipient count
+ * only — no read status, no recipient list (plan.md §3.3, §4.3). */
+export interface AdminNotification {
+  id: number;
+  message: string;
+  urgent: boolean;
+  timestamp: string;
+  sent_time: string | null;
+  target_org_names: string[] | null;
+  send_in_app: boolean;
+  send_email: boolean;
+  recipient_count: number;
+}
+
+export interface AdminNotificationPreview {
+  recipient_count: number;
+}
+
+export interface CreateAdminNotificationForm {
+  message: string;
+  email_subject: string;
+  urgent?: boolean;
+  org_ids?: number[];
+  send_in_app?: boolean;
+  send_email?: boolean;
+}
+
+/** Review sent broadcasts. */
+export function useAdminNotifications() {
+  const { data, error, isLoading, mutate } = useSWR<AdminNotification[]>(
+    '/api/v1/admin/notifications',
+    apiGet
+  );
+
+  return {
+    notifications: data,
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
+/** Preview the combined recipient count for an audience, then send. */
+export function useAdminNotificationActions() {
+  const previewRecipients = async (orgIds?: number[]): Promise<AdminNotificationPreview> => {
+    try {
+      return (await apiPost('/api/v1/admin/notifications/preview', {
+        org_ids: orgIds,
+      })) as AdminNotificationPreview;
+    } catch (error: any) {
+      toastError.api(error, 'Failed to preview recipients');
+      throw error;
+    }
+  };
+
+  const sendNotification = async (
+    data: CreateAdminNotificationForm
+  ): Promise<AdminNotification> => {
+    try {
+      const notification = (await apiPost(
+        '/api/v1/admin/notifications',
+        data
+      )) as AdminNotification;
+      toastSuccess.generic('Broadcast sent');
+      return notification;
+    } catch (error: any) {
+      toastError.api(error, 'Failed to send broadcast');
+      throw error;
+    }
+  };
+
+  return { previewRecipients, sendNotification };
+}

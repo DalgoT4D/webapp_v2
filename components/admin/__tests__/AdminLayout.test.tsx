@@ -86,3 +86,11 @@ describe('AdminLayout logout', () => {
     expect(mockReplace).toHaveBeenCalledWith('/admin/login');
   });
 });
+
+describe('AdminLayout nav', () => {
+  it('Notifications is a live link, not a disabled placeholder (Milestone 2 shipped)', () => {
+    renderLayout();
+    const notificationsLink = screen.getByRole('link', { name: /notifications/i });
+    expect(notificationsLink).toHaveAttribute('href', '/admin/notifications');
+  });
+});

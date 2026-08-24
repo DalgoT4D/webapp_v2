@@ -6,11 +6,19 @@
 
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { TestWrapper } from '@/test-utils/render';
-import { mockApiGet, mockApiPut, mockApiDelete, resetApiMocks } from '@/test-utils/api';
+import {
+  mockApiGet,
+  mockApiPost,
+  mockApiPut,
+  mockApiDelete,
+  resetApiMocks,
+} from '@/test-utils/api';
 import {
   useAdminFlagCatalog,
   useAdminOrgFlags,
   useAdminFlagActions,
+  useAdminNotifications,
+  useAdminNotificationActions,
 } from '@/hooks/api/useAdminPortal';
 
 beforeEach(() => {
@@ -90,5 +98,80 @@ describe('useAdminFlagActions', () => {
       { org_id: 7, success: true },
       { org_id: 8, success: false },
     ]);
+  });
+});
+
+describe('useAdminNotifications', () => {
+  it('reads broadcast history from /api/v1/admin/notifications', async () => {
+    mockApiGet.mockResolvedValueOnce([
+      {
+        id: 1,
+        message: 'hello',
+        urgent: false,
+        timestamp: '2026-08-24T00:00:00Z',
+        sent_time: '2026-08-24T00:00:01Z',
+        target_org_names: ['Akshara'],
+        send_in_app: true,
+        send_email: true,
+        recipient_count: 3,
+      },
+    ]);
+
+    const { result } = renderHook(() => useAdminNotifications(), { wrapper: TestWrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(mockApiGet).toHaveBeenCalledWith('/api/v1/admin/notifications');
+    expect(result.current.notifications).toEqual([
+      expect.objectContaining({ id: 1, recipient_count: 3, target_org_names: ['Akshara'] }),
+    ]);
+  });
+});
+
+describe('useAdminNotificationActions', () => {
+  it('previewRecipients POSTs {org_ids} to the preview route and returns the count', async () => {
+    mockApiPost.mockResolvedValueOnce({ recipient_count: 87 });
+    const { result } = renderHook(() => useAdminNotificationActions(), { wrapper: TestWrapper });
+
+    const preview = await act(() => result.current.previewRecipients([7, 8]));
+
+    expect(mockApiPost).toHaveBeenCalledWith('/api/v1/admin/notifications/preview', {
+      org_ids: [7, 8],
+    });
+    expect(preview).toEqual({ recipient_count: 87 });
+  });
+
+  it('sendNotification POSTs the broadcast payload and returns the created notification', async () => {
+    mockApiPost.mockResolvedValueOnce({
+      id: 1,
+      message: 'hello',
+      urgent: false,
+      timestamp: '2026-08-24T00:00:00Z',
+      sent_time: '2026-08-24T00:00:01Z',
+      target_org_names: ['Akshara'],
+      send_in_app: true,
+      send_email: false,
+      recipient_count: 3,
+    });
+    const { result } = renderHook(() => useAdminNotificationActions(), { wrapper: TestWrapper });
+
+    const sent = await act(() =>
+      result.current.sendNotification({
+        message: 'hello',
+        email_subject: 'subject',
+        org_ids: [7],
+        send_in_app: true,
+        send_email: false,
+      })
+    );
+
+    expect(mockApiPost).toHaveBeenCalledWith('/api/v1/admin/notifications', {
+      message: 'hello',
+      email_subject: 'subject',
+      org_ids: [7],
+      send_in_app: true,
+      send_email: false,
+    });
+    expect(sent.recipient_count).toBe(3);
   });
 });

@@ -55,6 +55,8 @@ export const ANALYTICS_EVENTS = {
   // Feature flags (per-org and multi-org on/off)
   ADMIN_FLAG_SET: 'admin:flag_set',
   ADMIN_FLAG_BULK_SET: 'admin:flag_bulk_set',
+  // Broadcast notifications (whole platform, one org, or several orgs at once)
+  ADMIN_BROADCAST_SENT: 'admin:broadcast_sent',
 } as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
@@ -84,6 +86,7 @@ export const FEATURES = {
   ADMIN_PORTAL: 'admin_portal',
   ADMIN_ORGANIZATIONS: 'admin_organizations',
   ADMIN_FEATURE_FLAGS: 'admin_feature_flags',
+  ADMIN_NOTIFICATIONS: 'admin_notifications',
 } as const;
 
 export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
@@ -114,6 +117,7 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/admin/login', feature: FEATURES.ADMIN_LOGIN },
   { prefix: '/admin/organizations', feature: FEATURES.ADMIN_ORGANIZATIONS },
   { prefix: '/admin/feature-flags', feature: FEATURES.ADMIN_FEATURE_FLAGS },
+  { prefix: '/admin/notifications', feature: FEATURES.ADMIN_NOTIFICATIONS },
   { prefix: '/admin', feature: FEATURES.ADMIN_PORTAL },
 ];
 
