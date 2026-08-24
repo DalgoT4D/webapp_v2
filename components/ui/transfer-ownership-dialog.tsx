@@ -162,8 +162,7 @@ export function TransferOwnershipDialog({
             <p className="text-sm text-muted-foreground">
               Transfer ownership of &quot;{entityLabel}&quot; to{' '}
               <span className="font-medium text-foreground">{selected.email}</span>? You will lose
-              owner status. Your access will revert to your role permissions or any direct share you
-              hold.
+              owner status. You will retain Edit access.
             </p>
             <div className="flex justify-end gap-3 mt-2">
               <Button variant="outline" onClick={() => setSelected(null)} disabled={isTransferring}>

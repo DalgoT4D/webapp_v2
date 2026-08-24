@@ -978,8 +978,8 @@ export function ShareModal({
                   <DialogTitle>Transfer ownership to {transferTarget.label}?</DialogTitle>
                 </DialogHeader>
                 <p className="text-sm text-muted-foreground">
-                  You will lose owner status on &quot;{entityLabel}&quot;. Your access will revert
-                  to your role permissions or any direct share you hold.
+                  You will lose owner status on &quot;{entityLabel}&quot;. You will retain Edit
+                  access.
                 </p>
                 <div className="flex justify-end gap-3 mt-2">
                   <Button variant="outline" onClick={() => setTransferTarget(null)}>

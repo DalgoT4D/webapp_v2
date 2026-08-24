@@ -157,13 +157,19 @@ export function useResourceGrants(rtype: string | null, resourceId: number | str
   };
 }
 
+interface AddGrantsResponse {
+  shares: ShareRow[];
+  warnings: string[];
+}
+
 export function useResourceGrantActions(rtype: string, resourceId: number | string) {
   const base = `/api/access/${rtype}/${resourceId}/grants`;
 
-  const addGrants = async (payload: AddGrantsPayload): Promise<ShareRow[]> => {
+  const addGrants = async (payload: AddGrantsPayload): Promise<AddGrantsResponse> => {
     try {
-      const res = (await (apiPost as any)(base, payload)) as ShareRow[];
+      const res = (await (apiPost as any)(base, payload)) as AddGrantsResponse;
       toast.success('Sharing updated');
+      res.warnings?.forEach((w) => toast.warning(w));
       return res;
     } catch (error: any) {
       toast.error(error?.message || 'Failed to update sharing');
