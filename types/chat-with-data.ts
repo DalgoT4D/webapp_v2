@@ -103,6 +103,26 @@ export interface TitleUpdatedEvent {
   title: string;
 }
 
+/** One tool call waiting for the user's go-ahead (human-in-the-loop) */
+export interface ApprovalRequest {
+  tool: string;
+  args: Record<string, unknown>;
+  description: string;
+  sql?: string | null;
+}
+
+/**
+ * The turn paused for the user. kind="approval": show approve/cancel and send
+ * {action: "resume_approval", approve}. kind="question": the agent asked
+ * something (ask_user); the user's next send_message is the answer.
+ */
+export interface InputRequiredEvent {
+  type: 'input_required';
+  kind: 'approval' | 'question';
+  requests: ApprovalRequest[];
+  question?: string;
+}
+
 export type ChatWsEvent =
   | TokenEvent
   | ToolStartEvent
@@ -110,7 +130,8 @@ export type ChatWsEvent =
   | MessageCompleteEvent
   | ValidationEvent
   | ErrorEvent
-  | TitleUpdatedEvent;
+  | TitleUpdatedEvent
+  | InputRequiredEvent;
 
 // ── UI message model (what useChatWithData reduces events into) ────────────
 
@@ -119,6 +140,14 @@ export interface ToolActivity {
   label: string;
   sql?: string | null;
   status: 'running' | 'success' | 'error';
+}
+
+/** A human-in-the-loop card attached to an assistant message */
+export interface MessageInputRequest {
+  kind: 'approval' | 'question';
+  requests: ApprovalRequest[];
+  question?: string;
+  status: 'pending' | 'approved' | 'cancelled' | 'answered';
 }
 
 export interface ChatMessage {
@@ -133,4 +162,5 @@ export interface ChatMessage {
   charts?: CreatedChart[];
   validation?: { verdict: 'ok' | 'warn'; caveat?: string | null } | null;
   error?: string | null;
+  inputRequest?: MessageInputRequest | null;
 }

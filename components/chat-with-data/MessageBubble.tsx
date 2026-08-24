@@ -1,21 +1,60 @@
 'use client';
 
 import Link from 'next/link';
-import { BarChart3, LayoutDashboard, AlertTriangle, Sparkles } from 'lucide-react';
+import {
+  BarChart3,
+  LayoutDashboard,
+  AlertTriangle,
+  Sparkles,
+  ShieldQuestion,
+  Check,
+  X,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { ToolProgress } from './ToolProgress';
 import { ResultTable } from './ResultTable';
 import { AssistantMarkdown } from './AssistantMarkdown';
-import type { ChatMessage } from '@/types/chat-with-data';
+import type { ApprovalRequest, ChatMessage } from '@/types/chat-with-data';
+
+/** Plain-language receipt for a tool call awaiting approval */
+function approvalSummary(request: ApprovalRequest): string {
+  const args = request.args || {};
+  const chartCount = Array.isArray(args.chart_ids) ? args.chart_ids.length : 0;
+  switch (request.tool) {
+    case 'execute_sql':
+      return 'Run this query on your data warehouse?';
+    case 'create_chart':
+      return `Create the chart “${args.title}” (${args.chart_type}) from ${args.schema_name}.${args.table_name}?`;
+    case 'create_dashboard':
+      return `Create the dashboard “${args.title}” with ${chartCount} chart${chartCount === 1 ? '' : 's'}?`;
+    case 'add_charts_to_dashboard':
+      return `Add ${chartCount} chart${chartCount === 1 ? '' : 's'} to your dashboard?`;
+    default:
+      return request.description || `Run ${request.tool}?`;
+  }
+}
+
+const DECIDED_LABELS: Record<string, string> = {
+  approved: 'Approved — running now',
+  cancelled: 'Cancelled — nothing was run',
+};
 
 /**
  * One conversation bubble. Assistant answers render through the markdown
  * SUBSET the agent is prompted to emit (AssistantMarkdown); user messages
  * stay literal text.
  */
-export function MessageBubble({ message }: { message: ChatMessage }) {
+export function MessageBubble({
+  message,
+  onApprovalRespond,
+}: {
+  message: ChatMessage;
+  onApprovalRespond?: (approve: boolean) => void;
+}) {
   const isUser = message.role === 'user';
   const showThinking = message.streaming && !message.content && !message.error;
+  const inputRequest = message.inputRequest;
 
   return (
     <div
@@ -48,6 +87,59 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
           ) : (
             <AssistantMarkdown content={message.content} />
           ))}
+
+        {!isUser && inputRequest?.kind === 'approval' && (
+          <div
+            data-testid="chat-approval-card"
+            className="mt-2 rounded-md border bg-muted/30 px-3 py-2"
+          >
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              <ShieldQuestion className="h-4 w-4 text-primary" />
+              Needs your go-ahead
+            </p>
+            {inputRequest.requests.map((request, index) => (
+              <div key={index} className="mt-2">
+                <p className="text-sm">{approvalSummary(request)}</p>
+                {request.sql && (
+                  <pre className="mt-1 max-h-40 overflow-auto rounded bg-muted px-2 py-1 font-mono text-xs">
+                    {request.sql}
+                  </pre>
+                )}
+              </div>
+            ))}
+            {inputRequest.status === 'pending' ? (
+              <div className="mt-3 flex gap-2">
+                <Button
+                  size="sm"
+                  data-testid="chat-approve"
+                  onClick={() => onApprovalRespond?.(true)}
+                >
+                  <Check className="mr-1 h-3.5 w-3.5" />
+                  Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-testid="chat-cancel"
+                  onClick={() => onApprovalRespond?.(false)}
+                >
+                  <X className="mr-1 h-3.5 w-3.5" />
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground" data-testid="chat-approval-state">
+                {DECIDED_LABELS[inputRequest.status] ?? inputRequest.status}
+              </p>
+            )}
+          </div>
+        )}
+
+        {!isUser && inputRequest?.kind === 'question' && inputRequest.status === 'pending' && (
+          <p className="mt-2 text-xs text-muted-foreground" data-testid="chat-question-hint">
+            Waiting for your reply — type your answer below.
+          </p>
+        )}
 
         {!isUser && message.validation?.verdict === 'warn' && message.validation.caveat && (
           <p

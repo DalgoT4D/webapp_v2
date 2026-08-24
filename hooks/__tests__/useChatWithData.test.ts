@@ -13,6 +13,7 @@ import {
   applyChatEvent,
   historyToChatMessages,
   newAssistantPlaceholder,
+  resolvePendingInput,
   newUserMessage,
   useChatWithData,
 } from '../useChatWithData';
@@ -202,5 +203,82 @@ describe('session switching', () => {
     rerender({ sessionId: 2, initial: history });
 
     expect(result.current.messages).toEqual(history);
+  });
+});
+
+describe('applyChatEvent input_required (human-in-the-loop)', () => {
+  it('attaches a pending approval card and drops the never-started tool spinner', () => {
+    let messages = startTurn('how many surveys?');
+    messages = applyChatEvent(messages, {
+      type: 'tool_start',
+      tool: 'execute_sql',
+      label: 'Running query…',
+      sql: 'SELECT COUNT(*) FROM prod.surveys',
+    });
+    messages = applyChatEvent(messages, {
+      type: 'input_required',
+      kind: 'approval',
+      requests: [
+        {
+          tool: 'execute_sql',
+          args: { sql: 'SELECT COUNT(*) FROM prod.surveys' },
+          description: 'Waiting for your go-ahead',
+          sql: 'SELECT COUNT(*) FROM prod.surveys',
+        },
+      ],
+    });
+
+    const assistant = messages[messages.length - 1];
+    expect(assistant.streaming).toBe(false);
+    expect(assistant.inputRequest?.kind).toBe('approval');
+    expect(assistant.inputRequest?.status).toBe('pending');
+    // the gated query never ran — its running spinner must not linger
+    expect(assistant.tools).toEqual([]);
+  });
+
+  it('renders an ask_user question as the assistant content', () => {
+    let messages = startTurn('how many enrollments?');
+    messages = applyChatEvent(messages, {
+      type: 'input_required',
+      kind: 'question',
+      question: 'Which program do you mean?',
+      requests: [
+        { tool: 'ask_user', args: { question: 'Which program do you mean?' }, description: '' },
+      ],
+    });
+
+    const assistant = messages[messages.length - 1];
+    expect(assistant.content).toBe('Which program do you mean?');
+    expect(assistant.inputRequest?.kind).toBe('question');
+    expect(assistant.inputRequest?.status).toBe('pending');
+  });
+
+  it('appends an assistant bubble when the card is replayed after a reconnect', () => {
+    // reconnect replay: history ends on the user's question, no live assistant bubble
+    const messages = applyChatEvent([newUserMessage('how many?')], {
+      type: 'input_required',
+      kind: 'approval',
+      requests: [{ tool: 'execute_sql', args: {}, description: '', sql: 'SELECT 1' }],
+    });
+
+    expect(messages).toHaveLength(2);
+    expect(messages[1].role).toBe('assistant');
+    expect(messages[1].inputRequest?.status).toBe('pending');
+  });
+});
+
+describe('resolvePendingInput', () => {
+  it('settles pending cards and leaves decided ones alone', () => {
+    const pending: ChatMessage = {
+      ...newAssistantPlaceholder(),
+      inputRequest: { kind: 'approval', requests: [], status: 'pending' },
+    };
+    const decided: ChatMessage = {
+      ...newAssistantPlaceholder(),
+      inputRequest: { kind: 'approval', requests: [], status: 'cancelled' },
+    };
+    const resolved = resolvePendingInput([pending, decided], 'approved');
+    expect(resolved[0].inputRequest?.status).toBe('approved');
+    expect(resolved[1].inputRequest?.status).toBe('cancelled');
   });
 });

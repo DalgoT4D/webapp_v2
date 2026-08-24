@@ -109,3 +109,95 @@ describe('MessageBubble', () => {
     expect(document.querySelector('strong')).toBeNull();
   });
 });
+
+describe('MessageBubble human-in-the-loop', () => {
+  const approvalMessage = message({
+    inputRequest: {
+      kind: 'approval',
+      status: 'pending',
+      requests: [
+        {
+          tool: 'execute_sql',
+          args: { sql: 'SELECT COUNT(*) FROM prod.surveys' },
+          description: 'Waiting for your go-ahead',
+          sql: 'SELECT COUNT(*) FROM prod.surveys',
+        },
+      ],
+    },
+  });
+
+  it('renders the approval card with the SQL and fires the callbacks', () => {
+    const respond = jest.fn();
+    render(<MessageBubble message={approvalMessage} onApprovalRespond={respond} />);
+
+    expect(screen.getByTestId('chat-approval-card')).toBeInTheDocument();
+    expect(screen.getByText('Run this query on your data warehouse?')).toBeInTheDocument();
+    expect(screen.getByText('SELECT COUNT(*) FROM prod.surveys')).toBeInTheDocument();
+
+    screen.getByTestId('chat-approve').click();
+    expect(respond).toHaveBeenCalledWith(true);
+    screen.getByTestId('chat-cancel').click();
+    expect(respond).toHaveBeenCalledWith(false);
+  });
+
+  it('shows the decided state instead of buttons once answered', () => {
+    render(
+      <MessageBubble
+        message={message({
+          inputRequest: {
+            kind: 'approval',
+            status: 'cancelled',
+            requests: [{ tool: 'execute_sql', args: {}, description: '', sql: 'SELECT 1' }],
+          },
+        })}
+      />
+    );
+    expect(screen.queryByTestId('chat-approve')).not.toBeInTheDocument();
+    expect(screen.getByTestId('chat-approval-state')).toHaveTextContent('Cancelled');
+  });
+
+  it('shows a reply hint for a pending ask_user question', () => {
+    render(
+      <MessageBubble
+        message={message({
+          content: 'Which program do you mean?',
+          inputRequest: {
+            kind: 'question',
+            status: 'pending',
+            question: 'Which program do you mean?',
+            requests: [],
+          },
+        })}
+      />
+    );
+    expect(screen.getByTestId('chat-question-hint')).toBeInTheDocument();
+  });
+
+  it('summarizes a chart creation in plain words', () => {
+    render(
+      <MessageBubble
+        message={message({
+          inputRequest: {
+            kind: 'approval',
+            status: 'pending',
+            requests: [
+              {
+                tool: 'create_chart',
+                args: {
+                  title: 'Surveys by district',
+                  chart_type: 'bar',
+                  schema_name: 'prod',
+                  table_name: 'surveys',
+                },
+                description: '',
+              },
+            ],
+          },
+        })}
+      />
+    );
+    expect(
+      screen.getByText('Create the chart “Surveys by district” (bar) from prod.surveys?')
+    ).toBeInTheDocument();
+  });
+});

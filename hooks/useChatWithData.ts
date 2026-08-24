@@ -36,6 +36,19 @@ function updateLastAssistant(
   return next;
 }
 
+/** Settle every still-pending approval/question card (approved the query,
+ *  cancelled it, or answered the agent's question) */
+export function resolvePendingInput(
+  messages: ChatMessage[],
+  status: 'approved' | 'cancelled' | 'answered'
+): ChatMessage[] {
+  return messages.map((message) =>
+    message.inputRequest?.status === 'pending'
+      ? { ...message, inputRequest: { ...message.inputRequest, status } }
+      : message
+  );
+}
+
 /**
  * Pure reducer: one WebSocket event applied to the message list.
  * Events always target the trailing assistant placeholder (one turn in flight
@@ -89,6 +102,38 @@ export function applyChatEvent(messages: ChatMessage[], event: ChatWsEvent): Cha
         ...message,
         validation: { verdict: event.verdict, caveat: event.caveat },
       }));
+
+    case 'input_required': {
+      // human-in-the-loop pause: attach the approval/question card to the
+      // assistant bubble and stop the streaming state
+      const attach = (message: ChatMessage): ChatMessage => ({
+        ...message,
+        streaming: false,
+        // a lone ask_user call reads as the assistant asking in plain chat
+        content:
+          event.kind === 'question' && !message.content ? event.question || '' : message.content,
+        // gated tools never actually started — drop their running spinners
+        tools: message.tools.filter(
+          (activity) =>
+            !(
+              activity.status === 'running' &&
+              event.requests.some((request) => request.tool === activity.tool)
+            )
+        ),
+        inputRequest: {
+          kind: event.kind,
+          requests: event.requests || [],
+          question: event.question,
+          status: 'pending',
+        },
+      });
+      const last = messages[messages.length - 1];
+      if (!last || last.role !== 'assistant') {
+        // reconnect replay: the card is re-sent on connect with no live turn
+        return [...messages, attach(newAssistantPlaceholder())];
+      }
+      return updateLastAssistant(messages, attach);
+    }
 
     case 'error':
       return updateLastAssistant(messages, (message) => ({
@@ -184,7 +229,13 @@ export function useChatWithData(sessionId: number | null, options: UseChatWithDa
       onTitleUpdatedRef.current?.(event.title);
       return;
     }
-    if (event.type === 'message_complete' || event.type === 'error') {
+    if (
+      event.type === 'message_complete' ||
+      event.type === 'error' ||
+      event.type === 'input_required'
+    ) {
+      // input_required: the turn is paused server-side — free the composer so
+      // the user can answer (question) or approve/cancel (approval card)
       setIsStreaming(false);
     }
     setMessages((current) => applyChatEvent(current, event));
@@ -200,12 +251,32 @@ export function useChatWithData(sessionId: number | null, options: UseChatWithDa
       const trimmed = question.trim();
       if (!trimmed || isStreaming) return;
       liveTurnStartedRef.current = true;
-      setMessages((current) => [...current, newUserMessage(trimmed), newAssistantPlaceholder()]);
+      // an open ask_user question is answered by this message — settle its card
+      setMessages((current) => [
+        ...resolvePendingInput(current, 'answered'),
+        newUserMessage(trimmed),
+        newAssistantPlaceholder(),
+      ]);
       setIsStreaming(true);
       sendOrQueue({ action: 'send_message', message: trimmed, ...(model ? { model } : {}) });
     },
     [isStreaming, sendOrQueue]
   );
 
-  return { messages, sendMessage, isStreaming, isConnected };
+  /** Answer a pending approval card; the backend resumes the paused turn */
+  const respondToApproval = useCallback(
+    (approve: boolean) => {
+      liveTurnStartedRef.current = true;
+      setMessages((current) => [
+        ...resolvePendingInput(current, approve ? 'approved' : 'cancelled'),
+        // the resumed turn streams into a fresh assistant bubble below the card
+        newAssistantPlaceholder(),
+      ]);
+      setIsStreaming(true);
+      sendOrQueue({ action: 'resume_approval', approve });
+    },
+    [sendOrQueue]
+  );
+
+  return { messages, sendMessage, respondToApproval, isStreaming, isConnected };
 }

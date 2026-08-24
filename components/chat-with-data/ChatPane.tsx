@@ -18,6 +18,8 @@ interface ChatPaneProps {
   messages: ChatMessage[];
   isStreaming: boolean;
   onSend: (question: string) => void;
+  /** Approve/cancel a pending human-in-the-loop card */
+  onApprovalRespond?: (approve: boolean) => void;
   /** Models the user may pick; the selector renders only when there are 2+ */
   models?: ModelOption[];
   selectedModel?: string;
@@ -29,6 +31,7 @@ export function ChatPane({
   messages,
   isStreaming,
   onSend,
+  onApprovalRespond,
   models = [],
   selectedModel,
   onModelChange,
@@ -63,7 +66,13 @@ export function ChatPane({
             </p>
           </div>
         ) : (
-          messages.map((message) => <MessageBubble key={message.id} message={message} />)
+          messages.map((message) => (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              onApprovalRespond={onApprovalRespond}
+            />
+          ))
         )}
         <div ref={bottomRef} />
       </div>
