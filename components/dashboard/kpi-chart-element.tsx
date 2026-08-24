@@ -7,6 +7,7 @@ import type { CommentStates, CommentIconState } from '@/types/comments';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { computePopChanges } from '@/lib/formatters';
 import { useKPIData } from '@/hooks/api/useKPIs';
+import { KPI_EXPORT_SOURCES } from '@/constants/analytics';
 
 interface KPIChartElementProps {
   kpiId: number;
@@ -94,6 +95,8 @@ export function KPIChartElement({
         headerActions={commentButton}
         className="h-full"
         borderless
+        kpiId={kpiId}
+        exportSource={KPI_EXPORT_SOURCES.DASHBOARD}
         showDownload={!snapshotId}
         showFullscreen={!snapshotId}
       />

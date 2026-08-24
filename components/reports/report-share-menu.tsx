@@ -12,6 +12,8 @@ import {
 import { ShareModal } from '@/components/ui/share-modal';
 import { ShareViaEmailDialog } from '@/components/reports/share-via-email-dialog';
 import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS, REPORT_SHARE_SOURCES } from '@/constants/analytics';
 
 interface ReportShareMenuProps {
   snapshotId: number;
@@ -26,6 +28,16 @@ export function ReportShareMenu({ snapshotId, reportTitle }: ReportShareMenuProp
 
   const handleOpenLinkDialog = useCallback(() => setLinkDialogOpen(true), []);
   const handleOpenEmailDialog = useCallback(() => setEmailDialogOpen(true), []);
+
+  // Copying the link is the share act itself. REPORT_MADE_PUBLIC (fired from
+  // updateGeneralAccess) only means the link now exists — this means it was handed out.
+  // Lives here because components/ui/share-modal is shared and stays analytics-free.
+  const handleCopyLink = useCallback(() => {
+    trackEvent(ANALYTICS_EVENTS.REPORT_SHARED, {
+      report_id: snapshotId,
+      source: REPORT_SHARE_SOURCES.COPY_LINK,
+    });
+  }, [snapshotId]);
 
   return (
     <>
@@ -61,6 +73,7 @@ export function ReportShareMenu({ snapshotId, reportTitle }: ReportShareMenuProp
           setLinkDialogOpen(false);
           clearShareDeepLink();
         }}
+        onCopyLink={handleCopyLink}
       />
       <ShareViaEmailDialog
         snapshotId={snapshotId}

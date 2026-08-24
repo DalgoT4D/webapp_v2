@@ -21,7 +21,7 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, SUBSCRIPTION_REQUEST_SOURCES } from '@/constants/analytics';
 import { useOrgPlan, requestPlanUpgrade } from '@/hooks/api/useOrgPlan';
 import {
   FREE_TRIAL_PLAN_NAME,
@@ -71,7 +71,7 @@ export function TrialBadge() {
   const openConfirm = () => {
     trackEvent(ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_OPENED, {
       days_left: days,
-      source: 'header_badge',
+      source: SUBSCRIPTION_REQUEST_SOURCES.HEADER_BADGE,
     });
     setStage('confirm');
   };
@@ -83,7 +83,7 @@ export function TrialBadge() {
       trackEvent(ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_SENT, {
         days_left: days,
         already_requested: Boolean(response?.already_requested),
-        source: 'header_badge',
+        source: SUBSCRIPTION_REQUEST_SOURCES.HEADER_BADGE,
       });
       await mutateOrgPlan();
       setStage('sent');
@@ -135,7 +135,17 @@ export function TrialBadge() {
       <SubscriptionRequestModal
         stage={stage}
         onConfirm={sendRequest}
-        onClose={() => setStage('idle')}
+        onClose={() => {
+          // Only the CONFIRM step is an abandonment — closing the success screen is not. The
+          // shared modal stays analytics-free, so the branch lives here where `source` is known.
+          if (stage === 'confirm') {
+            trackEvent(ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_ABANDONED, {
+              days_left: days,
+              source: SUBSCRIPTION_REQUEST_SOURCES.HEADER_BADGE,
+            });
+          }
+          setStage('idle');
+        }}
       />
     </>
   );

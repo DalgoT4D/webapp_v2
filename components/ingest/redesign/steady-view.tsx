@@ -262,7 +262,11 @@ export function SteadyView({ connectionsKnownStale = false }: SteadyViewProps) {
       if (confirmed) {
         try {
           await deleteConnection(conn.connectionId);
-          trackEvent(ANALYTICS_EVENTS.CONNECTION_DELETED);
+          // Id read from the handler arg — mutateConnections() below drops the row.
+          trackEvent(ANALYTICS_EVENTS.CONNECTION_DELETED, {
+            connection_id: conn.connectionId,
+            source_type: conn.source?.sourceName,
+          });
           toastSuccess.deleted(conn.name);
           mutateConnections();
         } catch (error) {
@@ -279,6 +283,7 @@ export function SteadyView({ connectionsKnownStale = false }: SteadyViewProps) {
         setSyncingIds((prev) => [...prev, conn.connectionId]);
         const result = await triggerSync(conn.deploymentId);
         trackEvent(ANALYTICS_EVENTS.CONNECTION_SYNC_TRIGGERED, {
+          connection_id: conn.connectionId,
           source_type: conn.source?.sourceName,
         });
         mutateConnections();
@@ -297,7 +302,9 @@ export function SteadyView({ connectionsKnownStale = false }: SteadyViewProps) {
       if (!conn.lock?.flowRunId) return;
       try {
         await cancelQueuedSync(conn.lock.flowRunId);
-        trackEvent(ANALYTICS_EVENTS.CONNECTION_SYNC_CANCELLED);
+        trackEvent(ANALYTICS_EVENTS.CONNECTION_SYNC_CANCELLED, {
+          connection_id: conn.connectionId,
+        });
         toastSuccess.generic('Sync cancelled');
         mutateConnections();
       } catch (error) {
@@ -335,6 +342,7 @@ export function SteadyView({ connectionsKnownStale = false }: SteadyViewProps) {
           await clearSelectedStreams(clearDeploymentId, clearStreamConnectionId, selected);
         }
         trackEvent(ANALYTICS_EVENTS.CONNECTION_RESET, {
+          connection_id: clearStreamConnectionId,
           reset_type: allSelected ? 'all' : 'selected',
         });
         toastSuccess.generic('Stream clear initiated');
@@ -383,7 +391,11 @@ export function SteadyView({ connectionsKnownStale = false }: SteadyViewProps) {
       if (confirmed) {
         try {
           await deleteSource(source.sourceId);
-          trackEvent(ANALYTICS_EVENTS.SOURCE_DELETED);
+          // Id read from the handler arg — mutateSources() below drops the row.
+          trackEvent(ANALYTICS_EVENTS.SOURCE_DELETED, {
+            source_id: source.sourceId,
+            source_type: source.sourceName,
+          });
           toastSuccess.deleted(source.name);
           mutateSources();
           mutateConnections();

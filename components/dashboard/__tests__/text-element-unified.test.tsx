@@ -56,19 +56,23 @@ describe('UnifiedTextElement', () => {
     mockTrackEvent.mockClear();
   });
 
-  it('tracks editing sessions and successful formatting actions', async () => {
+  // Both events carry dashboard_id so rich-text usage can be joined to its dashboard;
+  // the id arrives as a prop threaded down from the builder via DashboardCell.
+  it('tracks editing sessions and successful formatting actions with the dashboard id', async () => {
     const user = userEvent.setup();
-    render(<UnifiedTextElement config={config} onUpdate={jest.fn()} isEditMode />);
+    render(<UnifiedTextElement config={config} onUpdate={jest.fn()} isEditMode dashboardId={7} />);
 
     const editor = await screen.findByTestId('dashboard-rich-text-editor');
     fireEvent.click(editor);
     await waitFor(() => expect(editor).toHaveAttribute('contenteditable', 'true'));
-    expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_EDIT_STARTED);
+    expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_EDIT_STARTED, {
+      dashboard_id: 7,
+    });
 
     await user.click(screen.getByRole('button', { name: 'Heading 1' }));
     expect(mockTrackEvent).toHaveBeenCalledWith(
       ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_FORMAT_APPLIED,
-      { format_type: 'heading' }
+      { dashboard_id: 7, format_type: 'heading' }
     );
   });
 

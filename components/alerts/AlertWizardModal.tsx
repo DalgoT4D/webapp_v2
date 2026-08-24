@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import {
+  ALERT_CREATE_SOURCES,
+  ANALYTICS_EVENTS,
+  type AlertCreateSource,
+} from '@/constants/analytics';
+import { alertConsumptionEvents } from './utils';
 import {
   Dialog,
   DialogContent,
@@ -49,6 +54,8 @@ interface AlertWizardModalProps {
     metricId?: number | null;
     kpiId?: number | null;
   };
+  /** Analytics only — which surface opened the wizard (ALERT_CREATE_SOURCES). */
+  createSource?: AlertCreateSource;
 }
 
 function defaultScheduleSpec(): ScheduleSpec {
@@ -221,6 +228,7 @@ export function AlertWizardModal({
   onSuccess,
   alertId,
   initial,
+  createSource = ALERT_CREATE_SOURCES.ALERTS_PAGE,
 }: AlertWizardModalProps) {
   const isEdit = !!alertId;
   const { alert: editAlert } = useAlert(isEdit ? alertId : null);
@@ -231,6 +239,15 @@ export function AlertWizardModal({
   const [step1Errors, setStep1Errors] = useState<Record<string, string>>({});
   const [step2Errors, setStep2Errors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+
+  // Track each wizard step as it becomes visible, so abandonment between Define, Notify
+  // and Test is measurable (same shape as KPI_WIZARD_STEP_VIEWED). `is_edit` matters here
+  // too: the same three steps render when editing an existing alert.
+  useEffect(() => {
+    if (open) {
+      trackEvent(ANALYTICS_EVENTS.ALERT_WIZARD_STEP_VIEWED, { step, is_edit: isEdit });
+    }
+  }, [step, open, isEdit]);
 
   // Reset on open / close
   useEffect(() => {
@@ -352,7 +369,10 @@ export function AlertWizardModal({
           payload.slack_webhook_url = notifyState.slackWebhookUrl.trim();
         }
         const updated = await updateAlert(alertId, payload);
-        trackEvent(ANALYTICS_EVENTS.ALERT_UPDATED, { alert_type: defineState.alertType });
+        trackEvent(ANALYTICS_EVENTS.ALERT_UPDATED, {
+          alert_id: alertId,
+          alert_type: defineState.alertType,
+        });
         toast.success('Alert updated.');
         onSuccess?.(updated);
         onOpenChange(false);
@@ -377,7 +397,22 @@ export function AlertWizardModal({
         recipients: notifyState.recipients,
       };
       const created = await createAlert(payload);
-      trackEvent(ANALYTICS_EVENTS.ALERT_CREATED, { alert_type: defineState.alertType });
+      trackEvent(ANALYTICS_EVENTS.ALERT_CREATED, {
+        alert_id: created?.id,
+        alert_type: defineState.alertType,
+        source: createSource,
+      });
+      // An alert is built ON a metric or a KPI, and that consumption is the adoption signal
+      // for the resource — see alertConsumptionEvents for which type reports what. It is also
+      // the only place the alert can be joined back to its source: ALERT_CREATED carries the
+      // alert's own id and type, not the metric/KPI it watches.
+      for (const { event, properties } of alertConsumptionEvents(
+        defineState.alertType,
+        { metricId: defineState.metricId, kpiId: defineState.kpiId },
+        created?.id
+      )) {
+        trackEvent(event, properties);
+      }
       toast.success('Alert created. It will run on its next scheduled time.');
       onSuccess?.(created);
       onOpenChange(false);

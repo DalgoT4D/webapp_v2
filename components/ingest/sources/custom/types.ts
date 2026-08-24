@@ -1,6 +1,7 @@
 import type { Control, FieldValues, UseFormSetValue } from 'react-hook-form';
 import type { ParsedSpec } from '@/components/connectors/types';
 import type { DestinationSyncMode } from '@/constants/connections';
+import type { SourceAuthMode } from '@/constants/analytics';
 
 /** Google-only OAuth wiring passed from the parent (create wizard or edit modal). */
 export interface CustomSourceOAuth {
@@ -31,6 +32,10 @@ export interface CustomSourceFormProps {
   /** Google Sheets only. The host can't infer this from the config: the managed option leaves
    *  credentials empty on purpose, so empty means "backend fills it in", not "nothing chosen". */
   onAuthSatisfiedChange?: (satisfied: boolean) => void;
+  /** Google Sheets only, analytics. Reports which auth route is currently selected so
+   *  SOURCE_CREATED can say whether the user finished on Dalgo's managed key or their own.
+   *  Same reason as onAuthSatisfiedChange: the config alone can't distinguish them. */
+  onAuthModeChange?: (mode: SourceAuthMode) => void;
 }
 
 // Per-source config for the friendly connection view. Drives stream relabeling

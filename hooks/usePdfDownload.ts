@@ -17,11 +17,15 @@ interface UsePdfDownloadOptions {
  * Hook for downloading server-generated PDFs.
  * Calls a backend endpoint that returns a PDF blob, then triggers a browser download.
  * Reusable for reports, dashboards, or any entity with a PDF export endpoint.
+ *
+ * `download` resolves to whether the export succeeded. It reports failure this way rather
+ * than throwing (the toast already tells the user) so callers can tell the two apart —
+ * analytics must not count a failed export as an export.
  */
 export function usePdfDownload({ endpoint, title, label = 'Report' }: UsePdfDownloadOptions) {
   const [isExporting, setIsExporting] = useState(false);
 
-  const download = useCallback(async () => {
+  const download = useCallback(async (): Promise<boolean> => {
     setIsExporting(true);
     toastInfo.generic(`Generating ${label} PDF...`);
 
@@ -40,9 +44,11 @@ export function usePdfDownload({ endpoint, title, label = 'Report' }: UsePdfDown
       URL.revokeObjectURL(url);
 
       toastSuccess.exported(label, 'pdf');
+      return true;
     } catch (error) {
       console.error('PDF export failed:', error);
       toastError.export(error, 'pdf');
+      return false;
     } finally {
       setIsExporting(false);
     }

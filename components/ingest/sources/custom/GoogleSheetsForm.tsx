@@ -25,6 +25,7 @@ import {
 import { GsheetsAuthChoice } from './GsheetsAuthChoice';
 import { partitionFields } from './partition-fields';
 import type { CustomSourceFormProps } from './types';
+import { SOURCE_AUTH_MODES } from '@/constants/analytics';
 
 /** Google's multi-colour "G" mark, inlined (no external asset). */
 export function GoogleIcon({ className }: { className?: string }) {
@@ -87,6 +88,7 @@ export function GoogleSheetsForm({
   mode,
   oauth,
   onAuthSatisfiedChange,
+  onAuthModeChange,
 }: CustomSourceFormProps) {
   // Matched on the discriminator first (the spec's own shape) and on the well-known key
   // as a fallback, so a renamed discriminator still can't leak raw client_id/secret
@@ -257,6 +259,20 @@ export function GoogleSheetsForm({
     }
     onAuthSatisfiedChange(connected || serviceProvided);
   }, [onAuthSatisfiedChange, useManagedChoice, useManagedKey, serviceProvided, connected]);
+
+  // Report the selected auth route for analytics, for the same reason as above: an empty
+  // credentials field means "Dalgo fills it in", so the host cannot tell the managed key
+  // from a user's own key by looking at the config. OAuth wins when actually connected.
+  useEffect(() => {
+    if (!onAuthModeChange) return;
+    if (connected) {
+      onAuthModeChange(SOURCE_AUTH_MODES.OAUTH);
+      return;
+    }
+    onAuthModeChange(
+      useManagedChoice && useManagedKey ? SOURCE_AUTH_MODES.MANAGED_KEY : SOURCE_AUTH_MODES.OWN_KEY
+    );
+  }, [onAuthModeChange, connected, useManagedChoice, useManagedKey]);
 
   const serviceDisabled = disabled || effectiveConnected;
 

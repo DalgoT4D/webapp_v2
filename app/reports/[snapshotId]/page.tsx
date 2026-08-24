@@ -59,7 +59,7 @@ export default function SnapshotViewerPage() {
   const reportViewedTracked = useRef(false);
   useEffect(() => {
     if (viewData && !reportViewedTracked.current) {
-      trackEvent(ANALYTICS_EVENTS.REPORT_VIEWED);
+      trackEvent(ANALYTICS_EVENTS.REPORT_VIEWED, { report_id: parsedId });
       reportViewedTracked.current = true;
     }
   }, [viewData]);
@@ -93,7 +93,9 @@ export default function SnapshotViewerPage() {
     setIsSaving(true);
     try {
       await updateSnapshot(parsedId, { summary: summaryDraft });
-      trackEvent(ANALYTICS_EVENTS.REPORT_UPDATED);
+      // The summary is the only mutable part of a frozen snapshot. The no-op early return
+      // above means this fires on a real text change, not on opening and closing the editor.
+      trackEvent(ANALYTICS_EVENTS.REPORT_SUMMARY_UPDATED, { report_id: parsedId });
       await mutate();
       setSummaryTouched(false);
       setIsEditingSummary(false);
@@ -202,8 +204,15 @@ export default function SnapshotViewerPage() {
               size="sm"
               aria-label="Download report as PDF"
               onClick={async () => {
-                await handleDownload();
-                trackEvent(ANALYTICS_EVENTS.REPORT_EXPORTED, { format: 'pdf' });
+                // Gated on the result: usePdfDownload catches its own errors and resolves
+                // either way, so an ungated call counted failed exports as exports.
+                const exported = await handleDownload();
+                if (exported) {
+                  trackEvent(ANALYTICS_EVENTS.REPORT_EXPORTED, {
+                    report_id: parsedId,
+                    format: 'pdf',
+                  });
+                }
               }}
               disabled={isExporting}
             >

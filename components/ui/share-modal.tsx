@@ -67,6 +67,13 @@ interface ShareModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdate?: () => void;
+  /** Called only when the public link actually reached the user's clipboard.
+   * This component lives in components/ui/ and stays analytics-free, so callers
+   * hang the "shared" event (and the onboarding walkthrough's final step) here. */
+  onCopyLink?: () => void;
+  /** Called after General access successfully flips to Public. Same reason as
+   * onCopyLink: onboarding milestones belong to the caller, not to this component. */
+  onMadePublic?: () => void;
   /** Reports still use this legacy path. */
   onShareViaEmail?: (data: {
     recipient_emails: string[];
@@ -81,6 +88,8 @@ export function ShareModal({
   isOpen,
   onClose,
   onUpdate,
+  onCopyLink,
+  onMadePublic,
   onShareViaEmail,
 }: ShareModalProps) {
   const entityLabelLower = entityLabel.toLowerCase();
@@ -466,6 +475,11 @@ export function ShareModal({
       if (next === 'public' && res.public_url) {
         toastSuccess.generic(`${entityLabel} is now public`);
         await copyUrlToClipboard(res.public_url);
+        // Deliberately NOT onCopyLink, even though the link did reach the clipboard: callers
+        // treat that as the share act itself and end the onboarding walkthrough on it, which
+        // here would skip the "copy the link" step the user hasn't reached yet. Only the
+        // explicit COPY PUBLIC LINK button counts.
+        onMadePublic?.();
       } else if (next === 'everyone') {
         toastSuccess.generic(`${entityLabel} is now visible to everyone in your org`);
       } else if (next === 'private') {
@@ -481,8 +495,10 @@ export function ShareModal({
   };
 
   const handleCopyPublicUrl = useCallback(async () => {
-    if (generalAccess?.public_url) await copyUrlToClipboard(generalAccess.public_url);
-  }, [generalAccess?.public_url]);
+    if (!generalAccess?.public_url) return;
+    // See handleModeChange: only a successful clipboard write counts as a share.
+    if (await copyUrlToClipboard(generalAccess.public_url)) onCopyLink?.();
+  }, [generalAccess?.public_url, onCopyLink]);
 
   // -------- Legacy email share (Reports) --------
 

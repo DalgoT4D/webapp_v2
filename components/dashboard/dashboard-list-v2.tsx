@@ -424,7 +424,8 @@ export function DashboardListV2() {
 
       try {
         await deleteDashboard(dashboardId);
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED);
+        // Id read from the handler arg, not from list state — mutate() below drops the row.
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED, { dashboard_id: dashboardId });
 
         // Refresh the dashboard list
         await mutate();
@@ -447,7 +448,12 @@ export function DashboardListV2() {
 
       try {
         const newDashboard = await duplicateDashboard(dashboardId);
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DUPLICATED);
+        // Both ids: dashboard_id is the one that was copied (which dashboards people
+        // reuse as templates), new_dashboard_id joins forward to the copy's own events.
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DUPLICATED, {
+          dashboard_id: dashboardId,
+          new_dashboard_id: newDashboard.id,
+        });
 
         // Refresh the dashboard list
         await mutate();
@@ -485,17 +491,19 @@ export function DashboardListV2() {
     mutate(); // Refresh the dashboard list
   }, [mutate]);
 
-  // Wraps updateDashboardSharing (passed to ShareModal, a components/ui/ component we don't
-  // modify) so the resume-nudge "shared" milestone is set on the actual is_public=true action,
-  // without adding onboarding logic to the shared modal itself.
-  const handleUpdateDashboardSharing = useCallback(
-    async (id: number, data: { is_public: boolean }) => {
-      const result = await updateDashboardSharing(id, data);
-      if (data.is_public) markDashboardShared();
-      return result;
-    },
-    [selectedOrgSlug]
-  );
+  // Copying the public link is the share act itself, so it fires here too — the list row
+  // menu is a second entry point into the same dialog, and without this the event would
+  // only exist on the dashboard view page.
+  const handleCopyLink = useCallback(() => {
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { dashboard_id: selectedDashboard?.id });
+  }, [selectedDashboard?.id]);
+
+  // ShareModal (a components/ui/ component we keep free of onboarding logic) reports when
+  // General access flips to Public, so the resume-nudge "shared" milestone is set on that
+  // action rather than inside the shared modal.
+  const handleMadePublic = useCallback(() => {
+    markDashboardShared();
+  }, []);
 
   // Landing page handlers
   const handleSetPersonalLanding = useCallback(
@@ -2049,6 +2057,8 @@ export function DashboardListV2() {
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
+          onCopyLink={handleCopyLink}
+          onMadePublic={handleMadePublic}
         />
       )}
     </div>
