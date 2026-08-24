@@ -61,6 +61,8 @@ import {
 import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
 import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ChartTypes, type ChartDataPayload, type ChartDimension } from '@/types/charts';
+import { CHART_DRILL_SOURCES } from '@/constants/analytics';
+import { useDrillDownAnalytics } from '@/components/charts/useDrillDownAnalytics';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename, BrandingOptions } from '@/lib/chart-export';
@@ -321,6 +323,18 @@ export function ChartElementView({
     );
     setTablePage(1); // Reset to first page when the saved page size changes
   }, [effectiveChart?.extra_config?.pagination?.page_size]);
+
+  // Drill-down engagement on a chart embedded in a dashboard. Disabled on public
+  // share links and report snapshots — those are anonymous surfaces covered by
+  // PUBLIC_DASHBOARD_VIEWED / report events, not by per-chart engagement events.
+  useDrillDownAnalytics({
+    chartId,
+    chartType: effectiveChart?.chart_type,
+    source: CHART_DRILL_SOURCES.DASHBOARD,
+    mapLevel: drillDownPath.length,
+    tableLevel: tableDrillDownState?.currentLevel ?? null,
+    enabled: !isPublicMode && !frozenChartConfig,
+  });
 
   // Determine chart type using effective chart
   const isTableChart = effectiveChart?.chart_type === ChartTypes.TABLE;

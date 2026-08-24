@@ -117,7 +117,7 @@ describe('TrialConsentPage', () => {
       email: 'jane@example.org',
       password: 'super-secret-1',
     });
-    expect(mockTrackEvent).toHaveBeenCalledWith('trial:trial_activated');
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial_onboarding:trial_activated');
     expect(mockAssign).toHaveBeenCalledWith('/free-trial/progress?task_id=task-123');
   });
 

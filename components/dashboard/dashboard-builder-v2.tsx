@@ -77,7 +77,7 @@ import { initializeTabsData } from './tabs/tab-utils';
 import { moveWidgetBetweenTabs, pointerToGridPosition } from './tabs/cross-tab-drag';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { useAuthStore } from '@/stores/authStore';
 import {
@@ -378,7 +378,9 @@ interface DashboardBuilderV2Props {
 
 // Interface for the ref methods exposed to parent
 interface DashboardBuilderV2Ref {
-  cleanup: () => Promise<void>;
+  /** Saves pending changes, unlocks, refreshes caches. Resolves to whether the save
+   *  succeeded — callers must not report an update the PUT never completed. */
+  cleanup: () => Promise<boolean>;
 }
 
 // Helper function to generate responsive layouts from base layout
@@ -895,7 +897,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       };
     }, [lockRefreshInterval]);
 
-    // Auto-save (but not during undo/redo operations)
+    // Auto-save (but not during undo/redo operations).
+    // Deliberately NOT tracked in analytics: autosave is time-triggered, not user
+    // intent, and useDebounce seeds with its initial value so this effect also runs
+    // on mount — any event here would log builder opens as edits. DASHBOARD_UPDATED
+    // fires only from the explicit Save / Save-and-View buttons.
     useEffect(() => {
       if (dashboardId && debouncedState && !isUndoRedoOperation) {
         saveDashboard({}, false);
@@ -1013,12 +1019,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       }
     };
 
-    // Save dashboard
+    // Save dashboard.
+    // Resolves to whether the PUT succeeded. Errors are handled here (save status + inline
+    // error) rather than thrown, so without a return value a caller cannot tell a failed
+    // save from a successful one — and DASHBOARD_UPDATED must never count a failure.
     const saveDashboard = async (
       overrides: DashboardSavePayloadOverrides = {},
       flushRichText = true
-    ) => {
-      if (!dashboardId) return;
+    ): Promise<boolean> => {
+      if (!dashboardId) return false;
 
       const editorState = flushRichText ? flushActiveRichText() : stateRef.current;
 
@@ -1051,6 +1060,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         setTimeout(() => {
           setSaveStatus('idle');
         }, 3000);
+        return true;
       } catch (error: any) {
         console.error('Failed to save dashboard:', error.message || 'Please try again');
         setSaveStatus('error');
@@ -1061,6 +1071,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           setSaveStatus('idle');
           setSaveError(null);
         }, 5000);
+        return false;
       } finally {
         setIsSaving(false);
       }
@@ -1070,11 +1081,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     useImperativeHandle(
       ref,
       () => ({
-        cleanup: async () => {
+        // Returns whether the pending save succeeded, so the Save-and-View path can avoid
+        // reporting an update that did not happen. Navigation/unlock still proceed either
+        // way — a failed save must not trap the user in the builder.
+        cleanup: async (): Promise<boolean> => {
+          let saved = false;
           // First save any pending changes
           if (dashboardId) {
             try {
-              await saveDashboard();
+              saved = await saveDashboard();
             } catch (error) {
               console.error('Error saving dashboard before cleanup:', error);
             }
@@ -1095,6 +1110,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           } catch (error) {
             console.error('Error clearing SWR cache:', error);
           }
+
+          return saved;
         },
       }),
       [dashboardId, lockToken, saveDashboard, unlockDashboard]
@@ -1124,12 +1141,16 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       [flushActiveRichText, setStateWithoutHistory]
     );
 
+    // The three tab-lifecycle events fire from these handlers rather than from TabBar,
+    // which has no dashboardId. Every add/remove/rename control in TabBar funnels through
+    // here, so this is also the one place that can't be bypassed by a new button.
     const handleTabAdd = useCallback(
       (newTab: DashboardTab) => {
         setState((prev) => ({
           tabs: [...prev.tabs, newTab],
           activeTabId: newTab.id,
         }));
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_TAB_CREATED, { dashboard_id: dashboardId });
       },
       [setState]
     );
@@ -1137,6 +1158,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Handle removing a tab
     const handleTabRemove = useCallback(
       (tabId: string) => {
+        let removed = false;
         setState((prev) => {
           if (prev.tabs.length <= 1) return prev;
           const tabIndex = prev.tabs.findIndex((tab) => tab.id === tabId);
@@ -1146,8 +1168,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             prev.activeTabId === tabId
               ? tabs[Math.max(0, tabIndex - 1)]?.id || tabs[0].id
               : prev.activeTabId;
+          removed = true;
           return { tabs, activeTabId };
         });
+        // Only on a real removal — the last tab can't be deleted, and an unknown id is a
+        // no-op, so tracking before this guard would count deletions that never happened.
+        if (removed) {
+          trackEvent(ANALYTICS_EVENTS.DASHBOARD_TAB_DELETED, { dashboard_id: dashboardId });
+        }
       },
       [setState]
     );
@@ -1159,6 +1187,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           ...prev,
           tabs: prev.tabs.map((tab) => (tab.id === tabId ? { ...tab, title: newTitle } : tab)),
         }));
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_TAB_RENAMED, { dashboard_id: dashboardId });
       },
       [setState]
     );
@@ -1180,6 +1209,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           return { ...prev, tabs };
         });
         trackEvent(ANALYTICS_EVENTS.DASHBOARD_TAB_REORDERED, {
+          dashboard_id: dashboardId,
           from_index: fromIndex,
           to_index: destinationIndex,
         });
@@ -1403,6 +1433,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             )
           );
           trackEvent(ANALYTICS_EVENTS.DASHBOARD_WIDGET_MOVED_BETWEEN_TABS, {
+            dashboard_id: dashboardId,
             element_type: session.componentType,
           });
         }
@@ -1686,7 +1717,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           });
         });
 
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_CHART_ADDED, { chart_type: chartType });
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_CHART_ADDED, {
+          // Both ids: chart_type says what KIND was added, chart_id says WHICH chart — only
+          // the id answers "which charts get reused across dashboards" and "built but never
+          // placed anywhere".
+          chart_id: chartId,
+          chart_type: chartType,
+          dashboard_id: dashboardId,
+        });
 
         // Resume-nudge milestone — set regardless of an active coachmark session.
         markChartAddedToDashboard();
@@ -1744,7 +1782,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         });
       });
 
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_KPI_ADDED);
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_KPI_ADDED, {
+        kpi_id: kpiId,
+        dashboard_id: dashboardId,
+      });
       // Resume-nudge milestone — set regardless of an active coachmark session.
       markKpiAddedToDashboard();
       dashboardAnimation.animateComponent(newComponent.id, 500);
@@ -1814,7 +1855,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         });
       });
 
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_ELEMENT_ADDED);
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_ELEMENT_ADDED, { dashboard_id: dashboardId });
 
       // Animate component entrance
       dashboardAnimation.animateComponent(newComponent.id, 500);
@@ -1838,7 +1879,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setState((prev) =>
         updateActiveEditorTab(prev, { layout_config: newLayout, components: newComponents })
       );
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_ELEMENT_REMOVED, { element_type: removedType });
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_ELEMENT_REMOVED, {
+        dashboard_id: dashboardId,
+        element_type: removedType,
+      });
     };
 
     // Handle when filters are applied (causes chart re-renders)
@@ -1891,6 +1935,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             updateData
           );
           trackEvent(ANALYTICS_EVENTS.DASHBOARD_FILTER_UPDATED, {
+            dashboard_id: dashboardId,
             filter_type: updateData.filter_type,
           });
 
@@ -1927,6 +1972,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           settings: filterPayload.settings,
         });
         trackEvent(ANALYTICS_EVENTS.DASHBOARD_FILTER_CREATED, {
+          dashboard_id: dashboardId,
           filter_type: filterPayload.filter_type,
         });
 
@@ -1960,7 +2006,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       try {
         // Call backend API to delete the filter
         await deleteDashboardFilter(dashboardId, parseInt(filterId));
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_FILTER_DELETED);
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_FILTER_DELETED, { dashboard_id: dashboardId });
 
         // Refresh dashboard data to update filter list
         const { mutate } = await import('swr');
@@ -2634,9 +2680,18 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
                 <Button
                   onClick={async () => {
-                    // Fire only on explicit user save (not the autosave/title-blur/resize paths).
-                    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SAVED);
-                    await saveDashboard();
+                    // Fire only on explicit user save (not the autosave/title-blur/resize
+                    // paths), and only once the PUT has actually succeeded — saveDashboard
+                    // handles its own errors, so firing before the await counted failed
+                    // saves as updates. The Save-and-View path fires the same event from
+                    // the edit page with source: SAVE_AND_VIEW.
+                    const saved = await saveDashboard();
+                    if (saved) {
+                      trackEvent(ANALYTICS_EVENTS.DASHBOARD_UPDATED, {
+                        dashboard_id: dashboardId,
+                        source: DASHBOARD_UPDATE_SOURCES.SAVE_BUTTON,
+                      });
+                    }
                     const walkthrough = useInsightWalkthroughStore.getState();
                     if (
                       walkthrough.active &&
@@ -2830,6 +2885,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           isResizing={resizingItems.has(item.i)}
                           appliedFilters={appliedFilters}
                           initialFilters={initialFilters}
+                          dashboardId={dashboardId}
                           onViewChart={handleViewChart}
                           onEditChart={handleEditChart}
                           onRemove={stableRemoveComponent}

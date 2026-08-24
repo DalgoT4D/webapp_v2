@@ -43,6 +43,9 @@ next-env.d.ts
 # ai dev tool related
 # Share team config (CLAUDE.md, rules/, skills/, agents/, settings.json) — ignore only personal/local bits
 .claude/settings.local.json
+# Machine-local Claude Code permission grants. Tracked previously, but the
+# format:write pre-commit hook ('git add .') swept it into unrelated commits.
+.claude/settings.json
 .claude/worktrees/
 
 # Playwright

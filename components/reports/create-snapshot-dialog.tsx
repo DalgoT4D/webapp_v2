@@ -26,6 +26,8 @@ import { useDatePickerWithConfirm } from '@/hooks/useDatePickerWithConfirm';
 import { Camera } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { createSnapshot, useDashboardDatetimeColumns } from '@/hooks/api/useReports';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type { DateColumn } from '@/types/reports';
 import { useDashboards, useDashboard, type Dashboard } from '@/hooks/api/useDashboards';
 
@@ -160,7 +162,14 @@ export function CreateSnapshotDialog({
         payload.period_end = data.periodEnd ? format(data.periodEnd, 'yyyy-MM-dd') : undefined;
       }
 
-      await createSnapshot(payload);
+      const snapshot = await createSnapshot(payload);
+      // GENERATE REPORT is the only way a report is born, and this is its success path.
+      // dashboard_id ties the report back to the dashboard it snapshots.
+      trackEvent(ANALYTICS_EVENTS.REPORT_CREATED, {
+        report_id: snapshot.id,
+        dashboard_id: payload.dashboard_id,
+        has_date_filter: !!payload.date_column,
+      });
       toastSuccess.created('Report');
       setOpen(false);
       resetForm();

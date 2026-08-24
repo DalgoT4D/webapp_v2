@@ -19,13 +19,17 @@
  * the Settings → Billing page it used to open no longer exists, so this and the header pill are
  * the same one-per-org POST behind the same words, sharing SubscriptionRequestModal.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { useAuthStore } from '@/stores/authStore';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import {
+  ANALYTICS_EVENTS,
+  SUBSCRIPTION_REQUEST_SOURCES,
+  WALKTHROUGH_ENTRIES,
+} from '@/constants/analytics';
 import { useOrgPlan, requestPlanUpgrade } from '@/hooks/api/useOrgPlan';
 import { toastError } from '@/lib/toast';
 import {
@@ -62,6 +66,10 @@ export function TrialDayNudgeModal() {
   // The nudge closes before the request modal opens, which clears `day` — so the day count the
   // analytics needs is captured on the way out rather than read back later.
   const [daysLeftAtRequest, setDaysLeftAtRequest] = useState<number | null>(null);
+  // Which day's view has already been reported. Keyed by day rather than a plain boolean: the
+  // 2-days-left nudge and the 1-day one are separate prompts, and a session that spans midnight
+  // should report the second one too.
+  const reportedViewForDay = useRef<TrialNudgeDay | null>(null);
 
   useEffect(() => {
     if (!orgSlug || !planEndDate) return;
@@ -76,6 +84,14 @@ export function TrialDayNudgeModal() {
     );
   }, [orgSlug, planEndDate]);
 
+  // Reported from an effect on `day` rather than at each render site: `day` is what decides a
+  // nudge is on screen, and all three modals below are branches of that one decision.
+  useEffect(() => {
+    if (day === null || reportedViewForDay.current === day) return;
+    reportedViewForDay.current = day;
+    trackEvent(ANALYTICS_EVENTS.TRIAL_NUDGE_VIEWED, { day });
+  }, [day]);
+
   const sendRequest = async () => {
     setStage('sending');
     try {
@@ -83,7 +99,7 @@ export function TrialDayNudgeModal() {
       trackEvent(ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_SENT, {
         days_left: daysLeftAtRequest,
         already_requested: Boolean(response?.already_requested),
-        source: 'trial_nudge',
+        source: SUBSCRIPTION_REQUEST_SOURCES.TRIAL_NUDGE,
       });
       // picks up `upgrade_requested` for both this modal and the header pill
       await mutateOrgPlan();
@@ -101,7 +117,18 @@ export function TrialDayNudgeModal() {
     <SubscriptionRequestModal
       stage={stage}
       onConfirm={sendRequest}
-      onClose={() => setStage('idle')}
+      onClose={() => {
+        // Closing the CONFIRM step is an abandonment; closing the success screen is not. The
+        // modal itself stays analytics-free (it is shared with the header pill, which reports
+        // its own source), so the branch lives here where the stage and the day are known.
+        if (stage === 'confirm') {
+          trackEvent(ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_ABANDONED, {
+            days_left: daysLeftAtRequest,
+            source: SUBSCRIPTION_REQUEST_SOURCES.TRIAL_NUDGE,
+          });
+        }
+        setStage('idle');
+      }}
     />
   );
 
@@ -109,7 +136,8 @@ export function TrialDayNudgeModal() {
 
   // Closing is the ONLY thing that suppresses this for the session — a reload before closing
   // deliberately brings it back, because the user hasn't acknowledged it yet.
-  const dismiss = () => {
+  const dismiss = (choice: 'cta' | 'close') => {
+    trackEvent(ANALYTICS_EVENTS.TRIAL_NUDGE_DISMISSED, { day, choice });
     markTrialDayNudgeDismissed(orgSlug, day);
     setDay(null);
   };
@@ -117,14 +145,16 @@ export function TrialDayNudgeModal() {
   if (day === 7) {
     return (
       <TwoPaneNudgeDialog
-        onOpenChange={(open) => !open && dismiss()}
+        onOpenChange={(open) => !open && dismiss('close')}
         title="7 days left. Let's get your data flowing."
         body="You have seven days left to see Dalgo in action. Let's get some numbers on the board so you can actually see the value."
         ctaLabel="Start with sample data"
         onCta={() => {
-          dismiss();
+          dismiss('cta');
           useInsightWalkthroughStore.getState().start(orgSlug);
-          useInsightWalkthroughStore.getState().chooseSample();
+          useInsightWalkthroughStore
+            .getState()
+            .chooseSample({ entry: WALKTHROUGH_ENTRIES.TRIAL_NUDGE });
           router.push('/kpis?create=true');
         }}
         imageSrc={ILLUSTRATION_SRC}
@@ -142,7 +172,7 @@ export function TrialDayNudgeModal() {
   return (
     <>
       <TwoPaneNudgeDialog
-        onOpenChange={(open) => !open && dismiss()}
+        onOpenChange={(open) => !open && dismiss('close')}
         title="Your trial is almost over."
         body={`On ${format(expiry, 'MMMM d, yyyy')}, your account will be deleted. Secure your full licence now to keep your data syncing seamlessly and your dashboards active.`}
         // Same words, same flow and same state as the header pill — one name for one action, so
@@ -152,10 +182,10 @@ export function TrialDayNudgeModal() {
         ctaDisabled={alreadyRequested}
         onCta={() => {
           setDaysLeftAtRequest(day);
-          dismiss();
+          dismiss('cta');
           trackEvent(ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_OPENED, {
             days_left: day,
-            source: 'trial_nudge',
+            source: SUBSCRIPTION_REQUEST_SOURCES.TRIAL_NUDGE,
           });
           setStage('confirm');
         }}

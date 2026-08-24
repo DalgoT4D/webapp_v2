@@ -17,7 +17,7 @@ function renderModal(onCta?: jest.Mock) {
       title="Congratulations, your KPI is live!"
       description="Your insight is built, and you can now add it to a dashboard!"
       ctaLabel="Add to Dashboard"
-      dismissEvent={'onboarding:kpi_live_modal_dismissed' as never}
+      dismissEvent={'trial_onboarding:kpi_live_modal_dismissed' as never}
       testId="kpi-live-modal"
     />
   );
@@ -43,7 +43,7 @@ describe('CelebrationModal', () => {
 
     expect(handlers.onOpenChange).toHaveBeenCalledWith(false);
     expect(onCta).toHaveBeenCalledTimes(1);
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:kpi_live_modal_dismissed', {
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:kpi_live_modal_dismissed', {
       choice: 'cta',
     });
   });
@@ -64,7 +64,7 @@ describe('CelebrationModal', () => {
     await user.click(screen.getByTestId('kpi-live-modal-close'));
 
     expect(handlers.onOpenChange).toHaveBeenCalledWith(false);
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:kpi_live_modal_dismissed', {
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:kpi_live_modal_dismissed', {
       choice: 'close',
     });
   });
