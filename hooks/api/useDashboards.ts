@@ -21,7 +21,6 @@ export interface Dashboard {
   published_at?: string;
   is_locked: boolean;
   locked_by?: string;
-  is_favorite?: boolean;
   created_by: string;
   org_id: number;
   last_modified_by?: string;
@@ -162,14 +161,6 @@ export async function refreshDashboardLock(id: number) {
 
 export async function unlockDashboard(id: number) {
   return apiDelete(`/api/dashboards/${id}/lock/`);
-}
-
-export async function favoriteDashboard(id: number) {
-  return apiPost(`/api/dashboards/${id}/favorite/`, {});
-}
-
-export async function unfavoriteDashboard(id: number) {
-  return apiDelete(`/api/dashboards/${id}/favorite/`);
 }
 
 export async function getFilterOptions(params: {

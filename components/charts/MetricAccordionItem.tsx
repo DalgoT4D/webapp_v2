@@ -423,9 +423,8 @@ export function MetricAccordionItem({
           </TabsContent>
         </Tabs>
 
-        {/* Display Name (chart label) — editable in every mode, including a linked saved metric.
-            Hidden for number (big number) charts since the label has no visible effect there. */}
-        {chartType !== 'number' && displayNameField}
+        {/* Display Name (chart label) — editable in every mode, including a linked saved metric. */}
+        {displayNameField}
 
         {/* Save-to-library — only for the editable (Simple / Calculated) modes. */}
         {mode !== 'saved' && schemaName && tableName && onSaveToLibrary && (

@@ -23,7 +23,6 @@ import {
   createDashboardFilter,
   deleteDashboardFilter,
   useDashboard,
-  type DashboardFilter,
 } from '@/hooks/api/useDashboards';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -42,6 +41,8 @@ import {
   Redo,
   Loader2,
   Type,
+  Lock,
+  Unlock,
   Check,
   AlertCircle,
   Filter,
@@ -62,17 +63,19 @@ import {
   type RichTextFlushEventDetail,
   type UnifiedTextConfig,
 } from './text-element-unified';
-import {
-  DashboardFilterType,
-  type CreateFilterPayload,
-  type DashboardFilterConfig,
-  type ValueFilterSettings,
-  type NumericalFilterSettings,
-  type DateTimeFilterSettings,
+import { DashboardFilterType } from '@/types/dashboard-filters';
+import type {
+  CreateFilterPayload,
+  DashboardFilterConfig,
+  ValueFilterSettings,
+  NumericalFilterSettings,
+  DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
-import { DashboardComponentType, type DashboardTab } from '@/types/dashboard';
+import { DashboardComponentType } from '@/types/dashboard';
+import type { DashboardTab } from '@/types/dashboard';
 import { initializeTabsData } from './tabs/tab-utils';
 import { moveWidgetBetweenTabs, pointerToGridPosition } from './tabs/cross-tab-drag';
+import type { DashboardFilter } from '@/hooks/api/useDashboards';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
@@ -611,6 +614,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [isLocked, setIsLocked] = useState(false);
     const [lockToken, setLockToken] = useState<string | null>(null);
     const [lockRefreshInterval, setLockRefreshInterval] = useState<NodeJS.Timeout | null>(null);
     const lockRequestInFlightRef = useRef(false);
@@ -953,6 +957,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       try {
         const response = await apiPost(`/api/dashboards/${dashboardId}/lock/`, {});
         hasDashboardLockRef.current = true;
+        setIsLocked(true);
         setLockToken(response.lock_token);
 
         // Set up auto-refresh every 60 seconds (half of 2-minute lock duration)
@@ -964,6 +969,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             // If refresh fails, clear interval and update UI
             clearInterval(interval);
             setLockRefreshInterval(null);
+            setIsLocked(false);
             setLockToken(null);
           }
         }, 60000); // 60 seconds
@@ -1005,6 +1011,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           await apiDelete(`/api/dashboards/${dashboardId}/lock/`);
         }
 
+        setIsLocked(false);
         setLockToken(null);
         hasDashboardLockRef.current = false;
       } catch (error) {
@@ -2410,8 +2417,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             </div>
 
             {/* Mobile Status Bar */}
-            {saveStatus !== 'idle' && (
+            {(isLocked || saveStatus !== 'idle') && (
               <div className="px-4 pb-2 flex items-center justify-between text-xs">
+                {isLocked && (
+                  <div className="flex items-center gap-1 text-green-600">
+                    <Lock className="w-3 h-3" />
+                    <span>Locked</span>
+                  </div>
+                )}
                 {saveStatus === 'saving' && (
                   <div className="flex items-center gap-1 text-gray-500">
                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -2548,6 +2561,21 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
               {/* Right zone: status + save/preview */}
               <div className="flex items-center gap-2 flex-1 justify-end">
+                {/* Lock Status */}
+                {isLocked ? (
+                  <div className="flex items-center gap-1 text-sm text-green-600">
+                    <Lock className="w-4 h-4" />
+                    <span className="hidden xl:inline">Locked for editing</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-sm text-yellow-600">
+                    <Unlock className="w-4 h-4" />
+                    <span className="hidden xl:inline">Not locked</span>
+                  </div>
+                )}
+
+                <div className="h-6 w-px bg-gray-300 mx-1" />
+
                 {/* Save Status Indicator */}
                 {saveStatus === 'saving' && (
                   <div className="flex items-center gap-2 text-sm text-gray-500">
