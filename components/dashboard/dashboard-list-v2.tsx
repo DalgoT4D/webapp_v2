@@ -95,6 +95,9 @@ import {
   duplicateDashboard,
   getDashboardSharingStatus,
   updateDashboardSharing,
+  favoriteDashboard,
+  unfavoriteDashboard,
+  type Dashboard,
 } from '@/hooks/api/useDashboards';
 import { ShareModal } from '@/components/ui/share-modal';
 import { toastSuccess, toastError } from '@/lib/toast';
@@ -132,7 +135,6 @@ export function DashboardListV2() {
   const viewMode = 'table';
   const [sortBy, setSortBy] = useState<'name' | 'updated_at' | 'created_by'>('updated_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [favorites, setFavorites] = useState<Set<number>>(new Set());
 
   // Column filter states
   const [nameFilters, setNameFilters] = useState({
@@ -261,7 +263,7 @@ export function DashboardListV2() {
         }
       }
 
-      if (nameFilters.showFavorites && !favorites.has(dashboard.id)) {
+      if (nameFilters.showFavorites && !dashboard.is_favorite) {
         return false;
       }
 
@@ -341,19 +343,20 @@ export function DashboardListV2() {
         return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
       }
     });
-  }, [dashboards, nameFilters, ownerFilters, dateFilters, favorites, sortBy, sortOrder]);
+  }, [dashboards, nameFilters, ownerFilters, dateFilters, sortBy, sortOrder]);
 
   // Handle favorites toggle
-  const handleToggleFavorite = (dashboardId: number) => {
-    setFavorites((prev) => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(dashboardId)) {
-        newFavorites.delete(dashboardId);
+  const handleToggleFavorite = async (dashboard: Dashboard) => {
+    try {
+      if (dashboard.is_favorite) {
+        await unfavoriteDashboard(dashboard.id);
       } else {
-        newFavorites.add(dashboardId);
+        await favoriteDashboard(dashboard.id);
       }
-      return newFavorites;
-    });
+      await mutate();
+    } catch (error) {
+      toastError.update(error, 'favorite');
+    }
   };
 
   // Get unique owners for filter options
@@ -815,7 +818,7 @@ export function DashboardListV2() {
     const isLocked = dashboard.is_locked;
     const isLockedByOther =
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
-    const isFavorited = favorites.has(dashboard.id);
+    const isFavorited = dashboard.is_favorite ?? false;
 
     const getNavigationUrl = () => {
       return hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? `/dashboards/${dashboard.id}` : '#';
@@ -832,7 +835,7 @@ export function DashboardListV2() {
               className="h-8 w-8 p-0 hover:bg-yellow-50"
               onClick={(e) => {
                 e.preventDefault();
-                handleToggleFavorite(dashboard.id);
+                handleToggleFavorite(dashboard);
               }}
             >
               {isFavorited ? (
