@@ -14,7 +14,6 @@ export interface Chart {
   created_at: string;
   updated_at: string;
   created_by?: string; // creator's email
-  is_favorite?: boolean;
 }
 
 export interface ChartListResponse {
