@@ -397,7 +397,7 @@ function buildSimpleMapOverlayPayload(payload: MapDataOverlayRawPayload, metric?
       {
         column: column || (aggregation === 'count' ? payload.geographic_column : null),
         aggregation,
-        alias: metric?.alias || 'value',
+        alias: 'value',
       },
     ],
     filters: payload.filters || {},
@@ -415,7 +415,7 @@ function buildCalculatedMapOverlayPayload(payload: MapDataOverlayRawPayload, met
     metrics: [
       {
         column_expression: metric.column_expression,
-        alias: metric.alias || 'value',
+        alias: 'value',
       },
     ],
     filters: payload.filters || {},

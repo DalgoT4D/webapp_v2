@@ -29,7 +29,7 @@ async function fetchMapOverlayForExport(
         exportMetric?.column_expression
           ? {
               column_expression: exportMetric.column_expression,
-              alias: exportMetric.alias || 'value',
+              alias: 'value',
             }
           : {
               column: legacyColumn,
