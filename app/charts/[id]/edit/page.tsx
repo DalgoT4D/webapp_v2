@@ -1215,6 +1215,16 @@ function EditChartPageContent() {
     }
 
     if (formData.chart_type === ChartTypes.MAP) {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          formData.geographic_column &&
+          formData.selected_geojson_id &&
+          (metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       // Count(*) doesn't need a value_column, similar to other chart types
       const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
       return !!(
