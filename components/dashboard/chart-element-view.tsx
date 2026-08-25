@@ -64,7 +64,7 @@ import { CHART_DRILL_SOURCES } from '@/constants/analytics';
 import { useDrillDownAnalytics } from '@/components/charts/useDrillDownAnalytics';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
-import { useViewerSort } from '@/hooks/useViewerSort';
+import { useViewerSort, type ViewerSortValue } from '@/hooks/useViewerSort';
 import { useViewerSearch } from '@/hooks/useViewerSearch';
 import { ChartExporter, generateFilename, BrandingOptions } from '@/lib/chart-export';
 import { apiPostBinary } from '@/lib/api';
@@ -550,17 +550,29 @@ export function ChartElementView({
   } = useSWR(
     publicTableDataUrl
       ? isPublicReport
-        ? [publicTableDataUrl, tablePage, tablePageSize]
+        ? [publicTableDataUrl, tablePage, tablePageSize, effectiveSort, debouncedSearch]
         : [publicTableDataUrl, chartDataPayload, tablePage, tablePageSize, dashboardFilters]
       : null,
     isPublicMode && isTableChart
       ? isPublicReport
-        ? async ([url, page, size]: [string, number, number]) => {
-            // Public report: GET — server builds payload from frozen config
+        ? async ([url, page, size, sort, search]: [
+            string,
+            number,
+            number,
+            ViewerSortValue[] | undefined,
+            string | undefined,
+          ]) => {
+            // Public report: GET — server builds the base payload from the frozen
+            // config; sort/search are the only viewer-adjustable overrides.
             const qp = new URLSearchParams({
               page: (page - 1).toString(),
               limit: size.toString(),
             });
+            // Always send sort, even [] — omitting it on clear leaves the frozen sort applied.
+            qp.append('sort', JSON.stringify(sort || []));
+            if (search) {
+              qp.append('search', search);
+            }
             const response = await fetch(
               `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}?${qp}`
             );
@@ -626,15 +638,21 @@ export function ChartElementView({
   const { data: publicTableTotalRowsData } = useSWR(
     publicTableTotalRowsUrl
       ? isPublicReport
-        ? [publicTableTotalRowsUrl]
+        ? [publicTableTotalRowsUrl, debouncedSearch]
         : [publicTableTotalRowsUrl, chartDataPayload, dashboardFilters]
       : null,
     isPublicMode && isTableChart
       ? isPublicReport
-        ? async ([url]: [string]) => {
-            // Public report: GET — server builds payload from frozen config
+        ? async ([url, search]: [string, string | undefined]) => {
+            // Public report: GET — server builds the base payload from the frozen
+            // config; search is the only override (sort doesn't affect a row count).
+            const qp = new URLSearchParams();
+            if (search) {
+              qp.append('search', search);
+            }
+            const qs = qp.toString();
             const response = await fetch(
-              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`
+              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}${qs ? `?${qs}` : ''}`
             );
             if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             return response.json();
@@ -2019,11 +2037,9 @@ export function ChartElementView({
                     }
                   : undefined
               }
-              // Reports fetch table data via a frozen, payload-less GET (no way to inject
-              // a sort override), so headers stay non-interactive there.
-              onSort={isPublicReport ? undefined : handleTableSort}
+              onSort={handleTableSort}
               searchQuery={searchQuery}
-              onSearchChange={isPublicReport ? undefined : onSearchChange}
+              onSearchChange={onSearchChange}
               onRowClick={handleTableRowClick}
               drillDownEnabled={effectiveChart?.extra_config?.dimensions?.some(
                 (dim: ChartDimension) => dim.enable_drill_down === true
