@@ -40,8 +40,20 @@ beforeEach(() => {
 });
 
 describe('OrgFlagsPanel', () => {
+  it('renders as a table with a header row for Flag, Description, and Status', () => {
+    render(<OrgFlagsPanel orgId={ORG_ID} />);
+
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Flag' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Description' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument();
+  });
+
   it('renders a row per catalog flag with its current on/off state for this org', () => {
     render(<OrgFlagsPanel orgId={ORG_ID} />);
+
+    const reportsRow = screen.getByTestId('org-flag-row-REPORTS');
+    expect(reportsRow).toHaveAttribute('data-slot', 'table-row');
 
     expect(screen.getByTestId('org-flag-switch-REPORTS')).toHaveAttribute('data-state', 'checked');
     expect(screen.getByTestId('org-flag-switch-DATA_QUALITY')).toHaveAttribute(
@@ -49,6 +61,15 @@ describe('OrgFlagsPanel', () => {
       'unchecked'
     );
     expect(screen.getByText('Elementary data quality reports')).toBeInTheDocument();
+  });
+
+  it('pairs each toggle with an accessible label naming the flag', () => {
+    render(<OrgFlagsPanel orgId={ORG_ID} />);
+
+    expect(screen.getByLabelText('REPORTS')).toBe(screen.getByTestId('org-flag-switch-REPORTS'));
+    expect(screen.getByLabelText('DATA_QUALITY')).toBe(
+      screen.getByTestId('org-flag-switch-DATA_QUALITY')
+    );
   });
 
   it('toggling a switch calls setOrgFlag for this org and refreshes', async () => {
@@ -59,5 +80,16 @@ describe('OrgFlagsPanel', () => {
 
     await waitFor(() => expect(mockSetOrgFlag).toHaveBeenCalledWith(ORG_ID, 'DATA_QUALITY', true));
     expect(mockMutate).toHaveBeenCalled();
+  });
+
+  it('shows an empty-state row when the catalog has no flags', () => {
+    (useAdminPortal.useAdminFlagCatalog as jest.Mock).mockReturnValue({
+      catalog: [],
+      isLoading: false,
+    });
+
+    render(<OrgFlagsPanel orgId={ORG_ID} />);
+
+    expect(screen.getByText('No feature flags available.')).toBeInTheDocument();
   });
 });

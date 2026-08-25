@@ -4,6 +4,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   useAdminFlagCatalog,
   useAdminOrgFlags,
   useAdminFlagActions,
@@ -40,28 +48,42 @@ export function OrgFlagsPanel({ orgId }: OrgFlagsPanelProps) {
   }
 
   return (
-    <div className="space-y-1">
-      {catalog?.map((item) => {
-        const switchId = `org-flag-switch-${item.flag_name}`;
-        return (
-          <div
-            key={item.flag_name}
-            className="flex items-center justify-between border-b py-3 last:border-b-0"
-            data-testid={`org-flag-row-${item.flag_name}`}
-          >
-            <div>
-              <Label htmlFor={switchId}>{item.flag_name}</Label>
-              <p className="text-xs text-muted-foreground">{item.description}</p>
-            </div>
-            <Switch
-              id={switchId}
-              checked={Boolean(flags?.[item.flag_name])}
-              onCheckedChange={(checked) => onToggle(item.flag_name, checked)}
-              data-testid={switchId}
-            />
-          </div>
-        );
-      })}
-    </div>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Flag</TableHead>
+          <TableHead>Description</TableHead>
+          <TableHead className="text-right">Status</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {(!catalog || catalog.length === 0) && (
+          <TableRow>
+            <TableCell colSpan={3} className="text-center text-muted-foreground">
+              No feature flags available.
+            </TableCell>
+          </TableRow>
+        )}
+        {catalog?.map((item) => {
+          const switchId = `org-flag-switch-${item.flag_name}`;
+          return (
+            <TableRow key={item.flag_name} data-testid={`org-flag-row-${item.flag_name}`}>
+              <TableCell>
+                <Label htmlFor={switchId}>{item.flag_name}</Label>
+              </TableCell>
+              <TableCell className="text-muted-foreground">{item.description}</TableCell>
+              <TableCell className="text-right">
+                <Switch
+                  id={switchId}
+                  checked={Boolean(flags?.[item.flag_name])}
+                  onCheckedChange={(checked) => onToggle(item.flag_name, checked)}
+                  data-testid={switchId}
+                />
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 }
