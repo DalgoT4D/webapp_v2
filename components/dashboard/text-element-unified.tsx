@@ -1,35 +1,33 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
+import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import TextAlign from '@tiptap/extension-text-align';
 import Placeholder from '@tiptap/extension-placeholder';
-import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Palette } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { calculateTextDimensions } from '@/lib/chart-size-constraints';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { apiPut, apiDelete } from '@/lib/api';
+import { toastError } from '@/lib/toast';
 import {
   DEFAULT_RICH_TEXT_FONT_SIZE,
   legacyConfigToRichText,
-  MAX_RICH_TEXT_FONT_SIZE,
-  MIN_RICH_TEXT_FONT_SIZE,
   richTextDocumentsEqual,
   sanitizeRichTextDocument,
   type UnifiedTextConfig,
+  type WidgetImageUploadResponse,
 } from './rich-text-config';
+import { RichTextToolbar } from './rich-text-toolbar';
 export type { UnifiedTextConfig } from './rich-text-config';
 
 interface UnifiedTextElementProps {
   config: UnifiedTextConfig;
   onUpdate: (config: UnifiedTextConfig) => void;
   componentId?: string;
-  onRemove?: () => void;
   isEditMode?: boolean;
 }
 
@@ -40,123 +38,17 @@ export interface RichTextFlushEventDetail {
   updates: Array<{ componentId: string; config: UnifiedTextConfig }>;
 }
 
-const FONT_SIZES = Array.from(
-  { length: MAX_RICH_TEXT_FONT_SIZE - MIN_RICH_TEXT_FONT_SIZE + 1 },
-  (_, index) => MIN_RICH_TEXT_FONT_SIZE + index
-);
 // Keep the floating toolbar usable on narrow screens and clear of viewport edges.
-const TOOLBAR_MIN_WIDTH_PX = 320;
 const TOOLBAR_MAX_WIDTH_PX = 620;
-const TOOLBAR_DEFAULT_WIDTH_PX = 560;
 const TOOLBAR_HEIGHT_PX = 56;
 const TOOLBAR_VIEWPORT_GUTTER_PX = 8;
-const COLOR_PRESETS = [
-  '#000000',
-  '#374151',
-  '#6B7280',
-  '#EF4444',
-  '#F59E0B',
-  '#10B981',
-  '#3B82F6',
-  '#8B5CF6',
-];
+// Mirrors the backend's PUT /api/dashboards/images/ validation
+// (ddpui/services/dashboard_service.py) so bad files fail fast client-side.
+const ALLOWED_WIDGET_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const MAX_WIDGET_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
-type SelectionMarkState = 'active' | 'mixed' | 'inactive';
-type RichTextFormatType =
-  | 'heading'
-  | 'paragraph'
-  | 'font_size'
-  | 'bold'
-  | 'italic'
-  | 'underline'
-  | 'alignment'
-  | 'color';
-
-interface TextStyleAttributes {
-  color?: string;
-  fontSize?: string;
-}
-
-function getFontSizeSelectValue(fontSize?: string): number | '' {
-  if (!fontSize?.endsWith('px')) return '';
-  const parsed = Number(fontSize.slice(0, -2));
-  return FONT_SIZES.includes(parsed) && `${parsed}px` === fontSize ? parsed : '';
-}
-
-function getSelectionMarkState(
-  editor: NonNullable<ReturnType<typeof useEditor>>,
-  markName: string
-): SelectionMarkState {
-  const { from, to, empty } = editor.state.selection;
-  if (empty) return editor.isActive(markName) ? 'active' : 'inactive';
-
-  let selectedCharacters = 0;
-  let markedCharacters = 0;
-  editor.state.doc.nodesBetween(from, to, (node, position) => {
-    if (!node.isText) return;
-    const overlap = Math.max(0, Math.min(to, position + node.nodeSize) - Math.max(from, position));
-    selectedCharacters += overlap;
-    if (node.marks.some((mark) => mark.type.name === markName)) markedCharacters += overlap;
-  });
-
-  if (markedCharacters === 0) return 'inactive';
-  if (markedCharacters === selectedCharacters) return 'active';
-  return 'mixed';
-}
-
-function setHeadingLevel(
-  editor: NonNullable<ReturnType<typeof useEditor>>,
-  level: 1 | 2 | 3
-): boolean {
-  const { from, to } = editor.state.selection;
-  const $from = editor.state.doc.resolve(from);
-  const $to = editor.state.doc.resolve(to);
-
-  // Legacy text boxes carry their old whole-box font size as an inline mark.
-  // Clear that mark across every selected text block so the heading hierarchy
-  // is visible, while preserving marks such as color, bold, and underline.
-  const blockFrom = $from.start($from.depth);
-  const blockTo = $to.end($to.depth);
-
-  return editor
-    .chain()
-    .focus()
-    .setTextSelection({ from: blockFrom, to: blockTo })
-    .unsetFontSize()
-    .setHeading({ level })
-    .setTextSelection({ from, to })
-    .run();
-}
-
-const editorExtensions = [
-  StarterKit.configure({
-    blockquote: false,
-    bulletList: false,
-    code: false,
-    codeBlock: false,
-    horizontalRule: false,
-    link: false,
-    listItem: false,
-    listKeymap: false,
-    orderedList: false,
-    strike: false,
-    trailingNode: false,
-    heading: { levels: [1, 2, 3] },
-  }),
-  TextStyleKit.configure({
-    backgroundColor: false,
-    fontFamily: false,
-    lineHeight: false,
-    color: { types: ['textStyle'] },
-    fontSize: { types: ['textStyle'] },
-  }),
-  TextAlign.configure({
-    types: ['heading', 'paragraph'],
-    alignments: ['left', 'center', 'right'],
-    defaultAlignment: 'left',
-  }),
-  Placeholder.configure({ placeholder: 'Start typing…' }),
-];
+const IMAGE_OVERLAY_PLACEHOLDER = 'Type on image (optional)…';
+const TEXT_PLACEHOLDER = 'Start typing…';
 
 export function UnifiedTextElement({
   config,
@@ -166,23 +58,79 @@ export function UnifiedTextElement({
 }: UnifiedTextElementProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showHeadingDropdown, setShowHeadingDropdown] = useState(false);
+  const [showAlignDropdown, setShowAlignDropdown] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState({
     top: TOOLBAR_VIEWPORT_GUTTER_PX,
     left: TOOLBAR_VIEWPORT_GUTTER_PX,
-    width: TOOLBAR_DEFAULT_WIDTH_PX,
   });
   const containerRef = useRef<HTMLDivElement>(null);
   const configRef = useRef(config);
   const editingSessionRef = useRef(false);
 
+  // Image controls — metadata alongside the rich-text document, edited
+  // independently of the TipTap editor.
+  const [showImageDropdown, setShowImageDropdown] = useState(false);
+  const [isReplacingImage, setIsReplacingImage] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageTab, setImageTab] = useState<'upload' | 'link'>('upload');
+  const [imageLinkInput, setImageLinkInput] = useState('');
+  const [isEditingCaption, setIsEditingCaption] = useState(false);
+  const [tempCaption, setTempCaption] = useState(config.caption || '');
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const hasImageRef = useRef(Boolean(config.imageUrl));
+
+  const closeAllDropdowns = useCallback(() => {
+    setShowColorPicker(false);
+    setShowImageDropdown(false);
+    setShowHeadingDropdown(false);
+    setShowAlignDropdown(false);
+  }, []);
+
   useEffect(() => {
     configRef.current = config;
+    hasImageRef.current = Boolean(config.imageUrl);
   }, [config]);
 
   const initialDocument = useMemo(
     () => sanitizeRichTextDocument(config.richText || legacyConfigToRichText(config)),
     // The component key is stable; external updates are synchronized by the effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  const editorExtensions = useMemo(
+    () => [
+      StarterKit.configure({
+        blockquote: false,
+        bulletList: false,
+        code: false,
+        codeBlock: false,
+        horizontalRule: false,
+        link: false,
+        listItem: false,
+        listKeymap: false,
+        orderedList: false,
+        strike: false,
+        trailingNode: false,
+        heading: { levels: [1, 2, 3] },
+      }),
+      TextStyleKit.configure({
+        backgroundColor: false,
+        fontFamily: false,
+        lineHeight: false,
+        color: { types: ['textStyle'] },
+        fontSize: { types: ['textStyle'] },
+      }),
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+        alignments: ['left', 'center', 'right'],
+        defaultAlignment: 'left',
+      }),
+      Placeholder.configure({
+        placeholder: () => (hasImageRef.current ? IMAGE_OVERLAY_PLACEHOLDER : TEXT_PLACEHOLDER),
+      }),
+    ],
     []
   );
 
@@ -200,45 +148,15 @@ export function UnifiedTextElement({
     },
   });
 
-  const toolbarState = useEditorState({
-    editor,
-    selector: ({ editor: currentEditor }) => {
-      const textStyle = currentEditor?.getAttributes('textStyle') as
-        | TextStyleAttributes
-        | undefined;
-      return {
-        bold: currentEditor ? getSelectionMarkState(currentEditor, 'bold') : 'inactive',
-        italic: currentEditor ? getSelectionMarkState(currentEditor, 'italic') : 'inactive',
-        underline: currentEditor ? getSelectionMarkState(currentEditor, 'underline') : 'inactive',
-        headingLevel: ([1, 2, 3] as const).find((level) =>
-          currentEditor?.isActive('heading', { level })
-        ),
-        paragraph: currentEditor?.isActive('paragraph') || false,
-        alignment:
-          (['left', 'center', 'right'] as const).find((alignment) =>
-            currentEditor?.isActive({ textAlign: alignment })
-          ) || 'left',
-        color: textStyle?.color || '#000000',
-        fontSize: textStyle?.fontSize || '',
-      };
-    },
-  });
-
-  const applyFormatting = useCallback((formatType: RichTextFormatType, command: () => boolean) => {
-    if (command()) {
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_FORMAT_APPLIED, {
-        format_type: formatType,
-      });
-    }
-  }, []);
-
   const calculateToolbarPosition = useCallback(() => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const width = Math.min(TOOLBAR_MAX_WIDTH_PX, Math.max(TOOLBAR_MIN_WIDTH_PX, rect.width));
+    // The toolbar sizes itself to its own content (no explicit width is set
+    // in its style below) — TOOLBAR_MAX_WIDTH_PX here is only a conservative
+    // estimate so it doesn't get clamped past the right viewport edge.
     const left = Math.max(
       TOOLBAR_VIEWPORT_GUTTER_PX,
-      Math.min(rect.left, window.innerWidth - width - TOOLBAR_VIEWPORT_GUTTER_PX)
+      Math.min(rect.left, window.innerWidth - TOOLBAR_MAX_WIDTH_PX - TOOLBAR_VIEWPORT_GUTTER_PX)
     );
     const toolbarClearance = TOOLBAR_HEIGHT_PX + TOOLBAR_VIEWPORT_GUTTER_PX;
     const top =
@@ -248,7 +166,7 @@ export function UnifiedTextElement({
             window.innerHeight - TOOLBAR_HEIGHT_PX,
             rect.bottom + TOOLBAR_VIEWPORT_GUTTER_PX
           );
-    setToolbarPosition({ top, left, width });
+    setToolbarPosition({ top, left });
   }, []);
 
   const commit = useCallback(
@@ -294,9 +212,10 @@ export function UnifiedTextElement({
       }
       editor?.setEditable(false);
       setIsEditing(false);
-      setShowColorPicker(false);
+      closeAllDropdowns();
+      setIsReplacingImage(false);
     },
-    [commit, editor]
+    [closeAllDropdowns, commit, editor]
   );
 
   const startEditing = useCallback(() => {
@@ -397,200 +316,248 @@ export function UnifiedTextElement({
       editingSessionRef.current = false;
       editor?.setEditable(false);
       setIsEditing(false);
-      setShowColorPicker(false);
+      closeAllDropdowns();
+      setIsReplacingImage(false);
     };
     document.addEventListener(DASHBOARD_RICH_TEXT_FLUSH_EVENT, handleFlush);
     return () => document.removeEventListener(DASHBOARD_RICH_TEXT_FLUSH_EVENT, handleFlush);
-  }, [commit, componentId, editor, isEditing]);
+  }, [closeAllDropdowns, commit, componentId, editor, isEditing]);
+
+  // Best-effort: an old S3-uploaded image being replaced/removed is deleted
+  // in the background. Failures are logged, not surfaced — the user's edit
+  // (new image applied / old one removed from the widget) already succeeded,
+  // and blocking on S3 cleanup would hold up an unrelated action.
+  const deleteS3ImageIfNeeded = useCallback((imageKey: string | undefined) => {
+    if (!imageKey) return;
+    apiDelete('/api/dashboards/images/', { body: JSON.stringify({ image_key: imageKey }) }).catch(
+      (err) => {
+        console.error('Failed to delete old dashboard widget image from S3:', err);
+      }
+    );
+  }, []);
+
+  const handleImageUpload = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+
+      if (!ALLOWED_WIDGET_IMAGE_TYPES.has(file.type)) {
+        toastError.api(new Error('Please upload a JPEG, PNG, GIF, or WEBP image.'));
+        return;
+      }
+      if (file.size > MAX_WIDGET_IMAGE_SIZE_BYTES) {
+        toastError.api(new Error('Image must be smaller than 5MB.'));
+        return;
+      }
+
+      const previousImageKey = configRef.current.imageKey;
+      setIsUploadingImage(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res: WidgetImageUploadResponse = await apiPut('/api/dashboards/images/', formData);
+        onUpdate({
+          ...configRef.current,
+          imageUrl: res.image_url,
+          imageKey: res.image_key,
+          imageName: file.name,
+        });
+        deleteS3ImageIfNeeded(previousImageKey);
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_IMAGE_ADDED, { source: 'upload' });
+        setShowImageDropdown(false);
+        setIsReplacingImage(false);
+      } catch (err) {
+        toastError.api(err, 'Failed to upload image. Please try again.');
+      } finally {
+        setIsUploadingImage(false);
+      }
+    },
+    [deleteS3ImageIfNeeded, onUpdate]
+  );
+
+  const handleImageLinkConfirm = useCallback(() => {
+    if (!imageLinkInput.trim()) return;
+    const trimmed = imageLinkInput.trim();
+    const name = trimmed.split('/').pop() || 'image';
+    const previousImageKey = configRef.current.imageKey;
+    onUpdate({
+      ...configRef.current,
+      imageUrl: trimmed,
+      imageKey: undefined,
+      imageName: name,
+    });
+    deleteS3ImageIfNeeded(previousImageKey);
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_IMAGE_ADDED, { source: 'link' });
+    setImageLinkInput('');
+    setShowImageDropdown(false);
+    setIsReplacingImage(false);
+  }, [deleteS3ImageIfNeeded, imageLinkInput, onUpdate]);
+
+  const handleImageRemove = useCallback(() => {
+    deleteS3ImageIfNeeded(configRef.current.imageKey);
+    onUpdate({
+      ...configRef.current,
+      imageUrl: undefined,
+      imageKey: undefined,
+      imageName: undefined,
+      imageSize: undefined,
+      caption: undefined,
+      captionAlign: undefined,
+    });
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_IMAGE_REMOVED);
+    setShowImageDropdown(false);
+    setIsReplacingImage(false);
+  }, [deleteS3ImageIfNeeded, onUpdate]);
+
+  // Opens the upload/link picker without touching the current image — the
+  // image is only replaced once a new upload/link is confirmed. Cancelling
+  // (handleCancelReplaceImage) leaves the existing image untouched.
+  const handleImageReload = useCallback(() => {
+    setIsReplacingImage(true);
+    setImageTab('upload');
+    setImageLinkInput('');
+  }, []);
+
+  const handleCancelReplaceImage = useCallback(() => {
+    setIsReplacingImage(false);
+  }, []);
+
+  const handleImageSizeChange = useCallback(
+    (size: 'fill' | 'fit' | 'stretch') => {
+      onUpdate({ ...configRef.current, imageSize: size });
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_IMAGE_UPDATED, { field: 'image_size' });
+    },
+    [onUpdate]
+  );
+
+  const handleCaptionAlignChange = useCallback(
+    (align: 'left' | 'center' | 'right') => {
+      onUpdate({ ...configRef.current, captionAlign: align });
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_IMAGE_UPDATED, { field: 'caption_align' });
+    },
+    [onUpdate]
+  );
+
+  const commitCaption = useCallback(() => {
+    onUpdate({ ...configRef.current, caption: tempCaption });
+    setIsEditingCaption(false);
+  }, [onUpdate, tempCaption]);
 
   if (!editor) return null;
-  if (!isEditMode && !config.content && !config.richText) return null;
+  if (!isEditMode && !config.content && !config.richText && !config.imageUrl) return null;
 
-  const toolbar = isEditing
-    ? createPortal(
-        <div
-          className="drag-cancel fixed z-[9999] flex max-w-[calc(100vw-16px)] flex-wrap items-center gap-1 rounded-lg border bg-white p-2 shadow-2xl"
-          style={toolbarPosition}
-          data-rich-text-toolbar
+  const toolbar = isEditing ? (
+    <RichTextToolbar
+      editor={editor}
+      toolbarPosition={toolbarPosition}
+      showColorPicker={showColorPicker}
+      setShowColorPicker={setShowColorPicker}
+      showHeadingDropdown={showHeadingDropdown}
+      setShowHeadingDropdown={setShowHeadingDropdown}
+      showAlignDropdown={showAlignDropdown}
+      setShowAlignDropdown={setShowAlignDropdown}
+      showImageDropdown={showImageDropdown}
+      setShowImageDropdown={setShowImageDropdown}
+      isReplacingImage={isReplacingImage}
+      setIsReplacingImage={setIsReplacingImage}
+      config={config}
+      imageTab={imageTab}
+      setImageTab={setImageTab}
+      imageLinkInput={imageLinkInput}
+      setImageLinkInput={setImageLinkInput}
+      imageInputRef={imageInputRef}
+      isUploadingImage={isUploadingImage}
+      onImageLinkConfirm={handleImageLinkConfirm}
+      onImageReload={handleImageReload}
+      onImageRemove={handleImageRemove}
+      onImageSizeChange={handleImageSizeChange}
+      onCaptionAlignChange={handleCaptionAlignChange}
+      onCancelReplaceImage={handleCancelReplaceImage}
+    />
+  ) : null;
+
+  const editorContent = (
+    <EditorContent
+      editor={editor}
+      className={cn(
+        'w-full',
+        // @tiptap/extension-placeholder only marks the empty node — it ships
+        // no default CSS, so the placeholder needs these utilities to render.
+        '[&_p.is-editor-empty:first-child]:before:pointer-events-none [&_p.is-editor-empty:first-child]:before:float-left [&_p.is-editor-empty:first-child]:before:h-0 [&_p.is-editor-empty:first-child]:before:content-[attr(data-placeholder)]',
+        config.imageUrl
+          ? '[&_p.is-editor-empty:first-child]:before:text-black'
+          : '[&_p.is-editor-empty:first-child]:before:text-gray-400'
+      )}
+    />
+  );
+
+  const captionAlign = config.captionAlign || 'left';
+  const captionRow = (
+    <div
+      className="drag-cancel flex min-h-[12px] cursor-text items-center bg-white px-3 py-1"
+      style={{ textAlign: captionAlign }}
+      onClick={() => {
+        if (!isEditMode) return;
+        setIsEditingCaption(true);
+        setTempCaption(config.caption || '');
+      }}
+    >
+      {isEditingCaption ? (
+        <input
+          autoFocus
+          value={tempCaption}
+          onChange={(event) => setTempCaption(event.target.value)}
+          onBlur={commitCaption}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === 'Escape') commitCaption();
+          }}
+          style={{ textAlign: captionAlign }}
+          className="w-full border-none bg-transparent text-sm text-gray-600 outline-none"
+          placeholder="Add caption…"
+          data-testid="rich-text-caption-input"
+        />
+      ) : (
+        <span
+          className={cn(
+            'w-full text-sm',
+            config.caption ? 'text-gray-600' : 'italic text-gray-500'
+          )}
+          data-testid="rich-text-caption-display"
         >
-          {([1, 2, 3] as const).map((level) => (
-            <Button
-              key={level}
-              type="button"
-              size="sm"
-              variant={toolbarState?.headingLevel === level ? 'default' : 'ghost'}
-              className="h-7 px-2 text-xs"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => applyFormatting('heading', () => setHeadingLevel(editor, level))}
-              aria-label={`Heading ${level}`}
-              data-testid={`rich-text-heading-${level}`}
-            >
-              H{level}
-            </Button>
-          ))}
-          <Button
-            type="button"
-            size="sm"
-            variant={toolbarState?.paragraph ? 'default' : 'ghost'}
-            className="h-7 px-2 text-xs"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() =>
-              applyFormatting('paragraph', () => editor.chain().focus().setParagraph().run())
-            }
-            aria-label="Normal text"
-            data-testid="rich-text-paragraph"
-          >
-            T
-          </Button>
-          <span className="mx-1 h-5 w-px bg-gray-200" />
-          <select
-            value={getFontSizeSelectValue(toolbarState?.fontSize)}
-            onMouseDown={(event) => event.stopPropagation()}
-            onChange={(event) =>
-              applyFormatting('font_size', () =>
-                editor.chain().focus().setFontSize(`${event.target.value}px`).run()
-              )
-            }
-            className="h-7 rounded border bg-white px-1 text-xs"
-            aria-label="Font size"
-            data-testid="rich-text-font-size"
-          >
-            <option value="" disabled>
-              Size
-            </option>
-            {FONT_SIZES.map((size) => (
-              <option key={size} value={size}>
-                {size}px
-              </option>
-            ))}
-          </select>
-          {[
-            {
-              label: 'Bold',
-              active: toolbarState?.bold,
-              icon: Bold,
-              command: () =>
-                applyFormatting('bold', () => editor.chain().focus().toggleBold().run()),
-            },
-            {
-              label: 'Italic',
-              active: toolbarState?.italic,
-              icon: Italic,
-              command: () =>
-                applyFormatting('italic', () => editor.chain().focus().toggleItalic().run()),
-            },
-            {
-              label: 'Underline',
-              active: toolbarState?.underline,
-              icon: Underline,
-              command: () =>
-                applyFormatting('underline', () => editor.chain().focus().toggleUnderline().run()),
-            },
-          ].map(({ label, active, icon: Icon, command }) => (
-            <Button
-              key={label}
-              type="button"
-              size="sm"
-              variant={active === 'active' ? 'default' : active === 'mixed' ? 'outline' : 'ghost'}
-              className={cn('h-7 w-7 p-0', active === 'mixed' && 'border-dashed')}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={command}
-              aria-label={label}
-              aria-pressed={active === 'mixed' ? 'mixed' : active === 'active'}
-              data-testid={`rich-text-${label.toLowerCase()}`}
-            >
-              <Icon className="h-3.5 w-3.5" />
-            </Button>
-          ))}
-          <span className="mx-1 h-5 w-px bg-gray-200" />
-          {[
-            { value: 'left', label: 'Align left', icon: AlignLeft },
-            { value: 'center', label: 'Align center', icon: AlignCenter },
-            { value: 'right', label: 'Align right', icon: AlignRight },
-          ].map(({ value, label, icon: Icon }) => (
-            <Button
-              key={value}
-              type="button"
-              size="sm"
-              variant={toolbarState?.alignment === value ? 'default' : 'ghost'}
-              className="h-7 w-7 p-0"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() =>
-                applyFormatting('alignment', () => editor.chain().focus().setTextAlign(value).run())
-              }
-              aria-label={label}
-              data-testid={`rich-text-align-${value}`}
-            >
-              <Icon className="h-3.5 w-3.5" />
-            </Button>
-          ))}
-          <div className="relative">
-            <Button
-              type="button"
-              size="sm"
-              variant={showColorPicker ? 'default' : 'ghost'}
-              className="h-7 w-7 p-0"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => setShowColorPicker((visible) => !visible)}
-              aria-label="Text color"
-              data-testid="rich-text-color-picker"
-            >
-              <Palette className="h-3.5 w-3.5" />
-              <span
-                className="absolute bottom-0.5 right-0.5 h-2 w-2 rounded-full border border-white"
-                style={{ backgroundColor: toolbarState?.color || '#000000' }}
-              />
-            </Button>
-            {showColorPicker && (
-              <div className="absolute right-0 top-9 z-[10000] w-40 rounded-lg border bg-white p-3 shadow-xl">
-                <p className="mb-2 text-xs font-medium text-gray-700">Text color</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {COLOR_PRESETS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      className={cn(
-                        'h-7 w-7 rounded-md border border-gray-200 transition-transform hover:scale-110',
-                        toolbarState?.color === color && 'ring-2 ring-blue-500 ring-offset-1'
-                      )}
-                      style={{ backgroundColor: color }}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        applyFormatting('color', () =>
-                          editor.chain().focus().setColor(color).run()
-                        );
-                        setShowColorPicker(false);
-                      }}
-                      aria-label={`Set text color ${color}`}
-                      data-testid={`rich-text-color-${color.slice(1).toLowerCase()}`}
-                    />
-                  ))}
-                </div>
-                <label className="mt-3 flex cursor-pointer items-center justify-between border-t pt-3 text-xs text-gray-600">
-                  Custom color
-                  <input
-                    type="color"
-                    value={toolbarState?.color || '#000000'}
-                    onChange={(event) => {
-                      applyFormatting('color', () =>
-                        editor.chain().focus().setColor(event.target.value).run()
-                      );
-                      setShowColorPicker(false);
-                    }}
-                    className="h-7 w-10 cursor-pointer overflow-hidden rounded border bg-white p-0"
-                    aria-label="Custom text color"
-                    data-testid="rich-text-custom-color"
-                  />
-                </label>
-              </div>
-            )}
-          </div>
-        </div>,
-        document.body
-      )
-    : null;
+          {config.caption || 'Add caption…'}
+        </span>
+      )}
+    </div>
+  );
 
-  const content = (
+  const imageObjectFitClass =
+    config.imageSize === 'fit'
+      ? 'object-contain'
+      : config.imageSize === 'stretch'
+        ? 'object-fill'
+        : 'object-cover';
+
+  const content = config.imageUrl ? (
+    <div ref={containerRef} className="flex h-full w-full flex-col overflow-hidden">
+      <div
+        className="drag-cancel group relative min-h-0 flex-1 cursor-text"
+        onClick={startEditing}
+        data-testid="dashboard-text-image"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={config.imageUrl}
+          alt={config.imageName || 'Widget image'}
+          className={cn('h-full w-full', imageObjectFitClass)}
+        />
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-3">
+          <div className="pointer-events-auto w-full">{editorContent}</div>
+        </div>
+      </div>
+      {(isEditMode || config.caption) && <div className="border-t">{captionRow}</div>}
+    </div>
+  ) : (
     <div
       ref={containerRef}
       className={cn(
@@ -601,7 +568,7 @@ export function UnifiedTextElement({
       style={{ backgroundColor: config.backgroundColor || 'transparent' }}
       onClick={startEditing}
     >
-      <EditorContent editor={editor} className="w-full" />
+      {editorContent}
     </div>
   );
 
@@ -609,6 +576,20 @@ export function UnifiedTextElement({
   return (
     <>
       {toolbar}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={handleImageUpload}
+        data-testid="rich-text-image-file-input"
+        // Lives outside the toolbar's own DOM subtree, but the browser
+        // refocuses this exact element when the native file picker closes —
+        // without this marker, the outside-click/focus listeners below treat
+        // that as "focus left the toolbar" and prematurely exit edit mode,
+        // interrupting the upload before handleImageUpload can even run.
+        data-rich-text-toolbar
+      />
       <Card className="h-full w-full">
         <CardContent className="h-full p-0">{content}</CardContent>
       </Card>

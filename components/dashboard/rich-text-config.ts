@@ -1,5 +1,12 @@
 import type { JSONContent } from '@tiptap/core';
 
+// Mirrors ddpui/schemas/dashboard_schema.py's WidgetImageUploadResponse —
+// the response shape from PUT /api/dashboards/images/.
+export interface WidgetImageUploadResponse {
+  image_url: string;
+  image_key: string;
+}
+
 export interface UnifiedTextConfig {
   content: string;
   richText?: JSONContent;
@@ -12,6 +19,14 @@ export interface UnifiedTextConfig {
   textAlign: 'left' | 'center' | 'right';
   color: string;
   backgroundColor?: string;
+  imageUrl?: string;
+  imageName?: string;
+  // Only set for images uploaded to S3 (not external image links) — needed to
+  // delete the S3 object when the image is removed or replaced.
+  imageKey?: string;
+  imageSize?: 'fill' | 'fit' | 'stretch';
+  caption?: string;
+  captionAlign?: 'left' | 'center' | 'right';
   contentConstraints?: { minWidth: number; minHeight: number };
 }
 

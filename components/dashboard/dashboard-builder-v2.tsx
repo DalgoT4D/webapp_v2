@@ -1826,7 +1826,24 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Remove component. Anything below the removed widget slides up (gravity-up);
     // side neighbours stay where they are. One history entry.
     const removeComponent = (componentId: string) => {
-      const removedType = activeComponents[componentId]?.type;
+      const removedComponent = activeComponents[componentId];
+      const removedType = removedComponent?.type;
+
+      // Text/image widgets can hold an S3-uploaded image — removing the
+      // widget entirely (not just its image via the toolbar) would otherwise
+      // orphan that file in S3, since nothing else references its key.
+      const removedImageKey =
+        removedType === DashboardComponentType.TEXT
+          ? removedComponent?.config?.imageKey
+          : undefined;
+      if (removedImageKey) {
+        apiDelete('/api/dashboards/images/', {
+          body: JSON.stringify({ image_key: removedImageKey }),
+        }).catch((error) => {
+          console.error('Failed to delete removed widget image from S3:', error);
+        });
+      }
+
       const newComponents = { ...activeComponents };
       delete newComponents[componentId];
 
