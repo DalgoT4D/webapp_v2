@@ -73,7 +73,9 @@ describe('RbacNoticeCarousel', () => {
 
     expect(screen.getByTestId('rbac-notice-modal')).toBeInTheDocument();
     expect(screen.getByText("We've simplified how access works")).toBeInTheDocument();
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:rbac_notice_viewed', { role: 'analyst' });
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:rbac_notice_viewed', {
+      role: 'analyst',
+    });
   });
 
   it('does not show the carousel when the user has already seen it', () => {
@@ -143,7 +145,7 @@ describe('RbacNoticeCarousel', () => {
       has_seen_rbac_notice: true,
     });
     expect(setOrgUsers).toHaveBeenCalled();
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:rbac_notice_dismissed', {
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:rbac_notice_dismissed', {
       step: 3,
       completed: true,
     });

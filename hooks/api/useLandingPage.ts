@@ -3,7 +3,7 @@ import useSWR, { mutate } from 'swr';
 import { apiPost, apiDelete, apiGet } from '@/lib/api';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, LANDING_SCOPES } from '@/constants/analytics';
 
 interface LandingPageResponse {
   success: boolean;
@@ -48,7 +48,10 @@ export function useLandingPage() {
         // Revalidate user data to update landing page indicators
         await mutate('/api/currentuserv2');
 
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_SET_AS_LANDING);
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_SET_AS_LANDING, {
+          dashboard_id: dashboardId,
+          scope: LANDING_SCOPES.PERSONAL,
+        });
         toastSuccess.generic(response.message || 'Dashboard set as landing page');
         return true;
       }
@@ -100,6 +103,12 @@ export function useLandingPage() {
         // Revalidate user data to update landing page indicators
         await mutate('/api/currentuserv2');
 
+        // The ORG DEFAULT action — an admin choosing the whole org's home dashboard, and
+        // previously untracked entirely. Same event as the personal one, split by scope.
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_SET_AS_LANDING, {
+          dashboard_id: dashboardId,
+          scope: LANDING_SCOPES.ORG_DEFAULT,
+        });
         toastSuccess.generic(response.message || 'Dashboard set as organization default');
         return true;
       }

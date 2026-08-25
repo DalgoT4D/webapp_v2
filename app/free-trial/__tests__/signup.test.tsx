@@ -143,7 +143,7 @@ describe('FreeTrialPage', () => {
     // Heading copy comes from Figma frame 2452:256 ("Verify your email").
     expect(confirmation).toHaveTextContent('Verify your email');
     expect(confirmation).toHaveTextContent('jane@example.org');
-    expect(mockTrackEvent).toHaveBeenCalledWith('trial:signup_submitted');
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial_onboarding:signup_submitted');
   });
 
   it('shows an info toast + login link on a 409 (account exists)', async () => {
@@ -206,7 +206,7 @@ describe('FreeTrialPage — check-your-email screen actions', () => {
       'Verification link re-sent to jane@example.org.'
     );
     // Resend calls an API, so analytics.md requires it be instrumented.
-    expect(mockTrackEvent).toHaveBeenCalledWith('trial:link_resent');
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial_onboarding:link_resent');
   });
 
   it('returns to the signup form via "Start over" so a wrong email can be corrected', async () => {

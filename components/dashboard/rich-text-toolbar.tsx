@@ -113,6 +113,8 @@ function setHeadingLevel(
 
 export interface RichTextToolbarProps {
   editor: NonNullable<ReturnType<typeof useEditor>>;
+  /** Analytics only, so format-applied events can be joined to their dashboard. */
+  dashboardId?: number;
   toolbarPosition: { top: number; left: number };
   showColorPicker: boolean;
   setShowColorPicker: Dispatch<SetStateAction<boolean>>;
@@ -145,6 +147,7 @@ export interface RichTextToolbarProps {
 // the dashboard grid's overflow handling.
 export function RichTextToolbar({
   editor,
+  dashboardId,
   toolbarPosition,
   showColorPicker,
   setShowColorPicker,
@@ -194,13 +197,17 @@ export function RichTextToolbar({
     },
   });
 
-  const applyFormatting = useCallback((formatType: RichTextFormatType, command: () => boolean) => {
-    if (command()) {
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_FORMAT_APPLIED, {
-        format_type: formatType,
-      });
-    }
-  }, []);
+  const applyFormatting = useCallback(
+    (formatType: RichTextFormatType, command: () => boolean) => {
+      if (command()) {
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_FORMAT_APPLIED, {
+          dashboard_id: dashboardId,
+          format_type: formatType,
+        });
+      }
+    },
+    [dashboardId]
+  );
 
   return createPortal(
     <div

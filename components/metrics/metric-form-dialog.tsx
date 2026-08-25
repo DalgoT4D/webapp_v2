@@ -37,7 +37,7 @@ import type { Metric, MetricPayload, MetricConsumersResponse } from '@/types/met
 import { AGGREGATION_OPTIONS } from '@/types/metrics';
 import { ConsumerLinks } from './consumer-links';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, METRIC_CREATE_SOURCES } from '@/constants/analytics';
 
 const NUMERIC_TYPES = [
   'integer',
@@ -248,10 +248,19 @@ export function MetricFormDialog({
     try {
       if (isEdit && metric) {
         await updateMetric(metric.id, payload);
-        trackEvent(ANALYTICS_EVENTS.METRIC_UPDATED, { mode: data.mode });
+        trackEvent(ANALYTICS_EVENTS.METRIC_UPDATED, {
+          metric_type: data.mode,
+          metric_id: metric.id,
+        });
       } else {
-        await createMetric(payload);
-        trackEvent(ANALYTICS_EVENTS.METRIC_CREATED, { mode: data.mode });
+        const created = await createMetric(payload);
+        // `metric_type` (not `mode`) — one property name for this concept across
+        // every METRIC_CREATED site, so a single breakdown covers all of them.
+        trackEvent(ANALYTICS_EVENTS.METRIC_CREATED, {
+          metric_type: data.mode,
+          metric_id: created.id,
+          source: METRIC_CREATE_SOURCES.METRICS_PAGE,
+        });
       }
       onSuccess();
       onOpenChange(false);
