@@ -39,7 +39,7 @@ export default function CreateDashboardPage() {
           grid_columns: 12,
         });
 
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_CREATED);
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_CREATED, { dashboard_id: dashboard.id });
         toastSuccess.created('Dashboard');
         router.replace(`/dashboards/${dashboard.id}/edit?new=true`);
       } catch (error: any) {

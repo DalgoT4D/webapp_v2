@@ -69,7 +69,8 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, CHART_CREATE_SOURCES } from '@/constants/analytics';
+import { getMetricAnalyticsProps, isDrillDownEnabled } from '@/components/charts/utils';
 import { cn } from '@/lib/utils';
 import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
 
@@ -314,12 +315,17 @@ export default function ChartsPage() {
   };
 
   const handleDeleteChart = useCallback(
-    async (chartId: number, chartTitle: string) => {
+    // chartType is passed in (not looked up in `charts`) so this callback keeps the
+    // same dependencies as before — the analytics property costs no extra re-renders.
+    async (chartId: number, chartTitle: string, chartType?: string) => {
       setIsDeleting(chartId);
 
       try {
         await deleteChart(chartId);
-        trackEvent(ANALYTICS_EVENTS.CHART_DELETED);
+        trackEvent(ANALYTICS_EVENTS.CHART_DELETED, {
+          chart_id: chartId,
+          chart_type: chartType ?? null,
+        });
         await mutate();
         toastSuccess.deleted(chartTitle);
       } catch (error) {
@@ -405,9 +411,25 @@ export default function ChartsPage() {
         };
 
         const result = await createChart(duplicateChartData);
-        trackEvent(ANALYTICS_EVENTS.CHART_DUPLICATED, {
+        // A duplicate is a created chart — same event, `source: 'duplicate'`.
+        // Kept out of a separate CHART_DUPLICATED event so the "charts created"
+        // total isn't short by every duplicate.
+        trackEvent(ANALYTICS_EVENTS.CHART_CREATED, {
           chart_type: originalChart.chart_type,
+          chart_id: result.id,
+          source: CHART_CREATE_SOURCES.DUPLICATE,
+          // Carried over from the original so the metric breakdown on
+          // CHART_CREATED isn't skewed by duplicates reporting zero metrics.
+          ...getMetricAnalyticsProps(originalChart.extra_config?.metrics),
+          // Saved charts keep drill config inside extra_config; the builder keeps it at
+          // the top level, so flatten it into the shape isDrillDownEnabled expects.
+          drill_down_enabled: isDrillDownEnabled({
+            chart_type: originalChart.chart_type,
+            ...originalChart.extra_config,
+          }),
         });
+        // No METRIC_USED here on purpose: duplicating copies a metric reference
+        // mechanically, it isn't a user choosing to consume that metric.
         // Refresh the charts list
         await mutate();
 
@@ -498,7 +520,12 @@ export default function ChartsPage() {
         await Promise.all(deletePromises);
       }
 
-      trackEvent(ANALYTICS_EVENTS.CHARTS_BULK_DELETED, { count: selectedCharts.size });
+      // chart_ids (plural) so a bulk delete can still be traced to the exact charts,
+      // the same way single deletes carry chart_id.
+      trackEvent(ANALYTICS_EVENTS.CHARTS_BULK_DELETED, {
+        count: selectedCharts.size,
+        chart_ids: Array.from(selectedCharts),
+      });
       await mutate();
       toastSuccess.generic(
         `${selectedCharts.size} chart${selectedCharts.size === 1 ? '' : 's'} deleted successfully`
@@ -951,7 +978,7 @@ export default function ChartsPage() {
                     <ChartDeleteDialog
                       chartId={chart.id}
                       chartTitle={chart.title}
-                      onConfirm={() => handleDeleteChart(chart.id, chart.title)}
+                      onConfirm={() => handleDeleteChart(chart.id, chart.title, chart.chart_type)}
                       isDeleting={isDeleting === chart.id}
                     >
                       <DropdownMenuItem

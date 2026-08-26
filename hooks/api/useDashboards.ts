@@ -27,13 +27,8 @@ export interface Dashboard {
   created_at: string;
   updated_at: string;
   filters: DashboardFilter[];
-  // The requestor's own access level on this dashboard ("view" | "edit"),
-  // computed per-request from grants + org floor + ownership. Drives whether
-  // edit affordances show. Optional: absent from public views / legacy responses.
-  access_level?: 'view' | 'edit';
   // Sharing fields
   is_public: boolean;
-  is_private?: boolean;
   public_share_token?: string;
   public_shared_at?: string;
   public_disabled_at?: string;
@@ -241,6 +236,23 @@ export async function deleteDashboardFilter(
 export async function duplicateDashboard(dashboardId: number): Promise<Dashboard> {
   // Use the backend duplicate endpoint that handles all the copying server-side
   return await apiPost(`/api/dashboards/${dashboardId}/duplicate/`, {});
+}
+
+// Dashboard sharing functions
+// Tracked here rather than at the call sites because two of them exist (the dashboard
+// view and the list row menu) and ShareModal itself lives in components/ui/, which we
+// keep free of analytics. Only going public fires: turning sharing OFF is not an
+// outcome we measure, and one event for both directions made the count meaningless.
+export async function updateDashboardSharing(dashboardId: number, data: { is_public: boolean }) {
+  const result = await apiPut(`/api/dashboards/${dashboardId}/share/`, data);
+  if (data.is_public) {
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_MADE_PUBLIC, { dashboard_id: dashboardId });
+  }
+  return result;
+}
+
+export async function getDashboardSharingStatus(dashboardId: number) {
+  return apiGet(`/api/dashboards/${dashboardId}/share/`);
 }
 
 export function usePublicDashboard(token: string) {

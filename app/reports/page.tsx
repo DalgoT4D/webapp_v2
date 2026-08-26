@@ -248,7 +248,8 @@ export default function ReportsPage() {
       if (!confirmed) return;
       try {
         await deleteSnapshot(snapshot.id);
-        trackEvent(ANALYTICS_EVENTS.REPORT_DELETED);
+        // Id read from the row we were handed — mutate() below drops it from local state.
+        trackEvent(ANALYTICS_EVENTS.REPORT_DELETED, { report_id: snapshot.id });
         mutate();
         toastSuccess.deleted('Report');
       } catch (error) {

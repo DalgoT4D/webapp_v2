@@ -208,3 +208,49 @@ export function getDefaultFilterValues(filters: DashboardFilterConfig[]): Record
 
   return defaultValues;
 }
+
+/**
+ * Is this filter value actually set by the user?
+ *
+ * Apply sends every filter, unset ones as null (so charts can clear a previous value),
+ * which means the payload size is the filter COUNT, not the number of filters used. This
+ * separates the two. Empty strings, empty arrays and all-empty range objects are "unset":
+ * a numerical filter the user never touched arrives as `{min: undefined, max: undefined}`.
+ */
+function isFilterValueSet(value: unknown): boolean {
+  if (value === null || value === undefined || value === '') return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).some(
+      (entry) => entry !== null && entry !== undefined && entry !== ''
+    );
+  }
+  return true;
+}
+
+/**
+ * Summarise an applied filter payload for analytics.
+ *
+ * Returns counts and filter TYPES only — never the selected values or the column/table/
+ * schema they point at, which are warehouse data and must not reach PostHog.
+ */
+export function summarizeAppliedFilters(
+  appliedValues: Record<string, any>,
+  filters: DashboardFilterConfig[]
+): { applied_filter_count: number; total_filter_count: number; filter_types: string[] } {
+  const setFilterIds = Object.keys(appliedValues).filter((id) =>
+    isFilterValueSet(appliedValues[id])
+  );
+  const types = new Set<string>();
+  setFilterIds.forEach((id) => {
+    const filter = filters.find((candidate) => String(candidate.id) === String(id));
+    if (filter?.filter_type) types.add(filter.filter_type);
+  });
+
+  return {
+    applied_filter_count: setFilterIds.length,
+    total_filter_count: filters.length,
+    // Sorted so the same combination is one value in PostHog regardless of click order.
+    filter_types: Array.from(types).sort(),
+  };
+}

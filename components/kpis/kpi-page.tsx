@@ -58,7 +58,13 @@ import { RAG_COLORS, METRIC_TYPE_TAG_OPTIONS, TIME_GRAIN_OPTIONS } from '@/types
 import type { RAGStatus } from '@/types/kpis';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import {
+  ALERT_CREATE_SOURCES,
+  ANALYTICS_EVENTS,
+  KPI_EXPORT_SOURCES,
+  KPI_VIEW_SOURCES,
+  type KpiViewSource,
+} from '@/constants/analytics';
 import { formatDistanceToNow } from 'date-fns';
 import { computePopChanges } from '@/lib/formatters';
 
@@ -66,6 +72,7 @@ import { computePopChanges } from '@/lib/formatters';
 function KPICardWithData({
   kpi,
   onClick,
+  onViewFromMenu,
   onEdit,
   onDelete,
   onCreateAlert,
@@ -78,6 +85,8 @@ function KPICardWithData({
 }: {
   kpi: KPI;
   onClick: () => void;
+  /** ⋮ → View KPI. Same drawer as onClick, tracked with its own source. */
+  onViewFromMenu: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onCreateAlert?: () => void;
@@ -122,11 +131,13 @@ function KPICardWithData({
         data={cardData}
         onClick={onClick}
         className="h-full"
+        kpiId={kpi.id}
+        exportSource={KPI_EXPORT_SOURCES.KPI_PAGE}
         showDownload={false}
         downloadInMenu
         menuItems={
           <>
-            <DropdownMenuItem onClick={onClick} className="cursor-pointer">
+            <DropdownMenuItem onClick={onViewFromMenu} className="cursor-pointer">
               <Eye className="w-4 h-4 mr-2" />
               View KPI
             </DropdownMenuItem>
@@ -228,6 +239,15 @@ export function KPIPageComponent() {
     if (openId && kpis.length > 0) {
       const kpi = kpis.find((k) => k.id === parseInt(openId));
       if (kpi) {
+        // This opens the same drawer as a card click, so it is a KPI view too — it was
+        // previously untracked, making every arrival from an alert/notification link
+        // invisible. Safe to fire inline: the param is stripped below, so the effect
+        // cannot run again for this id.
+        trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, {
+          kpi_id: kpi.id,
+          source: KPI_VIEW_SOURCES.DEEP_LINK,
+          metric_type_tag: kpi.metric_type_tag || null,
+        });
         setSelectedKpi(kpi);
         setDrawerOpen(true);
       }
@@ -300,8 +320,14 @@ export function KPIPageComponent() {
     }
   };
 
-  const handleCardClick = (kpi: KPI) => {
-    trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, { metric_type_tag: kpi.metric_type_tag || null });
+  // `source` distinguishes the card body from the ⋮ → View KPI item: both land here, so
+  // without it there is no way to tell which affordance people actually use.
+  const handleCardClick = (kpi: KPI, source: KpiViewSource = KPI_VIEW_SOURCES.CARD) => {
+    trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, {
+      kpi_id: kpi.id,
+      source,
+      metric_type_tag: kpi.metric_type_tag || null,
+    });
     setSelectedKpi(kpi);
     setDrawerOpen(true);
   };
@@ -322,7 +348,9 @@ export function KPIPageComponent() {
     setIsDeleting(true);
     try {
       await deleteKPI(deletingKpi.id);
+      // Id read before the mutate() below drops the row from local state.
       trackEvent(ANALYTICS_EVENTS.KPI_DELETED, {
+        kpi_id: deletingKpi.id,
         metric_type_tag: deletingKpi.metric_type_tag || null,
       });
       if (kpis.length === 1 && currentPage > 1) {
@@ -495,6 +523,7 @@ export function KPIPageComponent() {
                     key={kpi.id}
                     kpi={kpi}
                     onClick={() => handleCardClick(kpi)}
+                    onViewFromMenu={() => handleCardClick(kpi, KPI_VIEW_SOURCES.MENU)}
                     onEdit={() => handleEdit(kpi)}
                     onDelete={() => handleDeleteClick(kpi)}
                     onCreateAlert={() => setAlertKpiId(kpi.id)}
@@ -572,6 +601,7 @@ export function KPIPageComponent() {
         open={alertKpiId !== null}
         onOpenChange={(o) => !o && setAlertKpiId(null)}
         initial={{ alertType: 'kpi_rag', kpiId: alertKpiId }}
+        createSource={ALERT_CREATE_SOURCES.KPI_LIST}
       />
 
       {shareModalKpi && (

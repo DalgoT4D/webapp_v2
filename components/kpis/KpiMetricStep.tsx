@@ -25,7 +25,7 @@ import { createMetric, validateMetric } from '@/hooks/api/useMetrics';
 import type { Metric, MetricPayload } from '@/types/metrics';
 import { AGGREGATION_OPTIONS } from '@/types/metrics';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, METRIC_CREATE_SOURCES } from '@/constants/analytics';
 
 const NUMERIC_TYPES = [
   'integer',
@@ -206,7 +206,13 @@ export const KpiMetricStep = forwardRef<KpiMetricStepHandle, KpiMetricStepProps>
         setCreateError(null);
         try {
           const newMetric = await createMetric(payload);
-          trackEvent(ANALYTICS_EVENTS.METRIC_CREATED, { mode: data.mode });
+          // `metric_type` (not `mode`) — one property name for this concept across
+          // every METRIC_CREATED site, so a single breakdown covers all three.
+          trackEvent(ANALYTICS_EVENTS.METRIC_CREATED, {
+            metric_type: data.mode,
+            metric_id: newMetric.id,
+            source: METRIC_CREATE_SOURCES.KPI_WIZARD,
+          });
           // Invalidate all /api/metrics/ SWR cache keys (MetricPicker uses a
           // different pageSize than the parent, so a targeted mutate won't reach it).
           globalMutate((key) => typeof key === 'string' && key.startsWith('/api/metrics/'));

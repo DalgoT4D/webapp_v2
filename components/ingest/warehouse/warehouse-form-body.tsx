@@ -21,7 +21,11 @@ import {
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { DESTINATION_CHECK_WS_PATH } from '@/constants/warehouse';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import {
+  ANALYTICS_EVENTS,
+  WAREHOUSE_CREATE_SOURCES,
+  type WarehouseCreateSource,
+} from '@/constants/analytics';
 import { toastSuccess, toastError } from '@/lib/toast';
 import type { Warehouse } from '@/types/warehouse';
 import type { ParsedSpec } from '@/components/connectors/types';
@@ -39,6 +43,9 @@ interface WarehouseFormBodyProps {
   onCancel: () => void;
   /** Label for the primary submit button. Defaults to "Save Changes And Test". */
   submitLabel?: string;
+  /** Analytics only — which surface this form is mounted on (WAREHOUSE_CREATE_SOURCES).
+   *  Defaults to the Settings page; the Add Source wizard overrides it. */
+  createSource?: WarehouseCreateSource;
 }
 
 /**
@@ -53,6 +60,7 @@ export function WarehouseFormBody({
   isEditing = false,
   onSuccess,
   onCancel,
+  createSource = WAREHOUSE_CREATE_SOURCES.SETTINGS,
   submitLabel = 'Save Changes And Test',
 }: WarehouseFormBodyProps) {
   const { data: definitions, isLoading: defsLoading } = useDestinationDefinitions();
@@ -127,7 +135,9 @@ export function WarehouseFormBody({
           config,
           destinationDefId: warehouse.destinationDefinitionId,
         });
-        trackEvent(ANALYTICS_EVENTS.WAREHOUSE_UPDATED);
+        trackEvent(ANALYTICS_EVENTS.WAREHOUSE_UPDATED, {
+          warehouse_type: warehouse.wtype,
+        });
         toastSuccess.updated('Warehouse');
       } else {
         const selectedDef = definitions.find((d) => d.destinationDefinitionId === selectedDefId);
@@ -139,6 +149,7 @@ export function WarehouseFormBody({
         });
         trackEvent(ANALYTICS_EVENTS.WAREHOUSE_CREATED, {
           warehouse_type: (selectedDef?.name ?? '').toLowerCase(),
+          source: createSource,
         });
         toastSuccess.created('Warehouse');
       }
@@ -156,6 +167,7 @@ export function WarehouseFormBody({
     warehouseName,
     definitions,
     selectedDefId,
+    createSource,
     onSuccess,
   ]);
 

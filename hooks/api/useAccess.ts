@@ -1,6 +1,8 @@
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPatch, apiPut, apiDelete } from '@/lib/api';
 import { toast } from 'sonner';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS, type AnalyticsEvent } from '@/constants/analytics';
 import type { PersonRow } from '@/types/user-management';
 import type {
   GroupListRow,
@@ -246,6 +248,24 @@ export interface UpdateGeneralAccessResponse {
   public_share_token?: string;
 }
 
+/**
+ * Going public, per resource type: the event and the id property its payload names.
+ *
+ * Tracked here rather than at the call sites because this one function is the only way any
+ * resource goes public — the previous per-resource `update*Sharing` helpers each needed their
+ * own copy of this — and because ShareModal lives in components/ui/, which we keep free of
+ * analytics.
+ *
+ * Only going public fires: turning sharing off is not an outcome we measure, and one event
+ * for both directions made the count meaningless. `chart` and `kpi` also flow through here
+ * but have no event of their own yet, so they are deliberately absent rather than folded
+ * into a generic one that couldn't be split by resource.
+ */
+const MADE_PUBLIC_EVENT_FOR: Record<string, { event: AnalyticsEvent; idKey: string }> = {
+  dashboard: { event: ANALYTICS_EVENTS.DASHBOARD_MADE_PUBLIC, idKey: 'dashboard_id' },
+  report: { event: ANALYTICS_EVENTS.REPORT_MADE_PUBLIC, idKey: 'report_id' },
+};
+
 export async function updateGeneralAccess(
   rtype: string,
   resourceId: number,
@@ -255,6 +275,8 @@ export async function updateGeneralAccess(
     const res = (await apiPatch(`/api/access/${rtype}/${resourceId}/general-access`, {
       mode,
     })) as UpdateGeneralAccessResponse;
+    const tracked = mode === 'public' ? MADE_PUBLIC_EVENT_FOR[rtype] : undefined;
+    if (tracked) trackEvent(tracked.event, { [tracked.idKey]: resourceId });
     return res;
   } catch (error: any) {
     toast.error(error?.message || 'Failed to update access');

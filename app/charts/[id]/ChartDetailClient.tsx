@@ -29,7 +29,8 @@ import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, CHART_DRILL_SOURCES } from '@/constants/analytics';
+import { useDrillDownAnalytics } from '@/components/charts/useDrillDownAnalytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import type { ChartDataPayload } from '@/types/charts';
@@ -78,7 +79,10 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const chartViewedTracked = useRef(false);
   useEffect(() => {
     if (chart && !chartViewedTracked.current) {
-      trackEvent(ANALYTICS_EVENTS.CHART_VIEWED, { chart_type: chart.chart_type });
+      trackEvent(ANALYTICS_EVENTS.CHART_VIEWED, {
+        chart_type: chart.chart_type,
+        chart_id: chartId,
+      });
       chartViewedTracked.current = true;
     }
   }, [chart]);
@@ -91,6 +95,14 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     currentLevel: number; // 0 = first dimension, 1 = second dimension, etc.
     appliedFilters: Record<string, string>; // { dimension_column: value }
   } | null>(null);
+
+  useDrillDownAnalytics({
+    chartId,
+    chartType: chart?.chart_type,
+    source: CHART_DRILL_SOURCES.CHART_DETAIL,
+    mapLevel: drillDownPath.length,
+    tableLevel: tableDrillDownState?.currentLevel ?? null,
+  });
 
   // Stable reference for map customizations — avoids a new {} literal every render,
   // which would otherwise re-trigger MapPreview's chart-init effect in a loop via onChartReady
@@ -841,6 +853,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               </Button>
             )}
             <ChartExportDropdown
+              chartId={chart.id}
               chartTitle={chart.title}
               chartElement={chartElement}
               chartInstance={chartInstance}
