@@ -283,7 +283,11 @@ export function ChartDataConfigurationV3({
       metrics: [],
       filters: [],
       sort: [],
-      pagination: { enabled: false, page_size: 50 },
+      // Table charts paginate by default; other chart types keep the same page size, just disabled.
+      pagination: {
+        enabled: formData.chart_type === 'table',
+        page_size: DEFAULT_TABLE_PAGE_SIZE,
+      },
       computation_type: 'aggregated',
       // Reset map-specific fields
       layers: undefined,
