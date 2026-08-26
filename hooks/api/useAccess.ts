@@ -132,6 +132,7 @@ export interface GeneralAccessState {
 }
 
 export interface OwnerInfo {
+  orguser_id: number;
   email: string;
   role_name?: string | null;
 }

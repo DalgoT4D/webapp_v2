@@ -212,6 +212,7 @@ export function ShareModal({
         id: p.orguser_id!,
         label: p.email,
         badge: p.role_name,
+        isOwner: owner != null && p.orguser_id === owner.orguser_id,
       }));
     const groupMatches = (groups ?? [])
       .filter(
@@ -221,9 +222,15 @@ export function ShareModal({
           g.name.toLowerCase().includes(q)
       )
       .slice(0, 4)
-      .map((g) => ({ kind: 'group' as const, id: g.id, label: g.name, badge: 'Group' }));
+      .map((g) => ({
+        kind: 'group' as const,
+        id: g.id,
+        label: g.name,
+        badge: 'Group',
+        isOwner: false,
+      }));
     return [...userMatches, ...groupMatches];
-  }, [chipInput, people, groups, chippedKeys, currentPrincipals]);
+  }, [chipInput, people, groups, chippedKeys, currentPrincipals, owner]);
 
   const hasPendingChips = chips.some((c) => c.kind === 'email');
   const memberOption = useMemo(() => roles?.find((r) => r.slug === 'member'), [roles]);
@@ -646,12 +653,15 @@ export function ShareModal({
                         <button
                           type="button"
                           key={`${s.kind}:${s.id}`}
+                          disabled={s.isOwner}
                           onMouseDown={(e) => {
                             e.preventDefault();
+                            if (s.isOwner) return;
                             if (s.kind === 'user') addUserChip(s.id, s.label);
                             else addGroupChip(s.id, s.label);
                           }}
-                          className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50"
+                          title={s.isOwner ? 'Already the owner — has full access' : undefined}
+                          className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                         >
                           <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary">
                             {s.kind === 'user' ? (
@@ -662,7 +672,7 @@ export function ShareModal({
                           </span>
                           <span className="flex-1 text-sm text-gray-900">{s.label}</span>
                           <Badge variant="secondary" className="text-xs">
-                            {s.badge}
+                            {s.isOwner ? 'Owner' : s.badge}
                           </Badge>
                         </button>
                       ))}

@@ -18,13 +18,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useUserGroups } from '@/hooks/api/useAccess';
-import { MoreVertical, Users, Edit, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { MoreVertical, Users, Edit, Trash2, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { EditGroupDialog } from './EditGroupDialog';
 import { DeleteGroupDialog } from './DeleteGroupDialog';
 import type { GroupListRow } from '@/types/user-groups';
 
 export function GroupsTab() {
+  const router = useRouter();
   const { groups, isLoading, mutate } = useUserGroups();
   const { hasPermission } = useRbac();
 
@@ -80,41 +82,46 @@ export function GroupsTab() {
                   {format(new Date(group.created_at), 'MMM dd, yyyy')}
                 </TableCell>
                 <TableCell className="py-4">
-                  {(canEdit || canDelete) && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 p-0 hover:bg-gray-100"
-                          data-testid={`group-actions-${group.id}`}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 p-0 hover:bg-gray-100"
+                        data-testid={`group-actions-${group.id}`}
+                      >
+                        <MoreVertical className="h-4 w-4 text-gray-600" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => router.push(`/settings/access/groups/${group.id}`)}
+                        data-testid={`view-group-${group.id}`}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Group
+                      </DropdownMenuItem>
+                      {canEdit && (
+                        <DropdownMenuItem
+                          onClick={() => setEditing(group)}
+                          data-testid={`edit-group-${group.id}`}
                         >
-                          <MoreVertical className="h-4 w-4 text-gray-600" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {canEdit && (
-                          <DropdownMenuItem
-                            onClick={() => setEditing(group)}
-                            data-testid={`edit-group-${group.id}`}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                        )}
-                        {canDelete && (
-                          <DropdownMenuItem
-                            onClick={() => setDeleting(group)}
-                            className="text-destructive focus:text-destructive"
-                            data-testid={`delete-group-${group.id}`}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                      )}
+                      {canDelete && (
+                        <DropdownMenuItem
+                          onClick={() => setDeleting(group)}
+                          className="text-destructive focus:text-destructive"
+                          data-testid={`delete-group-${group.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}

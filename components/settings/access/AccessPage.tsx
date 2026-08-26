@@ -47,7 +47,7 @@ export default function AccessPage() {
               </p>
             </div>
 
-            {tab === 'groups' ? (
+            {tab === 'groups' && (
               <Button
                 variant="primary"
                 onClick={() => setShowCreateGroupDialog(true)}
@@ -57,7 +57,8 @@ export default function AccessPage() {
                 <Plus className="h-4 w-4 mr-2" />
                 CREATE GROUP
               </Button>
-            ) : (
+            )}
+            {tab === 'people' && (
               <Button
                 variant="primary"
                 onClick={() => setShowInviteDialog(true)}
