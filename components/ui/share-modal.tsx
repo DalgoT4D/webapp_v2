@@ -20,7 +20,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { PrincipalTypeahead } from '@/components/ui/principal-typeahead';
+import { StagedPrincipalRow } from '@/components/ui/staged-principal-row';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Select,
@@ -127,7 +128,6 @@ export function ShareModal({
   const [inviteRoleUuid, setInviteRoleUuid] = useState<string>('');
   const [chipError, setChipError] = useState<string | null>(null);
   const [roleError, setRoleError] = useState<string | null>(null);
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rowBusyId, setRowBusyId] = useState<number | null>(null);
 
@@ -316,23 +316,6 @@ export function ShareModal({
     ]);
     setChipInput('');
     clearChipError();
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      addEmailChip(chipInput);
-    } else if (e.key === 'Backspace' && !chipInput && chips.length > 0) {
-      setChips((prev) => prev.slice(0, -1));
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    const text = e.clipboardData.getData('text');
-    if (/[,;\s]/.test(text)) {
-      e.preventDefault();
-      text.split(/[,;\s]+/).forEach((t) => addEmailChip(t));
-    }
   };
 
   const removeChip = (key: string) => {
@@ -645,57 +628,32 @@ export function ShareModal({
               {/* Search input */}
               <div className="space-y-2">
                 <Label htmlFor="share-input">Search for people, group or add emails</Label>
-                <div className="relative">
-                  <Input
-                    id="share-input"
-                    className={chipError ? 'border-red-500' : ''}
-                    value={chipInput}
-                    onChange={(e) => {
-                      setChipInput(e.target.value);
-                      setShowSuggestions(true);
-                      clearChipError();
-                    }}
-                    onFocus={() => setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                    onKeyDown={handleKeyDown}
-                    onPaste={handlePaste}
-                    placeholder="Type or paste emails…"
-                    data-testid="share-chip-input"
-                  />
-
-                  {showSuggestions && suggestions.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-md border bg-white shadow-md max-h-64 overflow-y-auto">
-                      {suggestions.map((s) => (
-                        <button
-                          type="button"
-                          key={`${s.kind}:${s.id}`}
-                          disabled={s.isOwner}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            if (s.isOwner) return;
-                            if (s.kind === 'user') addUserChip(s.id, s.label);
-                            else addGroupChip(s.id, s.label);
-                          }}
-                          title={s.isOwner ? 'Already the owner — has full access' : undefined}
-                          className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                        >
-                          <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary">
-                            {s.kind === 'user' ? (
-                              <UserIcon className="h-4 w-4" />
-                            ) : (
-                              <UsersIcon className="h-4 w-4" />
-                            )}
-                          </span>
-                          <span className="flex-1 text-sm text-gray-900">{s.label}</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {s.isOwner ? 'Owner' : s.badge}
-                          </Badge>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {chipError && <p className="text-sm text-red-500">{chipError}</p>}
+                <PrincipalTypeahead
+                  inputId="share-input"
+                  inputTestId="share-chip-input"
+                  placeholder="Type or paste emails…"
+                  value={chipInput}
+                  onChange={(v) => {
+                    setChipInput(v);
+                    clearChipError();
+                  }}
+                  suggestions={suggestions.map((s) => ({
+                    kind: s.kind,
+                    id: s.id,
+                    label: s.label,
+                    badge: s.isOwner ? 'Owner' : s.badge,
+                    disabled: s.isOwner,
+                    disabledReason: s.isOwner ? 'Already the owner — has full access' : undefined,
+                  }))}
+                  onSelectUser={addUserChip}
+                  onSelectGroup={addGroupChip}
+                  onCommitEmail={addEmailChip}
+                  onBackspace={() => {
+                    if (chips.length > 0) setChips((prev) => prev.slice(0, -1));
+                  }}
+                  onPasteEmails={(parts) => parts.forEach((p) => addEmailChip(p))}
+                  error={chipError}
+                />
               </div>
 
               {/* Staged items (users/groups/pending emails to be shared with on Share).
@@ -703,52 +661,45 @@ export function ShareModal({
                   (People with access, General access, Share button) out of view. */}
               {chips.length > 0 && (
                 <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-                  {chips.map((chip) => (
-                    <div
-                      key={chip.key}
-                      className="flex items-center gap-3 rounded-md bg-gray-50 px-3 py-2"
-                    >
-                      <span className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary">
-                        {chip.kind === 'group' ? (
-                          <UsersIcon className="h-4 w-4" />
-                        ) : chip.kind === 'email' ? (
-                          <Mail className="h-4 w-4" />
-                        ) : (
-                          <UserIcon className="h-4 w-4" />
-                        )}
-                      </span>
-                      <span className="text-sm text-gray-900 truncate">{chip.label}</span>
-                      {chip.kind === 'user' &&
-                        activeUserByEmail.get(chip.label.toLowerCase())?.role_name && (
-                          <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600 shrink-0">
-                            {activeUserByEmail.get(chip.label.toLowerCase())?.role_name}
-                          </span>
-                        )}
-                      <div className="ml-auto flex items-center gap-1">
-                        <Select
-                          value={chip.access_level}
-                          onValueChange={(v) => setChipLevel(chip.key, v as AccessLevel)}
-                        >
-                          <SelectTrigger className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-100 focus:ring-0 focus-visible:ring-0">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="view">View</SelectItem>
-                            <SelectItem value="edit">Edit</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
-                          onClick={() => removeChip(chip.key)}
-                          aria-label={`Remove ${chip.label}`}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                  {chips.map((chip) => {
+                    const roleName =
+                      chip.kind === 'user'
+                        ? activeUserByEmail.get(chip.label.toLowerCase())?.role_name
+                        : null;
+                    return (
+                      <StagedPrincipalRow
+                        key={chip.key}
+                        kind={chip.kind}
+                        label={chip.label}
+                        badge={roleName ?? null}
+                        actions={
+                          <>
+                            <Select
+                              value={chip.access_level}
+                              onValueChange={(v) => setChipLevel(chip.key, v as AccessLevel)}
+                            >
+                              <SelectTrigger className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-100 focus:ring-0 focus-visible:ring-0">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="view">View</SelectItem>
+                                <SelectItem value="edit">Edit</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
+                              onClick={() => removeChip(chip.key)}
+                              aria-label={`Remove ${chip.label}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </>
+                        }
+                      />
+                    );
+                  })}
                 </div>
               )}
 

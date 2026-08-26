@@ -58,20 +58,22 @@ export interface StandaloneConfig {
 }
 
 export interface RecipientIn {
-  type: 'orguser' | 'external';
+  type: 'orguser' | 'external' | 'user_group';
   orguser_id?: number | null;
   email?: string | null;
-  // display-only: resolved name/email carried over from RecipientOut when editing an
-  // existing alert, so the chip shows "Jane / jane@x.org" instead of "User #65".
-  // Ignored by the backend on create/update.
+  // display-only fields — resolved from RecipientOut when editing; ignored by backend.
   orguser_name?: string | null;
+  user_group_id?: number | null;
+  user_group_name?: string | null;
 }
 
 export interface RecipientOut {
-  type: 'orguser' | 'external';
+  type: 'orguser' | 'external' | 'user_group';
   orguser_id?: number | null;
   orguser_name?: string | null;
   email?: string | null;
+  user_group_id?: number | null;
+  user_group_name?: string | null;
 }
 
 export interface AlertCreatePayload {
