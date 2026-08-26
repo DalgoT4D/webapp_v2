@@ -531,17 +531,20 @@ export function ChartElementView({
   } = useSWR(
     publicTableDataUrl
       ? isPublicReport
-        ? [publicTableDataUrl, tablePage, tablePageSize]
+        ? [publicTableDataUrl, tablePage, tablePageSize, dashboardFilters]
         : [publicTableDataUrl, chartDataPayload, tablePage, tablePageSize, dashboardFilters]
       : null,
     isPublicMode && isTableChart
       ? isPublicReport
-        ? async ([url, page, size]: [string, number, number]) => {
+        ? async ([url, page, size, filters]: [string, number, number, Record<string, any>]) => {
             // Public report: GET — server builds payload from frozen config
             const qp = new URLSearchParams({
               page: (page - 1).toString(),
               limit: size.toString(),
             });
+            if (Object.keys(filters).length > 0) {
+              qp.append('dashboard_filters', JSON.stringify(filters));
+            }
             const response = await fetch(
               `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}?${qp}`
             );
@@ -607,15 +610,19 @@ export function ChartElementView({
   const { data: publicTableTotalRowsData } = useSWR(
     publicTableTotalRowsUrl
       ? isPublicReport
-        ? [publicTableTotalRowsUrl]
+        ? [publicTableTotalRowsUrl, dashboardFilters]
         : [publicTableTotalRowsUrl, chartDataPayload, dashboardFilters]
       : null,
     isPublicMode && isTableChart
       ? isPublicReport
-        ? async ([url]: [string]) => {
+        ? async ([url, filters]: [string, Record<string, any>]) => {
             // Public report: GET — server builds payload from frozen config
+            const qp = new URLSearchParams();
+            if (Object.keys(filters).length > 0) {
+              qp.append('dashboard_filters', JSON.stringify(filters));
+            }
             const response = await fetch(
-              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`
+              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}${qp.toString() ? `?${qp}` : ''}`
             );
             if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             return response.json();
