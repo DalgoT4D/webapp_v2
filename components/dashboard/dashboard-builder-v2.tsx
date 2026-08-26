@@ -72,7 +72,7 @@ import type {
   DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
 import { DashboardComponentType } from '@/types/dashboard';
-import type { DashboardTab } from '@/types/dashboard';
+import type { DashboardComponentConfig, DashboardTab } from '@/types/dashboard';
 import { initializeTabsData } from './tabs/tab-utils';
 import { moveWidgetBetweenTabs, pointerToGridPosition } from './tabs/cross-tab-drag';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
@@ -1158,15 +1158,40 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Handle removing a tab
     const handleTabRemove = useCallback(
       (tabId: string) => {
+        const currentTabs = stateRef.current.tabs;
+        const tabIndex = currentTabs.findIndex((tab) => tab.id === tabId);
+        const willRemove = currentTabs.length > 1 && tabIndex >= 0;
+
+        // Text/image widgets inside the removed tab can hold an S3-uploaded image —
+        // removing the whole tab (not just one widget via the toolbar) would otherwise
+        // orphan those files in S3, since nothing else references their keys.
+        if (willRemove) {
+          Object.values(currentTabs[tabIndex].components || {}).forEach(
+            (component: DashboardComponentConfig) => {
+              const imageKey =
+                component?.type === DashboardComponentType.TEXT
+                  ? component?.config?.imageKey
+                  : undefined;
+              if (imageKey) {
+                apiDelete('/api/dashboards/images/', {
+                  body: JSON.stringify({ image_key: imageKey }),
+                }).catch((error) => {
+                  console.error('Failed to delete removed tab widget image from S3:', error);
+                });
+              }
+            }
+          );
+        }
+
         let removed = false;
         setState((prev) => {
           if (prev.tabs.length <= 1) return prev;
-          const tabIndex = prev.tabs.findIndex((tab) => tab.id === tabId);
-          if (tabIndex < 0) return prev;
+          const idx = prev.tabs.findIndex((tab) => tab.id === tabId);
+          if (idx < 0) return prev;
           const tabs = prev.tabs.filter((tab) => tab.id !== tabId);
           const activeTabId =
             prev.activeTabId === tabId
-              ? tabs[Math.max(0, tabIndex - 1)]?.id || tabs[0].id
+              ? tabs[Math.max(0, idx - 1)]?.id || tabs[0].id
               : prev.activeTabId;
           removed = true;
           return { tabs, activeTabId };
