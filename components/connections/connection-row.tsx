@@ -252,8 +252,8 @@ export const ConnectionRow = memo(function ConnectionRow({
               </TooltipProvider>
             ))}
 
-          {/* Three-dot menu */}
-          <DropdownMenu>
+          {/* Three-dot menu — hidden when user has no actions */}
+          {(canEdit || canDelete || canReset) && <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
@@ -321,7 +321,7 @@ export const ConnectionRow = memo(function ConnectionRow({
                 </>
               )}
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu>}
         </div>
       </TableCell>
     </TableRow>

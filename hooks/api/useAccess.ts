@@ -26,6 +26,20 @@ export function usePeople(enabled: boolean = true) {
   };
 }
 
+export function useActiveMembers(enabled: boolean = true) {
+  const { data, error, isLoading, mutate } = useSWR<PersonRow[]>(
+    enabled ? '/api/v1/organizations/active-members' : null,
+    apiGet
+  );
+
+  return {
+    people: data,
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
 export function useUserGroups(enabled: boolean = true) {
   const { data, error, isLoading, mutate } = useSWR<GroupListRow[]>(
     enabled ? '/api/v1/organizations/user_groups' : null,

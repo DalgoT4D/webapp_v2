@@ -92,8 +92,8 @@ interface AlertsTableProps {
   isLoading: boolean;
   /** Empty state to render when alerts.length === 0 && !isLoading */
   emptyState: React.ReactNode;
-  canEdit: boolean;
-  canDelete: boolean;
+  canEdit: (a: AlertListItem) => boolean;
+  canDelete: (a: AlertListItem) => boolean;
   onEdit: (a: AlertListItem) => void;
   onDelete: (a: AlertListItem) => void;
   onToggle: (a: AlertListItem) => void;
@@ -292,10 +292,10 @@ export function AlertsTable({
                   <TableCell className="py-4">
                     <div className="flex flex-col">
                       <button
-                        onClick={() => canEdit && onEdit(a)}
+                        onClick={() => canEdit(a) && onEdit(a)}
                         className={cn(
                           'font-medium text-lg text-left',
-                          canEdit
+                          canEdit(a)
                             ? 'cursor-pointer hover:text-teal-700 hover:underline'
                             : 'cursor-default',
                           a.is_active ? 'text-gray-900' : 'text-gray-500'
@@ -343,14 +343,12 @@ export function AlertsTable({
 
                   {/* Enabled toggle */}
                   <TableCell className="py-4">
-                    <span title={canEdit ? '' : 'You need Edit Alerts permission to change this.'}>
-                      <Switch
-                        checked={a.is_active}
-                        onCheckedChange={() => onToggle(a)}
-                        disabled={!canEdit}
-                        aria-label={`Toggle ${a.name}`}
-                      />
-                    </span>
+                    <Switch
+                      checked={a.is_active}
+                      onCheckedChange={() => onToggle(a)}
+                      disabled={!canEdit(a)}
+                      aria-label={`Toggle ${a.name}`}
+                    />
                   </TableCell>
 
                   {/* Frequency */}
@@ -386,14 +384,12 @@ export function AlertsTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem
-                          onClick={() => onEdit(a)}
-                          disabled={!canEdit}
-                          title={canEdit ? '' : 'You need Edit Alerts permission to edit this.'}
-                        >
-                          <Pencil className="w-4 h-4 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
+                        {canEdit(a) && (
+                          <DropdownMenuItem onClick={() => onEdit(a)}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => onOpenLog(a)}>
                           <ListOrdered className="w-4 h-4 mr-2" />
                           Alert log
@@ -404,18 +400,18 @@ export function AlertsTable({
                             Transfer ownership
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => onDelete(a)}
-                          className="text-destructive focus:text-destructive"
-                          disabled={!canDelete}
-                          title={
-                            canDelete ? '' : 'You need Delete Alerts permission to remove this.'
-                          }
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
+                        {canDelete(a) && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => onDelete(a)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

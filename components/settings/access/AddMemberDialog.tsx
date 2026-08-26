@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Mail, User as UserIcon, X } from 'lucide-react';
-import { usePeople, useUserGroupActions } from '@/hooks/api/useAccess';
+import { useActiveMembers, useUserGroupActions } from '@/hooks/api/useAccess';
 import { useRoles } from '@/hooks/api/useUserManagement';
 import type { GroupMember } from '@/types/user-groups';
 
@@ -46,7 +46,7 @@ export function AddMemberDialog({
   existingMembers,
   onSuccess,
 }: Props) {
-  const { people } = usePeople();
+  const { people } = useActiveMembers();
   const { roles } = useRoles();
   const { addMembers } = useUserGroupActions();
 

@@ -38,8 +38,8 @@ import { useAuthStore } from '@/stores/authStore';
 export default function AlertsPage() {
   const { hasPermission } = useRbac();
   const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
-  const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_ALERTS);
-  const canDelete = hasPermission(PERMISSIONS.CAN_DELETE_ALERTS);
+  const canEditRole = hasPermission(PERMISSIONS.CAN_EDIT_ALERTS);
+  const canDeleteRole = hasPermission(PERMISSIONS.CAN_DELETE_ALERTS);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -57,9 +57,12 @@ export default function AlertsPage() {
   const isAdmin =
     !!currentUser?.new_role_slug &&
     ADMIN_ROLES.includes(currentUser.new_role_slug as (typeof ADMIN_ROLES)[number]);
-  const canTransferAlert = (a: AlertListItem) =>
-    isAdmin ||
-    (!!currentUser?.email && !!a.created_by_email && a.created_by_email === currentUser.email);
+  const isOwner = (a: AlertListItem) =>
+    !!currentUser?.email && !!a.created_by_email && a.created_by_email === currentUser.email;
+
+  const canEditAlert = (a: AlertListItem) => canEditRole && (isAdmin || isOwner(a));
+  const canDeleteAlert = (a: AlertListItem) => canDeleteRole && (isAdmin || isOwner(a));
+  const canTransferAlert = (a: AlertListItem) => isAdmin || isOwner(a);
 
   const {
     data: alerts,
@@ -135,8 +138,8 @@ export default function AlertsPage() {
             emptyState={
               <AllAlertsEmptyState canCreate={canCreate} onCreate={(t) => setCreateType(t)} />
             }
-            canEdit={canEdit}
-            canDelete={canDelete}
+            canEdit={canEditAlert}
+            canDelete={canDeleteAlert}
             onEdit={(a) => setEditingId(a.id)}
             onDelete={(a) => setDeletingAlert(a)}
             onToggle={handleToggle}

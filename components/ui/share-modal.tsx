@@ -35,7 +35,7 @@ import {
   transferOwnership,
   updateGeneralAccess,
   useAccessRequests,
-  usePeople,
+  useActiveMembers,
   useResourceGrantActions,
   useResourceGrants,
   useUserGroups,
@@ -97,7 +97,7 @@ export function ShareModal({
 
   // Data sources — only fetch when modal is open to avoid firing these APIs
   // on every page mount where a ShareModal is present.
-  const { people } = usePeople(isOpen);
+  const { people } = useActiveMembers(isOpen);
   const { groups } = useUserGroups(isOpen);
   const { roles } = useRoles(isOpen);
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
@@ -839,6 +839,13 @@ export function ShareModal({
                         )}
                       </span>
                       <span className="text-sm text-gray-900 truncate">{s.label}</span>
+                      {s.principal_type === 'user' &&
+                        s.email != null &&
+                        s.email.toLowerCase() === currentOrgUser?.email?.toLowerCase() && (
+                          <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary font-medium">
+                            You
+                          </span>
+                        )}
                       {s.role_or_group && (
                         <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
                           {s.role_or_group}
