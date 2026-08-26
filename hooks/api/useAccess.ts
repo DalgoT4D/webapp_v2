@@ -120,7 +120,7 @@ export interface AccessDefaults {
   allow_public_sharing: boolean;
 }
 
-export type GeneralAccessMode = 'everyone' | 'private' | 'public';
+export type GeneralAccessMode = 'internal' | 'private' | 'public';
 
 export interface GeneralAccessState {
   mode: GeneralAccessMode;

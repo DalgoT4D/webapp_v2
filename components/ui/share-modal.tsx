@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Select,
   SelectContent,
@@ -466,7 +467,7 @@ export function ShareModal({
       if (next === 'public' && res.public_url) {
         toastSuccess.generic(`${entityLabel} is now public`);
         await copyUrlToClipboard(res.public_url);
-      } else if (next === 'everyone') {
+      } else if (next === 'internal') {
         toastSuccess.generic(`${entityLabel} is now visible to everyone in your org`);
       } else if (next === 'private') {
         toastSuccess.generic(`${entityLabel} is now private`);
@@ -552,6 +553,11 @@ export function ShareModal({
       >
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>Share &quot;{entityLabel}&quot;</DialogTitle>
+          {rtype === 'dashboard' && (
+            <p className="text-sm text-muted-foreground mt-0.5">
+              All inner charts and KPIs will inherit this permission.
+            </p>
+          )}
         </DialogHeader>
 
         <div className="space-y-5 flex-1 overflow-y-auto min-h-0 px-6 pb-4">
@@ -818,33 +824,52 @@ export function ShareModal({
                         </span>
                       )}
                       <div className="ml-auto flex items-center gap-1">
-                        <Select
-                          value={s.access_level}
-                          onValueChange={(v) => {
-                            if (v === 'transfer') {
-                              setTransferTarget(s);
-                              return;
-                            }
-                            handleRowLevelChange(s, v as AccessLevel);
-                          }}
-                          disabled={rowBusyId != null && rowBusyId === s.share_id}
-                        >
-                          <SelectTrigger className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-50 focus:ring-0 focus-visible:ring-0">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="view">View</SelectItem>
-                            <SelectItem value="edit">Edit</SelectItem>
-                            {isOwnerOrAdmin &&
-                              s.principal_type === 'user' &&
-                              s.principal_id != null && (
-                                <>
-                                  <SelectSeparator />
-                                  <SelectItem value="transfer">Transfer ownership</SelectItem>
-                                </>
-                              )}
-                          </SelectContent>
-                        </Select>
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div>
+                                <Select
+                                  value={s.access_level}
+                                  onValueChange={(v) => {
+                                    if (v === 'transfer') {
+                                      setTransferTarget(s);
+                                      return;
+                                    }
+                                    handleRowLevelChange(s, v as AccessLevel);
+                                  }}
+                                  disabled={
+                                    (rowBusyId != null && rowBusyId === s.share_id) ||
+                                    s.share_id === null
+                                  }
+                                >
+                                  <SelectTrigger className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-50 focus:ring-0 focus-visible:ring-0">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="view">View</SelectItem>
+                                    <SelectItem value="edit">Edit</SelectItem>
+                                    {isOwnerOrAdmin &&
+                                      s.principal_type === 'user' &&
+                                      s.principal_id != null &&
+                                      s.access_level === 'edit' && (
+                                        <>
+                                          <SelectSeparator />
+                                          <SelectItem value="transfer">
+                                            Transfer ownership
+                                          </SelectItem>
+                                        </>
+                                      )}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </TooltipTrigger>
+                            {s.share_id === null && (
+                              <TooltipContent className="max-w-xs">
+                                {cascadeBlockMessage(s)}
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
+                        </TooltipProvider>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -873,7 +898,7 @@ export function ShareModal({
                     <div className="min-w-0">
                       <p className="text-sm font-medium">General access</p>
                       <p className="text-xs text-muted-foreground">
-                        {generalAccess.mode === 'everyone' &&
+                        {generalAccess.mode === 'internal' &&
                           'Everyone in your organisation can access this, based on their role'}
                         {generalAccess.mode === 'private' &&
                           `Only people you share with can access this ${entityLabelLower}`}
@@ -892,7 +917,7 @@ export function ShareModal({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="everyone">Everyone</SelectItem>
+                        <SelectItem value="internal">Internal</SelectItem>
                         <SelectItem value="private">Private</SelectItem>
                         {generalAccess.supports_public && (
                           <SelectItem value="public" disabled={!generalAccess.allow_public_sharing}>
