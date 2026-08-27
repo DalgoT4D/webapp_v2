@@ -27,7 +27,6 @@ import { ShareViaEmailDialog } from '@/components/reports/share-via-email-dialog
 import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
@@ -48,9 +47,20 @@ export default function SnapshotViewerPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
   const [isEditingSummary, setIsEditingSummary] = useState(false);
-  const { hasPermission } = useRbac();
-  const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS);
-  const canShare = hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS);
+  // Effective Edit on the report itself. Backend returns 'edit' for admin/super-admin
+  // (auto), owner, direct/group Edit grants, and Internal-mode edit-defaults.
+  // Every role in the seed today has can_edit_dashboards, so effective Edit is the
+  // sole gate — same rule the dashboard/chart/KPI detail pages use.
+  const hasEffectiveEdit = viewData?.access_level === 'edit';
+  const canEdit = hasEffectiveEdit;
+  // Share/email-PDF gate: mirrors the list view + every other resource — the
+  // per-resource `access_level === 'edit'` is the source of truth. The RBAC
+  // slug is deliberately NOT ANDed in, so a Member granted Edit on this
+  // report still sees the buttons (their role lacks can_share_dashboards).
+  const canShare = hasEffectiveEdit;
+  // Moderator delete on other users' comments mirrors backend comment_service:
+  // author OR get_user_access(...) == EDIT.
+  const canModerateComments = hasEffectiveEdit;
 
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
@@ -262,6 +272,7 @@ export default function SnapshotViewerPage() {
           autoOpenCommentChartId={
             commentTarget === 'chart' && commentChartId ? commentChartId : undefined
           }
+          canModerateComments={canModerateComments}
           topRightContent={
             <div className="flex-shrink-0 px-6 pt-4 pb-2">
               <div className="border rounded-lg p-5 bg-background relative">
@@ -276,6 +287,7 @@ export default function SnapshotViewerPage() {
                       triggerClassName="h-8 w-8"
                       onStateChange={handleCommentStateChange}
                       autoOpen={commentTarget === 'summary'}
+                      canModerate={canModerateComments}
                     />
                     <Button
                       variant="ghost"

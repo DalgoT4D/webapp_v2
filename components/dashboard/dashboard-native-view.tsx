@@ -270,6 +270,7 @@ interface DashboardNativeViewProps {
   commentStates?: CommentStates; // Comment states array with target_type and chart_id
   onCommentStateChange?: () => void; // Callback to revalidate comment states
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open (from email deep-link)
+  canModerateComments?: boolean; // Caller has Edit access on the parent report — enables moderator Delete on other users' comments
 }
 
 export function DashboardNativeView({
@@ -291,6 +292,7 @@ export function DashboardNativeView({
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
+  canModerateComments = false,
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const { initialOpen: initialShareModalOpen, clearParam: clearShareDeepLink } =
@@ -712,6 +714,7 @@ export function DashboardNativeView({
               commentStates={isReportMode ? commentStates : undefined}
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+              canModerateComments={isReportMode ? canModerateComments : undefined}
               orgLogoUrl={orgLogoUrl}
             />
           </div>
@@ -765,6 +768,7 @@ export function DashboardNativeView({
               commentStates={isReportMode ? commentStates : undefined}
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+              canModerateComments={isReportMode ? canModerateComments : undefined}
             />
           </div>
         );

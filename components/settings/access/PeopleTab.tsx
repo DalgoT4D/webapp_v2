@@ -269,7 +269,7 @@ export function PeopleTab() {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50">
-              <TableHead className="w-[40%]">
+              <TableHead className="w-[55%]">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
@@ -301,7 +301,7 @@ export function PeopleTab() {
                   </Popover>
                 </div>
               </TableHead>
-              <TableHead className="w-[25%]">
+              <TableHead className="w-[30%]">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
@@ -333,8 +333,7 @@ export function PeopleTab() {
                   </Popover>
                 </div>
               </TableHead>
-              <TableHead className="w-[25%]">Created By</TableHead>
-              <TableHead className="w-[10%]">Actions</TableHead>
+              <TableHead className="w-[15%]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -408,9 +407,6 @@ export function PeopleTab() {
                     ) : (
                       <div className="text-gray-700">{person.role_name}</div>
                     )}
-                  </TableCell>
-                  <TableCell className="py-4 text-gray-600">
-                    {person.created_by_email ?? '—'}
                   </TableCell>
                   <TableCell className="py-4">
                     {canShowActions ? (

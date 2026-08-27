@@ -85,7 +85,10 @@ export function PrincipalTypeahead({
           onChange(e.target.value);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        // Only open on real user interaction (click or typing) — not on the
+        // programmatic auto-focus Radix Dialog fires when the modal opens,
+        // which used to make the suggestions dropdown pop with no context.
+        onClick={() => setOpen(true)}
         onBlur={() => {
           // delay so onMouseDown on suggestion items fires first
           setTimeout(() => {

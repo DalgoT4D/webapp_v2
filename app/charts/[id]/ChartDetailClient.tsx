@@ -842,7 +842,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                 </Button>
               </Link>
             )}
-            {hasPermission(PERMISSIONS.CAN_SHARE_CHARTS) && (
+            {chart.access_level === 'edit' && (
               <Button
                 data-testid="chart-detail-share-button"
                 variant="outline"

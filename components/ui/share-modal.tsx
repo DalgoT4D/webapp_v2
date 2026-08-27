@@ -166,6 +166,18 @@ export function ShareModal({
     }
   }, [isOpen]);
 
+  // Default the invite role to Member as soon as the roles list loads.
+  // The user can still change it via the role select.
+  const memberRoleUuid = useMemo(
+    () => roles?.find((r) => r.slug === 'member')?.uuid,
+    [roles]
+  );
+  useEffect(() => {
+    if (isOpen && memberRoleUuid && !inviteRoleUuid) {
+      setInviteRoleUuid(memberRoleUuid);
+    }
+  }, [isOpen, memberRoleUuid, inviteRoleUuid]);
+
   // Existing shared principals (skip in suggestions)
   const currentPrincipals = useMemo(() => {
     const set = new Set<string>();
@@ -242,7 +254,6 @@ export function ShareModal({
   }, [chipInput, people, groups, chippedKeys, currentPrincipals, owner]);
 
   const hasPendingChips = chips.some((c) => c.kind === 'email');
-  const memberOption = useMemo(() => roles?.find((r) => r.slug === 'member'), [roles]);
 
   const clearChipError = () => setChipError(null);
 
@@ -554,7 +565,7 @@ export function ShareModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
         data-testid="share-modal"
-        className="sm:max-w-lg max-h-[90vh] flex flex-col p-0"
+        className="sm:max-w-xl max-h-[90vh] flex flex-col p-0"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader className="px-6 pt-6 pb-2">
@@ -742,15 +753,6 @@ export function ShareModal({
                       </SelectContent>
                     </Select>
                     {roleError && <p className="text-sm text-red-500">{roleError}</p>}
-                    {!inviteRoleUuid && memberOption && (
-                      <button
-                        type="button"
-                        className="text-xs text-primary hover:underline"
-                        onClick={() => setInviteRoleUuid(memberOption.uuid)}
-                      >
-                        Use Member (default)
-                      </button>
-                    )}
                   </div>
                 </>
               )}

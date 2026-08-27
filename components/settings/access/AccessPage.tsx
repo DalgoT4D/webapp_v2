@@ -13,6 +13,7 @@ import { CreateGroupDialog } from './CreateGroupDialog';
 import { UserPlus, Plus } from 'lucide-react';
 import { trackFeatureView } from '@/lib/analytics';
 import { FEATURES } from '@/constants/analytics';
+import { DocsLink } from '@/components/ui/docs-link';
 
 const TAB_TRIGGER_CLASS =
   'relative bg-transparent border-0 shadow-none rounded-none px-1 py-2.5 text-sm font-medium uppercase tracking-wide text-gray-500 cursor-pointer data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-transparent data-[state=active]:after:bg-primary';
@@ -41,7 +42,9 @@ export default function AccessPage() {
         <div className="flex-shrink-0 border-b bg-background">
           <div className="flex items-center justify-between mb-6 p-6 pb-0">
             <div>
-              <h1 className="text-3xl font-bold">Access</h1>
+              <DocsLink path="/settings/access">
+                <h1 className="text-3xl font-bold">Access</h1>
+              </DocsLink>
               <p className="text-muted-foreground mt-1">
                 Manage users and set organization level permission defaults
               </p>

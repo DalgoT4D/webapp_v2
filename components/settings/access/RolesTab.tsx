@@ -18,7 +18,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Lock } from 'lucide-react';
+import { Lock, Info } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useOrgPreferences } from '@/hooks/api/useNotifications';
 import { updateAccessDefaults, type AccessDefaults } from '@/hooks/api/useAccess';
@@ -133,10 +139,40 @@ export function RolesTab() {
   return (
     <div className="space-y-6">
       <div className="border rounded-lg bg-white p-6">
-        <h2 className="text-lg font-semibold text-gray-900">Default permissions</h2>
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-lg font-semibold text-gray-900">Default permissions</h2>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="About default permissions"
+                  className="text-muted-foreground hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                >
+                  <Info className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                These defaults set the absolute floor for each role. Users can grant higher
+                access on specific resources, but they cannot restrict it below these
+                baselines unless the resource is made Private.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         <p className="text-sm text-muted-foreground mt-1">
-          Sets what each role can do across all resources on the platform.
+          The baseline access for each role. You can grant individuals more access later.
         </p>
+
+        {!canEdit && (
+          <div
+            className="mt-4 flex items-start gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"
+            data-testid="roles-readonly-notice"
+          >
+            <Lock className="h-4 w-4 mt-0.5 shrink-0" />
+            <p>View-only. Only Admins can change these defaults.</p>
+          </div>
+        )}
 
         <div className="border rounded-lg mt-4">
           <Table>

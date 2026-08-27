@@ -918,7 +918,7 @@ export function DashboardListV2() {
                 </Button>
               </Link>
             )}
-            {hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS) && (
+            {dashboard.access_level === 'edit' && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -1119,7 +1119,7 @@ export function DashboardListV2() {
             )}
 
             {/* Share Button */}
-            {hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS) && (
+            {dashboard.access_level === 'edit' && (
               <Button
                 variant="outline"
                 size="icon"
@@ -1454,7 +1454,7 @@ export function DashboardListV2() {
                   </Button>
                 </Link>
               )}
-              {hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS) && (
+              {dashboard.access_level === 'edit' && (
                 <Button
                   variant="outline"
                   size="icon"

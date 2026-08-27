@@ -384,23 +384,22 @@ describe('SnapshotViewerPage', () => {
   });
 
   describe('Permissions', () => {
-    it('hides share button when user lacks can_share_dashboards', () => {
-      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_share_dashboards');
+    it('hides share and email-PDF buttons on a view-only report', () => {
+      // Effective access is the sole share gate — role permissions are no longer
+      // consulted, matching every other resource (dashboards/charts/KPIs).
+      mockUseSnapshotView({
+        viewData: createMockSnapshotViewData({ access_level: 'view' }),
+      });
       renderPage();
 
       expect(screen.queryByTestId('report-share-btn')).not.toBeInTheDocument();
       expect(screen.queryByTestId('report-email-pdf-btn')).not.toBeInTheDocument();
     });
 
-    it('hides save button when user lacks can_edit_dashboards', () => {
-      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_edit_dashboards');
-      renderPage();
-
-      expect(screen.queryByTestId('report-save-btn')).not.toBeInTheDocument();
-    });
-
-    it('hides edit and comment buttons when user lacks can_edit_dashboards', () => {
-      mockHasPermission.mockImplementation((slug: string) => slug !== 'can_edit_dashboards');
+    it('hides edit and comment affordances on a view-only report', () => {
+      mockUseSnapshotView({
+        viewData: createMockSnapshotViewData({ access_level: 'view' }),
+      });
       renderPage();
 
       expect(screen.queryByTestId('summary-edit-btn')).not.toBeInTheDocument();

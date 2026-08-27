@@ -73,14 +73,20 @@ export function PublicReportView({ token, printMode = false }: PublicReportViewP
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h2 className="text-lg font-semibold mb-2">Report Not Found</h2>
             <p className="text-gray-600 mb-4">
-              This report is no longer available or the link has expired.
+              This report is no longer available or the link has expired. Sign in to your
+              organization to access shared reports.
             </p>
-            <Link href="https://dalgo.org" target="_blank">
-              <Button variant="outline">
-                Learn about Dalgo
-                <ExternalLink className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
+            <div className="flex flex-col items-center gap-2">
+              <Link href="/login">
+                <Button variant="primary">Sign in to Dalgo</Button>
+              </Link>
+              <Link href="https://dalgo.org" target="_blank" className="text-sm">
+                <Button variant="link" size="sm" className="text-muted-foreground">
+                  Learn about Dalgo
+                  <ExternalLink className="h-3.5 w-3.5 ml-1" />
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

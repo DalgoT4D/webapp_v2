@@ -78,6 +78,9 @@ export const createMockSnapshotViewData = (
     dashboard_title: 'Sales Dashboard',
   },
   frozen_chart_configs: {},
+  // Resource-sharing: default to Edit so summary/comment edit affordances render.
+  // Tests that need view-only behaviour should override to `'view'`.
+  access_level: 'edit',
   ...overrides,
 });
 

@@ -207,7 +207,10 @@ export const getNavItems = (
     },
     {
       title: 'Settings',
-      href: '/settings/branding',
+      // Parent nav is clickable — route each role to a Settings child they can
+      // actually reach. Admins land on Branding (the historical default);
+      // Analysts don't have Branding, so land them on Access instead.
+      href: ADMIN_ROLES.includes(roleSlug as Role) ? '/settings/branding' : '/settings/access',
       icon: Settings,
       isActive: false,
       // Every Settings child requires Analyst+ or a role-gated feature flag —
