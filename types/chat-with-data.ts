@@ -121,6 +121,8 @@ export interface InputRequiredEvent {
   kind: 'approval' | 'question';
   requests: ApprovalRequest[];
   question?: string;
+  /** Server-side trace continuity id — not used by the UI */
+  trace_id?: string;
 }
 
 export type ChatWsEvent =
