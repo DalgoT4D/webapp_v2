@@ -843,11 +843,11 @@ export default function ChartsPage() {
       <TableRow key={chart.id} className="hover:bg-gray-50">
         {/* Name Column with Star */}
         <TableCell className="py-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 p-0 hover:bg-yellow-50"
+              className="h-8 w-8 p-0 hover:bg-yellow-50 shrink-0"
               onClick={(e) => {
                 e.preventDefault();
                 handleToggleFavorite(chart.id);
@@ -859,21 +859,31 @@ export default function ChartsPage() {
                 <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400" />
               )}
             </Button>
-            <div className="flex flex-col gap-1">
-              <Link
-                href={hasPermission(PERMISSIONS.CAN_VIEW_CHARTS) ? `/charts/${chart.id}` : '#'}
-                className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
-              >
-                {chart.title}
-              </Link>
+            <div className="flex flex-col gap-1 min-w-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={hasPermission(PERMISSIONS.CAN_VIEW_CHARTS) ? `/charts/${chart.id}` : '#'}
+                    className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline truncate"
+                  >
+                    {chart.title}
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-md break-words">{chart.title}</TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </TableCell>
 
         {/* Data Source Column */}
         <TableCell className="py-4">
-          <div className="flex items-center gap-2">
-            <div className="text-base text-gray-700">{dataSource}</div>
+          <div className="flex items-center gap-2 min-w-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="text-base text-gray-700 truncate">{dataSource}</div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-md break-words">{dataSource}</TooltipContent>
+            </Tooltip>
           </div>
         </TableCell>
 
@@ -900,13 +910,23 @@ export default function ChartsPage() {
 
         {/* Created by Column */}
         <TableCell className="py-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center shrink-0">
               <User className="w-3 h-3 text-gray-600" />
             </div>
-            <span className="text-base text-gray-700" data-testid={`chart-created-by-${chart.id}`}>
-              {chart.created_by || 'Unknown'}
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="text-base text-gray-700 truncate"
+                  data-testid={`chart-created-by-${chart.id}`}
+                >
+                  {chart.created_by || 'Unknown'}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-md break-words">
+                {chart.created_by || 'Unknown'}
+              </TooltipContent>
+            </Tooltip>
           </div>
         </TableCell>
 
@@ -1151,16 +1171,16 @@ export default function ChartsPage() {
           {isLoading ? (
             <div className="py-6">
               <div className="border rounded-lg bg-white">
-                <TableComponent>
+                <TableComponent className="table-fixed">
                   <TableHeader>
                     <TableRow className="bg-gray-50">
-                      <TableHead className="w-[30%]">
+                      <TableHead className="w-[28%]">
                         <div className="flex items-center gap-2">
                           <Skeleton className="h-4 w-16" />
                           <Skeleton className="h-4 w-4" />
                         </div>
                       </TableHead>
-                      <TableHead className="w-[22%]">
+                      <TableHead className="w-[18%]">
                         <div className="flex items-center gap-2">
                           <Skeleton className="h-4 w-20" />
                           <Skeleton className="h-4 w-4" />
@@ -1175,13 +1195,13 @@ export default function ChartsPage() {
                       <TableHead className="w-[18%]">
                         <Skeleton className="h-4 w-20" />
                       </TableHead>
-                      <TableHead className="w-[17%]">
+                      <TableHead className="w-[14%]">
                         <div className="flex items-center gap-2">
                           <Skeleton className="h-4 w-20" />
                           <Skeleton className="h-4 w-4" />
                         </div>
                       </TableHead>
-                      <TableHead className="w-[5%]">
+                      <TableHead className="w-[14%]">
                         <Skeleton className="h-4 w-16" />
                       </TableHead>
                     </TableRow>
@@ -1227,10 +1247,11 @@ export default function ChartsPage() {
           ) : paginatedCharts.length > 0 ? (
             <div className="py-6">
               <div className="border rounded-lg bg-white">
-                <TableComponent>
+                <TooltipProvider delayDuration={300}>
+                <TableComponent className="table-fixed">
                   <TableHeader>
                     <TableRow className="bg-gray-50">
-                      <TableHead className="w-[30%]">
+                      <TableHead className="w-[28%]">
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
@@ -1261,7 +1282,7 @@ export default function ChartsPage() {
                           </Popover>
                         </div>
                       </TableHead>
-                      <TableHead className="w-[22%]">
+                      <TableHead className="w-[18%]">
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
@@ -1324,7 +1345,7 @@ export default function ChartsPage() {
                         </div>
                       </TableHead>
                       <TableHead className="w-[18%] font-medium text-base">Created by</TableHead>
-                      <TableHead className="w-[17%]">
+                      <TableHead className="w-[14%]">
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
@@ -1355,13 +1376,14 @@ export default function ChartsPage() {
                           </Popover>
                         </div>
                       </TableHead>
-                      <TableHead className="w-[5%] font-medium text-base">Actions</TableHead>
+                      <TableHead className="w-[14%] font-medium text-base">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedCharts.map((chart) => renderChartTableRow(chart))}
                   </TableBody>
                 </TableComponent>
+                </TooltipProvider>
               </div>
             </div>
           ) : (

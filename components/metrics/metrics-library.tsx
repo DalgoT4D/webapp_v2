@@ -32,6 +32,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -297,20 +303,30 @@ export function MetricsLibrary() {
       >
         {/* Name */}
         <TableCell className="py-4">
-          <div className="flex flex-col">
-            <span
-              className={cn(
-                'font-medium text-lg text-gray-900',
-                canEditMetrics && 'hover:text-teal-700 hover:underline cursor-pointer'
-              )}
-              onClick={canEditMetrics ? () => handleEdit(metric) : undefined}
-            >
-              {metric.name}
-            </span>
+          <div className="flex flex-col min-w-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className={cn(
+                    'font-medium text-lg text-gray-900 truncate',
+                    canEditMetrics && 'hover:text-teal-700 hover:underline cursor-pointer'
+                  )}
+                  onClick={canEditMetrics ? () => handleEdit(metric) : undefined}
+                >
+                  {metric.name}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-md break-words">{metric.name}</TooltipContent>
+            </Tooltip>
             {metric.description && (
-              <span className="text-sm text-gray-500 truncate max-w-[200px]">
-                {metric.description}
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-sm text-gray-500 truncate">{metric.description}</span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-md break-words">
+                  {metric.description}
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
         </TableCell>
@@ -328,14 +344,26 @@ export function MetricsLibrary() {
           </span>
         </TableCell>
         {/* Data Source */}
-        <TableCell className="py-4 max-w-[200px]">
-          <span className="text-base text-gray-700 block truncate" title={dataSource}>
-            {dataSource}
-          </span>
+        <TableCell className="py-4">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-base text-gray-700 block truncate">{dataSource}</span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-md break-words">{dataSource}</TooltipContent>
+          </Tooltip>
         </TableCell>
         {/* Expression */}
         <TableCell className="py-4">
-          <span className="text-sm text-gray-600">{formatExpression(metric)}</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-sm text-gray-600 block truncate">
+                {formatExpression(metric)}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-md break-words">
+              {formatExpression(metric)}
+            </TooltipContent>
+          </Tooltip>
         </TableCell>
         {/* Used By */}
         <TableCell className="py-4">
@@ -343,13 +371,23 @@ export function MetricsLibrary() {
         </TableCell>
         {/* Created by */}
         <TableCell className="py-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center shrink-0">
               <User className="w-3 h-3 text-gray-600" />
             </div>
-            <span className="text-sm text-gray-600" data-testid={`metric-created-by-${metric.id}`}>
-              {metric.created_by || 'Unknown'}
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="text-sm text-gray-600 truncate"
+                  data-testid={`metric-created-by-${metric.id}`}
+                >
+                  {metric.created_by || 'Unknown'}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-md break-words">
+                {metric.created_by || 'Unknown'}
+              </TooltipContent>
+            </Tooltip>
           </div>
         </TableCell>
         {/* Last Updated */}
@@ -420,7 +458,7 @@ export function MetricsLibrary() {
 
   const columnHeaders = (
     <TableRow className="bg-gray-50">
-      <TableHead className="w-[20%]">
+      <TableHead className="w-[18%]">
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -466,7 +504,7 @@ export function MetricsLibrary() {
         </div>
       </TableHead>
       <TableHead className="w-[8%] font-medium text-base">Mode</TableHead>
-      <TableHead className="w-[14%]">
+      <TableHead className="w-[12%]">
         <Button
           variant="ghost"
           className="h-auto p-0 font-medium text-base hover:bg-transparent"
@@ -478,10 +516,10 @@ export function MetricsLibrary() {
           </div>
         </Button>
       </TableHead>
-      <TableHead className="w-[16%] font-medium text-base">Expression</TableHead>
-      <TableHead className="w-[12%] font-medium text-base">Used By</TableHead>
+      <TableHead className="w-[14%] font-medium text-base">Expression</TableHead>
+      <TableHead className="w-[10%] font-medium text-base">Used By</TableHead>
       <TableHead className="w-[14%] font-medium text-base">Created by</TableHead>
-      <TableHead className="w-[11%]">
+      <TableHead className="w-[12%]">
         <Button
           variant="ghost"
           className="h-auto p-0 font-medium text-base hover:bg-transparent"
@@ -493,7 +531,7 @@ export function MetricsLibrary() {
           </div>
         </Button>
       </TableHead>
-      {canMetricActions && <TableHead className="w-[5%] font-medium text-base">Actions</TableHead>}
+      {canMetricActions && <TableHead className="w-[12%] font-medium text-base">Actions</TableHead>}
     </TableRow>
   );
 
@@ -593,10 +631,14 @@ export function MetricsLibrary() {
           ) : sortedMetrics.length > 0 ? (
             <div className="py-4">
               <div className="border rounded-lg bg-white">
-                <TableComponent>
-                  <TableHeader>{columnHeaders}</TableHeader>
-                  <TableBody>{sortedMetrics.map((metric) => renderMetricRow(metric))}</TableBody>
-                </TableComponent>
+                <TooltipProvider delayDuration={300}>
+                  <TableComponent className="table-fixed">
+                    <TableHeader>{columnHeaders}</TableHeader>
+                    <TableBody>
+                      {sortedMetrics.map((metric) => renderMetricRow(metric))}
+                    </TableBody>
+                  </TableComponent>
+                </TooltipProvider>
               </div>
             </div>
           ) : (
@@ -738,8 +780,8 @@ export function MetricsLibrary() {
                       This metric has been used in multiple places. Remove these dependencies before
                       deleting.
                     </p>
-                    <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
-                      <p className="text-sm font-medium text-amber-700 mb-1">Used by:</p>
+                    <div className="rounded-md border border-orange-200 bg-orange-50 px-4 py-3 text-orange-800">
+                      <p className="text-sm font-semibold mb-1">Used by:</p>
                       <ConsumerLinks consumers={deleteConsumers!} variant="inherit" />
                     </div>
                   </>

@@ -135,6 +135,12 @@ export const getNavItems = (
       hide: !isFeatureFlagEnabled(FeatureFlagKeys.REPORTS),
     },
     {
+      title: 'Alerts',
+      href: '/alerts',
+      icon: AlertTriangle,
+      isActive: currentPath.startsWith('/alerts'),
+    },
+    {
       title: 'Data',
       // Parent nav item is clickable and would 404/AccessDeny anyone whose role
       // can't view /pipeline. Route Members to /metrics (their first Data child)
@@ -186,12 +192,6 @@ export const getNavItems = (
           href: '/metrics',
           icon: BarChart3,
           isActive: currentPath.startsWith('/metrics'),
-        },
-        {
-          title: 'Alerts',
-          href: '/alerts',
-          icon: AlertTriangle,
-          isActive: currentPath.startsWith('/alerts'),
         },
         {
           title: 'Quality',

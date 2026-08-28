@@ -45,7 +45,7 @@ import {
 import { useRoles } from '@/hooks/api/useUserManagement';
 import type { AccessLevel, PrincipalType, ShareRow } from '@/types/access';
 import { useAuthStore } from '@/stores/authStore';
-import { ADMIN_ROLES } from '@/lib/rbac';
+import { ADMIN_ROLES, ROLES } from '@/lib/rbac';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_RECIPIENTS = 20;
@@ -144,6 +144,12 @@ export function ShareModal({
   // Ownership transfer state
   const [transferTarget, setTransferTarget] = useState<ShareRow | null>(null);
   const [isTransferring, setIsTransferring] = useState(false);
+
+  // Admin takeover state — admin removes the current owner and becomes the
+  // new owner. Uses the same transferOwnership endpoint.
+  const [takeoverConfirmOpen, setTakeoverConfirmOpen] = useState(false);
+  const [isTakingOver, setIsTakingOver] = useState(false);
+  const canAdminTakeover = isAdmin && !callerIsOwner && !!owner;
 
   // Legacy email-share state (Reports)
   const [emailInput, setEmailInput] = useState('');
@@ -451,6 +457,24 @@ export function ShareModal({
 
   // -------- Ownership transfer --------
 
+  const handleAdminTakeoverConfirm = async () => {
+    const myOrguserId = currentOrgUser?.email
+      ? activeUserByEmail.get(currentOrgUser.email.toLowerCase())?.orguser_id
+      : null;
+    if (!rtype || !myOrguserId) return;
+    setIsTakingOver(true);
+    try {
+      await transferOwnership(rtype, entityId, myOrguserId);
+      mutateGrants();
+      onUpdate?.();
+      setTakeoverConfirmOpen(false);
+    } catch {
+      // handled in hook
+    } finally {
+      setIsTakingOver(false);
+    }
+  };
+
   const handleTransferConfirm = async () => {
     if (!transferTarget || !rtype || transferTarget.principal_id == null) return;
     setIsTransferring(true);
@@ -736,6 +760,7 @@ export function ShareModal({
                         setInviteRoleUuid(v);
                         setRoleError(null);
                       }}
+                      disabled={!isAdmin}
                     >
                       <SelectTrigger
                         id="invite-role"
@@ -745,13 +770,20 @@ export function ShareModal({
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
-                        {roles?.map((role) => (
-                          <SelectItem key={role.uuid} value={role.uuid}>
-                            {role.name}
-                          </SelectItem>
-                        ))}
+                        {(isAdmin ? (roles ?? []) : (roles ?? []).filter((r) => r.slug === ROLES.MEMBER)).map(
+                          (role) => (
+                            <SelectItem key={role.uuid} value={role.uuid}>
+                              {role.name}
+                            </SelectItem>
+                          )
+                        )}
                       </SelectContent>
                     </Select>
+                    {!isAdmin && (
+                      <p className="text-xs text-muted-foreground">
+                        You can only invite users as Member. Ask an Admin to grant higher roles.
+                      </p>
+                    )}
                     {roleError && <p className="text-sm text-red-500">{roleError}</p>}
                   </div>
                 </>
@@ -772,7 +804,21 @@ export function ShareModal({
                           {owner.role_name}
                         </span>
                       )}
-                      <span className="ml-auto text-sm text-gray-500">Owner</span>
+                      <div className="ml-auto flex items-center gap-1">
+                        <span className="text-sm text-gray-500">Owner</span>
+                        {canAdminTakeover && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
+                            onClick={() => setTakeoverConfirmOpen(true)}
+                            aria-label={`Take ownership from ${owner.email}`}
+                            data-testid="admin-takeover-btn"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   )}
                   {(shares ?? []).length === 0 && !owner && (
@@ -1002,6 +1048,34 @@ export function ShareModal({
                     disabled={isTransferring}
                   >
                     {isTransferring ? 'Transferring…' : 'Transfer'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {/* Admin takeover confirmation dialog */}
+          {takeoverConfirmOpen && owner && (
+            <Dialog open onOpenChange={() => setTakeoverConfirmOpen(false)}>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Take ownership from {owner.email}?</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                  You will become the owner of this {entityLabelLower}. {owner.email} will keep
+                  Edit access.
+                </p>
+                <div className="flex justify-end gap-3 mt-2">
+                  <Button variant="outline" onClick={() => setTakeoverConfirmOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleAdminTakeoverConfirm}
+                    disabled={isTakingOver}
+                    data-testid="admin-takeover-confirm-btn"
+                  >
+                    {isTakingOver ? 'Transferring…' : 'Confirm'}
                   </Button>
                 </div>
               </DialogContent>

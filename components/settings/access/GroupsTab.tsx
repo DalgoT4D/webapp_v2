@@ -16,8 +16,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { ADMIN_ROLES, PERMISSIONS, useRbac, type Role as RoleSlug } from '@/lib/rbac';
 import { useUserGroups } from '@/hooks/api/useAccess';
+import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'next/navigation';
 import { MoreVertical, Users, Edit, Trash2, Eye } from 'lucide-react';
 import { format } from 'date-fns';
@@ -33,8 +34,21 @@ export function GroupsTab() {
   const [editing, setEditing] = useState<GroupListRow | null>(null);
   const [deleting, setDeleting] = useState<GroupListRow | null>(null);
 
-  const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_USER_GROUP);
-  const canDelete = hasPermission(PERMISSIONS.CAN_DELETE_USER_GROUP);
+  const canEditRole = hasPermission(PERMISSIONS.CAN_EDIT_USER_GROUP);
+  const canDeleteRole = hasPermission(PERMISSIONS.CAN_DELETE_USER_GROUP);
+  // Analysts have the role permissions but should only touch groups they own.
+  // Admins/super-admins get full edit/delete on every group. Backend enforces
+  // the same rule via is_creator_or_admin on rename/delete/members endpoints.
+  const getCurrentOrgUser = useAuthStore((s) => s.getCurrentOrgUser);
+  const currentOrgUser = getCurrentOrgUser();
+  const isAdmin = currentOrgUser
+    ? ADMIN_ROLES.includes(currentOrgUser.new_role_slug as RoleSlug)
+    : false;
+  const currentEmail = currentOrgUser?.email?.toLowerCase() ?? '';
+  const canEditRow = (group: GroupListRow) =>
+    canEditRole && (isAdmin || group.created_by_email?.toLowerCase() === currentEmail);
+  const canDeleteRow = (group: GroupListRow) =>
+    canDeleteRole && (isAdmin || group.created_by_email?.toLowerCase() === currentEmail);
 
   if (isLoading) {
     return (
@@ -101,7 +115,7 @@ export function GroupsTab() {
                         <Eye className="h-4 w-4 mr-2" />
                         View Group
                       </DropdownMenuItem>
-                      {canEdit && (
+                      {canEditRow(group) && (
                         <DropdownMenuItem
                           onClick={() => setEditing(group)}
                           data-testid={`edit-group-${group.id}`}
@@ -110,7 +124,7 @@ export function GroupsTab() {
                           Edit
                         </DropdownMenuItem>
                       )}
-                      {canDelete && (
+                      {canDeleteRow(group) && (
                         <DropdownMenuItem
                           onClick={() => setDeleting(group)}
                           className="text-destructive focus:text-destructive"
