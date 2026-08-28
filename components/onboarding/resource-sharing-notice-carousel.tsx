@@ -12,30 +12,31 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
 import { FREE_TRIAL_PLAN_NAME } from '@/constants/trial';
 import {
-  RBAC_NOTICE_HEADING,
-  RBAC_NOTICE_STEPS,
-  RBAC_NOTICE_SUBTITLE,
-  RBAC_ROLE_SUMMARIES,
+  RESOURCE_SHARING_NOTICE_HEADING,
+  RESOURCE_SHARING_NOTICE_STEPS,
+  RESOURCE_SHARING_NOTICE_SUBTITLE,
+  RESOURCE_SHARING_ROLE_SUMMARIES,
 } from '@/components/onboarding/constants';
 
 // Reuses the existing self-update endpoint — see OrgUserUpdatev1 (DDP_backend).
 const USER_SELF_ENDPOINT = '/api/v1/organizations/user_self/';
 const CURRENT_USER_KEY = '/api/currentuserv2';
-const LAST_STEP_INDEX = RBAC_NOTICE_STEPS.length - 1;
-const LAST_ROLE_INDEX = RBAC_ROLE_SUMMARIES.length - 1;
+const LAST_STEP_INDEX = RESOURCE_SHARING_NOTICE_STEPS.length - 1;
+const LAST_ROLE_INDEX = RESOURCE_SHARING_ROLE_SUMMARIES.length - 1;
 
 /**
- * One-time RBAC v2 migration carousel. Shows once per OrgUser, on whatever
- * authenticated page they land on, then persists `has_seen_rbac_notice` so it
- * never re-appears. Mounted globally in MainLayout. Layout mirrors the
- * "Rbac spec A - migration notes" Figma frames.
+ * One-time resource-sharing introduction carousel. Shows once per OrgUser, on
+ * whatever authenticated page they land on, then persists
+ * `has_seen_resource_sharing_notice` so it never re-appears. Mounted globally
+ * in MainLayout. Layout mirrors the "We've changed how sharing works" Figma
+ * frames.
  *
- * Never shown to free-trial orgs. This explains what CHANGED about access for users who
- * lived through the old model — a trial workspace is created fresh on RBAC v2, so it has no
- * "before" to be told about, and the trial has its own simplified onboarding. It also stops
- * this dialog landing on top of the product tour, which auto-runs on the same first pages.
+ * Never shown to free-trial orgs — a trial workspace is created fresh on the
+ * resource-sharing model, so it has no "before" to be told about, and the trial
+ * has its own simplified onboarding. It also stops this dialog landing on top
+ * of the product tour, which auto-runs on the same first pages.
  */
-export function RbacNoticeCarousel() {
+export function ResourceSharingNoticeCarousel() {
   const orgUsers = useAuthStore((s) => s.orgUsers);
   const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
   const setOrgUsers = useAuthStore((s) => s.setOrgUsers);
@@ -51,11 +52,11 @@ export function RbacNoticeCarousel() {
     // Suppressed, NOT marked as seen: nothing is written for a trial org, so if it later
     // converts to a paid plan the notice is still available to it.
     if (isTrialOrg) return;
-    if (orgUser.has_seen_rbac_notice) return;
+    if (orgUser.has_seen_resource_sharing_notice) return;
     hasOpenedRef.current = true;
     setStep(0);
     setOpen(true);
-    trackEvent(ANALYTICS_EVENTS.RBAC_NOTICE_VIEWED, { role: orgUser.new_role_slug });
+    trackEvent(ANALYTICS_EVENTS.RESOURCE_SHARING_NOTICE_VIEWED, { role: orgUser.new_role_slug });
   }, [orgUser, isTrialOrg]);
 
   if (!orgUser || isTrialOrg) return null;
@@ -64,23 +65,23 @@ export function RbacNoticeCarousel() {
     // Optimistically flip the flag so the carousel never re-opens this session.
     setOrgUsers(
       orgUsers.map((ou) =>
-        ou.org.slug === orgUser.org.slug ? { ...ou, has_seen_rbac_notice: true } : ou
+        ou.org.slug === orgUser.org.slug ? { ...ou, has_seen_resource_sharing_notice: true } : ou
       )
     );
     try {
       await apiPut(USER_SELF_ENDPOINT, {
         toupdate_email: orgUser.email,
-        has_seen_rbac_notice: true,
+        has_seen_resource_sharing_notice: true,
       });
       await mutate(CURRENT_USER_KEY);
     } catch (error) {
       // Non-critical: the notice simply re-appears on the next login if this fails.
-      console.error('Failed to persist RBAC notice dismissal', error);
+      console.error('Failed to persist resource-sharing notice dismissal', error);
     }
   };
 
   const handleDismiss = () => {
-    trackEvent(ANALYTICS_EVENTS.RBAC_NOTICE_DISMISSED, {
+    trackEvent(ANALYTICS_EVENTS.RESOURCE_SHARING_NOTICE_DISMISSED, {
       step: step + 1,
       completed: step === LAST_STEP_INDEX,
     });
@@ -88,7 +89,7 @@ export function RbacNoticeCarousel() {
     void persistSeen();
   };
 
-  const currentStep = RBAC_NOTICE_STEPS[step];
+  const currentStep = RESOURCE_SHARING_NOTICE_STEPS[step];
 
   return (
     <Dialog
@@ -98,7 +99,7 @@ export function RbacNoticeCarousel() {
       }}
     >
       <DialogContent
-        data-testid="rbac-notice-modal"
+        data-testid="resource-sharing-notice-modal"
         preventOutsideClose
         className="gap-0 overflow-hidden p-0 sm:max-w-4xl"
       >
@@ -106,18 +107,18 @@ export function RbacNoticeCarousel() {
           {/* Left: heading + static role list, same on every step */}
           <div className="border-b p-8 md:border-r md:border-b-0">
             <DialogTitle className="text-2xl font-bold text-foreground">
-              {RBAC_NOTICE_HEADING}
+              {RESOURCE_SHARING_NOTICE_HEADING}
             </DialogTitle>
             <DialogDescription className="mt-2 text-xs text-muted-foreground">
-              {RBAC_NOTICE_SUBTITLE}
+              {RESOURCE_SHARING_NOTICE_SUBTITLE}
             </DialogDescription>
             <ul className="mt-6">
-              {RBAC_ROLE_SUMMARIES.map((roleSummary, index) => {
+              {RESOURCE_SHARING_ROLE_SUMMARIES.map((roleSummary, index) => {
                 const isActive = roleSummary.name === currentStep.role;
                 return (
                   <li
                     key={roleSummary.name}
-                    data-testid={`rbac-notice-role-${roleSummary.name.toLowerCase()}`}
+                    data-testid={`resource-sharing-notice-role-${roleSummary.name.toLowerCase()}`}
                     className={`py-3 ${index === LAST_ROLE_INDEX ? '' : 'border-b'}`}
                   >
                     <p
@@ -160,7 +161,7 @@ export function RbacNoticeCarousel() {
                   href={currentStep.docLink.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  data-testid="rbac-notice-doc-link"
+                  data-testid="resource-sharing-notice-doc-link"
                   className="mt-3 inline-flex items-center gap-1 text-sm text-primary underline underline-offset-2 hover:opacity-80"
                 >
                   {currentStep.docLink.label}
@@ -172,7 +173,7 @@ export function RbacNoticeCarousel() {
                 {step > 0 && (
                   <Button
                     variant="outline"
-                    data-testid="rbac-notice-back"
+                    data-testid="resource-sharing-notice-back"
                     onClick={() => setStep((current) => current - 1)}
                   >
                     Back
@@ -180,13 +181,13 @@ export function RbacNoticeCarousel() {
                 )}
                 {step < LAST_STEP_INDEX ? (
                   <Button
-                    data-testid="rbac-notice-next"
+                    data-testid="resource-sharing-notice-next"
                     onClick={() => setStep((current) => current + 1)}
                   >
                     Next
                   </Button>
                 ) : (
-                  <Button data-testid="rbac-notice-continue" onClick={handleDismiss}>
+                  <Button data-testid="resource-sharing-notice-continue" onClick={handleDismiss}>
                     Continue to workspace
                   </Button>
                 )}

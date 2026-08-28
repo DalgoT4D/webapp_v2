@@ -38,7 +38,7 @@ import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { TransformTypeEnum as TransformType, useTransformType } from '@/hooks/api/useTransform';
 import Image from 'next/image';
 import { ACCESS_PAGE_ROLES, ADMIN_ROLES, DATA_SECTION_ROLES, Role, useRbac } from '@/lib/rbac';
-import { RbacNoticeCarousel } from '@/components/onboarding/rbac-notice-carousel';
+import { ResourceSharingNoticeCarousel } from '@/components/onboarding/resource-sharing-notice-carousel';
 import { TourGate } from '@/components/onboarding/tour-gate';
 
 // Define types for navigation items
@@ -745,7 +745,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* One-time RBAC v2 migration notice — shows once per user, on any page */}
-      <RbacNoticeCarousel />
+      <ResourceSharingNoticeCarousel />
       <TourGate />
     </div>
   );
