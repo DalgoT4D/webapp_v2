@@ -31,12 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -634,9 +629,7 @@ export function MetricsLibrary() {
                 <TooltipProvider delayDuration={300}>
                   <TableComponent className="table-fixed">
                     <TableHeader>{columnHeaders}</TableHeader>
-                    <TableBody>
-                      {sortedMetrics.map((metric) => renderMetricRow(metric))}
-                    </TableBody>
+                    <TableBody>{sortedMetrics.map((metric) => renderMetricRow(metric))}</TableBody>
                   </TableComponent>
                 </TooltipProvider>
               </div>

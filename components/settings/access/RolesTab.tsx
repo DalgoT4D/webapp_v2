@@ -19,12 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Lock, Info } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useOrgPreferences } from '@/hooks/api/useNotifications';
 import { updateAccessDefaults, type AccessDefaults } from '@/hooks/api/useAccess';
@@ -153,9 +148,9 @@ export function RolesTab() {
                 </button>
               </TooltipTrigger>
               <TooltipContent className="max-w-xs">
-                These defaults set the absolute floor for each role. Users can grant higher
-                access on specific resources, but they cannot restrict it below these
-                baselines unless the resource is made Private.
+                These defaults set the absolute floor for each role. Users can grant higher access
+                on specific resources, but they cannot restrict it below these baselines unless the
+                resource is made Private.
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

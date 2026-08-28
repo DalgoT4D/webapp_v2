@@ -1248,141 +1248,141 @@ export default function ChartsPage() {
             <div className="py-6">
               <div className="border rounded-lg bg-white">
                 <TooltipProvider delayDuration={300}>
-                <TableComponent className="table-fixed">
-                  <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead className="w-[28%]">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
-                            onClick={() => handleSort('title')}
-                          >
-                            <div className="flex items-center gap-2">
-                              Name
-                              {renderSortIcon('title')}
-                            </div>
-                          </Button>
-                          <Popover
-                            open={openFilters.name}
-                            onOpenChange={(open) =>
-                              setOpenFilters((prev) => ({ ...prev, name: open }))
-                            }
-                          >
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 p-0 hover:bg-gray-100"
-                              >
-                                {renderFilterIcon('name')}
-                              </Button>
-                            </PopoverTrigger>
-                            {renderNameFilter()}
-                          </Popover>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[18%]">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium text-base hover:bg-transparent"
-                            onClick={() => handleSort('data_source')}
-                          >
-                            <div className="flex items-center gap-2">
-                              Data Source
-                              {renderSortIcon('data_source')}
-                            </div>
-                          </Button>
-                          <Popover
-                            open={openFilters.dataSource}
-                            onOpenChange={(open) =>
-                              setOpenFilters((prev) => ({ ...prev, dataSource: open }))
-                            }
-                          >
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 p-0 hover:bg-gray-100"
-                              >
-                                {renderFilterIcon('dataSource')}
-                              </Button>
-                            </PopoverTrigger>
-                            {renderDataSourceFilter()}
-                          </Popover>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[8%]">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium text-base hover:bg-transparent"
-                            onClick={() => handleSort('chart_type')}
-                          >
-                            <div className="flex items-center gap-2">
-                              Type
-                              {renderSortIcon('chart_type')}
-                            </div>
-                          </Button>
-                          <Popover
-                            open={openFilters.chartType}
-                            onOpenChange={(open) =>
-                              setOpenFilters((prev) => ({ ...prev, chartType: open }))
-                            }
-                          >
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 p-0 hover:bg-gray-100"
-                              >
-                                {renderFilterIcon('chartType')}
-                              </Button>
-                            </PopoverTrigger>
-                            {renderChartTypeFilter()}
-                          </Popover>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[18%] font-medium text-base">Created by</TableHead>
-                      <TableHead className="w-[14%]">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium text-base hover:bg-transparent"
-                            onClick={() => handleSort('updated_at')}
-                          >
-                            <div className="flex items-center gap-2">
-                              Last Modified
-                              {renderSortIcon('updated_at')}
-                            </div>
-                          </Button>
-                          <Popover
-                            open={openFilters.date}
-                            onOpenChange={(open) =>
-                              setOpenFilters((prev) => ({ ...prev, date: open }))
-                            }
-                          >
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 p-0 hover:bg-gray-100"
-                              >
-                                {renderFilterIcon('date')}
-                              </Button>
-                            </PopoverTrigger>
-                            {renderDateFilter()}
-                          </Popover>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[14%] font-medium text-base">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedCharts.map((chart) => renderChartTableRow(chart))}
-                  </TableBody>
-                </TableComponent>
+                  <TableComponent className="table-fixed">
+                    <TableHeader>
+                      <TableRow className="bg-gray-50">
+                        <TableHead className="w-[28%]">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
+                              onClick={() => handleSort('title')}
+                            >
+                              <div className="flex items-center gap-2">
+                                Name
+                                {renderSortIcon('title')}
+                              </div>
+                            </Button>
+                            <Popover
+                              open={openFilters.name}
+                              onOpenChange={(open) =>
+                                setOpenFilters((prev) => ({ ...prev, name: open }))
+                              }
+                            >
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                                >
+                                  {renderFilterIcon('name')}
+                                </Button>
+                              </PopoverTrigger>
+                              {renderNameFilter()}
+                            </Popover>
+                          </div>
+                        </TableHead>
+                        <TableHead className="w-[18%]">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              className="h-auto p-0 font-medium text-base hover:bg-transparent"
+                              onClick={() => handleSort('data_source')}
+                            >
+                              <div className="flex items-center gap-2">
+                                Data Source
+                                {renderSortIcon('data_source')}
+                              </div>
+                            </Button>
+                            <Popover
+                              open={openFilters.dataSource}
+                              onOpenChange={(open) =>
+                                setOpenFilters((prev) => ({ ...prev, dataSource: open }))
+                              }
+                            >
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                                >
+                                  {renderFilterIcon('dataSource')}
+                                </Button>
+                              </PopoverTrigger>
+                              {renderDataSourceFilter()}
+                            </Popover>
+                          </div>
+                        </TableHead>
+                        <TableHead className="w-[8%]">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              className="h-auto p-0 font-medium text-base hover:bg-transparent"
+                              onClick={() => handleSort('chart_type')}
+                            >
+                              <div className="flex items-center gap-2">
+                                Type
+                                {renderSortIcon('chart_type')}
+                              </div>
+                            </Button>
+                            <Popover
+                              open={openFilters.chartType}
+                              onOpenChange={(open) =>
+                                setOpenFilters((prev) => ({ ...prev, chartType: open }))
+                              }
+                            >
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                                >
+                                  {renderFilterIcon('chartType')}
+                                </Button>
+                              </PopoverTrigger>
+                              {renderChartTypeFilter()}
+                            </Popover>
+                          </div>
+                        </TableHead>
+                        <TableHead className="w-[18%] font-medium text-base">Created by</TableHead>
+                        <TableHead className="w-[14%]">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              className="h-auto p-0 font-medium text-base hover:bg-transparent"
+                              onClick={() => handleSort('updated_at')}
+                            >
+                              <div className="flex items-center gap-2">
+                                Last Modified
+                                {renderSortIcon('updated_at')}
+                              </div>
+                            </Button>
+                            <Popover
+                              open={openFilters.date}
+                              onOpenChange={(open) =>
+                                setOpenFilters((prev) => ({ ...prev, date: open }))
+                              }
+                            >
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                                >
+                                  {renderFilterIcon('date')}
+                                </Button>
+                              </PopoverTrigger>
+                              {renderDateFilter()}
+                            </Popover>
+                          </div>
+                        </TableHead>
+                        <TableHead className="w-[14%] font-medium text-base">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedCharts.map((chart) => renderChartTableRow(chart))}
+                    </TableBody>
+                  </TableComponent>
                 </TooltipProvider>
               </div>
             </div>

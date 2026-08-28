@@ -174,10 +174,7 @@ export function ShareModal({
 
   // Default the invite role to Member as soon as the roles list loads.
   // The user can still change it via the role select.
-  const memberRoleUuid = useMemo(
-    () => roles?.find((r) => r.slug === 'member')?.uuid,
-    [roles]
-  );
+  const memberRoleUuid = useMemo(() => roles?.find((r) => r.slug === 'member')?.uuid, [roles]);
   useEffect(() => {
     if (isOpen && memberRoleUuid && !inviteRoleUuid) {
       setInviteRoleUuid(memberRoleUuid);
@@ -770,13 +767,14 @@ export function ShareModal({
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
-                        {(isAdmin ? (roles ?? []) : (roles ?? []).filter((r) => r.slug === ROLES.MEMBER)).map(
-                          (role) => (
-                            <SelectItem key={role.uuid} value={role.uuid}>
-                              {role.name}
-                            </SelectItem>
-                          )
-                        )}
+                        {(isAdmin
+                          ? (roles ?? [])
+                          : (roles ?? []).filter((r) => r.slug === ROLES.MEMBER)
+                        ).map((role) => (
+                          <SelectItem key={role.uuid} value={role.uuid}>
+                            {role.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     {!isAdmin && (
@@ -1062,8 +1060,8 @@ export function ShareModal({
                   <DialogTitle>Take ownership from {owner.email}?</DialogTitle>
                 </DialogHeader>
                 <p className="text-sm text-muted-foreground">
-                  You will become the owner of this {entityLabelLower}. {owner.email} will keep
-                  Edit access.
+                  You will become the owner of this {entityLabelLower}. {owner.email} will keep Edit
+                  access.
                 </p>
                 <div className="flex justify-end gap-3 mt-2">
                   <Button variant="outline" onClick={() => setTakeoverConfirmOpen(false)}>
