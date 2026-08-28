@@ -1,7 +1,7 @@
 /**
- * FeatureFlagsPage — the portal-wide multi-org view: pick a flag, pick one or more
- * orgs, apply on/off in one action, see a per-org result (which succeeded, which
- * failed) rather than an all-or-nothing outcome.
+ * FeatureFlagsPage — the portal-wide feature-flags view: pick a flag, see every
+ * org's current status in a table, and flip any org's toggle immediately (no
+ * select-then-apply step, no multi-select).
  */
 
 import React from 'react';
@@ -17,63 +17,91 @@ const catalog = [
   { flag_name: 'DATA_QUALITY', description: 'Elementary data quality reports' },
 ];
 
-const orgs = [
-  { id: 1, name: 'Akshara', slug: 'akshara', viz_url: null, base_plan: 'Dalgo', user_count: 5 },
-  { id: 2, name: 'Bhumi', slug: 'bhumi', viz_url: null, base_plan: 'Free Trial', user_count: 2 },
+const orgFlags = [
+  { org_id: 1, org_name: 'Akshara', enabled: true },
+  { org_id: 2, org_name: 'Bhumi', enabled: false },
 ];
 
-const mockBulkSetFlag = jest.fn();
+const mockSetOrgFlag = jest.fn();
+const mockMutate = jest.fn().mockResolvedValue(undefined);
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockSetOrgFlag.mockResolvedValue({ REPORTS: true });
   (useAdminPortal.useAdminFlagCatalog as jest.Mock).mockReturnValue({
     catalog,
     isLoading: false,
   });
-  (useAdminPortal.useAdminOrgs as jest.Mock).mockReturnValue({
-    orgs,
+  (useAdminPortal.useAdminFlagOrgs as jest.Mock).mockReturnValue({
+    orgFlags,
     isLoading: false,
+    mutate: mockMutate,
   });
   (useAdminPortal.useAdminFlagActions as jest.Mock).mockReturnValue({
-    setOrgFlag: jest.fn(),
+    setOrgFlag: mockSetOrgFlag,
     clearOrgFlag: jest.fn(),
-    bulkSetFlag: mockBulkSetFlag,
   });
 });
 
-const selectFlagAndOrgs = async (user: ReturnType<typeof userEvent.setup>) => {
+const selectFlag = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.click(screen.getByTestId('flag-select'));
   await user.click(await screen.findByText(/REPORTS/));
-
-  await user.click(screen.getByTestId('org-picker-search'));
-  const listbox = await screen.findByRole('listbox');
-  const akshara = await screen.findByText('Akshara');
-  await user.click(akshara);
-  const bhumi = await screen.findByText('Bhumi');
-  await user.click(bhumi);
-  return listbox;
 };
 
 describe('FeatureFlagsPage', () => {
-  it('applies a flag on for the selected orgs and shows a per-org result', async () => {
-    mockBulkSetFlag.mockResolvedValueOnce([
-      { org_id: 1, success: true },
-      { org_id: 2, success: false },
-    ]);
+  it('shows no org table until a flag is chosen', () => {
+    render(<FeatureFlagsPage />);
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('renders a table row per org with its current status, once a flag is chosen', async () => {
     const user = userEvent.setup();
     render(<FeatureFlagsPage />);
 
-    await selectFlagAndOrgs(user);
-    await user.click(screen.getByTestId('flags-turn-on'));
+    await selectFlag(user);
 
-    await waitFor(() => expect(mockBulkSetFlag).toHaveBeenCalledWith('REPORTS', [1, 2], true));
-    expect(await screen.findByTestId('flags-result-1')).toHaveTextContent('Succeeded');
-    expect(await screen.findByTestId('flags-result-2')).toHaveTextContent('Failed');
+    expect(screen.getByTestId('flags-org-row-1')).toBeInTheDocument();
+    expect(screen.getByTestId('flags-org-switch-1')).toHaveAttribute('data-state', 'checked');
+    expect(screen.getByTestId('flags-org-switch-2')).toHaveAttribute('data-state', 'unchecked');
+    expect(screen.getByText('Akshara')).toBeInTheDocument();
+    expect(screen.getByText('Bhumi')).toBeInTheDocument();
   });
 
-  it('disables apply until a flag and at least one org are selected', () => {
+  it('toggling a row fires immediately for that org only, with no select-then-apply step', async () => {
+    const user = userEvent.setup();
     render(<FeatureFlagsPage />);
-    expect(screen.getByTestId('flags-turn-on')).toBeDisabled();
-    expect(screen.getByTestId('flags-turn-off')).toBeDisabled();
+    await selectFlag(user);
+
+    await user.click(screen.getByTestId('flags-org-switch-2'));
+
+    await waitFor(() => expect(mockSetOrgFlag).toHaveBeenCalledWith(2, 'REPORTS', true));
+    expect(mockSetOrgFlag).toHaveBeenCalledTimes(1);
+    expect(mockMutate).toHaveBeenCalled();
+    expect(
+      screen.queryByRole('button', { name: /apply|turn on|turn off/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it("a failed toggle surfaces an error on only that org's row, leaving other rows untouched", async () => {
+    mockSetOrgFlag.mockRejectedValueOnce(new Error('boom'));
+    const user = userEvent.setup();
+    render(<FeatureFlagsPage />);
+    await selectFlag(user);
+
+    await user.click(screen.getByTestId('flags-org-switch-2'));
+
+    expect(await screen.findByTestId('flags-org-error-2')).toBeInTheDocument();
+    expect(screen.queryByTestId('flags-org-error-1')).not.toBeInTheDocument();
+    expect(mockMutate).not.toHaveBeenCalled();
+  });
+
+  it('has no multi-select org picker or Apply controls anywhere on the page', async () => {
+    const user = userEvent.setup();
+    render(<FeatureFlagsPage />);
+    await selectFlag(user);
+
+    expect(screen.queryByTestId('org-picker')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('flags-turn-on')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('flags-turn-off')).not.toBeInTheDocument();
   });
 });

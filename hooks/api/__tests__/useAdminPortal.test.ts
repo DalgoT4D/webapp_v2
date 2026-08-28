@@ -16,6 +16,7 @@ import {
 import {
   useAdminFlagCatalog,
   useAdminOrgFlags,
+  useAdminFlagOrgs,
   useAdminFlagActions,
   useAdminNotifications,
   useAdminNotificationActions,
@@ -58,6 +59,30 @@ describe('useAdminOrgFlags', () => {
   });
 });
 
+describe('useAdminFlagOrgs', () => {
+  it("reads every org's status for one flag from /api/v1/admin/flags/{flagName}/orgs", async () => {
+    mockApiGet.mockResolvedValueOnce([
+      { org_id: 1, org_name: 'Akshara', enabled: true },
+      { org_id: 2, org_name: 'Bhumi', enabled: false },
+    ]);
+
+    const { result } = renderHook(() => useAdminFlagOrgs('REPORTS'), { wrapper: TestWrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(mockApiGet).toHaveBeenCalledWith('/api/v1/admin/flags/REPORTS/orgs');
+    expect(result.current.orgFlags).toEqual([
+      { org_id: 1, org_name: 'Akshara', enabled: true },
+      { org_id: 2, org_name: 'Bhumi', enabled: false },
+    ]);
+  });
+
+  it('skips the request when flagName is null', () => {
+    renderHook(() => useAdminFlagOrgs(null), { wrapper: TestWrapper });
+    expect(mockApiGet).not.toHaveBeenCalled();
+  });
+});
+
 describe('useAdminFlagActions', () => {
   it('setOrgFlag PUTs {enabled} to the single-org route and returns the updated flags', async () => {
     mockApiPut.mockResolvedValueOnce({ REPORTS: true });
@@ -79,25 +104,6 @@ describe('useAdminFlagActions', () => {
 
     expect(mockApiDelete).toHaveBeenCalledWith('/api/v1/admin/orgs/7/flags/REPORTS');
     expect(flags).toEqual({ REPORTS: false });
-  });
-
-  it('bulkSetFlag PUTs {org_ids, enabled} to the bulk route and returns per-org results', async () => {
-    mockApiPut.mockResolvedValueOnce([
-      { org_id: 7, success: true },
-      { org_id: 8, success: false },
-    ]);
-    const { result } = renderHook(() => useAdminFlagActions(), { wrapper: TestWrapper });
-
-    const results = await act(() => result.current.bulkSetFlag('REPORTS', [7, 8], true));
-
-    expect(mockApiPut).toHaveBeenCalledWith('/api/v1/admin/flags/REPORTS/orgs', {
-      org_ids: [7, 8],
-      enabled: true,
-    });
-    expect(results).toEqual([
-      { org_id: 7, success: true },
-      { org_id: 8, success: false },
-    ]);
   });
 });
 

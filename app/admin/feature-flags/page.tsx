@@ -1,9 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Combobox } from '@/components/ui/combobox';
 import {
   Select,
   SelectContent,
@@ -13,57 +11,53 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   useAdminFlagCatalog,
-  useAdminOrgs,
+  useAdminFlagOrgs,
   useAdminFlagActions,
-  type AdminBulkFlagResult,
 } from '@/hooks/api/useAdminPortal';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 /**
- * The portal-wide feature-flags view: turn one flag on/off for a hand-picked group
- * of orgs in a single action. Per-org tab (OrgFlagsPanel) handles one org at a
- * time; this page is for "beta-test with these three partners" style rollouts.
+ * The portal-wide feature-flags view: pick a flag, see every org's current status in
+ * a table, and flip any org's toggle immediately -- no select-then-apply step. The
+ * per-org tab (OrgFlagsPanel) is the mirror image: every flag for one org.
  */
 export default function FeatureFlagsPage() {
   const { catalog, isLoading: catalogLoading } = useAdminFlagCatalog();
-  const { orgs, isLoading: orgsLoading } = useAdminOrgs();
-  const { bulkSetFlag } = useAdminFlagActions();
-
   const [flagName, setFlagName] = useState('');
-  const [selectedOrgIds, setSelectedOrgIds] = useState<string[]>([]);
-  const [applying, setApplying] = useState(false);
-  const [results, setResults] = useState<AdminBulkFlagResult[] | null>(null);
+  const { orgFlags, isLoading: orgFlagsLoading, mutate } = useAdminFlagOrgs(flagName || null);
+  const { setOrgFlag } = useAdminFlagActions();
 
-  const orgItems = useMemo(
-    () => (orgs ?? []).map((org) => ({ value: String(org.id), label: org.name })),
-    [orgs]
-  );
-  const orgNameById = useMemo(() => new Map((orgs ?? []).map((org) => [org.id, org.name])), [orgs]);
+  const [pendingOrgId, setPendingOrgId] = useState<number | null>(null);
+  const [errorOrgId, setErrorOrgId] = useState<number | null>(null);
 
-  const onApply = async (enabled: boolean) => {
-    if (!flagName || selectedOrgIds.length === 0) return;
-    setApplying(true);
-    setResults(null);
+  const onToggle = async (orgId: number, enabled: boolean) => {
+    setPendingOrgId(orgId);
+    setErrorOrgId(null);
     try {
-      const orgIds = selectedOrgIds.map(Number);
-      const bulkResults = await bulkSetFlag(flagName, orgIds, enabled);
-      trackEvent(ANALYTICS_EVENTS.ADMIN_FLAG_BULK_SET, {
-        flag_name: flagName,
-        enabled,
-        org_count: orgIds.length,
-      });
-      setResults(bulkResults);
+      await setOrgFlag(orgId, flagName, enabled);
+      trackEvent(ANALYTICS_EVENTS.ADMIN_FLAG_SET, { flag_name: flagName, enabled });
+      await mutate();
     } catch {
-      // toast already surfaced in the hook
+      // toast already surfaced in the hook; this row also shows its own inline error
+      setErrorOrgId(orgId);
     } finally {
-      setApplying(false);
+      setPendingOrgId(null);
     }
   };
 
-  if (catalogLoading || orgsLoading) {
+  if (catalogLoading) {
     return (
       <div className="p-8">
         <Skeleton className="h-8 w-48" />
@@ -72,20 +66,18 @@ export default function FeatureFlagsPage() {
     );
   }
 
-  const applyDisabled = applying || !flagName || selectedOrgIds.length === 0;
-
   return (
     <div className="p-8">
       <h1 className="text-2xl font-semibold mb-1">Feature flags</h1>
       <p className="text-sm text-muted-foreground mb-6">
-        Turn a feature on or off for one org, or for several orgs at once.
+        Turn a feature on or off for any organization.
       </p>
 
-      <Card className="max-w-2xl">
+      <Card className="max-w-2xl mb-6">
         <CardHeader>
-          <CardTitle>Apply a flag</CardTitle>
+          <CardTitle>Choose a flag</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent>
           <div className="space-y-2">
             <Label htmlFor="flag-select">Flag</Label>
             <Select value={flagName} onValueChange={setFlagName}>
@@ -101,62 +93,58 @@ export default function FeatureFlagsPage() {
               </SelectContent>
             </Select>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="org-picker">Organization(s)</Label>
-            <Combobox
-              id="org-picker"
-              mode="multi"
-              items={orgItems}
-              values={selectedOrgIds}
-              onValuesChange={setSelectedOrgIds}
-              placeholder="Select one or more orgs"
-            />
-          </div>
-
-          <div className="flex gap-3">
-            <Button
-              onClick={() => onApply(true)}
-              disabled={applyDisabled}
-              data-testid="flags-turn-on"
-            >
-              Turn on for selected
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => onApply(false)}
-              disabled={applyDisabled}
-              data-testid="flags-turn-off"
-            >
-              Turn off for selected
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
-      {results && (
-        <Card className="mt-6 max-w-2xl" data-testid="flags-bulk-results">
-          <CardHeader>
-            <CardTitle>Result</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-1">
-              {results.map((result) => (
-                <li
-                  key={result.org_id}
-                  className="flex items-center justify-between text-sm"
-                  data-testid={`flags-result-${result.org_id}`}
-                >
-                  <span>{orgNameById.get(result.org_id) ?? `Org ${result.org_id}`}</span>
-                  <span className={result.success ? 'text-primary' : 'text-destructive'}>
-                    {result.success ? 'Succeeded' : 'Failed'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
+      {flagName &&
+        (orgFlagsLoading ? (
+          <Skeleton className="h-64 w-full max-w-2xl" data-testid="flags-orgs-loading" />
+        ) : (
+          <Table className="max-w-2xl">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Organization</TableHead>
+                <TableHead className="text-right">Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(!orgFlags || orgFlags.length === 0) && (
+                <TableRow>
+                  <TableCell colSpan={2} className="text-center text-muted-foreground">
+                    No organizations found.
+                  </TableCell>
+                </TableRow>
+              )}
+              {orgFlags?.map((orgFlag) => {
+                const switchId = `flags-org-switch-${orgFlag.org_id}`;
+                return (
+                  <TableRow key={orgFlag.org_id} data-testid={`flags-org-row-${orgFlag.org_id}`}>
+                    <TableCell>
+                      <Label htmlFor={switchId}>{orgFlag.org_name}</Label>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Switch
+                        id={switchId}
+                        checked={Boolean(orgFlag.enabled)}
+                        disabled={pendingOrgId === orgFlag.org_id}
+                        onCheckedChange={(checked) => onToggle(orgFlag.org_id, checked)}
+                        data-testid={switchId}
+                      />
+                      {errorOrgId === orgFlag.org_id && (
+                        <p
+                          className="text-xs text-destructive mt-1"
+                          data-testid={`flags-org-error-${orgFlag.org_id}`}
+                        >
+                          Failed to update
+                        </p>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        ))}
     </div>
   );
 }

@@ -52,9 +52,8 @@ export const ANALYTICS_EVENTS = {
   // so its sign-in is tracked apart from auth:user_logged_in.
   ADMIN_LOGGED_IN: 'admin:admin_logged_in',
   ADMIN_LOGIN_FAILED: 'admin:admin_login_failed',
-  // Feature flags (per-org and multi-org on/off)
+  // Feature flags (per-org on/off)
   ADMIN_FLAG_SET: 'admin:flag_set',
-  ADMIN_FLAG_BULK_SET: 'admin:flag_bulk_set',
   // Broadcast notifications (whole platform, one org, or several orgs at once)
   ADMIN_BROADCAST_SENT: 'admin:broadcast_sent',
 } as const;

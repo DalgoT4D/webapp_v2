@@ -228,22 +228,13 @@ export async function getRemovalImpact(orgId: number, orgUserId: number): Promis
 }
 
 // ===========================================================================
-// Feature flags (M3) — per-org and multi-org on/off. Reuses the org id from the
-// URL, same as the Users tab; the bulk route additionally takes a list of org ids
-// in its body. See features/admin-portal/plan.md §3.3, §4.3.
+// Feature flags (M3) — per-org on/off. Reuses the org id from the URL, same as
+// the Users tab. See features/admin-portal/plan.md §3.3, §4.3.
 // ===========================================================================
 
 export interface AdminFeatureFlagCatalogItem {
   flag_name: string;
   description: string;
-}
-
-/** One org's outcome from a bulk flag set. Deliberately success-only — no message
- * field — so a failed org_id can never be told apart from a different failure
- * cause (plan.md §5). */
-export interface AdminBulkFlagResult {
-  org_id: number;
-  success: boolean;
 }
 
 /** The fixed FEATURE_FLAGS registry, served from one source of truth instead of a
@@ -259,6 +250,28 @@ export function useAdminFlagCatalog() {
     catalog: data,
     isLoading,
     error,
+  };
+}
+
+/** One org's current status for a single flag, as returned by GET /flags/{flag_name}/orgs. */
+export interface AdminFlagOrgStatus {
+  org_id: number;
+  org_name: string;
+  enabled: boolean;
+}
+
+/** Every org's current status for one flag, for the portal-wide Feature Flags table. */
+export function useAdminFlagOrgs(flagName: string | null) {
+  const { data, error, isLoading, mutate } = useSWR<AdminFlagOrgStatus[]>(
+    flagName ? `/api/v1/admin/flags/${flagName}/orgs` : null,
+    apiGet
+  );
+
+  return {
+    orgFlags: data,
+    isLoading,
+    error,
+    mutate,
   };
 }
 
@@ -309,23 +322,7 @@ export function useAdminFlagActions() {
     }
   };
 
-  const bulkSetFlag = async (
-    flagName: string,
-    orgIds: number[],
-    enabled: boolean
-  ): Promise<AdminBulkFlagResult[]> => {
-    try {
-      return (await apiPut(`/api/v1/admin/flags/${flagName}/orgs`, {
-        org_ids: orgIds,
-        enabled,
-      })) as AdminBulkFlagResult[];
-    } catch (error: any) {
-      toastError.api(error, 'Failed to update the flag for the selected organizations');
-      throw error;
-    }
-  };
-
-  return { setOrgFlag, clearOrgFlag, bulkSetFlag };
+  return { setOrgFlag, clearOrgFlag };
 }
 
 /** Invite / change-role / remove / cancel-invite for an org's users. */
