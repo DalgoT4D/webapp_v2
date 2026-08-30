@@ -21,6 +21,8 @@ import { useAdminOrg, useAdminOrgActions } from '@/hooks/api/useAdminPortal';
 import { OrgUsersTable } from '@/components/admin/OrgUsersTable';
 import { OrgFlagsPanel } from '@/components/admin/OrgFlagsPanel';
 import { DeleteOrgDialog } from '@/components/admin/DeleteOrgDialog';
+import { trackFeatureView } from '@/lib/analytics';
+import { FEATURES } from '@/constants/analytics';
 
 const BASE_PLANS = ['Free Trial', 'Dalgo', 'Internal'];
 
@@ -124,7 +126,12 @@ export default function AdminOrganizationDetailPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="overview">
+      {/* Tabs are local state, so feature:viewed does not fire on switch the way it
+          does on navigation — instrument it explicitly (rules/analytics.md). */}
+      <Tabs
+        defaultValue="overview"
+        onValueChange={(value) => trackFeatureView(FEATURES.ADMIN_ORGANIZATIONS, { tab: value })}
+      >
         <TabsList>
           <TabsTrigger value="overview" data-testid="org-tab-overview">
             Overview

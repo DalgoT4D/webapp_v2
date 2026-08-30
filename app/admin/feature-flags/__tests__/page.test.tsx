@@ -39,7 +39,6 @@ beforeEach(() => {
   });
   (useAdminPortal.useAdminFlagActions as jest.Mock).mockReturnValue({
     setOrgFlag: mockSetOrgFlag,
-    clearOrgFlag: jest.fn(),
   });
 });
 

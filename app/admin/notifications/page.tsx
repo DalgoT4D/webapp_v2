@@ -32,9 +32,10 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 type AudienceMode = 'whole_platform' | 'orgs';
 
 /**
- * The broadcast composer + sent-broadcast history. Audience is whole platform,
- * one org, or several orgs at once (the same multi-org picker pattern as
- * Feature Flags); channels (in-app / email) are admin-chosen per broadcast.
+ * The broadcast composer + sent-broadcast history. Audience is whole platform, one
+ * org, or several orgs at once — resolved server-side into ONE merged recipient list,
+ * never a per-org breakdown. Channels (in-app / email) are admin-chosen per broadcast;
+ * at least one must be on, enforced here AND server-side.
  * Immediate send only — no scheduling, no cancel (plan.md Milestone 2).
  */
 export default function NotificationsPage() {
@@ -66,7 +67,7 @@ export default function NotificationsPage() {
   useEffect(() => {
     if (audienceMode === 'orgs' && selectedOrgIds.length === 0) {
       setPreviewCount(null);
-      return;
+      return undefined; // explicit: the other path returns a cleanup fn (TS7030)
     }
     let cancelled = false;
     setPreviewCount(null);

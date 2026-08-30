@@ -34,7 +34,6 @@ beforeEach(() => {
   });
   (useAdminPortal.useAdminFlagActions as jest.Mock).mockReturnValue({
     setOrgFlag: mockSetOrgFlag,
-    clearOrgFlag: jest.fn(),
   });
 });
 
@@ -79,6 +78,21 @@ describe('OrgFlagsPanel', () => {
 
     await waitFor(() => expect(mockSetOrgFlag).toHaveBeenCalledWith(ORG_ID, 'DATA_QUALITY', true));
     expect(mockMutate).toHaveBeenCalled();
+  });
+
+  it('shows an inline error on the row whose toggle failed, and leaves the others clean', async () => {
+    // matches FeatureFlagsPage, which toggles the same flag through the same call --
+    // the two views of this action must fail the same way.
+    mockSetOrgFlag.mockRejectedValueOnce(new Error('nope'));
+    const user = userEvent.setup();
+    render(<OrgFlagsPanel orgId={ORG_ID} />);
+
+    await user.click(screen.getByTestId('org-flag-switch-DATA_QUALITY'));
+
+    expect(await screen.findByTestId('org-flag-error-DATA_QUALITY')).toHaveTextContent(
+      'Failed to update'
+    );
+    expect(screen.queryByTestId('org-flag-error-REPORTS')).not.toBeInTheDocument();
   });
 
   it('shows an empty-state row when the catalog has no flags', () => {

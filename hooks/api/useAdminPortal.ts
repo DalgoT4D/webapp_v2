@@ -51,6 +51,9 @@ export function useAdminSession() {
     session: data,
     isPlatformAdmin: data ? Boolean(data.is_platform_admin) : false,
     isLoading,
+    // `isError` is the repo-wide read-hook contract (rules/api-hooks.md, useCharts /
+    // usePipelines); `error` is kept alongside it for the existing callers.
+    isError: error,
     error,
     mutate,
   };
@@ -69,6 +72,7 @@ export function useAdminStats() {
   return {
     stats: data,
     isLoading,
+    isError: error,
     error,
     mutate,
   };
@@ -81,6 +85,7 @@ export function useAdminOrgs() {
   return {
     orgs: data,
     isLoading,
+    isError: error,
     error,
     mutate,
   };
@@ -96,6 +101,7 @@ export function useAdminOrg(orgId: number | null) {
   return {
     org: data,
     isLoading,
+    isError: error,
     error,
     mutate,
   };
@@ -212,6 +218,7 @@ export function useAdminOrgUsers(orgId: number | null) {
     users: data?.users,
     invitations: data?.invitations,
     isLoading,
+    isError: error,
     error,
     mutate,
   };
@@ -249,6 +256,7 @@ export function useAdminFlagCatalog() {
   return {
     catalog: data,
     isLoading,
+    isError: error,
     error,
   };
 }
@@ -270,6 +278,7 @@ export function useAdminFlagOrgs(flagName: string | null) {
   return {
     orgFlags: data,
     isLoading,
+    isError: error,
     error,
     mutate,
   };
@@ -285,12 +294,22 @@ export function useAdminOrgFlags(orgId: number | null) {
   return {
     flags: data,
     isLoading,
+    isError: error,
     error,
     mutate,
   };
 }
 
-/** Set / clear a flag for a single org, or set it for several orgs at once. */
+/**
+ * Turn one flag on/off for one org — the only flag write either screen makes. The
+ * per-org panel and the portal-wide table are transposes of the same action, so they
+ * share this one call.
+ *
+ * There is deliberately no binding for DELETE /orgs/{id}/flags/{name} (clear the
+ * override so the org falls back to the global default): no screen offers it, and an
+ * unused binding drifts. The route exists and is tested backend-side — add the hook
+ * here when a UI actually needs it.
+ */
 export function useAdminFlagActions() {
   const setOrgFlag = async (
     orgId: number,
@@ -307,22 +326,7 @@ export function useAdminFlagActions() {
     }
   };
 
-  const clearOrgFlag = async (
-    orgId: number,
-    flagName: string
-  ): Promise<Record<string, boolean>> => {
-    try {
-      return (await apiDelete(`/api/v1/admin/orgs/${orgId}/flags/${flagName}`)) as Record<
-        string,
-        boolean
-      >;
-    } catch (error: any) {
-      toastError.api(error, 'Failed to clear the flag override');
-      throw error;
-    }
-  };
-
-  return { setOrgFlag, clearOrgFlag };
+  return { setOrgFlag };
 }
 
 /** Invite / change-role / remove / cancel-invite for an org's users. */
@@ -420,6 +424,7 @@ export function useAdminNotifications() {
   return {
     notifications: data,
     isLoading,
+    isError: error,
     error,
     mutate,
   };

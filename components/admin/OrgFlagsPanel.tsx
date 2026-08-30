@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -25,21 +26,31 @@ interface OrgFlagsPanelProps {
 
 /**
  * The Flags tab for one org: every catalog flag with its current on/off state for
- * this org, toggleable independently. The portal-wide multi-org view is a separate
- * component (FeatureFlagsPage) that applies a flag to several orgs at once.
+ * this org, toggleable independently. FeatureFlagsPage is the transpose — every org's
+ * status for ONE flag — and each of its rows toggles through the same single-org call
+ * this does. Keep the two in step: a row is disabled while its write is in flight and
+ * shows an inline error if it fails.
  */
 export function OrgFlagsPanel({ orgId }: OrgFlagsPanelProps) {
   const { catalog, isLoading: catalogLoading } = useAdminFlagCatalog();
   const { flags, isLoading: flagsLoading, mutate } = useAdminOrgFlags(orgId);
   const { setOrgFlag } = useAdminFlagActions();
 
+  const [pendingFlag, setPendingFlag] = useState<string | null>(null);
+  const [errorFlag, setErrorFlag] = useState<string | null>(null);
+
   const onToggle = async (flagName: string, enabled: boolean) => {
+    setPendingFlag(flagName);
+    setErrorFlag(null);
     try {
       await setOrgFlag(orgId, flagName, enabled);
       trackEvent(ANALYTICS_EVENTS.ADMIN_FLAG_SET, { flag_name: flagName, enabled });
       await mutate();
     } catch {
-      // toast already surfaced in the hook
+      // toast already surfaced in the hook; this row also shows its own inline error
+      setErrorFlag(flagName);
+    } finally {
+      setPendingFlag(null);
     }
   };
 
@@ -76,9 +87,18 @@ export function OrgFlagsPanel({ orgId }: OrgFlagsPanelProps) {
                 <Switch
                   id={switchId}
                   checked={Boolean(flags?.[item.flag_name])}
+                  disabled={pendingFlag === item.flag_name}
                   onCheckedChange={(checked) => onToggle(item.flag_name, checked)}
                   data-testid={switchId}
                 />
+                {errorFlag === item.flag_name && (
+                  <p
+                    className="text-xs text-destructive mt-1"
+                    data-testid={`org-flag-error-${item.flag_name}`}
+                  >
+                    Failed to update
+                  </p>
+                )}
               </TableCell>
             </TableRow>
           );

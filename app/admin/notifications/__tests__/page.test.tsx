@@ -3,6 +3,11 @@
  * orgs, admin-chosen channels), preview the combined recipient count, send, and
  * review the sent-broadcast history. Immediate send only: no scheduling, no
  * cancel (features/admin-portal/plan.md Milestone 2).
+ *
+ * userEvent is set up with `delay: null`: the composer is the most type-heavy screen
+ * in the portal (subject + message), and the default per-keystroke delay pushed these
+ * tests past the 5s timeout under a loaded parallel run. It removes simulated typing
+ * latency only — no assertion or expected value is relaxed.
  */
 
 import React from 'react';
@@ -10,10 +15,11 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import NotificationsPage from '@/app/admin/notifications/page';
 import * as useAdminPortal from '@/hooks/api/useAdminPortal';
+import type { AdminOrg } from '@/hooks/api/useAdminPortal';
 
 jest.mock('@/hooks/api/useAdminPortal');
 
-const orgs = [
+const orgs: AdminOrg[] = [
   { id: 1, name: 'Akshara', slug: 'akshara', viz_url: null, base_plan: 'Dalgo', user_count: 5 },
   { id: 2, name: 'Bhumi', slug: 'bhumi', viz_url: null, base_plan: 'Free Trial', user_count: 2 },
 ];
@@ -58,7 +64,7 @@ describe('NotificationsPage composer', () => {
     await waitFor(() => expect(mockPreviewRecipients).toHaveBeenCalledWith(undefined));
     expect(await screen.findByText(/Reaches 5 people/)).toBeInTheDocument();
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await user.type(screen.getByTestId('broadcast-subject'), 'Subject');
     await user.type(screen.getByTestId('broadcast-message'), 'Hello everyone');
 
@@ -73,7 +79,7 @@ describe('NotificationsPage composer', () => {
   });
 
   it('switching to one-or-more-orgs re-previews with the selected org_ids', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<NotificationsPage />);
     await waitFor(() => expect(mockPreviewRecipients).toHaveBeenCalledWith(undefined));
     mockPreviewRecipients.mockClear();
@@ -90,7 +96,7 @@ describe('NotificationsPage composer', () => {
 
   it('sends with the composed payload and refreshes history', async () => {
     mockSendNotification.mockResolvedValueOnce({ id: 99, recipient_count: 5 });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<NotificationsPage />);
     await waitFor(() => expect(mockPreviewRecipients).toHaveBeenCalledWith(undefined));
 

@@ -1,18 +1,13 @@
 /**
- * Tests for the feature-flags slice of useAdminPortal.ts (Milestone 3: per-org and
- * multi-org on/off). The org/user hooks in this file are covered elsewhere; this file
- * is scoped to the new flag catalog / per-org read / set / clear / bulk-set surface.
+ * Tests for the feature-flags and broadcast slices of useAdminPortal.ts (Milestones
+ * 2-3). Flag writes are single-org only: the flag catalog, the per-org read, the
+ * portal-wide per-flag read, and the one set call both screens share. The org/user
+ * hooks in this file are covered elsewhere.
  */
 
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { TestWrapper } from '@/test-utils/render';
-import {
-  mockApiGet,
-  mockApiPost,
-  mockApiPut,
-  mockApiDelete,
-  resetApiMocks,
-} from '@/test-utils/api';
+import { mockApiGet, mockApiPost, mockApiPut, resetApiMocks } from '@/test-utils/api';
 import {
   useAdminFlagCatalog,
   useAdminOrgFlags,
@@ -96,14 +91,10 @@ describe('useAdminFlagActions', () => {
     expect(flags).toEqual({ REPORTS: true });
   });
 
-  it('clearOrgFlag DELETEs the org override and returns the fallen-back flags', async () => {
-    mockApiDelete.mockResolvedValueOnce({ REPORTS: false });
+  it('exposes only setOrgFlag — no unused binding for the clear-override route', () => {
     const { result } = renderHook(() => useAdminFlagActions(), { wrapper: TestWrapper });
 
-    const flags = await act(() => result.current.clearOrgFlag(7, 'REPORTS'));
-
-    expect(mockApiDelete).toHaveBeenCalledWith('/api/v1/admin/orgs/7/flags/REPORTS');
-    expect(flags).toEqual({ REPORTS: false });
+    expect(Object.keys(result.current)).toEqual(['setOrgFlag']);
   });
 });
 

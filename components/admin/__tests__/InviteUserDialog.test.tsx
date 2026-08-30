@@ -35,7 +35,7 @@ function renderDialog() {
 
 describe('Admin InviteUserDialog', () => {
   it('blocks submission and shows errors when email and role are empty', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderDialog();
 
     await user.click(screen.getByTestId('admin-invite-submit'));
@@ -46,7 +46,7 @@ describe('Admin InviteUserDialog', () => {
   });
 
   it('rejects an invalid email format without calling the invite hook', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderDialog();
 
     await user.type(screen.getByTestId('admin-invite-email-input'), 'not-an-email');
