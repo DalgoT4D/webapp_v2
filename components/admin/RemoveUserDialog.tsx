@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,8 +15,8 @@ import {
   getRemovalImpact,
   useAdminOrgUserActions,
   type AdminOrgUser,
-  type RemovalImpact,
 } from '@/hooks/api/useAdminPortal';
+import { useImpactPreflight } from '@/components/admin/useImpactPreflight';
 
 interface RemoveUserDialogProps {
   open: boolean;
@@ -27,14 +27,16 @@ interface RemoveUserDialogProps {
 }
 
 /**
- * Remove a user from an org — a destructive, CASCADING action: it deletes the
- * dashboards and charts the user created (plan.md §4.6 / research §5).
+ * Remove a user from an org — destructive, but ORPHANING rather than deleting: the
+ * dashboards / charts / report snapshots they created are KEPT, with created_by set
+ * to NULL (Access Control v2 switched dashboards and charts from CASCADE to SET_NULL;
+ * reports already were). See plan.md §4.6 / research §5, and the counts rendered below.
  *
  * SAFETY GUARDRAIL (non-negotiable): when the dialog opens it fetches the real
  * removal-impact counts and shows them. The confirm button stays DISABLED until
- * those counts have loaded, and the remove handler refuses to proceed if the
- * impact is not present. The user can never delete content without first seeing
- * how much will be destroyed.
+ * those counts have loaded, and the remove handler refuses to proceed if the impact
+ * is not present. The admin can never remove a user without first seeing what it
+ * affects. That guarantee lives in useImpactPreflight, shared with DeleteOrgDialog.
  */
 export function RemoveUserDialog({
   open,
@@ -45,43 +47,19 @@ export function RemoveUserDialog({
 }: RemoveUserDialogProps) {
   const { removeUser } = useAdminOrgUserActions();
 
-  const [impact, setImpact] = useState<RemovalImpact | null>(null);
-  const [loadingImpact, setLoadingImpact] = useState(false);
-  const [impactError, setImpactError] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
-
-  // Fetch the impact every time the dialog opens for a user; reset when it closes.
-  useEffect(() => {
-    if (!open || !orgUser) {
-      setImpact(null);
-      setImpactError(false);
-      return undefined;
-    }
-
-    let cancelled = false;
-    setLoadingImpact(true);
-    setImpactError(false);
-    setImpact(null);
-
-    getRemovalImpact(orgId, orgUser.orguser_id)
-      .then((data) => {
-        if (!cancelled) setImpact(data);
-      })
-      .catch(() => {
-        if (!cancelled) setImpactError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingImpact(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, orgId, orgUser]);
+  const {
+    impact,
+    isLoading: loadingImpact,
+    isError: impactError,
+    canConfirm: impactShown,
+  } = useImpactPreflight(open, orgUser, (target: AdminOrgUser) =>
+    getRemovalImpact(orgId, target.orguser_id)
+  );
 
   const handleRemove = async () => {
     // Guardrail: never remove without the impact having been fetched and shown.
-    if (!orgUser || impact === null) return;
+    if (!orgUser || !impactShown) return;
 
     setIsRemoving(true);
     try {
@@ -95,7 +73,7 @@ export function RemoveUserDialog({
   };
 
   // Confirm is only allowed once the counts are on screen.
-  const canConfirm = impact !== null && !isRemoving;
+  const canConfirm = impactShown && !isRemoving;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>

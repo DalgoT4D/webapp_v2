@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,8 +15,8 @@ import {
   getOrgDeletionImpact,
   useAdminOrgActions,
   type AdminOrg,
-  type OrgDeletionImpact,
 } from '@/hooks/api/useAdminPortal';
+import { useImpactPreflight } from '@/components/admin/useImpactPreflight';
 
 interface DeleteOrgDialogProps {
   open: boolean;
@@ -34,48 +34,23 @@ interface DeleteOrgDialogProps {
  * deletion-impact counts and shows them. The confirm button stays DISABLED until
  * those counts have loaded, and the delete handler refuses to proceed if the impact
  * is not present. The admin can never delete an org without first seeing how much
- * will be destroyed.
+ * will be destroyed. That guarantee lives in useImpactPreflight, shared with
+ * RemoveUserDialog.
  */
 export function DeleteOrgDialog({ open, onOpenChange, org, onSuccess }: DeleteOrgDialogProps) {
   const { deleteOrg } = useAdminOrgActions();
 
-  const [impact, setImpact] = useState<OrgDeletionImpact | null>(null);
-  const [loadingImpact, setLoadingImpact] = useState(false);
-  const [impactError, setImpactError] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Fetch the impact every time the dialog opens for an org; reset when it closes.
-  useEffect(() => {
-    if (!open || !org) {
-      setImpact(null);
-      setImpactError(false);
-      return undefined;
-    }
-
-    let cancelled = false;
-    setLoadingImpact(true);
-    setImpactError(false);
-    setImpact(null);
-
-    getOrgDeletionImpact(org.id)
-      .then((data) => {
-        if (!cancelled) setImpact(data);
-      })
-      .catch(() => {
-        if (!cancelled) setImpactError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingImpact(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, org]);
+  const {
+    impact,
+    isLoading: loadingImpact,
+    isError: impactError,
+    canConfirm: impactShown,
+  } = useImpactPreflight(open, org, (target: AdminOrg) => getOrgDeletionImpact(target.id));
 
   const handleDelete = async () => {
     // Guardrail: never delete without the impact having been fetched and shown.
-    if (!org || impact === null) return;
+    if (!org || !impactShown) return;
 
     setIsDeleting(true);
     try {
@@ -89,7 +64,7 @@ export function DeleteOrgDialog({ open, onOpenChange, org, onSuccess }: DeleteOr
   };
 
   // Confirm is only allowed once the counts are on screen.
-  const canConfirm = impact !== null && !isDeleting;
+  const canConfirm = impactShown && !isDeleting;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>

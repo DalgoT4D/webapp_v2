@@ -11,13 +11,14 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DeleteOrgDialog } from '@/components/admin/DeleteOrgDialog';
 import * as useAdminPortal from '@/hooks/api/useAdminPortal';
+import type { AdminOrg } from '@/hooks/api/useAdminPortal';
 
 jest.mock('@/hooks/api/useAdminPortal');
 
 const mockDeleteOrg = jest.fn().mockResolvedValue(undefined);
 const mockGetOrgDeletionImpact = useAdminPortal.getOrgDeletionImpact as jest.Mock;
 
-const org = {
+const org: AdminOrg = {
   id: 42,
   name: 'Akshara',
   slug: 'akshara',
