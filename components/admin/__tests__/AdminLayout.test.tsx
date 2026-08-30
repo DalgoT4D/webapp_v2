@@ -43,11 +43,12 @@ describe('AdminLayout logout', () => {
     jest.clearAllMocks();
   });
 
-  it('renders a logout control in the sidebar footer', () => {
+  it('renders a logout control as the only item in the sidebar footer', () => {
     renderLayout();
     expect(screen.getByTestId('admin-logout')).toBeInTheDocument();
-    // it sits alongside the existing footer link, which must survive
-    expect(screen.getByText('Back to Dalgo')).toBeInTheDocument();
+    // the "Back to Dalgo" link that used to sit above it was removed; the admin
+    // portal is not a place you navigate back out of via the sidebar.
+    expect(screen.queryByText('Back to Dalgo')).not.toBeInTheDocument();
   });
 
   it('calls the SHARED logout endpoint, not an admin-specific one', async () => {

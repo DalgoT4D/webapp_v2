@@ -30,6 +30,9 @@ test.describe('Admin Portal access control', () => {
     // The admin shell must never render. Assert on a sidebar item unique to the shell —
     // "Admin Portal" alone is not a valid marker, since the sign-in page uses it as its heading.
     await expect(page.getByRole('link', { name: 'Organizations' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Back to Dalgo' })).toHaveCount(0);
+    // second, independent shell marker. This was the "Back to Dalgo" footer link until
+    // it was removed; asserting on a control that no longer exists anywhere would pass
+    // vacuously and stop proving the shell is absent. The logout button is footer-only.
+    await expect(page.getByTestId('admin-logout')).toHaveCount(0);
   });
 });

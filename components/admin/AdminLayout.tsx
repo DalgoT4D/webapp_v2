@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Home, Building2, Bell, Flag, ArrowLeft, Shield, LogOut } from 'lucide-react';
+import { Home, Building2, Bell, Flag, Shield, LogOut } from 'lucide-react';
 import { ComingSoonBadge, ADMIN_PLACEHOLDER_DIM } from '@/components/admin/ComingSoonBadge';
 import { apiPost } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -104,13 +104,6 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="border-t px-3 py-4 space-y-1">
-          <Link
-            href="/"
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Back to Dalgo</span>
-          </Link>
           <button
             type="button"
             onClick={handleLogout}
