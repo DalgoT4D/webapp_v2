@@ -22,7 +22,7 @@
  * a parent via a callback — this is the same component that knows definitively whether the
  * user completed the last step, so there's no cross-component state to fall out of sync.
  */
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { driver, type Driver, type PopoverDOM } from 'driver.js';
 import 'driver.js/dist/driver.css';
@@ -52,6 +52,8 @@ import {
 } from './product-tour-positioning';
 import { alignPopoverCloseWithHeader, outlinePopoverArrow } from './tour-popover-chrome';
 import { ensurePopoverArrow } from './tour-arrow';
+import { LeaveWalkthroughDialog } from './leave-walkthrough-dialog';
+import { useWalkthroughExitGuard } from './walkthrough-exit-guard';
 import { saveTrialWalkthroughFlow } from '@/hooks/api/useTrialWalkthrough';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
@@ -532,6 +534,9 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
   // redundant renderStep for the same index while the first one is still awaiting
   // waitForElement (e.g. right after router.push, before the new page has painted).
   const renderingIndexRef = useRef<number | null>(null);
+  // The "Leave the walkthrough?" prompt. Raised by the popover's ✕ and by any click the tour
+  // isn't asking for — neither ends the tour on its own any more.
+  const [leavePromptOpen, setLeavePromptOpen] = useState(false);
 
   // Read through a ref so openPostTourModal below can stay referentially stable — it's
   // captured in renderStep's closure, and re-creating that chain on every prop change would
@@ -763,14 +768,16 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
         onPopoverRender: (popover: PopoverDOM) =>
           decoratePopover(popover, TOUR_STEPS[stepIndexRef.current]),
         onCloseClick: () => {
-          // Handle the "Skip" click ourselves rather than falling through to driver.js's
-          // default close behavior — that behavior only calls `onDestroyed` if its OWN
-          // internal `__activeElement`/`__activeStep` state happens to already be set, which
-          // depends on an animation-completion timer we don't control. Calling `finish`
-          // directly here guarantees it always fires.
-          activeRef.current = false;
-          finish('skipped');
-          driverRef.current?.destroy();
+          // The ✕ no longer ends the tour by itself — it asks. Confirming runs skipTour()
+          // below, which is the same path this used to take inline (driver.js's own default
+          // close behavior is still bypassed: it only calls `onDestroyed` when its internal
+          // `__activeElement`/`__activeStep` state happens to be set, which depends on an
+          // animation timer we don't control).
+          //
+          // Deferred a tick for the same reason as openPostTourModal: this runs from
+          // driver.js's native click handler, so mounting the Dialog synchronously would let
+          // Radix see the still-bubbling click as an outside click and close it instantly.
+          setTimeout(() => setLeavePromptOpen(true), 0);
         },
         onDestroyed: () => {
           // Safety net only. With allowClose/allowKeyboardControl off there are no driver.js
@@ -798,6 +805,26 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
   );
 
   useImperativeHandle(ref, () => ({ startTour }), [startTour]);
+
+  /** The confirmed exit — what the ✕ used to do inline. */
+  const skipTour = useCallback(() => {
+    setLeavePromptOpen(false);
+    activeRef.current = false;
+    finish('skipped');
+    driverRef.current?.destroy();
+  }, [finish]);
+
+  // Every step of this tour advances on its popover's own Next button, and the dim overlay
+  // already swallows page clicks (allowClose: false, plus pointer-events: none on the lifted
+  // chrome). So any click outside the popover is a user trying to leave: ask instead of
+  // ignoring it. `.driver-popover` is allowed by the guard itself, so there are no extra roots.
+  useWalkthroughExitGuard({
+    // Stays armed while the prompt is up — see the same note in the coachmark: disarming there
+    // cancelled the pointerdown but let the click that followed it through.
+    isArmed: () => activeRef.current,
+    getAllowedRoots: () => [],
+    onLeaveIntent: () => setLeavePromptOpen(true),
+  });
 
   // Re-anchor after a route change settles, in case the tour is mid-step when the
   // pathname updates (covers back/forward nav during the tour).
@@ -859,7 +886,16 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
     };
   }, []);
 
-  // Renders nothing of its own — the tour is driver.js overlays plus a synthetic spotlight
-  // element appended to the body, and the post-tour dialog now lives in tour-gate.tsx.
-  return null;
+  // The tour itself is driver.js overlays plus a synthetic spotlight element appended to the
+  // body (and the post-tour dialog lives in tour-gate.tsx) — the only React output here is the
+  // leave-confirmation prompt.
+  return (
+    <LeaveWalkthroughDialog
+      open={leavePromptOpen}
+      surface="product_tour"
+      stage={stepIndexRef.current + 1}
+      onContinue={() => setLeavePromptOpen(false)}
+      onSkip={skipTour}
+    />
+  );
 });

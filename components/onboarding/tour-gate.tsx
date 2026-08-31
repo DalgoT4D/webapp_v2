@@ -46,6 +46,7 @@ import {
   getResumeAnchorStage,
   getActiveWalkthroughFlow,
   hasConnectedRealData,
+  hasFinishedWalkthrough,
   getDismissedSyncRun,
   getTrackedConnectionAt,
   POST_SYNC_STAGE_FOR,
@@ -101,10 +102,17 @@ const CLOSED_MODAL: GetStartedModalState = { open: false, screen: 'choice', entr
 
 /**
  * LOCAL DEV ONLY. Waiting out a real first sync makes the walkthrough untestable on a laptop,
- * so on `NEXT_PUBLIC_WEBAPP_ENVIRONMENT=local` the checkpoint treats a sync that has merely
- * STARTED as a success and moves straight on. Every other environment — staging, production,
- * and the default when the var is unset (see constants/constants.ts) — waits for the real
- * thing.
+ * so on `NEXT_PUBLIC_WEBAPP_ENVIRONMENT=local` the checkpoint treats the tracked connection's
+ * mere EXISTENCE as a success and hands the user straight to their fork's post-sync stage
+ * (chart for own-data, Transform for automate-pipeline). Every other environment — staging,
+ * production, and the default when the var is unset (see constants/constants.ts) — waits for
+ * the real thing.
+ *
+ * Existence, not "a sync has started": a laptop often has no working Airbyte at all, so the
+ * trigger either throws or never reports anything and the connection sits at 'unknown'
+ * forever — which the checkpoint eventually surfaces as a failed first sync, the one outcome
+ * that leaves the flow unable to move on. Locally the wait itself is what's being skipped, so
+ * a failed or absent run is no reason to hold the flow back.
  */
 const ADVANCE_ON_SYNC_START = NEXT_PUBLIC_WEBAPP_ENVIRONMENT === 'local';
 
@@ -133,7 +141,8 @@ type SyncOutcome =
  * is best-effort in connection-form-body.tsx) reports itself from that catch block instead.
  */
 function classifySync(conn: Connection): SyncOutcome {
-  if (ADVANCE_ON_SYNC_START && (conn.lock || conn.lastRun?.status)) return 'success';
+  // See ADVANCE_ON_SYNC_START — local only, and deliberately blind to lock/lastRun.
+  if (ADVANCE_ON_SYNC_START) return 'success';
   if (conn.lock) return 'pending';
   const status = conn.lastRun?.status;
   if (!status) return 'unknown';
@@ -187,6 +196,10 @@ export function TourGate() {
   // Subscribed (not read via getState) so the widget collapses the moment a flow starts,
   // wherever the user happens to be, and reopens once it ends.
   const walkthroughActive = useInsightWalkthroughStore((s) => s.active);
+  // Which flow is running. Read alongside `active` so the reveal effect below can tell a flow
+  // that FINISHED from one that was skipped — both clear `flow`, so it has to be captured while
+  // the run is still live.
+  const walkthroughFlow = useInsightWalkthroughStore((s) => s.flow);
 
   // Skipped entirely for non-trial users — this component can't early-return before its
   // hooks run, so the enabled flag is what keeps the request off every other page load.
@@ -654,17 +667,20 @@ export function TourGate() {
   const canOfferPipeline = !isFlowCompleted(walkthroughState, 'automate_pipeline');
 
   /**
-   * Opens the checklist panel whenever a walkthrough ENDS in this session — finished or
-   * skipped, either way the run is over and the checklist is what comes next. Needed because
-   * both flows end away from /impact (a saved dashboard, the pipeline list, wherever the user
-   * hit ✕), where the panel is a collapsed pill: the item ticked behind it and the end of the
-   * flow looked like nothing had happened.
+   * Opens the checklist panel when a walkthrough is COMPLETED. Needed because both flows finish
+   * away from /impact (a saved dashboard, the pipeline list), where the panel is a collapsed
+   * pill: the item ticked behind it and the end of the flow looked like nothing had happened.
+   *
+   * A SKIP deliberately opens nothing. Skipping says "not now", and answering it by popping the
+   * panel the user just dismissed a walkthrough from reads as the app arguing back. The Get
+   * Started pill is still there whenever they want it.
    *
    * Two triggers, deliberately, because they fire at different moments:
-   *  - the store going inactive, which is immediate and covers a skip (no tick to wait for);
+   *  - the store going inactive on a flow that finished (`hasFinishedWalkthrough`, written by
+   *    the store's own finish()), which is immediate and needs no round trip;
    *  - the backend's `completed` flag flipping, which is what the tick itself reads. It lands a
-   *    beat later (saveTrialWalkthroughFlow's PUT, then a cache refresh), so on a finish the
-   *    panel is already open and the tick appears in it.
+   *    beat later (saveTrialWalkthroughFlow's PUT, then a cache refresh), so the panel is
+   *    already open by the time the tick appears in it.
    * Bumping twice is harmless — the panel is already open by the second one.
    *
    * The first settled read of each is only a baseline: on a cold load the completed flags go
@@ -675,12 +691,19 @@ export function TourGate() {
   const revealChecklist = useCallback(() => setChecklistRevealSignal((signal) => signal + 1), []);
 
   const wasWalkthroughActiveRef = useRef(false);
+  // The flow `active` was last true for — `flow` is nulled by skip() and finish() alike, so by
+  // the time the transition is observed the store no longer says which run just ended.
+  const lastActiveFlowRef = useRef<WalkthroughFlow | null>(null);
   useEffect(() => {
     if (!isTrialOrg) return;
     const wasActive = wasWalkthroughActiveRef.current;
+    const endedFlow = lastActiveFlowRef.current;
     wasWalkthroughActiveRef.current = walkthroughActive;
-    if (wasActive && !walkthroughActive) revealChecklist();
-  }, [isTrialOrg, walkthroughActive, revealChecklist]);
+    if (walkthroughFlow) lastActiveFlowRef.current = walkthroughFlow;
+    if (wasActive && !walkthroughActive && endedFlow && hasFinishedWalkthrough(endedFlow)) {
+      revealChecklist();
+    }
+  }, [isTrialOrg, walkthroughActive, walkthroughFlow, revealChecklist]);
 
   const completedFlowsRef = useRef<Record<'insights' | 'automate_pipeline', boolean> | null>(null);
   useEffect(() => {

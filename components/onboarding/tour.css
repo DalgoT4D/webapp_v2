@@ -363,3 +363,14 @@ body.driver-active.dalgo-tour-passthrough .driver-overlay,
 body.driver-active.dalgo-tour-passthrough .driver-overlay * {
   pointer-events: none !important;
 }
+
+/* The "Leave the walkthrough?" prompt (leave-walkthrough-dialog.tsx) is portaled to <body>, so
+   on the PRODUCT TOUR — which has no passthrough class — `.driver-active *` above leaves its
+   buttons dead. Radix sets `pointer-events: auto` inline on the dialog content itself, but that
+   doesn't cascade past a rule matching the descendants, so the card appeared and neither button
+   could be clicked. Opted back in by data attribute rather than a class so it survives however
+   the dialog's utility classes are composed. */
+body.driver-active [data-walkthrough-exit-dialog],
+body.driver-active [data-walkthrough-exit-dialog] * {
+  pointer-events: auto;
+}

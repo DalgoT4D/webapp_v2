@@ -36,6 +36,20 @@ function skipButton(): HTMLElement | null {
   return document.querySelector('[data-testid="walkthrough-skip-btn"]');
 }
 
+/** The "Leave the walkthrough?" prompt now standing between every exit and the skip. */
+function leavePrompt(): HTMLElement | null {
+  return document.querySelector('[data-testid="leave-walkthrough-dialog"]');
+}
+
+/** Clicks the ✕ and confirms the prompt it raises — the full exit a user goes through. */
+async function skipThroughPrompt(): Promise<void> {
+  await userEvent.click(skipButton()!);
+  await waitFor(() => expect(leavePrompt()).not.toBeNull());
+  await userEvent.click(
+    document.querySelector('[data-testid="leave-walkthrough-skip-btn"]') as HTMLElement
+  );
+}
+
 function popoverTitle(): string {
   return document.querySelector('.driver-popover-title')?.textContent ?? '';
 }
@@ -91,14 +105,328 @@ describe('InsightWalkthroughCoachmark', () => {
       );
     });
 
-    it('ends the whole walkthrough when the ✕ is clicked', async () => {
+    it('ends the whole walkthrough once the ✕ is confirmed', async () => {
+      mountTarget('create-kpi-btn');
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(skipButton()).not.toBeNull());
+
+      await skipThroughPrompt();
+
+      expect(useInsightWalkthroughStore.getState().active).toBe(false);
+    });
+
+    it('leaves the walkthrough running when the ✕ is not confirmed', async () => {
       mountTarget('create-kpi-btn');
       render(<InsightWalkthroughCoachmark />);
       await waitFor(() => expect(skipButton()).not.toBeNull());
 
       await userEvent.click(skipButton()!);
+      await waitFor(() => expect(leavePrompt()).not.toBeNull());
+      await userEvent.click(
+        document.querySelector('[data-testid="leave-walkthrough-continue-btn"]') as HTMLElement
+      );
 
-      expect(useInsightWalkthroughStore.getState().active).toBe(false);
+      await waitFor(() => expect(leavePrompt()).toBeNull());
+      expect(useInsightWalkthroughStore.getState().active).toBe(true);
+      expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_intro');
+      // The coachmark is still up — Continue dismisses the prompt, nothing else.
+      expect(skipButton()).not.toBeNull();
+    });
+
+    it('asks before a click outside the stage takes the user out of the flow', async () => {
+      mountTarget('create-kpi-btn');
+      const elsewhere = document.createElement('button');
+      document.body.appendChild(elsewhere);
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(skipButton()).not.toBeNull());
+
+      await userEvent.click(elsewhere);
+
+      await waitFor(() => expect(leavePrompt()).not.toBeNull());
+      expect(useInsightWalkthroughStore.getState().active).toBe(true);
+    });
+
+    it('holds a list page to the coached CTA, so another card cannot take over the flow', async () => {
+      // The reported break: with "click Create KPI" on screen, clicking any KPI card opened its
+      // detail drawer and the walkthrough was left pointing at a button behind it.
+      const content = document.createElement('main');
+      content.id = 'main-layout-main-content';
+      document.body.appendChild(content);
+      const target = document.createElement('div');
+      target.setAttribute('data-testid', 'create-kpi-btn');
+      content.appendChild(target);
+      const card = document.createElement('button');
+      const onCardClick = jest.fn();
+      card.addEventListener('click', onCardClick);
+      content.appendChild(card);
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(skipButton()).not.toBeNull());
+
+      await userEvent.click(card);
+
+      await waitFor(() => expect(leavePrompt()).not.toBeNull());
+      expect(onCardClick).not.toHaveBeenCalled();
+    });
+
+    it('guards Cancel on the dialog the coachmark points into, but not its other fields', async () => {
+      // The reported break: with "Pick a metric" on the KPI wizard, Cancel and ✕ were still
+      // live, so one click could close the flow's own dialog with no confirmation. The fields
+      // beside them stay usable — a wizard step can't be finished otherwise.
+      const dialog = document.createElement('div');
+      dialog.setAttribute('role', 'dialog');
+      document.body.appendChild(dialog);
+      const target = document.createElement('div');
+      target.setAttribute('data-testid', 'kpi-form-metric-field');
+      dialog.appendChild(target);
+      const cancel = document.createElement('button');
+      cancel.textContent = 'Cancel';
+      const onCancelClick = jest.fn();
+      cancel.addEventListener('click', onCancelClick);
+      dialog.appendChild(cancel);
+      const otherField = document.createElement('input');
+      const onFieldClick = jest.fn();
+      otherField.addEventListener('click', onFieldClick);
+      dialog.appendChild(otherField);
+      setStage('kpi_metric');
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(skipButton()).not.toBeNull());
+
+      await userEvent.click(otherField);
+      expect(leavePrompt()).toBeNull();
+      expect(onFieldClick).toHaveBeenCalledTimes(1);
+
+      await userEvent.click(cancel);
+
+      await waitFor(() => expect(leavePrompt()).not.toBeNull());
+      expect(onCancelClick).not.toHaveBeenCalled();
+    });
+
+    it('guards the page a route-less nudge appears on, same as any other stage', async () => {
+      const content = document.createElement('main');
+      content.id = 'main-layout-main-content';
+      document.body.appendChild(content);
+      const unrelated = document.createElement('button');
+      const onUnrelatedClick = jest.fn();
+      unrelated.addEventListener('click', onUnrelatedClick);
+      content.appendChild(unrelated);
+      mountLink('/charts');
+      setStage('chart_intro', { path: 'own_data' });
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(skipButton()).not.toBeNull());
+
+      await userEvent.click(unrelated);
+
+      await waitFor(() => expect(leavePrompt()).not.toBeNull());
+      expect(onUnrelatedClick).not.toHaveBeenCalled();
+    });
+
+    it('lets the coached click open a dialog and keeps that dialog usable', async () => {
+      // builder_add_chart rings Add Chart; the picker it opens has no stage of its own, so its
+      // rows must stay clickable or the step dead-ends.
+      mockPathname = BUILDER_PATHNAME;
+      window.history.pushState({}, '', BUILDER_PATHNAME);
+      mountTarget('add-chart-btn');
+      const picker = document.createElement('div');
+      picker.setAttribute('role', 'dialog');
+      document.body.appendChild(picker);
+      const row = document.createElement('button');
+      const onRowClick = jest.fn();
+      row.addEventListener('click', onRowClick);
+      picker.appendChild(row);
+      setStage('builder_add_chart');
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(skipButton()).not.toBeNull());
+
+      await userEvent.click(row);
+
+      expect(leavePrompt()).toBeNull();
+      expect(onRowClick).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps a required field no stage coaches clickable', async () => {
+      // KPI step 2 asks for a name, and every stage there points at a different control — so
+      // without this the user hits "KPI name is required" with no way to fix it.
+      const dialog = document.createElement('div');
+      dialog.setAttribute('role', 'dialog');
+      document.body.appendChild(dialog);
+      const input = document.createElement('input');
+      mountTarget('kpi-form-target-field', input);
+      dialog.appendChild(document.querySelector('[data-testid="kpi-form-target-field"]')!);
+      const nameField = document.createElement('input');
+      nameField.id = 'kpi-name';
+      const onNameClick = jest.fn();
+      nameField.addEventListener('click', onNameClick);
+      dialog.appendChild(nameField);
+      setStage('kpi_target');
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(skipButton()).not.toBeNull());
+
+      await userEvent.click(nameField);
+
+      expect(leavePrompt()).toBeNull();
+      expect(onNameClick).toHaveBeenCalledTimes(1);
+    });
+
+    it('guards the add-source wizard even on the steps that have no coachmark', async () => {
+      // The configure and connection steps carry no stage on purpose, so the coachmark goes
+      // quiet — but ✕ / Cancel / Back there still abandon a live walkthrough mid-source.
+      const wizard = document.createElement('div');
+      wizard.setAttribute('role', 'dialog');
+      wizard.setAttribute('data-testid', 'add-source-wizard');
+      document.body.appendChild(wizard);
+      const cancel = document.createElement('button');
+      cancel.textContent = 'Cancel';
+      const onCancelClick = jest.fn();
+      cancel.addEventListener('click', onCancelClick);
+      wizard.appendChild(cancel);
+      const field = document.createElement('input');
+      const onFieldClick = jest.fn();
+      field.addEventListener('click', onFieldClick);
+      wizard.appendChild(field);
+      // A stage whose target is never mounted: nothing is painted, so the coachmark itself is
+      // not what arms the guard here.
+      setStage('own_data_source_next', { path: 'own_data' });
+      mockPathname = '/ingest';
+      window.history.pushState({}, '', '/ingest');
+
+      render(<InsightWalkthroughCoachmark />);
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 50));
+      });
+      expect(skipButton()).toBeNull();
+
+      // The wizard's own fields stay usable.
+      await userEvent.click(field);
+      expect(leavePrompt()).toBeNull();
+      expect(onFieldClick).toHaveBeenCalledTimes(1);
+
+      await userEvent.click(cancel);
+
+      await waitFor(() => expect(leavePrompt()).not.toBeNull());
+      expect(onCancelClick).not.toHaveBeenCalled();
+    });
+
+    it('leaves the app alone when no coachmark is up and no protected modal is open', async () => {
+      const elsewhere = document.createElement('button');
+      const onElsewhereClick = jest.fn();
+      elsewhere.addEventListener('click', onElsewhereClick);
+      document.body.appendChild(elsewhere);
+      setStage('own_data_source_next', { path: 'own_data' });
+
+      render(<InsightWalkthroughCoachmark />);
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 50));
+      });
+
+      await userEvent.click(elsewhere);
+
+      expect(leavePrompt()).toBeNull();
+      expect(onElsewhereClick).toHaveBeenCalledTimes(1);
+    });
+
+    it('lets the user roam while a sync runs, but still asks on the ✕', async () => {
+      // The sync takes minutes and the stage asks for nothing, so the app stays usable — but
+      // closing the coachmark is still leaving the walkthrough.
+      mockPathname = '/ingest';
+      window.history.pushState({}, '', '/ingest');
+      mountTarget('sync-btn-conn-1');
+      const elsewhere = document.createElement('button');
+      const onElsewhereClick = jest.fn();
+      elsewhere.addEventListener('click', onElsewhereClick);
+      document.body.appendChild(elsewhere);
+      setStage('sync_running', { path: 'own_data', trackedConnectionId: 'conn-1' });
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Your data is syncing'));
+
+      await userEvent.click(elsewhere);
+      expect(leavePrompt()).toBeNull();
+      expect(onElsewhereClick).toHaveBeenCalledTimes(1);
+
+      await userEvent.click(skipButton()!);
+
+      await waitFor(() => expect(leavePrompt()).not.toBeNull());
+      expect(useInsightWalkthroughStore.getState().active).toBe(true);
+    });
+
+    it('keeps the schedule fields a frequency reveals clickable', async () => {
+      // Picking Weekly renders Days of the Week and Time of Day as SIBLINGS of the coached
+      // cron-container, both required — so the stage asks for a frequency and then blocked the
+      // only way to finish setting one.
+      mockPathname = '/orchestrate/create';
+      window.history.pushState({}, '', '/orchestrate/create');
+      mountTarget('cron-container');
+      const days = mountTarget('cron-days-of-week-container');
+      const onDaysClick = jest.fn();
+      days.addEventListener('click', onDaysClick);
+      const time = mountTarget('cron-time-of-day-container');
+      const onTimeClick = jest.fn();
+      time.addEventListener('click', onTimeClick);
+      setStage('pipeline_set_schedule', { path: 'automate_pipeline', flow: 'automate_pipeline' });
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(skipButton()).not.toBeNull());
+
+      await userEvent.click(days);
+      await userEvent.click(time);
+
+      expect(leavePrompt()).toBeNull();
+      expect(onDaysClick).toHaveBeenCalledTimes(1);
+      expect(onTimeClick).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves the whole chart builder free, chrome aside', async () => {
+      // A chart is shaped to the user's own data: the config panels, the Data / Raw tabs and the
+      // chart's name all have to stay usable while a stage points at one tab.
+      mockPathname = '/charts/new/configure';
+      window.history.pushState({}, '', '/charts/new/configure');
+      const content = document.createElement('main');
+      content.id = 'main-layout-main-content';
+      document.body.appendChild(content);
+      const tab = document.createElement('div');
+      tab.setAttribute('data-testid', 'chart-data-config-tab');
+      content.appendChild(tab);
+      const rawTab = document.createElement('button');
+      const onRawClick = jest.fn();
+      rawTab.addEventListener('click', onRawClick);
+      content.appendChild(rawTab);
+      const nameInput = document.createElement('input');
+      const onNameClick = jest.fn();
+      nameInput.addEventListener('click', onNameClick);
+      content.appendChild(nameInput);
+      // Chrome lives outside the content region and stays guarded.
+      const sidebarLink = document.createElement('a');
+      sidebarLink.setAttribute('href', '/dashboards');
+      document.body.appendChild(sidebarLink);
+      setStage('chart_data_config', { path: 'own_data' });
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(skipButton()).not.toBeNull());
+
+      await userEvent.click(rawTab);
+      await userEvent.click(nameInput);
+      expect(leavePrompt()).toBeNull();
+      expect(onRawClick).toHaveBeenCalledTimes(1);
+      expect(onNameClick).toHaveBeenCalledTimes(1);
+
+      await userEvent.click(sidebarLink);
+
+      await waitFor(() => expect(leavePrompt()).not.toBeNull());
+    });
+
+    it('lets the stage’s own target through without asking', async () => {
+      const target = mountTarget('create-kpi-btn');
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(skipButton()).not.toBeNull());
+
+      await userEvent.click(target);
+
+      expect(leavePrompt()).toBeNull();
     });
   });
 
@@ -127,7 +455,7 @@ describe('InsightWalkthroughCoachmark', () => {
       render(<InsightWalkthroughCoachmark />);
       await waitFor(() => expect(skipButton()).not.toBeNull());
 
-      await userEvent.click(skipButton()!);
+      await skipThroughPrompt();
 
       await waitFor(() => expect(target.classList.contains('dalgo-tour-ring')).toBe(false));
     });

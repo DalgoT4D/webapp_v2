@@ -830,7 +830,9 @@ describe('TourGate — Get Started checklist actions', () => {
     expect(await screen.findByTestId('getting-started-widget')).toBeInTheDocument();
   });
 
-  it('opens it on a skip too — the run is over either way', async () => {
+  it('leaves the panel closed on a skip — skipping means "not now"', async () => {
+    // Popping open the panel the user just skipped a walkthrough from reads as the app arguing
+    // back. The pill stays available for whenever they do want it.
     mockPathname = '/dashboards/12';
     setupAuthStore(buildOrgUser());
     renderGate();
@@ -847,7 +849,8 @@ describe('TourGate — Get Started checklist actions', () => {
       useInsightWalkthroughStore.getState().skip();
     });
 
-    expect(await screen.findByTestId('getting-started-widget')).toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument();
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
   });
 
   it('"Build your first insight" opens the fork dialog when no fork has been picked', async () => {
