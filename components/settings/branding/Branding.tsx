@@ -16,6 +16,7 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DocsLink } from '@/components/ui/docs-link';
 import { isValidHttpUrl } from '@/lib/utils';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
