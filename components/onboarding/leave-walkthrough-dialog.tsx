@@ -113,6 +113,11 @@ export function LeaveWalkthroughDialog({
             </Button>
             <Button
               variant="primary"
+              // `outline` (the Skip button) bakes `uppercase` into the variant while `primary`
+              // doesn't, so the pair read as two different button styles. Matched to the
+              // uppercase side, which is what every other outline/default/secondary button in
+              // the app already renders as.
+              className="uppercase font-medium"
               id="leave-walkthrough-continue"
               data-testid="leave-walkthrough-continue-btn"
               onClick={() => {
