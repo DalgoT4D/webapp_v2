@@ -5,7 +5,7 @@
 import { useCallback, useRef } from 'react';
 import { useReactFlow } from 'reactflow';
 import { useTransformStore } from '@/stores/transformStore';
-import { CanvasNodeTypeEnum, type UIOperationType } from '@/types/transform';
+import { CanvasNodeTypeEnum, type CanvasPosition, type UIOperationType } from '@/types/transform';
 import { CANVAS_CONSTANTS } from '@/constants/transform';
 
 export function useDummyNodeManager() {
@@ -31,7 +31,7 @@ export function useDummyNodeManager() {
       const sourcePosition = flowNode?.position || currentNode.position || { x: 0, y: 0 };
 
       // Calculate target position to the right of the source node
-      let targetX = sourcePosition.x + CANVAS_CONSTANTS.DAGRE_RANK_SEP;
+      const targetX = sourcePosition.x + CANVAS_CONSTANTS.DAGRE_RANK_SEP;
       let targetY = sourcePosition.y;
 
       // Check for collisions with existing nodes at the target position.
@@ -73,6 +73,7 @@ export function useDummyNodeManager() {
           input_nodes: [] as unknown[],
           is_last_in_chain: true,
           isPublished: null as boolean | null,
+          position: null as CanvasPosition | null,
           isDummy: true,
         },
       };

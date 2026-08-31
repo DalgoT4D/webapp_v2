@@ -311,6 +311,7 @@ export const ANALYTICS_EVENTS = {
   TRANSFORM_CUSTOM_TASK_CREATED: 'transform:custom_task_created',
   TRANSFORM_CUSTOM_TASK_DELETED: 'transform:custom_task_deleted',
   TRANSFORM_DBT_TASK_TRIGGERED: 'transform:dbt_task_triggered',
+  TRANSFORM_CANVAS_AUTO_ARRANGED: 'transform:canvas_auto_arranged',
   // Orchestrate (pipelines)
   PIPELINE_CREATED: 'pipeline:pipeline_created',
   PIPELINE_UPDATED: 'pipeline:pipeline_updated',

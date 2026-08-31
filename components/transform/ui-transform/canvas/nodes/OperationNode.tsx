@@ -38,7 +38,9 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
   // Leaf node check — can delete only leaf nodes
   const edgesEmanatingOutOfNode = edges.filter((edge) => edge.source === id);
   const isLeafNode = edgesEmanatingOutOfNode.length === 0;
-  const canDelete = isLeafNode && hasPermission(PERMISSIONS.CAN_DELETE_DBT_OPERATION);
+  const canEditCanvas = canInteractWithCanvas();
+  const canDelete =
+    canEditCanvas && isLeafNode && hasPermission(PERMISSIONS.CAN_DELETE_DBT_OPERATION);
 
   // Handle node click — open panel in edit or view mode based on permissions
   const handleNodeClick = useCallback(() => {
@@ -46,7 +48,8 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
     const nodeProps = { id, type, data, selected, position: { x: xPos, y: yPos } };
     setSelectedNode(nodeProps);
 
-    if (hasPermission(PERMISSIONS.CAN_EDIT_DBT_OPERATION)) {
+    const hasEditPermission = hasPermission(PERMISSIONS.CAN_EDIT_DBT_OPERATION);
+    if (canEditCanvas && hasEditPermission) {
       // Open panel directly in the same synchronous handler as setSelectedNode
       // so React batches both Zustand updates into a single render where
       // operationPanelOpen=true AND selectedNode are both available.
@@ -55,7 +58,7 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
         type: CanvasActionEnum.OPEN_OPCONFIG_PANEL,
         data: { mode: OperationFormAction.EDIT },
       });
-    } else if (hasPermission(PERMISSIONS.CAN_VIEW_DBT_OPERATION)) {
+    } else if (hasEditPermission || hasPermission(PERMISSIONS.CAN_VIEW_DBT_OPERATION)) {
       openOperationPanel();
       dispatchCanvasAction({
         type: CanvasActionEnum.OPEN_OPCONFIG_PANEL,
@@ -75,6 +78,7 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
     openOperationPanel,
     clearPreviewAction,
     hasPermission,
+    canEditCanvas,
   ]);
 
   // Handle delete click
@@ -94,7 +98,7 @@ function OperationNode({ id, type, data, selected, xPos, yPos }: OperationNodePr
   return (
     <div
       data-testid={`operation-node-${id}`}
-      className={`${canInteractWithCanvas() ? 'cursor-grab' : 'cursor-pointer'} relative`}
+      className={`${canEditCanvas ? 'cursor-grab' : 'cursor-pointer'} relative`}
       style={{
         border: isSelected ? '2px dotted #000' : 'none',
         borderRadius: 8,

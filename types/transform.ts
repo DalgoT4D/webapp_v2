@@ -155,7 +155,23 @@ export interface CanvasNodeDataResponse {
   input_nodes?: CanvasNodeDataResponse[];
   is_last_in_chain: boolean;
   isPublished: boolean | null;
+  position: CanvasPosition | null;
   seq?: number;
+}
+
+export interface CanvasPosition {
+  x: number;
+  y: number;
+}
+
+export interface CanvasNodePositionUpdate {
+  uuid: string;
+  position: CanvasPosition;
+}
+
+export interface CanvasLayoutUpdateResponse {
+  updated: number;
+  nodes: CanvasNodePositionUpdate[];
 }
 
 export interface CanvasEdgeDataResponse {

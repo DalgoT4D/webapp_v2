@@ -17,6 +17,7 @@ jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: j
 
 const mockDispatchCanvasAction = jest.fn();
 const mockOpenOperationPanel = jest.fn();
+let mockCanInteractWithCanvas = true;
 
 jest.mock('@/stores/transformStore', () => ({
   useTransformStore: () => ({
@@ -24,22 +25,22 @@ jest.mock('@/stores/transformStore', () => ({
     dispatchCanvasAction: mockDispatchCanvasAction,
     openOperationPanel: mockOpenOperationPanel,
     clearPreviewAction: jest.fn(),
-    canInteractWithCanvas: () => false,
+    canInteractWithCanvas: () => mockCanInteractWithCanvas,
   }),
-  useSelectedNode: () => null,
+  useSelectedNode: (): null => null,
 }));
 
 let mockEdges: { source: string }[] = [];
 
 jest.mock('reactflow', () => ({
-  Handle: () => null,
+  Handle: (): null => null,
   Position: { Left: 'left', Right: 'right' },
   useEdges: () => mockEdges,
 }));
 
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: ({ alt }: { alt: string }) => <img alt={alt} />,
+  default: ({ alt }: { alt: string }) => <span aria-label={alt} />,
 }));
 
 // ============ Test Data ============
@@ -64,6 +65,7 @@ describe('OperationNode', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockEdges = [];
+    mockCanInteractWithCanvas = true;
 
     (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (perm: string) =>
@@ -132,5 +134,21 @@ describe('OperationNode', () => {
 
     expect(mockOpenOperationPanel).not.toHaveBeenCalled();
     expect(mockDispatchCanvasAction).not.toHaveBeenCalled();
+  });
+
+  it('falls back to view mode and hides delete without the canvas lock', async () => {
+    const user = userEvent.setup();
+    mockCanInteractWithCanvas = false;
+
+    render(<OperationNode {...defaultProps} />, { wrapper: TestWrapper });
+    expect(screen.queryByTestId('delete-operation-op-1')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('operation-node-op-1'));
+    expect(mockDispatchCanvasAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: CanvasActionEnum.OPEN_OPCONFIG_PANEL,
+        data: expect.objectContaining({ mode: OperationFormAction.VIEW }),
+      })
+    );
   });
 });

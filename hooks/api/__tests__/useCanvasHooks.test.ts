@@ -6,9 +6,12 @@
  * Integration tests with actual API calls should be done separately.
  */
 
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { TableType } from '@/constants/explore';
 import { CANVAS_GRAPH_KEY } from '../useCanvasGraph';
+
+const mockSetCanvasLockStatus = jest.fn();
+const mockSetViewOnlyMode = jest.fn();
 
 // Mock SWR with proper structure
 jest.mock('swr', () => ({
@@ -24,6 +27,16 @@ jest.mock('swr', () => ({
 
 // Mock API
 jest.mock('@/lib/api', () => ({
+  ApiError: class MockApiError extends Error {
+    status: number;
+    data: unknown;
+
+    constructor(message: string, status: number, data: unknown) {
+      super(message);
+      this.status = status;
+      this.data = data;
+    }
+  },
   apiGet: jest.fn().mockResolvedValue({}),
   apiPost: jest.fn().mockResolvedValue({}),
   apiPut: jest.fn().mockResolvedValue({}),
@@ -35,16 +48,31 @@ jest.mock('@/stores/transformStore', () => ({
   useTransformStore: jest.fn((selector) => {
     if (typeof selector === 'function') {
       return selector({
-        setCanvasLockStatus: jest.fn(),
-        setViewOnlyMode: jest.fn(),
+        setCanvasLockStatus: mockSetCanvasLockStatus,
+        setViewOnlyMode: mockSetViewOnlyMode,
       });
     }
     return {
-      setCanvasLockStatus: jest.fn(),
-      setViewOnlyMode: jest.fn(),
+      setCanvasLockStatus: mockSetCanvasLockStatus,
+      setViewOnlyMode: mockSetViewOnlyMode,
     };
   }),
 }));
+
+beforeEach(() => {
+  const api = jest.requireMock('@/lib/api') as {
+    apiGet: jest.Mock;
+    apiPost: jest.Mock;
+    apiPut: jest.Mock;
+    apiDelete: jest.Mock;
+  };
+  api.apiGet.mockReset().mockResolvedValue({});
+  api.apiPost.mockReset().mockResolvedValue({});
+  api.apiPut.mockReset().mockResolvedValue({});
+  api.apiDelete.mockReset().mockResolvedValue({});
+  mockSetCanvasLockStatus.mockClear();
+  mockSetViewOnlyMode.mockClear();
+});
 
 describe('CANVAS_GRAPH_KEY export', () => {
   it('exports the correct SWR key for graph endpoint', () => {
@@ -144,13 +172,167 @@ describe('useCanvasLock hook structure', () => {
     expect(typeof result.current.releaseLock).toBe('function');
     expect(typeof result.current.refreshLock).toBe('function');
   });
+
+  it('normalizes a successful backend lock response as owned', async () => {
+    const { apiPost } = jest.requireMock('@/lib/api') as { apiPost: jest.Mock };
+    apiPost.mockResolvedValueOnce({
+      lock_token: 'lock-token',
+      expires_at: '2026-08-19T12:00:00Z',
+      locked_by: 'engineer@example.com',
+    });
+    const { useCanvasLock } = await import('../useCanvasLock');
+    const { result, unmount } = renderHook(() => useCanvasLock({ autoAcquire: false }));
+
+    await act(async () => {
+      await result.current.acquireLock();
+    });
+
+    expect(result.current.hasLock).toBe(true);
+    expect(result.current.lockStatus).toMatchObject({
+      lock_id: 'lock-token',
+      is_locked: true,
+      locked_by_current_user: true,
+      locked_by: 'engineer@example.com',
+    });
+    unmount();
+  });
+
+  it('drops to view-only immediately when refresh reports an expired lock', async () => {
+    const { ApiError, apiPost, apiPut } = jest.requireMock('@/lib/api') as {
+      ApiError: new (message: string, status: number, data: unknown) => Error;
+      apiPost: jest.Mock;
+      apiPut: jest.Mock;
+    };
+    const onLockLost = jest.fn();
+    apiPost.mockResolvedValueOnce({
+      lock_token: 'lock-token',
+      expires_at: '2026-08-19T12:00:00Z',
+      locked_by: 'engineer@example.com',
+    });
+    apiPut.mockRejectedValueOnce(new ApiError('Lock has expired', 410, {}));
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { useCanvasLock } = await import('../useCanvasLock');
+    const { result, unmount } = renderHook(() => useCanvasLock({ autoAcquire: false, onLockLost }));
+
+    await act(async () => {
+      await result.current.acquireLock();
+      await result.current.refreshLock();
+    });
+
+    expect(result.current.hasLock).toBe(false);
+    expect(result.current.lockStatus).toBeNull();
+    expect(mockSetCanvasLockStatus).toHaveBeenLastCalledWith(null);
+    expect(mockSetViewOnlyMode).toHaveBeenLastCalledWith(true);
+    expect(onLockLost).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
+    unmount();
+  });
+
+  it('retains lock ownership across a transient refresh failure', async () => {
+    const { ApiError, apiPost, apiPut } = jest.requireMock('@/lib/api') as {
+      ApiError: new (message: string, status: number, data: unknown) => Error;
+      apiPost: jest.Mock;
+      apiPut: jest.Mock;
+    };
+    const onLockLost = jest.fn();
+    apiPost.mockResolvedValueOnce({
+      lock_token: 'lock-token',
+      expires_at: '2026-08-19T12:00:00Z',
+      locked_by: 'engineer@example.com',
+    });
+    apiPut.mockRejectedValueOnce(new ApiError('Temporary server failure', 500, {}));
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { useCanvasLock } = await import('../useCanvasLock');
+    const { result, unmount } = renderHook(() => useCanvasLock({ autoAcquire: false, onLockLost }));
+
+    await act(async () => {
+      await result.current.acquireLock();
+      await result.current.refreshLock();
+    });
+
+    expect(result.current.hasLock).toBe(true);
+    expect(onLockLost).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+    unmount();
+  });
+});
+
+describe('useCanvasLayout', () => {
+  it('serializes saves and coalesces a newer queued position for the same node', async () => {
+    const { apiPut } = jest.requireMock('@/lib/api') as { apiPut: jest.Mock };
+    let resolveFirst: (value: unknown) => void = () => undefined;
+    apiPut
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = resolve;
+          })
+      )
+      .mockResolvedValueOnce({
+        updated: 1,
+        nodes: [{ uuid: 'node-1', position: { x: 30, y: 40 } }],
+      });
+
+    const { useCanvasLayout } = await import('../useCanvasLayout');
+    const { result } = renderHook(() => useCanvasLayout());
+
+    let firstSave: Promise<unknown>;
+    let secondSave: Promise<unknown>;
+    let thirdSave: Promise<unknown>;
+    await act(async () => {
+      firstSave = result.current.savePositions([{ uuid: 'node-1', position: { x: 10, y: 20 } }]);
+      secondSave = result.current.savePositions([{ uuid: 'node-1', position: { x: 20, y: 30 } }]);
+      thirdSave = result.current.savePositions([{ uuid: 'node-1', position: { x: 30, y: 40 } }]);
+    });
+
+    expect(apiPut).toHaveBeenCalledTimes(1);
+    resolveFirst({
+      updated: 1,
+      nodes: [{ uuid: 'node-1', position: { x: 10, y: 20 } }],
+    });
+
+    await waitFor(() => expect(apiPut).toHaveBeenCalledTimes(2));
+    expect(apiPut.mock.calls[1][1]).toEqual({
+      nodes: [{ uuid: 'node-1', position: { x: 30, y: 40 } }],
+    });
+
+    await act(async () => {
+      await Promise.all([firstSave!, secondSave!, thirdSave!]);
+    });
+  });
+
+  it('retries the latest failed positions and clears the save error', async () => {
+    const { apiPut } = jest.requireMock('@/lib/api') as { apiPut: jest.Mock };
+    const update = { uuid: 'node-1', position: { x: 125, y: 175 } };
+    apiPut.mockRejectedValueOnce(new Error('Layout save failed')).mockResolvedValueOnce({
+      updated: 1,
+      nodes: [update],
+    });
+    const { useCanvasLayout } = await import('../useCanvasLayout');
+    const { result } = renderHook(() => useCanvasLayout());
+
+    await act(async () => {
+      await expect(result.current.savePositions([update])).rejects.toThrow('Layout save failed');
+    });
+    expect(result.current.error?.message).toBe('Layout save failed');
+
+    await act(async () => {
+      await expect(result.current.retryFailed()).resolves.toEqual([update]);
+    });
+
+    expect(apiPut).toHaveBeenCalledTimes(2);
+    expect(apiPut).toHaveBeenLastCalledWith('/api/transform/v2/dbt_project/graph/layout/', {
+      nodes: [update],
+    });
+    expect(result.current.error).toBeNull();
+  });
 });
 
 describe('buildTreeFromSources utility', () => {
   it('is exported from useCanvasSources', async () => {
-    const module = await import('../useCanvasSources');
-    expect(module.buildTreeFromSources).toBeDefined();
-    expect(typeof module.buildTreeFromSources).toBe('function');
+    const canvasSourcesModule = await import('../useCanvasSources');
+    expect(canvasSourcesModule.buildTreeFromSources).toBeDefined();
+    expect(typeof canvasSourcesModule.buildTreeFromSources).toBe('function');
   });
 
   it('returns empty array for empty input', async () => {

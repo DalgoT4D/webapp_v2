@@ -4,6 +4,18 @@ import { useAuthStore } from '@/stores/authStore';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002';
 
+export class ApiError extends Error {
+  readonly status: number;
+  readonly data: unknown;
+
+  constructor(message: string, status: number, data: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.data = data;
+  }
+}
+
 // Track ongoing refresh request to prevent multiple simultaneous refreshes
 let isRefreshing = false;
 let refreshPromise: Promise<boolean> = Promise.resolve(false);
@@ -187,7 +199,7 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
         }
       }
 
-      throw new Error(errorMessage);
+      throw new ApiError(errorMessage, response.status, data);
     }
 
     return data;

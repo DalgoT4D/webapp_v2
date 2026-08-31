@@ -46,11 +46,8 @@ interface TransformState {
   // === Canvas State ===
   refreshTrigger: number;
   isCanvasLoading: boolean;
-  fullLayoutRequested: boolean;
   triggerRefresh: () => void;
   setCanvasLoading: (loading: boolean) => void;
-  requestFullLayout: () => void;
-  clearFullLayoutRequest: () => void;
 
   // === Locking State ===
   lockUpperSection: boolean;
@@ -132,7 +129,6 @@ const initialState = {
 
   refreshTrigger: 0,
   isCanvasLoading: false,
-  fullLayoutRequested: false,
 
   lockUpperSection: false,
   tempLockCanvas: false,
@@ -185,8 +181,6 @@ export const useTransformStore = create<TransformState>()(
       // Canvas State
       triggerRefresh: () => set((state) => ({ refreshTrigger: state.refreshTrigger + 1 })),
       setCanvasLoading: (loading) => set({ isCanvasLoading: loading }),
-      requestFullLayout: () => set({ fullLayoutRequested: true }),
-      clearFullLayoutRequest: () => set({ fullLayoutRequested: false }),
 
       // Locking
       setLockUpperSection: (lock) => set({ lockUpperSection: lock }),
@@ -239,11 +233,14 @@ export const useTransformStore = create<TransformState>()(
       canInteractWithCanvas: () => {
         const state = get();
         const finalLock = state.tempLockCanvas || state.lockUpperSection;
+        const ownsCanvasLock = state.canvasLockStatus?.locked_by_current_user === true;
         const isLockedByOther =
           state.canvasLockStatus?.is_locked === true &&
           !state.canvasLockStatus?.locked_by_current_user;
         const patBlocking = state.patRequired && state.isViewOnlyMode;
-        return !finalLock && !state.isViewOnlyMode && !isLockedByOther && !patBlocking;
+        return (
+          ownsCanvasLock && !finalLock && !state.isViewOnlyMode && !isLockedByOther && !patBlocking
+        );
       },
 
       // Reset
