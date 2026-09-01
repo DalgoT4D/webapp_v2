@@ -35,6 +35,7 @@ function makeAlert(overrides: Partial<AlertListItem> = {}): AlertListItem {
     is_active: true,
     last_fire_at: null,
     fire_streak: 0,
+    created_by_email: null,
     ...overrides,
   };
 }
@@ -42,12 +43,14 @@ function makeAlert(overrides: Partial<AlertListItem> = {}): AlertListItem {
 const baseProps = {
   isLoading: false,
   emptyState: <div data-testid="empty">empty</div>,
-  canEdit: true,
-  canDelete: true,
+  canEdit: jest.fn(() => true),
+  canDelete: jest.fn(() => true),
   onEdit: jest.fn(),
   onDelete: jest.fn(),
   onToggle: jest.fn(),
   onOpenLog: jest.fn(),
+  canTransfer: jest.fn(() => false),
+  onTransfer: jest.fn(),
 };
 
 describe('AlertsTable', () => {
@@ -170,21 +173,30 @@ describe('AlertsTable', () => {
 });
 
 describe('AlertsTable permission gating', () => {
-  it('disables the row toggle when canEdit is false', () => {
+  it('disables the row toggle when canEdit returns false', () => {
     const alerts = [makeAlert()];
-    render(<AlertsTable {...baseProps} alerts={alerts} canEdit={false} />);
+    render(<AlertsTable {...baseProps} alerts={alerts} canEdit={() => false} />);
     expect(screen.getByRole('switch')).toBeDisabled();
   });
 
-  it('disables the Delete menu item when canDelete is false', async () => {
+  it('hides the Edit menu item when canEdit returns false', async () => {
     const user = userEvent.setup();
     const alerts = [makeAlert()];
-    render(<AlertsTable {...baseProps} alerts={alerts} canDelete={false} />);
+    render(<AlertsTable {...baseProps} alerts={alerts} canEdit={() => false} />);
     const row = screen.getByTestId('alert-row-1');
     const triggers = row.querySelectorAll('[aria-haspopup="menu"]');
     await user.click(triggers[triggers.length - 1] as HTMLElement);
-    const del = await screen.findByText('Delete');
-    expect(del.closest('[role="menuitem"]')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByText('Edit')).not.toBeInTheDocument();
+  });
+
+  it('hides the Delete menu item when canDelete returns false', async () => {
+    const user = userEvent.setup();
+    const alerts = [makeAlert()];
+    render(<AlertsTable {...baseProps} alerts={alerts} canDelete={() => false} />);
+    const row = screen.getByTestId('alert-row-1');
+    const triggers = row.querySelectorAll('[aria-haspopup="menu"]');
+    await user.click(triggers[triggers.length - 1] as HTMLElement);
+    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
   });
 });
 

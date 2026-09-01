@@ -37,8 +37,8 @@ import { useSidebarStore } from '@/stores/sidebarStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { TransformTypeEnum as TransformType, useTransformType } from '@/hooks/api/useTransform';
 import Image from 'next/image';
-import { ADMIN_ROLES, DATA_SECTION_ROLES, Role, useRbac } from '@/lib/rbac';
-import { RbacNoticeCarousel } from '@/components/onboarding/rbac-notice-carousel';
+import { ACCESS_PAGE_ROLES, ADMIN_ROLES, DATA_SECTION_ROLES, Role, useRbac } from '@/lib/rbac';
+import { ResourceSharingNoticeCarousel } from '@/components/onboarding/resource-sharing-notice-carousel';
 import { TourGate } from '@/components/onboarding/tour-gate';
 
 // Define types for navigation items
@@ -121,7 +121,11 @@ export const getNavItems = (
       title: 'Dashboards',
       href: '/dashboards',
       icon: LayoutDashboard,
-      isActive: currentPath === '/dashboards' || currentPath.startsWith('/dashboards/'),
+      // /dashboards/usage lives under the Settings section, not Dashboards —
+      // exclude it so the Dashboards nav item doesn't highlight when viewing it.
+      isActive:
+        (currentPath === '/dashboards' || currentPath.startsWith('/dashboards/')) &&
+        !currentPath.startsWith('/dashboards/usage'),
     },
     {
       title: 'Reports',
@@ -131,41 +135,57 @@ export const getNavItems = (
       hide: !isFeatureFlagEnabled(FeatureFlagKeys.REPORTS),
     },
     {
+      title: 'Alerts',
+      href: '/alerts',
+      icon: AlertTriangle,
+      isActive: currentPath.startsWith('/alerts'),
+    },
+    {
       title: 'Data',
-      href: '/pipeline',
+      // Parent nav item is clickable and would 404/AccessDeny anyone whose role
+      // can't view /pipeline. Route Members to /metrics (their first Data child)
+      // and staff to /pipeline. Empty roleSlug (still loading) → default to
+      // /metrics — safest for the yet-unknown role.
+      href: DATA_SECTION_ROLES.includes(roleSlug as Role) ? '/pipeline' : '/metrics',
       icon: Database,
       isActive: false,
-      visibleToRoles: DATA_SECTION_ROLES,
+      // Data parent visible to everyone; staff-only children carry their own
+      // visibleToRoles so Members only see Metrics + Alerts (per resource-sharing spec).
       children: [
         {
           title: 'Overview',
           href: '/pipeline',
           icon: PipelineOverviewIcon,
           isActive: currentPath.startsWith('/pipeline'),
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         {
           title: 'Ingest',
           href: '/ingest',
           icon: IngestIcon,
           isActive: currentPath.startsWith('/ingest'),
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         {
           title: 'Transform',
           href: '/transform',
           icon: TransformIcon,
           isActive: currentPath.startsWith('/transform'),
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         {
           title: 'Orchestrate',
           href: '/orchestrate',
           icon: OrchestrateIcon,
           isActive: currentPath.startsWith('/orchestrate'),
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         {
           title: 'Explore',
           href: '/explore',
           icon: ExploreIcon,
           isActive: currentPath.startsWith('/explore'),
+          visibleToRoles: DATA_SECTION_ROLES,
         },
         {
           title: 'Metrics',
@@ -178,6 +198,7 @@ export const getNavItems = (
           href: '/data-quality',
           icon: DataQualityIcon,
           isActive: currentPath.startsWith('/data-quality'),
+          visibleToRoles: DATA_SECTION_ROLES,
           hide:
             !isFeatureFlagEnabled(FeatureFlagKeys.DATA_QUALITY) ||
             transformType === TransformType.UI,
@@ -185,16 +206,18 @@ export const getNavItems = (
       ],
     },
     {
-      title: 'Alerts',
-      href: '/alerts',
-      icon: AlertTriangle,
-      isActive: currentPath.startsWith('/alerts'),
-    },
-    {
       title: 'Settings',
-      href: '/settings/branding',
+      // Parent nav is clickable — route each role to a Settings child they can
+      // actually reach. Admins land on Branding (the historical default);
+      // Analysts don't have Branding, so land them on Access instead.
+      href: ADMIN_ROLES.includes(roleSlug as Role) ? '/settings/branding' : '/settings/access',
       icon: Settings,
       isActive: false,
+      // Every Settings child requires Analyst+ or a role-gated feature flag —
+      // hide the whole section from Members. (Superset Usage under Settings
+      // has its own feature-flag + viz_url gate; if any of those cases opens
+      // up for Members later, relax this.)
+      visibleToRoles: ACCESS_PAGE_ROLES,
       children: [
         {
           title: 'Branding',
@@ -204,11 +227,11 @@ export const getNavItems = (
           visibleToRoles: ADMIN_ROLES,
         },
         {
-          title: 'User Management',
-          href: '/settings/user-management',
+          title: 'Access',
+          href: '/settings/access',
           icon: Users,
-          isActive: currentPath.startsWith('/settings/user-management'),
-          visibleToRoles: ADMIN_ROLES,
+          isActive: currentPath.startsWith('/settings/access'),
+          visibleToRoles: ACCESS_PAGE_ROLES,
         },
         {
           title: 'Warehouse',
@@ -366,7 +389,6 @@ function ExpandedNavItem({
                   className={cn(
                     'flex-shrink-0',
                     child.title === 'About' ||
-                      child.title === 'Billing' ||
                       child.title === 'Branding' ||
                       child.title === 'Warehouse' ||
                       child.title === 'User Management'
@@ -467,7 +489,6 @@ function MobileNavItem({
                   className={cn(
                     'flex-shrink-0',
                     child.title === 'About' ||
-                      child.title === 'Billing' ||
                       child.title === 'Branding' ||
                       child.title === 'Warehouse' ||
                       child.title === 'User Management'
@@ -724,7 +745,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* One-time RBAC v2 migration notice — shows once per user, on any page */}
-      <RbacNoticeCarousel />
+      <ResourceSharingNoticeCarousel />
       <TourGate />
     </div>
   );

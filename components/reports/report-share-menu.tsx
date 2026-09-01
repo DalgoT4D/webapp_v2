@@ -9,10 +9,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ShareViaLinkDialog } from '@/components/reports/share-via-link-dialog';
+import { ShareModal } from '@/components/ui/share-modal';
 import { ShareViaEmailDialog } from '@/components/reports/share-via-email-dialog';
-import { getReportSharingStatus } from '@/hooks/api/useReports';
-import { toastError } from '@/lib/toast';
+import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS, REPORT_SHARE_SOURCES } from '@/constants/analytics';
 
 interface ReportShareMenuProps {
   snapshotId: number;
@@ -20,32 +21,23 @@ interface ReportShareMenuProps {
 }
 
 export function ReportShareMenu({ snapshotId, reportTitle }: ReportShareMenuProps) {
-  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const { initialOpen: shouldAutoOpenShare, clearParam: clearShareDeepLink } =
+    useOpenShareDeepLink();
+  const [linkDialogOpen, setLinkDialogOpen] = useState(shouldAutoOpenShare);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
-  const checkShareAccess = useCallback(async (): Promise<boolean> => {
-    try {
-      await getReportSharingStatus(snapshotId);
-      return true;
-    } catch (error) {
-      toastError.load(error, 'sharing status');
-      return false;
-    }
+  const handleOpenLinkDialog = useCallback(() => setLinkDialogOpen(true), []);
+  const handleOpenEmailDialog = useCallback(() => setEmailDialogOpen(true), []);
+
+  // Copying the link is the share act itself. REPORT_MADE_PUBLIC (fired from
+  // updateGeneralAccess) only means the link now exists — this means it was handed out.
+  // Lives here because components/ui/share-modal is shared and stays analytics-free.
+  const handleCopyLink = useCallback(() => {
+    trackEvent(ANALYTICS_EVENTS.REPORT_SHARED, {
+      report_id: snapshotId,
+      source: REPORT_SHARE_SOURCES.COPY_LINK,
+    });
   }, [snapshotId]);
-
-  const handleOpenLinkDialog = useCallback(async () => {
-    const hasAccess = await checkShareAccess();
-    if (hasAccess) {
-      setLinkDialogOpen(true);
-    }
-  }, [checkShareAccess]);
-
-  const handleOpenEmailDialog = useCallback(async () => {
-    const hasAccess = await checkShareAccess();
-    if (hasAccess) {
-      setEmailDialogOpen(true);
-    }
-  }, [checkShareAccess]);
 
   return (
     <>
@@ -72,10 +64,16 @@ export function ReportShareMenu({ snapshotId, reportTitle }: ReportShareMenuProp
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <ShareViaLinkDialog
-        snapshotId={snapshotId}
+      <ShareModal
+        rtype="report"
+        entityId={snapshotId}
+        entityLabel={reportTitle || 'Report'}
         isOpen={linkDialogOpen}
-        onClose={() => setLinkDialogOpen(false)}
+        onClose={() => {
+          setLinkDialogOpen(false);
+          clearShareDeepLink();
+        }}
+        onCopyLink={handleCopyLink}
       />
       <ShareViaEmailDialog
         snapshotId={snapshotId}
