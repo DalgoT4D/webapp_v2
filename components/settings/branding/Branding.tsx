@@ -23,7 +23,6 @@ import { useAuthStore } from '@/stores/authStore';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { apiDelete, apiPut } from '@/lib/api';
-import { DocsLink } from '@/components/ui/docs-link';
 import { UploadTabContent } from './branding-upload-tab';
 import { LinkTabContent } from './branding-link-tab';
 
