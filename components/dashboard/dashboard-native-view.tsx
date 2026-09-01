@@ -269,6 +269,7 @@ interface DashboardNativeViewProps {
   commentStates?: CommentStates; // Comment states array with target_type and chart_id
   onCommentStateChange?: () => void; // Callback to revalidate comment states
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open (from email deep-link)
+  onFiltersChange?: (filters: AppliedFilters) => void; // Notifies the parent whenever selectedFilters changes (e.g. so it can be included in a PDF export request)
 }
 
 export function DashboardNativeView({
@@ -290,6 +291,7 @@ export function DashboardNativeView({
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
+  onFiltersChange,
 }: DashboardNativeViewProps) {
   const router = useRouter();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>(() => {
@@ -303,6 +305,11 @@ export function DashboardNativeView({
     }
     return {};
   });
+
+  useEffect(() => {
+    onFiltersChange?.(selectedFilters);
+  }, [selectedFilters, onFiltersChange]);
+
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [actualContainerWidth, setActualContainerWidth] = useState(

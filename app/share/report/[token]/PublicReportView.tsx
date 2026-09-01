@@ -19,9 +19,14 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 interface PublicReportViewProps {
   token: string;
   printMode?: boolean;
+  dashboardFilters?: Record<string, any>; // Only meaningful in printMode — see page.tsx
 }
 
-export function PublicReportView({ token, printMode = false }: PublicReportViewProps) {
+export function PublicReportView({
+  token,
+  printMode = false,
+  dashboardFilters,
+}: PublicReportViewProps) {
   const { viewData, isLoading, isError } = usePublicReport(token);
 
   // Public views are anonymous: no identified person and no organization group to attach,
@@ -141,6 +146,7 @@ export function PublicReportView({ token, printMode = false }: PublicReportViewP
           frozenChartConfigs={frozen_chart_configs}
           publicToken={token}
           isPublicMode={true}
+          dashboardFilters={dashboardFilters}
         />
       </div>
     );
