@@ -59,7 +59,6 @@ export function TwoPaneNudgeDialog({
             <div className="bg-muted rounded-lg p-4">
               <p className="text-sm font-medium">Need help structuring your programme data?</p>
               <p className="text-muted-foreground mt-1 text-sm">
-                Contact us at{' '}
                 <a
                   href={BOOK_A_CALL_URL}
                   target="_blank"
@@ -70,7 +69,7 @@ export function TwoPaneNudgeDialog({
                   className="text-primary inline-flex items-center gap-1 font-medium hover:underline"
                   data-testid={`${testId}-book-a-call`}
                 >
-                  Book a call
+                  Book a call with us
                   <ArrowRight className="h-4 w-4" />
                 </a>
               </p>
