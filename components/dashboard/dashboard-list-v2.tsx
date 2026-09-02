@@ -106,6 +106,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { toggleFavorite } from '@/lib/favorite-utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
@@ -350,19 +351,14 @@ export function DashboardListV2() {
     });
   }, [dashboards, nameFilters, ownerFilters, dateFilters, sortBy, sortOrder]);
 
-  // Handle favorites toggle
-  const handleToggleFavorite = async (dashboard: Dashboard) => {
-    try {
-      if (dashboard.is_favorite) {
-        await unfavoriteDashboard(dashboard.id);
-      } else {
-        await favoriteDashboard(dashboard.id);
-      }
-      await mutate();
-    } catch (error) {
-      toastError.update(error, 'favorite');
-    }
-  };
+  const handleToggleFavorite = (dashboard: Dashboard) =>
+    toggleFavorite(
+      dashboard.is_favorite ?? false,
+      dashboard.id,
+      favoriteDashboard,
+      unfavoriteDashboard,
+      mutate
+    );
 
   // Get unique owners for filter options
   const uniqueOwners = useMemo(() => {

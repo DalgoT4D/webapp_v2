@@ -74,6 +74,7 @@ import {
 // AlertDialog imports removed - now using ChartDeleteDialog component
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { toggleFavorite } from '@/lib/favorite-utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, CHART_CREATE_SOURCES } from '@/constants/analytics';
 import { getMetricAnalyticsProps, isDrillDownEnabled } from '@/components/charts/utils';
@@ -257,19 +258,8 @@ export default function ChartsPage() {
     });
   }, [charts, nameFilters, dataSourceFilters, chartTypeFilters, dateFilters, sortBy, sortOrder]);
 
-  // Handle favorites toggle
-  const handleToggleFavorite = async (chart: Chart) => {
-    try {
-      if (chart.is_favorite) {
-        await unfavoriteChart(chart.id);
-      } else {
-        await favoriteChart(chart.id);
-      }
-      await mutate();
-    } catch (error) {
-      toastError.update(error, 'favorite');
-    }
-  };
+  const handleToggleFavorite = (chart: Chart) =>
+    toggleFavorite(chart.is_favorite ?? false, chart.id, favoriteChart, unfavoriteChart, mutate);
 
   // Get unique data sources and chart types for filter options
   const uniqueDataSources = useMemo(() => {
