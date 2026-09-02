@@ -33,8 +33,8 @@ import {
   useDeleteChart,
   useBulkDeleteCharts,
   useCreateChart,
-  favoriteChart,
-  unfavoriteChart,
+  useFavoriteChart,
+  useUnfavoriteChart,
 } from '@/hooks/api/useChart';
 import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
 import { ShareModal } from '@/components/ui/share-modal';
@@ -74,7 +74,6 @@ import {
 // AlertDialog imports removed - now using ChartDeleteDialog component
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
-import { toggleFavorite } from '@/lib/favorite-utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, CHART_CREATE_SOURCES } from '@/constants/analytics';
 import { getMetricAnalyticsProps, isDrillDownEnabled } from '@/components/charts/utils';
@@ -143,7 +142,13 @@ export default function ChartsPage() {
   const { trigger: deleteChart } = useDeleteChart();
   const { trigger: bulkDeleteCharts } = useBulkDeleteCharts();
   const { trigger: createChart } = useCreateChart();
+  const { trigger: favoriteChart } = useFavoriteChart();
+  const { trigger: unfavoriteChart } = useUnfavoriteChart();
   const { confirm, DialogComponent } = useConfirmationDialog();
+
+  // Stars currently mid-request. isMutating on the hooks is keyed on '/api/charts/',
+  // so it's shared by every row — this tracks it per chart instead.
+  const [favoritingIds, setFavoritingIds] = useState<Set<number>>(new Set());
 
   // Get user permissions
   const { hasPermission } = useRbac();
@@ -258,8 +263,42 @@ export default function ChartsPage() {
     });
   }, [charts, nameFilters, dataSourceFilters, chartTypeFilters, dateFilters, sortBy, sortOrder]);
 
-  const handleToggleFavorite = (chart: Chart) =>
-    toggleFavorite(chart.is_favorite ?? false, chart.id, favoriteChart, unfavoriteChart, mutate);
+  // Handle favorites toggle. The star flips immediately and the list is not
+  // refetched on success — the only thing that changed is a field we already know.
+  const handleToggleFavorite = async (chart: Chart) => {
+    if (favoritingIds.has(chart.id)) return;
+
+    const wasFavorite = chart.is_favorite ?? false;
+    setFavoritingIds((prev) => new Set(prev).add(chart.id));
+
+    mutate(
+      (current) =>
+        current && {
+          ...current,
+          data: current.data.map((c) =>
+            c.id === chart.id ? { ...c, is_favorite: !wasFavorite } : c
+          ),
+        },
+      { revalidate: false }
+    );
+
+    try {
+      if (wasFavorite) {
+        await unfavoriteChart(chart.id);
+      } else {
+        await favoriteChart(chart.id);
+      }
+    } catch (error) {
+      await mutate(); // roll the optimistic flip back to server truth
+      toastError.update(error, 'favorite');
+    } finally {
+      setFavoritingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(chart.id);
+        return next;
+      });
+    }
+  };
 
   // Get unique data sources and chart types for filter options
   const uniqueDataSources = useMemo(() => {
@@ -845,6 +884,7 @@ export default function ChartsPage() {
               variant="ghost"
               size="icon"
               className="h-8 w-8 p-0 hover:bg-yellow-50 shrink-0"
+              disabled={favoritingIds.has(chart.id)}
               onClick={(e) => {
                 e.preventDefault();
                 handleToggleFavorite(chart);
