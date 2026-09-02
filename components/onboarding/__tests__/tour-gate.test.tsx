@@ -24,6 +24,11 @@ import { SyncStatus } from '@/constants/connections';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { TourGate } from '../tour-gate';
 
+let mockImpactPageReady = true;
+jest.mock('../onboarding-route-readiness', () => ({
+  useImpactPageReady: () => mockImpactPageReady,
+}));
+
 // ============ Mocks ============
 
 // tour-gate computes ADVANCE_ON_SYNC_START from NEXT_PUBLIC_WEBAPP_ENVIRONMENT at module load:
@@ -160,6 +165,7 @@ describe('TourGate', () => {
     // test to open it suppresses it for every test after.
     sessionStorage.clear();
     mockPathname = '/impact';
+    mockImpactPageReady = true;
     mockTourProps.current = null;
     // The walkthrough store is module state and outlives a test. A live flow left behind
     // suppresses the intent modal (it owns the screen) for every test after, so reset it here
@@ -219,6 +225,33 @@ describe('TourGate', () => {
     expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
     // The tour is offered as the panel's "Take a 2 min tour" link, not a checklist item.
     expect(screen.getByTestId('getting-started-widget-tour-link')).toBeInTheDocument();
+  });
+
+  it('waits for the mounted /impact page before opening or consuming the session slot', async () => {
+    mockImpactPageReady = false;
+    setupAuthStore(buildOrgUser());
+    const view = renderGate();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument()
+    );
+    expect(screen.queryByTestId('tour-intent-modal')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+    expect(hasShownIntentModalThisSession('trial-org')).toBe(false);
+    expect(hasSeenIntentModal('trial-org')).toBe(false);
+
+    mockImpactPageReady = true;
+    view.rerender(
+      <TestWrapper>
+        <TourGate />
+      </TestWrapper>
+    );
+
+    expect(await screen.findByTestId('tour-intent-modal')).toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
+    // Opening still records nothing; only a deliberate dismissal does.
+    expect(hasShownIntentModalThisSession('trial-org')).toBe(false);
+    expect(hasSeenIntentModal('trial-org')).toBe(false);
   });
 
   it('greets a returning user with the days left, not the first-visit question', async () => {
@@ -777,7 +810,18 @@ describe('TourGate — Get Started checklist actions', () => {
    * the row can be mid-unmount if clicked straight after render.
    */
   const clickChecklistRow = async (user: ReturnType<typeof userEvent.setup>, key: string) => {
-    await user.click(await screen.findByTestId('getting-started-widget-pill'));
+    const pill = await screen.findByTestId('getting-started-widget-pill');
+    // Normalise to closed first. Some scenarios start open from the route while an
+    // interrupted-flow resume effect is still settling; a close/open cycle ensures the
+    // row is not clicked during that transition now that the pill is a real toggle.
+    if (screen.queryByTestId('getting-started-widget')) {
+      await user.click(screen.getByTestId('getting-started-widget-minimize'));
+      await waitFor(() =>
+        expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument()
+      );
+    }
+    await user.click(pill);
+    await screen.findByTestId('getting-started-widget');
     await user.click(await screen.findByTestId(`getting-started-widget-item-${key}`));
   };
   const clickBuildInsight = (user: ReturnType<typeof userEvent.setup>) =>

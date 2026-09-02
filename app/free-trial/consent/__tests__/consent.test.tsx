@@ -99,6 +99,18 @@ describe('TrialConsentPage', () => {
     const privacyLink = screen.getByRole('link', { name: 'Privacy Policy' });
     expect(privacyLink).toHaveAttribute('href', 'https://dalgo.org/privacy');
     expect(privacyLink).toHaveAttribute('target', '_blank');
+
+    const consentCheckbox = screen.getByTestId('trial-consent-checkbox');
+    expect(consentCheckbox).toHaveClass(
+      'size-5',
+      'border-2',
+      'border-foreground/70',
+      'bg-background'
+    );
+    expect(screen.getByTestId('trial-consent-accept-button')).toBeDisabled();
+
+    fireEvent.click(consentCheckbox);
+    expect(screen.getByTestId('trial-consent-accept-button')).toBeEnabled();
   });
 
   it('activates with the stashed token + password and routes to the progress screen', async () => {
