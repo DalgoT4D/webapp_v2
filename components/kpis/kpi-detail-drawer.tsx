@@ -43,6 +43,7 @@ import { ALERT_CREATE_SOURCES, ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { targetGapLabel } from '@/lib/kpi-rag';
 
 const grainLabel: Record<string, string> = {
   daily: 'day',
@@ -167,6 +168,7 @@ export function KPIDetailDrawer({
   const ragStatus = chartData?.rag_status as RAGStatus | null;
   const ragInfo = ragStatus ? RAG_COLORS[ragStatus] : null;
   const currentValue = chartData?.current_value;
+  const targetGap = ragStatus === 'amber' ? targetGapLabel(currentValue, kpi.target_value) : null;
   const periods = chartData?.periods || [];
 
   const lastTwo = periods.slice(-2).map((p) => p.value);
@@ -317,6 +319,11 @@ export function KPIDetailDrawer({
                 >
                   <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${ragInfo.dot}`} />
                   {ragInfo.label}
+                  {targetGap && (
+                    <span data-testid="kpi-target-gap" className="ml-1">
+                      · {targetGap}
+                    </span>
+                  )}
                 </Badge>
               )}
             </div>

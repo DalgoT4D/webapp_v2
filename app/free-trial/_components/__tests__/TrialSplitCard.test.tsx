@@ -14,9 +14,11 @@ jest.mock('next/image', () => {
   // here too, otherwise React logs "Received `false` for a non-boolean attribute" and
   // buries any genuine warning this suite might surface.
   function MockImage({
+    fill,
     priority,
     ...props
-  }: ImgHTMLAttributes<HTMLImageElement> & { priority?: boolean }) {
+  }: ImgHTMLAttributes<HTMLImageElement> & { fill?: boolean; priority?: boolean }) {
+    void fill;
     void priority;
     // eslint-disable-next-line @next/next/no-img-element -- test stub, not the real app
     return <img alt="" {...props} />;
@@ -78,6 +80,19 @@ describe('TrialSplitCard', () => {
 
     expect(screen.getByTestId('trial-marketing-panel')).toBeInTheDocument();
     expect(screen.getByText(TRIAL_MARKETING_PANELS.signup.headline)).toBeInTheDocument();
+    expect(screen.getByTestId('trial-split-card-aside')).toHaveClass('hidden', 'lg:block');
+  });
+
+  it('can place an aside above the content on mobile without hiding it', () => {
+    render(
+      <TrialSplitCard testId="trial-test-card" aside={<p>product video</p>} asideOnMobile>
+        <p>Creating workspace</p>
+      </TrialSplitCard>
+    );
+
+    expect(screen.getByTestId('trial-test-card')).toHaveClass('flex-col', 'lg:flex-row');
+    expect(screen.getByTestId('trial-split-card-aside')).toHaveClass('order-first');
+    expect(screen.getByTestId('trial-split-card-aside')).not.toHaveClass('hidden');
   });
 });
 

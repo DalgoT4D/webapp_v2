@@ -170,6 +170,24 @@ describe('ShareModal', () => {
       });
     });
 
+    it('does not copy automatically when public sharing is enabled', async () => {
+      const user = userEvent.setup();
+      const publicUrl = 'http://test.com/report/123';
+
+      mockGetShareStatus.mockResolvedValue(createMockShareStatus({ is_public: false }));
+      mockUpdateSharing.mockResolvedValue(
+        createMockShareStatus({ is_public: true, public_url: publicUrl })
+      );
+
+      renderShareModal();
+
+      await user.click(await screen.findByTestId('share-toggle'));
+
+      await waitFor(() => expect(mockUpdateSharing).toHaveBeenCalled());
+      expect(clipboardModule.copyUrlToClipboard).not.toHaveBeenCalled();
+      expect(await screen.findByTestId('copy-link-btn')).toBeInTheDocument();
+    });
+
     it('disables public sharing when toggle is clicked', async () => {
       const user = userEvent.setup();
       const mockResponse = createMockShareStatus({ is_public: false });

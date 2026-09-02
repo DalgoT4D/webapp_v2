@@ -25,7 +25,7 @@ import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import type { KPI, KPICreate, KPIUpdate, KPIExtraConfig } from '@/types/kpis';
 import type { Metric } from '@/types/metrics';
 import { cn } from '@/lib/utils';
-import type { KPIFormData } from './kpi-form-types';
+import { DEFAULT_KPI_DECIMAL_PLACES, type KPIFormData } from './kpi-form-types';
 import { KpiMetricStep, type KpiMetricStepHandle } from './KpiMetricStep';
 import { KpiSetupStep } from './KpiSetupStep';
 import { KpiThresholdsStep } from './KpiThresholdsStep';
@@ -161,7 +161,7 @@ export function KPIForm({
       metric_type_tag: '',
       program_tags: [],
       numberFormat: '',
-      decimalPlaces: '',
+      decimalPlaces: DEFAULT_KPI_DECIMAL_PLACES,
       numberPrefix: '',
       numberSuffix: '',
     },
@@ -259,7 +259,7 @@ export function KPIForm({
           metric_type_tag: '',
           program_tags: [],
           numberFormat: '',
-          decimalPlaces: '',
+          decimalPlaces: DEFAULT_KPI_DECIMAL_PLACES,
           numberPrefix: '',
           numberSuffix: '',
         });

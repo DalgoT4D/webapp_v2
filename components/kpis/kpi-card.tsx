@@ -22,6 +22,7 @@ import type { KPICustomizations } from '@/types/kpis';
 import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 import type { RAGStatus } from '@/types/kpis';
 import { formatDistanceToNow, format as formatDate, parseISO, isValid } from 'date-fns';
+import { targetGapLabel } from '@/lib/kpi-rag';
 
 function EChartsRenderer({
   config,
@@ -167,6 +168,7 @@ export function KPICard({
   }, [toggleFullscreen]);
 
   const ragInfo = ragStatus ? RAG_COLORS[ragStatus] : null;
+  const targetGap = ragStatus === 'amber' ? targetGapLabel(currentValue, targetValue) : null;
 
   const handleDownloadPNG = useCallback(async () => {
     if (!cardRef.current) return;
@@ -284,6 +286,11 @@ export function KPICard({
             <Badge variant="outline" className={`${ragInfo.bg} ${ragInfo.text} border-0 text-xs`}>
               <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${ragInfo.dot}`} />
               {ragInfo.label}
+              {targetGap && (
+                <span data-testid="kpi-target-gap" className="ml-1">
+                  · {targetGap}
+                </span>
+              )}
             </Badge>
           )}
           {downloadInMenu ? (

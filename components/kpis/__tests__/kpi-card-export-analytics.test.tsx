@@ -32,6 +32,8 @@ const data: KPICardData = {
   direction: 'higher_is_better',
   timeGrain: 'monthly',
   echartsConfig: null,
+  dataLastDate: '2026-01-01',
+  updatedAt: '2026-01-01T00:00:00Z',
   isLoading: false,
   periods: [{ period: 'Jan 2026', period_date: '2026-01-01', value: 120 }],
 };
@@ -54,6 +56,20 @@ beforeEach(() => {
 });
 
 describe('KPICard export analytics', () => {
+  it('explains how far a KPI needing attention is from its target', () => {
+    renderCard({
+      data: { ...data, currentValue: 80, targetValue: 100, ragStatus: 'amber' },
+    });
+
+    expect(screen.getByTestId('kpi-target-gap')).toHaveTextContent('20% below target');
+  });
+
+  it('does not add a target-gap explanation to an on-track KPI', () => {
+    renderCard();
+
+    expect(screen.queryByTestId('kpi-target-gap')).not.toBeInTheDocument();
+  });
+
   it('fires kpi_exported with format csv, the kpi id and the source', async () => {
     const user = userEvent.setup();
     renderCard();

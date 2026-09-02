@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 interface TrialBrandHeaderProps {
-  title: string;
+  title: React.ReactNode;
   subtitle?: React.ReactNode;
   /** Left for the split card's form pane, center for the standalone cards. */
   align?: 'left' | 'center';

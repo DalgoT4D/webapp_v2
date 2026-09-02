@@ -93,8 +93,10 @@ export function ShareModal({
         }));
 
         if (isPublic && response.public_url) {
+          // Do not copy here: the API await above can consume the browser's transient user
+          // activation, causing Clipboard.writeText to be rejected. The visible copy button
+          // keeps the clipboard call attached to its own explicit click.
           toastSuccess.generic(`${entityLabel} is now public`);
-          await copyUrlToClipboard(response.public_url);
         } else {
           toastSuccess.generic(`${entityLabel} sharing disabled`);
         }

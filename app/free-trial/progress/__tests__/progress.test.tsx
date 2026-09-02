@@ -9,6 +9,7 @@
 
 import type { AnchorHTMLAttributes, ImgHTMLAttributes, ReactNode } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { TrialStatusResponse } from '@/types/trial';
 
 // jest.setup.ts globally mocks '@/lib/api' but only exports apiGet/apiPost/...
@@ -123,7 +124,7 @@ describe('TrialProgressPage', () => {
     expect(screen.getByTestId('trial-step-2')).toHaveAttribute('data-state', 'pending');
   });
 
-  it('loads the provisioning video from YouTube only after the user clicks play', () => {
+  it('autoplays the self-hosted provisioning video muted with native controls', async () => {
     mockSwrData = {
       task_id: 'task-123',
       status: 'running',
@@ -132,16 +133,50 @@ describe('TrialProgressPage', () => {
 
     render(<TrialProgressPage />);
 
-    // Provisioning can sit on screen for minutes; the embed should not load itself.
-    expect(screen.queryByTestId('trial-provisioning-video-iframe')).not.toBeInTheDocument();
+    expect(screen.getByText(/This usually takes 1 to 2 minutes/)).toHaveTextContent(
+      'Watch the video to get to know Dalgo while you wait.'
+    );
+    const video = screen.getByTestId('trial-provisioning-video-video');
+    expect(video).toHaveAttribute('src', '/branding/dalgo-product-overview.mp4');
+    expect(video).toHaveAttribute('poster', '/branding/dalgo-product-overview-poster.jpg');
+    expect(video).toHaveAttribute('autoplay');
+    expect(video).toHaveProperty('muted', true);
+    expect(video).toHaveAttribute('controls');
 
-    fireEvent.click(screen.getByTestId('trial-provisioning-video-play'));
+    // Muted autoplay is permitted by modern browser policies. The native volume,
+    // timeline, picture-in-picture and fullscreen controls remain available.
+    expect(screen.getByTestId('trial-split-card-aside')).toHaveClass('order-first');
+    expect(screen.getByTestId('trial-split-card-aside')).not.toHaveClass('hidden');
 
-    expect(screen.getByTestId('trial-provisioning-video-iframe')).toHaveAttribute(
-      'src',
-      'https://www.youtube-nocookie.com/embed/R-JJNgp8xYM?autoplay=1&rel=0'
+    fireEvent.play(video);
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('trial-provisioning-video-play')).not.toBeInTheDocument()
     );
     expect(mockTrackEvent).toHaveBeenCalledWith('trial_onboarding:provisioning_video_played');
+  });
+
+  it('explains the email follow-up when workspace setup is delayed or fails', async () => {
+    const user = userEvent.setup();
+    mockSwrData = {
+      task_id: 'task-123',
+      status: 'running',
+      progress: [{ step: 1, message: 'Creating your workspace', status: 'in_progress' }],
+    };
+
+    render(<TrialProgressPage />);
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'What happens if workspace setup takes longer?',
+      })
+    );
+
+    expect(
+      await screen.findByText(/If setup takes longer than expected or fails/)
+    ).toHaveTextContent(
+      'If setup takes longer than expected or fails, we’ll reach out by email with your login credentials and workspace access link.'
+    );
   });
 
   it('shows the FIRST step (not all-done) when the history has only a "queued" marker', () => {
