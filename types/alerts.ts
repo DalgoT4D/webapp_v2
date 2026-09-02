@@ -58,20 +58,22 @@ export interface StandaloneConfig {
 }
 
 export interface RecipientIn {
-  type: 'orguser' | 'external';
+  type: 'orguser' | 'external' | 'user_group';
   orguser_id?: number | null;
   email?: string | null;
-  // display-only: resolved name/email carried over from RecipientOut when editing an
-  // existing alert, so the chip shows "Jane / jane@x.org" instead of "User #65".
-  // Ignored by the backend on create/update.
+  // display-only fields — resolved from RecipientOut when editing; ignored by backend.
   orguser_name?: string | null;
+  user_group_id?: number | null;
+  user_group_name?: string | null;
 }
 
 export interface RecipientOut {
-  type: 'orguser' | 'external';
+  type: 'orguser' | 'external' | 'user_group';
   orguser_id?: number | null;
   orguser_name?: string | null;
   email?: string | null;
+  user_group_id?: number | null;
+  user_group_name?: string | null;
 }
 
 export interface AlertCreatePayload {
@@ -124,6 +126,7 @@ export interface AlertResponse {
   recipients: RecipientOut[];
   created_at: string;
   updated_at: string;
+  created_by_email: string | null;
 }
 
 /** Mirrors `KpiRagContext` in alert_schema.py — drives RAG-chip tooltip math. */
@@ -149,6 +152,7 @@ export interface AlertListItem {
   is_active: boolean;
   last_fire_at: string | null;
   fire_streak: number;
+  created_by_email: string | null;
 }
 
 export interface AlertListResponse {
