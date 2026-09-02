@@ -116,6 +116,7 @@ interface KPICardProps {
   subtitle?: string;
   data: KPICardData;
   headerActions?: React.ReactNode;
+  toolbarActions?: React.ReactNode;
   menuItems?: React.ReactNode;
   onClick?: () => void;
   className?: string;
@@ -136,6 +137,7 @@ export function KPICard({
   subtitle,
   data,
   headerActions,
+  toolbarActions,
   menuItems,
   onClick,
   className,
@@ -235,9 +237,10 @@ export function KPICard({
       onClick={onClick}
     >
       {/* Hover toolbar (download + fullscreen) */}
-      {((showDownload && !downloadInMenu && !isLoading) || showFullscreen) && (
+      {(toolbarActions || (showDownload && !downloadInMenu && !isLoading) || showFullscreen) && (
         <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
+            {toolbarActions}
             {showDownload && !downloadInMenu && !isLoading && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

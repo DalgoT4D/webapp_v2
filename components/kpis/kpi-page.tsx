@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSWRConfig } from 'swr';
 import {
@@ -12,6 +12,7 @@ import {
   Trash2,
   Eye,
   BellRing,
+  ArrowLeft,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -34,7 +35,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DocsLink } from '@/components/ui/docs-link';
-import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
+import { useKPIs, useKPI, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -63,6 +64,13 @@ import {
 } from '@/constants/analytics';
 import { formatDistanceToNow } from 'date-fns';
 import { computePopChanges } from '@/lib/formatters';
+import { getWidgetBackLabel, parseWidgetNavigationSource } from '@/lib/widget-navigation';
+
+function parseKpiId(value: string | null): number | null {
+  if (!value) return null;
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
 
 // A single KPI card that fetches its own data
 function KPICardWithData({
@@ -167,6 +175,11 @@ function KPICardWithData({
 export function KPIPageComponent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const openKpiId = parseKpiId(searchParams.get('open'));
+  const editKpiId = parseKpiId(searchParams.get('edit'));
+  const deepLinkedKpiId = editKpiId ?? openKpiId;
+  const navigationSource = parseWidgetNavigationSource(searchParams.get('from'));
+  const handledDeepLinkRef = useRef<string | null>(null);
   const orgUsers = useAuthStore((s) => s.orgUsers);
   const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
   const orgSlug = orgUsers.find((ou) => ou.org.slug === selectedOrgSlug)?.org.slug ?? null;
@@ -210,35 +223,76 @@ export function KPIPageComponent() {
     metricType: metricTypeFilter || undefined,
     programTag: programTagFilter || undefined,
   });
+  const { kpi: deepLinkedKpi, isError: deepLinkedKpiError } = useKPI(deepLinkedKpiId);
 
   const { tags: programTags } = useProgramTags();
   const { mutate: globalMutate } = useSWRConfig();
 
-  // Auto-open drawer when ?open={kpiId} is in the URL, then strip the param
-  // so a refresh doesn't reopen the drawer after the user has closed it.
+  // Dashboard/report links fetch the KPI directly by id, rather than searching the
+  // current paginated list. After consuming the action, keep `from` in the URL so
+  // the page can offer the same source-aware back action as chart detail pages.
   useEffect(() => {
-    const openId = searchParams.get('open');
-    if (openId && kpis.length > 0) {
-      const kpi = kpis.find((k) => k.id === parseInt(openId));
-      if (kpi) {
-        // This opens the same drawer as a card click, so it is a KPI view too — it was
-        // previously untracked, making every arrival from an alert/notification link
-        // invisible. Safe to fire inline: the param is stripped below, so the effect
-        // cannot run again for this id.
-        trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, {
-          kpi_id: kpi.id,
-          source: KPI_VIEW_SOURCES.DEEP_LINK,
-          metric_type_tag: kpi.metric_type_tag || null,
-        });
-        setSelectedKpi(kpi);
-        setDrawerOpen(true);
-      }
+    const hasOpenParam = searchParams.has('open');
+    const hasEditParam = searchParams.has('edit');
+    if (!hasOpenParam && !hasEditParam) {
+      handledDeepLinkRef.current = null;
+      return;
+    }
+
+    const clearActionParams = () => {
       const next = new URLSearchParams(searchParams.toString());
       next.delete('open');
+      next.delete('edit');
       const qs = next.toString();
       router.replace(qs ? `/kpis?${qs}` : '/kpis', { scroll: false });
+    };
+
+    if (!deepLinkedKpiId) {
+      clearActionParams();
+      return;
     }
-  }, [searchParams, kpis, router]);
+
+    const mode = editKpiId ? 'edit' : 'open';
+    const deepLinkKey = `${mode}:${deepLinkedKpiId}`;
+    if (handledDeepLinkRef.current === deepLinkKey) return;
+
+    if (deepLinkedKpiError) {
+      handledDeepLinkRef.current = deepLinkKey;
+      toastError.load(deepLinkedKpiError, 'KPI');
+      clearActionParams();
+      return;
+    }
+
+    if (!deepLinkedKpi || deepLinkedKpi.id !== deepLinkedKpiId) return;
+
+    handledDeepLinkRef.current = deepLinkKey;
+    if (mode === 'edit' && canEditKpis) {
+      setDrawerOpen(false);
+      setEditingKpi(deepLinkedKpi);
+      setFormOpen(true);
+    } else {
+      if (mode === 'edit') {
+        toastError.api('You do not have permission to edit this KPI.');
+      }
+      trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, {
+        kpi_id: deepLinkedKpi.id,
+        source: KPI_VIEW_SOURCES.DEEP_LINK,
+        metric_type_tag: deepLinkedKpi.metric_type_tag || null,
+      });
+      setSelectedKpi(deepLinkedKpi);
+      setDrawerOpen(true);
+    }
+
+    clearActionParams();
+  }, [
+    canEditKpis,
+    deepLinkedKpi,
+    deepLinkedKpiError,
+    deepLinkedKpiId,
+    editKpiId,
+    router,
+    searchParams,
+  ]);
 
   // Strip `?create=true` after consuming it on mount so a refresh doesn't
   // re-open the create form.
@@ -351,13 +405,27 @@ export function KPIPageComponent() {
       {/* Header */}
       <div className="flex-shrink-0 border-b bg-background">
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
-          <div>
-            <DocsLink path="/kpis">
-              <h1 className="text-3xl font-bold">Key Performance Indicators</h1>
-            </DocsLink>
-            <p className="text-muted-foreground mt-1">
-              Track business objectives with measurable KPIs linked to your metrics
-            </p>
+          <div className="flex items-start gap-3">
+            {navigationSource && (
+              <Button
+                data-testid="kpi-back-to-source"
+                variant="ghost"
+                size="sm"
+                onClick={() => router.back()}
+                className="mt-0.5"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                {getWidgetBackLabel(navigationSource)}
+              </Button>
+            )}
+            <div>
+              <DocsLink path="/kpis">
+                <h1 className="text-3xl font-bold">Key Performance Indicators</h1>
+              </DocsLink>
+              <p className="text-muted-foreground mt-1">
+                Track business objectives with measurable KPIs linked to your metrics
+              </p>
+            </div>
           </div>
           {canCreateKpis && (
             <Button variant="primary" onClick={handleCreate} data-testid="create-kpi-btn">
