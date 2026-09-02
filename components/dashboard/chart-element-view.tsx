@@ -13,6 +13,7 @@ import {
   Loader2,
   FileImage,
   FileText,
+  Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
@@ -143,6 +144,7 @@ interface ChartElementViewProps {
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open
   canModerateComments?: boolean; // Caller has Edit access on the parent report — enables moderator Delete
   orgLogoUrl?: string | null; // Organization logo URL for fullscreen overlay
+  onView?: () => void; // Authenticated dashboard/report navigation to chart detail
 }
 
 interface DrillDownLevel {
@@ -173,6 +175,7 @@ export function ChartElementView({
   autoOpenCommentChartId,
   canModerateComments = false,
   orgLogoUrl,
+  onView,
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
@@ -1817,6 +1820,18 @@ export function ChartElementView({
       {viewMode && !frozenChartConfig && (
         <div className="absolute top-2 right-2 z-10 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
+            {onView && !isPublicMode && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                title="View Chart"
+                aria-label="View Chart"
+                onClick={onView}
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download">
@@ -1867,6 +1882,20 @@ export function ChartElementView({
             isEditMode={false}
           />
         </div>
+        {onView && !isPublicMode && frozenChartConfig && (
+          <div className="flex-shrink-0 mt-0.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              title="View Chart"
+              aria-label="View Chart"
+              onClick={onView}
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
         {frozenChartConfig && snapshotId && (
           <div className="flex-shrink-0 mt-0.5">
             <CommentPopover

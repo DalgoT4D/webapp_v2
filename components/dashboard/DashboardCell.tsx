@@ -44,6 +44,10 @@ interface DashboardCellProps {
   // Stable callback references (must be stable for React.memo to work)
   onViewChart: (chartId: number) => void;
   onEditChart: (chartId: number) => void;
+  onViewKpi: (kpiId: number) => void;
+  onEditKpi: (kpiId: number) => void;
+  canEditCharts: boolean;
+  canEditKpis: boolean;
   onRemove: (id: string) => void;
   onUpdate: (id: string, config: any) => void;
 }
@@ -62,6 +66,10 @@ function DashboardCellInner({
   dashboardId,
   onViewChart,
   onEditChart,
+  onViewKpi,
+  onEditKpi,
+  canEditCharts,
+  canEditKpis,
   onRemove,
   onUpdate,
 }: DashboardCellProps) {
@@ -92,16 +100,18 @@ function DashboardCellInner({
           >
             <Eye className="w-3.5 h-3.5 text-gray-600" />
           </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEditChart(component.config.chartId);
-            }}
-            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-green-600"
-            title="Edit Chart"
-          >
-            <Edit className="w-3.5 h-3.5 text-gray-600" />
-          </button>
+          {canEditCharts && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditChart(component.config.chartId);
+              }}
+              className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-green-600"
+              title="Edit Chart"
+            >
+              <Edit className="w-3.5 h-3.5 text-gray-600" />
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -134,6 +144,28 @@ function DashboardCellInner({
       {/* Action Buttons for KPI Elements */}
       {isKPI && (
         <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewKpi(component.config.kpiId);
+            }}
+            className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-blue-600"
+            title="View KPI"
+          >
+            <Eye className="w-3.5 h-3.5 text-gray-600" />
+          </button>
+          {canEditKpis && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditKpi(component.config.kpiId);
+              }}
+              className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-green-600"
+              title="Edit KPI"
+            >
+              <Edit className="w-3.5 h-3.5 text-gray-600" />
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();
