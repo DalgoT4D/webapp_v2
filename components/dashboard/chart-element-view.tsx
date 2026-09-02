@@ -141,6 +141,7 @@ interface ChartElementViewProps {
   commentStates?: CommentStates; // Comment states array with target_type and chart_id
   onCommentStateChange?: () => void; // Callback when comment state changes
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open
+  canModerateComments?: boolean; // Caller has Edit access on the parent report — enables moderator Delete
   orgLogoUrl?: string | null; // Organization logo URL for fullscreen overlay
 }
 
@@ -170,6 +171,7 @@ export function ChartElementView({
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
+  canModerateComments = false,
   orgLogoUrl,
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
@@ -1875,6 +1877,7 @@ export function ChartElementView({
               triggerClassName="h-7 w-7 p-0"
               onStateChange={onCommentStateChange}
               autoOpen={autoOpenCommentChartId === String(chartId)}
+              canModerate={canModerateComments}
             />
           </div>
         )}

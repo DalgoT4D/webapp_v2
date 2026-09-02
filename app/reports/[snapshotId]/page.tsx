@@ -6,17 +6,28 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Calendar, Download, LayoutGrid, Loader2, Pencil, User } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calendar,
+  Download,
+  LayoutGrid,
+  Loader2,
+  Mail,
+  Pencil,
+  Share2,
+  User,
+} from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
 import { useCommentStates } from '@/hooks/api/useComments';
 import { usePdfDownload } from '@/hooks/usePdfDownload';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import type { AppliedFilters } from '@/types/dashboard-filters';
-import { ReportShareMenu } from '@/components/reports/report-share-menu';
+import { ShareModal } from '@/components/ui/share-modal';
+import { ShareViaEmailDialog } from '@/components/reports/share-via-email-dialog';
+import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { formatDateShort } from '@/components/reports/utils';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
@@ -40,9 +51,23 @@ export default function SnapshotViewerPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
   const [isEditingSummary, setIsEditingSummary] = useState(false);
-  const { hasPermission } = useRbac();
-  const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS);
-  const canShare = hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS);
+  // Effective Edit on the report itself. Backend returns 'edit' for admin/super-admin
+  // (auto), owner, direct/group Edit grants, and Internal-mode edit-defaults.
+  // Every role in the seed today has can_edit_dashboards, so effective Edit is the
+  // sole gate — same rule the dashboard/chart/KPI detail pages use.
+  const hasEffectiveEdit = viewData?.access_level === 'edit';
+  const canEdit = hasEffectiveEdit;
+  // Share/email-PDF gate: mirrors the list view + every other resource — the
+  // per-resource `access_level === 'edit'` is the source of truth. The RBAC
+  // slug is deliberately NOT ANDed in, so a Member granted Edit on this
+  // report still sees the buttons (their role lacks can_share_dashboards).
+  const canShare = hasEffectiveEdit;
+  // Moderator delete on other users' comments mirrors backend comment_service:
+  // author OR get_user_access(...) == EDIT.
+  const canModerateComments = hasEffectiveEdit;
+
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
   // Fire REPORT_VIEWED once per mount when the report has successfully loaded
   const reportViewedTracked = useRef(false);
@@ -182,6 +207,11 @@ export default function SnapshotViewerPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <RequestEditPill
+              rtype="report"
+              resourceId={parsedId}
+              resourceAccessLevel={viewData.access_level}
+            />
             <Button
               data-testid="report-download-btn"
               variant="outline"
@@ -207,7 +237,26 @@ export default function SnapshotViewerPage() {
               )}
             </Button>
             {canShare && (
-              <ReportShareMenu snapshotId={parsedId} reportTitle={report_metadata.title} />
+              <>
+                <Button
+                  data-testid="report-share-btn"
+                  variant="outline"
+                  size="sm"
+                  aria-label="Share report"
+                  onClick={() => setShareModalOpen(true)}
+                >
+                  <Share2 className="w-4 h-4" />
+                </Button>
+                <Button
+                  data-testid="report-email-pdf-btn"
+                  variant="outline"
+                  size="sm"
+                  aria-label="Email PDF"
+                  onClick={() => setEmailDialogOpen(true)}
+                >
+                  <Mail className="w-4 h-4" />
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -228,6 +277,7 @@ export default function SnapshotViewerPage() {
           autoOpenCommentChartId={
             commentTarget === 'chart' && commentChartId ? commentChartId : undefined
           }
+          canModerateComments={canModerateComments}
           topRightContent={
             <div className="flex-shrink-0 px-6 pt-4 pb-2">
               <div className="border rounded-lg p-5 bg-background relative">
@@ -242,6 +292,7 @@ export default function SnapshotViewerPage() {
                       triggerClassName="h-8 w-8"
                       onStateChange={handleCommentStateChange}
                       autoOpen={commentTarget === 'summary'}
+                      canModerate={canModerateComments}
                     />
                     <Button
                       variant="ghost"
@@ -315,6 +366,23 @@ export default function SnapshotViewerPage() {
           }
         />
       </div>
+
+      {shareModalOpen && (
+        <ShareModal
+          rtype="report"
+          entityId={parsedId}
+          entityLabel={viewData?.report_metadata?.title ?? 'Report'}
+          isOpen={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+        />
+      )}
+
+      <ShareViaEmailDialog
+        snapshotId={parsedId}
+        reportTitle={viewData?.report_metadata?.title}
+        isOpen={emailDialogOpen}
+        onClose={() => setEmailDialogOpen(false)}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 import GridLayoutLib, {
   Responsive as ResponsiveGridLayout,
   WidthProvider as GridLayoutWidthProvider,
@@ -55,6 +56,7 @@ import {
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
+import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { useAuthStore } from '@/stores/authStore';
 import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
@@ -74,7 +76,6 @@ import { useToast } from '@/components/ui/use-toast';
 import { toastSuccess } from '@/lib/toast';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { ShareModal } from '@/components/ui/share-modal';
-import { getDashboardSharingStatus, updateDashboardSharing } from '@/hooks/api/useDashboards';
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -270,6 +271,7 @@ interface DashboardNativeViewProps {
   onCommentStateChange?: () => void; // Callback to revalidate comment states
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open (from email deep-link)
   onFiltersChange?: (filters: AppliedFilters) => void; // Notifies the parent whenever selectedFilters changes (e.g. so it can be included in a PDF export request)
+  canModerateComments?: boolean; // Caller has Edit access on the parent report — enables moderator Delete on other users' comments
 }
 
 export function DashboardNativeView({
@@ -292,8 +294,11 @@ export function DashboardNativeView({
   onCommentStateChange,
   autoOpenCommentChartId,
   onFiltersChange,
+  canModerateComments = false,
 }: DashboardNativeViewProps) {
   const router = useRouter();
+  const { initialOpen: initialShareModalOpen, clearParam: clearShareDeepLink } =
+    useOpenShareDeepLink();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>(() => {
     // In report mode, dashboardData is pre-fetched so filters are available immediately.
     // Compute defaults synchronously to avoid a double-render cycle with empty filters.
@@ -316,7 +321,7 @@ export function DashboardNativeView({
     typeof window !== 'undefined' ? window.innerWidth : 1200
   );
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
-  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(initialShareModalOpen);
   // Walkthrough only — the "you're officially live" beat, after the public link is copied.
   const [dashboardLiveModalOpen, setDashboardLiveModalOpen] = useState(false);
   const walkthroughStage = useInsightWalkthroughStore((state) => state.stage);
@@ -414,11 +419,13 @@ export function DashboardNativeView({
   // Get user permissions
   const { hasPermission } = useRbac();
 
-  // Check if user can edit - requires can_edit_dashboards permission
+  // Can this user edit THIS dashboard? Per-resource access (grants + org floor
+  // + ownership), surfaced by the API as `access_level`. Not the role permission —
+  // a member granted edit has access_level === "edit" but no role edit slug.
   const canEdit = useMemo(() => {
     if (isPublicMode || !dashboard || !currentUser) return false;
-    return hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS);
-  }, [isPublicMode, dashboard, currentUser, hasPermission]);
+    return dashboard.access_level === 'edit';
+  }, [isPublicMode, dashboard, currentUser]);
 
   // Check if dashboard is locked
   const isLocked = dashboard?.is_locked || false;
@@ -568,6 +575,7 @@ export function DashboardNativeView({
   // Handle share modal close
   const handleShareModalClose = () => {
     setShareModalOpen(false);
+    clearShareDeepLink();
   };
 
   // Handle dashboard update after sharing changes
@@ -575,30 +583,23 @@ export function DashboardNativeView({
     mutate(); // Refresh the dashboard data
   };
 
-  // Wraps updateDashboardSharing (passed to ShareModal, a components/ui/ component we keep
-  // free of onboarding logic) so going public is what moves the walkthrough on — same trick
+  // ShareModal (a components/ui/ component we keep free of onboarding logic) reports when
+  // General access flips to Public, and that is what moves the walkthrough on — same trick
   // dashboard-list-v2 uses for the "shared" milestone. The dialog stays open: the next stage
   // points at the copy button inside it.
-  const handleUpdateSharing = useCallback(
-    async (id: number, data: { is_public: boolean }) => {
-      const result = await updateDashboardSharing(id, data);
-      if (data.is_public) {
-        markDashboardShared();
-        const walkthrough = useInsightWalkthroughStore.getState();
-        // Either stage can be live here: 'share_public_toggle' normally, or 'share' if the
-        // user got to the switch without the dialog-open effect having run (a resumed flow).
-        if (walkthrough.active) walkthrough.advanceIfBefore('share_copy_link');
-      }
-      return result;
-    },
-    [selectedOrgSlug]
-  );
+  const handleMadePublic = useCallback(() => {
+    markDashboardShared();
+    const walkthrough = useInsightWalkthroughStore.getState();
+    // Either stage can be live here: 'share_public_toggle' normally, or 'share' if the user
+    // reached the access picker without the dialog-open effect having run (a resumed flow).
+    if (walkthrough.active) walkthrough.advanceIfBefore('share_copy_link');
+  }, []);
 
   // Copying the link is the walkthrough's last action — the flow ends on a celebration
   // rather than a toast, and stays put so the user is looking at what they just built.
   const handleCopyLink = useCallback(() => {
     // The share itself. Fired before the walkthrough branch so it lands on every copy,
-    // not only during onboarding. DASHBOARD_MADE_PUBLIC (from updateDashboardSharing)
+    // not only during onboarding. DASHBOARD_MADE_PUBLIC (from updateGeneralAccess)
     // only means the link exists; this means the user actually handed it out.
     // dashboard.id, not the dashboardId prop: it is what ShareModal was opened with,
     // and it is a real id here (the modal only renders outside public mode).
@@ -720,6 +721,7 @@ export function DashboardNativeView({
               commentStates={isReportMode ? commentStates : undefined}
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+              canModerateComments={isReportMode ? canModerateComments : undefined}
               orgLogoUrl={orgLogoUrl}
             />
           </div>
@@ -773,6 +775,7 @@ export function DashboardNativeView({
               commentStates={isReportMode ? commentStates : undefined}
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+              canModerateComments={isReportMode ? canModerateComments : undefined}
             />
           </div>
         );
@@ -928,6 +931,13 @@ export function DashboardNativeView({
 
               {/* Mobile Quick Actions */}
               <div className="flex items-center gap-1 flex-shrink-0">
+                {!isPublicMode && !isReportMode && (
+                  <RequestEditPill
+                    rtype="dashboard"
+                    resourceId={dashboard.id}
+                    resourceAccessLevel={dashboard.access_level}
+                  />
+                )}
                 {!isPublicMode && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -1060,6 +1070,7 @@ export function DashboardNativeView({
                   onDelete={handleDelete}
                   onRefresh={handleRefresh}
                   canEdit={canEdit && !isLockedByOther}
+                  canShare={canEdit}
                   isDeleting={isDeleting}
                   isRefreshing={isRefreshing}
                   dashboardTitle={dashboard?.title}
@@ -1154,6 +1165,13 @@ export function DashboardNativeView({
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0">
+                {!isPublicMode && !isReportMode && (
+                  <RequestEditPill
+                    rtype="dashboard"
+                    resourceId={dashboard.id}
+                    resourceAccessLevel={dashboard.access_level}
+                  />
+                )}
                 {/* Landing page controls */}
                 {!isPublicMode && (
                   <DropdownMenu>
@@ -1268,6 +1286,7 @@ export function DashboardNativeView({
                     onDelete={handleDelete}
                     onRefresh={handleRefresh}
                     canEdit={canEdit && !isLockedByOther}
+                    canShare={canEdit}
                     isDeleting={isDeleting}
                     isRefreshing={isRefreshing}
                     dashboardTitle={dashboard?.title}
@@ -1576,18 +1595,14 @@ export function DashboardNativeView({
       {/* Share Modal */}
       {dashboard && !isPublicMode && (
         <ShareModal
+          rtype="dashboard"
           entityId={dashboard.id}
-          entityLabel="Dashboard"
+          entityLabel={dashboard.title || 'Dashboard'}
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
           onCopyLink={handleCopyLink}
-          initialShareStatus={{
-            is_public: dashboard.is_public,
-            public_access_count: dashboard.public_access_count,
-          }}
-          getShareStatus={getDashboardSharingStatus}
-          updateSharing={handleUpdateSharing}
+          onMadePublic={handleMadePublic}
         />
       )}
     </div>
