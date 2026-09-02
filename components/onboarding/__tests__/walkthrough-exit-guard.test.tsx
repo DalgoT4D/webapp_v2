@@ -80,7 +80,7 @@ describe('isClickAllowedDuringWalkthrough', () => {
         <input data-testid="coached-field" />
         <button data-slot="dialog-close" aria-label="Close">✕</button>
         <button data-testid="wizard-cancel-btn">Cancel</button>
-        <button>Back</button>
+        <button>Cancel</button>
       </div>
     `);
     const coached = dialog.querySelector('[data-testid="coached-field"]');
@@ -91,11 +91,29 @@ describe('isClickAllowedDuringWalkthrough', () => {
         false
       );
     }
-    // The Back button carries no slot or testid — matched on its label alone.
-    const back = Array.from(dialog.querySelectorAll('button')).find(
-      (b) => b.textContent === 'Back'
+    // The bare Cancel carries no slot or testid — matched on its label alone.
+    const bareCancel = Array.from(dialog.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Cancel' && !b.dataset.testid
     );
-    expect(isClickAllowedDuringWalkthrough(back, [coached])).toBe(false);
+    expect(isClickAllowedDuringWalkthrough(bareCancel, [coached])).toBe(false);
+  });
+
+  it('guards a wizard’s exits even with no coached target, when a protected modal armed it', () => {
+    // The add-source wizard's configure/connection steps carry no stage, so there is no coached
+    // target to compare against — that modal is still the flow.
+    const dialog = el(`
+      <div role="dialog" data-testid="add-source-wizard">
+        <input data-testid="credential" />
+        <button data-testid="wizard-cancel-btn">Cancel</button>
+      </div>
+    `);
+
+    expect(
+      isClickAllowedDuringWalkthrough(dialog.querySelector('[data-testid="credential"]'), [])
+    ).toBe(true);
+    expect(
+      isClickAllowedDuringWalkthrough(dialog.querySelector('[data-testid="wizard-cancel-btn"]'), [])
+    ).toBe(false);
   });
 
   it('does not mistake a longer label for an exit control', () => {
@@ -154,6 +172,44 @@ describe('isClickAllowedDuringWalkthrough', () => {
         coached,
       ])
     ).toBe(false);
+  });
+
+  it('lets the user step BACK inside the wizard the coachmark points into', () => {
+    // Back moves to an earlier step of the same flow, where that step's coachmark is waiting.
+    // Only Cancel and ✕ abandon the thing being asked for.
+    const dialog = el(`
+      <div role="dialog">
+        <input data-testid="coached-field" />
+        <button data-testid="kpi-form-back-btn">Back</button>
+        <button data-testid="kpi-form-cancel-btn">Cancel</button>
+      </div>
+    `);
+    const coached = dialog.querySelector('[data-testid="coached-field"]');
+
+    expect(
+      isClickAllowedDuringWalkthrough(dialog.querySelector('[data-testid="kpi-form-back-btn"]'), [
+        coached,
+      ])
+    ).toBe(true);
+    expect(
+      isClickAllowedDuringWalkthrough(dialog.querySelector('[data-testid="kpi-form-cancel-btn"]'), [
+        coached,
+      ])
+    ).toBe(false);
+  });
+
+  it('guards a page-roam stage’s own exits, inside the region it opened up', () => {
+    // The dashboard builder: everything in the page is the step, except the way out of it.
+    const content = el('<main id="main-layout-main-content"></main>');
+    const tile = document.createElement('div');
+    content.appendChild(tile);
+    const back = document.createElement('button');
+    back.setAttribute('data-testid', 'dashboard-back-btn');
+    content.appendChild(back);
+    const exits = ['[data-testid="dashboard-back-btn"]'];
+
+    expect(isClickAllowedDuringWalkthrough(tile, [null, null, content], exits)).toBe(true);
+    expect(isClickAllowedDuringWalkthrough(back, [null, null, content], exits)).toBe(false);
   });
 
   it('allows a dialog the coached click just opened, which no stage covers', () => {

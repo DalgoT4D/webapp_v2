@@ -352,6 +352,13 @@ interface StageConfig {
    */
   allowPageRoam?: boolean;
   /**
+   * Controls inside the page that stay guarded even under `allowPageRoam` — the ones that leave
+   * the screen this stage lives on. The dashboard builder's Back button is the case: everything
+   * else in the builder is the step (adding charts and KPIs, moving tiles, filters), and leaving
+   * is the one thing worth asking about.
+   */
+  pageRoamExits?: string[];
+  /**
    * Stands the exit guard down for this stage: the user can click anywhere, and only the ✕ still
    * raises the leave prompt.
    *
@@ -387,6 +394,25 @@ interface StageConfig {
  * `cron-container` rather than inside it. Choosing a frequency and then being unable to finish
  * setting it is the exact opposite of what that stage is asking for.
  */
+/**
+ * The dashboard builder's way out — see StageConfig.pageRoamExits. Both header layouts (compact
+ * and full) render the same button, so one selector covers them.
+ */
+const DASHBOARD_BUILDER_EXITS = ['[data-testid="dashboard-back-btn"]'];
+
+/**
+ * The filter controls on a saved dashboard — see StageConfig.alsoClickable.
+ *
+ * The share stages ask for one thing (hit Share), but a dashboard the user has just built is
+ * also the first place they try their filters, and that's the only other thing the page offers.
+ * Two selectors because the panel switches layout with the viewport: a vertical sidebar on
+ * desktop, an accordion above the grid on smaller screens.
+ */
+const DASHBOARD_VIEW_FILTERS = [
+  '[data-testid="dashboard-filters-panel"]',
+  '[data-testid="dashboard-filters-section"]',
+];
+
 const KPI_SETUP_REQUIRED_FIELDS = ['#kpi-name'];
 const PIPELINE_FORM_REQUIRED_FIELDS = [
   '[data-testid="name"]',
@@ -518,6 +544,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
       'Build a unified view of all the insights that are important to you. Add KPIs, charts, text, and filters.',
   },
   builder_add_kpi: {
+    // The builder IS the step: charts, KPIs, tile moves, filters — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: DASHBOARD_BUILDER_EXITS,
     ring: true,
     route: '/dashboards/create',
     routeMatch: DASHBOARD_BUILDER_ROUTE,
@@ -527,6 +556,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     side: 'bottom',
   },
   builder_add_chart: {
+    // The builder IS the step: charts, KPIs, tile moves, filters — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: DASHBOARD_BUILDER_EXITS,
     ring: true,
     route: '/dashboards/create',
     routeMatch: DASHBOARD_BUILDER_ROUTE,
@@ -536,6 +568,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     side: 'bottom',
   },
   builder_resize: {
+    // The builder IS the step: charts, KPIs, tile moves, filters — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: DASHBOARD_BUILDER_EXITS,
     route: '/dashboards/create',
     routeMatch: DASHBOARD_BUILDER_ROUTE,
     // Newest tile has no stable id to key a static selector on (grid items are created with
@@ -548,6 +583,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
       'Drag a corner to resize, or grab a tile to move it around — now make your dashboard look nice.',
   },
   builder_save: {
+    // The builder IS the step: charts, KPIs, tile moves, filters — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: DASHBOARD_BUILDER_EXITS,
     ring: true,
     route: '/dashboards/create',
     routeMatch: DASHBOARD_BUILDER_ROUTE,
@@ -557,6 +595,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     side: 'bottom',
   },
   builder_preview: {
+    // The builder IS the step: charts, KPIs, tile moves, filters — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: DASHBOARD_BUILDER_EXITS,
     ring: true,
     route: '/dashboards/create',
     routeMatch: DASHBOARD_BUILDER_ROUTE,
@@ -567,6 +608,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     side: 'bottom',
   },
   share: {
+    alsoClickable: DASHBOARD_VIEW_FILTERS,
     ring: true,
     route: null, // resolved dynamically to /dashboards/{id} — matched by pathname regex below
     selector: '[data-testid="dashboard-share-btn"]',
@@ -578,6 +620,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     align: 'end',
   },
   share_public_toggle: {
+    alsoClickable: DASHBOARD_VIEW_FILTERS,
     route: null, // same dynamic /dashboards/{id} as 'share'
     selector: '[data-testid="share-toggle"]',
     title: 'Turn on public access',
@@ -590,6 +633,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     align: 'start',
   },
   share_copy_link: {
+    alsoClickable: DASHBOARD_VIEW_FILTERS,
     ring: true,
     route: null, // same dynamic /dashboards/{id} as 'share'
     selector: '[data-testid="copy-link-btn"]',
@@ -757,6 +801,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description: 'Now add your KPI and a few charts to a dashboard and share it!',
   },
   builder_add_chart_first: {
+    // The builder IS the step: charts, KPIs, tile moves, filters — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: DASHBOARD_BUILDER_EXITS,
     ring: true,
     route: '/dashboards/create',
     routeMatch: DASHBOARD_BUILDER_ROUTE,
@@ -766,6 +813,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     side: 'bottom',
   },
   builder_add_kpi_second: {
+    // The builder IS the step: charts, KPIs, tile moves, filters — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: DASHBOARD_BUILDER_EXITS,
     ring: true,
     route: '/dashboards/create',
     routeMatch: DASHBOARD_BUILDER_ROUTE,
@@ -1046,6 +1096,8 @@ export function InsightWalkthroughCoachmark() {
   const guardFreeRoamRef = useRef(false);
   /** The live stage's `allowPageRoam` — see StageConfig. */
   const guardPageRoamRef = useRef(false);
+  /** The live stage's `pageRoamExits` — see StageConfig. */
+  const guardExitSelectorsRef = useRef<string[]>([]);
 
   // Keeps a highlight glued to its target while layout is still moving under it —
   // a sidebar collapsing, a canvas pan/zoom settling, dagre re-laying nodes out —
@@ -1264,6 +1316,7 @@ export function InsightWalkthroughCoachmark() {
             // whatever stage comes next.
             guardFreeRoamRef.current = false;
             guardPageRoamRef.current = false;
+            guardExitSelectorsRef.current = [];
           },
         });
         driverRef.current = d;
@@ -1321,6 +1374,7 @@ export function InsightWalkthroughCoachmark() {
         guardExtraSelectorsRef.current = config.alsoClickable ?? [];
         guardFreeRoamRef.current = !!config.allowFreeRoam;
         guardPageRoamRef.current = !!config.allowPageRoam;
+        guardExitSelectorsRef.current = config.pageRoamExits ?? [];
         coachmarkLiveRef.current = true;
         trackTarget(d, el, () => {
           detachEngagement?.();
@@ -1342,6 +1396,7 @@ export function InsightWalkthroughCoachmark() {
       guardInteractionRef.current = null;
       guardFreeRoamRef.current = false;
       guardPageRoamRef.current = false;
+      guardExitSelectorsRef.current = [];
       document.body.classList.remove(PASSTHROUGH_CLASS);
       ringedElRef.current?.classList.remove(RING_CLASS);
       ringedElRef.current = null;
@@ -1423,6 +1478,7 @@ export function InsightWalkthroughCoachmark() {
       ...guardExtraSelectorsRef.current.map((selector) => document.querySelector(selector)),
       guardPageRoamRef.current ? document.querySelector(PAGE_CONTENT_SELECTOR) : null,
     ],
+    getGuardedExits: () => guardExitSelectorsRef.current,
     onLeaveIntent: () => setLeavePromptOpen(true),
   });
 

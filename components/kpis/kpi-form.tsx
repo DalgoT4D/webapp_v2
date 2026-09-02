@@ -51,6 +51,12 @@ const STEP_LABELS: Record<Step, string> = {
 
 const STEPS: Step[] = [1, 2, 3];
 
+/**
+ * Decimal places a new KPI starts on. Kept as the form's string type, since an empty string is
+ * what "leave the setting off" means to the submit handler.
+ */
+const DEFAULT_DECIMAL_PLACES = '2';
+
 function StepIndicator({ step }: { step: Step }) {
   return (
     <div className="w-full px-2 pt-4 pb-2">
@@ -161,7 +167,10 @@ export function KPIForm({
       metric_type_tag: '',
       program_tags: [],
       numberFormat: '',
-      decimalPlaces: '',
+      // Two places by default: KPI values are targets and totals, and an unrounded float
+      // ("1858.4000000000001") is the shape they arrive in from the warehouse. Still a plain
+      // form default — the field is free to change, and clearing it drops the setting entirely.
+      decimalPlaces: DEFAULT_DECIMAL_PLACES,
       numberPrefix: '',
       numberSuffix: '',
     },
@@ -259,7 +268,7 @@ export function KPIForm({
           metric_type_tag: '',
           program_tags: [],
           numberFormat: '',
-          decimalPlaces: '',
+          decimalPlaces: DEFAULT_DECIMAL_PLACES,
           numberPrefix: '',
           numberSuffix: '',
         });

@@ -519,6 +519,10 @@ export function UnifiedFiltersPanel({
   if (layout === 'horizontal') {
     return (
       <div
+        // testid read by the walkthrough's exit guard: on the saved dashboard the flow only asks
+        // for Share, and applying filters is the other thing users legitimately do there (see
+        // DASHBOARD_VIEW_FILTERS in insight-walkthrough-coachmark.tsx).
+        data-testid="dashboard-filters-panel"
         className={cn(
           'border-b border-gray-200 bg-white transition-all duration-300',
           isCollapsed && 'h-0 overflow-hidden'
@@ -637,6 +641,8 @@ export function UnifiedFiltersPanel({
   // Vertical layout
   return (
     <div
+      // See the horizontal layout's copy of this above.
+      data-testid="dashboard-filters-panel"
       className={cn(
         'border-b-2 md:border-b-0 md:border-r border-gray-300 bg-white flex-shrink-0 flex flex-col overflow-hidden shadow-sm md:shadow-none transition-all duration-300',
         isCollapsed ? 'w-full md:w-12' : 'w-full md:w-96'

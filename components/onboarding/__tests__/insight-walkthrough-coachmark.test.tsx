@@ -419,6 +419,34 @@ describe('InsightWalkthroughCoachmark', () => {
       await waitFor(() => expect(leavePrompt()).not.toBeNull());
     });
 
+    it('lets filters be applied on the saved dashboard, but nothing else', async () => {
+      // The share stage asks for one click, and filters are the other thing a freshly built
+      // dashboard invites — everything else on that page still asks first.
+      mockPathname = '/dashboards/7';
+      window.history.pushState({}, '', '/dashboards/7');
+      mountTarget('dashboard-share-btn');
+      const filters = mountTarget('dashboard-filters-panel');
+      const onFilterClick = jest.fn();
+      filters.addEventListener('click', onFilterClick);
+      const somethingElse = document.createElement('button');
+      const onOtherClick = jest.fn();
+      somethingElse.addEventListener('click', onOtherClick);
+      document.body.appendChild(somethingElse);
+      setStage('share', { path: 'own_data' });
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(skipButton()).not.toBeNull());
+
+      await userEvent.click(filters);
+      expect(leavePrompt()).toBeNull();
+      expect(onFilterClick).toHaveBeenCalledTimes(1);
+
+      await userEvent.click(somethingElse);
+
+      await waitFor(() => expect(leavePrompt()).not.toBeNull());
+      expect(onOtherClick).not.toHaveBeenCalled();
+    });
+
     it('lets the stage’s own target through without asking', async () => {
       const target = mountTarget('create-kpi-btn');
       render(<InsightWalkthroughCoachmark />);

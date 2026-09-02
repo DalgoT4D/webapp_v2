@@ -60,11 +60,11 @@ const WORK_PANEL_EXIT_SELECTOR = '[data-testid="panel-close-btn"]';
 const OPEN_POPPER_LAYER_SELECTOR = '[data-radix-popper-content-wrapper] [data-state="open"]';
 
 /**
- * Controls that LEAVE a dialog rather than work inside it.
+ * Controls that ABANDON a wizard rather than move around inside it.
  *
- * Inside a modal the user works freely — a wizard's options, its fields, its Next button — but
- * these three abandon the step the coachmark is in the middle of asking for, so they go through
- * the prompt exactly like the backdrop and the page behind it.
+ * BACK is deliberately absent: stepping back to an earlier step of the KPI wizard, or to the
+ * add-source wizard's previous step, is working inside the flow — the coachmark for that step is
+ * waiting there. Only Cancel and ✕ end the thing the walkthrough is mid-way through asking for.
  *
  * Matched by slot/testid first, then by the control's own label, so a dialog that rolls its own
  * footer buttons (rather than using DialogClose) is still covered.
@@ -73,13 +73,12 @@ const DIALOG_EXIT_SELECTORS = [
   // shadcn's built-in ✕ on DialogContent / SheetContent.
   '[data-slot="dialog-close"]',
   '[data-slot="sheet-close"]',
-  // e.g. kpi-form-back-btn, wizard-cancel-btn.
-  '[data-testid$="-back-btn"]',
+  // e.g. wizard-cancel-btn.
   '[data-testid$="-cancel-btn"]',
 ] as const;
 
-/** Anchored, so an option reading "Back to overview" isn't mistaken for a Back button. */
-const DIALOG_EXIT_LABELS = /^(cancel|back|close|discard|exit)$/;
+/** Anchored, so an option reading "Close for the season" isn't mistaken for a Close button. */
+const DIALOG_EXIT_LABELS = /^(cancel|close|discard|exit)$/;
 
 function isDialogExitControl(target: Element): boolean {
   if (DIALOG_EXIT_SELECTORS.some((selector) => target.closest(selector) !== null)) return true;
@@ -118,6 +117,13 @@ export interface WalkthroughExitGuardOptions {
    * highlighted element at the front.
    */
   getAllowedRoots: () => (Element | null | undefined)[];
+  /**
+   * Selectors that stay guarded even when a wider region is allowed — the controls that leave
+   * the screen the stage lives on. Only meaningful for a stage that opens its whole page up
+   * (see StageConfig.allowPageRoam): the dashboard builder is entirely usable mid-walkthrough,
+   * and its Back button is the one thing in it that ends the step.
+   */
+  getGuardedExits?: () => string[];
   /** Called once per guarded click — opens the "leave the walkthrough?" prompt. */
   onLeaveIntent: () => void;
 }
@@ -127,13 +133,17 @@ export interface WalkthroughExitGuardOptions {
  */
 export function isClickAllowedDuringWalkthrough(
   target: EventTarget | null,
-  allowedRoots: (Element | null | undefined)[]
+  allowedRoots: (Element | null | undefined)[],
+  guardedExits: string[] = []
 ): boolean {
   if (!(target instanceof Element)) return true;
   // Already detached — a menu that closed under the click, a row that re-rendered. There's no
   // ancestor chain left to attribute it to, so it can't be judged; don't prompt on the app's
   // own teardown.
   if (!target.isConnected) return true;
+  // Ahead of every allowance below: these are the controls that walk off the stage's screen, and
+  // they sit INSIDE the region a page-roam stage otherwise opens up.
+  if (guardedExits.some((selector) => target.closest(selector) !== null)) return false;
   for (const root of allowedRoots) {
     if (root && (root === target || root.contains(target))) return true;
   }
@@ -149,19 +159,34 @@ export function isClickAllowedDuringWalkthrough(
   if (target.closest(WORK_PANEL_SELECTOR)) {
     return target.closest(WORK_PANEL_EXIT_SELECTOR) === null;
   }
-  if (target.closest(DIALOG_SELECTOR)) return !isDialogExitControl(target);
+  const dialog = target.closest(DIALOG_SELECTOR);
+  if (dialog) {
+    // Guarded exits apply to the dialog the flow is IN — the one holding the coached target. A
+    // dialog the coached click OPENED (Add Chart's picker, a filter config, the save-chart name
+    // dialog) covers no stage of its own, so cancelling out of it is a change of mind inside the
+    // step, not an exit from the walkthrough.
+    //
+    // No coached target at all means the guard is armed by a protected modal instead (see
+    // WALKTHROUGH_PROTECTED_DIALOGS — the add-source wizard's coachmark-less steps), and that
+    // modal is exactly the flow. So the absence of a target guards exits rather than freeing
+    // them.
+    const coachedTarget = allowedRoots[0] ?? null;
+    const isFlowDialog = !coachedTarget || dialog.contains(coachedTarget);
+    return !isFlowDialog || !isDialogExitControl(target);
+  }
   return false;
 }
 
 export function useWalkthroughExitGuard({
   isArmed,
   getAllowedRoots,
+  getGuardedExits,
   onLeaveIntent,
 }: WalkthroughExitGuardOptions): void {
   // Latest callbacks behind one stable ref: the effect below must bind exactly once (see
   // isArmed's note), so it can't close over the callbacks directly.
-  const optionsRef = useRef({ isArmed, getAllowedRoots, onLeaveIntent });
-  optionsRef.current = { isArmed, getAllowedRoots, onLeaveIntent };
+  const optionsRef = useRef({ isArmed, getAllowedRoots, getGuardedExits, onLeaveIntent });
+  optionsRef.current = { isArmed, getAllowedRoots, getGuardedExits, onLeaveIntent };
 
   useEffect(() => {
     const handleEvent = (event: Event) => {
@@ -170,7 +195,15 @@ export function useWalkthroughExitGuard({
       // Left button only. Right-click opens the browser menu (no app action to intercept) and
       // middle-click paste/scroll isn't a walkthrough exit either.
       if (event instanceof MouseEvent && event.button !== 0) return;
-      if (isClickAllowedDuringWalkthrough(event.target, options.getAllowedRoots())) return;
+      if (
+        isClickAllowedDuringWalkthrough(
+          event.target,
+          options.getAllowedRoots(),
+          options.getGuardedExits?.() ?? []
+        )
+      ) {
+        return;
+      }
 
       event.preventDefault();
       event.stopPropagation();
