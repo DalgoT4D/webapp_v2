@@ -594,14 +594,16 @@ export function ChartElementView({
     tablePage,
     tablePageSize,
     dashboardFilters,
-    frozenChartConfig ? snapshotId : null
+    frozenChartConfig ? snapshotId : null,
+    chartId
   );
 
   // Get total rows for table pagination (private mode, only for table charts)
   const { data: privateTableTotalRows } = useChartDataPreviewTotalRows(
     !isPublicMode && isTableChart && isTableReadyToFetch ? chartDataPayload : null,
     dashboardFilters,
-    frozenChartConfig ? snapshotId : null
+    frozenChartConfig ? snapshotId : null,
+    chartId
   );
 
   // Get total rows for table pagination (public mode)
@@ -910,7 +912,7 @@ export function ChartElementView({
   const publicMapDataUrl =
     isPublicMode && publicToken && transformedPublicMapPayload && isMapChart
       ? isPublicReport
-        ? `/api/v1/public/reports/${publicToken}/map-data/`
+        ? `/api/v1/public/reports/${publicToken}/charts/${chartId}/map-data/`
         : `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/map-data/`
       : null;
 
@@ -942,7 +944,8 @@ export function ChartElementView({
     mutate: mutatePrivateMapData,
   } = useMapDataOverlay(
     !isPublicMode && isMapReadyToFetch ? mapDataOverlayPayload : null,
-    frozenChartConfig ? snapshotId : null
+    frozenChartConfig ? snapshotId : null,
+    chartId
   );
 
   // Use appropriate map data based on mode
