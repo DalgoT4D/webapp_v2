@@ -342,11 +342,14 @@
 
 /* driver.js kills pointer-events on everything but its highlighted element
    (`.driver-active * { pointer-events: none }`). That's right for a dimmed page-level
-   spotlight, but the walkthrough coachmarks have no dim at all — the highlight is a pointer,
-   not a gate, and the user still has to use the rest of the page/form. Every coachmark stage
-   sets this class, so clicks pass through; the overlay itself stays click-through, exactly as
-   driver.js has it. The class goes on <body>, where driver.js puts its own `driver-active` —
-   matching on <html> silently never applies. */
+   spotlight, but on the walkthrough coachmarks the highlight is a pointer, not a gate, and the
+   user still has to use the rest of the page/form. Every coachmark stage sets this class, so
+   clicks pass through; the overlay itself stays click-through, exactly as driver.js has it.
+   That holds on the sidebar hand-off stages too, the only ones that draw a dim (see
+   SIDEBAR_STAGE_OVERLAY_OPACITY in insight-walkthrough-coachmark.tsx): there the dim is a
+   visual cue, and walkthrough-exit-guard.ts — not the overlay — is what holds the user to the
+   step. The class goes on <body>, where driver.js puts its own `driver-active` — matching on
+   <html> silently never applies. */
 body.driver-active.dalgo-tour-passthrough * {
   pointer-events: auto;
 }

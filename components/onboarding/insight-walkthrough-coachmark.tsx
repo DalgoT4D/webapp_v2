@@ -93,6 +93,30 @@ const PASSTHROUGH_CLASS = 'dalgo-tour-passthrough';
 const RING_CLASS = 'dalgo-tour-ring';
 
 /**
+ * Dim drawn behind a stage whose target is a SIDEBAR NAV ITEM (see SIDEBAR_LINK_SELECTOR), so
+ * the one link the user has to click is the only lit thing on screen.
+ *
+ * Only those stages. Every other stage sits on a page the user is actively working in — a form,
+ * a builder, a dialog — where greying the surroundings would fight the step instead of guiding
+ * it; those keep the ring-only highlight at opacity 0. Sidebar hand-offs are the opposite case:
+ * the step is "stop what you're doing and go here", and the page behind it is finished work.
+ *
+ * Same value as the product tour's overlay, so the two read as one system.
+ */
+const SIDEBAR_STAGE_OVERLAY_OPACITY = 0.55;
+
+/**
+ * Cutout padding on a dimmed sidebar stage, in place of the 6px every other stage uses.
+ *
+ * The ring (`.dalgo-tour-ring` — a 2px outline at 4px offset) reaches exactly 6px past the nav
+ * item, so at the default padding it lands ON the cutout's edge: its corners get clipped by
+ * `stageRadius` and its sides dim along with the page. 10 leaves the whole ring inside the lit
+ * hole with a little margin to spare. Only matters where there IS a dim — an unlit stage's
+ * cutout has no visible edge for the ring to collide with.
+ */
+const SIDEBAR_STAGE_PADDING_PX = 10;
+
+/**
  * driver.js focuses its popover on every render (`[popover, element][0].focus()`), which is
  * fine when a highlight appears on its own but not when one stage advances into the next
  * mid-typing: these stages advance on the user's real input, so the coachmark can move while
@@ -172,6 +196,11 @@ function waitForDropdownsClosed(timeout = DROPDOWN_CLOSE_TIMEOUT_MS): Promise<vo
  * StageConfig flag so the two can't disagree.
  */
 const SIDEBAR_LINK_SELECTOR = /^a\[href="([^"]+)"\]$/;
+
+/** True when this stage's target is a sidebar nav link — see SIDEBAR_LINK_SELECTOR. */
+function isSidebarLinkSelector(selector: string): boolean {
+  return SIDEBAR_LINK_SELECTOR.test(selector);
+}
 
 /**
  * Open the sidebar when this stage points at a nav item, and leave it open.
@@ -326,8 +355,9 @@ interface StageConfig {
    * the whole-panel/whole-form targets — is left unringed: outlining a form field made every
    * field on the dialog look like the button to press.
    *
-   * There is no dim overlay on any stage (both drivers run at overlayOpacity: 0), so this
-   * outline plus the popover IS the highlight.
+   * On every stage but a sidebar hand-off there is no dim overlay (see
+   * SIDEBAR_STAGE_OVERLAY_OPACITY), so this outline plus the popover IS the highlight. On a
+   * sidebar stage it reinforces the cutout, marking WHICH nav item inside the lit hole to click.
    */
   ring?: boolean;
   /**
@@ -1223,6 +1253,10 @@ export function InsightWalkthroughCoachmark() {
         const resolvedSelector =
           typeof config.selector === 'function' ? config.selector() : config.selector;
         if (!resolvedSelector) return;
+        // Whether this stage greys the page out behind its target — sidebar hand-offs only
+        // (see SIDEBAR_STAGE_OVERLAY_OPACITY). Read off the selector, like revealSidebarTarget
+        // below, so the dim and the sidebar-opening can never disagree about what a stage is.
+        const dimsPage = isSidebarLinkSelector(resolvedSelector);
         // Before the wait, not after: for a target inside the Data submenu the link doesn't
         // exist in the DOM until this opens the menu, so waiting first would time out.
         revealSidebarTarget(resolvedSelector);
@@ -1262,12 +1296,15 @@ export function InsightWalkthroughCoachmark() {
         const d = driver({
           popoverClass: 'dalgo-tour dalgo-tour-coach',
           overlayColor: '#000000',
-          // No dim, ever: the highlight is the rounded ring on the target (see RING_CLASS)
-          // plus the popover. driver.js still needs an overlay element for its own
-          // positioning/refresh machinery, so it stays — fully transparent and, via
-          // PASSTHROUGH_CLASS, click-through (see tour.css).
-          overlayOpacity: 0,
-          stagePadding: 6,
+          // Dim only on a sidebar hand-off (see SIDEBAR_STAGE_OVERLAY_OPACITY), where the
+          // cutout over the nav item makes it the one lit thing on the page. Everywhere else
+          // the highlight is the rounded ring on the target (see RING_CLASS) plus the popover,
+          // and the overlay is fully transparent — driver.js still needs the element for its
+          // own positioning/refresh machinery, so it stays. Either way it's click-through via
+          // PASSTHROUGH_CLASS (see tour.css): the dim is a visual cue, and the exit guard, not
+          // the overlay, is what holds the user to the step.
+          overlayOpacity: dimsPage ? SIDEBAR_STAGE_OVERLAY_OPACITY : 0,
+          stagePadding: dimsPage ? SIDEBAR_STAGE_PADDING_PX : 6,
           stageRadius: 10,
           // The ✕ is the ONLY exit. `allowClose` gates driver.js's own dismissals — Escape and
           // overlay click — not our close button, which runs through `onCloseClick` below and

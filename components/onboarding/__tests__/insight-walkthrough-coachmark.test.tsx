@@ -58,6 +58,19 @@ function popoverDescription(): string {
   return document.querySelector('.driver-popover-description')?.textContent ?? '';
 }
 
+/**
+ * How dark the page is behind the coachmark. driver.js renders its overlay as an <svg> whose
+ * <path> carries the configured `overlayOpacity` inline, so the path's style is the only place
+ * the setting is observable — '0' meaning no dim at all.
+ *
+ * Returns '' until the overlay exists: driver.js builds it on its first animation frame (the
+ * popover lands synchronously, the overlay does not), so read this through `waitFor`.
+ */
+function overlayOpacity(): string {
+  const path = document.querySelector('.driver-overlay path') as SVGPathElement | null;
+  return path?.style.opacity ?? '';
+}
+
 type WalkthroughState = ReturnType<typeof useInsightWalkthroughStore.getState>;
 
 function setStage(stage: WalkthroughStage, overrides: Partial<WalkthroughState> = {}) {
@@ -486,6 +499,30 @@ describe('InsightWalkthroughCoachmark', () => {
       await skipThroughPrompt();
 
       await waitFor(() => expect(target.classList.contains('dalgo-tour-ring')).toBe(false));
+    });
+  });
+
+  describe('the dim overlay', () => {
+    it('greys the page out behind a sidebar hand-off', async () => {
+      // These stages say "stop what you're doing and go here", so the nav item they cut out is
+      // the only lit thing left on screen.
+      mountLink('/orchestrate');
+      setStage('pipeline_orchestrate_nudge', {
+        path: 'automate_pipeline',
+        flow: 'automate_pipeline',
+      });
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(overlayOpacity()).toBe('0.55'));
+    });
+
+    it('leaves an in-page stage undimmed', async () => {
+      // The user is working IN this page — greying it would fight the step. The ring on the CTA
+      // plus the popover is the whole highlight here.
+      mountTarget('create-kpi-btn');
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(overlayOpacity()).toBe('0'));
     });
   });
 
