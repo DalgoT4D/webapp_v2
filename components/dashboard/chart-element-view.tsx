@@ -36,7 +36,7 @@ import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { type ChartTitleConfig } from '@/lib/chart-title-utils';
-import { resolveDashboardFilters, formatAsChartFilters } from '@/lib/dashboard-filter-utils';
+import { resolveDashboardFilters } from '@/lib/dashboard-filter-utils';
 import {
   applyLegendPosition,
   extractLegendPosition,
@@ -141,6 +141,7 @@ interface ChartElementViewProps {
   commentStates?: CommentStates; // Comment states array with target_type and chart_id
   onCommentStateChange?: () => void; // Callback when comment state changes
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open
+  canModerateComments?: boolean; // Caller has Edit access on the parent report — enables moderator Delete
   orgLogoUrl?: string | null; // Organization logo URL for fullscreen overlay
 }
 
@@ -170,6 +171,7 @@ export function ChartElementView({
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
+  canModerateComments = false,
   orgLogoUrl,
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
@@ -581,22 +583,29 @@ export function ChartElementView({
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
   );
 
-  // Private mode table data (only fetch for table charts)
+  // Private mode table data. In report mode, only fetch once snapshotId is
+  // available — don't fall back to the live-chart endpoint while it's still
+  // missing.
+  const isTableReadyToFetch = frozenChartConfig ? !!snapshotId : true;
   const {
     data: privateTableData,
     error: privateTableError,
     isLoading: privateTableLoading,
   } = useChartDataPreview(
-    !isPublicMode && isTableChart ? chartDataPayload : null,
+    !isPublicMode && isTableChart && isTableReadyToFetch ? chartDataPayload : null,
     tablePage,
     tablePageSize,
-    dashboardFilters
+    dashboardFilters,
+    frozenChartConfig ? snapshotId : null,
+    chartId
   );
 
   // Get total rows for table pagination (private mode, only for table charts)
   const { data: privateTableTotalRows } = useChartDataPreviewTotalRows(
-    !isPublicMode && isTableChart ? chartDataPayload : null,
-    dashboardFilters
+    !isPublicMode && isTableChart && isTableReadyToFetch ? chartDataPayload : null,
+    dashboardFilters,
+    frozenChartConfig ? snapshotId : null,
+    chartId
   );
 
   // Get total rows for table pagination (public mode)
@@ -842,23 +851,11 @@ export function ChartElementView({
           aggregate_function:
             effectiveChart.extra_config.aggregate_function || (metric ? undefined : 'sum'),
           filters: filters, // Drill-down filters
-          // In report mode, skip dashboard_filters (frozen IDs can't be resolved
-          // by backend DB lookup); resolved filters go in extra_config.filters instead
-          dashboard_filters: frozenChartConfig ? undefined : dashboardFilters,
-          // Chart-level filters + resolved dashboard filters in report mode
+          // All map contexts (dashboard and report, public and private) now
+          // resolve dashboard filters server-side.
+          dashboard_filters: dashboardFilters,
           extra_config: {
-            filters: [
-              ...(effectiveChart.extra_config.filters || []),
-              ...(frozenChartConfig
-                ? formatAsChartFilters(
-                    resolvedDashboardFilters.filter(
-                      (f) =>
-                        f.schema_name === effectiveChart.schema_name &&
-                        f.table_name === effectiveChart.table_name
-                    )
-                  )
-                : []),
-            ],
+            filters: [...(effectiveChart.extra_config.filters || [])],
             pagination: effectiveChart.extra_config.pagination,
             sort: effectiveChart.extra_config.sort,
           },
@@ -872,8 +869,6 @@ export function ChartElementView({
     activeGeographicColumn,
     filters,
     dashboardFilters,
-    frozenChartConfig,
-    resolvedDashboardFilters,
   ]);
 
   // Fetch GeoJSON data - public vs private mode
@@ -922,7 +917,7 @@ export function ChartElementView({
   const publicMapDataUrl =
     isPublicMode && publicToken && transformedPublicMapPayload && isMapChart
       ? isPublicReport
-        ? `/api/v1/public/reports/${publicToken}/map-data/`
+        ? `/api/v1/public/reports/${publicToken}/charts/${chartId}/map-data/`
         : `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/map-data/`
       : null;
 
@@ -942,13 +937,21 @@ export function ChartElementView({
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
   );
 
-  // Private mode map data
+  // Private mode map data — dashboards and reports resolve dashboard filters
+  // differently server-side, so they route to different endpoints.
+  // In report mode, only fetch once snapshotId is available — don't fall
+  // back to the live-dashboard endpoint while it's still missing.
+  const isMapReadyToFetch = frozenChartConfig ? !!snapshotId : true;
   const {
     data: privateMapDataOverlay,
     error: privateMapError,
     isLoading: privateMapLoading,
     mutate: mutatePrivateMapData,
-  } = useMapDataOverlay(!isPublicMode ? mapDataOverlayPayload : null);
+  } = useMapDataOverlay(
+    !isPublicMode && isMapReadyToFetch ? mapDataOverlayPayload : null,
+    frozenChartConfig ? snapshotId : null,
+    chartId
+  );
 
   // Use appropriate map data based on mode
   const mapDataOverlay = isPublicMode ? publicMapData : privateMapDataOverlay;
@@ -1877,6 +1880,7 @@ export function ChartElementView({
               triggerClassName="h-7 w-7 p-0"
               onStateChange={onCommentStateChange}
               autoOpen={autoOpenCommentChartId === String(chartId)}
+              canModerate={canModerateComments}
             />
           </div>
         )}

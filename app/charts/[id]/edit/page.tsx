@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Database, BarChart3, Lock, ArrowLeft } from 'lucide-react';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
 import { ChartPreview } from '@/components/charts/ChartPreview';
@@ -147,15 +146,10 @@ function EditChartPageContent() {
   const searchParams = useSearchParams();
   const isFromDashboard = searchParams.get('from') === 'dashboard';
   const chartId = Number(params.id);
-  const { hasPermission } = useRbac();
-  const canEditChart = hasPermission(PERMISSIONS.CAN_EDIT_CHARTS);
-  // Don't start the chart request without edit permission; the access-denied
-  // return lives below, after all hooks (Rules of Hooks)
-  const {
-    data: chart,
-    error: chartError,
-    isLoading: chartLoading,
-  } = useChart(canEditChart ? chartId : null);
+  const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
+  // Per-resource access — a member granted edit has chart.access_level === 'edit'
+  // even without the role-level can_edit_charts slug. Backend enforces on save.
+  const canEditThisChart = chart?.access_level === 'edit';
   const { trigger: updateChart, isMutating } = useUpdateChart();
   const { trigger: createChart, isMutating: isCreating } = useCreateChart();
 
@@ -1550,8 +1544,9 @@ function EditChartPageContent() {
     setShowExitDialog(false);
   };
 
-  // Check if user has edit permissions (after all hooks — Rules of Hooks)
-  if (!canEditChart) {
+  // Per-resource access denied — chart loaded but caller lacks edit on THIS chart.
+  // (Gated after load so the loading skeleton doesn't briefly flash the denied UI.)
+  if (!chartLoading && chart && !canEditThisChart) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
@@ -1559,7 +1554,7 @@ function EditChartPageContent() {
             <Lock className="w-6 h-6 text-red-600" />
           </div>
           <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground mb-4">You don't have permission to edit charts.</p>
+          <p className="text-muted-foreground mb-4">You don't have edit access to this chart.</p>
           <Button variant="outline" onClick={() => router.push('/charts')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Charts

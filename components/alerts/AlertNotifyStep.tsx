@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import { testSlackWebhook } from '@/hooks/api/useAlerts';
 import { AlertChannel, type AlertType, type RecipientIn } from '@/types/alerts';
-import { RecipientCombobox } from './RecipientCombobox';
+import { RecipientPicker } from './RecipientPicker';
 import { TemplateEditor } from './TemplateEditor';
 import { cn } from '@/lib/utils';
 
@@ -130,7 +130,7 @@ export function AlertNotifyStep({ value, onChange, alertType, errors }: AlertNot
             testId="channel-email"
           >
             <div className="space-y-2">
-              <RecipientCombobox
+              <RecipientPicker
                 value={value.recipients}
                 onChange={(recipients) => onChange({ ...value, recipients })}
               />
