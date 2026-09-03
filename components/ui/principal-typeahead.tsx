@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ClipboardEvent, type KeyboardEvent } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 import { User as UserIcon, Users as UsersIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -60,18 +60,13 @@ export function PrincipalTypeahead({
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if ((e.key === 'Enter' || e.key === ',') && onCommitEmail) {
       e.preventDefault();
-      onCommitEmail(value);
+      if (onPasteEmails && /[,;\s]/.test(value)) {
+        onPasteEmails(value.split(/[,;\s]+/).filter(Boolean));
+      } else {
+        onCommitEmail(value);
+      }
     } else if (e.key === 'Backspace' && !value && onBackspace) {
       onBackspace();
-    }
-  };
-
-  const handlePaste = (e: ClipboardEvent<HTMLInputElement>) => {
-    if (!onPasteEmails) return;
-    const text = e.clipboardData.getData('text');
-    if (/[,;\s]/.test(text)) {
-      e.preventDefault();
-      onPasteEmails(text.split(/[,;\s]+/).filter(Boolean));
     }
   };
 
@@ -99,7 +94,6 @@ export function PrincipalTypeahead({
           }, 150);
         }}
         onKeyDown={handleKeyDown}
-        onPaste={handlePaste}
         placeholder={placeholder}
         data-testid={inputTestId}
       />
