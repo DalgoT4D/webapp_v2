@@ -98,6 +98,8 @@ export interface Chart {
   created_by?: string; // creator's email
   created_at: string;
   updated_at: string;
+  access_level?: 'view' | 'edit';
+  is_private?: boolean;
 }
 
 export interface ChartCreate {
@@ -386,6 +388,8 @@ export type ChartBuilderFormData = Partial<ChartCreate> & {
     schema_name: string;
     table_name: string;
     geographic_column: string;
+    // The metric driving the overlay — carries column_expression for calculated metrics.
+    metric?: ChartMetric;
     value_column?: string; // Optional for count operations, falls back to geographic_column
     aggregate_function: string;
     selected_geojson_id: number;

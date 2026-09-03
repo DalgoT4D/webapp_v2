@@ -16,6 +16,7 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DocsLink } from '@/components/ui/docs-link';
 import { isValidHttpUrl } from '@/lib/utils';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
@@ -255,7 +256,9 @@ export default function Branding() {
     <div className="h-full flex flex-col">
       <div className="flex-shrink-0 border-b bg-background">
         <div className="p-6 pb-0 mb-6">
-          <h1 className="text-3xl font-bold">Organization Branding</h1>
+          <DocsLink path="/settings/branding">
+            <h1 className="text-3xl font-bold">Organization Branding</h1>
+          </DocsLink>
           <p className="text-muted-foreground mt-1">
             Manage the visual identity of your workspace across all dashboards, reports, and PDFs
           </p>

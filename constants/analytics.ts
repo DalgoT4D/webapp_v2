@@ -6,30 +6,30 @@ export const ANALYTICS_EVENTS = {
   USER_LOGGED_IN: 'auth:user_logged_in',
   USER_LOGGED_OUT: 'auth:user_logged_out',
   ORG_SWITCHED: 'auth:org_switched',
-  RBAC_NOTICE_VIEWED: 'onboarding:rbac_notice_viewed',
-  RBAC_NOTICE_DISMISSED: 'onboarding:rbac_notice_dismissed',
+  RESOURCE_SHARING_NOTICE_VIEWED: 'trial_onboarding:resource_sharing_notice_viewed',
+  RESOURCE_SHARING_NOTICE_DISMISSED: 'trial_onboarding:resource_sharing_notice_dismissed',
   // Guided product tour (driver.js) for trial-plan orgs — see components/onboarding/tour-gate.tsx
-  TOUR_INTENT_MODAL_VIEWED: 'onboarding:tour_intent_modal_viewed',
+  TOUR_INTENT_MODAL_VIEWED: 'trial_onboarding:tour_intent_modal_viewed',
   // Carries { choice: 'tour' | 'insight' | 'pipeline' | 'close' } — which option was picked.
-  TOUR_INTENT_MODAL_DISMISSED: 'onboarding:tour_intent_modal_dismissed',
-  TOUR_STARTED: 'onboarding:tour_started',
+  TOUR_INTENT_MODAL_DISMISSED: 'trial_onboarding:tour_intent_modal_dismissed',
+  TOUR_STARTED: 'trial_onboarding:tour_started',
   // Carries { step, title } — 1-based step number.
-  TOUR_STEP_VIEWED: 'onboarding:tour_step_viewed',
+  TOUR_STEP_VIEWED: 'trial_onboarding:tour_step_viewed',
   // Carries { step } — the step the user was on when they clicked Skip.
-  TOUR_SKIPPED: 'onboarding:tour_skipped',
-  TOUR_COMPLETED: 'onboarding:tour_completed',
-  GETTING_STARTED_TOUR_LINK_CLICKED: 'onboarding:getting_started_tour_link_clicked',
+  TOUR_SKIPPED: 'trial_onboarding:tour_skipped',
+  TOUR_COMPLETED: 'trial_onboarding:tour_completed',
+  GETTING_STARTED_TOUR_LINK_CLICKED: 'trial_onboarding:getting_started_tour_link_clicked',
   // The docs link that replaces the tour link in the widget's all-done state.
-  GETTING_STARTED_DOCS_LINK_CLICKED: 'onboarding:getting_started_docs_link_clicked',
+  GETTING_STARTED_DOCS_LINK_CLICKED: 'trial_onboarding:getting_started_docs_link_clicked',
   // Carries { item: 'build-insight' | 'automate-pipeline' } — which checklist row was
   // clicked. What it then does (open the fork dialog, resume, start a flow) depends on
   // walkthrough state and is covered by that flow's own events.
-  GETTING_STARTED_ITEM_CLICKED: 'onboarding:getting_started_item_clicked',
-  GETTING_STARTED_VIDEO_PLAYED: 'onboarding:getting_started_video_played',
+  GETTING_STARTED_ITEM_CLICKED: 'trial_onboarding:getting_started_item_clicked',
+  GETTING_STARTED_VIDEO_PLAYED: 'trial_onboarding:getting_started_video_played',
   // The "Schedule a call with us" / "Book a call" link out to the Dalgo team's booking page.
   // Carries { source: 'widget' | 'nudge' } — the widget row vs the trial nudge modals, which
   // fire at very different moments of the trial and convert differently.
-  BOOK_A_CALL_CLICKED: 'onboarding:book_a_call_clicked',
+  BOOK_A_CALL_CLICKED: 'trial_onboarding:book_a_call_clicked',
   // The GetStartedModal's 'choice' screen — shown only when the tour is finished via its
   // last step's "Finish Tour" button, not on Skip.
   //
@@ -37,95 +37,95 @@ export const ANALYTICS_EVENTS = {
   // viewed/dismissed PAIR, fired per screen VISIT. Sharing one dismissal across both used to
   // log a choice-screen dismissal for a close that happened on the fork (a screen the user may
   // never have seen), and double-counted it whenever they went choice -> fork -> close.
-  POST_TOUR_MODAL_VIEWED: 'onboarding:post_tour_modal_viewed',
+  POST_TOUR_MODAL_VIEWED: 'trial_onboarding:post_tour_modal_viewed',
   // Carries { choice: 'insight' | 'pipeline' | 'close', entry } — which option was picked.
-  POST_TOUR_MODAL_DISMISSED: 'onboarding:post_tour_modal_dismissed',
+  POST_TOUR_MODAL_DISMISSED: 'trial_onboarding:post_tour_modal_dismissed',
   // The GetStartedModal's 'insight' screen (sample vs own data). Carries
   // { entry: 'post_tour' | 'widget' | 'resume' | 'intent_modal' } — how the user got to it.
-  INSIGHT_FORK_MODAL_VIEWED: 'onboarding:insight_fork_modal_viewed',
+  INSIGHT_FORK_MODAL_VIEWED: 'trial_onboarding:insight_fork_modal_viewed',
   // Carries { choice: 'sample' | 'own_data' | 'back' | 'close', entry } — how the fork screen
   // ended. One event for every exit (see the pairing note above), so the total is fork-screen
   // visits resolved and take-rate is a breakdown; 'back' is a return to the choice screen, not
   // an abandonment, so filter it out when counting drop-off.
-  INSIGHT_FORK_MODAL_DISMISSED: 'onboarding:insight_fork_modal_dismissed',
+  INSIGHT_FORK_MODAL_DISMISSED: 'trial_onboarding:insight_fork_modal_dismissed',
   // Carries { choice: 'sample' | 'own_data' } — which fork was taken. Kept alongside the
   // dismissal above (existing insights depend on it), same as the legacy tour_* events.
-  INSIGHT_FORK_CHOSEN: 'onboarding:insight_fork_chosen',
+  INSIGHT_FORK_CHOSEN: 'trial_onboarding:insight_fork_chosen',
   // The two walkthrough celebration dialogs (see celebration-modal.tsx). Both carry
   // { choice: 'cta' | 'close' }.
-  KPI_LIVE_MODAL_DISMISSED: 'onboarding:kpi_live_modal_dismissed',
-  CHART_LIVE_MODAL_DISMISSED: 'onboarding:chart_live_modal_dismissed',
-  PIPELINE_LIVE_MODAL_DISMISSED: 'onboarding:pipeline_live_modal_dismissed',
-  DASHBOARD_LIVE_MODAL_DISMISSED: 'onboarding:dashboard_live_modal_dismissed',
+  KPI_LIVE_MODAL_DISMISSED: 'trial_onboarding:kpi_live_modal_dismissed',
+  CHART_LIVE_MODAL_DISMISSED: 'trial_onboarding:chart_live_modal_dismissed',
+  PIPELINE_LIVE_MODAL_DISMISSED: 'trial_onboarding:pipeline_live_modal_dismissed',
+  DASHBOARD_LIVE_MODAL_DISMISSED: 'trial_onboarding:dashboard_live_modal_dismissed',
   // Sample-data insight walkthrough (Fork2 -> KPI created -> dashboard shared)
-  INSIGHT_WALKTHROUGH_STARTED: 'onboarding:insight_walkthrough_started',
+  INSIGHT_WALKTHROUGH_STARTED: 'trial_onboarding:insight_walkthrough_started',
   // Carries { stage } — the stage that was just shown.
-  INSIGHT_WALKTHROUGH_STEP_VIEWED: 'onboarding:insight_walkthrough_step_viewed',
-  INSIGHT_WALKTHROUGH_COMPLETED: 'onboarding:insight_walkthrough_completed',
+  INSIGHT_WALKTHROUGH_STEP_VIEWED: 'trial_onboarding:insight_walkthrough_step_viewed',
+  INSIGHT_WALKTHROUGH_COMPLETED: 'trial_onboarding:insight_walkthrough_completed',
   // Carries { stage } — the stage the user was on when they skipped.
-  INSIGHT_WALKTHROUGH_SKIPPED: 'onboarding:insight_walkthrough_skipped',
+  INSIGHT_WALKTHROUGH_SKIPPED: 'trial_onboarding:insight_walkthrough_skipped',
   // Unified onboarding-path lifecycle. The tour and the walkthroughs each keep their own
   // legacy events above (existing insights depend on them); these five are the cross-path
   // set, every one carrying `path` (see ONBOARDING_PATHS) so "which walkthrough, how far,
   // how long, where did they quit" is one query per question instead of one per flow.
   // Carries { path, entry? }.
-  PATH_STARTED: 'onboarding:path_started',
+  PATH_STARTED: 'trial_onboarding:path_started',
   // Carries { path, stage, stage_index? } — fired on each real checkpoint (a Next click or
   // a completed action), never on automatic advancement.
-  PATH_STAGE_VIEWED: 'onboarding:path_stage_viewed',
+  PATH_STAGE_VIEWED: 'trial_onboarding:path_stage_viewed',
   // Carries { path, stage } — a stored flow picked back up on a later page load.
-  PATH_RESUMED: 'onboarding:path_resumed',
+  PATH_RESUMED: 'trial_onboarding:path_resumed',
   // Carries { path, duration_seconds? }. duration_seconds spans reloads and browser
   // sessions, so it is NOT the same thing as PostHog's own $session_duration; it is absent
   // when no start time was recorded (see lib/onboarding-analytics.ts).
-  PATH_COMPLETED: 'onboarding:path_completed',
+  PATH_COMPLETED: 'trial_onboarding:path_completed',
   // Carries { path, stage, stage_index?, duration_seconds? } — abandoned deliberately
   // (Skip / close). `stage_index` mirrors PATH_STAGE_VIEWED so "they quit on step 3" reads off
   // this one event instead of needing the stage order or a join back to the stage events.
   // A silent abandon fires nothing by design: derive it as started - completed - exited.
-  PATH_EXITED: 'onboarding:path_exited',
+  PATH_EXITED: 'trial_onboarding:path_exited',
   // One-shot feature coachmarks on /reports, /alerts and /metrics — no flow, no ordering.
   // Both carry { nudge: 'reports_nudge' | 'alerts_nudge' | 'metrics_nudge' }. VIEWED can
   // fire on repeat visits (the nudge returns until dismissed); DISMISSED fires once.
-  FEATURE_NUDGE_VIEWED: 'onboarding:feature_nudge_viewed',
-  FEATURE_NUDGE_DISMISSED: 'onboarding:feature_nudge_dismissed',
+  FEATURE_NUDGE_VIEWED: 'trial_onboarding:feature_nudge_viewed',
+  FEATURE_NUDGE_DISMISSED: 'trial_onboarding:feature_nudge_dismissed',
   // Free trial onboarding
-  TRIAL_SIGNUP_SUBMITTED: 'trial:signup_submitted',
+  TRIAL_SIGNUP_SUBMITTED: 'trial_onboarding:signup_submitted',
   // Verification link re-sent from the check-your-email card (re-POSTs signup).
-  TRIAL_LINK_RESENT: 'trial:link_resent',
-  TRIAL_ACTIVATED: 'trial:trial_activated',
-  TRIAL_PROVISIONING_VIDEO_PLAYED: 'trial:provisioning_video_played',
+  TRIAL_LINK_RESENT: 'trial_onboarding:link_resent',
+  TRIAL_ACTIVATED: 'trial_onboarding:trial_activated',
+  TRIAL_PROVISIONING_VIDEO_PLAYED: 'trial_onboarding:provisioning_video_played',
   // A failed clone was re-enqueued. Carries { from: 'failed' | 'timeout' } — which
   // fallback card the user retried from.
-  TRIAL_RETRY_TRIGGERED: 'trial:retry_triggered',
-  TRIAL_CLONE_COMPLETED: 'trial:clone_completed',
-  TRIAL_CLONE_FAILED: 'trial:clone_failed',
+  TRIAL_RETRY_TRIGGERED: 'trial_onboarding:retry_triggered',
+  TRIAL_CLONE_COMPLETED: 'trial_onboarding:clone_completed',
+  TRIAL_CLONE_FAILED: 'trial_onboarding:clone_failed',
   // Clone succeeded but auto-login could not run (login call failed, or the
   // stashed creds were missing e.g. after a reload) — user must log in manually.
-  TRIAL_MANUAL_LOGIN_REQUIRED: 'trial:manual_login_required',
+  TRIAL_MANUAL_LOGIN_REQUIRED: 'trial_onboarding:manual_login_required',
   // Status polling gave up (too many consecutive failures or hard timeout) before
   // a terminal clone status arrived — screen fell back from the spinner.
-  TRIAL_POLL_TIMEOUT: 'trial:poll_timeout',
+  TRIAL_POLL_TIMEOUT: 'trial_onboarding:poll_timeout',
   // An upgrade CTA opened the confirm modal. Carries { days_left, source } — `source` is the
   // surface it was opened from ('header_badge' | 'trial_nudge'), which is what tells us which
   // one converts now that the Settings → Billing page is gone.
-  SUBSCRIPTION_REQUEST_OPENED: 'trial:subscription_request_opened',
+  SUBSCRIPTION_REQUEST_OPENED: 'trial_onboarding:subscription_request_opened',
   // The request POST succeeded. Carries { days_left, already_requested, source }.
-  SUBSCRIPTION_REQUEST_SENT: 'trial:subscription_request_sent',
+  SUBSCRIPTION_REQUEST_SENT: 'trial_onboarding:subscription_request_sent',
   // The confirm dialog was closed WITHOUT sending (Cancel, ✕, Esc, outside click). Carries
   // { days_left, source }. Without it, OPENED -> SENT has an invisible drop-off step, and that
   // gap is exactly "who bounced off subscribing". Never fires after a successful send — closing
   // the success screen is not an abandonment.
-  SUBSCRIPTION_REQUEST_ABANDONED: 'trial:subscription_request_abandoned',
+  SUBSCRIPTION_REQUEST_ABANDONED: 'trial_onboarding:subscription_request_abandoned',
   // The trial lifecycle nudges (7 / 2 / 1 days LEFT — see TRIAL_NUDGE_DAYS). Both carry `day`,
   // so each day's nudge is measured on its own: they are separate prompts with separate copy
   // and separate dismissal state, and the day is what makes "shown -> converted" answerable
   // per nudge instead of as one blended number.
-  TRIAL_NUDGE_VIEWED: 'trial:nudge_viewed',
+  TRIAL_NUDGE_VIEWED: 'trial_onboarding:nudge_viewed',
   // Carries { day, choice: 'cta' | 'close' }. ONE event for both exits, same shape as the
   // celebration modals: two separate events would make the total meaningless and the
   // take-rate a hand-computed ratio.
-  TRIAL_NUDGE_DISMISSED: 'trial:nudge_dismissed',
+  TRIAL_NUDGE_DISMISSED: 'trial_onboarding:nudge_dismissed',
   // Breadth — every menu / submenu / tab
   FEATURE_VIEWED: 'feature:viewed',
   // Charts. Lifecycle is exactly three events: created / updated / deleted.
@@ -717,7 +717,8 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/data-quality', feature: FEATURES.DATA_QUALITY },
   { prefix: '/alerts', feature: FEATURES.ALERTS },
   { prefix: '/notifications', feature: FEATURES.NOTIFICATIONS },
-  { prefix: '/settings/user-management', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
+  { prefix: '/settings/access', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
+  { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
   { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
   { prefix: '/settings/warehouse', feature: FEATURES.SETTINGS_WAREHOUSE },
   { prefix: '/free-trial/activate', feature: FEATURES.FREE_TRIAL_ACTIVATE },

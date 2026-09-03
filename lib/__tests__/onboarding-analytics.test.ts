@@ -57,14 +57,14 @@ beforeEach(() => {
 describe('startOnboardingPath', () => {
   it('captures path_started with the path', () => {
     startOnboardingPath(ONBOARDING_PATHS.WALKTHROUGH);
-    expect(mockCapture).toHaveBeenCalledWith('onboarding:path_started', {
+    expect(mockCapture).toHaveBeenCalledWith('trial_onboarding:path_started', {
       path: 'walkthrough',
     });
   });
 
   it('includes the entry point when one is given', () => {
     startOnboardingPath(ONBOARDING_PATHS.INSIGHT_OWN_DATA, { entry: 'chart' });
-    expect(mockCapture).toHaveBeenCalledWith('onboarding:path_started', {
+    expect(mockCapture).toHaveBeenCalledWith('trial_onboarding:path_started', {
       path: 'insight_own_data',
       entry: 'chart',
     });
@@ -74,7 +74,7 @@ describe('startOnboardingPath', () => {
 describe('trackOnboardingPathStage', () => {
   it('captures path_stage_viewed with path and stage', () => {
     trackOnboardingPathStage(ONBOARDING_PATHS.INSIGHT_SAMPLE, 'kpi_target');
-    expect(mockCapture).toHaveBeenCalledWith('onboarding:path_stage_viewed', {
+    expect(mockCapture).toHaveBeenCalledWith('trial_onboarding:path_stage_viewed', {
       path: 'insight_sample',
       stage: 'kpi_target',
     });
@@ -82,7 +82,7 @@ describe('trackOnboardingPathStage', () => {
 
   it('includes stage_index when the caller knows the position in the flow', () => {
     trackOnboardingPathStage(ONBOARDING_PATHS.WALKTHROUGH, 'sidebar_ingest', { stageIndex: 3 });
-    expect(mockCapture).toHaveBeenCalledWith('onboarding:path_stage_viewed', {
+    expect(mockCapture).toHaveBeenCalledWith('trial_onboarding:path_stage_viewed', {
       path: 'walkthrough',
       stage: 'sidebar_ingest',
       stage_index: 3,
@@ -93,7 +93,7 @@ describe('trackOnboardingPathStage', () => {
 describe('resumeOnboardingPath', () => {
   it('captures path_resumed with the stage the user came back to', () => {
     resumeOnboardingPath(ONBOARDING_PATHS.PIPELINE, 'pipeline_ingest');
-    expect(mockCapture).toHaveBeenCalledWith('onboarding:path_resumed', {
+    expect(mockCapture).toHaveBeenCalledWith('trial_onboarding:path_resumed', {
       path: 'pipeline',
       stage: 'pipeline_ingest',
     });
@@ -104,7 +104,7 @@ describe('completeOnboardingPath', () => {
   it('captures path_completed with the seconds elapsed since the path started', () => {
     atTime(T0, () => startOnboardingPath(ONBOARDING_PATHS.PIPELINE));
     atTime(T0 + 90_000, () => completeOnboardingPath(ONBOARDING_PATHS.PIPELINE));
-    expect(mockCapture).toHaveBeenLastCalledWith('onboarding:path_completed', {
+    expect(mockCapture).toHaveBeenLastCalledWith('trial_onboarding:path_completed', {
       path: 'pipeline',
       duration_seconds: 90,
     });
@@ -114,7 +114,7 @@ describe('completeOnboardingPath', () => {
     atTime(T0, () => startOnboardingPath(ONBOARDING_PATHS.INSIGHT_SAMPLE));
     jest.resetModules();
     atTime(T0 + 3_600_000, () => completeOnboardingPath(ONBOARDING_PATHS.INSIGHT_SAMPLE));
-    expect(mockCapture).toHaveBeenLastCalledWith('onboarding:path_completed', {
+    expect(mockCapture).toHaveBeenLastCalledWith('trial_onboarding:path_completed', {
       path: 'insight_sample',
       duration_seconds: 3600,
     });
@@ -124,7 +124,7 @@ describe('completeOnboardingPath', () => {
     // Storage cleared mid-flow (private mode, another device). A 0 here would silently
     // drag every duration average down.
     completeOnboardingPath(ONBOARDING_PATHS.WALKTHROUGH);
-    expect(mockCapture).toHaveBeenCalledWith('onboarding:path_completed', {
+    expect(mockCapture).toHaveBeenCalledWith('trial_onboarding:path_completed', {
       path: 'walkthrough',
     });
   });
@@ -133,7 +133,7 @@ describe('completeOnboardingPath', () => {
     atTime(T0, () => startOnboardingPath(ONBOARDING_PATHS.PIPELINE));
     atTime(T0 + 10_000, () => completeOnboardingPath(ONBOARDING_PATHS.PIPELINE));
     atTime(T0 + 20_000, () => completeOnboardingPath(ONBOARDING_PATHS.PIPELINE));
-    expect(mockCapture).toHaveBeenLastCalledWith('onboarding:path_completed', {
+    expect(mockCapture).toHaveBeenLastCalledWith('trial_onboarding:path_completed', {
       path: 'pipeline',
     });
   });
@@ -145,7 +145,7 @@ describe('exitOnboardingPath', () => {
     atTime(T0 + 45_000, () =>
       exitOnboardingPath(ONBOARDING_PATHS.INSIGHT_OWN_DATA, 'own_data_ingest')
     );
-    expect(mockCapture).toHaveBeenLastCalledWith('onboarding:path_exited', {
+    expect(mockCapture).toHaveBeenLastCalledWith('trial_onboarding:path_exited', {
       path: 'insight_own_data',
       stage: 'own_data_ingest',
       duration_seconds: 45,
@@ -154,7 +154,7 @@ describe('exitOnboardingPath', () => {
 
   it('carries the stage position when the caller knows it', () => {
     exitOnboardingPath(ONBOARDING_PATHS.WALKTHROUGH, '/dashboards', { stageIndex: 2 });
-    expect(mockCapture).toHaveBeenLastCalledWith('onboarding:path_exited', {
+    expect(mockCapture).toHaveBeenLastCalledWith('trial_onboarding:path_exited', {
       path: 'walkthrough',
       stage: '/dashboards',
       stage_index: 2,
@@ -163,7 +163,7 @@ describe('exitOnboardingPath', () => {
 
   it('keeps stage_index off the event for a stage outside the path order', () => {
     exitOnboardingPath(ONBOARDING_PATHS.PIPELINE, 'sync_failed', { stageIndex: undefined });
-    expect(mockCapture).toHaveBeenLastCalledWith('onboarding:path_exited', {
+    expect(mockCapture).toHaveBeenLastCalledWith('trial_onboarding:path_exited', {
       path: 'pipeline',
       stage: 'sync_failed',
     });
@@ -171,7 +171,7 @@ describe('exitOnboardingPath', () => {
 
   it('sends a null stage through as null rather than dropping the property', () => {
     exitOnboardingPath(ONBOARDING_PATHS.WALKTHROUGH, null);
-    expect(mockCapture).toHaveBeenCalledWith('onboarding:path_exited', {
+    expect(mockCapture).toHaveBeenCalledWith('trial_onboarding:path_exited', {
       path: 'walkthrough',
       stage: null,
     });
@@ -183,7 +183,7 @@ describe('start-time isolation', () => {
     atTime(T0, () => startOnboardingPath(ONBOARDING_PATHS.WALKTHROUGH));
     atTime(T0 + 60_000, () => startOnboardingPath(ONBOARDING_PATHS.PIPELINE));
     atTime(T0 + 90_000, () => completeOnboardingPath(ONBOARDING_PATHS.PIPELINE));
-    expect(mockCapture).toHaveBeenLastCalledWith('onboarding:path_completed', {
+    expect(mockCapture).toHaveBeenLastCalledWith('trial_onboarding:path_completed', {
       path: 'pipeline',
       duration_seconds: 30,
     });
@@ -193,13 +193,13 @@ describe('start-time isolation', () => {
     atTime(T0, () => startOnboardingPath(ONBOARDING_PATHS.PIPELINE));
     setWalkthroughScope(USER_B, ORG_A);
     atTime(T0 + 30_000, () => completeOnboardingPath(ONBOARDING_PATHS.PIPELINE));
-    expect(mockCapture).toHaveBeenLastCalledWith('onboarding:path_completed', {
+    expect(mockCapture).toHaveBeenLastCalledWith('trial_onboarding:path_completed', {
       path: 'pipeline',
     });
 
     setWalkthroughScope(USER_A, ORG_B);
     atTime(T0 + 40_000, () => completeOnboardingPath(ONBOARDING_PATHS.PIPELINE));
-    expect(mockCapture).toHaveBeenLastCalledWith('onboarding:path_completed', {
+    expect(mockCapture).toHaveBeenLastCalledWith('trial_onboarding:path_completed', {
       path: 'pipeline',
     });
   });
@@ -207,6 +207,8 @@ describe('start-time isolation', () => {
   it('still emits the event when there is no scope yet, without throwing', () => {
     clearWalkthroughScope();
     expect(() => startOnboardingPath(ONBOARDING_PATHS.WALKTHROUGH)).not.toThrow();
-    expect(mockCapture).toHaveBeenCalledWith('onboarding:path_started', { path: 'walkthrough' });
+    expect(mockCapture).toHaveBeenCalledWith('trial_onboarding:path_started', {
+      path: 'walkthrough',
+    });
   });
 });

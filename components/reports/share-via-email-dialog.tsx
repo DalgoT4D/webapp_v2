@@ -87,7 +87,11 @@ export function ShareViaEmailDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent data-testid="share-via-email-dialog" className="sm:max-w-md">
+      <DialogContent
+        data-testid="share-via-email-dialog"
+        className="sm:max-w-md"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
@@ -96,6 +100,10 @@ export function ShareViaEmailDialog({
         </DialogHeader>
 
         <div className="space-y-6">
+          <p className="text-sm text-muted-foreground">
+            This report will be exported as a PDF and sent as an attachment to the email addresses
+            listed below.
+          </p>
           <Card>
             <CardContent className="p-4 space-y-4">
               {/* Subject */}
