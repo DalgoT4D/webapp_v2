@@ -164,6 +164,10 @@ export function AddSourceWizard({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleDismiss()}>
       <DialogContent
+        // Read by the walkthrough's exit guard (see WALKTHROUGH_PROTECTED_DIALOGS in
+        // insight-walkthrough-coachmark.tsx): the configure and connection steps carry no
+        // coachmark, so this is what tells the guard the user is still inside the flow.
+        data-testid="add-source-wizard"
         className={cn(
           'max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden',
           // The picker is a compact, near-square card grid; the configure step

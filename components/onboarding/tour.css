@@ -342,11 +342,14 @@
 
 /* driver.js kills pointer-events on everything but its highlighted element
    (`.driver-active * { pointer-events: none }`). That's right for a dimmed page-level
-   spotlight, but the walkthrough coachmarks have no dim at all — the highlight is a pointer,
-   not a gate, and the user still has to use the rest of the page/form. Every coachmark stage
-   sets this class, so clicks pass through; the overlay itself stays click-through, exactly as
-   driver.js has it. The class goes on <body>, where driver.js puts its own `driver-active` —
-   matching on <html> silently never applies. */
+   spotlight, but on the walkthrough coachmarks the highlight is a pointer, not a gate, and the
+   user still has to use the rest of the page/form. Every coachmark stage sets this class, so
+   clicks pass through; the overlay itself stays click-through, exactly as driver.js has it.
+   That holds on the sidebar hand-off stages too, the only ones that draw a dim (see
+   SIDEBAR_STAGE_OVERLAY_OPACITY in insight-walkthrough-coachmark.tsx): there the dim is a
+   visual cue, and walkthrough-exit-guard.ts — not the overlay — is what holds the user to the
+   step. The class goes on <body>, where driver.js puts its own `driver-active` — matching on
+   <html> silently never applies. */
 body.driver-active.dalgo-tour-passthrough * {
   pointer-events: auto;
 }
@@ -362,4 +365,15 @@ body.driver-active.dalgo-tour-passthrough * {
 body.driver-active.dalgo-tour-passthrough .driver-overlay,
 body.driver-active.dalgo-tour-passthrough .driver-overlay * {
   pointer-events: none !important;
+}
+
+/* The "Leave the walkthrough?" prompt (leave-walkthrough-dialog.tsx) is portaled to <body>, so
+   on the PRODUCT TOUR — which has no passthrough class — `.driver-active *` above leaves its
+   buttons dead. Radix sets `pointer-events: auto` inline on the dialog content itself, but that
+   doesn't cascade past a rule matching the descendants, so the card appeared and neither button
+   could be clicked. Opted back in by data attribute rather than a class so it survives however
+   the dialog's utility classes are composed. */
+body.driver-active [data-walkthrough-exit-dialog],
+body.driver-active [data-walkthrough-exit-dialog] * {
+  pointer-events: auto;
 }

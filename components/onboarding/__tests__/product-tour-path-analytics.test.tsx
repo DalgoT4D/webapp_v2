@@ -78,6 +78,15 @@ function closeButton(): HTMLElement | null {
   return document.querySelector('.driver-popover-close-btn');
 }
 
+/** The "Leave the walkthrough?" prompt every exit now goes through. */
+function leavePrompt(): HTMLElement | null {
+  return document.querySelector('[data-testid="leave-walkthrough-dialog"]');
+}
+
+function promptButton(action: 'skip' | 'continue'): HTMLElement {
+  return document.querySelector(`[data-testid="leave-walkthrough-${action}-btn"]`) as HTMLElement;
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   localStorage.clear();
@@ -122,17 +131,45 @@ it('reports each step as a stage of the walkthrough path, indexed in tour order'
   );
 });
 
-it('exits the walkthrough path with the step quit on when the user closes the tour', async () => {
+it('exits the walkthrough path with the step quit on once the user confirms the close', async () => {
   const ref = renderTour();
   await act(async () => ref.current?.startTour());
   await waitFor(() => expect(closeButton()).not.toBeNull());
 
   await userEvent.click(closeButton() as HTMLElement);
+  await waitFor(() => expect(leavePrompt()).not.toBeNull());
+  await userEvent.click(promptButton('skip'));
 
   expect(mockExitPath).toHaveBeenCalledWith('walkthrough', TOUR_STEPS[0].route, {
     stageIndex: 0,
   });
   expect(mockCompletePath).not.toHaveBeenCalled();
+});
+
+it('stays on the same step when the close is not confirmed', async () => {
+  const ref = renderTour();
+  await act(async () => ref.current?.startTour());
+  await waitFor(() => expect(closeButton()).not.toBeNull());
+
+  await userEvent.click(closeButton() as HTMLElement);
+  await waitFor(() => expect(leavePrompt()).not.toBeNull());
+  await userEvent.click(promptButton('continue'));
+
+  await waitFor(() => expect(leavePrompt()).toBeNull());
+  expect(mockExitPath).not.toHaveBeenCalled();
+  // Still driving: the popover the user was on is untouched.
+  expect(nextButton()).not.toBeNull();
+});
+
+it('asks instead of ignoring a click on the dimmed page', async () => {
+  const ref = renderTour();
+  await act(async () => ref.current?.startTour());
+  await waitFor(() => expect(nextButton()).not.toBeNull());
+
+  await userEvent.click(document.getElementById('main-layout-main-content') as HTMLElement);
+
+  await waitFor(() => expect(leavePrompt()).not.toBeNull());
+  expect(mockExitPath).not.toHaveBeenCalled();
 });
 
 it('completes the walkthrough path when the last step is finished', async () => {

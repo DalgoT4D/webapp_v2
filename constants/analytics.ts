@@ -64,6 +64,15 @@ export const ANALYTICS_EVENTS = {
   INSIGHT_WALKTHROUGH_COMPLETED: 'trial_onboarding:insight_walkthrough_completed',
   // Carries { stage } — the stage the user was on when they skipped.
   INSIGHT_WALKTHROUGH_SKIPPED: 'trial_onboarding:insight_walkthrough_skipped',
+  // The "Leave the walkthrough?" confirmation (leave-walkthrough-dialog.tsx), raised by the
+  // coachmark ✕ and by a click the current stage isn't asking for. All three carry
+  // { surface: 'product_tour' | 'insight_walkthrough', stage } — `stage` is the walkthrough
+  // stage, or the 1-based step number for the product tour. VIEWED minus SKIPPED is how many
+  // exits the prompt talked users out of; the legacy tour_skipped / insight_walkthrough_skipped
+  // events still fire on a confirmed skip, so drop-off numbers stay comparable.
+  WALKTHROUGH_EXIT_PROMPT_VIEWED: 'trial_onboarding:walkthrough_exit_prompt_viewed',
+  WALKTHROUGH_EXIT_PROMPT_CONTINUED: 'trial_onboarding:walkthrough_exit_prompt_continued',
+  WALKTHROUGH_EXIT_PROMPT_SKIPPED: 'trial_onboarding:walkthrough_exit_prompt_skipped',
   // Unified onboarding-path lifecycle. The tour and the walkthroughs each keep their own
   // legacy events above (existing insights depend on them); these five are the cross-path
   // set, every one carrying `path` (see ONBOARDING_PATHS) so "which walkthrough, how far,
