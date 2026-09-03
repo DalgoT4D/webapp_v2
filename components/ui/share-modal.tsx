@@ -228,7 +228,6 @@ export function ShareModal({
           p.status === 'active' &&
           p.orguser_id != null &&
           !chippedKeys.has(`user:${p.orguser_id}`) &&
-          !currentPrincipals.has(`user:${p.orguser_id}`) &&
           p.email.toLowerCase().includes(q)
       )
       .slice(0, 6)
@@ -238,14 +237,10 @@ export function ShareModal({
         label: p.email,
         badge: p.role_name,
         isOwner: owner != null && p.orguser_id === owner.orguser_id,
+        alreadyShared: currentPrincipals.has(`user:${p.orguser_id}`),
       }));
     const groupMatches = (groups ?? [])
-      .filter(
-        (g) =>
-          !chippedKeys.has(`group:${g.id}`) &&
-          !currentPrincipals.has(`group:${g.id}`) &&
-          g.name.toLowerCase().includes(q)
-      )
+      .filter((g) => !chippedKeys.has(`group:${g.id}`) && g.name.toLowerCase().includes(q))
       .slice(0, 4)
       .map((g) => ({
         kind: 'group' as const,
@@ -253,6 +248,7 @@ export function ShareModal({
         label: g.name,
         badge: 'Group',
         isOwner: false,
+        alreadyShared: currentPrincipals.has(`group:${g.id}`),
       }));
     return [...userMatches, ...groupMatches];
   }, [chipInput, people, groups, chippedKeys, currentPrincipals, owner]);
@@ -675,8 +671,12 @@ export function ShareModal({
                     id: s.id,
                     label: s.label,
                     badge: s.isOwner ? 'Owner' : s.badge,
-                    disabled: s.isOwner,
-                    disabledReason: s.isOwner ? 'Already the owner — has full access' : undefined,
+                    disabled: s.isOwner || s.alreadyShared,
+                    disabledReason: s.isOwner
+                      ? 'Already the owner — has full access'
+                      : s.alreadyShared
+                        ? 'Already has access'
+                        : undefined,
                   }))}
                   onSelectUser={addUserChip}
                   onSelectGroup={addGroupChip}
