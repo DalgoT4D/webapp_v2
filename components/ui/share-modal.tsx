@@ -918,8 +918,8 @@ export function ShareModal({
             </>
           )}
 
-          {/* General access — Everyone / Private / Public */}
-          {rtype && generalAccess && (
+          {/* General access — hidden for floor-only users (they can't change visibility) */}
+          {rtype && generalAccess && !generalAccess.caller_access_via_floor && (
             <div className="rounded-md border p-4">
               <div className="flex items-start gap-3">
                 <Shield className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
@@ -938,24 +938,57 @@ export function ShareModal({
                             : 'Public sharing is turned off by your admin')}
                       </p>
                     </div>
-                    <Select
-                      value={generalAccess.mode}
-                      onValueChange={(v) => handleModeChange(v as GeneralAccessMode)}
-                      disabled={modeChanging}
-                    >
-                      <SelectTrigger className="w-32 h-8" data-testid="general-access-select">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="internal">Default</SelectItem>
-                        <SelectItem value="private">Private</SelectItem>
-                        {generalAccess.supports_public && (
-                          <SelectItem value="public" disabled={!generalAccess.allow_public_sharing}>
-                            Public
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
+                    {(() => {
+                      const maxParentRank =
+                        generalAccess.parent_blocks.length > 0
+                          ? Math.max(
+                              ...generalAccess.parent_blocks.map((b) =>
+                                b.mode === 'public' ? 2 : b.mode === 'internal' ? 1 : 0
+                              )
+                            )
+                          : -1;
+                      const anyBlocked = maxParentRank > 0;
+                      return (
+                        <>
+                          <Select
+                            value={generalAccess.mode}
+                            onValueChange={(v) => handleModeChange(v as GeneralAccessMode)}
+                            disabled={modeChanging}
+                          >
+                            <SelectTrigger className="w-32 h-8" data-testid="general-access-select">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="internal" disabled={maxParentRank > 1}>
+                                Default
+                              </SelectItem>
+                              <SelectItem value="private" disabled={maxParentRank > 0}>
+                                Private
+                              </SelectItem>
+                              {generalAccess.supports_public && (
+                                <SelectItem
+                                  value="public"
+                                  disabled={!generalAccess.allow_public_sharing}
+                                >
+                                  Public
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          {anyBlocked && (
+                            <p className="text-xs text-muted-foreground mt-2">
+                              Some options are restricted as this resource is used in shared
+                              dashboards:{' '}
+                              <strong>
+                                {generalAccess.parent_blocks
+                                  .map((b) => b.dashboard_title)
+                                  .join(', ')}
+                              </strong>
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {generalAccess.mode === 'public' && generalAccess.allow_public_sharing && (
