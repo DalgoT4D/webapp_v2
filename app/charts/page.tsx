@@ -29,7 +29,13 @@ import {
 import Link from 'next/link';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
 import type { ChartCreate } from '@/types/charts';
-import { useDeleteChart, useBulkDeleteCharts, useCreateChart } from '@/hooks/api/useChart';
+import {
+  useDeleteChart,
+  useBulkDeleteCharts,
+  useCreateChart,
+  useFavoriteChart,
+  useUnfavoriteChart,
+} from '@/hooks/api/useChart';
 import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
 import { ShareModal } from '@/components/ui/share-modal';
 import { ChartExportDropdownForList } from '@/components/charts/ChartExportDropdownForList';
@@ -88,7 +94,6 @@ export default function ChartsPage() {
     'updated_at'
   );
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [favorites, setFavorites] = useState<Set<number>>(new Set());
 
   // Column filter states
   const [nameFilters, setNameFilters] = useState({
@@ -137,7 +142,13 @@ export default function ChartsPage() {
   const { trigger: deleteChart } = useDeleteChart();
   const { trigger: bulkDeleteCharts } = useBulkDeleteCharts();
   const { trigger: createChart } = useCreateChart();
+  const { trigger: favoriteChart } = useFavoriteChart();
+  const { trigger: unfavoriteChart } = useUnfavoriteChart();
   const { confirm, DialogComponent } = useConfirmationDialog();
+
+  // Stars currently mid-request. isMutating on the hooks is keyed on '/api/charts/',
+  // so it's shared by every row — this tracks it per chart instead.
+  const [favoritingIds, setFavoritingIds] = useState<Set<number>>(new Set());
 
   // Get user permissions
   const { hasPermission } = useRbac();
@@ -167,7 +178,7 @@ export default function ChartsPage() {
         }
       }
 
-      if (nameFilters.showFavorites && !favorites.has(chart.id)) {
+      if (nameFilters.showFavorites && !chart.is_favorite) {
         return false;
       }
 
@@ -250,28 +261,43 @@ export default function ChartsPage() {
         return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
       }
     });
-  }, [
-    charts,
-    nameFilters,
-    dataSourceFilters,
-    chartTypeFilters,
-    dateFilters,
-    favorites,
-    sortBy,
-    sortOrder,
-  ]);
+  }, [charts, nameFilters, dataSourceFilters, chartTypeFilters, dateFilters, sortBy, sortOrder]);
 
-  // Handle favorites toggle
-  const handleToggleFavorite = (chartId: number) => {
-    setFavorites((prev) => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(chartId)) {
-        newFavorites.delete(chartId);
+  // Handle favorites toggle. The star flips immediately and the list is not
+  // refetched on success — the only thing that changed is a field we already know.
+  const handleToggleFavorite = async (chart: Chart) => {
+    if (favoritingIds.has(chart.id)) return;
+
+    const wasFavorite = chart.is_favorite ?? false;
+    setFavoritingIds((prev) => new Set(prev).add(chart.id));
+
+    mutate(
+      (current) =>
+        current && {
+          ...current,
+          data: current.data.map((c) =>
+            c.id === chart.id ? { ...c, is_favorite: !wasFavorite } : c
+          ),
+        },
+      { revalidate: false }
+    );
+
+    try {
+      if (wasFavorite) {
+        await unfavoriteChart(chart.id);
       } else {
-        newFavorites.add(chartId);
+        await favoriteChart(chart.id);
       }
-      return newFavorites;
-    });
+    } catch (error) {
+      await mutate(); // roll the optimistic flip back to server truth
+      toastError.update(error, 'favorite');
+    } finally {
+      setFavoritingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(chart.id);
+        return next;
+      });
+    }
   };
 
   // Get unique data sources and chart types for filter options
@@ -444,9 +470,9 @@ export default function ChartsPage() {
   );
 
   // Multi-select functions
-  const enterSelectionMode = useCallback(() => {
+  const enterSelectionMode = useCallback((chartId: number) => {
     setIsSelectionMode(true);
-    setSelectedCharts(new Set());
+    setSelectedCharts(new Set([chartId]));
   }, []);
 
   const exitSelectionMode = useCallback(() => {
@@ -836,21 +862,32 @@ export default function ChartsPage() {
   const renderChartTableRow = (chart: Chart) => {
     const IconComponent = chartIcons[chart.chart_type as keyof typeof chartIcons] || BarChart2;
     const typeColors = getChartTypeColor(chart.chart_type as ChartType);
-    const isFavorited = favorites.has(chart.id);
+    const isFavorited = chart.is_favorite ?? false;
     const dataSource = `${chart.schema_name}.${chart.table_name}`;
+    const isChartSelected = selectedCharts.has(chart.id);
 
     return (
       <TableRow key={chart.id} className="hover:bg-gray-50">
         {/* Name Column with Star */}
         <TableCell className="py-4">
           <div className="flex items-center gap-3 min-w-0">
+            {isSelectionMode && (
+              <Checkbox
+                id={`chart-select-${chart.id}`}
+                data-testid={`chart-select-checkbox-${chart.id}`}
+                aria-label={`Select chart ${chart.title}`}
+                checked={isChartSelected}
+                onCheckedChange={() => toggleChartSelection(chart.id)}
+              />
+            )}
             <Button
               variant="ghost"
               size="icon"
               className="h-8 w-8 p-0 hover:bg-yellow-50 shrink-0"
+              disabled={favoritingIds.has(chart.id)}
               onClick={(e) => {
                 e.preventDefault();
-                handleToggleFavorite(chart.id);
+                handleToggleFavorite(chart);
               }}
             >
               {isFavorited ? (
@@ -964,9 +1001,14 @@ export default function ChartsPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={enterSelectionMode} className="cursor-pointer">
+                <DropdownMenuItem
+                  onClick={() =>
+                    isSelectionMode ? toggleChartSelection(chart.id) : enterSelectionMode(chart.id)
+                  }
+                  className="cursor-pointer"
+                >
                   <CheckSquare className="w-4 h-4 mr-2" />
-                  Select
+                  {isChartSelected ? 'Deselect' : 'Select'}
                 </DropdownMenuItem>
                 {hasPermission(PERMISSIONS.CAN_CREATE_CHARTS) && (
                   <>
