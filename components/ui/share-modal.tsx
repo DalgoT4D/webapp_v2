@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { PrincipalTypeahead } from '@/components/ui/principal-typeahead';
+import { buildDocsUrl } from '@/components/ui/docs-link';
 import { StagedPrincipalRow } from '@/components/ui/staged-principal-row';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -1009,14 +1010,24 @@ export function ShareModal({
                   </DialogTitle>
                 </DialogHeader>
                 <p className="text-sm text-muted-foreground">
-                  Changing permissions on a dashboard may change access to its charts and KPIs.
+                  Changing permissions on a dashboard may change access to its charts and KPIs.{' '}
+                  {buildDocsUrl('/dashboards/sharing#permission-levels') && (
+                    <a
+                      href={buildDocsUrl('/dashboards/sharing#permission-levels')!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:text-foreground"
+                    >
+                      Know more
+                    </a>
+                  )}
                 </p>
                 <div className="flex justify-end gap-3 mt-2">
                   <Button variant="outline" onClick={() => setPendingAction(null)}>
-                    Cancel
+                    CANCEL
                   </Button>
                   <Button variant="primary" onClick={handleCascadeConfirm}>
-                    Continue
+                    CONTINUE
                   </Button>
                 </div>
               </DialogContent>
