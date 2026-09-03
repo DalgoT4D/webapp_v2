@@ -67,6 +67,10 @@ interface CommentPopoverProps {
   triggerClassName?: string;
   onStateChange?: () => void;
   autoOpen?: boolean;
+  /** True when the caller has Edit access on the parent report — enables the
+   * moderator "Delete" action on other users' comments. Author-only Edit
+   * remains gated separately. */
+  canModerate?: boolean;
 }
 
 // ---- Mention Dropdown ----
@@ -173,6 +177,7 @@ interface CommentItemProps {
   firstNewRef: React.RefObject<HTMLDivElement | null>;
   isDeleted: boolean;
   mentionableUsers: MentionableUser[];
+  canModerate: boolean;
 }
 
 const CommentItem = memo(function CommentItem({
@@ -184,8 +189,12 @@ const CommentItem = memo(function CommentItem({
   firstNewRef,
   isDeleted,
   mentionableUsers,
+  canModerate,
 }: CommentItemProps) {
   const isAuthor = comment.author_email === currentUserEmail;
+  const canEditComment = isAuthor;
+  const canDeleteComment = isAuthor || canModerate;
+  const showMenu = canEditComment || canDeleteComment;
   const avatarColor = useMemo(() => getAvatarColor(comment.author_email), [comment.author_email]);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -348,7 +357,7 @@ const CommentItem = memo(function CommentItem({
                     style={{ backgroundColor: 'rgba(0, 137, 123, 0.4)' }}
                   />
                 )}
-                {isAuthor && (
+                {showMenu && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -361,21 +370,25 @@ const CommentItem = memo(function CommentItem({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-32">
-                      <DropdownMenuItem
-                        data-testid={`edit-btn-${comment.id}`}
-                        onClick={handleStartEdit}
-                      >
-                        <Pencil className="h-3.5 w-3.5 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        data-testid={`delete-btn-${comment.id}`}
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setShowDeleteConfirm(true)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
+                      {canEditComment && (
+                        <DropdownMenuItem
+                          data-testid={`edit-btn-${comment.id}`}
+                          onClick={handleStartEdit}
+                        >
+                          <Pencil className="h-3.5 w-3.5 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                      )}
+                      {canDeleteComment && (
+                        <DropdownMenuItem
+                          data-testid={`delete-btn-${comment.id}`}
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setShowDeleteConfirm(true)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
@@ -476,6 +489,7 @@ function CommentPopoverInner({
   triggerClassName,
   onStateChange,
   autoOpen = false,
+  canModerate = false,
 }: CommentPopoverProps) {
   const [open, setOpen] = useState(false);
 
@@ -756,6 +770,7 @@ function CommentPopoverInner({
                   firstNewRef={firstNewRef}
                   isDeleted={comment.is_deleted}
                   mentionableUsers={mentionableUsers}
+                  canModerate={canModerate}
                 />
               ))}
               <div ref={bottomRef} />

@@ -6,8 +6,8 @@ export const ANALYTICS_EVENTS = {
   USER_LOGGED_IN: 'auth:user_logged_in',
   USER_LOGGED_OUT: 'auth:user_logged_out',
   ORG_SWITCHED: 'auth:org_switched',
-  RBAC_NOTICE_VIEWED: 'trial_onboarding:rbac_notice_viewed',
-  RBAC_NOTICE_DISMISSED: 'trial_onboarding:rbac_notice_dismissed',
+  RESOURCE_SHARING_NOTICE_VIEWED: 'trial_onboarding:resource_sharing_notice_viewed',
+  RESOURCE_SHARING_NOTICE_DISMISSED: 'trial_onboarding:resource_sharing_notice_dismissed',
   // Guided product tour (driver.js) for trial-plan orgs — see components/onboarding/tour-gate.tsx
   TOUR_INTENT_MODAL_VIEWED: 'trial_onboarding:tour_intent_modal_viewed',
   // Carries { choice: 'tour' | 'insight' | 'pipeline' | 'close' } — which option was picked.
@@ -726,7 +726,8 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/data-quality', feature: FEATURES.DATA_QUALITY },
   { prefix: '/alerts', feature: FEATURES.ALERTS },
   { prefix: '/notifications', feature: FEATURES.NOTIFICATIONS },
-  { prefix: '/settings/user-management', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
+  { prefix: '/settings/access', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
+  { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
   { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
   { prefix: '/settings/warehouse', feature: FEATURES.SETTINGS_WAREHOUSE },
   { prefix: '/free-trial/activate', feature: FEATURES.FREE_TRIAL_ACTIVATE },

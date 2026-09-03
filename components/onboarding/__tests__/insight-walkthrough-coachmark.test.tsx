@@ -660,16 +660,18 @@ describe('InsightWalkthroughCoachmark', () => {
   });
 
   describe('share dialog stages', () => {
-    it('coaches the Public Access switch on a saved dashboard', async () => {
+    // The General access picker, not the old on/off switch: resource sharing replaced the
+    // is_public toggle with a Private/Everyone/Public select.
+    it('coaches the General access picker on a saved dashboard', async () => {
       mockPathname = '/dashboards/12';
       window.history.pushState({}, '', '/dashboards/12');
-      mountTarget('share-toggle');
+      mountTarget('general-access-select');
       setStage('share_public_toggle');
 
       render(<InsightWalkthroughCoachmark />);
 
       await waitFor(() => expect(popoverTitle()).toContain('Turn on public access'));
-      // Flipping the switch is what advances it (dashboard-native-view's sharing handler),
+      // Choosing Public is what advances it (dashboard-native-view's onMadePublic handler),
       // so the coachmark itself must not move on a click.
       expect(useInsightWalkthroughStore.getState().stage).toBe('share_public_toggle');
     });

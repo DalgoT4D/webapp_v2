@@ -34,7 +34,7 @@ function ConsumerCount({
         <button
           className={
             variant === 'inherit'
-              ? 'underline cursor-pointer hover:opacity-80 text-amber-700'
+              ? 'underline cursor-pointer hover:opacity-80'
               : 'underline font-medium cursor-pointer hover:opacity-80'
           }
           style={variant === 'inherit' ? undefined : { color: 'var(--primary)' }}
