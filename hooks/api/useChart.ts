@@ -9,6 +9,7 @@ import type {
   ChartUpdate,
   ChartDataPayload,
   ChartDataResponse,
+  ChartMetric,
   DataPreviewResponse,
 } from '@/types/charts';
 import { DashboardFilter } from './useDashboards';
@@ -379,8 +380,11 @@ export interface MapDataOverlayRawPayload {
   schema_name: string;
   table_name: string;
   geographic_column: string;
-  value_column: string;
-  aggregate_function: string;
+  // Preferred: the actual metric (supports calculated/column_expression metrics).
+  metric?: ChartMetric;
+  // Legacy fields, used when `metric` isn't provided (charts saved before the metrics array existed).
+  value_column?: string;
+  aggregate_function?: string;
   filters?: Record<string, any>;
   dashboard_filters?: Record<string, any>;
   extra_config?: {
@@ -390,17 +394,12 @@ export interface MapDataOverlayRawPayload {
   };
 }
 
-// Transform raw map overlay payload to match backend requirements.
-// For count operations, value_column may be absent — falls back to geographic_column.
-export function transformMapDataOverlayPayload(payload: MapDataOverlayRawPayload | null) {
-  if (
-    !payload ||
-    !payload.schema_name ||
-    !payload.table_name ||
-    !payload.geographic_column ||
-    !payload.aggregate_function ||
-    (!payload.value_column && payload.aggregate_function !== 'count')
-  ) {
+// Builds the overlay payload for a Simple-mode metric (aggregation + column).
+// Returns null when there isn't enough information to run the aggregation.
+function buildSimpleMapOverlayPayload(payload: MapDataOverlayRawPayload, metric?: ChartMetric) {
+  const aggregation = metric?.aggregation || payload.aggregate_function;
+  const column = metric?.column || payload.value_column;
+  if (!aggregation || (!column && aggregation !== 'count')) {
     return null;
   }
 
@@ -408,13 +407,11 @@ export function transformMapDataOverlayPayload(payload: MapDataOverlayRawPayload
     schema_name: payload.schema_name,
     table_name: payload.table_name,
     geographic_column: payload.geographic_column,
-    value_column: payload.value_column || payload.geographic_column,
+    value_column: column || payload.geographic_column,
     metrics: [
       {
-        column:
-          payload.value_column ||
-          (payload.aggregate_function === 'count' ? payload.geographic_column : null),
-        aggregation: payload.aggregate_function,
+        column: column || (aggregation === 'count' ? payload.geographic_column : null),
+        aggregation,
         alias: 'value',
       },
     ],
@@ -422,6 +419,36 @@ export function transformMapDataOverlayPayload(payload: MapDataOverlayRawPayload
     dashboard_filters: payload.dashboard_filters || {},
     extra_config: payload.extra_config || {},
   };
+}
+
+// Builds the overlay payload for a Calculated-mode metric (column_expression).
+function buildCalculatedMapOverlayPayload(payload: MapDataOverlayRawPayload, metric: ChartMetric) {
+  return {
+    schema_name: payload.schema_name,
+    table_name: payload.table_name,
+    geographic_column: payload.geographic_column,
+    metrics: [
+      {
+        column_expression: metric.column_expression,
+        alias: 'value',
+      },
+    ],
+    filters: payload.filters || {},
+    dashboard_filters: payload.dashboard_filters || {},
+    extra_config: payload.extra_config || {},
+  };
+}
+
+// Transform raw map overlay payload to match backend requirements.
+// For count operations, value_column may be absent — falls back to geographic_column.
+export function transformMapDataOverlayPayload(payload: MapDataOverlayRawPayload | null) {
+  if (!payload || !payload.schema_name || !payload.table_name || !payload.geographic_column) {
+    return null;
+  }
+
+  return payload.metric?.column_expression
+    ? buildCalculatedMapOverlayPayload(payload, payload.metric)
+    : buildSimpleMapOverlayPayload(payload, payload.metric);
 }
 
 // Fetch map data separately (for data overlay on existing GeoJSON)
