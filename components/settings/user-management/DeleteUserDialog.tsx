@@ -49,10 +49,15 @@ export function DeleteUserDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete User</AlertDialogTitle>
-          <AlertDialogDescription>
-            Are you sure you want to delete <strong>{userEmail}</strong>? This will permanently
-            remove the user from your organization. The user will need to be invited again to rejoin
-            the platform.
+          <AlertDialogDescription asChild>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>
+                Are you sure you want to delete <strong>{userEmail}</strong>? This will permanently
+                remove the user from your organization. The user will need to be invited again to
+                rejoin the platform.
+              </p>
+              <p>You will be made the owner of all resources currently owned by this user.</p>
+            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
