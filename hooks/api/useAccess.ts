@@ -222,11 +222,13 @@ export function useResourceGrantActions(rtype: string, resourceId: number | stri
 export async function transferOwnership(
   rtype: string,
   resourceId: number,
-  toOrguserId: number
+  toOrguserId: number,
+  stripPreviousOwnerAccess = false
 ): Promise<void> {
   try {
     await (apiPost as any)(`/api/access/${rtype}/${resourceId}/transfer-ownership`, {
       to_orguser_id: toOrguserId,
+      strip_previous_owner_access: stripPreviousOwnerAccess,
     });
     toast.success('Ownership transferred');
   } catch (error: any) {

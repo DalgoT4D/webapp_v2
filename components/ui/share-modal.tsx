@@ -461,7 +461,7 @@ export function ShareModal({
     if (!rtype || !myOrguserId) return;
     setIsTakingOver(true);
     try {
-      await transferOwnership(rtype, entityId, myOrguserId);
+      await transferOwnership(rtype, entityId, myOrguserId, true);
       mutateGrants();
       onUpdate?.();
       setTakeoverConfirmOpen(false);
@@ -746,44 +746,43 @@ export function ShareModal({
                           ? `${chips.find((c) => c.kind === 'email')?.email} isn't on Dalgo yet.`
                           : `${chips.filter((c) => c.kind === 'email').length} emails aren't on Dalgo yet.`}
                       </strong>
-                      <div>Assign new invites a role before sharing the resource.</div>
+                      {isAdmin ? (
+                        <div>Choose a role for new invites before sharing.</div>
+                      ) : (
+                        <div>
+                          They will be invited as <strong>Member</strong>.
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="invite-role">Invite new users as</Label>
-                    <Select
-                      value={inviteRoleUuid}
-                      onValueChange={(v) => {
-                        setInviteRoleUuid(v);
-                        setRoleError(null);
-                      }}
-                      disabled={!isAdmin}
-                    >
-                      <SelectTrigger
-                        id="invite-role"
-                        className={roleError ? 'border-red-500' : ''}
-                        data-testid="share-invite-role"
+                  {isAdmin && (
+                    <div className="space-y-2">
+                      <Label htmlFor="invite-role">Invite new users as</Label>
+                      <Select
+                        value={inviteRoleUuid}
+                        onValueChange={(v) => {
+                          setInviteRoleUuid(v);
+                          setRoleError(null);
+                        }}
                       >
-                        <SelectValue placeholder="Select role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(isAdmin
-                          ? (roles ?? [])
-                          : (roles ?? []).filter((r) => r.slug === ROLES.MEMBER)
-                        ).map((role) => (
-                          <SelectItem key={role.uuid} value={role.uuid}>
-                            {role.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {!isAdmin && (
-                      <p className="text-xs text-muted-foreground">
-                        You can only invite users as Member. Ask an Admin to grant higher roles.
-                      </p>
-                    )}
-                    {roleError && <p className="text-sm text-red-500">{roleError}</p>}
-                  </div>
+                        <SelectTrigger
+                          id="invite-role"
+                          className={roleError ? 'border-red-500' : ''}
+                          data-testid="share-invite-role"
+                        >
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(roles ?? []).map((role) => (
+                            <SelectItem key={role.uuid} value={role.uuid}>
+                              {role.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {roleError && <p className="text-sm text-red-500">{roleError}</p>}
+                    </div>
+                  )}
                 </>
               )}
 
@@ -1010,8 +1009,7 @@ export function ShareModal({
                   </DialogTitle>
                 </DialogHeader>
                 <p className="text-sm text-muted-foreground">
-                  Changing or removing permissions on a dashboard may affect access to its inner
-                  charts and KPIs. Chart access follows the dashboard share.
+                  Changing permissions on a dashboard may change access to its charts and KPIs.
                 </p>
                 <div className="flex justify-end gap-3 mt-2">
                   <Button variant="outline" onClick={() => setPendingAction(null)}>
@@ -1057,11 +1055,11 @@ export function ShareModal({
             <Dialog open onOpenChange={() => setTakeoverConfirmOpen(false)}>
               <DialogContent className="sm:max-w-sm">
                 <DialogHeader>
-                  <DialogTitle>Take ownership from {owner.email}?</DialogTitle>
+                  <DialogTitle>Remove owner and take over?</DialogTitle>
                 </DialogHeader>
                 <p className="text-sm text-muted-foreground">
-                  You will become the owner of this {entityLabelLower}. {owner.email} will keep Edit
-                  access.
+                  You will become the owner of this {entityLabelLower}.{' '}
+                  <strong>{owner.email}</strong> will no longer have direct access.
                 </p>
                 <div className="flex justify-end gap-3 mt-2">
                   <Button variant="outline" onClick={() => setTakeoverConfirmOpen(false)}>
