@@ -929,12 +929,12 @@ export function ShareModal({
                       <p className="text-sm font-medium">General access</p>
                       <p className="text-xs text-muted-foreground">
                         {generalAccess.mode === 'internal' &&
-                          'Everyone in your organisation can access this, based on their role'}
+                          'Users can access this resource based on their role permissions'}
                         {generalAccess.mode === 'private' &&
-                          `Only people you share with can access this ${entityLabelLower}`}
+                          'Only direct shares can access this resource'}
                         {generalAccess.mode === 'public' &&
                           (generalAccess.allow_public_sharing
-                            ? 'Everyone in your organisation, plus anyone with the link.'
+                            ? 'Anyone on the internet with the link can access this resource'
                             : 'Public sharing is turned off by your admin')}
                       </p>
                     </div>
@@ -947,7 +947,7 @@ export function ShareModal({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="internal">Internal</SelectItem>
+                        <SelectItem value="internal">Default</SelectItem>
                         <SelectItem value="private">Private</SelectItem>
                         {generalAccess.supports_public && (
                           <SelectItem value="public" disabled={!generalAccess.allow_public_sharing}>
