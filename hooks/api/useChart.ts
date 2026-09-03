@@ -32,6 +32,12 @@ const deleteChart = (url: string, { arg }: { arg: number }) => apiDelete(`${url}
 const bulkDeleteCharts = (url: string, { arg }: { arg: number[] }) =>
   apiPost(`${url}bulk-delete/`, { chart_ids: arg });
 
+const favoriteChart = (url: string, { arg }: { arg: number }) =>
+  apiPost(`${url}${arg}/favorite/`, {});
+
+const unfavoriteChart = (url: string, { arg }: { arg: number }) =>
+  apiDelete(`${url}${arg}/favorite/`);
+
 // Hooks
 export function useCharts() {
   return useSWR('/api/charts/', chartsFetcher);
@@ -55,6 +61,14 @@ export function useDeleteChart() {
 
 export function useBulkDeleteCharts() {
   return useSWRMutation('/api/charts/', bulkDeleteCharts);
+}
+
+export function useFavoriteChart() {
+  return useSWRMutation('/api/charts/', favoriteChart);
+}
+
+export function useUnfavoriteChart() {
+  return useSWRMutation('/api/charts/', unfavoriteChart);
 }
 
 export function useChartData(payload: ChartDataPayload | null) {
