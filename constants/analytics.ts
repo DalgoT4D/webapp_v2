@@ -203,6 +203,9 @@ export const ANALYTICS_EVENTS = {
   DASHBOARD_WIDGET_MOVED_BETWEEN_TABS: 'dashboard:widget_moved_between_tabs',
   DASHBOARD_RICH_TEXT_EDIT_STARTED: 'dashboard:rich_text_edit_started',
   DASHBOARD_RICH_TEXT_FORMAT_APPLIED: 'dashboard:rich_text_format_applied',
+  DASHBOARD_TEXT_IMAGE_ADDED: 'dashboard:text_image_added',
+  DASHBOARD_TEXT_IMAGE_REMOVED: 'dashboard:text_image_removed',
+  DASHBOARD_TEXT_IMAGE_UPDATED: 'dashboard:text_image_updated',
   // Reports. Mirrors the dashboard set: one create, one share act, one made-public.
   // Fired from the GENERATE REPORT button in create-snapshot-dialog, on the success path,
   // so it carries the new report_id the POST returns.
