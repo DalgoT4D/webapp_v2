@@ -410,18 +410,47 @@ export function ShareModal({
     return `Access on this resource is inherited from: ${titles} — change permissions from there`;
   };
 
-  const handleRowLevelChange = (share: ShareRow, level: AccessLevel) => {
+  const handleRowLevelChange = async (share: ShareRow, level: AccessLevel) => {
     if (share.access_level === level) return;
     if (rtype === 'dashboard') {
       setPendingAction({ kind: 'level', share, level });
       return;
     }
+    // Cascade-only row: upgrade (direct override) is allowed, downgrade is not.
     if (share.share_id === null) {
-      toastError.api(cascadeBlockMessage(share));
-      return;
-    }
-    if (share.cascade_sources?.length > 0 && LEVEL_RANK[level] < LEVEL_RANK[share.access_level]) {
-      toastError.api(cascadeBlockMessage(share));
+      if (LEVEL_RANK[level] <= LEVEL_RANK[share.access_level]) {
+        toastError.api(
+          `Inherited access already grants ${share.access_level}. Cannot assign a lower or equal level directly.`
+        );
+        return;
+      }
+      // Create a direct share at the higher level alongside the cascade row.
+      // Invitation rows (pending) have no principal_id to upgrade.
+      if (
+        (share.principal_type === 'user' || share.principal_type === 'group') &&
+        share.principal_id != null
+      ) {
+        setRowBusyId(share.principal_id);
+        try {
+          const res = await addGrants({
+            principals: [
+              {
+                principal_type: share.principal_type,
+                principal_id: share.principal_id,
+                access_level: level,
+              },
+            ],
+          });
+          await mutateGrants({
+            shares: res.shares,
+            caller_is_owner: callerIsOwner,
+            general_access: generalAccess!,
+            owner,
+          });
+        } finally {
+          setRowBusyId(null);
+        }
+      }
       return;
     }
     doRowLevelChange(share, level);
@@ -868,16 +897,33 @@ export function ShareModal({
                                     handleRowLevelChange(s, v as AccessLevel);
                                   }}
                                   disabled={
-                                    (rowBusyId != null && rowBusyId === s.share_id) ||
-                                    s.share_id === null
+                                    rowBusyId != null &&
+                                    (rowBusyId === s.share_id ||
+                                      (s.share_id === null && rowBusyId === s.principal_id))
                                   }
                                 >
                                   <SelectTrigger className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-50 focus:ring-0 focus-visible:ring-0">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="view">View</SelectItem>
-                                    <SelectItem value="edit">Edit</SelectItem>
+                                    <SelectItem
+                                      value="view"
+                                      disabled={
+                                        s.share_id === null &&
+                                        LEVEL_RANK['view'] <= LEVEL_RANK[s.access_level]
+                                      }
+                                    >
+                                      View
+                                    </SelectItem>
+                                    <SelectItem
+                                      value="edit"
+                                      disabled={
+                                        s.share_id === null &&
+                                        LEVEL_RANK['edit'] <= LEVEL_RANK[s.access_level]
+                                      }
+                                    >
+                                      Edit
+                                    </SelectItem>
                                     {isOwnerOrAdmin &&
                                       s.principal_type === 'user' &&
                                       s.principal_id != null &&
@@ -895,7 +941,9 @@ export function ShareModal({
                             </TooltipTrigger>
                             {s.share_id === null && (
                               <TooltipContent className="max-w-xs">
-                                {cascadeBlockMessage(s)}
+                                {s.access_level === 'edit'
+                                  ? cascadeBlockMessage(s)
+                                  : `Access inherited from a dashboard. You can upgrade to a higher level.`}
                               </TooltipContent>
                             )}
                           </Tooltip>
