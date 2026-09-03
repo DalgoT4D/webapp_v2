@@ -64,18 +64,27 @@ export function useChartData(payload: ChartDataPayload | null) {
   });
 }
 
+// Table data preview for a live chart, or (when snapshotId is passed) for a
+// report snapshot. Report requests derive the chart's definition and the
+// snapshot's period lock from chart_id server-side (never from the request),
+// so filtering keeps working even if the source dashboard is later deleted —
+// `payload` is only used as the live-chart request body and the fetch-ready
+// gate; report requests send an empty body.
 export function useChartDataPreview(
   payload: ChartDataPayload | null,
   page: number = 1,
   pageSize: number = 50,
-  dashboardFilters: Record<string, any> = {}
+  dashboardFilters: Record<string, any> = {},
+  snapshotId?: number | null,
+  chartId?: number | null
 ) {
   // Create a stable key that includes pagination parameters and dashboard filters
   const filterHash =
     Object.keys(dashboardFilters).length > 0 ? JSON.stringify(dashboardFilters) : '';
-  const swrKey = payload
-    ? [`/api/charts/chart-data-preview/`, payload, page, pageSize, filterHash]
-    : null;
+  const baseUrl = snapshotId
+    ? `/api/reports/${snapshotId}/charts/${chartId}/table-data/`
+    : '/api/charts/chart-data-preview/';
+  const swrKey = payload ? [baseUrl, payload, page, pageSize, filterHash, snapshotId] : null;
 
   return useSWR(
     swrKey,
@@ -98,22 +107,25 @@ export function useChartDataPreview(
       }
 
       // Use the centralized API client with query parameters
-      return apiPost(`${url}?${queryParams}`, data);
+      return apiPost(`${url}?${queryParams}`, snapshotId ? {} : data);
     }
   );
 }
 
-// Chart data preview total rows hook
+// Chart data preview total rows hook — same live-vs-report split as useChartDataPreview.
 export function useChartDataPreviewTotalRows(
   payload: ChartDataPayload | null,
-  dashboardFilters: Record<string, any> = {}
+  dashboardFilters: Record<string, any> = {},
+  snapshotId?: number | null,
+  chartId?: number | null
 ) {
   // Create a stable key that includes dashboard filters
   const filterHash =
     Object.keys(dashboardFilters).length > 0 ? JSON.stringify(dashboardFilters) : '';
-  const swrKey = payload
-    ? ['/api/charts/chart-data-preview/total-rows/', payload, filterHash]
-    : null;
+  const baseUrl = snapshotId
+    ? `/api/reports/${snapshotId}/charts/${chartId}/table-data/total-rows/`
+    : '/api/charts/chart-data-preview/total-rows/';
+  const swrKey = payload ? [baseUrl, payload, filterHash, snapshotId] : null;
 
   return useSWR(swrKey, ([url, data, filters]: [string, ChartDataPayload, string]) => {
     // Add dashboard filters as query parameters if present
@@ -123,7 +135,10 @@ export function useChartDataPreviewTotalRows(
     }
 
     // Use the centralized API client with query parameters
-    return apiPost(`${url}${queryParams.toString() ? `?${queryParams}` : ''}`, data);
+    return apiPost(
+      `${url}${queryParams.toString() ? `?${queryParams}` : ''}`,
+      snapshotId ? {} : data
+    );
   });
 }
 
@@ -410,7 +425,17 @@ export function transformMapDataOverlayPayload(payload: MapDataOverlayRawPayload
 }
 
 // Fetch map data separately (for data overlay on existing GeoJSON)
-export function useMapDataOverlay(payload: MapDataOverlayRawPayload | null) {
+// Fetch map data overlay for a live dashboard, or (when snapshotId is passed)
+// for a report snapshot. Report requests derive the chart's definition and
+// the snapshot's period lock from chart_id server-side (never from the
+// request) — only the live dashboard_filters are still caller-supplied,
+// sent as a query param like the table endpoints — so filtering keeps
+// working even if the source dashboard is later deleted.
+export function useMapDataOverlay(
+  payload: MapDataOverlayRawPayload | null,
+  snapshotId?: number | null,
+  chartId?: number | null
+) {
   const transformedPayload = transformMapDataOverlayPayload(payload);
 
   // Create a simple, stable key similar to regular charts for better filter change detection
@@ -423,20 +448,33 @@ export function useMapDataOverlay(payload: MapDataOverlayRawPayload | null) {
       })
     : '';
 
+  const baseUrl = snapshotId
+    ? `/api/reports/${snapshotId}/charts/${chartId}/map-data/`
+    : '/api/charts/map-data-overlay/';
+
   const swrKey = transformedPayload
-    ? `/api/charts/map-data-overlay/?payload=${encodeURIComponent(JSON.stringify(transformedPayload))}&filters=${encodeURIComponent(filterHash)}`
+    ? `${baseUrl}?payload=${encodeURIComponent(JSON.stringify(transformedPayload))}&filters=${encodeURIComponent(filterHash)}`
     : null;
 
   return useSWR(
     swrKey,
     async (url: string) => {
       // Extract the payload from URL params for the API call
-      const urlParams = new URLSearchParams(url.split('?')[1]);
+      const [path, query] = url.split('?');
+      const urlParams = new URLSearchParams(query);
       const payloadParam = urlParams.get('payload');
       const payload = payloadParam ? JSON.parse(decodeURIComponent(payloadParam)) : null;
 
-      // Making API call for map data overlay
-      return apiPost('/api/charts/map-data-overlay/', payload);
+      if (snapshotId) {
+        const dashboardFilters = payload?.dashboard_filters;
+        const hasFilters = dashboardFilters && Object.keys(dashboardFilters).length > 0;
+        const qs = hasFilters
+          ? `?dashboard_filters=${encodeURIComponent(JSON.stringify(dashboardFilters))}`
+          : '';
+        return apiPost(`${path}${qs}`, {});
+      }
+
+      return apiPost(path, payload);
     },
     {
       revalidateOnFocus: false,
