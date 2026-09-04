@@ -3,13 +3,24 @@ import { PublicReportView } from './PublicReportView';
 
 interface PublicReportPageProps {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ print?: string }>;
+  searchParams: Promise<{ print?: string; dashboard_filters?: string }>;
 }
 
 export default async function PublicReportPage({ params, searchParams }: PublicReportPageProps) {
   const { token } = await params;
   const resolvedSearchParams = await searchParams;
   const printMode = resolvedSearchParams?.print === 'true';
+
+  // Only meaningful during PDF export (Playwright appends it) — lets the print
+  // capture reflect whatever filter the exporting viewer currently had applied.
+  let dashboardFilters: Record<string, any> | undefined;
+  if (resolvedSearchParams?.dashboard_filters) {
+    try {
+      dashboardFilters = JSON.parse(resolvedSearchParams.dashboard_filters);
+    } catch {
+      dashboardFilters = undefined;
+    }
+  }
 
   return (
     <div className={printMode ? 'bg-white' : 'min-h-screen bg-gray-50'}>
@@ -25,7 +36,7 @@ export default async function PublicReportPage({ params, searchParams }: PublicR
           )
         }
       >
-        <PublicReportView token={token} printMode={printMode} />
+        <PublicReportView token={token} printMode={printMode} dashboardFilters={dashboardFilters} />
       </Suspense>
     </div>
   );

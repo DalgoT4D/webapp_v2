@@ -15,6 +15,7 @@ interface PrintLayoutProps {
   frozenChartConfigs: Record<string, FrozenChartConfig>;
   publicToken: string;
   isPublicMode?: boolean;
+  dashboardFilters?: Record<string, any>; // Currently-applied filter values to bake into the PDF/print capture
 }
 
 interface LayoutItem {
@@ -61,6 +62,7 @@ export function PrintLayout({
   frozenChartConfigs,
   publicToken,
   isPublicMode = true,
+  dashboardFilters = {},
 }: PrintLayoutProps) {
   const tabs = dashboardData.tabs || [];
 
@@ -77,7 +79,7 @@ export function PrintLayout({
               <CardContent className="p-2" style={{ height }}>
                 <ChartElementView
                   chartId={component.config?.chartId}
-                  dashboardFilters={{}}
+                  dashboardFilters={dashboardFilters}
                   dashboardFilterConfigs={[]}
                   viewMode={true}
                   className="h-full"

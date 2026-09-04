@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { Combobox, highlightText } from '@/components/ui/combobox';
@@ -486,12 +486,15 @@ export function MetricFormDialog({
 
           {/* Edit blast radius warning */}
           {isEdit && hasConsumers && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
-              <p className="text-sm font-medium text-amber-700 mb-1">
-                This metric has been used in multiple places. Editing and changing it can affect
-                them.
-              </p>
-              <ConsumerLinks consumers={consumers!} variant="inherit" />
+            <div className="flex items-start gap-2 rounded-md border border-orange-200 bg-orange-50 p-3">
+              <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-orange-800">
+                <strong>Warning:</strong> This metric has been used in multiple resources. Editing
+                it will affect them.
+                <div className="mt-1">
+                  <ConsumerLinks consumers={consumers!} variant="inherit" />
+                </div>
+              </div>
             </div>
           )}
 

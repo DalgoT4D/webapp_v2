@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Pencil, X, MoreVertical, Trash2, BellRing } from 'lucide-react';
+import { Pencil, X, MoreVertical, Trash2, BellRing, Share2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +42,8 @@ import { trackEvent } from '@/lib/analytics';
 import { ALERT_CREATE_SOURCES, ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
+import { RequestEditPill } from '@/components/access/request-edit-pill';
+import { ShareModal } from '@/components/ui/share-modal';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
 const grainLabel: Record<string, string> = {
@@ -129,9 +131,15 @@ export function KPIDetailDrawer({
     { period: string; period_date: string | null; value: number | null }[]
   >([]);
   const [alertWizardOpen, setAlertWizardOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const { hasPermission } = useRbac();
   const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
-  const canEditKpis = hasPermission(PERMISSIONS.CAN_EDIT_KPIS);
+  // Per-resource access — a member granted edit has kpi.access_level === 'edit'
+  // even without the role-level can_edit_kpis slug. Backend enforces on save.
+  const canEditKpis = kpi?.access_level === 'edit';
+  // Share gate mirrors the KPI list page + other resources: effective Edit on
+  // the KPI (owner, admin, or Edit grant) can open the Share modal.
+  const canShareKpi = canEditKpis;
 
   // Reset filters when KPI changes or drawer closes
   useEffect(() => {
@@ -214,6 +222,11 @@ export function KPIDetailDrawer({
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
+              <RequestEditPill
+                rtype="kpi"
+                resourceId={kpi.id}
+                resourceAccessLevel={kpi.access_level}
+              />
               {canCreateAlert && (
                 <Button
                   variant="ghost"
@@ -224,6 +237,18 @@ export function KPIDetailDrawer({
                   title="Create alert"
                 >
                   <BellRing className="w-4 h-4" />
+                </Button>
+              )}
+              {canShareKpi && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setShareModalOpen(true)}
+                  aria-label="Share KPI"
+                  title="Share KPI"
+                >
+                  <Share2 className="w-4 h-4" />
                 </Button>
               )}
               {canEditKpis && (
@@ -348,6 +373,15 @@ export function KPIDetailDrawer({
         initial={{ alertType: 'kpi_rag', kpiId: kpi?.id ?? null }}
         createSource={ALERT_CREATE_SOURCES.KPI_DRAWER}
       />
+      {kpi && (
+        <ShareModal
+          rtype="kpi"
+          entityId={kpi.id}
+          entityLabel={kpi.name}
+          isOpen={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+        />
+      )}
     </Sheet>
   );
 }

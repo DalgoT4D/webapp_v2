@@ -6,6 +6,7 @@ import { useSWRConfig } from 'swr';
 import {
   Plus,
   Search,
+  Share2,
   Target,
   MoreVertical,
   Pencil,
@@ -14,6 +15,7 @@ import {
   BellRing,
   ChevronLeft,
   ChevronRight,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +46,8 @@ import {
 } from '@/components/onboarding/insight-walkthrough-constants';
 import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
+import { ShareModal } from '@/components/ui/share-modal';
+import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
 import { KPIDeleteDialog } from './kpi-delete-dialog';
@@ -72,9 +76,11 @@ function KPICardWithData({
   onEdit,
   onDelete,
   onCreateAlert,
+  onShare,
   canCreateAlert,
   canEditKpis,
   canDeleteKpis,
+  canShare,
   statusFilter,
 }: {
   kpi: KPI;
@@ -84,9 +90,11 @@ function KPICardWithData({
   onEdit: () => void;
   onDelete: () => void;
   onCreateAlert?: () => void;
+  onShare?: () => void;
   canCreateAlert?: boolean;
   canEditKpis?: boolean;
   canDeleteKpis?: boolean;
+  canShare?: boolean;
   statusFilter?: string;
 }) {
   const { chartData, echartsConfig, isLoading } = useKPIData(kpi.id);
@@ -145,6 +153,12 @@ function KPICardWithData({
                 Create alert
               </DropdownMenuItem>
             )}
+            {canShare && onShare && (
+              <DropdownMenuItem onClick={onShare} className="cursor-pointer">
+                <Share2 className="w-4 h-4 mr-2" />
+                Share
+              </DropdownMenuItem>
+            )}
             {canDeleteKpis && (
               <>
                 <DropdownMenuSeparator />
@@ -185,6 +199,10 @@ export function KPIPageComponent() {
   const [deletingKpi, setDeletingKpi] = useState<KPI | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [alertKpiId, setAlertKpiId] = useState<number | null>(null);
+  const [shareModalKpi, setShareModalKpi] = useState<KPI | null>(null);
+  const { initialOpen: shouldAutoOpenShare, clearParam: clearShareDeepLink } = useOpenShareDeepLink(
+    ['kpiId']
+  );
 
   const { hasPermission } = useRbac();
   // Create/edit/delete affordances are hidden for view-only roles (members) and
@@ -239,6 +257,20 @@ export function KPIPageComponent() {
       router.replace(qs ? `/kpis?${qs}` : '/kpis', { scroll: false });
     }
   }, [searchParams, kpis, router]);
+
+  // Auto-open share modal when ?openShare=true&kpiId={id} is in the URL —
+  // deep link from an access-request notification.
+  useEffect(() => {
+    if (!shouldAutoOpenShare || kpis.length === 0) return;
+    const kpiId = searchParams.get('kpiId');
+    if (!kpiId) return;
+    const kpi = kpis.find((k) => k.id === parseInt(kpiId));
+    if (kpi) {
+      setShareModalKpi(kpi);
+    }
+    clearShareDeepLink();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldAutoOpenShare, kpis]);
 
   // Strip `?create=true` after consuming it on mount so a refresh doesn't
   // re-open the create form.
@@ -495,9 +527,11 @@ export function KPIPageComponent() {
                     onEdit={() => handleEdit(kpi)}
                     onDelete={() => handleDeleteClick(kpi)}
                     onCreateAlert={() => setAlertKpiId(kpi.id)}
+                    onShare={() => setShareModalKpi(kpi)}
                     canCreateAlert={canCreateAlert}
-                    canEditKpis={canEditKpis}
+                    canEditKpis={kpi.access_level === 'edit'}
                     canDeleteKpis={canDeleteKpis}
+                    canShare={kpi.access_level === 'edit'}
                     statusFilter={statusFilter || undefined}
                   />
                 ))}
@@ -569,6 +603,20 @@ export function KPIPageComponent() {
         initial={{ alertType: 'kpi_rag', kpiId: alertKpiId }}
         createSource={ALERT_CREATE_SOURCES.KPI_LIST}
       />
+
+      {shareModalKpi && (
+        <ShareModal
+          rtype="kpi"
+          entityId={shareModalKpi.id}
+          entityLabel={shareModalKpi.name}
+          isOpen={shareModalKpi !== null}
+          onClose={() => {
+            setShareModalKpi(null);
+            clearShareDeepLink();
+          }}
+          onUpdate={mutate}
+        />
+      )}
     </div>
   );
 }
