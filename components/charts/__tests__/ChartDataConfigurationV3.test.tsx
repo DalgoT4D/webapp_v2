@@ -506,6 +506,23 @@ describe('ChartDataConfigurationV3', () => {
       );
       expect(screen.getByText('Pagination')).toBeInTheDocument();
     });
+
+    it('should offer every table dimension as a sortable column, not just the first', async () => {
+      const user = userEvent.setup();
+      const formData = {
+        ...baseFormData,
+        chart_type: 'table' as const,
+        dimensions: [{ column: 'region' }, { column: 'city' }, { column: 'created_at' }],
+        metrics: [{ column: 'amount', aggregation: 'sum' }],
+      };
+      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+
+      await user.click(screen.getByPlaceholderText('Select column to sort'));
+
+      expect(screen.getByRole('option', { name: /region/i })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: /city/i })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: /created_at/i })).toBeInTheDocument();
+    });
   });
 
   describe('Map Chart Specifics', () => {
