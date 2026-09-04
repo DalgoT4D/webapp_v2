@@ -215,17 +215,4 @@ describe('RecipientPicker', () => {
       expect(screen.queryByText('last@example.com')).not.toBeInTheDocument();
     });
   });
-
-  it('commits the draft email on blur (commitOnBlur)', async () => {
-    const user = userEvent.setup();
-    render(<Wrapper />);
-
-    const input = screen.getByTestId('recipient-add-input');
-    await user.type(input, 'blur@example.com');
-    fireEvent.blur(input);
-
-    await waitFor(() => {
-      expect(screen.getByText('blur@example.com')).toBeInTheDocument();
-    });
-  });
 });

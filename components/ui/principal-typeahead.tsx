@@ -60,6 +60,7 @@ export function PrincipalTypeahead({
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if ((e.key === 'Enter' || e.key === ',') && onCommitEmail) {
       e.preventDefault();
+      setOpen(false);
       if (onPasteEmails && /[,;\s]/.test(value)) {
         onPasteEmails(value.split(/[,;\s]+/).filter(Boolean));
       } else {

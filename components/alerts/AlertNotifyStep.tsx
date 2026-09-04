@@ -60,7 +60,7 @@ function ChannelCard({
         checked ? 'border-gray-300' : 'border-gray-200'
       )}
     >
-      <label className={cn('flex items-center gap-3 px-4 py-3', !disabled && 'cursor-pointer')}>
+      <div className="flex items-center gap-3 px-4 py-3">
         <Checkbox
           checked={checked}
           disabled={disabled}
@@ -68,7 +68,7 @@ function ChannelCard({
           data-testid={testId}
         />
         <span className="text-sm font-medium text-gray-900">{title}</span>
-      </label>
+      </div>
       {checked && children && <div className="border-t border-gray-200 px-4 py-3">{children}</div>}
     </div>
   );

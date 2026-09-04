@@ -138,6 +138,12 @@ export interface AccessDefaults {
 
 export type GeneralAccessMode = 'internal' | 'private' | 'public';
 
+export interface ParentBlock {
+  dashboard_id: number;
+  dashboard_title: string;
+  mode: GeneralAccessMode;
+}
+
 export interface GeneralAccessState {
   mode: GeneralAccessMode;
   supports_public: boolean;
@@ -145,6 +151,8 @@ export interface GeneralAccessState {
   public_url?: string | null;
   public_access_count: number;
   last_public_accessed?: string | null;
+  caller_access_via_floor: boolean;
+  parent_blocks: ParentBlock[];
 }
 
 export interface OwnerInfo {
