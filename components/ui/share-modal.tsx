@@ -972,32 +972,32 @@ export function ShareModal({
               <div className="flex items-start gap-3">
                 <Shield className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">General access</p>
-                      <p className="text-xs text-muted-foreground">
-                        {generalAccess.mode === 'internal' &&
-                          'Users can access this resource based on their role permissions'}
-                        {generalAccess.mode === 'private' &&
-                          'Only direct shares can access this resource'}
-                        {generalAccess.mode === 'public' &&
-                          (generalAccess.allow_public_sharing
-                            ? 'Anyone on the internet with the link can access this resource'
-                            : 'Public sharing is turned off by your admin')}
-                      </p>
-                    </div>
-                    {(() => {
-                      const maxParentRank =
-                        generalAccess.parent_blocks.length > 0
-                          ? Math.max(
-                              ...generalAccess.parent_blocks.map((b) =>
-                                b.mode === 'public' ? 2 : b.mode === 'internal' ? 1 : 0
-                              )
+                  {(() => {
+                    const maxParentRank =
+                      generalAccess.parent_blocks.length > 0
+                        ? Math.max(
+                            ...generalAccess.parent_blocks.map((b) =>
+                              b.mode === 'public' ? 2 : b.mode === 'internal' ? 1 : 0
                             )
-                          : -1;
-                      const anyBlocked = maxParentRank > 0;
-                      return (
-                        <>
+                          )
+                        : -1;
+                    const anyBlocked = maxParentRank > 0;
+                    return (
+                      <>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">General access</p>
+                            <p className="text-xs text-muted-foreground">
+                              {generalAccess.mode === 'internal' &&
+                                'Users can access this resource based on their role permissions'}
+                              {generalAccess.mode === 'private' &&
+                                'Only direct shares can access this resource'}
+                              {generalAccess.mode === 'public' &&
+                                (generalAccess.allow_public_sharing
+                                  ? 'Anyone on the internet with the link can access this resource'
+                                  : 'Public sharing is turned off by your admin')}
+                            </p>
+                          </div>
                           <Select
                             value={generalAccess.mode}
                             onValueChange={(v) => handleModeChange(v as GeneralAccessMode)}
@@ -1006,7 +1006,7 @@ export function ShareModal({
                             <SelectTrigger className="w-32 h-8" data-testid="general-access-select">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent position="popper">
                               <SelectItem value="internal" disabled={maxParentRank > 1}>
                                 Default
                               </SelectItem>
@@ -1023,21 +1023,19 @@ export function ShareModal({
                               )}
                             </SelectContent>
                           </Select>
-                          {anyBlocked && (
-                            <p className="text-xs text-muted-foreground mt-2">
-                              Some options are restricted as this resource is used in shared
-                              dashboards:{' '}
-                              <strong>
-                                {generalAccess.parent_blocks
-                                  .map((b) => b.dashboard_title)
-                                  .join(', ')}
-                              </strong>
-                            </p>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
+                        </div>
+                        {anyBlocked && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Some options are restricted as this resource is used in shared
+                            dashboards:{' '}
+                            <strong>
+                              {generalAccess.parent_blocks.map((b) => b.dashboard_title).join(', ')}
+                            </strong>
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
 
                   {generalAccess.mode === 'public' && generalAccess.allow_public_sharing && (
                     <>
@@ -1150,7 +1148,7 @@ export function ShareModal({
                   <DialogTitle>Remove owner and take over?</DialogTitle>
                 </DialogHeader>
                 <p className="text-sm text-muted-foreground">
-                  You will become the owner of this {entityLabelLower}.{' '}
+                  You will become the owner of this {rtype ?? entityLabelLower}.{' '}
                   <strong>{owner.email}</strong> will no longer have direct access.
                 </p>
                 <div className="flex justify-end gap-3 mt-2">
