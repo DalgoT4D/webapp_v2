@@ -34,6 +34,7 @@ import {
 } from '@/hooks/api/useChart';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { ChartTypes, type ChartType } from '@/types/charts';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@/constants/chart-types';
 import { buildPivotDataFields, buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
 import {
   getApiCustomizations,
@@ -303,7 +304,10 @@ function EditChartPageContent() {
         customizations:
           chart.extra_config?.customizations || getDefaultCustomizations(chart.chart_type),
         filters: chart.extra_config?.filters || [],
-        pagination: chart.extra_config?.pagination || { enabled: false, page_size: 50 },
+        pagination: chart.extra_config?.pagination || {
+          enabled: chart.chart_type === ChartTypes.TABLE,
+          page_size: DEFAULT_TABLE_PAGE_SIZE,
+        },
         sort: chart.extra_config?.sort || [],
         // ✅ FIX: Include geographic_hierarchy so DynamicLevelConfig can auto-fill
         geographic_hierarchy: chart.extra_config?.geographic_hierarchy,
@@ -715,6 +719,11 @@ function EditChartPageContent() {
     // reset the chart data page size and limit when pagination changes
     setDataPreviewPageSize(25);
     setDataPreviewPage(1);
+    // Also sync tableChartPageSize — separate local state that doesn't auto-update otherwise.
+    if (formData.pagination?.page_size) {
+      setTableChartPageSize(formData.pagination.page_size);
+    }
+    setTableChartPage(1);
   }, [formData.pagination?.page_size, formData.pagination?.enabled]);
 
   // Drill-down functionality for maps - fetch regions
