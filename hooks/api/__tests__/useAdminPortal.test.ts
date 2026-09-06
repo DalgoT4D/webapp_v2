@@ -99,8 +99,9 @@ describe('useAdminFlagActions', () => {
 });
 
 describe('useAdminNotifications', () => {
-  it('reads broadcast history from /api/v1/admin/notifications', async () => {
-    mockApiGet.mockResolvedValueOnce([
+  /** One page of history, as the paginated route returns it. */
+  const historyPage = {
+    res: [
       {
         id: 1,
         message: 'hello',
@@ -112,16 +113,45 @@ describe('useAdminNotifications', () => {
         send_email: true,
         recipient_count: 3,
       },
-    ]);
+    ],
+    page: 1,
+    total_pages: 5,
+    total_notifications: 42,
+  };
+
+  it('reads broadcast history from /api/v1/admin/notifications', async () => {
+    // The route is paginated: rows arrive under .res alongside the server-side
+    // total, rather than as a bare unbounded array.
+    mockApiGet.mockResolvedValueOnce(historyPage);
 
     const { result } = renderHook(() => useAdminNotifications(), { wrapper: TestWrapper });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(mockApiGet).toHaveBeenCalledWith('/api/v1/admin/notifications');
+    expect(mockApiGet).toHaveBeenCalledWith('/api/v1/admin/notifications?page=1&limit=10');
     expect(result.current.notifications).toEqual([
       expect.objectContaining({ id: 1, recipient_count: 3, target_org_names: ['Akshara'] }),
     ]);
+    expect(result.current.totalCount).toBe(42);
+  });
+
+  it('puts page and limit in the request, so each page is its own SWR key', async () => {
+    mockApiGet.mockResolvedValueOnce(historyPage);
+
+    const { result } = renderHook(() => useAdminNotifications(3, 20), { wrapper: TestWrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(mockApiGet).toHaveBeenCalledWith('/api/v1/admin/notifications?page=3&limit=20');
+  });
+
+  it('reports an empty page rather than undefined before the first response', () => {
+    mockApiGet.mockReturnValueOnce(new Promise(() => {})); // never resolves
+
+    const { result } = renderHook(() => useAdminNotifications(), { wrapper: TestWrapper });
+
+    expect(result.current.notifications).toEqual([]);
+    expect(result.current.totalCount).toBe(0);
   });
 });
 

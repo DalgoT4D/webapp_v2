@@ -1,6 +1,7 @@
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { DEFAULT_PAGE_SIZE } from '@/constants/notifications';
 
 export interface AdminStats {
   total_orgs: number;
@@ -414,15 +415,29 @@ export interface CreateAdminNotificationForm {
   send_email?: boolean;
 }
 
-/** Review sent broadcasts. */
-export function useAdminNotifications() {
-  const { data, error, isLoading, mutate } = useSWR<AdminNotification[]>(
-    '/api/v1/admin/notifications',
+/** One page of broadcast history. Same wire shape as the user-facing notification
+ * list (types/notifications.ts NotificationsResponse), so both paginate alike. */
+export interface AdminNotificationHistory {
+  res: AdminNotification[];
+  page: number;
+  total_pages: number;
+  total_notifications: number;
+}
+
+/**
+ * Review sent broadcasts, one page at a time — the history only ever grows, so it
+ * is never fetched whole. page/limit are part of the SWR key, so changing either
+ * is a fresh request with its own isLoading rather than a silent in-place swap.
+ */
+export function useAdminNotifications(page = 1, limit = DEFAULT_PAGE_SIZE) {
+  const { data, error, isLoading, mutate } = useSWR<AdminNotificationHistory>(
+    `/api/v1/admin/notifications?page=${page}&limit=${limit}`,
     apiGet
   );
 
   return {
-    notifications: data,
+    notifications: data?.res ?? [],
+    totalCount: data?.total_notifications ?? 0,
     isLoading,
     isError: error,
     error,
