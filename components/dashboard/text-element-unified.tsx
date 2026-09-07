@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { calculateTextDimensions } from '@/lib/chart-size-constraints';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { apiPut, apiDelete } from '@/lib/api';
+import { apiPut } from '@/lib/api';
 import { toastError } from '@/lib/toast';
 import {
   DEFAULT_RICH_TEXT_FONT_SIZE,
@@ -329,19 +329,6 @@ export function UnifiedTextElement({
     return () => document.removeEventListener(DASHBOARD_RICH_TEXT_FLUSH_EVENT, handleFlush);
   }, [closeAllDropdowns, commit, componentId, editor, isEditing]);
 
-  // Best-effort: an old S3-uploaded image being replaced/removed is deleted
-  // in the background. Failures are logged, not surfaced — the user's edit
-  // (new image applied / old one removed from the widget) already succeeded,
-  // and blocking on S3 cleanup would hold up an unrelated action.
-  const deleteS3ImageIfNeeded = useCallback((imageKey: string | undefined) => {
-    if (!imageKey) return;
-    apiDelete('/api/dashboards/images/', { body: JSON.stringify({ image_key: imageKey }) }).catch(
-      (err) => {
-        console.error('Failed to delete old dashboard widget image from S3:', err);
-      }
-    );
-  }, []);
-
   const handleImageUpload = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -357,7 +344,6 @@ export function UnifiedTextElement({
         return;
       }
 
-      const previousImageKey = configRef.current.imageKey;
       setIsUploadingImage(true);
       try {
         const formData = new FormData();
@@ -369,7 +355,6 @@ export function UnifiedTextElement({
           imageKey: res.image_key,
           imageName: file.name,
         });
-        deleteS3ImageIfNeeded(previousImageKey);
         trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_IMAGE_ADDED, { source: 'upload' });
         setShowImageDropdown(false);
         setIsReplacingImage(false);
@@ -379,29 +364,26 @@ export function UnifiedTextElement({
         setIsUploadingImage(false);
       }
     },
-    [deleteS3ImageIfNeeded, onUpdate]
+    [onUpdate]
   );
 
   const handleImageLinkConfirm = useCallback(() => {
     if (!imageLinkInput.trim()) return;
     const trimmed = imageLinkInput.trim();
     const name = trimmed.split('/').pop() || 'image';
-    const previousImageKey = configRef.current.imageKey;
     onUpdate({
       ...configRef.current,
       imageUrl: trimmed,
       imageKey: undefined,
       imageName: name,
     });
-    deleteS3ImageIfNeeded(previousImageKey);
     trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_IMAGE_ADDED, { source: 'link' });
     setImageLinkInput('');
     setShowImageDropdown(false);
     setIsReplacingImage(false);
-  }, [deleteS3ImageIfNeeded, imageLinkInput, onUpdate]);
+  }, [imageLinkInput, onUpdate]);
 
   const handleImageRemove = useCallback(() => {
-    deleteS3ImageIfNeeded(configRef.current.imageKey);
     onUpdate({
       ...configRef.current,
       imageUrl: undefined,
@@ -414,7 +396,7 @@ export function UnifiedTextElement({
     trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_IMAGE_REMOVED);
     setShowImageDropdown(false);
     setIsReplacingImage(false);
-  }, [deleteS3ImageIfNeeded, onUpdate]);
+  }, [onUpdate]);
 
   // Opens the upload/link picker without touching the current image — the
   // image is only replaced once a new upload/link is confirmed. Cancelling
@@ -558,7 +540,7 @@ export function UnifiedTextElement({
           alt={config.imageName || 'Widget image'}
           className={cn('h-full w-full', imageObjectFitClass)}
         />
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-3">
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-y-auto p-3">
           <div className="pointer-events-auto w-full">{editorContent}</div>
         </div>
       </div>

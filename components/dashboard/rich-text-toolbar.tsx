@@ -1,7 +1,15 @@
 'use client';
 
-import { useCallback, type Dispatch, type RefObject, type SetStateAction } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from 'react';
 import { createPortal } from 'react-dom';
+import { HexColorPicker } from 'react-colorful';
 import { useEditorState, type useEditor } from '@tiptap/react';
 import {
   Bold,
@@ -209,6 +217,13 @@ export function RichTextToolbar({
     [dashboardId]
   );
 
+  const [showCustomPicker, setShowCustomPicker] = useState(false);
+  const [customColor, setCustomColor] = useState('#000000');
+
+  useEffect(() => {
+    if (!showColorPicker) setShowCustomPicker(false);
+  }, [showColorPicker]);
+
   return createPortal(
     <div
       className="drag-cancel fixed z-[9999] flex max-w-[calc(100vw-16px)] flex-wrap items-center gap-1 rounded-lg border bg-white p-2 shadow-2xl"
@@ -406,44 +421,100 @@ export function RichTextToolbar({
           />
         </Button>
         {showColorPicker && (
-          <div className="absolute right-0 top-9 z-[10000] w-40 rounded-lg border bg-white p-3 shadow-xl">
-            <p className="mb-2 text-xs font-medium text-gray-700">Text color</p>
-            <div className="grid grid-cols-4 gap-2">
-              {COLOR_PRESETS.map((color) => (
-                <button
-                  key={color}
+          <div className="absolute right-0 top-9 z-[10000] w-48 rounded-lg border bg-white p-3 shadow-xl">
+            {!showCustomPicker ? (
+              <>
+                <p className="mb-2 text-xs font-medium text-gray-700">Text color</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {COLOR_PRESETS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      className={cn(
+                        'h-7 w-7 rounded-md border border-gray-200 transition-transform hover:scale-110',
+                        toolbarState?.color === color && 'ring-2 ring-blue-500 ring-offset-1'
+                      )}
+                      style={{ backgroundColor: color }}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => {
+                        applyFormatting('color', () =>
+                          editor.chain().focus().setColor(color).run()
+                        );
+                        setShowColorPicker(false);
+                      }}
+                      aria-label={`Set text color ${color}`}
+                      data-testid={`rich-text-color-${color.slice(1).toLowerCase()}`}
+                    />
+                  ))}
+                </div>
+                <Button
                   type="button"
-                  className={cn(
-                    'h-7 w-7 rounded-md border border-gray-200 transition-transform hover:scale-110',
-                    toolbarState?.color === color && 'ring-2 ring-blue-500 ring-offset-1'
-                  )}
-                  style={{ backgroundColor: color }}
+                  variant="outline"
+                  size="sm"
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => {
-                    applyFormatting('color', () => editor.chain().focus().setColor(color).run());
-                    setShowColorPicker(false);
+                    setCustomColor(toolbarState?.color || '#000000');
+                    setShowCustomPicker(true);
                   }}
-                  aria-label={`Set text color ${color}`}
-                  data-testid={`rich-text-color-${color.slice(1).toLowerCase()}`}
-                />
-              ))}
-            </div>
-            <label className="mt-3 flex cursor-pointer items-center justify-between border-t pt-3 text-xs text-gray-600">
-              Custom color
-              <input
-                type="color"
-                value={toolbarState?.color || '#000000'}
-                onChange={(event) => {
-                  applyFormatting('color', () =>
-                    editor.chain().focus().setColor(event.target.value).run()
-                  );
-                  setShowColorPicker(false);
-                }}
-                className="h-7 w-10 cursor-pointer overflow-hidden rounded border bg-white p-0"
-                aria-label="Custom text color"
-                data-testid="rich-text-custom-color"
-              />
-            </label>
+                  className="mt-3 h-7 w-full justify-between px-3 text-xs normal-case"
+                  data-testid="rich-text-custom-color-toggle"
+                >
+                  Custom
+                  <span
+                    className="h-5 w-5 rounded border border-gray-300"
+                    style={{ backgroundColor: toolbarState?.color || '#000000' }}
+                  />
+                </Button>
+              </>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <HexColorPicker color={customColor} onChange={setCustomColor} className="!w-full" />
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-6 w-6 flex-shrink-0 rounded border border-gray-300"
+                    style={{ backgroundColor: customColor }}
+                  />
+                  <input
+                    type="text"
+                    value={customColor}
+                    onChange={(event) => setCustomColor(event.target.value)}
+                    className="h-7 w-full rounded border px-2 text-xs uppercase"
+                    aria-label="Custom color hex value"
+                    data-testid="rich-text-custom-color-hex"
+                  />
+                </div>
+                <div className="mt-1 flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-3 text-xs"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => setShowCustomPicker(false)}
+                    data-testid="rich-text-custom-color-cancel"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="primary"
+                    className="h-7 px-3 text-xs"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      applyFormatting('color', () =>
+                        editor.chain().focus().setColor(customColor).run()
+                      );
+                      setShowCustomPicker(false);
+                      setShowColorPicker(false);
+                    }}
+                    data-testid="rich-text-custom-color-ok"
+                  >
+                    OK
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

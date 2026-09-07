@@ -72,7 +72,7 @@ import type {
   DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
 import { DashboardComponentType } from '@/types/dashboard';
-import type { DashboardComponentConfig, DashboardTab } from '@/types/dashboard';
+import type { DashboardTab } from '@/types/dashboard';
 import { initializeTabsData } from './tabs/tab-utils';
 import { moveWidgetBetweenTabs, pointerToGridPosition } from './tabs/cross-tab-drag';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';
@@ -1158,31 +1158,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Handle removing a tab
     const handleTabRemove = useCallback(
       (tabId: string) => {
-        const currentTabs = stateRef.current.tabs;
-        const tabIndex = currentTabs.findIndex((tab) => tab.id === tabId);
-        const willRemove = currentTabs.length > 1 && tabIndex >= 0;
-
-        // Text/image widgets inside the removed tab can hold an S3-uploaded image —
-        // removing the whole tab (not just one widget via the toolbar) would otherwise
-        // orphan those files in S3, since nothing else references their keys.
-        if (willRemove) {
-          Object.values(currentTabs[tabIndex].components || {}).forEach(
-            (component: DashboardComponentConfig) => {
-              const imageKey =
-                component?.type === DashboardComponentType.TEXT
-                  ? component?.config?.imageKey
-                  : undefined;
-              if (imageKey) {
-                apiDelete('/api/dashboards/images/', {
-                  body: JSON.stringify({ image_key: imageKey }),
-                }).catch((error) => {
-                  console.error('Failed to delete removed tab widget image from S3:', error);
-                });
-              }
-            }
-          );
-        }
-
         let removed = false;
         setState((prev) => {
           if (prev.tabs.length <= 1) return prev;
@@ -1894,21 +1869,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const removeComponent = (componentId: string) => {
       const removedComponent = activeComponents[componentId];
       const removedType = removedComponent?.type;
-
-      // Text/image widgets can hold an S3-uploaded image — removing the
-      // widget entirely (not just its image via the toolbar) would otherwise
-      // orphan that file in S3, since nothing else references its key.
-      const removedImageKey =
-        removedType === DashboardComponentType.TEXT
-          ? removedComponent?.config?.imageKey
-          : undefined;
-      if (removedImageKey) {
-        apiDelete('/api/dashboards/images/', {
-          body: JSON.stringify({ image_key: removedImageKey }),
-        }).catch((error) => {
-          console.error('Failed to delete removed widget image from S3:', error);
-        });
-      }
 
       const newComponents = { ...activeComponents };
       delete newComponents[componentId];
