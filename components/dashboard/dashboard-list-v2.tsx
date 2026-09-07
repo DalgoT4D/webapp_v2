@@ -89,7 +89,14 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format, formatDistanceToNow } from 'date-fns';
-import { useDashboards, deleteDashboard, duplicateDashboard } from '@/hooks/api/useDashboards';
+import {
+  useDashboards,
+  deleteDashboard,
+  duplicateDashboard,
+  favoriteDashboard,
+  unfavoriteDashboard,
+  type Dashboard,
+} from '@/hooks/api/useDashboards';
 import { ShareModal } from '@/components/ui/share-modal';
 import {
   Dialog,
@@ -99,6 +106,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { toggleFavorite } from '@/lib/favorite-utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
@@ -133,7 +141,6 @@ export function DashboardListV2() {
   const viewMode = 'table';
   const [sortBy, setSortBy] = useState<'name' | 'updated_at' | 'created_by'>('updated_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [favorites, setFavorites] = useState<Set<number>>(new Set());
 
   // Column filter states
   const [nameFilters, setNameFilters] = useState({
@@ -262,7 +269,7 @@ export function DashboardListV2() {
         }
       }
 
-      if (nameFilters.showFavorites && !favorites.has(dashboard.id)) {
+      if (nameFilters.showFavorites && !dashboard.is_favorite) {
         return false;
       }
 
@@ -342,20 +349,16 @@ export function DashboardListV2() {
         return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
       }
     });
-  }, [dashboards, nameFilters, ownerFilters, dateFilters, favorites, sortBy, sortOrder]);
+  }, [dashboards, nameFilters, ownerFilters, dateFilters, sortBy, sortOrder]);
 
-  // Handle favorites toggle
-  const handleToggleFavorite = (dashboardId: number) => {
-    setFavorites((prev) => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(dashboardId)) {
-        newFavorites.delete(dashboardId);
-      } else {
-        newFavorites.add(dashboardId);
-      }
-      return newFavorites;
-    });
-  };
+  const handleToggleFavorite = (dashboard: Dashboard) =>
+    toggleFavorite(
+      dashboard.is_favorite ?? false,
+      dashboard.id,
+      favoriteDashboard,
+      unfavoriteDashboard,
+      mutate
+    );
 
   // Get unique owners for filter options
   const uniqueOwners = useMemo(() => {
@@ -811,7 +814,7 @@ export function DashboardListV2() {
     const isLocked = dashboard.is_locked;
     const isLockedByOther =
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
-    const isFavorited = favorites.has(dashboard.id);
+    const isFavorited = dashboard.is_favorite ?? false;
 
     const getNavigationUrl = () => {
       return hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? `/dashboards/${dashboard.id}` : '#';
@@ -828,7 +831,7 @@ export function DashboardListV2() {
               className="h-8 w-8 p-0 hover:bg-yellow-50"
               onClick={(e) => {
                 e.preventDefault();
-                handleToggleFavorite(dashboard.id);
+                handleToggleFavorite(dashboard);
               }}
             >
               {isFavorited ? (

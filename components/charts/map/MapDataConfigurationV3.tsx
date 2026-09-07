@@ -252,7 +252,8 @@ export function MapDataConfigurationV3({
       const hasExistingConfig = !!(
         formData.geographic_column ||
         formData.value_column ||
-        formData.aggregate_column
+        formData.aggregate_column ||
+        (formData.metrics && formData.metrics.length > 0)
       );
 
       if (!hasExistingConfig) {
@@ -405,24 +406,28 @@ export function MapDataConfigurationV3({
       </div>
 
       {/* Simplified Map Configuration */}
-      {formData.aggregate_function &&
-        (formData.aggregate_function === 'count' || formData.aggregate_column) && (
-          <div className="space-y-4 pt-4 border-t">
-            <div>
-              <Label className="text-sm font-medium text-gray-900">Map Configuration</Label>
-              <p className="text-xs text-muted-foreground mt-1">
-                Configure geographic levels and drill-down functionality
-              </p>
-            </div>
-
-            {/* Simplified Map Configuration - Single Card */}
-            <DynamicLevelConfig
-              formData={formData}
-              onChange={onFormDataChange}
-              disabled={disabled}
-            />
+      {(() => {
+        const metric = formData.metrics?.[0];
+        const hasValidMetric = metric
+          ? !!(metric.column_expression || metric.aggregation)
+          : !!(
+              formData.aggregate_function &&
+              (formData.aggregate_function === 'count' || formData.aggregate_column)
+            );
+        return hasValidMetric;
+      })() && (
+        <div className="space-y-4 pt-4 border-t">
+          <div>
+            <Label className="text-sm font-medium text-gray-900">Map Configuration</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Configure geographic levels and drill-down functionality
+            </p>
           </div>
-        )}
+
+          {/* Simplified Map Configuration - Single Card */}
+          <DynamicLevelConfig formData={formData} onChange={onFormDataChange} disabled={disabled} />
+        </div>
+      )}
     </div>
   );
 }

@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { PrincipalTypeahead } from '@/components/ui/principal-typeahead';
+import { buildDocsUrl } from '@/components/ui/docs-link';
 import { StagedPrincipalRow } from '@/components/ui/staged-principal-row';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -227,7 +228,6 @@ export function ShareModal({
           p.status === 'active' &&
           p.orguser_id != null &&
           !chippedKeys.has(`user:${p.orguser_id}`) &&
-          !currentPrincipals.has(`user:${p.orguser_id}`) &&
           p.email.toLowerCase().includes(q)
       )
       .slice(0, 6)
@@ -237,14 +237,10 @@ export function ShareModal({
         label: p.email,
         badge: p.role_name,
         isOwner: owner != null && p.orguser_id === owner.orguser_id,
+        alreadyShared: currentPrincipals.has(`user:${p.orguser_id}`),
       }));
     const groupMatches = (groups ?? [])
-      .filter(
-        (g) =>
-          !chippedKeys.has(`group:${g.id}`) &&
-          !currentPrincipals.has(`group:${g.id}`) &&
-          g.name.toLowerCase().includes(q)
-      )
+      .filter((g) => !chippedKeys.has(`group:${g.id}`) && g.name.toLowerCase().includes(q))
       .slice(0, 4)
       .map((g) => ({
         kind: 'group' as const,
@@ -252,6 +248,7 @@ export function ShareModal({
         label: g.name,
         badge: 'Group',
         isOwner: false,
+        alreadyShared: currentPrincipals.has(`group:${g.id}`),
       }));
     return [...userMatches, ...groupMatches];
   }, [chipInput, people, groups, chippedKeys, currentPrincipals, owner]);
@@ -413,18 +410,47 @@ export function ShareModal({
     return `Access on this resource is inherited from: ${titles} — change permissions from there`;
   };
 
-  const handleRowLevelChange = (share: ShareRow, level: AccessLevel) => {
+  const handleRowLevelChange = async (share: ShareRow, level: AccessLevel) => {
     if (share.access_level === level) return;
     if (rtype === 'dashboard') {
       setPendingAction({ kind: 'level', share, level });
       return;
     }
+    // Cascade-only row: upgrade (direct override) is allowed, downgrade is not.
     if (share.share_id === null) {
-      toastError.api(cascadeBlockMessage(share));
-      return;
-    }
-    if (share.cascade_sources?.length > 0 && LEVEL_RANK[level] < LEVEL_RANK[share.access_level]) {
-      toastError.api(cascadeBlockMessage(share));
+      if (LEVEL_RANK[level] <= LEVEL_RANK[share.access_level]) {
+        toastError.api(
+          `Inherited access already grants ${share.access_level}. Cannot assign a lower or equal level directly.`
+        );
+        return;
+      }
+      // Create a direct share at the higher level alongside the cascade row.
+      // Invitation rows (pending) have no principal_id to upgrade.
+      if (
+        (share.principal_type === 'user' || share.principal_type === 'group') &&
+        share.principal_id != null
+      ) {
+        setRowBusyId(share.principal_id);
+        try {
+          const res = await addGrants({
+            principals: [
+              {
+                principal_type: share.principal_type,
+                principal_id: share.principal_id,
+                access_level: level,
+              },
+            ],
+          });
+          await mutateGrants({
+            shares: res.shares,
+            caller_is_owner: callerIsOwner,
+            general_access: generalAccess!,
+            owner,
+          });
+        } finally {
+          setRowBusyId(null);
+        }
+      }
       return;
     }
     doRowLevelChange(share, level);
@@ -461,7 +487,7 @@ export function ShareModal({
     if (!rtype || !myOrguserId) return;
     setIsTakingOver(true);
     try {
-      await transferOwnership(rtype, entityId, myOrguserId);
+      await transferOwnership(rtype, entityId, myOrguserId, true);
       mutateGrants();
       onUpdate?.();
       setTakeoverConfirmOpen(false);
@@ -674,8 +700,12 @@ export function ShareModal({
                     id: s.id,
                     label: s.label,
                     badge: s.isOwner ? 'Owner' : s.badge,
-                    disabled: s.isOwner,
-                    disabledReason: s.isOwner ? 'Already the owner — has full access' : undefined,
+                    disabled: s.isOwner || s.alreadyShared,
+                    disabledReason: s.isOwner
+                      ? 'Already the owner — has full access'
+                      : s.alreadyShared
+                        ? 'Already has access'
+                        : undefined,
                   }))}
                   onSelectUser={addUserChip}
                   onSelectGroup={addGroupChip}
@@ -746,44 +776,43 @@ export function ShareModal({
                           ? `${chips.find((c) => c.kind === 'email')?.email} isn't on Dalgo yet.`
                           : `${chips.filter((c) => c.kind === 'email').length} emails aren't on Dalgo yet.`}
                       </strong>
-                      <div>Assign new invites a role before sharing the resource.</div>
+                      {isAdmin ? (
+                        <div>Choose a role for new invites before sharing.</div>
+                      ) : (
+                        <div>
+                          They will be invited as <strong>Member</strong>.
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="invite-role">Invite new users as</Label>
-                    <Select
-                      value={inviteRoleUuid}
-                      onValueChange={(v) => {
-                        setInviteRoleUuid(v);
-                        setRoleError(null);
-                      }}
-                      disabled={!isAdmin}
-                    >
-                      <SelectTrigger
-                        id="invite-role"
-                        className={roleError ? 'border-red-500' : ''}
-                        data-testid="share-invite-role"
+                  {isAdmin && (
+                    <div className="space-y-2">
+                      <Label htmlFor="invite-role">Invite new users as</Label>
+                      <Select
+                        value={inviteRoleUuid}
+                        onValueChange={(v) => {
+                          setInviteRoleUuid(v);
+                          setRoleError(null);
+                        }}
                       >
-                        <SelectValue placeholder="Select role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(isAdmin
-                          ? (roles ?? [])
-                          : (roles ?? []).filter((r) => r.slug === ROLES.MEMBER)
-                        ).map((role) => (
-                          <SelectItem key={role.uuid} value={role.uuid}>
-                            {role.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {!isAdmin && (
-                      <p className="text-xs text-muted-foreground">
-                        You can only invite users as Member. Ask an Admin to grant higher roles.
-                      </p>
-                    )}
-                    {roleError && <p className="text-sm text-red-500">{roleError}</p>}
-                  </div>
+                        <SelectTrigger
+                          id="invite-role"
+                          className={roleError ? 'border-red-500' : ''}
+                          data-testid="share-invite-role"
+                        >
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(roles ?? []).map((role) => (
+                            <SelectItem key={role.uuid} value={role.uuid}>
+                              {role.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {roleError && <p className="text-sm text-red-500">{roleError}</p>}
+                    </div>
+                  )}
                 </>
               )}
 
@@ -868,16 +897,33 @@ export function ShareModal({
                                     handleRowLevelChange(s, v as AccessLevel);
                                   }}
                                   disabled={
-                                    (rowBusyId != null && rowBusyId === s.share_id) ||
-                                    s.share_id === null
+                                    rowBusyId != null &&
+                                    (rowBusyId === s.share_id ||
+                                      (s.share_id === null && rowBusyId === s.principal_id))
                                   }
                                 >
                                   <SelectTrigger className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-50 focus:ring-0 focus-visible:ring-0">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="view">View</SelectItem>
-                                    <SelectItem value="edit">Edit</SelectItem>
+                                    <SelectItem
+                                      value="view"
+                                      disabled={
+                                        s.share_id === null &&
+                                        LEVEL_RANK['view'] <= LEVEL_RANK[s.access_level]
+                                      }
+                                    >
+                                      View
+                                    </SelectItem>
+                                    <SelectItem
+                                      value="edit"
+                                      disabled={
+                                        s.share_id === null &&
+                                        LEVEL_RANK['edit'] <= LEVEL_RANK[s.access_level]
+                                      }
+                                    >
+                                      Edit
+                                    </SelectItem>
                                     {isOwnerOrAdmin &&
                                       s.principal_type === 'user' &&
                                       s.principal_id != null &&
@@ -895,7 +941,9 @@ export function ShareModal({
                             </TooltipTrigger>
                             {s.share_id === null && (
                               <TooltipContent className="max-w-xs">
-                                {cascadeBlockMessage(s)}
+                                {s.access_level === 'edit'
+                                  ? cascadeBlockMessage(s)
+                                  : `Access inherited from a dashboard. You can upgrade to a higher level.`}
                               </TooltipContent>
                             )}
                           </Tooltip>
@@ -918,45 +966,76 @@ export function ShareModal({
             </>
           )}
 
-          {/* General access — Everyone / Private / Public */}
-          {rtype && generalAccess && (
+          {/* General access — hidden for floor-only users (they can't change visibility) */}
+          {rtype && generalAccess && !generalAccess.caller_access_via_floor && (
             <div className="rounded-md border p-4">
               <div className="flex items-start gap-3">
                 <Shield className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">General access</p>
-                      <p className="text-xs text-muted-foreground">
-                        {generalAccess.mode === 'internal' &&
-                          'Everyone in your organisation can access this, based on their role'}
-                        {generalAccess.mode === 'private' &&
-                          `Only people you share with can access this ${entityLabelLower}`}
-                        {generalAccess.mode === 'public' &&
-                          (generalAccess.allow_public_sharing
-                            ? 'Everyone in your organisation, plus anyone with the link.'
-                            : 'Public sharing is turned off by your admin')}
-                      </p>
-                    </div>
-                    <Select
-                      value={generalAccess.mode}
-                      onValueChange={(v) => handleModeChange(v as GeneralAccessMode)}
-                      disabled={modeChanging}
-                    >
-                      <SelectTrigger className="w-32 h-8" data-testid="general-access-select">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="internal">Internal</SelectItem>
-                        <SelectItem value="private">Private</SelectItem>
-                        {generalAccess.supports_public && (
-                          <SelectItem value="public" disabled={!generalAccess.allow_public_sharing}>
-                            Public
-                          </SelectItem>
+                  {(() => {
+                    const maxParentRank =
+                      generalAccess.parent_blocks.length > 0
+                        ? Math.max(
+                            ...generalAccess.parent_blocks.map((b) =>
+                              b.mode === 'public' ? 2 : b.mode === 'internal' ? 1 : 0
+                            )
+                          )
+                        : -1;
+                    const anyBlocked = maxParentRank > 0;
+                    return (
+                      <>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">General access</p>
+                            <p className="text-xs text-muted-foreground">
+                              {generalAccess.mode === 'internal' &&
+                                'Users can access this resource based on their role permissions'}
+                              {generalAccess.mode === 'private' &&
+                                'Only direct shares can access this resource'}
+                              {generalAccess.mode === 'public' &&
+                                (generalAccess.allow_public_sharing
+                                  ? 'Anyone on the internet with the link can access this resource'
+                                  : 'Public sharing is turned off by your admin')}
+                            </p>
+                          </div>
+                          <Select
+                            value={generalAccess.mode}
+                            onValueChange={(v) => handleModeChange(v as GeneralAccessMode)}
+                            disabled={modeChanging}
+                          >
+                            <SelectTrigger className="w-32 h-8" data-testid="general-access-select">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent position="popper">
+                              <SelectItem value="internal" disabled={maxParentRank > 1}>
+                                Default
+                              </SelectItem>
+                              <SelectItem value="private" disabled={maxParentRank > 0}>
+                                Private
+                              </SelectItem>
+                              {generalAccess.supports_public && (
+                                <SelectItem
+                                  value="public"
+                                  disabled={!generalAccess.allow_public_sharing}
+                                >
+                                  Public
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {anyBlocked && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Some options are restricted as this resource is used in shared
+                            dashboards:{' '}
+                            <strong>
+                              {generalAccess.parent_blocks.map((b) => b.dashboard_title).join(', ')}
+                            </strong>
+                          </p>
                         )}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      </>
+                    );
+                  })()}
 
                   {generalAccess.mode === 'public' && generalAccess.allow_public_sharing && (
                     <>
@@ -1010,15 +1089,24 @@ export function ShareModal({
                   </DialogTitle>
                 </DialogHeader>
                 <p className="text-sm text-muted-foreground">
-                  Changing or removing permissions on a dashboard may affect access to its inner
-                  charts and KPIs. Chart access follows the dashboard share.
+                  Changing permissions on a dashboard may change access to its charts and KPIs.{' '}
+                  {buildDocsUrl('/dashboards/sharing#permission-levels') && (
+                    <a
+                      href={buildDocsUrl('/dashboards/sharing#permission-levels')!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:text-foreground"
+                    >
+                      Know more
+                    </a>
+                  )}
                 </p>
                 <div className="flex justify-end gap-3 mt-2">
                   <Button variant="outline" onClick={() => setPendingAction(null)}>
-                    Cancel
+                    CANCEL
                   </Button>
                   <Button variant="primary" onClick={handleCascadeConfirm}>
-                    Continue
+                    CONTINUE
                   </Button>
                 </div>
               </DialogContent>
@@ -1057,11 +1145,11 @@ export function ShareModal({
             <Dialog open onOpenChange={() => setTakeoverConfirmOpen(false)}>
               <DialogContent className="sm:max-w-sm">
                 <DialogHeader>
-                  <DialogTitle>Take ownership from {owner.email}?</DialogTitle>
+                  <DialogTitle>Remove owner and take over?</DialogTitle>
                 </DialogHeader>
                 <p className="text-sm text-muted-foreground">
-                  You will become the owner of this {entityLabelLower}. {owner.email} will keep Edit
-                  access.
+                  You will become the owner of this {rtype ?? entityLabelLower}.{' '}
+                  <strong>{owner.email}</strong> will no longer have direct access.
                 </p>
                 <div className="flex justify-end gap-3 mt-2">
                   <Button variant="outline" onClick={() => setTakeoverConfirmOpen(false)}>

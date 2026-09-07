@@ -22,6 +22,7 @@ import { useSnapshotView, updateSnapshot } from '@/hooks/api/useReports';
 import { useCommentStates } from '@/hooks/api/useComments';
 import { usePdfDownload } from '@/hooks/usePdfDownload';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
+import type { AppliedFilters } from '@/types/dashboard-filters';
 import { ShareModal } from '@/components/ui/share-modal';
 import { ShareViaEmailDialog } from '@/components/reports/share-via-email-dialog';
 import { RequestEditPill } from '@/components/access/request-edit-pill';
@@ -43,6 +44,9 @@ export default function SnapshotViewerPage() {
 
   const { viewData, isLoading, isError, mutate } = useSnapshotView(isValidId ? parsedId : null);
 
+  // Mirrors DashboardNativeView's live filter state, so the export button
+  // can send whatever the viewer currently has applied rather than defaults.
+  const [currentFilters, setCurrentFilters] = useState<AppliedFilters>({});
   const [summaryDraft, setSummaryDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [summaryTouched, setSummaryTouched] = useState(false);
@@ -216,7 +220,7 @@ export default function SnapshotViewerPage() {
               onClick={async () => {
                 // Gated on the result: usePdfDownload catches its own errors and resolves
                 // either way, so an ungated call counted failed exports as exports.
-                const exported = await handleDownload();
+                const exported = await handleDownload({ dashboard_filters: currentFilters });
                 if (exported) {
                   trackEvent(ANALYTICS_EVENTS.REPORT_EXPORTED, {
                     report_id: parsedId,
@@ -269,6 +273,7 @@ export default function SnapshotViewerPage() {
           snapshotId={parsedId}
           commentStates={commentStates}
           onCommentStateChange={handleCommentStateChange}
+          onFiltersChange={setCurrentFilters}
           autoOpenCommentChartId={
             commentTarget === 'chart' && commentChartId ? commentChartId : undefined
           }

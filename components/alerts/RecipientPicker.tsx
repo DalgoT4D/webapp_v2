@@ -116,7 +116,7 @@ export function RecipientPicker({ value, onChange }: RecipientPickerProps) {
   return (
     <div className="space-y-2">
       <PrincipalTypeahead
-        placeholder="Search for people, groups or add emails…"
+        placeholder="Search for people, groups or type an email and press Enter…"
         inputTestId="recipient-add-input"
         value={draft}
         onChange={(v) => {
@@ -130,8 +130,21 @@ export function RecipientPicker({ value, onChange }: RecipientPickerProps) {
         onBackspace={() => {
           if (value.length > 0) onChange(value.slice(0, -1));
         }}
-        onPasteEmails={(parts) => parts.forEach((p) => commitEmail(p))}
-        commitOnBlur
+        onPasteEmails={(parts) => {
+          const toAdd: RecipientIn[] = [];
+          const seen = new Set(existingKeys);
+          for (const p of parts) {
+            const email = p.trim().replace(/,$/, '').trim().toLowerCase();
+            if (!email || !EMAIL_RE.test(email) || seen.has(`external:${email}`)) continue;
+            seen.add(`external:${email}`);
+            toAdd.push({ type: 'external', email });
+          }
+          if (toAdd.length > 0) {
+            onChange([...value, ...toAdd]);
+            setError(null);
+          }
+          setDraft('');
+        }}
         error={error}
       />
 

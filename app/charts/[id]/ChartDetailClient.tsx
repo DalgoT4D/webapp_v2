@@ -410,13 +410,15 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   }, [drillDownPath]);
 
   const mapDataOverlayPayload = useMemo(() => {
+    const metric = chart?.extra_config?.metrics?.[0];
     return chart?.chart_type === 'map' && chart.extra_config && activeGeographicColumn
       ? {
           schema_name: chart.schema_name,
           table_name: chart.table_name,
           geographic_column: activeGeographicColumn,
+          metric,
           value_column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
-          aggregate_function: chart.extra_config.aggregate_function || 'sum',
+          aggregate_function: chart.extra_config.aggregate_function || (metric ? undefined : 'sum'),
           filters: filters, // Drill-down filters
           chart_filters: chart.extra_config.filters || [], // Chart-level filters
           // Include full extra_config for pagination, sorting, and other features

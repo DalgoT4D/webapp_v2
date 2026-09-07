@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { apiPut } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
+import { buildDocsUrl } from '@/components/ui/docs-link';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
 import { FREE_TRIAL_PLAN_NAME } from '@/constants/trial';
@@ -156,9 +157,9 @@ export function ResourceSharingNoticeCarousel() {
                 What this means for you
               </p>
               <p className="mt-2 text-sm leading-relaxed text-foreground">{currentStep.detail}</p>
-              {currentStep.docLink && (
+              {currentStep.docLink && buildDocsUrl(currentStep.docLink.path) && (
                 <a
-                  href={currentStep.docLink.href}
+                  href={buildDocsUrl(currentStep.docLink.path)!}
                   target="_blank"
                   rel="noopener noreferrer"
                   data-testid="resource-sharing-notice-doc-link"

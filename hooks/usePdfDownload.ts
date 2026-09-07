@@ -25,34 +25,39 @@ interface UsePdfDownloadOptions {
 export function usePdfDownload({ endpoint, title, label = 'Report' }: UsePdfDownloadOptions) {
   const [isExporting, setIsExporting] = useState(false);
 
-  const download = useCallback(async (): Promise<boolean> => {
-    setIsExporting(true);
-    toastInfo.generic(`Generating ${label} PDF...`);
+  const download = useCallback(
+    async (body: Record<string, unknown> = {}): Promise<boolean> => {
+      setIsExporting(true);
+      toastInfo.generic(`Generating ${label} PDF...`);
 
-    try {
-      const blob = await apiPostBinary(endpoint, {});
+      try {
+        const blob = await apiPostBinary(endpoint, body);
 
-      const sanitizedTitle = (title || label.toLowerCase()).replace(/[^a-zA-Z0-9 \-_]/g, '').trim();
+        const sanitizedTitle = (title || label.toLowerCase())
+          .replace(/[^a-zA-Z0-9 \-_]/g, '')
+          .trim();
 
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${sanitizedTitle || label.toLowerCase()}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${sanitizedTitle || label.toLowerCase()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
 
-      toastSuccess.exported(label, 'pdf');
-      return true;
-    } catch (error) {
-      console.error('PDF export failed:', error);
-      toastError.export(error, 'pdf');
-      return false;
-    } finally {
-      setIsExporting(false);
-    }
-  }, [endpoint, title, label]);
+        toastSuccess.exported(label, 'pdf');
+        return true;
+      } catch (error) {
+        console.error('PDF export failed:', error);
+        toastError.export(error, 'pdf');
+        return false;
+      } finally {
+        setIsExporting(false);
+      }
+    },
+    [endpoint, title, label]
+  );
 
   return { isExporting, download };
 }

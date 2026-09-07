@@ -9,6 +9,7 @@ import type {
   ChartUpdate,
   ChartDataPayload,
   ChartDataResponse,
+  ChartMetric,
   DataPreviewResponse,
 } from '@/types/charts';
 import { DashboardFilter } from './useDashboards';
@@ -30,6 +31,12 @@ const deleteChart = (url: string, { arg }: { arg: number }) => apiDelete(`${url}
 
 const bulkDeleteCharts = (url: string, { arg }: { arg: number[] }) =>
   apiPost(`${url}bulk-delete/`, { chart_ids: arg });
+
+const favoriteChart = (url: string, { arg }: { arg: number }) =>
+  apiPost(`${url}${arg}/favorite/`, {});
+
+const unfavoriteChart = (url: string, { arg }: { arg: number }) =>
+  apiDelete(`${url}${arg}/favorite/`);
 
 // Hooks
 export function useCharts() {
@@ -56,6 +63,14 @@ export function useBulkDeleteCharts() {
   return useSWRMutation('/api/charts/', bulkDeleteCharts);
 }
 
+export function useFavoriteChart() {
+  return useSWRMutation('/api/charts/', favoriteChart);
+}
+
+export function useUnfavoriteChart() {
+  return useSWRMutation('/api/charts/', unfavoriteChart);
+}
+
 export function useChartData(payload: ChartDataPayload | null) {
   return useSWR(payload ? ['/api/charts/chart-data/', payload] : null, chartDataFetcher, {
     revalidateOnFocus: false,
@@ -64,18 +79,27 @@ export function useChartData(payload: ChartDataPayload | null) {
   });
 }
 
+// Table data preview for a live chart, or (when snapshotId is passed) for a
+// report snapshot. Report requests derive the chart's definition and the
+// snapshot's period lock from chart_id server-side (never from the request),
+// so filtering keeps working even if the source dashboard is later deleted —
+// `payload` is only used as the live-chart request body and the fetch-ready
+// gate; report requests send an empty body.
 export function useChartDataPreview(
   payload: ChartDataPayload | null,
   page: number = 1,
   pageSize: number = 50,
-  dashboardFilters: Record<string, any> = {}
+  dashboardFilters: Record<string, any> = {},
+  snapshotId?: number | null,
+  chartId?: number | null
 ) {
   // Create a stable key that includes pagination parameters and dashboard filters
   const filterHash =
     Object.keys(dashboardFilters).length > 0 ? JSON.stringify(dashboardFilters) : '';
-  const swrKey = payload
-    ? [`/api/charts/chart-data-preview/`, payload, page, pageSize, filterHash]
-    : null;
+  const baseUrl = snapshotId
+    ? `/api/reports/${snapshotId}/charts/${chartId}/table-data/`
+    : '/api/charts/chart-data-preview/';
+  const swrKey = payload ? [baseUrl, payload, page, pageSize, filterHash, snapshotId] : null;
 
   return useSWR(
     swrKey,
@@ -98,22 +122,25 @@ export function useChartDataPreview(
       }
 
       // Use the centralized API client with query parameters
-      return apiPost(`${url}?${queryParams}`, data);
+      return apiPost(`${url}?${queryParams}`, snapshotId ? {} : data);
     }
   );
 }
 
-// Chart data preview total rows hook
+// Chart data preview total rows hook — same live-vs-report split as useChartDataPreview.
 export function useChartDataPreviewTotalRows(
   payload: ChartDataPayload | null,
-  dashboardFilters: Record<string, any> = {}
+  dashboardFilters: Record<string, any> = {},
+  snapshotId?: number | null,
+  chartId?: number | null
 ) {
   // Create a stable key that includes dashboard filters
   const filterHash =
     Object.keys(dashboardFilters).length > 0 ? JSON.stringify(dashboardFilters) : '';
-  const swrKey = payload
-    ? ['/api/charts/chart-data-preview/total-rows/', payload, filterHash]
-    : null;
+  const baseUrl = snapshotId
+    ? `/api/reports/${snapshotId}/charts/${chartId}/table-data/total-rows/`
+    : '/api/charts/chart-data-preview/total-rows/';
+  const swrKey = payload ? [baseUrl, payload, filterHash, snapshotId] : null;
 
   return useSWR(swrKey, ([url, data, filters]: [string, ChartDataPayload, string]) => {
     // Add dashboard filters as query parameters if present
@@ -123,7 +150,10 @@ export function useChartDataPreviewTotalRows(
     }
 
     // Use the centralized API client with query parameters
-    return apiPost(`${url}${queryParams.toString() ? `?${queryParams}` : ''}`, data);
+    return apiPost(
+      `${url}${queryParams.toString() ? `?${queryParams}` : ''}`,
+      snapshotId ? {} : data
+    );
   });
 }
 
@@ -364,8 +394,11 @@ export interface MapDataOverlayRawPayload {
   schema_name: string;
   table_name: string;
   geographic_column: string;
-  value_column: string;
-  aggregate_function: string;
+  // Preferred: the actual metric (supports calculated/column_expression metrics).
+  metric?: ChartMetric;
+  // Legacy fields, used when `metric` isn't provided (charts saved before the metrics array existed).
+  value_column?: string;
+  aggregate_function?: string;
   filters?: Record<string, any>;
   dashboard_filters?: Record<string, any>;
   extra_config?: {
@@ -375,17 +408,12 @@ export interface MapDataOverlayRawPayload {
   };
 }
 
-// Transform raw map overlay payload to match backend requirements.
-// For count operations, value_column may be absent — falls back to geographic_column.
-export function transformMapDataOverlayPayload(payload: MapDataOverlayRawPayload | null) {
-  if (
-    !payload ||
-    !payload.schema_name ||
-    !payload.table_name ||
-    !payload.geographic_column ||
-    !payload.aggregate_function ||
-    (!payload.value_column && payload.aggregate_function !== 'count')
-  ) {
+// Builds the overlay payload for a Simple-mode metric (aggregation + column).
+// Returns null when there isn't enough information to run the aggregation.
+function buildSimpleMapOverlayPayload(payload: MapDataOverlayRawPayload, metric?: ChartMetric) {
+  const aggregation = metric?.aggregation || payload.aggregate_function;
+  const column = metric?.column || payload.value_column;
+  if (!aggregation || (!column && aggregation !== 'count')) {
     return null;
   }
 
@@ -393,13 +421,11 @@ export function transformMapDataOverlayPayload(payload: MapDataOverlayRawPayload
     schema_name: payload.schema_name,
     table_name: payload.table_name,
     geographic_column: payload.geographic_column,
-    value_column: payload.value_column || payload.geographic_column,
+    value_column: column || payload.geographic_column,
     metrics: [
       {
-        column:
-          payload.value_column ||
-          (payload.aggregate_function === 'count' ? payload.geographic_column : null),
-        aggregation: payload.aggregate_function,
+        column: column || (aggregation === 'count' ? payload.geographic_column : null),
+        aggregation,
         alias: 'value',
       },
     ],
@@ -409,8 +435,48 @@ export function transformMapDataOverlayPayload(payload: MapDataOverlayRawPayload
   };
 }
 
+// Builds the overlay payload for a Calculated-mode metric (column_expression).
+function buildCalculatedMapOverlayPayload(payload: MapDataOverlayRawPayload, metric: ChartMetric) {
+  return {
+    schema_name: payload.schema_name,
+    table_name: payload.table_name,
+    geographic_column: payload.geographic_column,
+    metrics: [
+      {
+        column_expression: metric.column_expression,
+        alias: 'value',
+      },
+    ],
+    filters: payload.filters || {},
+    dashboard_filters: payload.dashboard_filters || {},
+    extra_config: payload.extra_config || {},
+  };
+}
+
+// Transform raw map overlay payload to match backend requirements.
+// For count operations, value_column may be absent — falls back to geographic_column.
+export function transformMapDataOverlayPayload(payload: MapDataOverlayRawPayload | null) {
+  if (!payload || !payload.schema_name || !payload.table_name || !payload.geographic_column) {
+    return null;
+  }
+
+  return payload.metric?.column_expression
+    ? buildCalculatedMapOverlayPayload(payload, payload.metric)
+    : buildSimpleMapOverlayPayload(payload, payload.metric);
+}
+
 // Fetch map data separately (for data overlay on existing GeoJSON)
-export function useMapDataOverlay(payload: MapDataOverlayRawPayload | null) {
+// Fetch map data overlay for a live dashboard, or (when snapshotId is passed)
+// for a report snapshot. Report requests derive the chart's definition and
+// the snapshot's period lock from chart_id server-side (never from the
+// request) — only the live dashboard_filters are still caller-supplied,
+// sent as a query param like the table endpoints — so filtering keeps
+// working even if the source dashboard is later deleted.
+export function useMapDataOverlay(
+  payload: MapDataOverlayRawPayload | null,
+  snapshotId?: number | null,
+  chartId?: number | null
+) {
   const transformedPayload = transformMapDataOverlayPayload(payload);
 
   // Create a simple, stable key similar to regular charts for better filter change detection
@@ -423,20 +489,33 @@ export function useMapDataOverlay(payload: MapDataOverlayRawPayload | null) {
       })
     : '';
 
+  const baseUrl = snapshotId
+    ? `/api/reports/${snapshotId}/charts/${chartId}/map-data/`
+    : '/api/charts/map-data-overlay/';
+
   const swrKey = transformedPayload
-    ? `/api/charts/map-data-overlay/?payload=${encodeURIComponent(JSON.stringify(transformedPayload))}&filters=${encodeURIComponent(filterHash)}`
+    ? `${baseUrl}?payload=${encodeURIComponent(JSON.stringify(transformedPayload))}&filters=${encodeURIComponent(filterHash)}`
     : null;
 
   return useSWR(
     swrKey,
     async (url: string) => {
       // Extract the payload from URL params for the API call
-      const urlParams = new URLSearchParams(url.split('?')[1]);
+      const [path, query] = url.split('?');
+      const urlParams = new URLSearchParams(query);
       const payloadParam = urlParams.get('payload');
       const payload = payloadParam ? JSON.parse(decodeURIComponent(payloadParam)) : null;
 
-      // Making API call for map data overlay
-      return apiPost('/api/charts/map-data-overlay/', payload);
+      if (snapshotId) {
+        const dashboardFilters = payload?.dashboard_filters;
+        const hasFilters = dashboardFilters && Object.keys(dashboardFilters).length > 0;
+        const qs = hasFilters
+          ? `?dashboard_filters=${encodeURIComponent(JSON.stringify(dashboardFilters))}`
+          : '';
+        return apiPost(`${path}${qs}`, {});
+      }
+
+      return apiPost(path, payload);
     },
     {
       revalidateOnFocus: false,
