@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAdminOrgActions } from '@/hooks/api/useAdminPortal';
+import { EMAIL_RE } from '@/components/admin/constants';
 
 const BASE_PLANS = ['Free Trial', 'Dalgo', 'Internal'];
 
@@ -23,19 +24,31 @@ export default function AdminCreateOrganizationPage() {
   const router = useRouter();
   const { createOrg } = useAdminOrgActions();
   const [name, setName] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
   const [vizUrl, setVizUrl] = useState('');
   const [basePlan, setBasePlan] = useState('Free Trial');
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState<{ adminEmail?: string }>({});
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || !adminEmail.trim()) return;
+
+    // same check as the Users-tab invite dialog — a typo here means the org's only
+    // admin never gets their invitation
+    if (!EMAIL_RE.test(adminEmail.trim())) {
+      setErrors({ adminEmail: 'Invalid email address' });
+      return;
+    }
+    setErrors({});
+
     setSubmitting(true);
     try {
       const org = await createOrg({
         name: name.trim(),
         viz_url: vizUrl.trim() || undefined,
         base_plan: basePlan,
+        admin_email: adminEmail.trim(),
       });
       router.push(`/admin/organizations/${org.id}`);
     } catch {
@@ -59,7 +72,10 @@ export default function AdminCreateOrganizationPage() {
           <CardTitle>Create organization</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={onSubmit} className="space-y-5">
+          {/* noValidate: our EMAIL_RE check is authoritative — don't let the browser's
+              native type=email check preempt the custom message (same as
+              InviteUserDialog). */}
+          <form onSubmit={onSubmit} className="space-y-5" noValidate>
             <div className="space-y-2">
               <Label htmlFor="org-name">Name</Label>
               <Input
@@ -71,6 +87,25 @@ export default function AdminCreateOrganizationPage() {
               />
               <p className="text-xs text-muted-foreground">
                 The slug is generated from the name and can’t be changed later.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="org-admin-email">Admin email</Label>
+              <Input
+                id="org-admin-email"
+                type="email"
+                value={adminEmail}
+                onChange={(e) => setAdminEmail(e.target.value)}
+                placeholder="user@example.com"
+                className={errors.adminEmail ? 'border-destructive' : ''}
+                data-testid="org-admin-email-input"
+                required
+              />
+              {errors.adminEmail && <p className="text-sm text-destructive">{errors.adminEmail}</p>}
+              <p className="text-xs text-muted-foreground">
+                They’ll be invited as the organization’s Admin and set their own password. An
+                organization can’t be created without one.
               </p>
             </div>
 
@@ -107,7 +142,11 @@ export default function AdminCreateOrganizationPage() {
             </p>
 
             <div className="flex gap-3">
-              <Button type="submit" disabled={submitting || !name.trim()}>
+              <Button
+                type="submit"
+                disabled={submitting || !name.trim() || !adminEmail.trim()}
+                data-testid="create-org-submit"
+              >
                 {submitting ? 'Creating…' : 'Create organization'}
               </Button>
               <Button type="button" variant="outline" asChild>

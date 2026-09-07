@@ -21,6 +21,9 @@ export interface CreateAdminOrgForm {
   name: string;
   viz_url?: string;
   base_plan?: string;
+  /** The org's first Admin — required: an org is never created without an owner.
+   * There is no role field; the backend always invites this person at admin role. */
+  admin_email: string;
 }
 
 export interface UpdateAdminOrgForm {
