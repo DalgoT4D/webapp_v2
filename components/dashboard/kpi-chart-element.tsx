@@ -21,6 +21,7 @@ interface KPIChartElementProps {
   commentStates?: CommentStates;
   onCommentStateChange?: () => void;
   autoOpenCommentChartId?: string;
+  canModerateComments?: boolean;
 }
 
 export function KPIChartElement({
@@ -34,6 +35,7 @@ export function KPIChartElement({
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
+  canModerateComments = false,
 }: KPIChartElementProps) {
   const { chartData, echartsConfig, isError, isLoading } = useKPIData(kpiId || null, snapshotId, {
     dashboardFilters,
@@ -84,6 +86,7 @@ export function KPIChartElement({
       triggerClassName="h-7 w-7 p-0"
       onStateChange={onCommentStateChange}
       autoOpen={autoOpenCommentChartId === String(kpiId)}
+      canModerate={canModerateComments}
     />
   ) : null;
 

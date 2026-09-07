@@ -30,6 +30,7 @@ interface ResponsiveDashboardActionsProps {
   onDelete: () => void;
   onRefresh?: () => void;
   canEdit: boolean;
+  canShare?: boolean;
   isDeleting?: boolean;
   isRefreshing?: boolean;
   dashboardTitle?: string;
@@ -46,6 +47,7 @@ export function ResponsiveDashboardActions({
   onDelete,
   onRefresh,
   canEdit,
+  canShare = true,
   isDeleting = false,
   isRefreshing = false,
   dashboardTitle = 'this dashboard',
@@ -65,15 +67,17 @@ export function ResponsiveDashboardActions({
             <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
           </Button>
         )} */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onShare}
-          aria-label="Share dashboard"
-          data-testid={suppressShareTestId ? undefined : 'dashboard-share-btn'}
-        >
-          <Share2 className="w-4 h-4" />
-        </Button>
+        {canShare && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onShare}
+            aria-label="Share dashboard"
+            data-testid={suppressShareTestId ? undefined : 'dashboard-share-btn'}
+          >
+            <Share2 className="w-4 h-4" />
+          </Button>
+        )}
         {canEdit && (
           <>
             <Button onClick={onEdit} size="sm">
@@ -138,10 +142,12 @@ export function ResponsiveDashboardActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem onClick={onShare}>
-            <Share2 className="w-4 h-4 mr-2" />
-            Share Dashboard
-          </DropdownMenuItem>
+          {canShare && (
+            <DropdownMenuItem onClick={onShare}>
+              <Share2 className="w-4 h-4 mr-2" />
+              Share Dashboard
+            </DropdownMenuItem>
+          )}
 
           {canEdit && (
             <>

@@ -29,7 +29,9 @@ jest.mock('@/lib/toast', () => ({
 
 const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush, back: jest.fn() }),
+  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn() }),
+  usePathname: () => '/reports',
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 // Mock the CreateSnapshotDialog to avoid its complex dependencies

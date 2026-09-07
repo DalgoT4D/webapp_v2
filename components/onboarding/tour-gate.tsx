@@ -2,7 +2,7 @@
 
 /**
  * Mounts the guided-tour feature globally (see main-layout.tsx, alongside
- * RbacNoticeCarousel) and decides IF any of it renders: only for a trial-plan org's users.
+ * ResourceSharingNoticeCarousel) and decides IF any of it renders: only for a trial-plan org's users.
  *
  * Two gating sources, by design (see hooks/api/useTrialWalkthrough.ts):
  *  - the backend's per-user trial_walkthrough dict says whether a flow was already

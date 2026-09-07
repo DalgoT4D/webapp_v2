@@ -14,6 +14,10 @@ export interface Chart {
   created_at: string;
   updated_at: string;
   created_by?: string; // creator's email
+  is_favorite?: boolean;
+  access_level?: 'view' | 'edit';
+  data_source?: string;
+  is_private?: boolean;
 }
 
 export interface ChartListResponse {

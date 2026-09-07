@@ -118,3 +118,33 @@ export async function testSlackWebhook(webhookUrl: string): Promise<SlackWebhook
 export async function dryRunAlert(payload: AlertTestPayload): Promise<AlertTestResponse> {
   return apiPost('/api/alerts/test/', payload);
 }
+
+export interface AlertTransferCandidate {
+  orguser_id: number;
+  email: string;
+  role_name: string | null;
+}
+
+export function useAlertTransferCandidates(alertId: number | null) {
+  const { data, error, mutate } = useSWR<{ candidates: AlertTransferCandidate[] }>(
+    alertId ? `/api/alerts/${alertId}/transfer-candidates/` : null,
+    apiGet
+  );
+  return {
+    candidates: data?.candidates ?? [],
+    isLoading: !error && !data && alertId !== null,
+    isError: error,
+    mutate,
+  };
+}
+
+export async function transferAlertOwnership(
+  alertId: number,
+  toOrguserId: number
+): Promise<AlertResponse> {
+  const result = await apiPost(`/api/alerts/${alertId}/transfer-ownership/`, {
+    to_orguser_id: toOrguserId,
+  });
+  invalidateAlerts();
+  return result;
+}

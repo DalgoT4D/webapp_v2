@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -22,21 +22,43 @@ import {
 import { useRoles, useInvitationActions, useInvitations } from '@/hooks/api/useUserManagement';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useAuthStore } from '@/stores/authStore';
+import { ADMIN_ROLES, ROLES, type Role as RoleSlug } from '@/lib/rbac';
 
 interface InviteUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }
 
-export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) {
+export function InviteUserDialog({ open, onOpenChange, onSuccess }: InviteUserDialogProps) {
   const { roles } = useRoles();
   const { inviteUser } = useInvitationActions();
   const { mutate } = useInvitations();
+
+  // Non-admin callers can only invite users as Member. Backend enforces the same
+  // rule (role level check), but locking the picker matches user expectations.
+  const getCurrentOrgUser = useAuthStore((s) => s.getCurrentOrgUser);
+  const currentOrgUser = getCurrentOrgUser();
+  const isAdmin = currentOrgUser
+    ? ADMIN_ROLES.includes(currentOrgUser.new_role_slug as RoleSlug)
+    : false;
+  const allowedRoles = useMemo(
+    () => (isAdmin ? (roles ?? []) : (roles ?? []).filter((r) => r.slug === ROLES.MEMBER)),
+    [roles, isAdmin]
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [email, setEmail] = useState('');
   const [roleUuid, setRoleUuid] = useState('');
   const [errors, setErrors] = useState<{ email?: string; role?: string }>({});
+
+  // Auto-select Member for non-admin inviters — the only role they can pick.
+  useEffect(() => {
+    if (open && !isAdmin && !roleUuid && allowedRoles.length === 1) {
+      setRoleUuid(allowedRoles[0].uuid);
+    }
+  }, [open, isAdmin, roleUuid, allowedRoles]);
 
   const validateForm = () => {
     const newErrors: { email?: string; role?: string } = {};
@@ -67,6 +89,7 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
         invited_role_uuid: roleUuid,
       });
       await mutate();
+      onSuccess?.();
       const invitedRole = roles?.find((role) => role.uuid === roleUuid);
       trackEvent(ANALYTICS_EVENTS.USER_INVITED, { role: invitedRole?.slug ?? roleUuid });
       setIsSubmitting(false);
@@ -118,7 +141,7 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
 
           <div className="space-y-2">
             <Label htmlFor="role">Role</Label>
-            <Select value={roleUuid} onValueChange={setRoleUuid}>
+            <Select value={roleUuid} onValueChange={setRoleUuid} disabled={!isAdmin}>
               <SelectTrigger
                 className={errors.role ? 'border-red-500' : ''}
                 data-testid="invite-role-select"
@@ -126,13 +149,18 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>
-                {roles?.map((role) => (
+                {allowedRoles.map((role) => (
                   <SelectItem key={role.uuid} value={role.uuid}>
                     {role.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {!isAdmin && (
+              <p className="text-xs text-muted-foreground">
+                You can only invite users as Member. Ask an Admin to grant higher roles.
+              </p>
+            )}
             {errors.role && <p className="text-sm text-red-500">{errors.role}</p>}
           </div>
 

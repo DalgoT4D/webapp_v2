@@ -33,7 +33,7 @@ export interface OrgUser {
   plan_start_date?: string | null;
   plan_end_date?: string | null;
   work_domain?: string | null; // User's work function at the NGO (M&E/program/data-tech/leadership/field), self-selected at signup; sent to PostHog as the `function` segmentation property
-  has_seen_rbac_notice: boolean; // Whether the user has dismissed the one-time RBAC v2 migration carousel
+  has_seen_resource_sharing_notice: boolean; // Whether the user has dismissed the one-time resource-sharing introduction carousel
 }
 
 interface AuthState {

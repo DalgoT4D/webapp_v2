@@ -190,13 +190,13 @@ describe('TrialDayNudgeModal', () => {
       ).toBeInTheDocument();
     });
 
-    it('offers a Book a call link', async () => {
+    it('offers a "Book a call with us" link', async () => {
       setTrialOrg(1);
 
       render(<TrialDayNudgeModal />);
 
       const link = await screen.findByTestId('trial-nudge-1d-modal-book-a-call');
-      expect(link).toHaveTextContent('Book a call');
+      expect(link).toHaveTextContent('Book a call with us');
       expect(link).toHaveAttribute('target', '_blank');
     });
   });

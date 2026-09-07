@@ -23,8 +23,8 @@ export function useUsers() {
 }
 
 // Hook to fetch roles
-export function useRoles() {
-  const { data, error, isLoading } = useSWR<Role[]>('/api/data/roles', apiGet);
+export function useRoles(enabled: boolean = true) {
+  const { data, error, isLoading } = useSWR<Role[]>(enabled ? '/api/data/roles' : null, apiGet);
 
   return {
     roles: data,
