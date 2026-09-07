@@ -19,16 +19,23 @@ import { MapPreview } from '@/components/charts/map/MapPreview';
 import type { PivotTableResponse } from '@/types/pivot-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Edit, Lock, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit, Lock, Loader2, Share2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
+import { ShareModal } from '@/components/ui/share-modal';
+import { RequestEditPill } from '@/components/access/request-edit-pill';
+import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, CHART_DRILL_SOURCES } from '@/constants/analytics';
+import { useDrillDownAnalytics } from '@/components/charts/useDrillDownAnalytics';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import type { ChartDataPayload } from '@/types/charts';
 import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
+import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import type * as echarts from 'echarts';
 
 interface ChartDetailClientProps {
@@ -55,6 +62,7 @@ interface DrillDownLevel {
 }
 
 export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
+  const celebrationPending = useInsightWalkthroughStore((s) => s.pendingCelebration === 'chart');
   const router = useRouter();
   const searchParams = useSearchParams();
   const isFromDashboard = searchParams.get('from') === 'dashboard';
@@ -71,7 +79,10 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const chartViewedTracked = useRef(false);
   useEffect(() => {
     if (chart && !chartViewedTracked.current) {
-      trackEvent(ANALYTICS_EVENTS.CHART_VIEWED, { chart_type: chart.chart_type });
+      trackEvent(ANALYTICS_EVENTS.CHART_VIEWED, {
+        chart_type: chart.chart_type,
+        chart_id: chartId,
+      });
       chartViewedTracked.current = true;
     }
   }, [chart]);
@@ -84,6 +95,14 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     currentLevel: number; // 0 = first dimension, 1 = second dimension, etc.
     appliedFilters: Record<string, string>; // { dimension_column: value }
   } | null>(null);
+
+  useDrillDownAnalytics({
+    chartId,
+    chartType: chart?.chart_type,
+    source: CHART_DRILL_SOURCES.CHART_DETAIL,
+    mapLevel: drillDownPath.length,
+    tableLevel: tableDrillDownState?.currentLevel ?? null,
+  });
 
   // Stable reference for map customizations — avoids a new {} literal every render,
   // which would otherwise re-trigger MapPreview's chart-init effect in a loop via onChartReady
@@ -329,26 +348,31 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
 
   // Fetch geojsons for the current drill-down region (e.g., Karnataka districts)
-  const { data: regionGeojsons } = useRegionGeoJSONs(currentDrillDownRegionId);
+  const {
+    data: regionGeojsons,
+    error: regionGeojsonsError,
+    isLoading: regionGeojsonsLoading,
+  } = useRegionGeoJSONs(currentDrillDownRegionId);
 
   // For map charts, determine which geojson and data to fetch based on drill-down state
   let activeGeojsonId = null;
   let activeGeographicColumn = null;
+  const activeDrillDownLevel =
+    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1] : null;
+  const drillDownGeojsonResolution = resolveDrillDownGeoJSON({
+    isDrillDownActive: Boolean(activeDrillDownLevel),
+    regionId: currentDrillDownRegionId,
+    regionGeojsons,
+    regionGeojsonsLoading,
+    regionGeojsonsError,
+    fallbackGeojsonId: activeDrillDownLevel?.geojson_id,
+  });
 
   if (chart?.chart_type === 'map') {
-    if (drillDownPath.length > 0) {
+    if (activeDrillDownLevel) {
       // We're in a drill-down state, use the first available geojson for this region
-      const lastDrillDown = drillDownPath[drillDownPath.length - 1];
-      activeGeographicColumn = lastDrillDown.geographic_column;
-
-      if (regionGeojsons && regionGeojsons.length > 0) {
-        // Use the first available geojson for this region (e.g., Karnataka districts)
-        activeGeojsonId = regionGeojsons[0].id;
-        console.log(`🗺️ Using geojson ID ${activeGeojsonId} for region ${lastDrillDown.name}`);
-      } else {
-        // Fallback to the stored geojson_id (if any)
-        activeGeojsonId = lastDrillDown.geojson_id;
-      }
+      activeGeographicColumn = activeDrillDownLevel.geographic_column;
+      activeGeojsonId = drillDownGeojsonResolution.geojsonId;
     } else if (currentLayer) {
       // Use current layer configuration (first layer)
       activeGeojsonId = currentLayer.geojson_id;
@@ -364,9 +388,11 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
 
   const {
     data: geojsonData,
-    error: geojsonError,
-    isLoading: geojsonLoading,
+    error: geojsonDataError,
+    isLoading: geojsonDataLoading,
   } = useGeoJSONData(activeGeojsonId);
+  const geojsonError = regionGeojsonsError || geojsonDataError;
+  const geojsonLoading = drillDownGeojsonResolution.isResolving || geojsonDataLoading;
 
   // Build data overlay payload for map charts based on current level
   // Include filters for drill-down selections - flatten all parent selections
@@ -384,13 +410,15 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   }, [drillDownPath]);
 
   const mapDataOverlayPayload = useMemo(() => {
+    const metric = chart?.extra_config?.metrics?.[0];
     return chart?.chart_type === 'map' && chart.extra_config && activeGeographicColumn
       ? {
           schema_name: chart.schema_name,
           table_name: chart.table_name,
           geographic_column: activeGeographicColumn,
+          metric,
           value_column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
-          aggregate_function: chart.extra_config.aggregate_function || 'sum',
+          aggregate_function: chart.extra_config.aggregate_function || (metric ? undefined : 'sum'),
           filters: filters, // Drill-down filters
           chart_filters: chart.extra_config.filters || [], // Chart-level filters
           // Include full extra_config for pagination, sorting, and other features
@@ -465,6 +493,19 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   // Chart refs for export
   const [chartElement, setChartElement] = useState<HTMLElement | null>(null);
   const [chartInstance, setChartInstance] = useState<echarts.ECharts | null>(null);
+  const { initialOpen: shouldAutoOpenShare, clearParam: clearShareDeepLink } =
+    useOpenShareDeepLink();
+  const [shareModalOpen, setShareModalOpen] = useState(shouldAutoOpenShare);
+
+  // Handle share (mirrors dashboard-native-view)
+  const handleShare = () => {
+    setShareModalOpen(true);
+  };
+
+  const handleShareModalClose = () => {
+    setShareModalOpen(false);
+    clearShareDeepLink();
+  };
   const chartContentRef = useRef<HTMLDivElement>(null);
 
   // Update chart element ref when content is rendered
@@ -792,7 +833,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
             )}
           </div>
           <div className="flex gap-2">
-            {hasPermission(PERMISSIONS.CAN_EDIT_CHARTS) && (
+            {chart.access_level === 'edit' && (
               <Link
                 data-testid="chart-detail-edit-link"
                 href={`/charts/${chartId}/edit${isFromDashboard ? '?from=dashboard' : ''}`}
@@ -803,7 +844,18 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                 </Button>
               </Link>
             )}
+            {chart.access_level === 'edit' && (
+              <Button
+                data-testid="chart-detail-share-button"
+                variant="outline"
+                size="sm"
+                onClick={handleShare}
+              >
+                <Share2 className="w-4 h-4" />
+              </Button>
+            )}
             <ChartExportDropdown
+              chartId={chart.id}
               chartTitle={chart.title}
               chartElement={chartElement}
               chartInstance={chartInstance}
@@ -833,6 +885,11 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   ? tableDrillDownState.appliedFilters
                   : undefined
               }
+            />
+            <RequestEditPill
+              rtype="chart"
+              resourceId={chart.id}
+              resourceAccessLevel={chart.access_level}
             />
           </div>
         </div>
@@ -983,6 +1040,35 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           </Card>
         </div>
       </div>
+
+      {/* Walkthrough handover: the chart is built and on screen behind this — now put it on a
+          dashboard. Raised by the save handler on the builder page (which can't render it, it's
+          a different route) and consumed here. Closing it either way releases the
+          dashboard-nudge coachmark, so that's what the user sees next. */}
+      <CelebrationModal
+        open={celebrationPending}
+        onOpenChange={(open) => {
+          if (open) return;
+          const walkthrough = useInsightWalkthroughStore.getState();
+          walkthrough.setPendingCelebration(null);
+          walkthrough.setSuppressCoachmark(false);
+        }}
+        title="Congratulations, your Chart is live!"
+        description="Your insight is built, and you can now add it to a dashboard!"
+        ctaLabel="Add to Dashboard"
+        dismissEvent={ANALYTICS_EVENTS.CHART_LIVE_MODAL_DISMISSED}
+        testId="chart-live-modal"
+      />
+      {/* Share Modal */}
+      {chart && (
+        <ShareModal
+          rtype="chart"
+          entityId={chart.id}
+          entityLabel={chart.title || 'Chart'}
+          isOpen={shareModalOpen}
+          onClose={handleShareModalClose}
+        />
+      )}
     </div>
   );
 }

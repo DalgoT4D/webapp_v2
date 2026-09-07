@@ -10,6 +10,7 @@ import userEvent from '@testing-library/user-event';
 import { Table, TableBody } from '@/components/ui/table';
 import { ConnectionRow } from '../connection-row';
 import { LockStatus } from '@/constants/pipeline';
+import type { Connection } from '@/types/connections';
 import { createMockConnection } from './connections-mock-data';
 
 // ============ Mocks ============
@@ -32,7 +33,7 @@ jest.mock('@/components/pipeline/utils', () => ({
 }));
 
 const defaultProps = {
-  syncingIds: [],
+  syncingIds: [] as string[],
   canSync: true,
   canEdit: true,
   canDelete: true,
@@ -66,6 +67,18 @@ describe('ConnectionRow', () => {
     expect(screen.getByTestId('connection-name-conn-1')).toHaveTextContent('My Connection');
   });
 
+  it('shows the source → destination column by default', () => {
+    renderRow(createMockConnection());
+    expect(screen.getByText('Prod DB')).toBeInTheDocument();
+    expect(screen.getByText('Warehouse')).toBeInTheDocument();
+  });
+
+  it('hides the source → destination column when hideSourceDestination is set', () => {
+    renderRow(createMockConnection(), { hideSourceDestination: true });
+    expect(screen.queryByText('Prod DB')).not.toBeInTheDocument();
+    expect(screen.queryByText('Warehouse')).not.toBeInTheDocument();
+  });
+
   it('disables sync button when connection is syncing', () => {
     renderRow(createMockConnection(), { syncingIds: ['conn-1'] });
     expect(screen.getByTestId('sync-btn-conn-1')).toBeDisabled();
@@ -81,12 +94,10 @@ describe('ConnectionRow', () => {
     expect(screen.getByTestId('cancel-sync-conn-1')).toBeInTheDocument();
   });
 
-  it('shows the sync button disabled when canSync is false', () => {
-    // Read-only roles see the action but cannot use it (no empty space).
+  it('hides sync and cancel buttons when canSync is false', () => {
     renderRow(createMockConnection(), { canSync: false });
-    const syncBtn = screen.getByTestId('sync-btn-conn-1');
-    expect(syncBtn).toBeInTheDocument();
-    expect(syncBtn).toBeDisabled();
+    expect(screen.queryByTestId('sync-btn-conn-1')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('cancel-sync-conn-1')).not.toBeInTheDocument();
   });
 
   it('shows View instead of Edit in dropdown when connection is locked', async () => {

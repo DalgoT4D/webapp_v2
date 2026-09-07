@@ -21,6 +21,18 @@ export interface Connection {
   clearConnDeploymentId: string | null;
   queuedFlowRunWaitTime: QueuedRuntimeInfo | null;
   blockId: string;
+  post_sync_transform?: PostSyncTransform | null;
+}
+
+export interface PostSyncOp {
+  type: 'cast';
+  schema: string;
+  table: string;
+  config: Record<string, string>;
+}
+
+export interface PostSyncTransform {
+  ops: PostSyncOp[];
 }
 
 export interface ConnectionSource {
@@ -75,6 +87,7 @@ export interface StreamColumn {
   name: string;
   data_type: string;
   selected: boolean;
+  cast_to_type: string | null;
 }
 
 // ============ Sync Catalog Types ============

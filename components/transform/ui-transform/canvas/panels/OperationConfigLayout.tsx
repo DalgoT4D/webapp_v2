@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useSWRConfig } from 'swr';
 import { useTransformStore, useSelectedNode, useCanvasAction } from '@/stores/transformStore';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { CANVAS_GRAPH_KEY } from '@/hooks/api/useCanvasGraph';
 import { OperationList } from './OperationList';
 import { CreateTableOrAddFunction } from './CreateTableOrAddFunction';
@@ -29,6 +30,7 @@ import {
   OperationFormAction,
   OperationPanelState,
   CanvasActionEnum,
+  DROP_COLUMNS_OP,
 } from '@/constants/transform';
 import { cn } from '@/lib/utils';
 import { useDummyNodeManager } from '../layout/hooks/useDummyNodeManager';
@@ -142,6 +144,13 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
       setSelectedOp(operation);
       setFormMode(OperationFormAction.CREATE);
       setPanelState(OperationPanelState.OP_FORM);
+
+      if (
+        operation.slug === DROP_COLUMNS_OP &&
+        useInsightWalkthroughStore.getState().stage === 'pipeline_pick_function'
+      ) {
+        useInsightWalkthroughStore.getState().advanceTo('pipeline_drop_columns');
+      }
     },
     [cleanupDummyNodes, createDummyNode]
   );
@@ -253,6 +262,10 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
     setSelectedOp({ slug: 'create-table', label: 'Create Table' });
     setFormMode(OperationFormAction.CREATE);
     setPanelState(OperationPanelState.OP_FORM);
+
+    if (useInsightWalkthroughStore.getState().stage === 'pipeline_save_table') {
+      useInsightWalkthroughStore.getState().advanceTo('pipeline_name_table');
+    }
   }, []);
 
   // User chose to add another function
@@ -367,7 +380,9 @@ export function OperationConfigLayout({ open, onClose }: OperationConfigLayoutPr
                 <ChevronLeft className="h-5 w-5" />
               </Button>
             )}
-            <h2 className="font-semibold text-lg">{getHeaderTitle()}</h2>
+            <h2 className="font-semibold text-lg" data-testid="functions-panel-title">
+              {getHeaderTitle()}
+            </h2>
             {panelState === OperationPanelState.OP_FORM && selectedOp?.infoToolTip && (
               <TooltipProvider>
                 <Tooltip>

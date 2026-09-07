@@ -32,6 +32,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
@@ -58,6 +60,11 @@ export function PipelineList() {
   const { hasPermission } = useRbac();
   const { pipelines, isLoading, mutate } = usePipelines();
   const { confirm, DialogComponent } = useConfirmationDialog();
+  // Raised by the create form as it finishes the automate-pipeline walkthrough, and rendered
+  // here so the pipeline the user just built is what's behind the dialog.
+  const pipelineCelebration = useInsightWalkthroughStore(
+    (s) => s.pendingCelebration === 'pipeline'
+  );
 
   const [selectedPipeline, setSelectedPipeline] = useState<Pipeline | null>(null);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
@@ -237,6 +244,21 @@ export function PipelineList() {
           onOpenChange={setShowHistoryDialog}
         />
       )}
+
+      {/* Closes the automate-pipeline walkthrough. No onCta: the pipeline is already on the
+          page behind this, so "View Pipeline" just gets the dialog out of the way. */}
+      <CelebrationModal
+        open={pipelineCelebration}
+        onOpenChange={(open) => {
+          if (open) return;
+          useInsightWalkthroughStore.getState().setPendingCelebration(null);
+        }}
+        title="Congratulations, your Pipeline is live!"
+        description="Your data pipeline is built, and you can now build insights with your data!"
+        ctaLabel="View Pipeline"
+        dismissEvent={ANALYTICS_EVENTS.PIPELINE_LIVE_MODAL_DISMISSED}
+        testId="pipeline-live-modal"
+      />
     </div>
   );
 }

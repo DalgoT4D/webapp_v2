@@ -25,7 +25,7 @@ export function UITransformTab({ onGitConnected, gitConnected }: UITransformTabP
       <DBTRepositoryCard onConnectGit={onGitConnected} />
 
       {/* Workflow Canvas Section */}
-      <Card>
+      <Card data-testid="workflow-canvas-card">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Workflow</CardTitle>
           <Link href="/transform/canvas">

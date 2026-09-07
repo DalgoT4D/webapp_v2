@@ -89,3 +89,24 @@ export const SYNC_STATUS_CONFIG: Record<string, { label: string; colorClass: str
 
 // Fallback for unrecognized statuses
 export const SYNC_STATUS_DEFAULT = { label: 'Unknown', colorClass: 'text-gray-500' };
+
+// Source definition names (case-insensitive) that support the post-sync cast column.
+// Add names here to enable the "Cast to" dropdown for additional sources.
+export const CAST_SUPPORTED_SOURCES: string[] = ['Google Sheets'];
+
+export function isCastSupportedSource(sourceDefName: string): boolean {
+  const normalized = sourceDefName.toLowerCase().replace(/\s+/g, ' ').trim();
+  return CAST_SUPPORTED_SOURCES.some(
+    (name) => name.toLowerCase().replace(/\s+/g, ' ').trim() === normalized
+  );
+}
+
+export const CAST_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'numeric', label: 'Numeric' },
+  { value: 'integer', label: 'Integer' },
+  { value: 'bigint', label: 'Big Integer' },
+  { value: 'boolean', label: 'Boolean' },
+  { value: 'date', label: 'Date' },
+  { value: 'timestamp', label: 'Timestamp' },
+  { value: 'text', label: 'Text' },
+];

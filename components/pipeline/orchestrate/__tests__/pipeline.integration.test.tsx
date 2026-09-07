@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   mockApiGet,
@@ -428,7 +428,7 @@ describe('Pipeline Form - Integration Tests', () => {
     expect(screen.getByTestId('task-selector-input')).toBeInTheDocument();
 
     // Validation error on empty submit
-    await user.click(screen.getByRole('button', { name: /create pipeline/i }));
+    fireEvent.submit(screen.getByTestId('submit-btn').closest('form')!);
     await waitFor(() => {
       expect(screen.getByText('Schedule is required')).toBeInTheDocument();
     });
@@ -542,7 +542,7 @@ describe('Pipeline Form - Integration Tests', () => {
           name: 'Toggle Test Pipeline',
           cron: '0 9 * * *',
           isScheduleActive: true,
-          connections: [],
+          connections: [{ id: 'conn-1', name: 'Postgres Source', seq: 1 }],
           transformTasks: [],
         });
       if (url === '/api/prefect/tasks/transform/') return Promise.resolve(mockTasks);

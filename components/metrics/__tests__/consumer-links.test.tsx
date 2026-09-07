@@ -93,7 +93,7 @@ describe('ConsumerLinks', () => {
     expect(link.closest('a')).toHaveAttribute('target', '_blank');
   });
 
-  it('uses amber color in inherit variant', () => {
+  it('inherits color from parent in inherit variant (no forced color)', () => {
     const consumers: MetricConsumersResponse = {
       charts: [{ id: 1, title: 'Chart', chart_type: 'bar' }],
       kpis: [],
@@ -101,7 +101,9 @@ describe('ConsumerLinks', () => {
     };
     render(<ConsumerLinks consumers={consumers} variant="inherit" />);
     const button = screen.getByText('1 Chart');
-    expect(button).toHaveClass('text-amber-700');
+    // inherit variant has no inline color style so it picks up parent text color
+    expect(button).not.toHaveStyle({ color: 'var(--primary)' });
+    expect(button).toHaveClass('underline');
   });
 
   it('shows alert count and link to /alerts page', async () => {

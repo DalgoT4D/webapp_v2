@@ -290,7 +290,11 @@ export function ProjectTree({
   );
 
   return (
-    <div ref={containerRef} className="flex flex-col h-full pl-2.5 pr-0 py-2.5 bg-white">
+    <div
+      ref={containerRef}
+      className="flex flex-col h-full pl-2.5 pr-0 py-2.5 bg-white"
+      data-testid="project-tree-panel"
+    >
       {/* Search & Sync */}
       <div className="flex gap-2 mb-4 px-2">
         <div className="relative flex-1">

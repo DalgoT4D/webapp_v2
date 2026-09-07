@@ -128,34 +128,21 @@ export function useNotificationActions() {
  * Hook for preference actions (update user/org preferences)
  */
 export function usePreferenceActions() {
-  const updateUserPreferences = async (data: { enable_email_notifications: boolean }) => {
+  const updateUserPreferences = async (data: {
+    enable_email_notifications?: boolean;
+    enable_schema_change_notifications?: boolean;
+  }) => {
     try {
       await apiPut('/api/userpreferences/', data);
       return true;
     } catch (error) {
-      console.error('Failed to update email preferences:', error);
+      console.error('Failed to update notification preferences:', error);
       const errorMessage =
-        error instanceof Error ? error.message : 'Failed to update email preferences';
+        error instanceof Error ? error.message : 'Failed to update notification preferences';
       toast.error(errorMessage);
       return false;
     }
   };
 
-  const updateOrgPreferences = async (data: {
-    enable_discord_notifications: boolean;
-    discord_webhook: string;
-  }) => {
-    try {
-      await apiPut('/api/orgpreferences/enable-discord-notifications', data);
-      return true;
-    } catch (error) {
-      console.error('Failed to update Discord preferences:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Failed to update Discord preferences';
-      toast.error(errorMessage);
-      return false;
-    }
-  };
-
-  return { updateUserPreferences, updateOrgPreferences };
+  return { updateUserPreferences };
 }

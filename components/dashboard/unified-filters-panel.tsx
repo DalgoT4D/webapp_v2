@@ -3,7 +3,9 @@
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import { FilterElement } from './filter-element';
 import type { DashboardFilterConfig, AppliedFilters } from '@/types/dashboard-filters';
-import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
+import { getDefaultFilterValues, summarizeAppliedFilters } from '@/lib/dashboard-filter-utils';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS, DASHBOARD_FILTER_CONTEXTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -177,6 +179,16 @@ export function UnifiedFiltersPanel({
     getDefaultFilterValues(initialFilters)
   );
   const [isApplyingFilters, setIsApplyingFilters] = useState(false);
+  // Which surface this panel is mounted on, for DASHBOARD_FILTER_APPLIED. Ordered most
+  // specific first: a report snapshot can also be flagged public, and the builder is the
+  // only place isEditMode is set.
+  const filterContext = isReportMode
+    ? DASHBOARD_FILTER_CONTEXTS.REPORT
+    : isPublicMode
+      ? DASHBOARD_FILTER_CONTEXTS.PUBLIC
+      : isEditMode
+        ? DASHBOARD_FILTER_CONTEXTS.EDIT
+        : DASHBOARD_FILTER_CONTEXTS.VIEW;
   const { mutate: globalMutate } = useSWRConfig();
   const [isCollapsed, setIsCollapsed] = useState(initiallyCollapsed); // For collapsing entire panel
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(true); // For showing/hiding filter list
@@ -320,6 +332,17 @@ export function UnifiedFiltersPanel({
     try {
       await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API call
       onFiltersApplied?.(appliedFilters);
+      // Both Apply buttons (vertical and horizontal layouts) run this handler, so one
+      // call site covers the panel wherever it is mounted. Counts and types only —
+      // never the chosen values or the columns behind them.
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_FILTER_APPLIED, {
+        // `|| undefined`: the public report view mounts this through DashboardNativeView
+        // with dashboardId={0} (it renders frozen snapshot data, not a live dashboard), and
+        // a literal 0 would look like a real id in PostHog. `context` still says where it was.
+        dashboard_id: dashboardId || undefined,
+        context: filterContext,
+        ...summarizeAppliedFilters(appliedFilters, filters),
+      });
     } catch (error) {
       console.error('Error applying filters:', error);
     } finally {

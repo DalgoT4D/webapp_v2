@@ -6,6 +6,7 @@ import { useSWRConfig } from 'swr';
 import {
   Plus,
   Search,
+  Share2,
   Target,
   MoreVertical,
   Pencil,
@@ -14,6 +15,7 @@ import {
   BellRing,
   ChevronLeft,
   ChevronRight,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,7 +38,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DocsLink } from '@/components/ui/docs-link';
 import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { useAuthStore } from '@/stores/authStore';
+import {
+  markKpiCreated,
+  isStageBefore,
+} from '@/components/onboarding/insight-walkthrough-constants';
+import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
+import { ShareModal } from '@/components/ui/share-modal';
+import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
 import { KPIDeleteDialog } from './kpi-delete-dialog';
@@ -47,7 +58,13 @@ import { RAG_COLORS, METRIC_TYPE_TAG_OPTIONS, TIME_GRAIN_OPTIONS } from '@/types
 import type { RAGStatus } from '@/types/kpis';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import {
+  ALERT_CREATE_SOURCES,
+  ANALYTICS_EVENTS,
+  KPI_EXPORT_SOURCES,
+  KPI_VIEW_SOURCES,
+  type KpiViewSource,
+} from '@/constants/analytics';
 import { formatDistanceToNow } from 'date-fns';
 import { computePopChanges } from '@/lib/formatters';
 
@@ -55,22 +72,29 @@ import { computePopChanges } from '@/lib/formatters';
 function KPICardWithData({
   kpi,
   onClick,
+  onViewFromMenu,
   onEdit,
   onDelete,
   onCreateAlert,
+  onShare,
   canCreateAlert,
   canEditKpis,
   canDeleteKpis,
+  canShare,
   statusFilter,
 }: {
   kpi: KPI;
   onClick: () => void;
+  /** ⋮ → View KPI. Same drawer as onClick, tracked with its own source. */
+  onViewFromMenu: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onCreateAlert?: () => void;
+  onShare?: () => void;
   canCreateAlert?: boolean;
   canEditKpis?: boolean;
   canDeleteKpis?: boolean;
+  canShare?: boolean;
   statusFilter?: string;
 }) {
   const { chartData, echartsConfig, isLoading } = useKPIData(kpi.id);
@@ -81,7 +105,7 @@ function KPICardWithData({
   // Hide card if status filter is active and doesn't match
   if (statusFilter && !isLoading && ragStatus !== statusFilter) return null;
 
-  const lastTwo = periods.slice(-2).map((p) => p.value);
+  const lastTwo = periods.slice(-2).map((p: { value: number | null }) => p.value);
   const popChange = computePopChanges(lastTwo)[1] ?? null;
 
   const cardData: KPICardData = {
@@ -107,11 +131,13 @@ function KPICardWithData({
         data={cardData}
         onClick={onClick}
         className="h-full"
+        kpiId={kpi.id}
+        exportSource={KPI_EXPORT_SOURCES.KPI_PAGE}
         showDownload={false}
         downloadInMenu
         menuItems={
           <>
-            <DropdownMenuItem onClick={onClick} className="cursor-pointer">
+            <DropdownMenuItem onClick={onViewFromMenu} className="cursor-pointer">
               <Eye className="w-4 h-4 mr-2" />
               View KPI
             </DropdownMenuItem>
@@ -125,6 +151,12 @@ function KPICardWithData({
               <DropdownMenuItem onClick={onCreateAlert} className="cursor-pointer">
                 <BellRing className="w-4 h-4 mr-2" />
                 Create alert
+              </DropdownMenuItem>
+            )}
+            {canShare && onShare && (
+              <DropdownMenuItem onClick={onShare} className="cursor-pointer">
+                <Share2 className="w-4 h-4 mr-2" />
+                Share
               </DropdownMenuItem>
             )}
             {canDeleteKpis && (
@@ -149,12 +181,17 @@ function KPICardWithData({
 export function KPIPageComponent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const orgUsers = useAuthStore((s) => s.orgUsers);
+  const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
+  const orgSlug = orgUsers.find((ou) => ou.org.slug === selectedOrgSlug)?.org.slug ?? null;
   const [search, setSearch] = useState('');
   const [metricTypeFilter, setMetricTypeFilter] = useState('');
   const [programTagFilter, setProgramTagFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [formOpen, setFormOpen] = useState(searchParams.get('create') === 'true');
+  // Walkthrough only — see handleFormSuccess.
+  const [kpiLiveModalOpen, setKpiLiveModalOpen] = useState(false);
   const [editingKpi, setEditingKpi] = useState<KPI | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedKpi, setSelectedKpi] = useState<KPI | null>(null);
@@ -162,6 +199,10 @@ export function KPIPageComponent() {
   const [deletingKpi, setDeletingKpi] = useState<KPI | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [alertKpiId, setAlertKpiId] = useState<number | null>(null);
+  const [shareModalKpi, setShareModalKpi] = useState<KPI | null>(null);
+  const { initialOpen: shouldAutoOpenShare, clearParam: clearShareDeepLink } = useOpenShareDeepLink(
+    ['kpiId']
+  );
 
   const { hasPermission } = useRbac();
   // Create/edit/delete affordances are hidden for view-only roles (members) and
@@ -198,6 +239,15 @@ export function KPIPageComponent() {
     if (openId && kpis.length > 0) {
       const kpi = kpis.find((k) => k.id === parseInt(openId));
       if (kpi) {
+        // This opens the same drawer as a card click, so it is a KPI view too — it was
+        // previously untracked, making every arrival from an alert/notification link
+        // invisible. Safe to fire inline: the param is stripped below, so the effect
+        // cannot run again for this id.
+        trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, {
+          kpi_id: kpi.id,
+          source: KPI_VIEW_SOURCES.DEEP_LINK,
+          metric_type_tag: kpi.metric_type_tag || null,
+        });
         setSelectedKpi(kpi);
         setDrawerOpen(true);
       }
@@ -207,6 +257,20 @@ export function KPIPageComponent() {
       router.replace(qs ? `/kpis?${qs}` : '/kpis', { scroll: false });
     }
   }, [searchParams, kpis, router]);
+
+  // Auto-open share modal when ?openShare=true&kpiId={id} is in the URL —
+  // deep link from an access-request notification.
+  useEffect(() => {
+    if (!shouldAutoOpenShare || kpis.length === 0) return;
+    const kpiId = searchParams.get('kpiId');
+    if (!kpiId) return;
+    const kpi = kpis.find((k) => k.id === parseInt(kpiId));
+    if (kpi) {
+      setShareModalKpi(kpi);
+    }
+    clearShareDeepLink();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldAutoOpenShare, kpis]);
 
   // Strip `?create=true` after consuming it on mount so a refresh doesn't
   // re-open the create form.
@@ -224,15 +288,46 @@ export function KPIPageComponent() {
     setCurrentPage(1);
     mutate();
     globalMutate('/api/kpis/program-tags/');
-  }, [mutate, globalMutate]);
+    // Resume-nudge milestone — set regardless of whether a coachmark session is active,
+    // so a returning user's progress is accurate (see flow-resume.ts).
+    markKpiCreated();
+    const walkthrough = useInsightWalkthroughStore.getState();
+    // Whatever they skipped on the way here — an optional KPI Type, a hint they clicked past
+    // — creating the KPI is the checkpoint, so catch the walkthrough up to it.
+    if (
+      walkthrough.active &&
+      walkthrough.stage &&
+      isStageBefore(walkthrough.path, walkthrough.stage, 'dashboard_nudge')
+    ) {
+      // A full celebration dialog rather than a toast — this is where the flow hands over
+      // from KPIs to dashboards, and the handover needs a CTA, not a corner notification.
+      setKpiLiveModalOpen(true);
+      // The next stage's coachmark points at the Dashboards nav item, which is visible
+      // behind this dialog — without suppressing it, congratulations and the nudge land on
+      // screen together. Released when the dialog closes, so the nudge is what the user
+      // sees next.
+      walkthrough.setSuppressCoachmark(true);
+      walkthrough.advanceIfBefore('dashboard_nudge');
+    }
+  }, [mutate, globalMutate, orgSlug]);
 
   const handleCreate = () => {
     setEditingKpi(null);
     setFormOpen(true);
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'kpi_intro') {
+      walkthrough.advanceTo('kpi_metric');
+    }
   };
 
-  const handleCardClick = (kpi: KPI) => {
-    trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, { metric_type_tag: kpi.metric_type_tag || null });
+  // `source` distinguishes the card body from the ⋮ → View KPI item: both land here, so
+  // without it there is no way to tell which affordance people actually use.
+  const handleCardClick = (kpi: KPI, source: KpiViewSource = KPI_VIEW_SOURCES.CARD) => {
+    trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, {
+      kpi_id: kpi.id,
+      source,
+      metric_type_tag: kpi.metric_type_tag || null,
+    });
     setSelectedKpi(kpi);
     setDrawerOpen(true);
   };
@@ -253,7 +348,9 @@ export function KPIPageComponent() {
     setIsDeleting(true);
     try {
       await deleteKPI(deletingKpi.id);
+      // Id read before the mutate() below drops the row from local state.
       trackEvent(ANALYTICS_EVENTS.KPI_DELETED, {
+        kpi_id: deletingKpi.id,
         metric_type_tag: deletingKpi.metric_type_tag || null,
       });
       if (kpis.length === 1 && currentPage > 1) {
@@ -288,7 +385,7 @@ export function KPIPageComponent() {
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
             <DocsLink path="/kpis">
-              <h1 className="text-3xl font-bold">KPI</h1>
+              <h1 className="text-3xl font-bold">Key Performance Indicators</h1>
             </DocsLink>
             <p className="text-muted-foreground mt-1">
               Track business objectives with measurable KPIs linked to your metrics
@@ -426,12 +523,15 @@ export function KPIPageComponent() {
                     key={kpi.id}
                     kpi={kpi}
                     onClick={() => handleCardClick(kpi)}
+                    onViewFromMenu={() => handleCardClick(kpi, KPI_VIEW_SOURCES.MENU)}
                     onEdit={() => handleEdit(kpi)}
                     onDelete={() => handleDeleteClick(kpi)}
                     onCreateAlert={() => setAlertKpiId(kpi.id)}
+                    onShare={() => setShareModalKpi(kpi)}
                     canCreateAlert={canCreateAlert}
-                    canEditKpis={canEditKpis}
+                    canEditKpis={kpi.access_level === 'edit'}
                     canDeleteKpis={canDeleteKpis}
+                    canShare={kpi.access_level === 'edit'}
                     statusFilter={statusFilter || undefined}
                   />
                 ))}
@@ -461,6 +561,20 @@ export function KPIPageComponent() {
         kpi={editingKpi}
       />
 
+      <CelebrationModal
+        open={kpiLiveModalOpen}
+        onOpenChange={(open) => {
+          setKpiLiveModalOpen(open);
+          // Whichever way it closes, the dashboard nudge is the next thing to see.
+          if (!open) useInsightWalkthroughStore.getState().setSuppressCoachmark(false);
+        }}
+        title="Congratulations, your KPI is live!"
+        description="Your insight is built, and you can now add it to a dashboard!"
+        ctaLabel="Add to Dashboard"
+        dismissEvent={ANALYTICS_EVENTS.KPI_LIVE_MODAL_DISMISSED}
+        testId="kpi-live-modal"
+      />
+
       <KPIDetailDrawer
         kpi={selectedKpi}
         open={drawerOpen}
@@ -487,7 +601,22 @@ export function KPIPageComponent() {
         open={alertKpiId !== null}
         onOpenChange={(o) => !o && setAlertKpiId(null)}
         initial={{ alertType: 'kpi_rag', kpiId: alertKpiId }}
+        createSource={ALERT_CREATE_SOURCES.KPI_LIST}
       />
+
+      {shareModalKpi && (
+        <ShareModal
+          rtype="kpi"
+          entityId={shareModalKpi.id}
+          entityLabel={shareModalKpi.name}
+          isOpen={shareModalKpi !== null}
+          onClose={() => {
+            setShareModalKpi(null);
+            clearShareDeepLink();
+          }}
+          onUpdate={mutate}
+        />
+      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@
  * Mock Data Factories for Connections Tests
  */
 
-import type { Connection, SchemaChange } from '@/types/connection';
+import type { Connection, SchemaChange } from '@/types/connections';
 
 export const createMockConnection = (overrides: Partial<Connection> = {}): Connection => ({
   connectionId: 'conn-1',

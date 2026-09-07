@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PipelineList } from '../pipeline-list';
 import { PipelineForm } from '../pipeline-form';
@@ -15,6 +15,7 @@ import * as rbac from '@/lib/rbac';
 import type { Pipeline, TransformTask, PipelineDetailResponse } from '@/types/pipeline';
 import type { Connection } from '@/types/connections';
 import { LockStatus } from '@/constants/pipeline';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 
 // ============ Mocks ============
 
@@ -134,6 +135,15 @@ describe('PipelineList', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    act(() => {
+      useInsightWalkthroughStore.setState({
+        active: false,
+        orgSlug: null,
+        flow: null,
+        stage: null,
+        path: null,
+      });
+    });
     (usePipelinesHook.usePipelines as jest.Mock).mockReturnValue({
       pipelines: [],
       isLoading: false,
@@ -342,6 +352,15 @@ describe('PipelineForm', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    act(() => {
+      useInsightWalkthroughStore.setState({
+        active: false,
+        orgSlug: null,
+        flow: null,
+        stage: null,
+        path: null,
+      });
+    });
     (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
       pipeline: null,
       isLoading: false,
@@ -404,13 +423,160 @@ describe('PipelineForm', () => {
     expect(nameInput).toHaveValue('My New Pipeline');
 
     // Submit without schedule shows validation error
-    await user.click(screen.getByRole('button', { name: /create pipeline/i }));
+    fireEvent.submit(screen.getByTestId('submit-btn').closest('form')!);
     expect(await screen.findByText('Schedule is required')).toBeInTheDocument();
     expect(usePipelinesHook.createPipeline).not.toHaveBeenCalled();
 
     // Cancel navigates back
     await user.click(screen.getByRole('button', { name: /cancel/i }));
     expect(mockPush).toHaveBeenCalledWith('/orchestrate');
+  });
+
+  it('requires a connection or transform task when creating a pipeline', async () => {
+    const user = userEvent.setup();
+    render(<PipelineForm />);
+
+    const submit = screen.getByTestId('submit-btn');
+    const name = screen.getByTestId('name');
+
+    expect(
+      screen.getByText('Choose at least one: a connection or a transform task')
+    ).toBeInTheDocument();
+
+    await user.type(name, 'Pipeline with work');
+    await user.click(screen.getByTestId('cron-input'));
+    await user.click(screen.getByTestId('cron-item-manual'));
+
+    expect(screen.getByTestId('cron-input')).toHaveValue('Manual');
+    expect(submit).toBeDisabled();
+
+    // The disabled button is not the only guard: keyboard submission gets a useful error.
+    fireEvent.submit(submit.closest('form')!);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Select at least one connection or transform task.'
+    );
+    expect(usePipelinesHook.createPipeline).not.toHaveBeenCalled();
+
+    await user.click(screen.getByTestId('connections-search'));
+    await user.click(screen.getByTestId('connections-item-conn-1'));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(submit).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: 'Remove Connection 1' }));
+    expect(submit).toBeDisabled();
+
+    fireEvent.click(screen.getByTestId('run-transform-tasks-checkbox'));
+    expect(submit).toBeEnabled();
+
+    fireEvent.click(screen.getByTestId('run-transform-tasks-checkbox'));
+    expect(submit).toBeDisabled();
+  });
+
+  it('creates a valid connection-only pipeline', async () => {
+    const user = userEvent.setup();
+    render(<PipelineForm />);
+
+    await user.type(screen.getByTestId('name'), 'Connection only');
+    await user.click(screen.getByTestId('connections-search'));
+    await user.click(screen.getByTestId('connections-item-conn-1'));
+    await user.click(screen.getByTestId('cron-input'));
+    await user.click(screen.getByTestId('cron-item-manual'));
+    await user.click(screen.getByTestId('submit-btn'));
+
+    await waitFor(() =>
+      expect(usePipelinesHook.createPipeline).toHaveBeenCalledWith({
+        name: 'Connection only',
+        connections: [{ id: 'conn-1', seq: 1 }],
+        cron: '',
+        transformTasks: [],
+        continueOnSyncFailure: false,
+      })
+    );
+  });
+
+  it('creates a valid transform-only pipeline', async () => {
+    const user = userEvent.setup();
+    render(<PipelineForm />);
+
+    await user.type(screen.getByTestId('name'), 'Transform only');
+    await user.click(screen.getByTestId('run-transform-tasks-checkbox'));
+    await user.click(screen.getByTestId('cron-input'));
+    await user.click(screen.getByTestId('cron-item-manual'));
+    await user.click(screen.getByTestId('submit-btn'));
+
+    await waitFor(() =>
+      expect(usePipelinesHook.createPipeline).toHaveBeenCalledWith({
+        name: 'Transform only',
+        connections: [],
+        cron: '',
+        transformTasks: [
+          { uuid: 'task-1', seq: 1 },
+          { uuid: 'task-2', seq: 2 },
+        ],
+        continueOnSyncFailure: false,
+      })
+    );
+  });
+
+  it('does not count the transform checkbox when no default tasks are available', async () => {
+    const user = userEvent.setup();
+    (usePipelinesHook.useTransformTasks as jest.Mock).mockReturnValue({
+      tasks: [],
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm />);
+
+    await user.click(screen.getByTestId('cron-input'));
+    await user.click(screen.getByTestId('cron-item-manual'));
+    await user.click(screen.getByTestId('run-transform-tasks-checkbox'));
+
+    expect(screen.getByTestId('run-transform-tasks-checkbox')).toBeChecked();
+    expect(screen.getByTestId('submit-btn')).toBeDisabled();
+  });
+
+  it('keeps Manual visible but disabled during the automated-pipeline guide', async () => {
+    const user = userEvent.setup();
+    act(() => {
+      useInsightWalkthroughStore.setState({
+        active: true,
+        orgSlug: 'dalgo-local',
+        flow: 'automate_pipeline',
+        path: 'automate_pipeline',
+        stage: 'pipeline_set_schedule',
+      });
+    });
+
+    render(<PipelineForm />);
+
+    expect(screen.getByText('Choose Daily or Weekly to automate this pipeline.')).toBeVisible();
+
+    await user.click(screen.getByTestId('connections-search'));
+    await user.click(screen.getByTestId('connections-item-conn-1'));
+    await user.click(screen.getByTestId('cron-input'));
+
+    const manualOption = screen.getByTestId('cron-item-manual');
+    expect(manualOption).toBeVisible();
+    expect(manualOption).toHaveAttribute('aria-disabled', 'true');
+
+    await user.click(manualOption);
+    expect(screen.getByTestId('cron-input')).toHaveValue('');
+    expect(useInsightWalkthroughStore.getState().stage).toBe('pipeline_set_schedule');
+
+    await user.click(screen.getByTestId('cron-item-daily'));
+    await user.click(screen.getByTestId('cronTimeOfDay'));
+    await user.click(screen.getByTestId('time-picker-ok'));
+
+    await waitFor(() =>
+      expect(useInsightWalkthroughStore.getState().stage).toBe('pipeline_create_it')
+    );
+    expect(screen.getByTestId('submit-btn')).toBeEnabled();
+
+    // Manual stays disabled after the guide advances to its Create step.
+    await user.click(screen.getByTestId('cron-input'));
+    expect(screen.getByTestId('cron-item-manual')).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('renders edit mode with existing data and shows transform tasks when pipeline has tasks', async () => {
@@ -450,6 +616,85 @@ describe('PipelineForm', () => {
 
     // TaskSequence is visible when checkbox is checked
     expect(screen.getByText('Reset to default')).toBeInTheDocument();
+  });
+
+  it('keeps Manual available when editing during an active automated-pipeline guide', async () => {
+    const user = userEvent.setup();
+    const manualPipeline: PipelineDetailResponse = {
+      name: 'Existing Manual Pipeline',
+      cron: null,
+      isScheduleActive: true,
+      continueOnSyncFailure: false,
+      connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
+      transformTasks: [],
+    };
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline: manualPipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+    act(() => {
+      useInsightWalkthroughStore.setState({
+        active: true,
+        orgSlug: 'dalgo-local',
+        flow: 'automate_pipeline',
+        path: 'automate_pipeline',
+        stage: 'pipeline_create_it',
+      });
+    });
+
+    render(<PipelineForm deploymentId="manual-dep" />);
+
+    expect(screen.queryByText('Choose Daily or Weekly to automate this pipeline.')).toBeNull();
+    await user.click(screen.getByTestId('cron-input'));
+    expect(screen.getByTestId('cron-item-manual')).toHaveAttribute('aria-disabled', 'false');
+    expect(screen.getByTestId('submit-btn')).toBeEnabled();
+
+    await user.click(screen.getByTestId('submit-btn'));
+    await waitFor(() =>
+      expect(usePipelinesHook.updatePipeline).toHaveBeenCalledWith('manual-dep', {
+        name: 'Existing Manual Pipeline',
+        connections: [{ id: 'conn-1', seq: 1 }],
+        cron: '',
+        transformTasks: [],
+        continueOnSyncFailure: false,
+      })
+    );
+  });
+
+  it('prevents an existing pipeline from being saved after all work is removed', async () => {
+    const user = userEvent.setup();
+    const existingPipeline: PipelineDetailResponse = {
+      name: 'Connection Pipeline',
+      cron: null,
+      isScheduleActive: true,
+      continueOnSyncFailure: false,
+      connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
+      transformTasks: [],
+    };
+    (usePipelinesHook.usePipeline as jest.Mock).mockReturnValue({
+      pipeline: existingPipeline,
+      isLoading: false,
+      isError: null,
+      mutate: jest.fn(),
+    });
+
+    render(<PipelineForm deploymentId="connection-pipeline" />);
+
+    const submit = screen.getByTestId('submit-btn');
+    expect(submit).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: 'Remove Connection 1' }));
+
+    expect(submit).toBeDisabled();
+    expect(screen.getByText('Choose at least one: a connection or a transform task')).toBeVisible();
+
+    fireEvent.submit(submit.closest('form')!);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Select at least one connection or transform task.'
+    );
+    expect(usePipelinesHook.updatePipeline).not.toHaveBeenCalled();
   });
 });
 
@@ -723,7 +968,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       cron: '0 9 * * *',
       isScheduleActive: true,
       continueOnSyncFailure: false,
-      connections: [],
+      connections: [{ id: 'conn-1', name: 'Connection 1', seq: 1 }],
       transformTasks: [],
     };
 
@@ -740,7 +985,7 @@ describe('PipelineForm - Edit Mode Edge Cases', () => {
       mutate: jest.fn(),
     });
     (usePipelinesHook.useConnections as jest.Mock).mockReturnValue({
-      connections: [],
+      connections: defaultConnections,
       isLoading: false,
       isError: null,
       mutate: jest.fn(),

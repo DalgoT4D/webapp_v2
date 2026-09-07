@@ -1,39 +1,39 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { DashboardBuilderV2 } from '@/components/dashboard/dashboard-builder-v2';
 import { useDashboard } from '@/hooks/api/useDashboards';
 import { useAuthStore } from '@/stores/authStore';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Lock, User, Clock, AlertTriangle, Eye, Loader2 } from 'lucide-react';
 import { apiDelete } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
 
 export default function EditDashboardPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const dashboardId = parseInt(params.id as string);
+  const isNewDashboard = searchParams.get('new') === 'true';
 
   // Ref to access dashboard builder cleanup function
-  const dashboardBuilderRef = useRef<{ cleanup: () => Promise<void> } | null>(null);
+  const dashboardBuilderRef = useRef<{ cleanup: () => Promise<boolean> } | null>(null);
 
   // Get current user info
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
   const currentUser = getCurrentOrgUser();
 
-  // Get user permissions
-  const { hasPermission } = useRbac();
-  const canEditDashboard = hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS);
+  // Fetch the dashboard. A viewer (member with view access) can load it — the
+  // backend returns 404 if they can't even view. Whether they may *edit* is
+  // gated below on the per-resource `access_level`, not on a role permission.
+  const { data: dashboard, isLoading, isError, mutate } = useDashboard(dashboardId);
 
-  // Don't start the dashboard request without edit permission
-  const {
-    data: dashboard,
-    isLoading,
-    isError,
-    mutate,
-  } = useDashboard(canEditDashboard ? dashboardId : null);
+  // Can this user EDIT this specific dashboard? Per-resource access from the API
+  // (grants + org floor + ownership). Undefined until the dashboard loads.
+  const canEditDashboard = dashboard?.access_level === 'edit';
 
   // Check if dashboard is locked by another user
   // Only block access if dashboard is locked AND locked by someone else
@@ -66,6 +66,24 @@ export default function EditDashboardPage() {
     }
     return undefined;
   }, [isLockedByOther, dashboard, mutate]);
+
+  // The EDIT DASHBOARD path. Fired here rather than on the button itself so the three
+  // Edit links in the dashboard list are covered by the same code, and gated so it only
+  // fires when the builder really opens for editing:
+  //  - !isNewDashboard  — the create flow redirects here with ?new=true, and that stub is
+  //    already DASHBOARD_CREATED; firing again would make every creation an update too.
+  //  - permission / lock — a denied or locked-by-another user sees a notice, not the builder.
+  // Ref-guarded so a re-render (or the lock poll's 10s mutate) can't re-fire it.
+  const editOpenTrackedRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (isNewDashboard || !canEditDashboard || !dashboard || isLockedByOther) return;
+    if (editOpenTrackedRef.current === dashboardId) return;
+    editOpenTrackedRef.current = dashboardId;
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_UPDATED, {
+      dashboard_id: dashboardId,
+      source: DASHBOARD_UPDATE_SOURCES.EDIT_BUTTON,
+    });
+  }, [isNewDashboard, canEditDashboard, dashboard, isLockedByOther, dashboardId]);
 
   // Handle navigation back to dashboard list
   const handleBackNavigation = async () => {
@@ -164,8 +182,20 @@ export default function EditDashboardPage() {
 
     try {
       // Call cleanup function if available (this will save changes first)
+      let saved = false;
       if (dashboardBuilderRef.current?.cleanup) {
-        await dashboardBuilderRef.current.cleanup();
+        saved = await dashboardBuilderRef.current.cleanup();
+      }
+
+      // Same update event as the builder's Save button — this button saves too, so
+      // one event with a `source` keeps "dashboards updated" a single number. Gated on
+      // cleanup's result: it swallows save errors so the user can still navigate, which
+      // means an ungated call here would report updates that never persisted.
+      if (saved) {
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_UPDATED, {
+          dashboard_id: dashboardId,
+          source: DASHBOARD_UPDATE_SOURCES.SAVE_AND_VIEW,
+        });
       }
 
       // Navigate to preview mode
@@ -193,8 +223,22 @@ export default function EditDashboardPage() {
     },
   };
 
-  // Check if user has edit permissions — before the loading check, since the
-  // dashboard request never starts (and never resolves) without permission
+  // Loading comes first now: canEditDashboard depends on the fetched dashboard,
+  // so we can't gate on it until the request resolves.
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // After load: the dashboard is visible to this user (else the backend 404'd),
+  // but editing requires per-resource edit access. View-only users are stopped
+  // here rather than in the builder.
   if (!canEditDashboard) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -203,24 +247,11 @@ export default function EditDashboardPage() {
             <Lock className="w-6 h-6 text-red-600" />
           </div>
           <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground mb-4">
-            You don't have permission to edit dashboards.
-          </p>
+          <p className="text-muted-foreground mb-4">You have view-only access to this dashboard.</p>
           <Button variant="outline" onClick={() => router.push('/dashboards')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboards
           </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -316,6 +347,7 @@ export default function EditDashboardPage() {
         isLocked: dashboard?.is_locked || false,
         lockedBy: dashboard?.locked_by,
       }}
+      isNewDashboard={isNewDashboard}
       onBack={handleBackNavigation}
       onPreview={handlePreviewMode}
       isNavigating={isNavigating}

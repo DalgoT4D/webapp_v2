@@ -38,6 +38,7 @@ export const mockNotifications: Notification[] = [
 
 export const mockUserPreferences = {
   enable_email_notifications: true,
+  enable_schema_change_notifications: true,
 };
 
 export const mockOrgPreferences = {
@@ -57,23 +58,23 @@ export const createMockNotificationHooks = (mutate = jest.fn()) => {
   const mockMarkAsRead = jest.fn().mockResolvedValue(true);
   const mockMarkAllAsRead = jest.fn().mockResolvedValue(true);
   const mockUpdateUserPreferences = jest.fn().mockResolvedValue(true);
-  const mockUpdateOrgPreferences = jest.fn().mockResolvedValue(true);
 
   return {
     mutate,
     mockMarkAsRead,
     mockMarkAllAsRead,
     mockUpdateUserPreferences,
-    mockUpdateOrgPreferences,
   };
 };
 
-export const createMockPermissions = (hasDiscord = true) => ({
-  permissions: hasDiscord ? [{ slug: 'can_edit_org_notification_settings' }] : [],
-  hasPermission: hasDiscord
-    ? (slug: string) => slug === 'can_edit_org_notification_settings'
-    : () => false,
-  hasAnyPermission: () => hasDiscord,
-  hasAllPermissions: () => hasDiscord,
-  isLoading: false,
+// Toggle isAdmin=true to simulate a super-admin/admin user (used for role-gated toggles
+// like the schema-change opt-in in the notification preferences modal).
+export const createMockPermissions = (isAdmin = true) => ({
+  role: isAdmin ? 'admin' : 'analyst',
+  isLoaded: true,
+  hasRole: (target: string | string[]) =>
+    isAdmin && (Array.isArray(target) ? target.includes('admin') : target === 'admin'),
+  hasPermission: () => false,
+  hasAnyPermission: () => false,
+  hasAllPermissions: () => false,
 });

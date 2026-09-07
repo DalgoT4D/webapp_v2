@@ -32,7 +32,7 @@ export function extractColumnsFromSchema(
 
     const selected = fieldSelectionEnabled ? selectedFieldNames.has(name) : true;
 
-    return { name, data_type: dataType, selected };
+    return { name, data_type: dataType, selected, cast_to_type: null as string | null };
   });
 }
 

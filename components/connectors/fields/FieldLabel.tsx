@@ -39,7 +39,10 @@ export function FieldLabel({ title, required, description, htmlFor }: FieldLabel
 
   return (
     <div className="mb-1.5">
-      <label htmlFor={htmlFor} className="text-[15px] font-medium">
+      {/* text-base matches the host-owned labels these spec fields sit under
+          (source name, connection name, warehouse name) — see the typography
+          scale in rules/components.md. */}
+      <label htmlFor={htmlFor} className="text-base font-medium">
         {title}
         {required && <span className="text-destructive ml-0.5">*</span>}
         {description && (

@@ -6,6 +6,7 @@ import useSWR from 'swr';
 import { useCanvasSources } from '@/hooks/api/useCanvasSources';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { useTransformStore } from '@/stores/transformStore';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { CANVAS_GRAPH_KEY } from '@/hooks/api/useCanvasGraph';
 import {
   type DbtProjectGraphResponse,
@@ -107,6 +108,13 @@ export function useSourceTreeActions({ isPreview }: UseSourceTreeActionsParams) 
 
         // Focus and select the newly added node
         focusAndSelectCanvasNode(newNode.uuid, newNode.node_type, newNode);
+
+        if (useInsightWalkthroughStore.getState().stage === 'pipeline_pick_table') {
+          // Panel doesn't auto-open on add — the node still needs a real click (see
+          // DbtSourceModelNode.tsx) to dispatch OPEN_OPCONFIG_PANEL. Point at that node.
+          useInsightWalkthroughStore.getState().setTargetNodeId(newNode.uuid);
+          useInsightWalkthroughStore.getState().advanceTo('pipeline_select_node');
+        }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : `Failed to add ${table} to canvas`;
         toastError.api(message);

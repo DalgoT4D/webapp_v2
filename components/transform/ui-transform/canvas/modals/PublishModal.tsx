@@ -18,6 +18,9 @@ import { apiGet, apiPost } from '@/lib/api';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useAuthStore } from '@/stores/authStore';
+import { markTransformPublished } from '@/components/onboarding/insight-walkthrough-constants';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 
 interface PublishModalProps {
   open: boolean;
@@ -32,6 +35,9 @@ interface GitStatusSummary {
 }
 
 export default function PublishModal({ open, onClose, onPublishSuccess }: PublishModalProps) {
+  const orgUsers = useAuthStore((s) => s.orgUsers);
+  const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
+  const orgSlug = orgUsers.find((ou) => ou.org.slug === selectedOrgSlug)?.org.slug ?? null;
   const [commitMessage, setCommitMessage] = useState('');
   const [gitStatus, setGitStatus] = useState<GitStatusSummary | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,6 +47,11 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
   useEffect(() => {
     if (open) {
       fetchGitStatus();
+      // Walkthrough: the Publish coachmark's whole point was to open this dialog, so opening
+      // it is the hand-off to the commit-message step inside it.
+      if (useInsightWalkthroughStore.getState().stage === 'pipeline_table_built') {
+        useInsightWalkthroughStore.getState().advanceTo('pipeline_publish_commit');
+      }
     }
   }, [open]);
 
@@ -83,6 +94,20 @@ export default function PublishModal({ open, onClose, onPublishSuccess }: Publis
       if (response.success) {
         trackEvent(ANALYTICS_EVENTS.TRANSFORM_CHANGES_PUBLISHED);
         toastSuccess.published('Changes');
+        // Resume-nudge milestone — transformation counts done once published.
+        markTransformPublished();
+        // Transform leg is finished; the walkthrough's next stop is Orchestrate. Advancing here
+        // rather than waiting for the /orchestrate route means the dialog doesn't close back
+        // onto a coachmark still pointing at a Publish the user just did.
+        //
+        // The nudge, not pipeline_orchestrate_intro itself: that stage is pinned to /orchestrate
+        // and coachmarks never navigate on their own, so pointing there left the canvas with no
+        // coachmark at all. The nudge rings the Orchestrate sidebar item from wherever the user
+        // is, and reaching /orchestrate advances it (see ROUTE_ADVANCES).
+        const publishStage = useInsightWalkthroughStore.getState().stage;
+        if (publishStage === 'pipeline_publish_commit' || publishStage === 'pipeline_table_built') {
+          useInsightWalkthroughStore.getState().advanceTo('pipeline_orchestrate_nudge');
+        }
         onPublishSuccess?.();
         onClose();
       } else {

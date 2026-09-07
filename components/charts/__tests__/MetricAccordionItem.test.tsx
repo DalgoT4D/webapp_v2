@@ -81,6 +81,16 @@ describe('MetricAccordionItem — inline metric (full tabbed form)', () => {
       expect.not.objectContaining({ alias: expect.anything() })
     );
   });
+
+  it('shows Display Name field for non-number chart types', () => {
+    renderItem({ column: 'amount', aggregation: 'sum', alias: 'Total' }, { chartType: 'bar' });
+    expect(screen.getByLabelText('Display Name In Charts')).toBeInTheDocument();
+  });
+
+  it('hides Display Name field for number (big number) chart type', () => {
+    renderItem({ column: 'amount', aggregation: 'sum', alias: 'Total' }, { chartType: 'number' });
+    expect(screen.queryByLabelText('Display Name In Charts')).not.toBeInTheDocument();
+  });
 });
 
 describe('MetricAccordionItem — calculated tab', () => {

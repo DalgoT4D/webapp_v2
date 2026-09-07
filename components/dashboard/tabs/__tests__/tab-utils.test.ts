@@ -5,7 +5,11 @@ import {
   initializeTabsData,
   getActiveTabData,
 } from '../tab-utils';
-import { DashboardTab, DashboardTabsData } from '@/types/dashboard';
+import {
+  DashboardComponentType,
+  type DashboardTab,
+  type DashboardTabsData,
+} from '@/types/dashboard';
 
 describe('createNewTab', () => {
   it('creates a tab with correct title and structure', () => {
@@ -58,6 +62,24 @@ describe('initializeTabsData', () => {
     const result = initializeTabsData(backendTabs);
     expect(result.tabs).toEqual(backendTabs);
     expect(result.activeTabId).toBe('tab-1');
+  });
+
+  it('preserves a pre-tab dashboard by migrating its root canvas into the first tab', () => {
+    const legacyLayout = [{ i: 'text-1', x: 0, y: 0, w: 6, h: 3 }];
+    const legacyComponents = {
+      'text-1': {
+        id: 'text-1',
+        type: DashboardComponentType.TEXT,
+        config: { content: 'Legacy content' },
+      },
+    };
+
+    const result = initializeTabsData(undefined, legacyLayout, legacyComponents);
+
+    expect(result.tabs).toHaveLength(1);
+    expect(result.activeTabId).toBe(result.tabs[0].id);
+    expect(result.tabs[0].layout_config).toBe(legacyLayout);
+    expect(result.tabs[0].components).toBe(legacyComponents);
   });
 
   it('returns default config when tabs is empty or undefined', () => {

@@ -36,7 +36,7 @@ import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { type ChartTitleConfig } from '@/lib/chart-title-utils';
-import { resolveDashboardFilters, formatAsChartFilters } from '@/lib/dashboard-filter-utils';
+import { resolveDashboardFilters } from '@/lib/dashboard-filter-utils';
 import {
   applyLegendPosition,
   extractLegendPosition,
@@ -58,7 +58,10 @@ import {
   applyLineBarDateFormatting,
 } from '@/lib/chart-formatting-utils';
 import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
+import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ChartTypes, type ChartDataPayload, type ChartDimension } from '@/types/charts';
+import { CHART_DRILL_SOURCES } from '@/constants/analytics';
+import { useDrillDownAnalytics } from '@/components/charts/useDrillDownAnalytics';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ChartExporter, generateFilename, BrandingOptions } from '@/lib/chart-export';
@@ -138,6 +141,7 @@ interface ChartElementViewProps {
   commentStates?: CommentStates; // Comment states array with target_type and chart_id
   onCommentStateChange?: () => void; // Callback when comment state changes
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open
+  canModerateComments?: boolean; // Caller has Edit access on the parent report — enables moderator Delete
   orgLogoUrl?: string | null; // Organization logo URL for fullscreen overlay
 }
 
@@ -167,6 +171,7 @@ export function ChartElementView({
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
+  canModerateComments = false,
   orgLogoUrl,
 }: ChartElementViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
@@ -311,6 +316,18 @@ export function ChartElementView({
 
   // Use frozen config in report mode, public metadata in public mode, or chart in private mode
   const effectiveChart = frozenChartConfig || (isPublicMode ? publicChartMetadata : chart);
+
+  // Drill-down engagement on a chart embedded in a dashboard. Disabled on public
+  // share links and report snapshots — those are anonymous surfaces covered by
+  // PUBLIC_DASHBOARD_VIEWED / report events, not by per-chart engagement events.
+  useDrillDownAnalytics({
+    chartId,
+    chartType: effectiveChart?.chart_type,
+    source: CHART_DRILL_SOURCES.DASHBOARD,
+    mapLevel: drillDownPath.length,
+    tableLevel: tableDrillDownState?.currentLevel ?? null,
+    enabled: !isPublicMode && !frozenChartConfig,
+  });
 
   // Determine chart type using effective chart
   const isTableChart = effectiveChart?.chart_type === ChartTypes.TABLE;
@@ -516,17 +533,20 @@ export function ChartElementView({
   } = useSWR(
     publicTableDataUrl
       ? isPublicReport
-        ? [publicTableDataUrl, tablePage, tablePageSize]
+        ? [publicTableDataUrl, tablePage, tablePageSize, dashboardFilters]
         : [publicTableDataUrl, chartDataPayload, tablePage, tablePageSize, dashboardFilters]
       : null,
     isPublicMode && isTableChart
       ? isPublicReport
-        ? async ([url, page, size]: [string, number, number]) => {
+        ? async ([url, page, size, filters]: [string, number, number, Record<string, any>]) => {
             // Public report: GET — server builds payload from frozen config
             const qp = new URLSearchParams({
               page: (page - 1).toString(),
               limit: size.toString(),
             });
+            if (Object.keys(filters).length > 0) {
+              qp.append('dashboard_filters', JSON.stringify(filters));
+            }
             const response = await fetch(
               `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}?${qp}`
             );
@@ -563,22 +583,29 @@ export function ChartElementView({
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
   );
 
-  // Private mode table data (only fetch for table charts)
+  // Private mode table data. In report mode, only fetch once snapshotId is
+  // available — don't fall back to the live-chart endpoint while it's still
+  // missing.
+  const isTableReadyToFetch = frozenChartConfig ? !!snapshotId : true;
   const {
     data: privateTableData,
     error: privateTableError,
     isLoading: privateTableLoading,
   } = useChartDataPreview(
-    !isPublicMode && isTableChart ? chartDataPayload : null,
+    !isPublicMode && isTableChart && isTableReadyToFetch ? chartDataPayload : null,
     tablePage,
     tablePageSize,
-    dashboardFilters
+    dashboardFilters,
+    frozenChartConfig ? snapshotId : null,
+    chartId
   );
 
   // Get total rows for table pagination (private mode, only for table charts)
   const { data: privateTableTotalRows } = useChartDataPreviewTotalRows(
-    !isPublicMode && isTableChart ? chartDataPayload : null,
-    dashboardFilters
+    !isPublicMode && isTableChart && isTableReadyToFetch ? chartDataPayload : null,
+    dashboardFilters,
+    frozenChartConfig ? snapshotId : null,
+    chartId
   );
 
   // Get total rows for table pagination (public mode)
@@ -592,15 +619,19 @@ export function ChartElementView({
   const { data: publicTableTotalRowsData } = useSWR(
     publicTableTotalRowsUrl
       ? isPublicReport
-        ? [publicTableTotalRowsUrl]
+        ? [publicTableTotalRowsUrl, dashboardFilters]
         : [publicTableTotalRowsUrl, chartDataPayload, dashboardFilters]
       : null,
     isPublicMode && isTableChart
       ? isPublicReport
-        ? async ([url]: [string]) => {
+        ? async ([url, filters]: [string, Record<string, any>]) => {
             // Public report: GET — server builds payload from frozen config
+            const qp = new URLSearchParams();
+            if (Object.keys(filters).length > 0) {
+              qp.append('dashboard_filters', JSON.stringify(filters));
+            }
             const response = await fetch(
-              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}`
+              `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002'}${url}${qp.toString() ? `?${qp}` : ''}`
             );
             if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             return response.json();
@@ -730,9 +761,11 @@ export function ChartElementView({
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
 
   // Fetch geojsons for the current drill-down region - use public API for public mode
-  const { data: privateRegionGeojsons } = useRegionGeoJSONs(
-    !isPublicMode ? currentDrillDownRegionId : null
-  );
+  const {
+    data: privateRegionGeojsons,
+    error: privateRegionGeojsonsError,
+    isLoading: privateRegionGeojsonsLoading,
+  } = useRegionGeoJSONs(!isPublicMode ? currentDrillDownRegionId : null);
 
   // Use public geojsons API for public mode
   const publicGeojsonsUrl =
@@ -740,7 +773,11 @@ export function ChartElementView({
       ? `/api/v1/public/regions/${currentDrillDownRegionId}/geojsons/`
       : null;
 
-  const { data: publicRegionGeojsons } = useSWR(publicGeojsonsUrl, async (url: string) => {
+  const {
+    data: publicRegionGeojsons,
+    error: publicRegionGeojsonsError,
+    isLoading: publicRegionGeojsonsLoading,
+  } = useSWR(publicGeojsonsUrl, async (url: string) => {
     const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${url}`);
     if (!response.ok) {
       throw new Error('Failed to fetch public geojsons');
@@ -749,25 +786,30 @@ export function ChartElementView({
   });
 
   const regionGeojsons = isPublicMode ? publicRegionGeojsons : privateRegionGeojsons;
+  const regionGeojsonsError = isPublicMode ? publicRegionGeojsonsError : privateRegionGeojsonsError;
+  const regionGeojsonsLoading = isPublicMode
+    ? publicRegionGeojsonsLoading
+    : privateRegionGeojsonsLoading;
 
   // For map charts, determine which geojson and data to fetch based on drill-down state
   let activeGeojsonId = null;
   let activeGeographicColumn = null;
+  const activeDrillDownLevel =
+    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1] : null;
+  const drillDownGeojsonResolution = resolveDrillDownGeoJSON({
+    isDrillDownActive: Boolean(activeDrillDownLevel),
+    regionId: currentDrillDownRegionId,
+    regionGeojsons,
+    regionGeojsonsLoading,
+    regionGeojsonsError,
+    fallbackGeojsonId: activeDrillDownLevel?.geojson_id,
+  });
 
   if (effectiveChart?.chart_type === ChartTypes.MAP) {
-    if (drillDownPath.length > 0) {
+    if (activeDrillDownLevel) {
       // We're in a drill-down state, use the first available geojson for this region
-      const lastDrillDown = drillDownPath[drillDownPath.length - 1];
-      activeGeographicColumn = lastDrillDown.geographic_column;
-
-      if (regionGeojsons && regionGeojsons.length > 0) {
-        // Use the first available geojson for this region (e.g., Karnataka districts)
-        activeGeojsonId = regionGeojsons[0].id;
-        console.log(`🗺️ Using geojson ID ${activeGeojsonId} for region ${lastDrillDown.name}`);
-      } else {
-        // Fallback to the stored geojson_id (if any)
-        activeGeojsonId = lastDrillDown.geojson_id;
-      }
+      activeGeographicColumn = activeDrillDownLevel.geographic_column;
+      activeGeojsonId = drillDownGeojsonResolution.geojsonId;
     } else if (currentLayer) {
       // Use current layer configuration (first layer)
       activeGeojsonId = currentLayer.geojson_id;
@@ -794,6 +836,7 @@ export function ChartElementView({
   }
 
   const mapDataOverlayPayload = useMemo(() => {
+    const metric = effectiveChart?.extra_config?.metrics?.[0];
     return effectiveChart?.chart_type === ChartTypes.MAP &&
       effectiveChart.extra_config &&
       activeGeographicColumn
@@ -801,28 +844,18 @@ export function ChartElementView({
           schema_name: effectiveChart.schema_name,
           table_name: effectiveChart.table_name,
           geographic_column: activeGeographicColumn,
+          metric,
           value_column:
             effectiveChart.extra_config.aggregate_column ||
             effectiveChart.extra_config.value_column,
-          aggregate_function: effectiveChart.extra_config.aggregate_function || 'sum',
+          aggregate_function:
+            effectiveChart.extra_config.aggregate_function || (metric ? undefined : 'sum'),
           filters: filters, // Drill-down filters
-          // In report mode, skip dashboard_filters (frozen IDs can't be resolved
-          // by backend DB lookup); resolved filters go in extra_config.filters instead
-          dashboard_filters: frozenChartConfig ? undefined : dashboardFilters,
-          // Chart-level filters + resolved dashboard filters in report mode
+          // All map contexts (dashboard and report, public and private) now
+          // resolve dashboard filters server-side.
+          dashboard_filters: dashboardFilters,
           extra_config: {
-            filters: [
-              ...(effectiveChart.extra_config.filters || []),
-              ...(frozenChartConfig
-                ? formatAsChartFilters(
-                    resolvedDashboardFilters.filter(
-                      (f) =>
-                        f.schema_name === effectiveChart.schema_name &&
-                        f.table_name === effectiveChart.table_name
-                    )
-                  )
-                : []),
-            ],
+            filters: [...(effectiveChart.extra_config.filters || [])],
             pagination: effectiveChart.extra_config.pagination,
             sort: effectiveChart.extra_config.sort,
           },
@@ -836,8 +869,6 @@ export function ChartElementView({
     activeGeographicColumn,
     filters,
     dashboardFilters,
-    frozenChartConfig,
-    resolvedDashboardFilters,
   ]);
 
   // Fetch GeoJSON data - public vs private mode
@@ -871,8 +902,10 @@ export function ChartElementView({
 
   // Use appropriate geojson data based on mode
   const geojsonData = isPublicMode ? publicGeojsonData : privateGeojsonData;
-  const geojsonError = isPublicMode ? publicGeojsonError : privateGeojsonError;
-  const geojsonLoading = isPublicMode ? publicGeojsonLoading : privateGeojsonLoading;
+  const geojsonDataError = isPublicMode ? publicGeojsonError : privateGeojsonError;
+  const geojsonDataLoading = isPublicMode ? publicGeojsonLoading : privateGeojsonLoading;
+  const geojsonError = regionGeojsonsError || geojsonDataError;
+  const geojsonLoading = drillDownGeojsonResolution.isResolving || geojsonDataLoading;
 
   // Fetch map data overlay - public vs private mode
   // Apply same payload transformation as useMapDataOverlay (handles count, builds metrics)
@@ -884,7 +917,7 @@ export function ChartElementView({
   const publicMapDataUrl =
     isPublicMode && publicToken && transformedPublicMapPayload && isMapChart
       ? isPublicReport
-        ? `/api/v1/public/reports/${publicToken}/map-data/`
+        ? `/api/v1/public/reports/${publicToken}/charts/${chartId}/map-data/`
         : `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/map-data/`
       : null;
 
@@ -904,13 +937,21 @@ export function ChartElementView({
     { revalidateOnFocus: false, revalidateOnReconnect: false, refreshInterval: 0 }
   );
 
-  // Private mode map data
+  // Private mode map data — dashboards and reports resolve dashboard filters
+  // differently server-side, so they route to different endpoints.
+  // In report mode, only fetch once snapshotId is available — don't fall
+  // back to the live-dashboard endpoint while it's still missing.
+  const isMapReadyToFetch = frozenChartConfig ? !!snapshotId : true;
   const {
     data: privateMapDataOverlay,
     error: privateMapError,
     isLoading: privateMapLoading,
     mutate: mutatePrivateMapData,
-  } = useMapDataOverlay(!isPublicMode ? mapDataOverlayPayload : null);
+  } = useMapDataOverlay(
+    !isPublicMode && isMapReadyToFetch ? mapDataOverlayPayload : null,
+    frozenChartConfig ? snapshotId : null,
+    chartId
+  );
 
   // Use appropriate map data based on mode
   const mapDataOverlay = isPublicMode ? publicMapData : privateMapDataOverlay;
@@ -1839,6 +1880,7 @@ export function ChartElementView({
               triggerClassName="h-7 w-7 p-0"
               onStateChange={onCommentStateChange}
               autoOpen={autoOpenCommentChartId === String(chartId)}
+              canModerate={canModerateComments}
             />
           </div>
         )}

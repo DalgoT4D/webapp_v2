@@ -5,8 +5,7 @@ import { Eye, Edit, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChartElementV2 } from './chart-element-v2';
 import { KPIChartElement } from './kpi-chart-element';
-import { UnifiedTextElement } from './text-element-unified';
-import type { UnifiedTextConfig } from './text-element-unified';
+import { UnifiedTextElement, type UnifiedTextConfig } from './text-element-unified';
 import { DashboardComponentType } from '@/types/dashboard';
 import type { DashboardFilterConfig } from '@/types/dashboard-filters';
 
@@ -39,6 +38,9 @@ interface DashboardCellProps {
   isResizing: boolean;
   appliedFilters: Record<string, any>;
   initialFilters: DashboardFilterConfig[];
+  /** Passed through to UnifiedTextElement for analytics. A stable number, so it does not
+   *  affect the React.memo comparison this component relies on for drag performance. */
+  dashboardId?: number;
   // Stable callback references (must be stable for React.memo to work)
   onViewChart: (chartId: number) => void;
   onEditChart: (chartId: number) => void;
@@ -57,6 +59,7 @@ function DashboardCellInner({
   isResizing,
   appliedFilters,
   initialFilters,
+  dashboardId,
   onViewChart,
   onEditChart,
   onRemove,
@@ -166,7 +169,9 @@ function DashboardCellInner({
           <UnifiedTextElement
             onUpdate={(config: UnifiedTextConfig) => onUpdate(item.i, config)}
             config={component.config as UnifiedTextConfig}
+            componentId={item.i}
             isEditMode={true}
+            dashboardId={dashboardId}
           />
         )}
         {isKPI && (
