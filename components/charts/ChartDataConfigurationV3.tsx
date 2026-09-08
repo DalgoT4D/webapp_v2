@@ -331,7 +331,13 @@ export function ChartDataConfigurationV3({
   // Reset sort if current column is no longer available (avoid render-time side effects)
   React.useEffect(() => {
     const sortable = new Set<string>();
-    if (formData.dimension_column) sortable.add(formData.dimension_column);
+    if (formData.chart_type === 'table' && formData.dimensions?.length) {
+      formData.dimensions.forEach((dim) => {
+        if (dim.column) sortable.add(dim.column);
+      });
+    } else if (formData.dimension_column) {
+      sortable.add(formData.dimension_column);
+    }
     if (formData.metrics?.length) {
       formData.metrics.forEach((m) => {
         const alias = m.alias || `${m.aggregation}(${m.column})`;
@@ -347,7 +353,9 @@ export function ChartDataConfigurationV3({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    formData.chart_type,
     formData.dimension_column,
+    formData.dimensions,
     formData.metrics,
     formData.aggregate_column,
     formData.aggregate_function,
@@ -945,8 +953,20 @@ export function ChartDataConfigurationV3({
                 _uniqueId?: string;
               }> = [];
 
-              // Add dimension column if available
-              if (formData.dimension_column) {
+              // Add dimension column(s). Table charts can have multiple
+              // dimensions (formData.dimensions); other chart types have a
+              // single dimension_column.
+              if (formData.chart_type === 'table' && formData.dimensions?.length) {
+                formData.dimensions.forEach((dim) => {
+                  if (dim.column) {
+                    sortableOptions.push({
+                      value: dim.column,
+                      label: dim.column,
+                      type: 'column',
+                    });
+                  }
+                });
+              } else if (formData.dimension_column) {
                 sortableOptions.push({
                   value: formData.dimension_column,
                   label: formData.dimension_column,

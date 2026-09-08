@@ -275,6 +275,9 @@ export interface ChartDataPayload {
     filters?: ChartFilter[];
     pagination?: ChartPagination;
     sort?: ChartSort[];
+    // Table-chart search box text — OR'd as a case-insensitive match across the
+    // chart's dimension columns server-side (see apply_table_search on the backend).
+    search?: string;
   };
 
   // Dashboard filters

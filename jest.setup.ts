@@ -1,6 +1,10 @@
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
 
+// .env is gitignored and never reaches CI, so tests that depend on
+// NEXT_PUBLIC_DOCS_BASE_URL (e.g. buildDocsUrl) need it set here.
+process.env.NEXT_PUBLIC_DOCS_BASE_URL = 'https://docs.dalgo.org';
+
 // Polyfill structuredClone (jsdom does not provide it)
 if (typeof global.structuredClone === 'undefined') {
   global.structuredClone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
