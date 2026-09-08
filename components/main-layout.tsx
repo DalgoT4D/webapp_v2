@@ -243,6 +243,13 @@ export const getNavItems = (
           visibleToRoles: ADMIN_ROLES,
         },
         {
+          title: 'Copilot',
+          href: '/settings/copilot',
+          icon: Sparkles,
+          isActive: currentPath.startsWith('/settings/copilot'),
+          visibleToRoles: ADMIN_ROLES,
+        },
+        {
           title: 'Access',
           href: '/settings/access',
           icon: Users,
