@@ -40,10 +40,11 @@ export interface AdminSession {
 /**
  * Identity for the admin portal, read by AdminGuard.
  *
- * Uses the shared session cookie; the route is gated by @platform_admin_required, so a
- * signed-out visitor (401) and a signed-in non-admin (403) both come back as an error
- * with no data — which the guard treats the same as "not an admin". isPlatformAdmin is
- * therefore false until proven true.
+ * Uses the shared session cookie; the route is gated on the `can_manage_platform`
+ * permission (held by the super-admin role), so a signed-out visitor (401) and a
+ * signed-in non-admin (404, which is how the backend reports a permission failure) both
+ * come back as an error with no data — which the guard treats the same as "not an
+ * admin". isPlatformAdmin is therefore false until proven true.
  */
 export function useAdminSession() {
   const { data, error, isLoading, mutate } = useSWR<AdminSession>(
