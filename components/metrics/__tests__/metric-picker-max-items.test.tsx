@@ -60,6 +60,49 @@ describe('MetricPicker maxItems', () => {
     expect(screen.queryByText('Private Schools')).not.toBeInTheDocument();
   });
 
+  it('leaves the pinned metric standing when the cap is one', async () => {
+    // The walkthrough names the metric it wants the guided KPI built on (see
+    // WALKTHROUGH_METRIC_NAME) — capping alone left the step on whatever the API returned first.
+    render(
+      <MetricPicker
+        value={null}
+        onChange={jest.fn()}
+        maxItems={1}
+        pinMetricName="Private Schools"
+      />
+    );
+
+    await openList();
+
+    const options = screen.getAllByRole('option');
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveTextContent('Private Schools');
+  });
+
+  it('falls back to the first metric when the pinned name is absent', async () => {
+    // An org with its own metrics library, or sample data that was never seeded.
+    render(
+      <MetricPicker value={null} onChange={jest.fn()} maxItems={1} pinMetricName="total_students" />
+    );
+
+    await openList();
+
+    const options = screen.getAllByRole('option');
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveTextContent('Avg Rural Coverage %');
+  });
+
+  it('keeps the whole library when a pin is set without a cap', async () => {
+    render(<MetricPicker value={null} onChange={jest.fn()} pinMetricName="Girls-Only Schools" />);
+
+    await openList();
+
+    const options = screen.getAllByRole('option');
+    expect(options).toHaveLength(METRICS.length);
+    // Pinned to the front, so a capped render would keep it — and nothing is dropped here.
+    expect(options[0]).toHaveTextContent('Girls-Only Schools');
+  });
+
   it('still selects normally through the cap', async () => {
     const onChange = jest.fn();
     render(<MetricPicker value={null} onChange={onChange} maxItems={1} />);

@@ -192,6 +192,9 @@ export function KPIPageComponent() {
   const [formOpen, setFormOpen] = useState(searchParams.get('create') === 'true');
   // Walkthrough only — see handleFormSuccess.
   const [kpiLiveModalOpen, setKpiLiveModalOpen] = useState(false);
+  // The KPI the walkthrough just created, waiting for its drawer to be opened for the user —
+  // see the effect below.
+  const [pendingWalkthroughKpiId, setPendingWalkthroughKpiId] = useState<number | null>(null);
   const [editingKpi, setEditingKpi] = useState<KPI | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedKpi, setSelectedKpi] = useState<KPI | null>(null);
@@ -297,6 +300,41 @@ export function KPIPageComponent() {
     if (walkthroughActive && walkthroughStage === 'dashboard_nudge') setDrawerOpen(false);
   }, [walkthroughActive, walkthroughStage]);
 
+  /**
+   * Open the drawer on the KPI the walkthrough just created, once the celebration dialog is out
+   * of the way.
+   *
+   * Waits on the refetched list rather than opening from the create response: the drawer needs a
+   * full KPI object, and `mutate()` is what produces it.
+   *
+   * Coachmarks stay suppressed until the drawer is up (the dialog turned that on), so the ring on
+   * the new KPI's card never flashes between the two. If the refetch settles without the id — a
+   * filter or a page that excludes it — the suppression is lifted with nothing opened, which
+   * leaves kpi_view_card's coachmark on the card as the way through.
+   */
+  useEffect(() => {
+    if (pendingWalkthroughKpiId === null || kpiLiveModalOpen) return;
+    const created = kpis.find((k) => k.id === pendingWalkthroughKpiId);
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (!created) {
+      if (!isLoading) {
+        setPendingWalkthroughKpiId(null);
+        walkthrough.setSuppressCoachmark(false);
+      }
+      return;
+    }
+    trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, {
+      kpi_id: created.id,
+      source: KPI_VIEW_SOURCES.WALKTHROUGH,
+      metric_type_tag: created.metric_type_tag || null,
+    });
+    setSelectedKpi(created);
+    setDrawerOpen(true);
+    setPendingWalkthroughKpiId(null);
+    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_duration');
+    walkthrough.setSuppressCoachmark(false);
+  }, [pendingWalkthroughKpiId, kpiLiveModalOpen, kpis, isLoading]);
+
   const handleFormSuccess = useCallback(
     (createdKpiId?: number) => {
       setCurrentPage(1);
@@ -317,13 +355,21 @@ export function KPIPageComponent() {
         // to build exists, and it needs a CTA, not a corner notification. The CTA hands them to
         // the KPI itself; dashboards come after they've looked at it (see kpi_view_card).
         setKpiLiveModalOpen(true);
-        // The next stage's coachmark rings the new KPI's card, which is visible behind this
-        // dialog — without suppressing it, congratulations and the coachmark land on screen
-        // together. Released when the dialog closes, so the card is what the user sees next.
+        // Nothing else on screen while the congratulations are up. Released when the dialog
+        // closes, at which point the drawer this hands them into is what they see.
         walkthrough.setSuppressCoachmark(true);
         // Before the advance: kpi_view_card's selector is built from this id, so a stage that
-        // arrived first would resolve to nothing.
-        if (createdKpiId !== undefined) walkthrough.trackCreatedKpi(createdKpiId);
+        // arrived first would resolve to nothing. Still tracked even though the happy path no
+        // longer stops on that stage — a reload mid-drawer resumes there (see
+        // RESUME_ANCHOR_STAGES).
+        if (createdKpiId !== undefined) {
+          walkthrough.trackCreatedKpi(createdKpiId);
+          // Straight into the KPI rather than onto a coachmark ringing its card: the user has
+          // just pressed "Create KPI" and the dialog's CTA already says "View KPI", so asking
+          // them to find and click the card is a step that teaches nothing. Opened once the
+          // dialog closes — see the effect below.
+          setPendingWalkthroughKpiId(createdKpiId);
+        }
         walkthrough.advanceIfBefore('kpi_view_card');
       }
     },
@@ -596,9 +642,12 @@ export function KPIPageComponent() {
         open={kpiLiveModalOpen}
         onOpenChange={(open) => {
           setKpiLiveModalOpen(open);
-          // Whichever way it closes — the CTA or the ✕ — the coachmark on the new KPI's card
-          // is the next thing to see.
-          if (!open) useInsightWalkthroughStore.getState().setSuppressCoachmark(false);
+          // Whichever way it closes — the CTA or the ✕ — the KPI itself is the next thing to
+          // see, and the effect above opens its drawer and lifts the suppression with it. Only
+          // released here when there is no KPI to open, so the walkthrough is never left silent.
+          if (!open && pendingWalkthroughKpiId === null) {
+            useInsightWalkthroughStore.getState().setSuppressCoachmark(false);
+          }
         }}
         title="Congratulations, your KPI is live!"
         description="Take a look at what you just built — its value, its trend, and how it is doing against your target."

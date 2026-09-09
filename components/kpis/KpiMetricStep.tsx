@@ -27,6 +27,7 @@ import { AGGREGATION_OPTIONS } from '@/types/metrics';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, METRIC_CREATE_SOURCES } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { WALKTHROUGH_METRIC_NAME } from '@/components/onboarding/insight-walkthrough-constants';
 
 /**
  * How many metrics the picker offers during an onboarding walkthrough run.
@@ -265,6 +266,8 @@ export const KpiMetricStep = forwardRef<KpiMetricStepHandle, KpiMetricStepProps>
                 }}
                 hideCreateLink
                 maxItems={walkthroughActive ? WALKTHROUGH_METRIC_LIMIT : undefined}
+                // Which single metric the cap leaves standing — see WALKTHROUGH_METRIC_NAME.
+                pinMetricName={walkthroughActive ? WALKTHROUGH_METRIC_NAME : undefined}
               />
             </div>
             <button

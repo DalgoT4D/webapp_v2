@@ -22,6 +22,7 @@ import { useSidebarStore } from '@/stores/sidebarStore';
 import {
   getResumeAnchorStage,
   INGEST_STAGES,
+  WALKTHROUGH_DEFAULT_PROGRAM_TAG,
   WALKTHROUGH_DEFAULT_TARGET,
   type WalkthroughStage,
 } from './insight-walkthrough-constants';
@@ -648,10 +649,11 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="kpi-form-metric-field"]',
     title: 'Pick a metric',
     // "Choose any metric" no longer describes what they'll see: the picker offers a single
-    // option for the whole walkthrough run (see WALKTHROUGH_METRIC_LIMIT), so the copy points
-    // at the one row rather than offering a choice that isn't there.
+    // option for the whole walkthrough run (see WALKTHROUGH_METRIC_LIMIT and
+    // WALKTHROUGH_METRIC_NAME), so the copy points at the one row rather than offering a choice
+    // that isn't there.
     description:
-      'The measure this KPI tracks, for example a count of beneficiaries. Open the list and pick the metric waiting there.',
+      'The number this KPI tracks. We have kept one ready for you — open the list and pick it.',
   },
   // Everything after this stage lives on the wizard's step 2, so this button is the gate that
   // puts those targets in the DOM at all — the walkthrough has to wait on it rather than
@@ -703,6 +705,31 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="kpi-form-time-column-field"]',
     title: 'Time column',
     description: 'Select the relevant column from the dataset to track the KPIs trend over time.',
+  },
+  // Step 3's two explainers. Both read-and-continue stages (`advanceOn: 'never'` + Got it):
+  // the fields arrive already filled — 80 / 50 for the bands, WALKTHROUGH_DEFAULT_PROGRAM_TAG
+  // for the tag — so there is no keystroke or dropdown to advance on, and a user happy with
+  // what we filled in would have left the coachmark sitting there for good.
+  kpi_thresholds: {
+    route: '/kpis',
+    advanceOn: 'never',
+    showNext: true,
+    nextOnInteraction: 'kpi_program_tags',
+    selector: '[data-testid="kpi-form-rag-field"]',
+    title: 'When is this on track?',
+    description:
+      'These set the KPI’s colour: 80% of target or more is green, 50–80% amber, below 50% red. Change them to suit your programme.',
+  },
+  kpi_program_tags: {
+    route: '/kpis',
+    advanceOn: 'never',
+    showNext: true,
+    nextOnInteraction: 'kpi_type',
+    selector: '[data-testid="kpi-form-program-tags-field"]',
+    title: 'Which programme is this for?',
+    // Names the tag we filled in, from the same constant the form uses, so the copy and the
+    // chip on screen can't drift.
+    description: `Tag the programme this KPI belongs to, so you can filter by it later. We have added “${WALKTHROUGH_DEFAULT_PROGRAM_TAG}” — swap it for yours.`,
   },
   kpi_type: {
     route: '/kpis',

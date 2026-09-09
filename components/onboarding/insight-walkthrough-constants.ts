@@ -30,6 +30,11 @@ export type WalkthroughStage =
   | 'kpi_direction'
   | 'kpi_continue'
   | 'kpi_time_column'
+  // Step 3's two explainers, ahead of KPI Type. Both are things an NGO has to understand
+  // before the numbers on the card mean anything — what makes a KPI green rather than red,
+  // and which programme the KPI belongs to — and neither was coached at all.
+  | 'kpi_thresholds'
+  | 'kpi_program_tags'
   | 'kpi_type'
   | 'kpi_submit'
   // The three stages between creating a KPI and being sent to dashboards: look at the thing
@@ -169,6 +174,9 @@ export const WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   // count as AFTER Continue, so the checkpoint could never catch anyone up from it.
   'kpi_time_column',
   'kpi_continue',
+  // Step 3, in the order the step renders: RAG thresholds, then Program Tags, then KPI Type.
+  'kpi_thresholds',
+  'kpi_program_tags',
   'kpi_type',
   'kpi_submit',
   'kpi_view_card',
@@ -403,6 +411,27 @@ export const CONNECTION_WATCH_STAGES: WalkthroughStage[] = [...INGEST_STAGES, 's
  */
 export const WALKTHROUGH_DEFAULT_TARGET = '0.10';
 
+/**
+ * Program tag prefilled into the KPI created during the walkthrough.
+ *
+ * The tag is how an NGO later filters its KPIs by programme, and an empty field taught none of
+ * that. One filled-in tag shows what a tag looks like and leaves the user something to remove or
+ * rename — see the kpi_program_tags coachmark. Editable, like the target above.
+ */
+export const WALKTHROUGH_DEFAULT_PROGRAM_TAG = 'Education';
+
+/**
+ * The metric the walkthrough's KPI is built on, when the org has one by this name.
+ *
+ * The picker is capped at a single option for a walkthrough run (see WALKTHROUGH_METRIC_LIMIT in
+ * KpiMetricStep) so the step needs a click rather than a decision. Which option that is used to
+ * be "whatever the API returned first" — an arbitrary metric whose value could be anything,
+ * including one that charts as nothing. This names the seeded sample metric instead, so the
+ * guided KPI lands on a number that reads sensibly. Falls back to the first metric wherever it
+ * doesn't exist (an org with its own metrics library, sample data not seeded).
+ */
+export const WALKTHROUGH_METRIC_NAME = 'total_students';
+
 export function isStageBefore(
   path: WalkthroughPath | null,
   stage: WalkthroughStage,
@@ -547,6 +576,8 @@ export const RESUME_ANCHOR_STAGES: Partial<Record<WalkthroughStage, WalkthroughS
   kpi_direction: 'kpi_intro',
   kpi_continue: 'kpi_intro',
   kpi_time_column: 'kpi_intro',
+  kpi_thresholds: 'kpi_intro',
+  kpi_program_tags: 'kpi_intro',
   kpi_type: 'kpi_intro',
   kpi_submit: 'kpi_intro',
   // Both drawer stages need the KPI detail drawer open, and a reload closes it. Re-enter at

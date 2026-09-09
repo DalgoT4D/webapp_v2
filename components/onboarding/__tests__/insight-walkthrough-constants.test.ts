@@ -522,4 +522,21 @@ describe('insight-walkthrough-constants', () => {
     expect(order.indexOf('kpi_continue')).toBeLessThan(order.indexOf('kpi_type'));
     expect(isStageBefore('sample', 'kpi_time_column', 'kpi_continue')).toBe(true);
   });
+
+  it('coaches step 3 in the order the step renders its fields', () => {
+    // RAG bands, then Program Tags, then KPI Type — the wizard's step-2 Continue lands on the
+    // first of them (see handleStep2Continue), and each hands to the next on "Got it".
+    const from = WALKTHROUGH_STAGE_ORDER.indexOf('kpi_continue');
+    expect(WALKTHROUGH_STAGE_ORDER.slice(from, from + 5)).toEqual([
+      'kpi_continue',
+      'kpi_thresholds',
+      'kpi_program_tags',
+      'kpi_type',
+      'kpi_submit',
+    ]);
+    // Both live inside the KPI dialog, so a cold load has to re-enter at the button that opens
+    // it rather than waiting on a field nobody can see.
+    expect(getResumeAnchorStage('kpi_thresholds')).toBe('kpi_intro');
+    expect(getResumeAnchorStage('kpi_program_tags')).toBe('kpi_intro');
+  });
 });

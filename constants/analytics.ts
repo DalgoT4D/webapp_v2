@@ -475,6 +475,9 @@ export const KPI_VIEW_SOURCES = {
   MENU: 'menu',
   // Arriving on /kpis?open={id} (e.g. from an alert or notification link)
   DEEP_LINK: 'deep_link',
+  // The onboarding walkthrough opening the KPI it just created, straight off the celebration
+  // dialog — the user never clicks a card, so it would otherwise be an untracked view.
+  WALKTHROUGH: 'walkthrough',
 } as const;
 
 export type KpiViewSource = (typeof KPI_VIEW_SOURCES)[keyof typeof KPI_VIEW_SOURCES];

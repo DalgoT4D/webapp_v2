@@ -14,15 +14,24 @@ interface MetricPickerProps {
   pageSize?: number;
   hideCreateLink?: boolean;
   /**
-   * Show at most this many metrics, taking the first ones the API returned.
+   * Show at most this many metrics, taking the first ones the API returned (after
+   * `pinMetricName`, where that one is present).
    *
    * For the onboarding walkthrough, which caps the list at one: the guided KPI is a
-   * demonstration, any metric serves, and a full scrollable list gave the user a decision to
-   * make where the flow only needed a click. Capping the options is how that is enforced —
-   * there is nothing to scroll to and nothing else to pick — rather than by blocking clicks
-   * on rows that are still on screen.
+   * demonstration and a full scrollable list gave the user a decision to make where the flow
+   * only needed a click. Capping the options is how that is enforced — there is nothing to
+   * scroll to and nothing else to pick — rather than by blocking clicks on rows that are still
+   * on screen.
    */
   maxItems?: number;
+  /**
+   * Sort the metric with this exact name to the front, so a capped list offers that one.
+   *
+   * The walkthrough names the seeded sample metric here — capping alone left the step on
+   * whatever the API happened to return first, which could be any measure at all. Ignored when
+   * no metric matches, which leaves the previous behaviour (the first metric returned) intact.
+   */
+  pinMetricName?: string;
 }
 
 export function MetricPicker({
@@ -33,19 +42,23 @@ export function MetricPicker({
   pageSize = 100,
   hideCreateLink = false,
   maxItems,
+  pinMetricName,
 }: MetricPickerProps) {
   const { data: metrics, isLoading } = useMetrics({ pageSize });
 
-  const items = useMemo(
-    () =>
-      (maxItems === undefined ? metrics : metrics.slice(0, maxItems)).map((m) => ({
-        value: String(m.id),
-        label: m.name,
-        data_type: `${m.schema_name}.${m.table_name}${m.description ? ' · ' + m.description : ''}`,
-        disabled: false,
-      })),
-    [metrics, maxItems]
-  );
+  const items = useMemo(() => {
+    const pinned = pinMetricName
+      ? metrics.filter((m) => m.name === pinMetricName)
+      : ([] as typeof metrics);
+    const ordered =
+      pinned.length > 0 ? [...pinned, ...metrics.filter((m) => !pinned.includes(m))] : metrics;
+    return (maxItems === undefined ? ordered : ordered.slice(0, maxItems)).map((m) => ({
+      value: String(m.id),
+      label: m.name,
+      data_type: `${m.schema_name}.${m.table_name}${m.description ? ' · ' + m.description : ''}`,
+      disabled: false,
+    }));
+  }, [metrics, maxItems, pinMetricName]);
 
   return (
     <Combobox

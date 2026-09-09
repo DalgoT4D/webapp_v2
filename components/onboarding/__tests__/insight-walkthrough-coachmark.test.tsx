@@ -540,7 +540,7 @@ describe('InsightWalkthroughCoachmark', () => {
 
       await waitFor(() =>
         expect(popoverDescription()).toBe(
-          'The measure this KPI tracks, for example a count of beneficiaries. Open the list and pick the metric waiting there.'
+          'The number this KPI tracks. We have kept one ready for you — open the list and pick it.'
         )
       );
     });

@@ -22,7 +22,10 @@ import {
   type KpiCreateSource,
 } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
-import { WALKTHROUGH_DEFAULT_TARGET } from '@/components/onboarding/insight-walkthrough-constants';
+import {
+  WALKTHROUGH_DEFAULT_PROGRAM_TAG,
+  WALKTHROUGH_DEFAULT_TARGET,
+} from '@/components/onboarding/insight-walkthrough-constants';
 import type { KPI, KPICreate, KPIUpdate, KPIExtraConfig } from '@/types/kpis';
 import type { Metric } from '@/types/metrics';
 import { cn } from '@/lib/utils';
@@ -275,7 +278,10 @@ export function KPIForm({
           time_grain: 'monthly',
           time_dimension_column: '',
           metric_type_tag: '',
-          program_tags: [],
+          // Prefilled only for a walkthrough run — see WALKTHROUGH_DEFAULT_PROGRAM_TAG.
+          program_tags: useInsightWalkthroughStore.getState().active
+            ? [WALKTHROUGH_DEFAULT_PROGRAM_TAG]
+            : [],
           numberFormat: '',
           decimalPlaces: DEFAULT_DECIMAL_PLACES,
           numberPrefix: '',
@@ -340,9 +346,10 @@ export function KPIForm({
     if (ok) {
       setStep(3);
       // Catches up anyone who skipped the step-2 hints (a defaulted dropdown left alone, a
-      // field clicked past) — advanceIfBefore only ever moves forward.
+      // field clicked past) — advanceIfBefore only ever moves forward. Lands on the first of
+      // step 3's stages, which is the RAG explainer.
       const walkthrough = useInsightWalkthroughStore.getState();
-      if (walkthrough.active) walkthrough.advanceIfBefore('kpi_type');
+      if (walkthrough.active) walkthrough.advanceIfBefore('kpi_thresholds');
     }
   };
 
