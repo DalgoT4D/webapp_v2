@@ -11,6 +11,7 @@
 
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
+import { SWRConfig } from 'swr';
 import { AdminGuard } from '@/components/admin/AdminGuard';
 import { TestWrapper } from '@/test-utils/render';
 import { mockApiGet } from '@/test-utils/api';
@@ -27,6 +28,18 @@ const renderGuard = () =>
         <div>admin shell</div>
       </AdminGuard>
     </TestWrapper>
+  );
+
+// TestWrapper hands every test a fresh cache. Production does the opposite: ONE cache
+// that outlives soft navigation, which is what makes the post-sign-in remount below
+// read a pre-sign-in error. Share a cache across the two renders to reproduce it.
+const renderGuardWithSharedCache = (cache: Map<string, any>) =>
+  render(
+    <SWRConfig value={{ provider: () => cache, dedupingInterval: 0 }}>
+      <AdminGuard>
+        <div>admin shell</div>
+      </AdminGuard>
+    </SWRConfig>
   );
 
 describe('AdminGuard', () => {
@@ -65,6 +78,46 @@ describe('AdminGuard', () => {
     mockApiGet.mockRejectedValue(new Error('401'));
 
     renderGuard();
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/admin/login'));
+    expect(screen.queryByText('admin shell')).not.toBeInTheDocument();
+  });
+
+  // Regression: signing in appeared to fail the first time and work the second.
+  // Getting bounced off /admin leaves a 401 in the SWR cache; that cache survives the
+  // soft navigation to /admin/login, and SWR reports a CACHED error as settled
+  // (isLoading false, no data) while it refetches. The guard read that as "not an
+  // admin" and replaced straight back to /admin/login before the fresh 200 landed.
+  it('does not bounce back to the login while a stale error is being revalidated', async () => {
+    const cache = new Map<string, any>();
+
+    mockApiGet.mockRejectedValue(new Error('Authentication failed. Please log in again.'));
+    const signedOut = renderGuardWithSharedCache(cache);
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/admin/login'));
+
+    // Soft navigation to /admin/login unmounts the guard but keeps the cache.
+    signedOut.unmount();
+    mockReplace.mockClear();
+
+    // Sign-in succeeds, router.replace('/admin') remounts the guard.
+    mockApiGet.mockReset();
+    mockApiGet.mockResolvedValue({ email: 'admin@dalgo.org', is_platform_admin: true });
+    renderGuardWithSharedCache(cache);
+
+    expect(await screen.findByText('admin shell')).toBeInTheDocument();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('still redirects once the revalidation confirms there is no admin session', async () => {
+    const cache = new Map<string, any>();
+
+    mockApiGet.mockRejectedValue(new Error('Authentication failed. Please log in again.'));
+    const first = renderGuardWithSharedCache(cache);
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/admin/login'));
+
+    first.unmount();
+    mockReplace.mockClear();
+    renderGuardWithSharedCache(cache);
 
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/admin/login'));
     expect(screen.queryByText('admin shell')).not.toBeInTheDocument();

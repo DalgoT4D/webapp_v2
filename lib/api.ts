@@ -11,11 +11,35 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:80
 // must land on /admin/login, not the product login.
 const ADMIN_API_PREFIX = '/api/v1/admin';
 
+// Signing in is not a session that can expire: a 401 from these endpoints means "those
+// credentials are wrong", so there is nothing to refresh, nothing to log out of and
+// nowhere to bounce to. The caller (the sign-in form) renders the message itself.
+const AUTH_ENDPOINTS = ['/api/v2/login/', '/api/v2/token/refresh'];
+
 export function isAdminPath(path: string): boolean {
   return path.startsWith(ADMIN_API_PREFIX);
 }
 
-export function adminAwareLoginPath(path: string): string {
+export function isAuthEndpoint(path: string): boolean {
+  return AUTH_ENDPOINTS.some((endpoint) => path.startsWith(endpoint));
+}
+
+function isAdminUiPath(pathname: string): boolean {
+  return pathname === '/admin' || pathname.startsWith('/admin/');
+}
+
+/**
+ * Where an unrecoverable auth failure should land the user.
+ *
+ * The BROWSER path decides first, because the admin portal signs in through the shared
+ * /api/v2/login/ — not an /api/v1/admin/* path. Keying off the request alone sent a
+ * failed admin sign-in to the product login. `path` is still the fallback, for an admin
+ * call made from outside the /admin UI.
+ */
+export function adminAwareLoginPath(path: string, currentPath?: string): string {
+  if (currentPath && isAdminUiPath(currentPath)) {
+    return '/admin/login';
+  }
   return isAdminPath(path) ? '/admin/login' : '/login';
 }
 
@@ -79,7 +103,7 @@ function handleAuthFailure(requestPath: string) {
   // One shared session now, so an admin 401 means the SAME session is gone: clear org
   // selection + auth store exactly as for any other route. Only the destination differs
   // — an admin route sends them to /admin/login rather than the product login.
-  const loginPath = adminAwareLoginPath(requestPath);
+  const loginPath = adminAwareLoginPath(requestPath, currentPath);
 
   localStorage.removeItem('selectedOrg');
   useAuthStore.getState().logout();
@@ -103,8 +127,12 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
       credentials: 'include', // Always include cookies
     });
 
-    // Handle 401 Unauthorized
-    if (response.status === 401) {
+    // Handle 401 Unauthorized.
+    // Skip the whole recovery path for the sign-in endpoints — a 401 there is the
+    // answer to "are these credentials valid?", not an expired session. Refreshing,
+    // clearing the store and navigating away all just stop the form from showing the
+    // error (it used to throw the admin sign-in out to the product /login).
+    if (response.status === 401 && !isAuthEndpoint(path)) {
       // If this is the first attempt, try to refresh the token
       if (retryCount === 0) {
         // Prevent multiple simultaneous refresh attempts

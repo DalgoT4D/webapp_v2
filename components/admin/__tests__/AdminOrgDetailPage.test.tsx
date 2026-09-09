@@ -88,6 +88,22 @@ describe('AdminOrganizationDetailPage tab analytics', () => {
     });
   });
 
+  it('brings Overview forward when Edit is pressed from another tab', async () => {
+    // The Edit button sits in the page header, outside the tabs, but the form it opens
+    // lives in Overview: from the Users tab it used to make the header buttons vanish
+    // and change nothing else, with no sign of what was being edited.
+    const user = userEvent.setup({ delay: null });
+    render(<AdminOrganizationDetailPage />);
+
+    await user.click(screen.getByTestId('org-tab-users'));
+    expect(screen.getByTestId('org-tab-users')).toHaveAttribute('data-state', 'active');
+
+    await user.click(screen.getByTestId('edit-org-button'));
+
+    expect(screen.getByTestId('org-tab-overview')).toHaveAttribute('data-state', 'active');
+    expect(screen.getByLabelText('Name')).toHaveValue('Akshara');
+  });
+
   it('reports each switch, so tab dwell can be segmented rather than collapsed', async () => {
     const user = userEvent.setup({ delay: null });
     render(<AdminOrganizationDetailPage />);

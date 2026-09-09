@@ -37,6 +37,9 @@ export interface AdminSession {
   is_platform_admin: boolean;
 }
 
+/** SWR key for the admin identity read. */
+const ADMIN_SESSION_KEY = '/api/v1/admin/currentuser';
+
 /**
  * Identity for the admin portal, read by AdminGuard.
  *
@@ -47,10 +50,12 @@ export interface AdminSession {
  * admin". isPlatformAdmin is therefore false until proven true.
  */
 export function useAdminSession() {
-  const { data, error, isLoading, mutate } = useSWR<AdminSession>(
-    '/api/v1/admin/currentuser',
-    apiGet
-  );
+  const { data, error, isLoading, mutate } = useSWR<AdminSession>(ADMIN_SESSION_KEY, apiGet, {
+    // AdminGuard re-reads identity itself on every mount and waits for THAT read (see
+    // the comment there — an automatic mount revalidation lands too late to stop the
+    // guard acting on a stale cached error). Leaving this on would only duplicate it.
+    revalidateOnMount: false,
+  });
 
   return {
     session: data,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminSession } from '@/hooks/api/useAdminPortal';
 
@@ -31,9 +31,35 @@ function AdminGuardLoading() {
  */
 export function AdminGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isPlatformAdmin, isLoading } = useAdminSession();
+  const { isPlatformAdmin, mutate } = useAdminSession();
 
-  const resolving = isLoading;
+  // Nothing cached from before this mount may be trusted. SWR keeps ONE cache for the
+  // whole SPA, and on the first render after a remount it replays a cached ERROR as a
+  // settled state (isLoading false, no data) even though it is about to refetch — there
+  // is no flag that tells the two apart. So the 401 left behind by a pre-sign-in visit
+  // to /admin made the guard rule "not an admin" and replace() back to /admin/login
+  // before the fresh 200 could land, which is why signing in only appeared to work on
+  // the second attempt. Own the read instead: fire it here and stay in the loading state
+  // until it settles. (useAdminSession therefore sets revalidateOnMount: false — this is
+  // the single read, not a second one.)
+  const [verified, setVerified] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    // Settled either way: a rejection (401/403) is an answer, and an unreachable
+    // backend must not leave the user staring at "Checking access..." forever.
+    const settle = () => {
+      if (active) {
+        setVerified(true);
+      }
+    };
+    void mutate().then(settle, settle);
+    return () => {
+      active = false;
+    };
+  }, [mutate]);
+
+  const resolving = !verified;
 
   useEffect(() => {
     if (!resolving && !isPlatformAdmin) {

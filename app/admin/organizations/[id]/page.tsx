@@ -42,6 +42,9 @@ export default function AdminOrganizationDetailPage() {
   const { org, isLoading, mutate } = useAdminOrg(Number.isNaN(orgId) ? null : orgId);
   const { updateOrg } = useAdminOrgActions();
 
+  // Controlled, because the Edit button lives OUTSIDE the tabs but its form lives inside
+  // Overview: starting an edit from Users or Feature flags has to bring that tab forward.
+  const [activeTab, setActiveTab] = useState('overview');
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [vizUrl, setVizUrl] = useState('');
@@ -111,7 +114,14 @@ export default function AdminOrganizationDetailPage() {
         <div className="flex gap-2">
           {!editing && (
             <>
-              <Button variant="outline" onClick={() => setEditing(true)}>
+              <Button
+                variant="outline"
+                data-testid="edit-org-button"
+                onClick={() => {
+                  setActiveTab('overview');
+                  setEditing(true);
+                }}
+              >
                 Edit
               </Button>
               <Button
@@ -129,8 +139,11 @@ export default function AdminOrganizationDetailPage() {
       {/* Tabs are local state, so feature:viewed does not fire on switch the way it
           does on navigation — instrument it explicitly (rules/analytics.md). */}
       <Tabs
-        defaultValue="overview"
-        onValueChange={(value) => trackFeatureView(FEATURES.ADMIN_ORGANIZATIONS, { tab: value })}
+        value={activeTab}
+        onValueChange={(value) => {
+          setActiveTab(value);
+          trackFeatureView(FEATURES.ADMIN_ORGANIZATIONS, { tab: value });
+        }}
       >
         <TabsList>
           <TabsTrigger value="overview" data-testid="org-tab-overview">
