@@ -101,7 +101,8 @@ export default function CopilotSettings() {
               <h2 className="text-lg font-semibold">Enable Dalgo Copilot</h2>
               <p className="text-sm text-muted-foreground mt-1">
                 Admins get an AI assistant that answers questions from your warehouse in plain
-                language.
+                language. By enabling this, you approve that questions and query results from your
+                warehouse are processed by an AI provider.
               </p>
             </div>
             <Switch

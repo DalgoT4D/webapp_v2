@@ -26,12 +26,14 @@ const BLOCKED_STATES: Record<
   feature_disabled: {
     icon: MessageSquareOff,
     heading: 'Dalgo Copilot is not enabled',
-    body: 'This feature is not switched on for your organization yet. Reach out to the Dalgo team to enable it.',
+    body: 'This feature is not switched on for your organization yet. An admin can enable it under Settings → Copilot.',
   },
+  // No longer returned by current backends (the admin's Copilot toggle IS the
+  // org's AI consent) — kept so older backends still render something sensible.
   llm_consent_required: {
     icon: Lock,
     heading: 'AI features need approval',
-    body: 'Your organization has not yet approved the use of AI features. Ask your admin to enable AI data analysis in settings.',
+    body: 'Your organization has not yet approved the use of AI features. An admin can enable Dalgo Copilot under Settings → Copilot.',
   },
   no_warehouse: {
     icon: Database,
