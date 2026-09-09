@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useForm } from 'react-hook-form';
 import { ExternalLink } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -46,6 +48,7 @@ export default function PatRequiredModal({
         gitrepoAccessToken: data.gitrepoAccessToken,
       });
 
+      trackEvent(ANALYTICS_EVENTS.TRANSFORM_GIT_PAT_SAVED);
       toastSuccess.generic('Personal Access Token added successfully');
       reset();
       onAddKey();

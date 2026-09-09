@@ -23,6 +23,8 @@ import {
 import { Loader2, Trash2 } from 'lucide-react';
 import { useTaskTemplates, useTaskConfig, createCustomTask } from '@/hooks/api/useTaskTemplates';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { Combobox } from '@/components/ui/combobox';
 import { TASK_GITPULL, TASK_DBTCLEAN, TASK_DBTCLOUD_JOB } from '@/constants/dbt-tasks';
 
@@ -130,6 +132,7 @@ export function CreateTaskDialog({ open, onOpenChange, onSuccess }: CreateTaskDi
         options: paramOptions,
       });
 
+      trackEvent(ANALYTICS_EVENTS.TRANSFORM_CUSTOM_TASK_CREATED);
       toastSuccess.created('Org Task');
       handleFormClose();
       onSuccess();

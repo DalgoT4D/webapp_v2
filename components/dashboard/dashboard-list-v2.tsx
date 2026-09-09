@@ -13,6 +13,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DocsLink } from '@/components/ui/docs-link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -68,7 +69,6 @@ import {
   User,
   Lock,
   Trash2,
-  MoreHorizontal,
   MoreVertical,
   Copy,
   Download,
@@ -93,16 +93,29 @@ import {
   useDashboards,
   deleteDashboard,
   duplicateDashboard,
-  getDashboardSharingStatus,
-  updateDashboardSharing,
+  favoriteDashboard,
+  unfavoriteDashboard,
+  type Dashboard,
 } from '@/hooks/api/useDashboards';
 import { ShareModal } from '@/components/ui/share-modal';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { toggleFavorite } from '@/lib/favorite-utils';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { markDashboardShared } from '@/components/onboarding/insight-walkthrough-constants';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useLandingPage } from '@/hooks/api/useLandingPage';
 import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
+import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => any>(
@@ -128,7 +141,6 @@ export function DashboardListV2() {
   const viewMode = 'table';
   const [sortBy, setSortBy] = useState<'name' | 'updated_at' | 'created_by'>('updated_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [favorites, setFavorites] = useState<Set<number>>(new Set());
 
   // Column filter states
   const [nameFilters, setNameFilters] = useState({
@@ -179,7 +191,7 @@ export function DashboardListV2() {
     orgUsersData?.find((ou: any) => ou.org.slug === selectedOrgSlug) || authCurrentUser;
 
   // Get user permissions
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
   // Landing page functionality
   const {
@@ -257,7 +269,7 @@ export function DashboardListV2() {
         }
       }
 
-      if (nameFilters.showFavorites && !favorites.has(dashboard.id)) {
+      if (nameFilters.showFavorites && !dashboard.is_favorite) {
         return false;
       }
 
@@ -337,20 +349,16 @@ export function DashboardListV2() {
         return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
       }
     });
-  }, [dashboards, nameFilters, ownerFilters, dateFilters, favorites, sortBy, sortOrder]);
+  }, [dashboards, nameFilters, ownerFilters, dateFilters, sortBy, sortOrder]);
 
-  // Handle favorites toggle
-  const handleToggleFavorite = (dashboardId: number) => {
-    setFavorites((prev) => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(dashboardId)) {
-        newFavorites.delete(dashboardId);
-      } else {
-        newFavorites.add(dashboardId);
-      }
-      return newFavorites;
-    });
-  };
+  const handleToggleFavorite = (dashboard: Dashboard) =>
+    toggleFavorite(
+      dashboard.is_favorite ?? false,
+      dashboard.id,
+      favoriteDashboard,
+      unfavoriteDashboard,
+      mutate
+    );
 
   // Get unique owners for filter options
   const uniqueOwners = useMemo(() => {
@@ -419,6 +427,8 @@ export function DashboardListV2() {
 
       try {
         await deleteDashboard(dashboardId);
+        // Id read from the handler arg, not from list state — mutate() below drops the row.
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED, { dashboard_id: dashboardId });
 
         // Refresh the dashboard list
         await mutate();
@@ -441,6 +451,12 @@ export function DashboardListV2() {
 
       try {
         const newDashboard = await duplicateDashboard(dashboardId);
+        // Both ids: dashboard_id is the one that was copied (which dashboards people
+        // reuse as templates), new_dashboard_id joins forward to the copy's own events.
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DUPLICATED, {
+          dashboard_id: dashboardId,
+          new_dashboard_id: newDashboard.id,
+        });
 
         // Refresh the dashboard list
         await mutate();
@@ -477,6 +493,20 @@ export function DashboardListV2() {
   const handleDashboardUpdate = useCallback(() => {
     mutate(); // Refresh the dashboard list
   }, [mutate]);
+
+  // Copying the public link is the share act itself, so it fires here too — the list row
+  // menu is a second entry point into the same dialog, and without this the event would
+  // only exist on the dashboard view page.
+  const handleCopyLink = useCallback(() => {
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { dashboard_id: selectedDashboard?.id });
+  }, [selectedDashboard?.id]);
+
+  // ShareModal (a components/ui/ component we keep free of onboarding logic) reports when
+  // General access flips to Public, so the resume-nudge "shared" milestone is set on that
+  // action rather than inside the shared modal.
+  const handleMadePublic = useCallback(() => {
+    markDashboardShared();
+  }, []);
 
   // Landing page handlers
   const handleSetPersonalLanding = useCallback(
@@ -780,14 +810,14 @@ export function DashboardListV2() {
   const renderDashboardTableRow = (dashboard: any) => {
     const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
     const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
-    const canManageOrgDefault = hasPermission('can_manage_org_default_dashboard');
+    const canManageOrgDefault = hasPermission(PERMISSIONS.CAN_MANAGE_ORG_DEFAULT_DASHBOARD);
     const isLocked = dashboard.is_locked;
     const isLockedByOther =
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
-    const isFavorited = favorites.has(dashboard.id);
+    const isFavorited = dashboard.is_favorite ?? false;
 
     const getNavigationUrl = () => {
-      return hasPermission('can_view_dashboards') ? `/dashboards/${dashboard.id}` : '#';
+      return hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? `/dashboards/${dashboard.id}` : '#';
     };
 
     return (
@@ -801,7 +831,7 @@ export function DashboardListV2() {
               className="h-8 w-8 p-0 hover:bg-yellow-50"
               onClick={(e) => {
                 e.preventDefault();
-                handleToggleFavorite(dashboard.id);
+                handleToggleFavorite(dashboard);
               }}
             >
               {isFavorited ? (
@@ -884,19 +914,21 @@ export function DashboardListV2() {
         {/* Actions Column */}
         <TableCell className="py-4">
           <div className="flex items-center gap-2">
-            {hasPermission('can_edit_dashboards') && (
+            {dashboard.access_level === 'edit' && (
               <Link href={`/dashboards/${dashboard.id}/edit`}>
                 <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
                   <Edit className="w-4 h-4 text-gray-600" />
                 </Button>
               </Link>
             )}
-            {hasPermission('can_share_dashboards') && (
+            {dashboard.access_level === 'edit' && (
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 p-0 hover:bg-gray-100"
                 onClick={() => handleShareDashboard(dashboard)}
+                aria-label={`Share dashboard: ${dashboard.title || dashboard.id}`}
+                data-testid={`dashboard-share-table-${dashboard.id}`}
               >
                 <Share2 className="w-4 h-4 text-gray-600" />
               </Button>
@@ -904,17 +936,17 @@ export function DashboardListV2() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
-                  <MoreHorizontal className="w-4 h-4 text-gray-600" />
+                  <MoreVertical className="w-4 h-4 text-gray-600" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 {/* Landing page controls */}
-                {(hasPermission('can_view_dashboards') || canManageOrgDefault) && (
+                {(hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) || canManageOrgDefault) && (
                   <>
                     <div className="px-2 py-1.5 text-xs text-muted-foreground font-medium">
                       Landing Page
                     </div>
-                    {hasPermission('can_view_dashboards') && (
+                    {hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) && (
                       <>
                         {isPersonalLanding ? (
                           <DropdownMenuItem
@@ -950,7 +982,7 @@ export function DashboardListV2() {
                     <DropdownMenuSeparator />
                   </>
                 )}
-                {hasPermission('can_create_dashboards') && (
+                {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
                   <DropdownMenuItem
                     onClick={() =>
                       handleDuplicateDashboard(
@@ -974,7 +1006,7 @@ export function DashboardListV2() {
                     )}
                   </DropdownMenuItem>
                 )}
-                {hasPermission('can_delete_dashboards') && (
+                {hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) && (
                   <>
                     <DropdownMenuSeparator />
                     <AlertDialog>
@@ -1034,11 +1066,11 @@ export function DashboardListV2() {
     // Landing page status for this dashboard
     const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
     const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
-    const canManageOrgDefault = hasPermission('can_manage_org_default_dashboard');
+    const canManageOrgDefault = hasPermission(PERMISSIONS.CAN_MANAGE_ORG_DEFAULT_DASHBOARD);
 
     // By default, all dashboards go to view mode first
     const getNavigationUrl = () => {
-      return hasPermission('can_view_dashboards') ? `/dashboards/${dashboard.id}` : '#';
+      return hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? `/dashboards/${dashboard.id}` : '#';
     };
 
     return (
@@ -1077,7 +1109,7 @@ export function DashboardListV2() {
             </TooltipProvider>
 
             {/* Edit Button */}
-            {hasPermission('can_edit_dashboards') && (
+            {dashboard.access_level === 'edit' && (
               <Link href={`/dashboards/${dashboard.id}/edit`}>
                 <Button
                   variant="outline"
@@ -1090,7 +1122,7 @@ export function DashboardListV2() {
             )}
 
             {/* Share Button */}
-            {hasPermission('can_share_dashboards') && (
+            {dashboard.access_level === 'edit' && (
               <Button
                 variant="outline"
                 size="icon"
@@ -1099,15 +1131,17 @@ export function DashboardListV2() {
                   e.preventDefault();
                   handleShareDashboard(dashboard);
                 }}
+                aria-label={`Share dashboard: ${dashboard.title || dashboard.id}`}
+                data-testid={`dashboard-share-card-${dashboard.id}`}
               >
                 <Share2 className="w-3 h-3" />
               </Button>
             )}
 
             {/* More Actions Menu */}
-            {(hasPermission('can_create_dashboards') ||
-              hasPermission('can_delete_dashboards') ||
-              hasPermission('can_view_dashboards')) && (
+            {(hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) ||
+              hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) ||
+              hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS)) && (
               <DropdownMenu
                 onOpenChange={(open) => {
                   // Prevent the card hover state from being lost when dropdown opens
@@ -1134,7 +1168,7 @@ export function DashboardListV2() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  {hasPermission('can_create_dashboards') && (
+                  {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
                     <DropdownMenuItem
                       onClick={() =>
                         handleDuplicateDashboard(
@@ -1158,7 +1192,7 @@ export function DashboardListV2() {
                       )}
                     </DropdownMenuItem>
                   )}
-                  {hasPermission('can_delete_dashboards') && (
+                  {hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) && (
                     <>
                       <DropdownMenuSeparator />
                       <AlertDialog>
@@ -1304,11 +1338,11 @@ export function DashboardListV2() {
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
 
     const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
-    const canManageOrgDefault = hasPermission('can_manage_org_default_dashboard');
+    const canManageOrgDefault = hasPermission(PERMISSIONS.CAN_MANAGE_ORG_DEFAULT_DASHBOARD);
     const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
     // By default, all dashboards go to view mode first
     const getNavigationUrl = () => {
-      return hasPermission('can_view_dashboards') ? `/dashboards/${dashboard.id}` : '#';
+      return hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? `/dashboards/${dashboard.id}` : '#';
     };
 
     return (
@@ -1323,7 +1357,7 @@ export function DashboardListV2() {
               href={getNavigationUrl()}
               className={cn(
                 'flex items-center gap-4 flex-1',
-                hasPermission('can_view_dashboards') ? 'cursor-pointer' : 'cursor-default'
+                hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? 'cursor-pointer' : 'cursor-default'
               )}
             >
               <div className="w-16 h-16 bg-gray-200/60 rounded-lg flex items-center justify-center flex-shrink-0 border border-gray-200">
@@ -1332,9 +1366,10 @@ export function DashboardListV2() {
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-medium truncate">
-                    {dashboard.title || dashboard.dashboard_title}
-                  </h3>
+                  <OverflowTooltip
+                    text={dashboard.title || dashboard.dashboard_title || ''}
+                    className="font-medium"
+                  />
                   {/* COMMENTED OUT: Type badge - not needed anymore */}
                   {/* <Badge variant={isNative ? 'default' : 'secondary'} className="text-xs">
                     {isNative ? 'Native' : 'Superset'}
@@ -1411,7 +1446,7 @@ export function DashboardListV2() {
 
             {/* Action Buttons - Edit and Share as icon-only buttons */}
             <div className="flex items-center gap-2 ml-4">
-              {hasPermission('can_edit_dashboards') && (
+              {dashboard.access_level === 'edit' && (
                 <Link href={`/dashboards/${dashboard.id}/edit`}>
                   <Button
                     variant="outline"
@@ -1422,21 +1457,23 @@ export function DashboardListV2() {
                   </Button>
                 </Link>
               )}
-              {hasPermission('can_share_dashboards') && (
+              {dashboard.access_level === 'edit' && (
                 <Button
                   variant="outline"
                   size="icon"
                   className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
                   onClick={() => handleShareDashboard(dashboard)}
+                  aria-label={`Share dashboard: ${dashboard.title || dashboard.id}`}
+                  data-testid={`dashboard-share-mobile-${dashboard.id}`}
                 >
                   <Share2 className="w-4 h-4 text-gray-700" />
                 </Button>
               )}
 
               {/* More actions menu for remaining actions */}
-              {(hasPermission('can_create_dashboards') ||
-                hasPermission('can_delete_dashboards') ||
-                hasPermission('can_view_dashboards') ||
+              {(hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) ||
+                hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) ||
+                hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ||
                 canManageOrgDefault) && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -1445,19 +1482,19 @@ export function DashboardListV2() {
                       size="icon"
                       className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
                     >
-                      <MoreHorizontal className="w-3 h-3 text-gray-700" />
+                      <MoreVertical className="w-3 h-3 text-gray-700" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
                     {/* Landing page controls */}
-                    {(hasPermission('can_view_dashboards') || canManageOrgDefault) && (
+                    {(hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) || canManageOrgDefault) && (
                       <>
                         <div className="px-2 py-1.5 text-xs text-muted-foreground font-medium">
                           Landing Page
                         </div>
 
                         {/* Personal landing page controls */}
-                        {hasPermission('can_view_dashboards') && (
+                        {hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) && (
                           <>
                             {isPersonalLanding ? (
                               <DropdownMenuItem
@@ -1496,7 +1533,7 @@ export function DashboardListV2() {
                       </>
                     )}
 
-                    {hasPermission('can_create_dashboards') && (
+                    {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
                       <DropdownMenuItem
                         onClick={() =>
                           handleDuplicateDashboard(
@@ -1521,7 +1558,7 @@ export function DashboardListV2() {
                       </DropdownMenuItem>
                     )}
                     {/* COMMENTED OUT: Download functionality - not needed */}
-                    {/* {hasPermission('can_view_dashboards') && (
+                    {/* {hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) && (
                       <DropdownMenuItem
                         onClick={() =>
                           handleDownloadDashboard(
@@ -1535,7 +1572,7 @@ export function DashboardListV2() {
                         Download
                       </DropdownMenuItem>
                     )} */}
-                    {hasPermission('can_delete_dashboards') && (
+                    {hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) && (
                       <>
                         <DropdownMenuSeparator />
                         <AlertDialog>
@@ -1600,31 +1637,38 @@ export function DashboardListV2() {
   return (
     <div id="dashboard-list-container" className="h-full flex flex-col">
       {/* Fixed Header */}
-      <div id="dashboard-header" className="flex-shrink-0 border-b bg-background px-6 py-4">
+      <div id="dashboard-header" className="flex-shrink-0 border-b bg-background">
         {/* Title Section */}
-        <div id="dashboard-title-section" className="flex items-center justify-between mb-3">
+        <div
+          id="dashboard-title-section"
+          className="flex items-center justify-between mb-6 p-6 pb-0"
+        >
           <div id="dashboard-title-wrapper">
-            <h1 id="dashboard-page-title" className="text-3xl font-bold">
-              Dashboards
-            </h1>
+            <DocsLink path="/dashboards">
+              <h1 id="dashboard-page-title" className="text-3xl font-bold">
+                Dashboards
+              </h1>
+            </DocsLink>
             <p id="dashboard-page-description" className="text-muted-foreground mt-1">
-              Create And Manage Your Dashboards
+              Create and manage your dashboards
             </p>
           </div>
 
-          {hasPermission('can_create_dashboards') && (
-            <Link id="dashboard-create-link" href="/dashboards/create">
-              <Button id="dashboard-create-button" variant="primary">
-                <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
-                CREATE DASHBOARD
-              </Button>
-            </Link>
-          )}
+          <div className="flex items-center gap-2">
+            {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
+              <Link id="dashboard-create-link" href="/dashboards/create">
+                <Button id="dashboard-create-button" variant="primary">
+                  <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
+                  CREATE DASHBOARD
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Filter Summary - Only shows when filters are active to save space */}
         {getActiveFilterCount() > 0 && (
-          <div id="dashboard-filters-section" className="flex items-center gap-2 mt-2">
+          <div id="dashboard-filters-section" className="flex items-center gap-2 px-6 pb-0">
             <span className="text-sm text-gray-600">
               {getActiveFilterCount()} filter{getActiveFilterCount() > 1 ? 's' : ''} active
             </span>
@@ -1757,7 +1801,7 @@ export function DashboardListV2() {
                           <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                              className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                               onClick={() => handleSort('name')}
                             >
                               <div className="flex items-center gap-2">
@@ -1790,7 +1834,7 @@ export function DashboardListV2() {
                           <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                              className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                               onClick={() => handleSort('created_by')}
                             >
                               <div className="flex items-center gap-2">
@@ -1821,7 +1865,7 @@ export function DashboardListV2() {
                           <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent flex-1"
+                              className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                               onClick={() => handleSort('updated_at')}
                             >
                               <div className="flex items-center gap-2">
@@ -1910,7 +1954,7 @@ export function DashboardListV2() {
               <p id="dashboard-empty-text" className="text-muted-foreground">
                 {getActiveFilterCount() > 0 ? 'No dashboards found' : 'No dashboards yet'}
               </p>
-              {hasPermission('can_create_dashboards') && (
+              {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
                 <Link id="dashboard-empty-create-link" href="/dashboards/create">
                   <Button id="dashboard-empty-create-button" variant="primary">
                     <Plus id="dashboard-empty-create-icon" className="w-4 h-4 mr-2" />
@@ -2010,17 +2054,14 @@ export function DashboardListV2() {
       {/* Share Modal */}
       {selectedDashboard && (
         <ShareModal
+          rtype="dashboard"
           entityId={selectedDashboard.id}
-          entityLabel="Dashboard"
+          entityLabel={selectedDashboard.title || 'Dashboard'}
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
-          initialShareStatus={{
-            is_public: selectedDashboard.is_public,
-            public_access_count: selectedDashboard.public_access_count,
-          }}
-          getShareStatus={getDashboardSharingStatus}
-          updateSharing={updateDashboardSharing}
+          onCopyLink={handleCopyLink}
+          onMadePublic={handleMadePublic}
         />
       )}
     </div>

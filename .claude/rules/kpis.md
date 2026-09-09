@@ -40,3 +40,5 @@ Embedded in dashboard: useKPIData(kpiId, snapshotId?) →
 - **RAG status is computed server-side** at fetch time from thresholds + target + direction + current value — it is not stored.
 - **Program tags are dynamic** — fetched via `/api/kpis/program-tags/` and added inline during KPI creation.
 - **Annotations are period-keyed** — notes attach to a specific period and can snapshot the value/PoP-change at save time (used by reports).
+- **Three ways in to the same drawer** — the card body, the ⋮ → View KPI item (which reuses the card's `onClick`), and an `?open={id}` deep link. All fire `kpi:kpi_viewed` with a `source` from `KPI_VIEW_SOURCES`; add any new entry point to that set rather than leaving it untracked.
+- **`kpi-card` renders on two surfaces** — the KPIs page and dashboard KPI embeds. It takes analytics-only `kpiId` + `exportSource` props so `kpi:kpi_exported` can say which surface and which KPI; pass both at any new call site. The CSV item is hidden when the KPI has no periods, so the handler's no-data guard is defensive only.

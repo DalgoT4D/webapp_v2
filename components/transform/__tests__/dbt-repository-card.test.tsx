@@ -9,12 +9,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DBTRepositoryCard } from '../DBTRepositoryCard';
 import * as useDbtWorkspaceHook from '@/hooks/api/useDbtWorkspace';
-import * as usePermissionsHook from '@/hooks/api/usePermissions';
+import * as rbac from '@/lib/rbac';
 
 // ============ Mocks ============
 
 jest.mock('@/hooks/api/useDbtWorkspace');
-jest.mock('@/hooks/api/usePermissions');
+jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
 
 jest.mock('next/image', () => ({
   __esModule: true,
@@ -41,7 +41,7 @@ describe('DBTRepositoryCard', () => {
       mutate: mockMutate,
     });
 
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (perm: string) => {
         return ['can_create_dbt_workspace', 'can_edit_dbt_workspace'].includes(perm);
       },
@@ -59,7 +59,7 @@ describe('DBTRepositoryCard', () => {
   });
 
   it('disables connect button when user lacks can_create_dbt_workspace permission', () => {
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: () => false,
     });
 

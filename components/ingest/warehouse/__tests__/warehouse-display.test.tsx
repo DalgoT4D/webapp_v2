@@ -9,13 +9,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { WarehouseDisplay } from '../warehouse-display';
 import * as useWarehouseHook from '@/hooks/api/useWarehouse';
-import * as usePermissionsHook from '@/hooks/api/usePermissions';
+import * as rbac from '@/lib/rbac';
 import { createMockWarehouse } from './warehouse-mock-data';
 
 // ============ Mocks ============
 
 jest.mock('@/hooks/api/useWarehouse');
-jest.mock('@/hooks/api/usePermissions');
+jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
 
 jest.mock('../warehouse-form', () => ({
   WarehouseForm: () => <div data-testid="warehouse-form" />,
@@ -48,8 +48,9 @@ describe('WarehouseDisplay', () => {
       isError: null,
       mutate: mockMutate,
     });
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: () => true,
+      hasRole: () => true,
     });
   });
 
@@ -76,8 +77,9 @@ describe('WarehouseDisplay', () => {
     unmount();
 
     // Without create permission — button disabled
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (p: string) => p !== 'can_create_warehouse',
+      hasRole: () => true,
     });
     render(<WarehouseDisplay />);
     expect(screen.getByTestId('create-warehouse-btn')).toBeDisabled();
@@ -108,8 +110,9 @@ describe('WarehouseDisplay', () => {
       isError: null,
       mutate: mockMutate,
     });
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (p: string) => p !== 'can_edit_warehouse' && p !== 'can_delete_warehouses',
+      hasRole: () => true,
     });
 
     render(<WarehouseDisplay />);

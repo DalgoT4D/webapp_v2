@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus,
   MoreVertical,
@@ -17,10 +17,12 @@ import {
   X,
   Target,
   User,
+  BellRing,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DocsLink } from '@/components/ui/docs-link';
 import {
   Table as TableComponent,
   TableBody,
@@ -29,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,15 +59,21 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useMetrics, deleteMetric, getMetricConsumers } from '@/hooks/api/useMetrics';
 import type { Metric, MetricConsumersResponse } from '@/types/metrics';
+import { formatMetricExpression } from '@/lib/metrics';
 import { MetricFormDialog } from './metric-form-dialog';
 import { ConsumerLinks } from './consumer-links';
 import { KPIForm } from '@/components/kpis/kpi-form';
+import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ALERT_CREATE_SOURCES, ANALYTICS_EVENTS, KPI_CREATE_SOURCES } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 
 export function MetricsLibrary() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [nameFilter, setNameFilter] = useState('');
   const [openFilters, setOpenFilters] = useState({ name: false });
   const [currentPage, setCurrentPage] = useState(1);
@@ -81,6 +90,31 @@ export function MetricsLibrary() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [kpiFormOpen, setKpiFormOpen] = useState(false);
   const [kpiPreselectedMetricId, setKpiPreselectedMetricId] = useState<number | undefined>();
+  const [alertFormOpen, setAlertFormOpen] = useState(false);
+  const [alertPreselectedMetricId, setAlertPreselectedMetricId] = useState<number | null>(null);
+  const { hasPermission } = useRbac();
+  // Create/edit/delete affordances are hidden for view-only roles (members) and
+  // shown to roles that hold the matching permission (admins + analysts).
+  const canCreateMetrics = hasPermission(PERMISSIONS.CAN_CREATE_METRICS);
+  const canEditMetrics = hasPermission(PERMISSIONS.CAN_EDIT_METRICS);
+  const canDeleteMetrics = hasPermission(PERMISSIONS.CAN_DELETE_METRICS);
+  const canCreateKpis = hasPermission(PERMISSIONS.CAN_CREATE_KPIS);
+  const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
+  // Whether the row "Actions" column shows at all — hidden for view-only roles so
+  // the table doesn't render an orphaned empty column.
+  const canMetricActions = canEditMetrics || canCreateKpis || canCreateAlert || canDeleteMetrics;
+
+  // Strip `?create=true` after consuming it on mount so a refresh doesn't
+  // re-open the create form.
+  useEffect(() => {
+    if (searchParams.get('create') === 'true') {
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete('create');
+      const qs = next.toString();
+      router.replace(qs ? `/metrics?${qs}` : '/metrics', { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Lazy-loaded consumers for "Used By" column
   const [consumersMap, setConsumersMap] = useState<Record<number, MetricConsumersResponse>>({});
@@ -199,6 +233,11 @@ export function MetricsLibrary() {
     setIsDeleting(true);
     try {
       await deleteMetric(deletingMetric.id);
+      // Id read before the mutate() below drops the row from local state.
+      trackEvent(ANALYTICS_EVENTS.METRIC_DELETED, {
+        metric_id: deletingMetric.id,
+        aggregation: deletingMetric.aggregation || null,
+      });
       mutate();
       setDeleteDialogOpen(false);
       toastSuccess.deleted(deletingMetric.name);
@@ -210,19 +249,16 @@ export function MetricsLibrary() {
     }
   };
 
-  const hasDeleteConsumers =
+  // Charts / KPIs block deletion (consistent with existing behavior).
+  // Alerts CASCADE on metric delete, so they only trigger a warning, not a block.
+  const hasBlockingConsumers =
     deleteConsumers && (deleteConsumers.charts.length > 0 || deleteConsumers.kpis.length > 0);
+  const cascadeAlerts = deleteConsumers?.alerts ?? [];
+  const hasCascadeAlerts = cascadeAlerts.length > 0;
 
   const formatExpression = (metric: Metric) => {
-    if (metric.column_expression) {
-      return metric.column_expression.length > 30
-        ? metric.column_expression.slice(0, 30) + '…'
-        : metric.column_expression;
-    }
-    if (metric.aggregation === 'count' && !metric.column) {
-      return 'COUNT(*)';
-    }
-    return `${(metric.aggregation || '').toUpperCase()}(${metric.column})`;
+    const expr = formatMetricExpression(metric);
+    return expr.length > 30 ? expr.slice(0, 30) + '…' : expr;
   };
 
   const getMode = (metric: Metric) => (metric.column_expression ? 'Calculated' : 'Simple');
@@ -262,17 +298,30 @@ export function MetricsLibrary() {
       >
         {/* Name */}
         <TableCell className="py-4">
-          <div className="flex flex-col">
-            <span
-              className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline cursor-pointer"
-              onClick={() => handleEdit(metric)}
-            >
-              {metric.name}
-            </span>
+          <div className="flex flex-col min-w-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className={cn(
+                    'font-medium text-lg text-gray-900 truncate',
+                    canEditMetrics && 'hover:text-teal-700 hover:underline cursor-pointer'
+                  )}
+                  onClick={canEditMetrics ? () => handleEdit(metric) : undefined}
+                >
+                  {metric.name}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-md break-words">{metric.name}</TooltipContent>
+            </Tooltip>
             {metric.description && (
-              <span className="text-sm text-gray-500 truncate max-w-[200px]">
-                {metric.description}
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-sm text-gray-500 truncate">{metric.description}</span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-md break-words">
+                  {metric.description}
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
         </TableCell>
@@ -290,14 +339,26 @@ export function MetricsLibrary() {
           </span>
         </TableCell>
         {/* Data Source */}
-        <TableCell className="py-4 max-w-[200px]">
-          <span className="text-base text-gray-700 block truncate" title={dataSource}>
-            {dataSource}
-          </span>
+        <TableCell className="py-4">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-base text-gray-700 block truncate">{dataSource}</span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-md break-words">{dataSource}</TooltipContent>
+          </Tooltip>
         </TableCell>
         {/* Expression */}
         <TableCell className="py-4">
-          <span className="text-sm text-gray-600">{formatExpression(metric)}</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-sm text-gray-600 block truncate">
+                {formatExpression(metric)}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-md break-words">
+              {formatExpression(metric)}
+            </TooltipContent>
+          </Tooltip>
         </TableCell>
         {/* Used By */}
         <TableCell className="py-4">
@@ -305,13 +366,23 @@ export function MetricsLibrary() {
         </TableCell>
         {/* Created by */}
         <TableCell className="py-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center shrink-0">
               <User className="w-3 h-3 text-gray-600" />
             </div>
-            <span className="text-sm text-gray-600" data-testid={`metric-created-by-${metric.id}`}>
-              {metric.created_by || 'Unknown'}
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="text-sm text-gray-600 truncate"
+                  data-testid={`metric-created-by-${metric.id}`}
+                >
+                  {metric.created_by || 'Unknown'}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-md break-words">
+                {metric.created_by || 'Unknown'}
+              </TooltipContent>
+            </Tooltip>
           </div>
         </TableCell>
         {/* Last Updated */}
@@ -320,47 +391,69 @@ export function MetricsLibrary() {
             ? formatDistanceToNow(new Date(metric.updated_at), { addSuffix: false }) + ' ago'
             : '—'}
         </TableCell>
-        {/* Actions */}
-        <TableCell className="py-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
-                <MoreVertical className="w-4 h-4 text-gray-600" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => handleEdit(metric)} className="cursor-pointer">
-                <Pencil className="w-4 h-4 mr-2" />
-                Edit Metric
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setKpiPreselectedMetricId(metric.id);
-                  setKpiFormOpen(true);
-                }}
-                className="cursor-pointer"
-              >
-                <Target className="w-4 h-4 mr-2" />
-                Create KPI
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => handleDeleteClick(metric)}
-                className="cursor-pointer text-destructive focus:text-destructive"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </TableCell>
+        {/* Actions — column hidden entirely for view-only roles (e.g. members) */}
+        {canMetricActions && (
+          <TableCell className="py-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
+                  <MoreVertical className="w-4 h-4 text-gray-600" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                {canEditMetrics && (
+                  <DropdownMenuItem onClick={() => handleEdit(metric)} className="cursor-pointer">
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Edit Metric
+                  </DropdownMenuItem>
+                )}
+                {canCreateKpis && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setKpiPreselectedMetricId(metric.id);
+                      setKpiFormOpen(true);
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <Target className="w-4 h-4 mr-2" />
+                    Create KPI
+                  </DropdownMenuItem>
+                )}
+                {canCreateAlert && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setAlertPreselectedMetricId(metric.id);
+                      setAlertFormOpen(true);
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <BellRing className="w-4 h-4 mr-2" />
+                    Create alert
+                  </DropdownMenuItem>
+                )}
+                {canDeleteMetrics && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handleDeleteClick(metric)}
+                      className="cursor-pointer text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </TableCell>
+        )}
       </TableRow>
     );
   };
 
   const columnHeaders = (
     <TableRow className="bg-gray-50">
-      <TableHead className="w-[20%]">
+      <TableHead className="w-[18%]">
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -406,7 +499,7 @@ export function MetricsLibrary() {
         </div>
       </TableHead>
       <TableHead className="w-[8%] font-medium text-base">Mode</TableHead>
-      <TableHead className="w-[14%]">
+      <TableHead className="w-[12%]">
         <Button
           variant="ghost"
           className="h-auto p-0 font-medium text-base hover:bg-transparent"
@@ -418,10 +511,10 @@ export function MetricsLibrary() {
           </div>
         </Button>
       </TableHead>
-      <TableHead className="w-[16%] font-medium text-base">Expression</TableHead>
-      <TableHead className="w-[12%] font-medium text-base">Used By</TableHead>
+      <TableHead className="w-[14%] font-medium text-base">Expression</TableHead>
+      <TableHead className="w-[10%] font-medium text-base">Used By</TableHead>
       <TableHead className="w-[14%] font-medium text-base">Created by</TableHead>
-      <TableHead className="w-[11%]">
+      <TableHead className="w-[12%]">
         <Button
           variant="ghost"
           className="h-auto p-0 font-medium text-base hover:bg-transparent"
@@ -433,7 +526,7 @@ export function MetricsLibrary() {
           </div>
         </Button>
       </TableHead>
-      <TableHead className="w-[5%] font-medium text-base">Actions</TableHead>
+      {canMetricActions && <TableHead className="w-[12%] font-medium text-base">Actions</TableHead>}
     </TableRow>
   );
 
@@ -453,23 +546,21 @@ export function MetricsLibrary() {
     <div id="metrics-list-container" className="h-full flex flex-col">
       {/* Fixed Header */}
       <div id="metrics-header" className="flex-shrink-0 border-b bg-background">
-        <div id="metrics-title-section" className="flex items-center justify-between p-6 pb-4">
+        <div id="metrics-title-section" className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <h1 className="text-3xl font-bold">Metrics</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Define reusable metric definitions that power your KPIs &amp; Charts
+            <DocsLink path="/data/metrics">
+              <h1 className="text-3xl font-bold">Metrics</h1>
+            </DocsLink>
+            <p className="text-muted-foreground mt-1">
+              Define reusable metric definitions that power your KPIs &amp; charts
             </p>
           </div>
-          <Button
-            variant="ghost"
-            className="text-white hover:opacity-90 shadow-xs"
-            style={{ backgroundColor: 'var(--primary)' }}
-            onClick={handleCreate}
-            data-testid="create-metric-btn"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create Metric
-          </Button>
+          {canCreateMetrics && (
+            <Button variant="primary" onClick={handleCreate} data-testid="create-metric-btn">
+              <Plus className="w-4 h-4 mr-2" />
+              CREATE METRIC
+            </Button>
+          )}
         </div>
 
         {/* Active filter indicator */}
@@ -521,9 +612,11 @@ export function MetricsLibrary() {
                         <TableCell>
                           <Skeleton className="h-3 w-12" />
                         </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-6 w-6" />
-                        </TableCell>
+                        {canMetricActions && (
+                          <TableCell>
+                            <Skeleton className="h-6 w-6" />
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -533,10 +626,12 @@ export function MetricsLibrary() {
           ) : sortedMetrics.length > 0 ? (
             <div className="py-4">
               <div className="border rounded-lg bg-white">
-                <TableComponent>
-                  <TableHeader>{columnHeaders}</TableHeader>
-                  <TableBody>{sortedMetrics.map((metric) => renderMetricRow(metric))}</TableBody>
-                </TableComponent>
+                <TooltipProvider delayDuration={300}>
+                  <TableComponent className="table-fixed">
+                    <TableHeader>{columnHeaders}</TableHeader>
+                    <TableBody>{sortedMetrics.map((metric) => renderMetricRow(metric))}</TableBody>
+                  </TableComponent>
+                </TooltipProvider>
               </div>
             </div>
           ) : (
@@ -550,15 +645,12 @@ export function MetricsLibrary() {
                   <p className="text-sm text-muted-foreground">
                     Create your first metric to start building KPIs and tracking what matters most.
                   </p>
-                  <Button
-                    variant="ghost"
-                    className="text-white hover:opacity-90 shadow-xs"
-                    style={{ backgroundColor: 'var(--primary)' }}
-                    onClick={handleCreate}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Metric
-                  </Button>
+                  {canCreateMetrics && (
+                    <Button variant="primary" onClick={handleCreate}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      CREATE METRIC
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -594,6 +686,7 @@ export function MetricsLibrary() {
                   <SelectItem value="10">10</SelectItem>
                   <SelectItem value="20">20</SelectItem>
                   <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -646,6 +739,17 @@ export function MetricsLibrary() {
           }
         }}
         preselectedMetricId={kpiPreselectedMetricId}
+        createSource={KPI_CREATE_SOURCES.METRICS_LIBRARY}
+      />
+
+      <AlertWizardModal
+        open={alertFormOpen}
+        onOpenChange={(o) => {
+          setAlertFormOpen(o);
+          if (!o) setAlertPreselectedMetricId(null);
+        }}
+        initial={{ alertType: 'metric_threshold', metricId: alertPreselectedMetricId }}
+        createSource={ALERT_CREATE_SOURCES.METRICS_LIBRARY}
       />
 
       {/* Delete Confirmation */}
@@ -653,7 +757,9 @@ export function MetricsLibrary() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-bold">
-              {hasDeleteConsumers || consumerCheckFailed ? 'Cannot Delete Metric' : 'Delete Metric'}
+              {hasBlockingConsumers || consumerCheckFailed
+                ? 'Cannot Delete Metric'
+                : 'Delete Metric'}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-4">
@@ -661,24 +767,39 @@ export function MetricsLibrary() {
                   <p className="text-sm text-destructive">
                     Could not verify if this metric is in use. Please try again.
                   </p>
-                ) : hasDeleteConsumers ? (
+                ) : hasBlockingConsumers ? (
                   <>
                     <p className="text-base text-foreground">
                       This metric has been used in multiple places. Remove these dependencies before
                       deleting.
                     </p>
-                    <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
-                      <p className="text-sm font-medium text-amber-700 mb-1">Used by:</p>
+                    <div className="rounded-md border border-orange-200 bg-orange-50 px-4 py-3 text-orange-800">
+                      <p className="text-sm font-semibold mb-1">Used by:</p>
                       <ConsumerLinks consumers={deleteConsumers!} variant="inherit" />
                     </div>
                   </>
                 ) : (
-                  <p className="text-base text-foreground">
-                    Are you sure you want to delete Metric{' '}
-                    <span className="font-bold">&quot;{deletingMetric?.name}&quot;</span> ?
-                    <br />
-                    This change cannot be undone.
-                  </p>
+                  <>
+                    <p className="text-base text-foreground">
+                      Are you sure you want to delete Metric{' '}
+                      <span className="font-bold">&quot;{deletingMetric?.name}&quot;</span> ?
+                      <br />
+                      This change cannot be undone.
+                    </p>
+                    {hasCascadeAlerts && (
+                      <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
+                        <p className="text-sm font-medium text-amber-700 mb-1">
+                          Deleting this metric will also remove {cascadeAlerts.length} alert
+                          {cascadeAlerts.length > 1 ? 's' : ''}:
+                        </p>
+                        <ul className="text-sm text-amber-800 list-disc pl-5 space-y-0.5">
+                          {cascadeAlerts.map((a) => (
+                            <li key={a.id}>{a.name}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
                 )}
                 {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
               </div>
@@ -688,7 +809,7 @@ export function MetricsLibrary() {
             <AlertDialogCancel className="border-destructive text-destructive hover:bg-destructive/5">
               CANCEL
             </AlertDialogCancel>
-            {!hasDeleteConsumers && !consumerCheckFailed && (
+            {!hasBlockingConsumers && !consumerCheckFailed && (
               <AlertDialogAction
                 onClick={(e) => {
                   e.preventDefault();

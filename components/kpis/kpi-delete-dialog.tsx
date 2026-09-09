@@ -1,6 +1,6 @@
 'use client';
 
-import { useKPIDashboards } from '@/hooks/api/useKPIs';
+import { useKPIConsumers } from '@/hooks/api/useKPIs';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, BellRing } from 'lucide-react';
 import Link from 'next/link';
 
 interface KPIDeleteDialogProps {
@@ -33,7 +33,10 @@ export function KPIDeleteDialog({
   onConfirm,
   isDeleting,
 }: KPIDeleteDialogProps) {
-  const { data: dashboards, isLoading: loadingDashboards } = useKPIDashboards(open ? kpiId : null);
+  const { data: consumers, isLoading } = useKPIConsumers(open ? kpiId : null);
+  const dashboards = consumers.dashboards;
+  const alerts = consumers.alerts;
+  const hasAlerts = alerts.length > 0;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -50,7 +53,7 @@ export function KPIDeleteDialog({
               <div className="border-t pt-3">
                 <div className="text-sm font-medium text-gray-900 mb-2">Dashboard Usage</div>
 
-                {loadingDashboards ? (
+                {isLoading ? (
                   <div className="space-y-2">
                     <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-3/4" />
@@ -88,6 +91,24 @@ export function KPIDeleteDialog({
                   </div>
                 )}
               </div>
+
+              {hasAlerts && (
+                <div className="border-t pt-3">
+                  <div className="text-sm font-medium text-gray-900 mb-2 flex items-center gap-1">
+                    <BellRing className="w-3.5 h-3.5" />
+                    Alerts that will be removed
+                  </div>
+                  <p className="text-xs text-gray-600 mb-1">
+                    Deleting this KPI will also remove {alerts.length} alert
+                    {alerts.length > 1 ? 's' : ''}:
+                  </p>
+                  <ul className="text-xs text-amber-800 list-disc pl-5 max-h-32 overflow-y-auto space-y-0.5">
+                    {alerts.map((a) => (
+                      <li key={a.id}>{a.name}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>

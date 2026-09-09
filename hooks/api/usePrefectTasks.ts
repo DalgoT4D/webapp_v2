@@ -29,14 +29,6 @@ export async function runPrefectDeployment(deploymentId: string) {
   return apiPost(`/api/prefect/v1/flows/${deploymentId}/flow_run/`, {});
 }
 
-// Run a Prefect task directly (non-deployment, e.g., dbt-test, dbt-deps)
-export async function runPrefectTask(taskUuid: string): Promise<{
-  status: string;
-  result: Array<string | { id?: string; state_details?: { flow_run_id?: string } }>;
-}> {
-  return apiPost(`/api/prefect/tasks/${taskUuid}/run/`, {});
-}
-
 // Delete a Prefect task (mutation)
 export async function deletePrefectTask(taskUuid: string) {
   return apiDelete(`/api/prefect/tasks/${taskUuid}/`);

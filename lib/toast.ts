@@ -53,7 +53,7 @@ export const toastSuccess = {
   // CRUD operations
   created: (itemName: string) => toast.success(`${itemName} created successfully!`),
   updated: (itemName: string) => toast.success(`${itemName} updated successfully!`),
-  deleted: (itemName: string) => toast.success(`"${itemName}" deleted successfully`),
+  deleted: (itemName: string) => toast.success(`${itemName} deleted successfully`),
   saved: (itemName: string) => toast.success(`${itemName} saved successfully!`),
 
   // Specific operations

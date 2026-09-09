@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { DocsLink } from '@/components/ui/docs-link';
 import { useTransformStore } from '@/stores/transformStore';
 import {
   useTransformType,
@@ -37,7 +38,11 @@ export default function Transform() {
   const hasInitiatedSetup = useRef(false);
 
   const { activeTab, setActiveTab } = useTransformStore();
-  const { data: transformTypeData, isLoading: transformTypeLoading } = useTransformType();
+  const {
+    data: transformTypeData,
+    isLoading: transformTypeLoading,
+    mutate: mutateTransformType,
+  } = useTransformType();
   const { preferences, mutate: mutatePreferences } = useUserPreferences();
 
   useEffect(() => {
@@ -82,6 +87,11 @@ export default function Transform() {
 
       // Hit sync sources api
       await syncSources();
+
+      // Refresh transform_type cache so a later remount reads the real value
+      // ('github') instead of the stale pre-setup value, which would otherwise
+      // re-trigger setup on the next visit.
+      await mutateTransformType();
 
       setWorkspaceSetup(true);
       toastSuccess.generic('Transform workspace setup complete');
@@ -140,7 +150,9 @@ export default function Transform() {
       <div className="h-full flex flex-col">
         <div className="flex-shrink-0 border-b bg-background">
           <div className="p-6 pb-6">
-            <h1 className="text-3xl font-bold">Transform</h1>
+            <DocsLink path="/data/transform">
+              <h1 className="text-3xl font-bold">Transform</h1>
+            </DocsLink>
             <p className="text-muted-foreground mt-1">
               Build and manage data transformation workflows
             </p>
@@ -189,7 +201,9 @@ export default function Transform() {
         {/* Header - Fixed */}
         <div className="flex-shrink-0 border-b bg-background">
           <div className="p-6 pb-4">
-            <h1 className="text-3xl font-bold">Transform</h1>
+            <DocsLink path="/data/transform">
+              <h1 className="text-3xl font-bold">Transform</h1>
+            </DocsLink>
             <p className="text-muted-foreground mt-2">
               Build and manage data transformation workflows
             </p>

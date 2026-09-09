@@ -2,8 +2,9 @@
 
 import React from 'react';
 import { useAllSchemaTables } from '@/hooks/api/useChart';
-import { Combobox, highlightText } from '@/components/ui/combobox';
-import type { ComboboxItem } from '@/components/ui/combobox';
+import { Combobox, highlightText, type ComboboxItem } from '@/components/ui/combobox';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { trackEvent } from '@/lib/analytics';
 
 interface DatasetSelectorProps {
   schema_name?: string;
@@ -22,7 +23,15 @@ export function DatasetSelector({
   className,
   autoFocus = false,
 }: DatasetSelectorProps) {
-  const { data: allTables, isLoading, error } = useAllSchemaTables();
+  const { data: allTables, isLoading, error, noWarehouse } = useAllSchemaTables();
+
+  React.useEffect(() => {
+    if (noWarehouse) {
+      trackEvent(ANALYTICS_EVENTS.CHART_DATASET_SELECTOR_STATE_VIEWED, {
+        state: 'no_warehouse',
+      });
+    }
+  }, [noWarehouse]);
 
   // Map API data to Combobox items
   const items: ComboboxItem[] = React.useMemo(
@@ -51,6 +60,16 @@ export function DatasetSelector({
       <div className={className}>
         <div className="p-3 bg-red-50 rounded border border-red-200 text-sm text-red-600">
           Failed to load datasets. Please try refreshing.
+        </div>
+      </div>
+    );
+  }
+
+  if (noWarehouse) {
+    return (
+      <div className={className}>
+        <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          Set up a warehouse before selecting a dataset.
         </div>
       </div>
     );

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Database, BarChart3, Lock, ArrowLeft } from 'lucide-react';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
 import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
 import { ChartPreview } from '@/components/charts/ChartPreview';
@@ -35,15 +34,33 @@ import {
 } from '@/hooks/api/useChart';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { ChartTypes, type ChartType } from '@/types/charts';
-import { getApiCustomizations, mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
+import { buildPivotDataFields, buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
+import {
+  getApiCustomizations,
+  mergeTableColumnFormatting,
+  resolveTableColumnOrder,
+} from '@/lib/chart-payload-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
 import { deepEqual } from '@/lib/form-utils';
+import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { trackEvent, trackFeatureView } from '@/lib/analytics';
+import {
+  ANALYTICS_EVENTS,
+  CHART_CREATE_SOURCES,
+  FEATURES,
+  METRIC_USE_SOURCES,
+} from '@/constants/analytics';
+import {
+  CHART_BUILDER_TAB_ANALYTICS,
+  getMetricAnalyticsProps,
+  getNewlyUsedSavedMetricIds,
+  getUsedSavedMetricIds,
+  isDrillDownEnabled,
+} from '@/components/charts/utils';
 import type {
   ChartCreate,
   ChartUpdate,
@@ -113,6 +130,11 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         title: '',
         showLabels: false,
       };
+    case ChartTypes.PIVOT_TABLE:
+      return {
+        numberFormat: 'default',
+        decimalPlaces: 0,
+      };
     default:
       return {};
   }
@@ -124,30 +146,12 @@ function EditChartPageContent() {
   const searchParams = useSearchParams();
   const isFromDashboard = searchParams.get('from') === 'dashboard';
   const chartId = Number(params.id);
-  const { hasPermission } = useUserPermissions();
-  const canEditChart = hasPermission('can_edit_charts');
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
+  // Per-resource access — a member granted edit has chart.access_level === 'edit'
+  // even without the role-level can_edit_charts slug. Backend enforces on save.
+  const canEditThisChart = chart?.access_level === 'edit';
   const { trigger: updateChart, isMutating } = useUpdateChart();
   const { trigger: createChart, isMutating: isCreating } = useCreateChart();
-
-  // Check if user has edit permissions (temporarily disabled)
-  if (!canEditChart) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-            <Lock className="w-6 h-6 text-red-600" />
-          </div>
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground mb-4">You don't have permission to edit charts.</p>
-          <Button variant="outline" onClick={() => router.push('/charts')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Charts
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   // Initialize form data with chart data when loaded
   const initialFormData: ChartBuilderFormData = {
@@ -161,6 +165,19 @@ function EditChartPageContent() {
   const [formData, setFormData] = useState<ChartBuilderFormData>(initialFormData);
 
   const [activeTab, setActiveTab] = useState('chart');
+
+  // Builder tabs are local state, so `feature:viewed` doesn't fire on switch —
+  // report them explicitly. Fires on every switch (not once), so this answers
+  // "did they ever open Chart Styling", not "how many times".
+  const handleTabView = (tabValue: string) => {
+    trackFeatureView(FEATURES.CHARTS, { tab: CHART_BUILDER_TAB_ANALYTICS[tabValue] ?? tabValue });
+  };
+
+  const handlePreviewTabChange = (tabValue: string) => {
+    setActiveTab(tabValue);
+    handleTabView(tabValue);
+  };
+
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
   const [dataPreviewPageSize, setDataPreviewPageSize] = useState(25);
   const [rawDataPage, setRawDataPage] = useState(1);
@@ -322,6 +339,10 @@ function EditChartPageContent() {
                 ? [chart.extra_config.dimension_column]
                 : []),
         }),
+        // Include pivot table fields from extra_config when loading a pivot_table chart
+        ...(chart.chart_type === ChartTypes.PIVOT_TABLE && {
+          extra_config: buildPivotExtraConfig(chart.extra_config),
+        }),
       };
       setFormData(initialData);
       setOriginalFormData(initialData);
@@ -425,6 +446,14 @@ function EditChartPageContent() {
     }
 
     if (formData.chart_type === ChartTypes.NUMBER) {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          metric.column_expression ||
+          (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       return !!(
         formData.aggregate_function &&
         (formData.aggregate_function === 'count' || formData.aggregate_column)
@@ -432,6 +461,16 @@ function EditChartPageContent() {
     }
 
     if (formData.chart_type === ChartTypes.MAP) {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          formData.geographic_column &&
+          formData.selected_geojson_id &&
+          (metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       // Count(*) doesn't need a value_column, similar to other chart types
       const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
       return !!(
@@ -444,6 +483,20 @@ function EditChartPageContent() {
 
     if (formData.chart_type === ChartTypes.TABLE) {
       return true; // Table charts just need basic schema/table selection
+    }
+
+    if (formData.chart_type === 'pivot_table') {
+      // Presence alone isn't enough — each metric must be a valid definition
+      // (mirrors the create-flow pivot predicate).
+      const hasRowDimensions = (formData.extra_config?.row_dimensions || []).length > 0;
+      const hasValidMetrics =
+        (formData.metrics || []).length > 0 &&
+        formData.metrics!.every(
+          (metric) =>
+            metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
+        );
+      return hasRowDimensions && hasValidMetrics;
     }
 
     {
@@ -543,10 +596,15 @@ function EditChartPageContent() {
               }),
             // Include metrics for multiple metrics support
             ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
+            // Pivot table top-level fields — the /chart-data/ pipeline reads these off
+            // the payload root (not extra_config).
+            ...(formData.chart_type === 'pivot_table' &&
+              buildPivotDataFields(formData.extra_config)),
             // Number formatting is frontend-only - exclude from API payload
-            ...(formData.chart_type !== ChartTypes.TABLE && {
-              customizations: getApiCustomizations(formData.chart_type, formData.customizations),
-            }),
+            ...(formData.chart_type !== ChartTypes.TABLE &&
+              formData.chart_type !== ChartTypes.PIVOT_TABLE && {
+                customizations: getApiCustomizations(formData.chart_type, formData.customizations),
+              }),
             extra_config: {
               filters: [
                 ...(formData.filters || []),
@@ -589,6 +647,7 @@ function EditChartPageContent() {
       formData.pagination,
       formData.sort,
       formData.time_grain,
+      formData.extra_config,
       tableDrillDownState,
     ]
   );
@@ -665,30 +724,40 @@ function EditChartPageContent() {
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null,
     drillDownPath.length > 0
   );
-  const { data: regionGeojsons } = useRegionGeoJSONs(
-    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null
-  );
+  const currentDrillDownRegionId =
+    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
+  const {
+    data: regionGeojsons,
+    error: regionGeojsonsError,
+    isLoading: regionGeojsonsLoading,
+  } = useRegionGeoJSONs(currentDrillDownRegionId);
 
   // Dynamic GeoJSON ID based on drill-down state
-  const activeGeojsonId = useMemo(() => {
-    if (formData.chart_type !== ChartTypes.MAP) return null;
-
-    // If we're in drill-down mode and have region geojsons, use the first one
-    if (drillDownPath.length > 0 && regionGeojsons && regionGeojsons.length > 0) {
-      return regionGeojsons[0].id;
-    }
-
-    // Otherwise use the base geojson
-    return formData.geojsonPreviewPayload?.geojsonId || null;
-  }, [
-    formData.chart_type,
-    formData.geojsonPreviewPayload?.geojsonId,
-    drillDownPath.length,
-    regionGeojsons,
-  ]);
+  const drillDownGeojsonResolution = useMemo(
+    () =>
+      resolveDrillDownGeoJSON({
+        isDrillDownActive: drillDownPath.length > 0,
+        regionId: currentDrillDownRegionId,
+        regionGeojsons,
+        regionGeojsonsLoading,
+        regionGeojsonsError,
+        fallbackGeojsonId: drillDownPath.length > 0 ? null : formData.selected_geojson_id,
+      }),
+    [
+      currentDrillDownRegionId,
+      drillDownPath.length,
+      formData.selected_geojson_id,
+      regionGeojsons,
+      regionGeojsonsError,
+      regionGeojsonsLoading,
+    ]
+  );
+  const activeGeojsonId =
+    formData.chart_type === ChartTypes.MAP ? drillDownGeojsonResolution.geojsonId : null;
 
   // Dynamic map data overlay payload with drill-down filters
   // Build map data overlay payload similar to view component (stable approach)
+  const activeMapMetricKey = JSON.stringify(formData.metrics?.[0] || {});
   const activeDataOverlayPayload = useMemo(() => {
     if (formData.chart_type !== ChartTypes.MAP || !formData.schema_name || !formData.table_name)
       return null;
@@ -716,13 +785,16 @@ function EditChartPageContent() {
       }
     }
 
+    const metric = formData.metrics?.[0];
+
     return activeGeographicColumn
       ? {
           schema_name: formData.schema_name,
           table_name: formData.table_name,
           geographic_column: activeGeographicColumn,
+          metric,
           value_column: formData.aggregate_column,
-          aggregate_function: formData.aggregate_function || 'sum',
+          aggregate_function: formData.aggregate_function || (metric ? undefined : 'sum'),
           filters: filters,
           chart_filters: [] as any[],
           chart_id: chartId ? parseInt(String(chartId)) : undefined,
@@ -739,14 +811,17 @@ function EditChartPageContent() {
     formData.district_column,
     drillDownPath,
     chartId,
+    activeMapMetricKey,
   ]);
 
   // Fetch GeoJSON data for maps (dynamic based on drill-down state)
   const {
     data: geojsonData,
-    error: geojsonError,
-    isLoading: geojsonLoading,
+    error: geojsonDataError,
+    isLoading: geojsonDataLoading,
   } = useGeoJSONData(activeGeojsonId);
+  const geojsonError = regionGeojsonsError || geojsonDataError;
+  const geojsonLoading = drillDownGeojsonResolution.isResolving || geojsonDataLoading;
 
   // Fetch map data overlay (dynamic based on drill-down state)
   const {
@@ -760,10 +835,16 @@ function EditChartPageContent() {
     data: dataPreview,
     error: previewError,
     isLoading: previewLoading,
-  } = useChartDataPreview(chartDataPayload, dataPreviewPage, dataPreviewPageSize);
+  } = useChartDataPreview(
+    formData.chart_type !== ChartTypes.PIVOT_TABLE ? chartDataPayload : null,
+    dataPreviewPage,
+    dataPreviewPageSize
+  );
 
   // Fetch total rows for chart data preview pagination
-  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(chartDataPayload);
+  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(
+    formData.chart_type !== ChartTypes.PIVOT_TABLE ? chartDataPayload : null
+  );
 
   // Fetch raw table data
   const {
@@ -862,171 +943,142 @@ function EditChartPageContent() {
   // Get all columns for raw data
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
-  const handleFormChange = (updates: Partial<ChartBuilderFormData>) => {
-    // Smart chart type switching logic (same as ChartBuilder)
-    if (updates.chart_type && updates.chart_type !== formData.chart_type) {
-      const newChartType = updates.chart_type;
-      const oldChartType = formData.chart_type;
+  const handleFormChange = useCallback((updates: Partial<ChartBuilderFormData>) => {
+    setFormData((prev) => {
+      // Smart chart type switching logic (same as ChartBuilder)
+      if (updates.chart_type && updates.chart_type !== prev.chart_type) {
+        const newChartType = updates.chart_type;
+        const oldChartType = prev.chart_type;
 
-      // Smart column mapping based on chart type compatibility
-      const smartUpdates = { ...updates };
+        // Smart column mapping based on chart type compatibility
+        const smartUpdates = { ...updates };
 
-      // Preserve dataset selection (schema, table, title)
-      // These are compatible across all chart types - no need to change
-
-      // Set computation_type based on chart type
-      if (newChartType === ChartTypes.NUMBER) {
-        smartUpdates.computation_type = 'aggregated';
-      } else if (newChartType === ChartTypes.MAP) {
-        smartUpdates.computation_type = 'aggregated';
-      } else if (newChartType === ChartTypes.TABLE) {
-        smartUpdates.computation_type = 'aggregated';
-        // Keep existing columns for table display - don't clear them!
-      } else {
-        smartUpdates.computation_type = formData.computation_type || 'aggregated';
-      }
-
-      // Smart column mapping between chart types
-      if (oldChartType && oldChartType !== newChartType) {
-        // For aggregated chart types (bar, line, pie, number)
-        if (
-          (
-            [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.NUMBER] as ChartType[]
-          ).includes(newChartType as ChartType)
-        ) {
-          // From maps: use geographic_column as dimension, value_column as aggregate
-          if (oldChartType === ChartTypes.MAP) {
-            if (formData.geographic_column)
-              smartUpdates.dimension_column = formData.geographic_column;
-            if (formData.value_column) smartUpdates.aggregate_column = formData.value_column;
-            if (formData.aggregate_function)
-              smartUpdates.aggregate_function = formData.aggregate_function;
-          }
-          // From tables: preserve columns if they exist
-          else if (oldChartType === ChartTypes.TABLE && formData.table_columns?.length > 0) {
-            if (formData.table_columns[0])
-              smartUpdates.dimension_column = formData.table_columns[0];
-            if (formData.table_columns[1])
-              smartUpdates.aggregate_column = formData.table_columns[1];
-            smartUpdates.aggregate_function = formData.aggregate_function || 'sum';
-          }
+        // Set computation_type based on chart type
+        if (newChartType === ChartTypes.NUMBER) {
+          smartUpdates.computation_type = 'aggregated';
+        } else if (newChartType === ChartTypes.MAP) {
+          smartUpdates.computation_type = 'aggregated';
+        } else if (newChartType === ChartTypes.TABLE) {
+          smartUpdates.computation_type = 'aggregated';
+        } else {
+          smartUpdates.computation_type = prev.computation_type || 'aggregated';
         }
-        // For map charts
-        else if (newChartType === ChartTypes.MAP) {
-          // From other aggregated charts: use dimension as geographic, aggregate as value
+
+        // Smart column mapping between chart types
+        if (oldChartType && oldChartType !== newChartType) {
+          // For aggregated chart types (bar, line, pie, number)
           if (
             (
               [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.NUMBER] as ChartType[]
-            ).includes(oldChartType as ChartType)
+            ).includes(newChartType as ChartType)
           ) {
-            if (formData.dimension_column)
-              smartUpdates.geographic_column = formData.dimension_column;
-            if (formData.aggregate_column) smartUpdates.value_column = formData.aggregate_column;
-            if (formData.aggregate_function)
-              smartUpdates.aggregate_function = formData.aggregate_function;
-            if (formData.metrics) smartUpdates.metrics = formData.metrics;
-          }
-          // From tables: use first column as geographic if available
-          else if (oldChartType === ChartTypes.TABLE && formData.table_columns?.length > 0) {
-            if (formData.table_columns[0])
-              smartUpdates.geographic_column = formData.table_columns[0];
-            if (formData.table_columns[1]) smartUpdates.value_column = formData.table_columns[1];
-            smartUpdates.aggregate_function = formData.aggregate_function || 'sum';
-          }
-        }
-
-        // For table charts
-        else if (newChartType === ChartTypes.TABLE) {
-          const tableColumns: string[] = [];
-
-          // From aggregated charts: include dimension and aggregate columns
-          if (
-            (
-              [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.NUMBER] as ChartType[]
-            ).includes(oldChartType as ChartType)
-          ) {
-            // Try to get the X axis column - check both dimension_column and x_axis_column
-            let dimensionForTable = null;
-            if (formData.dimension_column && formData.dimension_column !== 'undefined') {
-              dimensionForTable = formData.dimension_column;
-            } else if (formData.x_axis_column && formData.x_axis_column !== 'undefined') {
-              dimensionForTable = formData.x_axis_column;
+            if (oldChartType === ChartTypes.MAP) {
+              if (prev.geographic_column) smartUpdates.dimension_column = prev.geographic_column;
+              if (prev.value_column) smartUpdates.aggregate_column = prev.value_column;
+              if (prev.aggregate_function)
+                smartUpdates.aggregate_function = prev.aggregate_function;
+            } else if (oldChartType === ChartTypes.TABLE && prev.table_columns?.length > 0) {
+              if (prev.table_columns[0]) smartUpdates.dimension_column = prev.table_columns[0];
+              if (prev.table_columns[1]) smartUpdates.aggregate_column = prev.table_columns[1];
+              smartUpdates.aggregate_function = prev.aggregate_function || 'sum';
             }
-
-            if (dimensionForTable) {
-              tableColumns.push(dimensionForTable);
-              // Map to x_axis_column for raw data compatibility
-              smartUpdates.x_axis_column = dimensionForTable;
-            }
+          }
+          // For map charts
+          else if (newChartType === ChartTypes.MAP) {
             if (
-              formData.aggregate_column &&
-              formData.aggregate_column !== formData.dimension_column
+              (
+                [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.NUMBER] as ChartType[]
+              ).includes(oldChartType as ChartType)
             ) {
-              tableColumns.push(formData.aggregate_column);
-            }
-            // Add metrics columns if available
-            if (formData.metrics) {
-              formData.metrics.forEach((metric) => {
-                if (metric.column && !tableColumns.includes(metric.column)) {
-                  tableColumns.push(metric.column);
-                }
-              });
-            }
-          }
-          // From maps: include geographic and value columns
-          else if (oldChartType === ChartTypes.MAP) {
-            if (formData.geographic_column) {
-              tableColumns.push(formData.geographic_column);
-              smartUpdates.x_axis_column = formData.geographic_column;
-            }
-            if (formData.value_column && formData.value_column !== formData.geographic_column) {
-              tableColumns.push(formData.value_column);
+              if (prev.dimension_column) smartUpdates.geographic_column = prev.dimension_column;
+              if (prev.aggregate_column) smartUpdates.value_column = prev.aggregate_column;
+              if (prev.aggregate_function)
+                smartUpdates.aggregate_function = prev.aggregate_function;
+              if (prev.metrics) smartUpdates.metrics = prev.metrics;
+            } else if (oldChartType === ChartTypes.TABLE && prev.table_columns?.length > 0) {
+              if (prev.table_columns[0]) smartUpdates.geographic_column = prev.table_columns[0];
+              if (prev.table_columns[1]) smartUpdates.value_column = prev.table_columns[1];
+              smartUpdates.aggregate_function = prev.aggregate_function || 'sum';
             }
           }
 
-          if (tableColumns.length > 0) {
-            smartUpdates.table_columns = tableColumns;
+          // For table charts
+          else if (newChartType === ChartTypes.TABLE) {
+            const tableColumns: string[] = [];
+
+            if (
+              (
+                [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.NUMBER] as ChartType[]
+              ).includes(oldChartType as ChartType)
+            ) {
+              let dimensionForTable = null;
+              if (prev.dimension_column && prev.dimension_column !== 'undefined') {
+                dimensionForTable = prev.dimension_column;
+              } else if (prev.x_axis_column && prev.x_axis_column !== 'undefined') {
+                dimensionForTable = prev.x_axis_column;
+              }
+
+              if (dimensionForTable) {
+                tableColumns.push(dimensionForTable);
+                smartUpdates.x_axis_column = dimensionForTable;
+              }
+              if (prev.aggregate_column && prev.aggregate_column !== prev.dimension_column) {
+                tableColumns.push(prev.aggregate_column);
+              }
+              if (prev.metrics) {
+                prev.metrics.forEach((metric) => {
+                  if (metric.column && !tableColumns.includes(metric.column)) {
+                    tableColumns.push(metric.column);
+                  }
+                });
+              }
+            } else if (oldChartType === ChartTypes.MAP) {
+              if (prev.geographic_column) {
+                tableColumns.push(prev.geographic_column);
+                smartUpdates.x_axis_column = prev.geographic_column;
+              }
+              if (prev.value_column && prev.value_column !== prev.geographic_column) {
+                tableColumns.push(prev.value_column);
+              }
+            }
+
+            if (tableColumns.length > 0) {
+              smartUpdates.table_columns = tableColumns;
+            }
           }
         }
+
+        // Merge customizations intelligently
+        const existingCustomizations = prev.customizations || {};
+        const newDefaults = getDefaultCustomizations(newChartType);
+
+        const preservedFields: Record<string, any> = {};
+        ['showTooltip', 'showLegend', 'showDataLabels'].forEach((field) => {
+          if (field in existingCustomizations && field in newDefaults) {
+            preservedFields[field] = existingCustomizations[field];
+          }
+        });
+        ['xAxisTitle', 'yAxisTitle', 'subtitle'].forEach((field) => {
+          if (existingCustomizations[field]?.trim()) {
+            preservedFields[field] = existingCustomizations[field];
+          }
+        });
+        if (existingCustomizations.dataLabelPosition && newDefaults.dataLabelPosition) {
+          preservedFields.dataLabelPosition = existingCustomizations.dataLabelPosition;
+        }
+
+        smartUpdates.customizations = {
+          ...newDefaults,
+          ...preservedFields,
+        };
+
+        return { ...prev, ...smartUpdates };
       }
 
-      // Merge customizations intelligently
-      const existingCustomizations = formData.customizations || {};
-      const newDefaults = getDefaultCustomizations(newChartType);
-
-      // Preserve common settings and user-entered text
-      const preservedFields: Record<string, any> = {};
-
-      // Common UI settings across chart types
-      ['showTooltip', 'showLegend', 'showDataLabels'].forEach((field) => {
-        if (field in existingCustomizations && field in newDefaults) {
-          preservedFields[field] = existingCustomizations[field];
-        }
-      });
-
-      // Preserve user-entered text fields
-      ['xAxisTitle', 'yAxisTitle', 'subtitle'].forEach((field) => {
-        if (existingCustomizations[field]?.trim()) {
-          preservedFields[field] = existingCustomizations[field];
-        }
-      });
-
-      // Preserve data label positions if compatible
-      if (existingCustomizations.dataLabelPosition && newDefaults.dataLabelPosition) {
-        preservedFields.dataLabelPosition = existingCustomizations.dataLabelPosition;
-      }
-
-      smartUpdates.customizations = {
-        ...newDefaults,
-        ...preservedFields,
-      };
-
-      setFormData((prev) => ({ ...prev, ...smartUpdates }));
-    } else {
       // Regular form update without chart type change
-      setFormData((prev) => ({ ...prev, ...updates }));
-    }
-  };
+      return { ...prev, ...updates };
+    });
+  }, []);
 
   const handleDataPreviewPageSizeChange = (newPageSize: number) => {
     setDataPreviewPageSize(newPageSize);
@@ -1141,6 +1193,14 @@ function EditChartPageContent() {
     }
 
     if (formData.chart_type === ChartTypes.NUMBER) {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          metric.column_expression ||
+          (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       const needsAggregateColumn = formData.aggregate_function !== 'count';
       return !!(
         formData.aggregate_function &&
@@ -1149,6 +1209,16 @@ function EditChartPageContent() {
     }
 
     if (formData.chart_type === ChartTypes.MAP) {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          formData.geographic_column &&
+          formData.selected_geojson_id &&
+          (metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       // Count(*) doesn't need a value_column, similar to other chart types
       const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
       return !!(
@@ -1161,6 +1231,20 @@ function EditChartPageContent() {
 
     if (formData.chart_type === ChartTypes.TABLE) {
       return true; // Table charts only need basic fields (title, chart_type, schema, table)
+    }
+
+    if (formData.chart_type === 'pivot_table') {
+      // Presence alone isn't enough — each metric must be a valid definition
+      // (mirrors the create-flow pivot predicate).
+      const hasRowDimensions = (formData.extra_config?.row_dimensions || []).length > 0;
+      const hasValidMetrics =
+        (formData.metrics || []).length > 0 &&
+        formData.metrics!.every(
+          (metric) =>
+            metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
+        );
+      return hasRowDimensions && hasValidMetrics;
     }
 
     {
@@ -1310,6 +1394,8 @@ function EditChartPageContent() {
               ? formData.dimensions.map((d) => d.column).filter(Boolean)
               : [],
         }),
+        // Pivot table extra_config fields (source of truth persisted on the chart)
+        ...(formData.chart_type === 'pivot_table' && buildPivotExtraConfig(formData.extra_config)),
       },
     };
   };
@@ -1335,7 +1421,23 @@ function EditChartPageContent() {
         id: chartId,
         data: updateData,
       });
-      trackEvent(ANALYTICS_EVENTS.CHART_SAVED);
+      trackEvent(ANALYTICS_EVENTS.CHART_UPDATED, {
+        chart_type: chartData.chart_type,
+        chart_id: chartId,
+        ...getMetricAnalyticsProps(formData.metrics),
+        drill_down_enabled: isDrillDownEnabled(formData),
+      });
+      // Only metrics this edit newly attached — otherwise every re-save of an
+      // unchanged chart would re-report the same metrics as freshly used.
+      getNewlyUsedSavedMetricIds(formData.metrics, originalFormData?.metrics).forEach(
+        (metricId) => {
+          trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
+            metric_id: metricId,
+            chart_id: chartId,
+            source: METRIC_USE_SOURCES.CHART,
+          });
+        }
+      );
 
       // Update original data to reflect saved state
       setOriginalFormData({ ...formData });
@@ -1367,6 +1469,22 @@ function EditChartPageContent() {
       };
 
       const result = await createChart(newChartData);
+      // Save-as-new creates a chart, so it fires CHART_CREATED like every other
+      // create path — `source` is what distinguishes it.
+      trackEvent(ANALYTICS_EVENTS.CHART_CREATED, {
+        chart_type: newChartData.chart_type,
+        chart_id: result.id,
+        source: CHART_CREATE_SOURCES.SAVE_AS_NEW,
+        ...getMetricAnalyticsProps(formData.metrics),
+        drill_down_enabled: isDrillDownEnabled(formData),
+      });
+      getUsedSavedMetricIds(formData.metrics).forEach((metricId) => {
+        trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
+          metric_id: metricId,
+          chart_id: result.id,
+          source: METRIC_USE_SOURCES.CHART,
+        });
+      });
 
       toastSuccess.created(`Chart "${newTitle}"`);
 
@@ -1425,6 +1543,26 @@ function EditChartPageContent() {
   const handleStayOnPage = () => {
     setShowExitDialog(false);
   };
+
+  // Per-resource access denied — chart loaded but caller lacks edit on THIS chart.
+  // (Gated after load so the loading skeleton doesn't briefly flash the denied UI.)
+  if (!chartLoading && chart && !canEditThisChart) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <Lock className="w-6 h-6 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground mb-4">You don't have edit access to this chart.</p>
+          <Button variant="outline" onClick={() => router.push('/charts')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Charts
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (chartLoading) {
     return (
@@ -1543,7 +1681,7 @@ function EditChartPageContent() {
         <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
           {/* Left Panel - 30% */}
           <div className="w-[30%] border-r">
-            <Tabs defaultValue="configuration" className="h-full">
+            <Tabs defaultValue="configuration" onValueChange={handleTabView} className="h-full">
               <div className="px-4 pt-4">
                 <TabsList className="grid w-full h-11 grid-cols-2">
                   <TabsTrigger
@@ -1593,6 +1731,9 @@ function EditChartPageContent() {
                       formData={formData}
                       onChange={handleFormChange}
                       columns={columns}
+                      currentDrillLevel={
+                        tableDrillDownState ? tableDrillDownState.currentLevel + 1 : 0
+                      }
                     />
                   )}
                 </div>
@@ -1602,7 +1743,7 @@ function EditChartPageContent() {
 
           {/* Right Panel - 70% */}
           <div className="w-[70%]">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
+            <Tabs value={activeTab} onValueChange={handlePreviewTabChange} className="h-full">
               <div className="px-4">
                 <TabsList className="grid grid-cols-2">
                   <TabsTrigger value="chart" className="flex items-center gap-2">
@@ -1687,10 +1828,32 @@ function EditChartPageContent() {
                         <TableChart
                           data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
                           config={{
-                            table_columns: tableChartData?.columns || formData.table_columns,
+                            table_columns: (() => {
+                              const cols = tableChartData?.columns || formData.table_columns || [];
+                              const drillDownDimensions =
+                                formData.dimensions
+                                  ?.filter((d) => d.enable_drill_down)
+                                  .map((d) => d.column)
+                                  .filter(Boolean) || [];
+                              const currentDim = tableDrillDownState
+                                ? drillDownDimensions[tableDrillDownState.currentLevel + 1]
+                                : drillDownDimensions[0];
+                              return resolveTableColumnOrder({
+                                cols,
+                                savedOrder: formData.customizations?.columnOrder,
+                                drillDownDimensions,
+                                currentDimensionColumn: currentDim,
+                              });
+                            })(),
                             column_formatting: mergeTableColumnFormatting(formData.customizations),
                             sort: formData.sort,
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
+                            conditionalFormatting:
+                              formData.customizations?.conditionalFormatting || [],
+                            columnAlignment: formData.customizations?.columnAlignment || {},
+                            zebraRows: formData.customizations?.zebraRows ?? true,
+                            freezeFirstColumn: formData.customizations?.freezeFirstColumn || false,
+                            theme: formData.customizations?.theme,
                           }}
                           isLoading={tableChartLoading}
                           error={tableChartError}
@@ -1720,6 +1883,9 @@ function EditChartPageContent() {
                                   .map((d) => d.column)
                                   .filter(Boolean)[0]
                           }
+                          currentDrillLevel={
+                            tableDrillDownState ? tableDrillDownState.currentLevel + 1 : 0
+                          }
                         />
                       </div>
                     </div>
@@ -1727,7 +1893,14 @@ function EditChartPageContent() {
                     <div className="w-full h-full">
                       <ChartPreview
                         key={`${formData.schema_name}-${formData.table_name}`}
-                        config={chartData?.echarts_config || lastValidChartConfig}
+                        config={
+                          formData.chart_type === 'pivot_table'
+                            ? { extra_config: formData.extra_config }
+                            : chartData?.echarts_config || lastValidChartConfig
+                        }
+                        tableData={
+                          formData.chart_type === 'pivot_table' ? chartData?.data : undefined
+                        }
                         isLoading={chartDataLoading}
                         error={null} // Error handled by toast
                         chartType={formData.chart_type}
@@ -1738,31 +1911,39 @@ function EditChartPageContent() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="data" className="h-[calc(100%-73px)] overflow-y-auto">
-                <div className="p-4">
+              <TabsContent value="data" className="h-[calc(100%-73px)] overflow-hidden">
+                <div className="p-4 h-full">
                   <Tabs
                     defaultValue={
-                      formData.chart_type === ChartTypes.TABLE ? 'raw-data' : 'chart-data'
+                      formData.chart_type === ChartTypes.TABLE ||
+                      formData.chart_type === ChartTypes.PIVOT_TABLE
+                        ? 'raw-data'
+                        : 'chart-data'
                     }
                     className="h-full flex flex-col"
                   >
-                    <TabsList
-                      className={`grid w-full ${formData.chart_type === ChartTypes.TABLE ? 'grid-cols-1' : 'grid-cols-2'} flex-shrink-0`}
-                    >
-                      {formData.chart_type !== ChartTypes.TABLE && (
-                        <TabsTrigger value="chart-data" className="flex items-center gap-2">
-                          <BarChart3 className="h-4 w-4" />
-                          Chart Data
-                        </TabsTrigger>
-                      )}
+                    <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
+                      <TabsTrigger value="chart-data" className="flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4" />
+                        Chart Data
+                      </TabsTrigger>
                       <TabsTrigger value="raw-data" className="flex items-center gap-2">
                         <Database className="h-4 w-4" />
                         Raw Data
                       </TabsTrigger>
                     </TabsList>
 
-                    {formData.chart_type !== ChartTypes.TABLE && (
-                      <TabsContent value="chart-data" className="flex-1 overflow-auto">
+                    <TabsContent value="chart-data" className="flex-1 overflow-auto">
+                      {formData.chart_type === ChartTypes.PIVOT_TABLE ? (
+                        <ChartPreview
+                          config={{ extra_config: formData.extra_config }}
+                          tableData={chartData?.data}
+                          isLoading={chartDataLoading}
+                          error={null}
+                          chartType={formData.chart_type}
+                          customizations={formData.customizations}
+                        />
+                      ) : (
                         <DataPreview
                           data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
                           columns={dataPreview?.columns || []}
@@ -1777,8 +1958,8 @@ function EditChartPageContent() {
                             onPageSizeChange: handleDataPreviewPageSizeChange,
                           }}
                         />
-                      </TabsContent>
-                    )}
+                      )}
+                    </TabsContent>
 
                     <TabsContent value="raw-data" className="flex-1 overflow-auto">
                       <DataPreview

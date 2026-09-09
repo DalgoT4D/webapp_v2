@@ -115,10 +115,18 @@ function handleAuthFailure(requestPath: string) {
 async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0): Promise<any> {
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
 
+  const isFormData = options.body instanceof FormData;
+
   const headers: HeadersInit = {
     ...(options.headers || {}),
     ...getHeaders(),
   };
+
+  if (isFormData) {
+    // Delete after merge so Content-Type from either source is removed,
+    // letting the browser set multipart/form-data boundary automatically
+    delete (headers as Record<string, string>)['Content-Type'];
+  }
 
   try {
     const response = await fetch(url, {
@@ -127,13 +135,12 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
       credentials: 'include', // Always include cookies
     });
 
-    // Handle 401 Unauthorized.
-    // Skip the whole recovery path for the sign-in endpoints — a 401 there is the
-    // answer to "are these credentials valid?", not an expired session. Refreshing,
+    // Handle 498 - access token expired, try to refresh using refresh token.
+    // Sign-in endpoints are exempt from the whole recovery path: a rejection there
+    // answers "are these credentials valid?", it is not an expired session. Refreshing,
     // clearing the store and navigating away all just stop the form from showing the
     // error (it used to throw the admin sign-in out to the product /login).
-    if (response.status === 401 && !isAuthEndpoint(path)) {
-      // If this is the first attempt, try to refresh the token
+    if (response.status === 498 && !isAuthEndpoint(path)) {
       if (retryCount === 0) {
         // Prevent multiple simultaneous refresh attempts
         if (!isRefreshing) {
@@ -146,13 +153,22 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
         const success = await refreshPromise;
 
         if (success) {
-          // Retry the original request with the new token cookie
+          // Retry the original request with the new access token cookie
           return apiFetch(path, options, retryCount + 1);
         }
       }
 
-      // Either refresh failed or this is a retry that still got 401
-      // In both cases, logout the user
+      // Refresh failed or retry still got 498 - logout the user.
+      // `path` decides the destination: an /api/v1/admin/* route lands on /admin/login.
+      handleAuthFailure(path);
+      throw new Error('Authentication failed. Please log in again.');
+    }
+
+    // Handle 401 - completely unauthorized (blacklisted, invalid, or refresh token
+    // expired). Nothing to refresh, so this logs out immediately — but sign-in
+    // endpoints stay exempt for the same reason as above: a 401 from /api/v2/login/
+    // is "wrong password", and the form has to be left alone to render it.
+    if (response.status === 401 && !isAuthEndpoint(path)) {
       handleAuthFailure(path);
       throw new Error('Authentication failed. Please log in again.');
     }
@@ -219,7 +235,9 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
         }
       }
 
-      throw new Error(errorMessage);
+      const err = new Error(errorMessage) as Error & { status: number };
+      err.status = response.status;
+      throw err;
     }
 
     return data;
@@ -246,11 +264,21 @@ export function apiPost(path: string, body: any, options: RequestInit = {}) {
   });
 }
 
-// Helper for PUT requests
+// Helper for PUT requests. Pass a FormData body for file uploads — apiFetch
+// already strips Content-Type so the browser sets the multipart boundary.
 export function apiPut(path: string, body: any, options: RequestInit = {}) {
   return apiFetch(path, {
     ...options,
     method: 'PUT',
+    body: body instanceof FormData ? body : JSON.stringify(body),
+  });
+}
+
+// Helper for PATCH requests
+export function apiPatch(path: string, body: any, options: RequestInit = {}) {
+  return apiFetch(path, {
+    ...options,
+    method: 'PATCH',
     body: JSON.stringify(body),
   });
 }
@@ -280,7 +308,17 @@ export async function apiPublicPost(path: string, body: any, queryParams?: URLSe
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    throw new Error(`Public API error: ${response.status} ${response.statusText}`);
+    // Append the backend's own `detail` when there is one. Several endpoints return the
+    // same status for different causes (e.g. /trial/activate 400s for both an expired
+    // token and a rejected password); without the detail the caller can only show one
+    // generic message and will name the wrong cause half the time.
+    const detail = await response
+      .json()
+      .then((payload) => (typeof payload?.detail === 'string' ? payload.detail : ''))
+      .catch(() => '');
+    throw new Error(
+      `Public API error: ${response.status} ${response.statusText}${detail ? ` - ${detail}` : ''}`
+    );
   }
   return response.json();
 }

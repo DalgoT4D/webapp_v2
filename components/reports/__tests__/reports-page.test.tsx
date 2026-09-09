@@ -29,7 +29,9 @@ jest.mock('@/lib/toast', () => ({
 
 const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush, back: jest.fn() }),
+  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn() }),
+  usePathname: () => '/reports',
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 // Mock the CreateSnapshotDialog to avoid its complex dependencies
@@ -47,17 +49,21 @@ jest.mock('@/components/ui/confirmation-dialog', () => ({
   }),
 }));
 
-// Mock useUserPermissions — default: all permissions granted
+// Mock useRbac — default: all permissions granted
 const mockHasPermission = jest.fn().mockReturnValue(true);
-jest.mock('@/hooks/api/usePermissions', () => ({
-  useUserPermissions: () => ({
-    permissions: [],
-    hasPermission: mockHasPermission,
-    hasAnyPermission: jest.fn().mockReturnValue(true),
-    hasAllPermissions: jest.fn().mockReturnValue(true),
-    isLoading: false,
-  }),
-}));
+jest.mock('@/lib/rbac', () => {
+  const actual = jest.requireActual('@/lib/rbac');
+  return {
+    ...actual,
+    useRbac: () => ({
+      hasPermission: mockHasPermission,
+      hasAnyPermission: jest.fn().mockReturnValue(true),
+      hasAllPermissions: jest.fn().mockReturnValue(true),
+      hasRole: jest.fn().mockReturnValue(true),
+      role: actual.ROLES.ADMIN,
+    }),
+  };
+});
 
 // ============ Helpers ============
 
@@ -93,7 +99,7 @@ describe('ReportsPage', () => {
       renderPage();
 
       expect(screen.getByText('Reports')).toBeInTheDocument();
-      expect(screen.getByText('Create And Manage Your Reports')).toBeInTheDocument();
+      expect(screen.getByText('Create and manage your reports')).toBeInTheDocument();
     });
 
     it('renders create report button', () => {

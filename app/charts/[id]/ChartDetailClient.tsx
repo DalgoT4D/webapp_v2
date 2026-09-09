@@ -13,17 +13,29 @@ import {
 } from '@/hooks/api/useChart';
 import { ChartPreview } from '@/components/charts/ChartPreview';
 import { TableChart } from '@/components/charts/TableChart';
+import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
+import { buildPivotDataFields, getPivotRenderProps } from '@/components/charts/pivot-table/utils';
 import { MapPreview } from '@/components/charts/map/MapPreview';
+import type { PivotTableResponse } from '@/types/pivot-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Edit, Lock } from 'lucide-react';
+import { ArrowLeft, Edit, Lock, Loader2, Share2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { ShareModal } from '@/components/ui/share-modal';
+import { RequestEditPill } from '@/components/access/request-edit-pill';
+import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS, CHART_DRILL_SOURCES } from '@/constants/analytics';
+import { useDrillDownAnalytics } from '@/components/charts/useDrillDownAnalytics';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import type { ChartDataPayload } from '@/types/charts';
 import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
+import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import type * as echarts from 'echarts';
 
 interface ChartDetailClientProps {
@@ -50,11 +62,30 @@ interface DrillDownLevel {
 }
 
 export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
+  const celebrationPending = useInsightWalkthroughStore((s) => s.pendingCelebration === 'chart');
   const router = useRouter();
   const searchParams = useSearchParams();
   const isFromDashboard = searchParams.get('from') === 'dashboard';
-  const { hasPermission } = useUserPermissions();
-  const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
+  const { hasPermission } = useRbac();
+  const canViewCharts = hasPermission(PERMISSIONS.CAN_VIEW_CHARTS);
+  // Don't start the chart request without view permission; the access-denied
+  // return lives below, after all hooks (Rules of Hooks)
+  const {
+    data: chart,
+    error: chartError,
+    isLoading: chartLoading,
+  } = useChart(canViewCharts ? chartId : null);
+  // Fire CHART_VIEWED once per mount when the chart loads (WAVO consume signal).
+  const chartViewedTracked = useRef(false);
+  useEffect(() => {
+    if (chart && !chartViewedTracked.current) {
+      trackEvent(ANALYTICS_EVENTS.CHART_VIEWED, {
+        chart_type: chart.chart_type,
+        chart_id: chartId,
+      });
+      chartViewedTracked.current = true;
+    }
+  }, [chart]);
   const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
   const [tableChartPage, setTableChartPage] = useState(1);
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
@@ -65,24 +96,20 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     appliedFilters: Record<string, string>; // { dimension_column: value }
   } | null>(null);
 
-  // Check if user has view permissions
-  if (!hasPermission('can_view_charts')) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-            <Lock className="w-6 h-6 text-red-600" />
-          </div>
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground mb-4">You don't have permission to view charts.</p>
-          <Button variant="outline" onClick={() => router.push('/charts')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Charts
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  useDrillDownAnalytics({
+    chartId,
+    chartType: chart?.chart_type,
+    source: CHART_DRILL_SOURCES.CHART_DETAIL,
+    mapLevel: drillDownPath.length,
+    tableLevel: tableDrillDownState?.currentLevel ?? null,
+  });
+
+  // Stable reference for map customizations — avoids a new {} literal every render,
+  // which would otherwise re-trigger MapPreview's chart-init effect in a loop via onChartReady
+  const mapCustomizations = useMemo(
+    () => chart?.extra_config?.customizations || {},
+    [chart?.extra_config?.customizations]
+  );
 
   // Fetch regions data for dynamic geojson lookup (for Indian maps)
   const { data: regions } = useRegions('IND', 'state');
@@ -116,6 +143,9 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               aggregate_col:
                 chart.extra_config?.aggregate_column || chart.extra_config?.value_column,
             }),
+            // Pivot table top-level fields — the /chart-data/ pipeline reads these off
+            // the payload root (not extra_config).
+            ...(chart.chart_type === 'pivot_table' && buildPivotDataFields(chart.extra_config)),
             // For table charts, include dimensions array with drill-down support
             ...(chart.chart_type === 'table' && {
               dimensions: (() => {
@@ -318,26 +348,31 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
 
   // Fetch geojsons for the current drill-down region (e.g., Karnataka districts)
-  const { data: regionGeojsons } = useRegionGeoJSONs(currentDrillDownRegionId);
+  const {
+    data: regionGeojsons,
+    error: regionGeojsonsError,
+    isLoading: regionGeojsonsLoading,
+  } = useRegionGeoJSONs(currentDrillDownRegionId);
 
   // For map charts, determine which geojson and data to fetch based on drill-down state
   let activeGeojsonId = null;
   let activeGeographicColumn = null;
+  const activeDrillDownLevel =
+    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1] : null;
+  const drillDownGeojsonResolution = resolveDrillDownGeoJSON({
+    isDrillDownActive: Boolean(activeDrillDownLevel),
+    regionId: currentDrillDownRegionId,
+    regionGeojsons,
+    regionGeojsonsLoading,
+    regionGeojsonsError,
+    fallbackGeojsonId: activeDrillDownLevel?.geojson_id,
+  });
 
   if (chart?.chart_type === 'map') {
-    if (drillDownPath.length > 0) {
+    if (activeDrillDownLevel) {
       // We're in a drill-down state, use the first available geojson for this region
-      const lastDrillDown = drillDownPath[drillDownPath.length - 1];
-      activeGeographicColumn = lastDrillDown.geographic_column;
-
-      if (regionGeojsons && regionGeojsons.length > 0) {
-        // Use the first available geojson for this region (e.g., Karnataka districts)
-        activeGeojsonId = regionGeojsons[0].id;
-        console.log(`🗺️ Using geojson ID ${activeGeojsonId} for region ${lastDrillDown.name}`);
-      } else {
-        // Fallback to the stored geojson_id (if any)
-        activeGeojsonId = lastDrillDown.geojson_id;
-      }
+      activeGeographicColumn = activeDrillDownLevel.geographic_column;
+      activeGeojsonId = drillDownGeojsonResolution.geojsonId;
     } else if (currentLayer) {
       // Use current layer configuration (first layer)
       activeGeojsonId = currentLayer.geojson_id;
@@ -353,9 +388,11 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
 
   const {
     data: geojsonData,
-    error: geojsonError,
-    isLoading: geojsonLoading,
+    error: geojsonDataError,
+    isLoading: geojsonDataLoading,
   } = useGeoJSONData(activeGeojsonId);
+  const geojsonError = regionGeojsonsError || geojsonDataError;
+  const geojsonLoading = drillDownGeojsonResolution.isResolving || geojsonDataLoading;
 
   // Build data overlay payload for map charts based on current level
   // Include filters for drill-down selections - flatten all parent selections
@@ -373,13 +410,15 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   }, [drillDownPath]);
 
   const mapDataOverlayPayload = useMemo(() => {
+    const metric = chart?.extra_config?.metrics?.[0];
     return chart?.chart_type === 'map' && chart.extra_config && activeGeographicColumn
       ? {
           schema_name: chart.schema_name,
           table_name: chart.table_name,
           geographic_column: activeGeographicColumn,
+          metric,
           value_column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
-          aggregate_function: chart.extra_config.aggregate_function || 'sum',
+          aggregate_function: chart.extra_config.aggregate_function || (metric ? undefined : 'sum'),
           filters: filters, // Drill-down filters
           chart_filters: chart.extra_config.filters || [], // Chart-level filters
           // Include full extra_config for pagination, sorting, and other features
@@ -433,12 +472,12 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
       setTimeout(
         () => {
           toast('💡 Configure drill-down layers to see filtered regions', {
-            description: hasPermission('can_edit_charts')
+            description: hasPermission(PERMISSIONS.CAN_EDIT_CHARTS)
               ? "Click 'Edit Chart' to set up geographic layers"
               : 'Chart needs geographic layers to show filtered regions',
             duration: 7000,
             position: 'top-right',
-            ...(hasPermission('can_edit_charts') && {
+            ...(hasPermission(PERMISSIONS.CAN_EDIT_CHARTS) && {
               action: {
                 label: 'Edit Chart',
                 onClick: () => (window.location.href = `/charts/${chartId}/edit`),
@@ -454,6 +493,19 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   // Chart refs for export
   const [chartElement, setChartElement] = useState<HTMLElement | null>(null);
   const [chartInstance, setChartInstance] = useState<echarts.ECharts | null>(null);
+  const { initialOpen: shouldAutoOpenShare, clearParam: clearShareDeepLink } =
+    useOpenShareDeepLink();
+  const [shareModalOpen, setShareModalOpen] = useState(shouldAutoOpenShare);
+
+  // Handle share (mirrors dashboard-native-view)
+  const handleShare = () => {
+    setShareModalOpen(true);
+  };
+
+  const handleShareModalClose = () => {
+    setShareModalOpen(false);
+    clearShareDeepLink();
+  };
   const chartContentRef = useRef<HTMLDivElement>(null);
 
   // Update chart element ref when content is rendered
@@ -463,220 +515,238 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
     }
   }, [chart, chartData, mapDataOverlay]);
 
+  // Computed once per render so it's a stable primitive in handleRegionClick's deps,
+  // instead of calling the (unstable-reference) hasPermission multiple times inside the callback
+  const canEditCharts = hasPermission('can_edit_charts');
+
   // Handle region click for drill-down
-  const handleRegionClick = (regionName: string, regionData: any) => {
-    if (chart.chart_type !== 'map') return;
+  // Stable reference — MapPreview's chart-init effect depends on onRegionClick;
+  // an unstable reference here would re-trigger that effect (and the map render) every render
+  const handleRegionClick = useCallback(
+    (regionName: string, regionData: any) => {
+      if (chart.chart_type !== 'map') return;
 
-    // Check for dynamic drill-down configuration (new system)
-    const hasDynamicDrillDown =
-      chart?.extra_config?.geographic_hierarchy?.drill_down_levels?.length > 0;
+      // Check for dynamic drill-down configuration (new system)
+      const hasDynamicDrillDown =
+        chart?.extra_config?.geographic_hierarchy?.drill_down_levels?.length > 0;
 
-    // NEW DYNAMIC SYSTEM: Use geographic hierarchy
-    if (hasDynamicDrillDown) {
-      const hierarchy = chart.extra_config.geographic_hierarchy;
-      const nextLevel = hierarchy.drill_down_levels.find(
-        (level: any) => level.level === currentLevel + 1
-      );
-
-      if (nextLevel) {
-        // Find the clicked region in the regions data
-        const selectedRegion = regions?.find(
-          (region: any) => region.name === regionName || region.display_name === regionName
+      // NEW DYNAMIC SYSTEM: Use geographic hierarchy
+      if (hasDynamicDrillDown) {
+        const hierarchy = chart.extra_config.geographic_hierarchy;
+        const nextLevel = hierarchy.drill_down_levels.find(
+          (level: any) => level.level === currentLevel + 1
         );
 
-        if (!selectedRegion) {
-          toast.error(`Region "${regionName}" not found in database`);
+        if (nextLevel) {
+          // Find the clicked region in the regions data
+          const selectedRegion = regions?.find(
+            (region: any) => region.name === regionName || region.display_name === regionName
+          );
+
+          if (!selectedRegion) {
+            toast.error(`Region "${regionName}" not found in database`);
+            return;
+          }
+
+          toast.success(`🗺️ Drilling down to ${nextLevel.label.toLowerCase()} in ${regionName}`);
+
+          // Create drill-down level for dynamic system
+          const newLevel: DrillDownLevel = {
+            level: currentLevel + 1,
+            name: regionName,
+            geographic_column: nextLevel.column,
+            geojson_id: 0, // Will be resolved dynamically
+            region_id: selectedRegion.id,
+            parent_selections: [
+              ...drillDownPath.flatMap((level) => level.parent_selections),
+              {
+                column: activeGeographicColumn || '',
+                value: regionName,
+              },
+            ],
+          };
+
+          setDrillDownPath([...drillDownPath, newLevel]);
+          return;
+        } else {
+          // No more levels available in dynamic system
+          toast.info('No further drill-down levels configured');
           return;
         }
-
-        toast.success(`🗺️ Drilling down to ${nextLevel.label.toLowerCase()} in ${regionName}`);
-
-        // Create drill-down level for dynamic system
-        const newLevel: DrillDownLevel = {
-          level: currentLevel + 1,
-          name: regionName,
-          geographic_column: nextLevel.column,
-          geojson_id: 0, // Will be resolved dynamically
-          region_id: selectedRegion.id,
-          parent_selections: [
-            ...drillDownPath.flatMap((level) => level.parent_selections),
-            {
-              column: activeGeographicColumn || '',
-              value: regionName,
-            },
-          ],
-        };
-
-        setDrillDownPath([...drillDownPath, newLevel]);
-        return;
-      } else {
-        // No more levels available in dynamic system
-        toast.info('No further drill-down levels configured');
-        return;
-      }
-    }
-
-    // Check for legacy simplified drill-down configuration
-    const hasSimplifiedDrillDown =
-      chart?.extra_config?.district_column ||
-      chart?.extra_config?.ward_column ||
-      chart?.extra_config?.subward_column;
-
-    if (hasSimplifiedDrillDown) {
-      let nextGeographicColumn = null;
-      let levelName = '';
-
-      // Determine next level based on current drill-down state
-      if (currentLevel === 0 && chart.extra_config.district_column) {
-        nextGeographicColumn = chart.extra_config.district_column;
-        levelName = 'districts';
-      } else if (currentLevel === 1 && chart.extra_config.ward_column) {
-        nextGeographicColumn = chart.extra_config.ward_column;
-        levelName = 'wards';
-      } else if (currentLevel === 2 && chart.extra_config.subward_column) {
-        nextGeographicColumn = chart.extra_config.subward_column;
-        levelName = 'sub-wards';
       }
 
-      if (nextGeographicColumn) {
-        toast.success(`🗺️ Drilling down to ${levelName} in ${regionName}`);
+      // Check for legacy simplified drill-down configuration
+      const hasSimplifiedDrillDown =
+        chart?.extra_config?.district_column ||
+        chart?.extra_config?.ward_column ||
+        chart?.extra_config?.subward_column;
 
-        // Create drill-down level for simplified system
-        // Find the region ID for the clicked region (e.g., Karnataka)
-        const selectedRegion = regions?.find(
-          (region: any) => region.name === regionName || region.display_name === regionName
+      if (hasSimplifiedDrillDown) {
+        let nextGeographicColumn = null;
+        let levelName = '';
+
+        // Determine next level based on current drill-down state
+        if (currentLevel === 0 && chart.extra_config.district_column) {
+          nextGeographicColumn = chart.extra_config.district_column;
+          levelName = 'districts';
+        } else if (currentLevel === 1 && chart.extra_config.ward_column) {
+          nextGeographicColumn = chart.extra_config.ward_column;
+          levelName = 'wards';
+        } else if (currentLevel === 2 && chart.extra_config.subward_column) {
+          nextGeographicColumn = chart.extra_config.subward_column;
+          levelName = 'sub-wards';
+        }
+
+        if (nextGeographicColumn) {
+          toast.success(`🗺️ Drilling down to ${levelName} in ${regionName}`);
+
+          // Create drill-down level for simplified system
+          // Find the region ID for the clicked region (e.g., Karnataka)
+          const selectedRegion = regions?.find(
+            (region: any) => region.name === regionName || region.display_name === regionName
+          );
+
+          if (!selectedRegion) {
+            toast.error(`Region "${regionName}" not found in database`);
+            return;
+          }
+
+          // For now, we'll create the drill-down level and let the useRegionGeoJSONs
+          // hook handle fetching the correct geojson in the data fetching logic
+          const regionId = selectedRegion.id;
+          console.log(`🔍 Found region "${regionName}" with ID: ${regionId}`);
+
+          const newLevel: DrillDownLevel = {
+            level: currentLevel + 1,
+            name: regionName,
+            geographic_column: nextGeographicColumn,
+            geojson_id: 0, // Will be resolved dynamically
+            region_id: regionId, // Store the region ID for geojson lookup
+            parent_selections: [
+              ...drillDownPath.flatMap((level) => level.parent_selections),
+              {
+                column: activeGeographicColumn || '',
+                value: regionName,
+              },
+            ],
+          };
+
+          setDrillDownPath([...drillDownPath, newLevel]);
+          return;
+        } else {
+          // No more levels available in simplified system
+          toast.info('No further drill-down levels configured');
+          return;
+        }
+      }
+
+      // Fallback to legacy layers system
+      if (!chart?.extra_config?.layers) {
+        toast.info('🗺️ No further drill-down levels configured', {
+          description: canEditCharts
+            ? 'Configure additional layers in edit mode to enable deeper drill-down'
+            : 'This chart needs additional layers configured for deeper drill-down',
+          position: 'top-right',
+        });
+        return;
+      }
+
+      const nextLevel = currentLevel + 1;
+      const nextLayer = chart.extra_config.layers[nextLevel];
+
+      if (!nextLayer) {
+        // No next layer configured
+        toast.info('🗺️ No further drill-down levels configured', {
+          description: canEditCharts
+            ? 'Configure additional layers in edit mode to enable deeper drill-down'
+            : 'This chart needs additional layers configured for deeper drill-down',
+          position: 'top-right',
+        });
+        return;
+      }
+
+      // Check if the clicked region is configured in the next layer
+      let nextGeojsonId = nextLayer.geojson_id;
+      let isRegionConfigured = false;
+
+      if (nextLayer.selected_regions && nextLayer.selected_regions.length > 0) {
+        // Find the region that matches the clicked region name
+        const matchingRegion = nextLayer.selected_regions.find(
+          (region: SelectedRegion) => region.region_name === regionName
         );
 
-        if (!selectedRegion) {
-          toast.error(`Region "${regionName}" not found in database`);
-          return;
+        if (matchingRegion && matchingRegion.geojson_id) {
+          nextGeojsonId = matchingRegion.geojson_id;
+          isRegionConfigured = true;
         }
-
-        // For now, we'll create the drill-down level and let the useRegionGeoJSONs
-        // hook handle fetching the correct geojson in the data fetching logic
-        const regionId = selectedRegion.id;
-        console.log(`🔍 Found region "${regionName}" with ID: ${regionId}`);
-
-        const newLevel: DrillDownLevel = {
-          level: currentLevel + 1,
-          name: regionName,
-          geographic_column: nextGeographicColumn,
-          geojson_id: 0, // Will be resolved dynamically
-          region_id: regionId, // Store the region ID for geojson lookup
-          parent_selections: [
-            ...drillDownPath.flatMap((level) => level.parent_selections),
-            {
-              column: activeGeographicColumn || '',
-              value: regionName,
-            },
-          ],
-        };
-
-        setDrillDownPath([...drillDownPath, newLevel]);
-        return;
-      } else {
-        // No more levels available in simplified system
-        toast.info('No further drill-down levels configured');
-        return;
+      } else if (nextLayer.geojson_id) {
+        // Single-select layer - check if this region is the configured one
+        isRegionConfigured = true; // For single-select, we assume it's configured
       }
-    }
 
-    // Fallback to legacy layers system
-    if (!chart?.extra_config?.layers) {
-      toast.info('🗺️ No further drill-down levels configured', {
-        description: hasPermission('can_edit_charts')
-          ? 'Configure additional layers in edit mode to enable deeper drill-down'
-          : 'This chart needs additional layers configured for deeper drill-down',
-        position: 'top-right',
-      });
-      return;
-    }
+      // If region is not configured, show toast and prevent drill-down
+      if (!isRegionConfigured) {
+        // Check if region is filtered out
+        const chartFilters = chart.extra_config?.filters || [];
+        const isFiltered = chartFilters.some(
+          (filter: any) =>
+            (filter.operator === 'not equals' || filter.operator === '!=') &&
+            filter.value === regionName
+        );
 
-    const nextLevel = currentLevel + 1;
-    const nextLayer = chart.extra_config.layers[nextLevel];
-
-    if (!nextLayer) {
-      // No next layer configured
-      toast.info('🗺️ No further drill-down levels configured', {
-        description: hasPermission('can_edit_charts')
-          ? 'Configure additional layers in edit mode to enable deeper drill-down'
-          : 'This chart needs additional layers configured for deeper drill-down',
-        position: 'top-right',
-      });
-      return;
-    }
-
-    // Check if the clicked region is configured in the next layer
-    let nextGeojsonId = nextLayer.geojson_id;
-    let isRegionConfigured = false;
-
-    if (nextLayer.selected_regions && nextLayer.selected_regions.length > 0) {
-      // Find the region that matches the clicked region name
-      const matchingRegion = nextLayer.selected_regions.find(
-        (region: SelectedRegion) => region.region_name === regionName
-      );
-
-      if (matchingRegion && matchingRegion.geojson_id) {
-        nextGeojsonId = matchingRegion.geojson_id;
-        isRegionConfigured = true;
+        if (isFiltered) {
+          toast.warning(`🚫 ${regionName} excluded by filter`, {
+            description: `This region is filtered out and not available for drill-down`,
+            position: 'top-right',
+            duration: 4000,
+          });
+        } else {
+          toast.info(`🗺️ ${regionName} not configured for drill-down`, {
+            description: canEditCharts
+              ? 'Configure this region in edit mode to enable drill-down'
+              : 'This region is not configured for drill-down',
+            position: 'top-right',
+            duration: 4000,
+            ...(canEditCharts && {
+              action: {
+                label: 'Edit Chart',
+                onClick: () => router.push(`/charts/${chartId}/edit`),
+              },
+            }),
+          });
+        }
+        return; // Prevent drill-down
       }
-    } else if (nextLayer.geojson_id) {
-      // Single-select layer - check if this region is the configured one
-      isRegionConfigured = true; // For single-select, we assume it's configured
-    }
 
-    // If region is not configured, show toast and prevent drill-down
-    if (!isRegionConfigured) {
-      // Check if region is filtered out
-      const chartFilters = chart.extra_config?.filters || [];
-      const isFiltered = chartFilters.some(
-        (filter: any) =>
-          (filter.operator === 'not equals' || filter.operator === '!=') &&
-          filter.value === regionName
-      );
+      // Create new drill-down level
+      const newLevel: DrillDownLevel = {
+        level: nextLevel,
+        name: regionName,
+        geographic_column: nextLayer.geographic_column || '',
+        geojson_id: nextGeojsonId || 0,
+        region_id: nextLayer.region_id,
+        parent_selections: [
+          ...drillDownPath.flatMap((level) => level.parent_selections),
+          {
+            column: activeGeographicColumn || '',
+            value: regionName,
+          },
+        ],
+      };
 
-      if (isFiltered) {
-        toast.warning(`🚫 ${regionName} excluded by filter`, {
-          description: `This region is filtered out and not available for drill-down`,
-          position: 'top-right',
-          duration: 4000,
-        });
-      } else {
-        toast.info(`🗺️ ${regionName} not configured for drill-down`, {
-          description: hasPermission('can_edit_charts')
-            ? 'Configure this region in edit mode to enable drill-down'
-            : 'This region is not configured for drill-down',
-          position: 'top-right',
-          duration: 4000,
-          ...(hasPermission('can_edit_charts') && {
-            action: {
-              label: 'Edit Chart',
-              onClick: () => (window.location.href = `/charts/${chartId}/edit`),
-            },
-          }),
-        });
-      }
-      return; // Prevent drill-down
-    }
-
-    // Create new drill-down level
-    const newLevel: DrillDownLevel = {
-      level: nextLevel,
-      name: regionName,
-      geographic_column: nextLayer.geographic_column || '',
-      geojson_id: nextGeojsonId || 0,
-      region_id: nextLayer.region_id,
-      parent_selections: [
-        ...drillDownPath.flatMap((level) => level.parent_selections),
-        {
-          column: activeGeographicColumn || '',
-          value: regionName,
-        },
-      ],
-    };
-
-    setDrillDownPath([...drillDownPath, newLevel]);
-  };
+      setDrillDownPath([...drillDownPath, newLevel]);
+    },
+    [
+      chart,
+      regions,
+      drillDownPath,
+      activeGeographicColumn,
+      currentLevel,
+      chartId,
+      canEditCharts,
+      router,
+    ]
+  );
 
   // Handle drill up to a specific level
   const handleDrillUp = (targetLevel: number) => {
@@ -691,6 +761,25 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const handleDrillHome = () => {
     setDrillDownPath([]);
   };
+
+  // Check if user has view permissions (after all hooks — Rules of Hooks)
+  if (!canViewCharts) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <Lock className="w-6 h-6 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground mb-4">You don't have permission to view charts.</p>
+          <Button variant="outline" onClick={() => router.push('/charts')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Charts
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (chartLoading) {
     return (
@@ -744,7 +833,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
             )}
           </div>
           <div className="flex gap-2">
-            {hasPermission('can_edit_charts') && (
+            {chart.access_level === 'edit' && (
               <Link
                 data-testid="chart-detail-edit-link"
                 href={`/charts/${chartId}/edit${isFromDashboard ? '?from=dashboard' : ''}`}
@@ -755,12 +844,29 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                 </Button>
               </Link>
             )}
+            {chart.access_level === 'edit' && (
+              <Button
+                data-testid="chart-detail-share-button"
+                variant="outline"
+                size="sm"
+                onClick={handleShare}
+              >
+                <Share2 className="w-4 h-4" />
+              </Button>
+            )}
             <ChartExportDropdown
+              chartId={chart.id}
               chartTitle={chart.title}
               chartElement={chartElement}
               chartInstance={chartInstance}
               chartType={chart.chart_type}
               chartDataPayload={chartDataPayload}
+              pivotData={
+                chart.chart_type === 'pivot_table'
+                  ? (chartData?.data as unknown as PivotTableResponse | undefined)
+                  : undefined
+              }
+              pivotExtraConfig={chart.extra_config}
               tableData={
                 chart.chart_type === 'table' && tableData
                   ? {
@@ -769,7 +875,21 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                     }
                   : undefined
               }
-              tableElement={chart.chart_type === 'table' ? chartContentRef.current : undefined}
+              tableElement={
+                chart.chart_type === 'table' || chart.chart_type === 'pivot_table'
+                  ? chartContentRef.current
+                  : undefined
+              }
+              drillFilters={
+                chart.chart_type === 'table' && tableDrillDownState?.appliedFilters
+                  ? tableDrillDownState.appliedFilters
+                  : undefined
+              }
+            />
+            <RequestEditPill
+              rtype="chart"
+              resourceId={chart.id}
+              resourceAccessLevel={chart.access_level}
             />
           </div>
         </div>
@@ -791,12 +911,34 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                   valueColumn={
                     chart.extra_config?.metrics?.[0]?.alias || chart.extra_config?.aggregate_column
                   }
-                  customizations={chart.extra_config?.customizations || {}}
+                  customizations={mapCustomizations}
                   onRegionClick={handleRegionClick}
                   drillDownPath={drillDownPath}
                   onDrillUp={handleDrillUp}
                   onDrillHome={handleDrillHome}
+                  onChartReady={setChartInstance}
                 />
+              ) : chart?.chart_type === 'pivot_table' ? (
+                <div className="w-full h-full">
+                  {dataLoading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : dataError ? (
+                    <div className="flex items-center justify-center h-full text-destructive">
+                      Failed to load pivot table data
+                    </div>
+                  ) : chartData?.data ? (
+                    <PivotTableChart
+                      data={chartData.data as unknown as PivotTableResponse}
+                      {...getPivotRenderProps(chart.extra_config)}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                      No data available
+                    </div>
+                  )}
+                </div>
               ) : chart?.chart_type === 'table' ? (
                 <div className="w-full h-full flex flex-col">
                   {/* Breadcrumb navigation for drill-down */}
@@ -821,8 +963,19 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                     <TableChart
                       data={Array.isArray(tableData?.data) ? tableData.data : []}
                       config={{
-                        table_columns:
-                          tableData?.columns || chart.extra_config?.table_columns || [],
+                        table_columns: (() => {
+                          const cols =
+                            tableData?.columns || chart.extra_config?.table_columns || [];
+                          const order = chart.extra_config?.customizations?.columnOrder;
+                          if (
+                            order?.length &&
+                            order.length === cols.length &&
+                            order.every((c: string) => cols.includes(c))
+                          ) {
+                            return order;
+                          }
+                          return cols;
+                        })(),
                         column_formatting: mergeTableColumnFormatting(
                           chart.extra_config?.customizations
                         ),
@@ -831,6 +984,13 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                           enabled: true,
                           page_size: 20,
                         },
+                        conditionalFormatting:
+                          chart.extra_config?.customizations?.conditionalFormatting || [],
+                        columnAlignment: chart.extra_config?.customizations?.columnAlignment || {},
+                        zebraRows: chart.extra_config?.customizations?.zebraRows ?? true,
+                        freezeFirstColumn:
+                          chart.extra_config?.customizations?.freezeFirstColumn || false,
+                        theme: chart.extra_config?.customizations?.theme,
                       }}
                       isLoading={tableLoading}
                       error={tableError}
@@ -860,6 +1020,10 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                               .map((d: any) => d.column)
                               .filter(Boolean)[0]
                       }
+                      currentDrillLevel={
+                        // 0-based index of the currently-displayed dimension
+                        tableDrillDownState ? tableDrillDownState.currentLevel + 1 : 0
+                      }
                     />
                   </div>
                 </div>
@@ -876,6 +1040,35 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           </Card>
         </div>
       </div>
+
+      {/* Walkthrough handover: the chart is built and on screen behind this — now put it on a
+          dashboard. Raised by the save handler on the builder page (which can't render it, it's
+          a different route) and consumed here. Closing it either way releases the
+          dashboard-nudge coachmark, so that's what the user sees next. */}
+      <CelebrationModal
+        open={celebrationPending}
+        onOpenChange={(open) => {
+          if (open) return;
+          const walkthrough = useInsightWalkthroughStore.getState();
+          walkthrough.setPendingCelebration(null);
+          walkthrough.setSuppressCoachmark(false);
+        }}
+        title="Congratulations, your Chart is live!"
+        description="Your insight is built, and you can now add it to a dashboard!"
+        ctaLabel="Add to Dashboard"
+        dismissEvent={ANALYTICS_EVENTS.CHART_LIVE_MODAL_DISMISSED}
+        testId="chart-live-modal"
+      />
+      {/* Share Modal */}
+      {chart && (
+        <ShareModal
+          rtype="chart"
+          entityId={chart.id}
+          entityLabel={chart.title || 'Chart'}
+          isOpen={shareModalOpen}
+          onClose={handleShareModalClose}
+        />
+      )}
     </div>
   );
 }

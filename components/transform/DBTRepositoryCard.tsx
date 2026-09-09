@@ -16,8 +16,9 @@ import {
 } from '@/components/ui/dialog';
 import { Loader2, Info } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { buildDocsUrl } from '@/components/ui/docs-link';
 import { useDbtWorkspace, switchGitRepo, updateSchema } from '@/hooks/api/useDbtWorkspace';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
@@ -33,13 +34,13 @@ interface DBTRepositoryCardProps {
 
 export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
   const { data: workspace, mutate } = useDbtWorkspace();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
   const [showDialog, setShowDialog] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const isConnected = !!(workspace && workspace.gitrepo_url);
-  const canCreate = hasPermission('can_create_dbt_workspace');
-  const canEdit = hasPermission('can_edit_dbt_workspace');
+  const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_DBT_WORKSPACE);
+  const canEdit = hasPermission(PERMISSIONS.CAN_EDIT_DBT_WORKSPACE);
 
   const form = useForm<DbtWorkspaceFormData>({
     defaultValues: {
@@ -73,10 +74,18 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
         if (schemaChanged && !gitRepoChanged) {
           // Only schema changed — use the schema-only endpoint
           await updateSchema(data.defaultSchema);
+          trackEvent(ANALYTICS_EVENTS.TRANSFORM_SCHEMA_UPDATED);
           toastSuccess.updated('Schema');
         } else if (gitRepoChanged) {
           // Git repo changed — use the switch_git_repo endpoint
           await switchGitRepo(data.gitrepoUrl, data.gitrepoAccessToken);
+          // One event for every repo change from this card. was_managed separates
+          // "graduated off the Dalgo-managed repo onto our own" from "edited our own
+          // repo's URL/PAT", since both arrive on this branch.
+          trackEvent(ANALYTICS_EVENTS.TRANSFORM_GITHUB_REPO_UPDATED, {
+            is_first_connection: false,
+            was_managed: !!workspace?.is_repo_managed_by_system,
+          });
           toastSuccess.updated('Git repository');
           // If schema also changed, update it separately
           if (schemaChanged) {
@@ -95,7 +104,13 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
         if (data.defaultSchema) {
           await updateSchema(data.defaultSchema);
         }
-        trackEvent(ANALYTICS_EVENTS.TRANSFORM_GITHUB_CONNECTED);
+        // Same event as the update branch above — one name for "dbt now points at this
+        // repo", with is_first_connection carrying what a separate *_connected event used
+        // to say. was_managed is false by definition: there was no repo before this.
+        trackEvent(ANALYTICS_EVENTS.TRANSFORM_GITHUB_REPO_UPDATED, {
+          is_first_connection: true,
+          was_managed: false,
+        });
         toastSuccess.generic('Git repository connected successfully');
       }
 
@@ -184,7 +199,7 @@ export function DBTRepositoryCard({ onConnectGit }: DBTRepositoryCardProps) {
                               If you want access to the repository or wish to manage it yourself,
                               please refer to our{' '}
                               <a
-                                href={process.env.NEXT_PUBLIC_TRANSFORM_DOCS_URL || '#'}
+                                href={buildDocsUrl('/data/transform/switching-repositories') || '#'}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-primary hover:underline font-medium"

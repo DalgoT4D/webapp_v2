@@ -24,7 +24,7 @@ paths:
 - **Mock data factories**: a `*-mock-data.ts` file in `__tests__/` with factory functions (`createMockPipeline()`, `createMockNotification()`) — see `components/pipeline/__tests__/pipeline-mock-data.ts`.
 - **Global API mocks**: API is mocked globally in `jest.setup.ts`; use `mockApiGet`/`mockApiPut` from `test-utils/api.ts` for typed references.
 - **Test wrappers**: use `TestWrapper` from `test-utils/render.tsx` for SWR isolation (fresh cache, no dedupe, no polling).
-- **Permissions**: mock `useUserPermissions` from `@/hooks/api/usePermissions` — never mock `useAuthStore` directly for permission checks.
+- **Permissions**: mock `useRbac` from `@/lib/rbac` (spread `jest.requireActual('@/lib/rbac')` so `ROLES` / `PERMISSIONS` constants and `RoleGuard` / `PermissionGuard` still work). Never mock `useAuthStore` directly for permission checks.
 - **Imports**: relative paths for siblings (`../ComponentName`), mock data from `./*-mock-data`.
 
 ## What to Test

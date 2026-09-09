@@ -32,6 +32,8 @@ import {
   extractMentionedEmails,
 } from './utils';
 import { toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
 import {
   useComments,
@@ -65,6 +67,10 @@ interface CommentPopoverProps {
   triggerClassName?: string;
   onStateChange?: () => void;
   autoOpen?: boolean;
+  /** True when the caller has Edit access on the parent report — enables the
+   * moderator "Delete" action on other users' comments. Author-only Edit
+   * remains gated separately. */
+  canModerate?: boolean;
 }
 
 // ---- Mention Dropdown ----
@@ -171,6 +177,7 @@ interface CommentItemProps {
   firstNewRef: React.RefObject<HTMLDivElement | null>;
   isDeleted: boolean;
   mentionableUsers: MentionableUser[];
+  canModerate: boolean;
 }
 
 const CommentItem = memo(function CommentItem({
@@ -182,8 +189,12 @@ const CommentItem = memo(function CommentItem({
   firstNewRef,
   isDeleted,
   mentionableUsers,
+  canModerate,
 }: CommentItemProps) {
   const isAuthor = comment.author_email === currentUserEmail;
+  const canEditComment = isAuthor;
+  const canDeleteComment = isAuthor || canModerate;
+  const showMenu = canEditComment || canDeleteComment;
   const avatarColor = useMemo(() => getAvatarColor(comment.author_email), [comment.author_email]);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -346,7 +357,7 @@ const CommentItem = memo(function CommentItem({
                     style={{ backgroundColor: 'rgba(0, 137, 123, 0.4)' }}
                   />
                 )}
-                {isAuthor && (
+                {showMenu && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -359,21 +370,25 @@ const CommentItem = memo(function CommentItem({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-32">
-                      <DropdownMenuItem
-                        data-testid={`edit-btn-${comment.id}`}
-                        onClick={handleStartEdit}
-                      >
-                        <Pencil className="h-3.5 w-3.5 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        data-testid={`delete-btn-${comment.id}`}
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setShowDeleteConfirm(true)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
+                      {canEditComment && (
+                        <DropdownMenuItem
+                          data-testid={`edit-btn-${comment.id}`}
+                          onClick={handleStartEdit}
+                        >
+                          <Pencil className="h-3.5 w-3.5 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                      )}
+                      {canDeleteComment && (
+                        <DropdownMenuItem
+                          data-testid={`delete-btn-${comment.id}`}
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setShowDeleteConfirm(true)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
@@ -474,6 +489,7 @@ function CommentPopoverInner({
   triggerClassName,
   onStateChange,
   autoOpen = false,
+  canModerate = false,
 }: CommentPopoverProps) {
   const [open, setOpen] = useState(false);
 
@@ -576,13 +592,28 @@ function CommentPopoverInner({
     const content = draft.trim();
     if (!content || isSubmitting) return;
 
+    // Read the thread size BEFORE posting: mutateComments below makes every comment look
+    // like a reply. There is no parent_id in the comments API — a thread is flat per
+    // target — so "reply" means this target already had a live comment on it.
+    const mentionedEmails = extractMentionedEmails(content);
+    const existingComments = comments.filter((c) => !c.is_deleted).length;
+
     setIsSubmitting(true);
     try {
       await createComment(snapshotId, {
         target_type: targetType,
         target_id: chartId,
         content,
-        mentioned_emails: extractMentionedEmails(content),
+        mentioned_emails: mentionedEmails,
+      });
+      // No author property: PostHog attaches the person who fired this. Mention COUNT
+      // only — the mentioned addresses are PII and must never be sent.
+      trackEvent(ANALYTICS_EVENTS.REPORT_COMMENT_CREATED, {
+        report_id: snapshotId,
+        target_type: targetType,
+        is_reply: existingComments > 0,
+        thread_size: existingComments + 1,
+        mention_count: mentionedEmails.length,
       });
       setDraft('');
       await mutateComments();
@@ -608,6 +639,7 @@ function CommentPopoverInner({
     snapshotId,
     targetType,
     chartId,
+    comments,
     mutateComments,
     onStateChange,
     setDraft,
@@ -665,6 +697,10 @@ function CommentPopoverInner({
           content,
           mentioned_emails: extractMentionedEmails(content),
         });
+        trackEvent(ANALYTICS_EVENTS.REPORT_COMMENT_UPDATED, {
+          report_id: snapshotId,
+          target_type: targetType,
+        });
         mutateComments();
         onStateChange?.();
       } catch (error) {
@@ -672,20 +708,24 @@ function CommentPopoverInner({
         throw error;
       }
     },
-    [snapshotId, mutateComments, onStateChange]
+    [snapshotId, targetType, mutateComments, onStateChange]
   );
 
   const handleDelete = useCallback(
     async (commentId: number) => {
       try {
         await deleteComment(snapshotId, commentId);
+        trackEvent(ANALYTICS_EVENTS.REPORT_COMMENT_DELETED, {
+          report_id: snapshotId,
+          target_type: targetType,
+        });
         mutateComments();
         onStateChange?.();
       } catch (error) {
         toastError.delete(error, 'comment');
       }
     },
-    [snapshotId, mutateComments, onStateChange]
+    [snapshotId, targetType, mutateComments, onStateChange]
   );
 
   const hasDraft = draft.trim().length > 0;
@@ -730,6 +770,7 @@ function CommentPopoverInner({
                   firstNewRef={firstNewRef}
                   isDeleted={comment.is_deleted}
                   mentionableUsers={mentionableUsers}
+                  canModerate={canModerate}
                 />
               ))}
               <div ref={bottomRef} />

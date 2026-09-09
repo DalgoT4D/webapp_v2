@@ -1,7 +1,8 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { PoweredByDalgoImage } from '@/components/ui/powered-by-dalgo-image';
 import { Eye, ExternalLink, AlertCircle, Calendar } from 'lucide-react';
 import { usePublicReport } from '@/hooks/api/useReports';
 import { formatDateShort } from '@/components/reports/utils';
@@ -11,14 +12,51 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { PoweredByDalgoFooter } from '@/components/ui/powered-by-dalgo-footer';
+import { OrgBrand } from '@/components/ui/org-brand';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface PublicReportViewProps {
   token: string;
   printMode?: boolean;
+  dashboardFilters?: Record<string, any>; // Only meaningful in printMode — see page.tsx
 }
 
-export function PublicReportView({ token, printMode = false }: PublicReportViewProps) {
+export function PublicReportView({
+  token,
+  printMode = false,
+  dashboardFilters,
+}: PublicReportViewProps) {
   const { viewData, isLoading, isError } = usePublicReport(token);
+
+  // Public views are anonymous: no identified person and no organization group to attach,
+  // so the org rides along as event properties (the documented exception to "don't put org
+  // on events"). org_slug is the one that can actually be joined on — org_name is a display
+  // name and can be renamed — and it matches the slug used for the organization group
+  // everywhere else, so public reads line up with the rest of the org's numbers.
+  //
+  // printMode is excluded on purpose: `?print=true` renders this same component for the
+  // PDF-capture pass, so counting it would log a machine fetch as a human read every time
+  // someone exports. Ref keyed on the token so an SWR revalidation, a re-render, or
+  // StrictMode's double effect in dev can't double-fire it.
+  const trackedTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (printMode || !viewData?.is_valid) return;
+    if (trackedTokenRef.current === token) return;
+    trackedTokenRef.current = token;
+    trackEvent(ANALYTICS_EVENTS.PUBLIC_REPORT_VIEWED, {
+      org_slug: viewData.org_slug,
+      org_name: viewData.org_name,
+      report_id: viewData.report_metadata?.snapshot_id,
+    });
+  }, [
+    printMode,
+    viewData?.is_valid,
+    viewData?.org_slug,
+    viewData?.org_name,
+    viewData?.report_metadata?.snapshot_id,
+    token,
+  ]);
 
   if (isLoading) {
     if (printMode) return null;
@@ -40,49 +78,64 @@ export function PublicReportView({ token, printMode = false }: PublicReportViewP
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h2 className="text-lg font-semibold mb-2">Report Not Found</h2>
             <p className="text-gray-600 mb-4">
-              This report is no longer available or the link has expired.
+              This report is no longer available or the link has expired. Sign in to your
+              organization to access shared reports.
             </p>
-            <Link href="https://dalgo.org" target="_blank">
-              <Button variant="outline">
-                Learn about Dalgo
-                <ExternalLink className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
+            <div className="flex flex-col items-center gap-2">
+              <Link href="/login">
+                <Button variant="primary">Sign in to Dalgo</Button>
+              </Link>
+              <Link href="https://dalgo.org" target="_blank" className="text-sm">
+                <Button variant="link" size="sm" className="text-muted-foreground">
+                  Learn about Dalgo
+                  <ExternalLink className="h-3.5 w-3.5 ml-1" />
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  const { dashboard_data, report_metadata, frozen_chart_configs, org_name } = viewData;
+  const { dashboard_data, report_metadata, frozen_chart_configs, org_name, org_logo_url } =
+    viewData;
 
   // Print mode: document-flow layout for page-break-safe PDF capture
   if (printMode) {
     return (
       <div className="bg-white w-full" data-pdf-ready="true">
-        <div className="px-6 py-4 border-b">
-          <h1 className="text-xl font-semibold text-gray-900">{report_metadata.title}</h1>
-          <div className="flex items-center gap-2 text-sm text-gray-600 mt-1 flex-wrap">
-            <span className="flex items-center gap-1.5">
-              <Calendar className="h-4 w-4" />
-              {report_metadata.period_start
-                ? formatDateShort(report_metadata.period_start)
-                : 'All'}{' '}
-              - {formatDateShort(report_metadata.period_end)}
-            </span>
-            {report_metadata.created_by && (
-              <>
-                <span className="text-gray-300">|</span>
-                <span>Created by: {report_metadata.created_by}</span>
-              </>
-            )}
-            {report_metadata.dashboard_title && (
-              <>
-                <span className="text-gray-300">|</span>
-                <span>{report_metadata.dashboard_title}</span>
-              </>
-            )}
+        <div className="px-6 py-4 border-b flex items-center justify-between">
+          {/* Left: org logo + report title */}
+          <div className="flex items-center gap-4">
+            <OrgBrand logoUrl={org_logo_url} name={org_name} />
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900">{report_metadata.title}</h1>
+              <div className="flex items-center gap-2 text-sm text-gray-600 mt-1 flex-wrap">
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="h-4 w-4" />
+                  {report_metadata.period_start
+                    ? formatDateShort(report_metadata.period_start)
+                    : 'All'}{' '}
+                  - {formatDateShort(report_metadata.period_end)}
+                </span>
+                {report_metadata.created_by && (
+                  <>
+                    <span className="text-gray-300">|</span>
+                    <span>Created by: {report_metadata.created_by}</span>
+                  </>
+                )}
+                {report_metadata.dashboard_title && (
+                  <>
+                    <span className="text-gray-300">|</span>
+                    <span>{report_metadata.dashboard_title}</span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
+          {/* Right: Powered by Dalgo */}
+          <PoweredByDalgoImage imageClassName="max-h-16" />
         </div>
 
         {report_metadata.summary && (
@@ -99,6 +152,7 @@ export function PublicReportView({ token, printMode = false }: PublicReportViewP
           frozenChartConfigs={frozen_chart_configs}
           publicToken={token}
           isPublicMode={true}
+          dashboardFilters={dashboardFilters}
         />
       </div>
     );
@@ -109,37 +163,24 @@ export function PublicReportView({ token, printMode = false }: PublicReportViewP
     <div className="min-h-screen bg-gray-50 w-full overflow-x-hidden">
       {/* Public Header */}
       <header className="bg-white border-b">
-        <div className="px-3 sm:px-4 py-3 sm:py-4">
-          {/* Mobile Layout */}
-          <div className="block sm:hidden">
-            <div className="flex items-center justify-between mb-3">
-              <Image
-                src="/dalgo_logo.svg"
-                alt="Dalgo"
-                width={50}
-                height={24}
-                className="flex-shrink-0"
-              />
-              <div className="bg-blue-50 border border-blue-200 rounded-lg px-2 py-1">
-                <div className="text-xs font-semibold text-blue-900">{org_name}</div>
-              </div>
-            </div>
+        <div className="px-6 py-4 flex items-center justify-between">
+          {/* Left: Org logo + report title + status */}
+          <div className="flex items-center gap-4">
+            <OrgBrand logoUrl={org_logo_url} name={org_name} />
             <div>
-              <h1 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                {report_metadata.title}
-              </h1>
-              <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                <Calendar className="h-4 w-4 flex-shrink-0" />
+              <h1 className="text-lg font-bold text-gray-900">{report_metadata.title}</h1>
+              <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5 flex-wrap">
+                <Calendar className="h-3.5 w-3.5" />
                 <span>
                   {report_metadata.period_start
                     ? formatDateShort(report_metadata.period_start)
                     : 'All'}{' '}
                   - {formatDateShort(report_metadata.period_end)}
                 </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Eye className="h-4 w-4 flex-shrink-0" />
+                <span className="text-gray-300">|</span>
+                <Eye className="h-3.5 w-3.5" />
                 <span>Public View</span>
+                <span className="text-gray-300">|</span>
                 <Badge variant="secondary" className="text-xs">
                   Read Only
                 </Badge>
@@ -147,40 +188,8 @@ export function PublicReportView({ token, printMode = false }: PublicReportViewP
             </div>
           </div>
 
-          {/* Desktop Layout */}
-          <div className="hidden sm:flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Image
-                src="/dalgo_logo.svg"
-                alt="Dalgo"
-                width={60}
-                height={28}
-                className="flex-shrink-0"
-              />
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">{report_metadata.title}</h1>
-                <div className="flex items-center gap-3 text-sm text-gray-600 mt-1">
-                  <span className="flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4" />
-                    {report_metadata.period_start
-                      ? formatDateShort(report_metadata.period_start)
-                      : 'All'}{' '}
-                    - {formatDateShort(report_metadata.period_end)}
-                  </span>
-                  <Eye className="h-4 w-4" />
-                  <span>Public View</span>
-                  <Badge variant="secondary" className="text-xs ml-2">
-                    Read Only
-                  </Badge>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
-              <div className="text-sm font-semibold text-blue-900">{org_name}</div>
-              <div className="text-xs text-blue-600">Organization</div>
-            </div>
-          </div>
+          {/* Right: Powered by Dalgo */}
+          <PoweredByDalgoImage imageClassName="max-h-12" />
         </div>
       </header>
 

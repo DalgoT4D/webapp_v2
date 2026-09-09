@@ -5,6 +5,9 @@ import * as echarts from 'echarts';
 import { Loader2, AlertCircle, BarChart2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TableChart } from './TableChart';
+import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
+import { getPivotRenderProps } from '@/components/charts/pivot-table/utils';
+import { PivotTableResponse } from '@/types/pivot-table';
 import {
   applyLegendPosition,
   extractLegendPosition,
@@ -349,7 +352,13 @@ export function ChartPreview({
   }
 
   // Only show configure message for truly empty state (no previous chart)
-  if (!config && chartType !== ChartTypes.TABLE && !isLoading && !chartInstance.current) {
+  if (
+    !config &&
+    chartType !== ChartTypes.TABLE &&
+    chartType !== ChartTypes.PIVOT_TABLE &&
+    !isLoading &&
+    !chartInstance.current
+  ) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center text-muted-foreground">
@@ -363,14 +372,30 @@ export function ChartPreview({
 
   // Render table chart
   if (chartType === ChartTypes.TABLE) {
-    // Merge customizations.columnFormatting into config.column_formatting for table charts
+    // Merge customizations into config for table charts
     const customizations = propCustomizations || config?.extra_config?.customizations || {};
+    // Apply column order if it matches current columns
+    const currentCols: string[] = config?.table_columns || [];
+    const colOrder: string[] | undefined = customizations?.columnOrder;
+    const orderedColumns =
+      colOrder?.length &&
+      colOrder.length === currentCols.length &&
+      colOrder.every((c: string) => currentCols.includes(c))
+        ? colOrder
+        : currentCols;
+
     const tableConfig = {
       ...config,
+      ...(orderedColumns.length ? { table_columns: orderedColumns } : {}),
       column_formatting: {
         ...(config?.column_formatting || {}),
         ...mergeTableColumnFormatting(customizations),
       },
+      conditionalFormatting: customizations?.conditionalFormatting || [],
+      columnAlignment: customizations?.columnAlignment || {},
+      zebraRows: customizations?.zebraRows ?? true,
+      freezeFirstColumn: customizations?.freezeFirstColumn || false,
+      theme: customizations?.theme as string | undefined,
     };
 
     return (
@@ -379,6 +404,25 @@ export function ChartPreview({
         config={tableConfig}
         onSort={onTableSort}
         pagination={tablePagination}
+      />
+    );
+  }
+
+  // Render pivot table chart
+  if (chartType === ChartTypes.PIVOT_TABLE) {
+    const pivotData = tableData as unknown as PivotTableResponse | undefined;
+    if (!pivotData || !pivotData.cells || !pivotData.metric_headers) {
+      return (
+        <div className="flex items-center justify-center h-full text-muted-foreground">
+          Configure your pivot table
+        </div>
+      );
+    }
+
+    return (
+      <PivotTableChart
+        data={pivotData}
+        {...getPivotRenderProps(config?.extra_config, propCustomizations)}
       />
     );
   }

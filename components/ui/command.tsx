@@ -117,7 +117,12 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      // cmdk 1.x stringifies the `disabled` prop to `data-disabled="false"` on every
+      // item. Tailwind's bare `data-[disabled]:` matcher fires on attribute presence
+      // alone, which would apply `pointer-events: none` even when an item is enabled,
+      // so we explicitly match `data-disabled="true"` to only target actually-disabled
+      // items.
+      'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50',
       className
     )}
     {...props}

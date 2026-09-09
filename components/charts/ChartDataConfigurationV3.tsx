@@ -22,12 +22,15 @@ import {
 } from '@/lib/columnTypeIcons';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Combobox, highlightText } from '@/components/ui/combobox';
+import { TooltipLabel } from '@/components/charts/types/shared/TooltipLabel';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfiguration';
+import PivotDataConfiguration from '@/components/charts/pivot-table/PivotDataConfiguration';
 import { TableDimensionsSelector } from '@/components/charts/TableDimensionsSelector';
 import { TimeGrainSelector } from '@/components/charts/TimeGrainSelector';
+import { sanitizeCustomizationsForChartType } from '@/lib/chart-formatting-utils';
 import type {
   ChartBuilderFormData,
   ChartMetric,
@@ -40,6 +43,14 @@ interface ChartDataConfigurationV3Props {
   formData: ChartBuilderFormData;
   onChange: (updates: Partial<ChartBuilderFormData>) => void;
   disabled?: boolean;
+  /** True when any conditional formatting rule has a level scope — for T7 reorder warning */
+  hasLevelScopedRules?: boolean;
+  /** Called after dimension reorder when level-scoped rules exist — for T7 */
+  onReorderWithScopedRules?: () => void;
+  /** Maps dimension column name → count of rules scoped to it — for T9 remove warning */
+  scopedRuleCountByLevel?: Record<string, number>;
+  /** New-chart flow only: lets MetricsSelector auto-expand the prefilled metric on mount/async prefill. */
+  isNewChart?: boolean;
 }
 
 const AGGREGATE_FUNCTIONS = [
@@ -194,6 +205,10 @@ export function ChartDataConfigurationV3({
   formData,
   onChange,
   disabled,
+  hasLevelScopedRules,
+  onReorderWithScopedRules,
+  scopedRuleCountByLevel,
+  isNewChart,
 }: ChartDataConfigurationV3Props) {
   const filterIds = useRef<string[]>([]);
   const nextFilterId = useRef(0);
@@ -426,6 +441,29 @@ export function ChartDataConfigurationV3({
         };
         break;
 
+      case 'pivot_table': {
+        specificFields = {
+          computation_type: 'aggregated' as const,
+          // Pivot supports multiple metrics — preserve them so switching to pivot
+          // (from any chart type) keeps the selected/calculated/saved metrics intact.
+          metrics: formData.metrics,
+          extra_config: {
+            ...(formData.extra_config || {}),
+            row_dimensions: [],
+            column_dimensions: [],
+            show_row_subtotals: false,
+            show_column_subtotals: false,
+            show_row_grand_total: false,
+            show_column_grand_total: false,
+            row_subtotal_label: 'Subtotal',
+            column_subtotal_label: 'Subtotal',
+            row_grand_total_label: 'Grand Total',
+            column_grand_total_label: 'Grand Total',
+          },
+        };
+        break;
+      }
+
       case 'table':
         // Tables default to aggregated data like other charts
         specificFields = {
@@ -439,6 +477,28 @@ export function ChartDataConfigurationV3({
           metrics: formData.metrics, // Preserve all metrics
         };
         break;
+
+      case 'map':
+        // Maps use a single metric (like pie/number). Preserve the selected metric so switching to
+        // map doesn't reset it to the auto-prefilled default count.
+        specificFields = {
+          computation_type: formData.computation_type || 'aggregated',
+          // Preserve the selected metric; when there is none, leave metrics unset so the
+          // auto-prefilled default (Total Count) stands instead of an empty Metrics section.
+          ...(formData.metrics &&
+            formData.metrics.length > 0 && { metrics: [formData.metrics[0]] }),
+          // Keep existing geometry/value fields; otherwise auto-prefill's detected values stand.
+          ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
+          ...(formData.value_column && { value_column: formData.value_column }),
+          ...(formData.aggregate_column && { aggregate_column: formData.aggregate_column }),
+          ...(formData.aggregate_function && { aggregate_function: formData.aggregate_function }),
+          // Clear axis/dimension fields not used by maps.
+          x_axis_column: null,
+          y_axis_column: null,
+          dimension_column: null,
+          extra_dimension_column: null,
+        };
+        break;
     }
 
     // Apply the changes with auto-prefill
@@ -448,7 +508,9 @@ export function ChartDataConfigurationV3({
       ...specificFields,
       // Preserve other settings like filters, customizations, etc.
       filters: formData.filters,
-      customizations: formData.customizations,
+      // Coerce type-specific customizations (e.g. dataLabelPosition) to values valid for the new
+      // chart type so switching bar→pie doesn't carry over an invalid value and fail on save.
+      customizations: sanitizeCustomizationsForChartType(formData.customizations, newChartType),
       sort: formData.sort,
       pagination: formData.pagination,
     });
@@ -478,7 +540,8 @@ export function ChartDataConfigurationV3({
       {/* X Axis / Dimension */}
       {formData.chart_type !== 'number' &&
         formData.chart_type !== 'map' &&
-        formData.chart_type !== 'table' && (
+        formData.chart_type !== 'table' &&
+        formData.chart_type !== 'pivot_table' && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-900">
               {formData.chart_type === 'pie' ? 'Dimension' : 'X Axis'}
@@ -493,7 +556,9 @@ export function ChartDataConfigurationV3({
               renderItem={(item, _isSelected, searchQuery) => (
                 <div className="flex items-center gap-2 min-w-0">
                   <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
-                  <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+                  <TooltipLabel label={item.label}>
+                    {highlightText(item.label, searchQuery)}
+                  </TooltipLabel>
                 </div>
               )}
             />
@@ -524,6 +589,20 @@ export function ChartDataConfigurationV3({
             });
           }}
           disabled={disabled}
+          hasLevelScopedRules={hasLevelScopedRules}
+          onReorderWithScopedRules={onReorderWithScopedRules}
+          scopedRuleCountByLevel={scopedRuleCountByLevel}
+        />
+      )}
+
+      {/* Pivot Table Data Configuration — dimensions only; totals render after metrics/filters */}
+      {formData.chart_type === 'pivot_table' && (
+        <PivotDataConfiguration
+          formData={formData}
+          availableColumns={normalizedColumns}
+          onChange={onChange}
+          disabled={disabled}
+          section="dimensions"
         />
       )}
 
@@ -544,10 +623,11 @@ export function ChartDataConfigurationV3({
           />
         )}
 
-      {/* Y Axis - For Raw Data or Single Metric Charts (but NOT tables) */}
+      {/* Y Axis - For Raw Data or Single Metric Charts (but NOT tables or pivot tables) */}
       {formData.chart_type !== 'number' &&
         formData.chart_type !== 'map' &&
         formData.chart_type !== 'table' &&
+        formData.chart_type !== 'pivot_table' &&
         !['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-900">Y Axis</Label>
@@ -586,8 +666,8 @@ export function ChartDataConfigurationV3({
           </div>
         )}
 
-      {/* Multiple Metrics for Bar, Line, and Table Charts */}
-      {['bar', 'line', 'table'].includes(formData.chart_type || '') && (
+      {/* Multiple Metrics for Bar, Line, Table, and Pivot Table Charts */}
+      {['bar', 'line', 'table', 'pivot_table'].includes(formData.chart_type || '') && (
         <MetricsSelector
           metrics={formData.metrics || []}
           onChange={(metrics: ChartMetric[]) => onChange({ metrics })}
@@ -596,6 +676,7 @@ export function ChartDataConfigurationV3({
           chartType={formData.chart_type}
           schemaName={formData.schema_name}
           tableName={formData.table_name}
+          isNewChart={isNewChart}
         />
       )}
 
@@ -610,6 +691,7 @@ export function ChartDataConfigurationV3({
           maxMetrics={1}
           schemaName={formData.schema_name}
           tableName={formData.table_name}
+          isNewChart={isNewChart}
         />
       )}
 
@@ -632,6 +714,7 @@ export function ChartDataConfigurationV3({
           maxMetrics={1}
           schemaName={formData.schema_name}
           tableName={formData.table_name}
+          isNewChart={isNewChart}
         />
       )}
 
@@ -660,7 +743,9 @@ export function ChartDataConfigurationV3({
             renderItem={(item, _isSelected, searchQuery) => (
               <div className="flex items-center gap-2 min-w-0">
                 {item.data_type && <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />}
-                <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+                <TooltipLabel label={item.label}>
+                  {highlightText(item.label, searchQuery)}
+                </TooltipLabel>
               </div>
             )}
           />
@@ -704,7 +789,9 @@ export function ChartDataConfigurationV3({
                     renderItem={(item, _isSelected, searchQuery) => (
                       <div className="flex items-center gap-2 min-w-0">
                         <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
-                        <span className="truncate">{highlightText(item.label, searchQuery)}</span>
+                        <TooltipLabel label={item.label}>
+                          {highlightText(item.label, searchQuery)}
+                        </TooltipLabel>
                       </div>
                     )}
                   />
@@ -791,187 +878,205 @@ export function ChartDataConfigurationV3({
         </div>
       )}
 
-      {/* Pagination Section */}
-      {formData.chart_type !== 'map' && formData.chart_type !== 'number' && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Pagination</Label>
-          <Select
-            value={
-              formData.pagination?.enabled
-                ? (formData.pagination?.page_size || 50).toString()
-                : '__none__'
-            }
-            onValueChange={(value) => {
-              if (value === '__none__') {
-                onChange({ pagination: { enabled: false, page_size: 50 } });
-              } else {
-                onChange({
-                  pagination: {
-                    enabled: true,
-                    page_size: parseInt(value),
-                  },
-                });
-              }
-            }}
-            disabled={disabled}
-          >
-            <SelectTrigger className="h-8 w-full">
-              <SelectValue placeholder="Select pagination" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">No pagination</SelectItem>
-              <SelectItem value="20">20 items</SelectItem>
-              <SelectItem value="50">50 items</SelectItem>
-              <SelectItem value="100">100 items</SelectItem>
-              <SelectItem value="200">200 items</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Pivot Table subtotals & grand totals — placed after metrics/filters */}
+      {formData.chart_type === 'pivot_table' && (
+        <PivotDataConfiguration
+          formData={formData}
+          availableColumns={normalizedColumns}
+          onChange={onChange}
+          disabled={disabled}
+          section="totals"
+        />
       )}
 
-      {/* Sort Section */}
-      {formData.chart_type !== 'map' && formData.chart_type !== 'number' && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Sort Configuration</Label>
-
-          {(() => {
-            // Build sortable options list
-            const sortableOptions: Array<{
-              value: string;
-              label: string;
-              type: 'column' | 'metric';
-              _uniqueId?: string;
-            }> = [];
-
-            // Add dimension column if available
-            if (formData.dimension_column) {
-              sortableOptions.push({
-                value: formData.dimension_column,
-                label: formData.dimension_column,
-                type: 'column',
-              });
-            }
-
-            // Add configured metrics using their aliases
-            if (formData.metrics && formData.metrics.length > 0) {
-              formData.metrics.forEach((metric, metricIndex) => {
-                if (metric.alias) {
-                  sortableOptions.push({
-                    value: metric.alias,
-                    label: metric.alias,
-                    type: 'metric',
-                    // Add unique identifier to prevent key conflicts
-                    _uniqueId: `metric-${metricIndex}-${metric.alias}`,
+      {/* Pagination Section — not applicable to map, number, or pivot table charts */}
+      {formData.chart_type !== 'map' &&
+        formData.chart_type !== 'number' &&
+        formData.chart_type !== 'pivot_table' && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-900">Pagination</Label>
+            <Select
+              value={
+                formData.pagination?.enabled
+                  ? (formData.pagination?.page_size || 50).toString()
+                  : '__none__'
+              }
+              onValueChange={(value) => {
+                if (value === '__none__') {
+                  onChange({ pagination: { enabled: false, page_size: 50 } });
+                } else {
+                  onChange({
+                    pagination: {
+                      enabled: true,
+                      page_size: parseInt(value),
+                    },
                   });
                 }
-              });
-            } else if (formData.aggregate_column && formData.aggregate_function) {
-              // Legacy single metric - create an alias for it
-              const defaultAlias = `${formData.aggregate_function}(${formData.aggregate_column})`;
-              sortableOptions.push({
-                value: defaultAlias,
-                label: defaultAlias,
-                type: 'metric',
-              });
-            }
+              }}
+              disabled={disabled}
+            >
+              <SelectTrigger className="h-8 w-full">
+                <SelectValue placeholder="Select pagination" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">No pagination</SelectItem>
+                <SelectItem value="20">20 items</SelectItem>
+                <SelectItem value="50">50 items</SelectItem>
+                <SelectItem value="100">100 items</SelectItem>
+                <SelectItem value="200">200 items</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
-            // Get current sort values
-            const currentSort = formData.sort && formData.sort.length > 0 ? formData.sort[0] : null;
-            const currentColumn = currentSort?.column || '__none__';
-            const currentDirection = currentSort?.direction || 'asc';
+      {/* Sort Section — not shown for pivot tables (v1 has no pivot sort) */}
+      {formData.chart_type !== 'map' &&
+        formData.chart_type !== 'number' &&
+        formData.chart_type !== 'pivot_table' && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-900">Sort Configuration</Label>
 
-            // Check if current sort column is still available
-            const isCurrentColumnAvailable =
-              currentColumn === '__none__' ||
-              sortableOptions.some((opt) => opt.value === currentColumn);
+            {(() => {
+              // Build sortable options list
+              const sortableOptions: Array<{
+                value: string;
+                label: string;
+                type: 'column' | 'metric';
+                _uniqueId?: string;
+              }> = [];
 
-            if (sortableOptions.length > 0) {
-              return (
-                <div className="grid grid-cols-2 gap-2">
-                  {/* Column/Metric Selection */}
-                  <Combobox
-                    items={[
-                      { value: '__none__', label: 'None', type: '' },
-                      ...sortableOptions.map((option) => ({
-                        value: option.value,
-                        label: option.label,
-                        type: option.type,
-                      })),
-                    ]}
-                    value={isCurrentColumnAvailable ? currentColumn : '__none__'}
-                    onValueChange={(value) => {
-                      if (value === '__none__') {
-                        onChange({ sort: [] });
-                      } else {
-                        onChange({
-                          sort: [
-                            {
-                              column: value,
-                              direction: currentDirection,
-                            },
-                          ],
-                        });
-                      }
-                    }}
-                    disabled={disabled}
-                    searchPlaceholder="Search..."
-                    placeholder="Select column to sort"
-                    compact
-                    renderItem={(item, _isSelected, searchQuery) => (
-                      <div className="flex items-center gap-2">
-                        {item.type && (
-                          <span
-                            className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
-                              item.type === 'column'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-green-100 text-green-800'
-                            }`}
-                          >
-                            {item.type === 'column' ? 'COL' : 'METRIC'}
-                          </span>
-                        )}
-                        <span>{highlightText(item.label, searchQuery)}</span>
-                      </div>
-                    )}
-                  />
+              // Add dimension column if available
+              if (formData.dimension_column) {
+                sortableOptions.push({
+                  value: formData.dimension_column,
+                  label: formData.dimension_column,
+                  type: 'column',
+                });
+              }
 
-                  {/* Direction Selection */}
-                  <Select
-                    value={currentSort ? currentDirection : 'asc'}
-                    onValueChange={(value) => {
-                      if (currentSort && currentColumn !== '__none__') {
-                        onChange({
-                          sort: [
-                            {
-                              column: currentColumn,
-                              direction: value as 'asc' | 'desc',
-                            },
-                          ],
-                        });
-                      }
-                    }}
-                    disabled={disabled || !currentSort || currentColumn === '__none__'}
-                  >
-                    <SelectTrigger className="h-8 w-full">
-                      <SelectValue placeholder="Sort direction" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="asc">Ascending</SelectItem>
-                      <SelectItem value="desc">Descending</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              );
-            } else {
-              return (
-                <div className="text-sm text-gray-500">
-                  Configure metrics first to enable sorting
-                </div>
-              );
-            }
-          })()}
-        </div>
-      )}
+              // Add configured metrics using their aliases
+              if (formData.metrics && formData.metrics.length > 0) {
+                formData.metrics.forEach((metric, metricIndex) => {
+                  if (metric.alias) {
+                    sortableOptions.push({
+                      value: metric.alias,
+                      label: metric.alias,
+                      type: 'metric',
+                      // Add unique identifier to prevent key conflicts
+                      _uniqueId: `metric-${metricIndex}-${metric.alias}`,
+                    });
+                  }
+                });
+              } else if (formData.aggregate_column && formData.aggregate_function) {
+                // Legacy single metric - create an alias for it
+                const defaultAlias = `${formData.aggregate_function}(${formData.aggregate_column})`;
+                sortableOptions.push({
+                  value: defaultAlias,
+                  label: defaultAlias,
+                  type: 'metric',
+                });
+              }
+
+              // Get current sort values
+              const currentSort =
+                formData.sort && formData.sort.length > 0 ? formData.sort[0] : null;
+              const currentColumn = currentSort?.column || '__none__';
+              const currentDirection = currentSort?.direction || 'asc';
+
+              // Check if current sort column is still available
+              const isCurrentColumnAvailable =
+                currentColumn === '__none__' ||
+                sortableOptions.some((opt) => opt.value === currentColumn);
+
+              if (sortableOptions.length > 0) {
+                return (
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Column/Metric Selection */}
+                    <Combobox
+                      items={[
+                        { value: '__none__', label: 'None', type: '' },
+                        ...sortableOptions.map((option) => ({
+                          value: option.value,
+                          label: option.label,
+                          type: option.type,
+                        })),
+                      ]}
+                      value={isCurrentColumnAvailable ? currentColumn : '__none__'}
+                      onValueChange={(value) => {
+                        if (value === '__none__') {
+                          onChange({ sort: [] });
+                        } else {
+                          onChange({
+                            sort: [
+                              {
+                                column: value,
+                                direction: currentDirection,
+                              },
+                            ],
+                          });
+                        }
+                      }}
+                      disabled={disabled}
+                      searchPlaceholder="Search..."
+                      placeholder="Select column to sort"
+                      compact
+                      renderItem={(item, _isSelected, searchQuery) => (
+                        <div className="flex items-center gap-2 min-w-0">
+                          {item.type && (
+                            <span
+                              className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium shrink-0 ${
+                                item.type === 'column'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-green-100 text-green-800'
+                              }`}
+                            >
+                              {item.type === 'column' ? 'COL' : 'METRIC'}
+                            </span>
+                          )}
+                          <TooltipLabel label={item.label} className="flex-1">
+                            {highlightText(item.label, searchQuery)}
+                          </TooltipLabel>
+                        </div>
+                      )}
+                    />
+
+                    {/* Direction Selection */}
+                    <Select
+                      value={currentSort ? currentDirection : 'asc'}
+                      onValueChange={(value) => {
+                        if (currentSort && currentColumn !== '__none__') {
+                          onChange({
+                            sort: [
+                              {
+                                column: currentColumn,
+                                direction: value as 'asc' | 'desc',
+                              },
+                            ],
+                          });
+                        }
+                      }}
+                      disabled={disabled || !currentSort || currentColumn === '__none__'}
+                    >
+                      <SelectTrigger className="h-8 w-full">
+                        <SelectValue placeholder="Sort direction" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="asc">Ascending</SelectItem>
+                        <SelectItem value="desc">Descending</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              } else {
+                return (
+                  <div className="text-sm text-gray-500">
+                    Configure metrics first to enable sorting
+                  </div>
+                );
+              }
+            })()}
+          </div>
+        )}
     </div>
   );
 }

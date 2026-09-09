@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import * as echarts from 'echarts';
 import { format as formatDate } from 'date-fns';
-import { formatMetricValue, computePopChanges } from '@/lib/formatters';
+import { formatMetricValue, formatKPIValue, computePopChanges } from '@/lib/formatters';
 import { useAuthStore } from '@/stores/authStore';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Pencil, X, MoreVertical, Trash2 } from 'lucide-react';
+import { Pencil, X, MoreVertical, Trash2, BellRing, Share2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,12 +33,18 @@ import {
   updateAnnotation,
   deleteAnnotation,
 } from '@/hooks/api/useKPIs';
-import type { KPI, NoteType } from '@/types/kpis';
+import type { KPI, NoteType, KPICustomizations } from '@/types/kpis';
 import type { RAGStatus } from '@/types/kpis';
 import { RAG_COLORS, TIME_GRAIN_OPTIONS } from '@/types/kpis';
 import { formatDistanceToNow } from 'date-fns';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { trackEvent } from '@/lib/analytics';
+import { ALERT_CREATE_SOURCES, ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
+import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
+import { RequestEditPill } from '@/components/access/request-edit-pill';
+import { ShareModal } from '@/components/ui/share-modal';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 
 const grainLabel: Record<string, string> = {
   daily: 'day',
@@ -56,7 +62,15 @@ interface KPIDetailDrawerProps {
   onDelete: () => void;
 }
 
-function TrendChart({ config, height = 'h-64' }: { config: Record<string, any>; height?: string }) {
+function TrendChart({
+  config,
+  height = 'h-64',
+  customizations,
+}: {
+  config: Record<string, any>;
+  height?: string;
+  customizations?: KPICustomizations;
+}) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
@@ -67,7 +81,20 @@ function TrendChart({ config, height = 'h-64' }: { config: Record<string, any>; 
       chartInstance.current.dispose();
     }
     chartInstance.current = echarts.init(chartRef.current);
-    chartInstance.current.setOption(config);
+
+    // Inject tooltip valueFormatter so hover values match the drawer header's
+    // formatted current value + target.
+    const effectiveConfig = customizations
+      ? {
+          ...config,
+          tooltip: {
+            ...(config.tooltip || {}),
+            valueFormatter: (value: number | null) => formatKPIValue(value, customizations),
+          },
+        }
+      : config;
+
+    chartInstance.current.setOption(effectiveConfig);
 
     const handleResize = () => chartInstance.current?.resize();
     window.addEventListener('resize', handleResize);
@@ -77,7 +104,7 @@ function TrendChart({ config, height = 'h-64' }: { config: Record<string, any>; 
       chartInstance.current?.dispose();
       chartInstance.current = null;
     };
-  }, [config]);
+  }, [config, customizations]);
 
   if (!config || Object.keys(config).length === 0) {
     return (
@@ -103,6 +130,16 @@ export function KPIDetailDrawer({
   const [defaultPeriods, setDefaultPeriods] = useState<
     { period: string; period_date: string | null; value: number | null }[]
   >([]);
+  const [alertWizardOpen, setAlertWizardOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const { hasPermission } = useRbac();
+  const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
+  // Per-resource access — a member granted edit has kpi.access_level === 'edit'
+  // even without the role-level can_edit_kpis slug. Backend enforces on save.
+  const canEditKpis = kpi?.access_level === 'edit';
+  // Share gate mirrors the KPI list page + other resources: effective Edit on
+  // the KPI (owner, admin, or Edit grant) can open the Share modal.
+  const canShareKpi = canEditKpis;
 
   // Reset filters when KPI changes or drawer closes
   useEffect(() => {
@@ -185,9 +222,40 @@ export function KPIDetailDrawer({
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
-                <Pencil className="w-4 h-4" />
-              </Button>
+              <RequestEditPill
+                rtype="kpi"
+                resourceId={kpi.id}
+                resourceAccessLevel={kpi.access_level}
+              />
+              {canCreateAlert && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setAlertWizardOpen(true)}
+                  aria-label="Create alert"
+                  title="Create alert"
+                >
+                  <BellRing className="w-4 h-4" />
+                </Button>
+              )}
+              {canShareKpi && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setShareModalOpen(true)}
+                  aria-label="Share KPI"
+                  title="Share KPI"
+                >
+                  <Share2 className="w-4 h-4" />
+                </Button>
+              )}
+              {canEditKpis && (
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
@@ -209,11 +277,11 @@ export function KPIDetailDrawer({
               ) : (
                 <>
                   <p className="text-4xl font-bold text-gray-900">
-                    {formatMetricValue(currentValue)}
+                    {formatKPIValue(currentValue, kpi.extra_config?.customizations)}
                   </p>
                   {kpi.target_value !== null && (
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      Target: {formatMetricValue(kpi.target_value)}
+                      Target: {formatKPIValue(kpi.target_value, kpi.extra_config?.customizations)}
                     </p>
                   )}
                   {popChange !== null && (
@@ -285,7 +353,11 @@ export function KPIDetailDrawer({
           {isLoading ? (
             <Skeleton className="h-56 w-full" />
           ) : (
-            <TrendChart config={echartsConfig || {}} height="h-56" />
+            <TrendChart
+              config={echartsConfig || {}}
+              height="h-56"
+              customizations={kpi.extra_config?.customizations}
+            />
           )}
         </div>
 
@@ -295,6 +367,21 @@ export function KPIDetailDrawer({
         {/* Notes section */}
         <NotesSection kpi={kpi} periods={defaultPeriods} />
       </SheetContent>
+      <AlertWizardModal
+        open={alertWizardOpen}
+        onOpenChange={setAlertWizardOpen}
+        initial={{ alertType: 'kpi_rag', kpiId: kpi?.id ?? null }}
+        createSource={ALERT_CREATE_SOURCES.KPI_DRAWER}
+      />
+      {kpi && (
+        <ShareModal
+          rtype="kpi"
+          entityId={kpi.id}
+          entityLabel={kpi.name}
+          isOpen={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+        />
+      )}
     </Sheet>
   );
 }
@@ -310,6 +397,9 @@ function NotesSection({
 }) {
   const { annotations, mutate } = useAnnotations(kpi.id);
   const currentUserEmail = useAuthStore((s) => s.getCurrentOrgUser()?.email ?? '');
+  const { hasPermission } = useRbac();
+  // Notes are a write capability — hidden for view-only roles (members).
+  const canEditKpis = hasPermission(PERMISSIONS.CAN_EDIT_KPIS);
   const [showForm, setShowForm] = useState(false);
   const [noteType, setNoteType] = useState<NoteType>('beneficiary_quote');
   const [periodKey, setPeriodKey] = useState('');
@@ -352,6 +442,10 @@ function NotesSection({
         snapshot_value: snapshotValue ?? undefined,
         snapshot_pop_change: snapshotPopChange ?? undefined,
       });
+      trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_CREATED, {
+        kpi_id: kpi.id,
+        note_type: noteType,
+      });
       mutate();
       setShowForm(false);
       setContent('');
@@ -367,6 +461,7 @@ function NotesSection({
   const handleDelete = async (entryId: number) => {
     try {
       await deleteAnnotation(kpi.id, entryId);
+      trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_DELETED, { kpi_id: kpi.id });
       mutate();
       toastSuccess.deleted('Note');
     } catch (err: any) {
@@ -405,6 +500,10 @@ function NotesSection({
         snapshot_value: snapshotValue ?? undefined,
         snapshot_pop_change: snapshotPopChange ?? undefined,
       });
+      trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_UPDATED, {
+        kpi_id: kpi.id,
+        note_type: editNoteType,
+      });
       mutate();
       setEditingId(null);
     } catch (err: any) {
@@ -420,7 +519,7 @@ function NotesSection({
           <h3 className="text-sm font-semibold">Notes</h3>
           <p className="text-xs text-muted-foreground">Add beneficiary quotes or notes</p>
         </div>
-        {!showForm && (
+        {!showForm && canEditKpis && (
           <Button
             size="sm"
             className="text-white"
@@ -589,37 +688,39 @@ function NotesSection({
                     >
                       {entry.note_type === 'beneficiary_quote' ? 'Beneficiary Quote' : 'Note'}
                     </Badge>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 p-0">
-                          <MoreVertical className="w-3.5 h-3.5 text-gray-400" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setEditingId(entry.id);
-                            setEditContent(entry.content);
-                            setEditNoteType(entry.note_type);
-                            setEditPeriodKey(entry.period_key);
-                            setEditPeriodDate(entry.period_date || '');
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <Pencil className="w-3.5 h-3.5 mr-1.5" />
-                          Edit
-                        </DropdownMenuItem>
-                        {entry.created_by_email === currentUserEmail && (
+                    {canEditKpis && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 p-0">
+                            <MoreVertical className="w-3.5 h-3.5 text-gray-400" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onClick={() => handleDelete(entry.id)}
-                            className="cursor-pointer text-destructive focus:text-destructive"
+                            onClick={() => {
+                              setEditingId(entry.id);
+                              setEditContent(entry.content);
+                              setEditNoteType(entry.note_type);
+                              setEditPeriodKey(entry.period_key);
+                              setEditPeriodDate(entry.period_date || '');
+                            }}
+                            className="cursor-pointer"
                           >
-                            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                            Delete
+                            <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                            Edit
                           </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          {entry.created_by_email === currentUserEmail && (
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(entry.id)}
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                              Delete
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 </div>
                 {editingId === entry.id ? (

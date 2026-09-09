@@ -12,12 +12,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PipelineList } from '../pipeline-list';
 import * as usePipelinesHook from '@/hooks/api/usePipelines';
-import * as usePermissionsHook from '@/hooks/api/usePermissions';
+import * as rbac from '@/lib/rbac';
 import type { Pipeline } from '@/types/pipeline';
 import { LockStatus } from '@/constants/pipeline';
 
 jest.mock('@/hooks/api/usePipelines');
-jest.mock('@/hooks/api/usePermissions');
+jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
 // DO NOT mock useSyncLock — the real hook is needed for the optimistic flow
 
 const mockPush = jest.fn();
@@ -50,7 +50,7 @@ it('status flow: click → locked (optimistic) → locked (backend) → queued �
   const user = userEvent.setup();
   const mockMutate = jest.fn();
 
-  (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+  (rbac.useRbac as jest.Mock).mockReturnValue({
     hasPermission: () => true,
   });
 

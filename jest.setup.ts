@@ -17,6 +17,7 @@ jest.mock('@/lib/api', () => ({
   apiGet: jest.fn(),
   apiPost: jest.fn(),
   apiPut: jest.fn(),
+  apiPatch: jest.fn(),
   apiDelete: jest.fn(),
 }));
 

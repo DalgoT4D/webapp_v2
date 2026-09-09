@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { OverflowTooltip } from './OverflowTooltip';
+import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Download,
@@ -33,6 +33,8 @@ import { toast } from 'sonner';
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '@/constants/explore';
 import type { SortConfig, PaginationConfig } from '@/types/explore';
 import { cn } from '@/lib/utils';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 // Fixed heights for header and pagination bars
 const HEADER_HEIGHT = 40;
@@ -104,6 +106,7 @@ export function PreviewPane({
     setDownloading(true);
     try {
       await downloadTableCSV(schema, table);
+      trackEvent(ANALYTICS_EVENTS.DATA_TABLE_DOWNLOADED);
       toast.success('CSV downloaded successfully');
     } catch (error) {
       toast.error('Failed to download CSV');

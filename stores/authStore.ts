@@ -5,6 +5,9 @@ export interface Org {
   slug: string;
   name: string;
   viz_url: string;
+  logo_url?: string | null;
+  logo_filename?: string | null;
+  created_at?: string | null; // ISO 8601 org onboarding date; sent to PostHog as `onboarded_date` (group) for tenure cohorts
 }
 
 export interface Permission {
@@ -23,6 +26,15 @@ export interface OrgUser {
   org_default_dashboard_id?: number | null; // Organization default dashboard ID
   subscription_plan?: string | null; // Org base plan, used for analytics segmentation
   is_platform_admin?: boolean; // Global flag: Dalgo ops user who can access the admin portal
+  // The org plan's validity window (OrgPlans.start_date/end_date on the backend). Null for orgs
+  // with no plan row. THE source of truth for every trial day count — countdown badge, lifecycle
+  // nudges, billing page. Never substitute org.created_at: it is when the org row was made, not
+  // when its plan runs, and the two differ for any org put on a plan after creation or whose
+  // window an admin adjusted.
+  plan_start_date?: string | null;
+  plan_end_date?: string | null;
+  work_domain?: string | null; // User's work function at the NGO (M&E/program/data-tech/leadership/field), self-selected at signup; sent to PostHog as the `function` segmentation property
+  has_seen_resource_sharing_notice: boolean; // Whether the user has dismissed the one-time resource-sharing introduction carousel
 }
 
 interface AuthState {

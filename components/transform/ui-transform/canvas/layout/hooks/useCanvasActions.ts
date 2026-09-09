@@ -7,13 +7,14 @@ import { useTransformStore, useCanvasAction } from '@/stores/transformStore';
 import { useCanvasSources } from '@/hooks/api/useCanvasSources';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import type { RunWorkflowParams } from '@/hooks/api/useWorkflowExecution';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { CANVAS_GRAPH_KEY } from '@/hooks/api/useCanvasGraph';
 import { CanvasNodeTypeEnum } from '@/types/transform';
 import { apiGet } from '@/lib/api';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { CANVAS_CONSTANTS } from '@/constants/transform';
 import { TaskProgressStatus } from '@/constants/pipeline';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 
 interface UseCanvasActionsParams {
   isPreview: boolean;
@@ -38,7 +39,7 @@ export function useCanvasActions({ isPreview, runWorkflow }: UseCanvasActionsPar
 
   const { refresh: refreshSources, syncSources } = useCanvasSources();
   const { deleteOperationNode } = useCanvasOperations();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
   // Handle sync sources — locks upper section, polls progress into logs pane
   const handleSyncSources = useCallback(async () => {
@@ -110,16 +111,15 @@ export function useCanvasActions({ isPreview, runWorkflow }: UseCanvasActionsPar
     mutate,
   ]);
 
-  // Auto-sync sources on first canvas open
+  // Auto-sync sources on first canvas open. Re-evaluates when permissions
+  // resolve after mount (auth loads async); the ref keeps it to a single sync.
   const hasAutoSynced = useRef(false);
   useEffect(() => {
     if (hasAutoSynced.current || isPreview) return;
-    if (!hasPermission('can_sync_sources')) return;
+    if (!hasPermission(PERMISSIONS.CAN_SYNC_SOURCES)) return;
     hasAutoSynced.current = true;
     handleSyncSources();
-    // Only run on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hasPermission, handleSyncSources, isPreview]);
 
   // Handle canvas actions (delete-node, open-opconfig-panel, run-workflow, sync-sources, etc.)
   useEffect(() => {
@@ -178,6 +178,21 @@ export function useCanvasActions({ isPreview, runWorkflow }: UseCanvasActionsPar
             await runWorkflow(runData);
             // Refresh canvas after workflow completes
             await mutate(CANVAS_GRAPH_KEY);
+
+            // Walkthrough: only claim the table is built once the run actually
+            // finished, not the instant Save was clicked (CreateTableForm dispatches
+            // this action fire-and-forget — runWorkflow above is what awaits the
+            // real 2s-poll completion).
+            // Either canvas stage can be live here: the Save-button step is the normal one,
+            // pipeline_name_table the case where the name was left as typed-once/untouched so
+            // its own hand-off never fired.
+            const canvasStage = useInsightWalkthroughStore.getState().stage;
+            if (
+              canvasStage === 'pipeline_name_table' ||
+              canvasStage === 'pipeline_save_new_table'
+            ) {
+              useInsightWalkthroughStore.getState().advanceTo('pipeline_table_built');
+            }
           } catch (error: unknown) {
             const message = error instanceof Error ? error.message : 'Failed to run workflow';
             toastError.api(message);

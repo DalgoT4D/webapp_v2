@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -119,6 +121,7 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
       };
 
       const response = await createOrganization(payload);
+      trackEvent(ANALYTICS_EVENTS.ORG_CREATED);
 
       handleClose();
       await refreshOrganizations()

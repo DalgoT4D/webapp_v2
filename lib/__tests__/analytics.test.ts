@@ -1,4 +1,5 @@
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ROLES } from '@/lib/rbac';
 
 const mockCapture = jest.fn();
 const mockIdentify = jest.fn();
@@ -45,13 +46,43 @@ describe('isInternalEmail', () => {
 });
 
 describe('trackEvent', () => {
-  it('forwards a fixed event name and properties to posthog.capture', () => {
-    trackEvent(ANALYTICS_EVENTS.CHART_CREATED, { chart_type: 'bar' });
-    expect(mockCapture).toHaveBeenCalledWith('chart:chart_created', { chart_type: 'bar' });
+  it('forwards a fixed event name and properties to posthog.capture (non-value event)', () => {
+    // A plumbing event is NOT a value action, so properties pass through untouched.
+    trackEvent(ANALYTICS_EVENTS.CONNECTION_SYNC_TRIGGERED, { source_type: 'postgres' });
+    expect(mockCapture).toHaveBeenCalledWith('connection:connection_sync_triggered', {
+      source_type: 'postgres',
+    });
   });
   it('works with no properties', () => {
     trackEvent(ANALYTICS_EVENTS.USER_LOGGED_IN);
     expect(mockCapture).toHaveBeenCalledWith('auth:user_logged_in', undefined);
+  });
+  it('stamps is_value_action on a value-action event, alongside its own properties', () => {
+    trackEvent(ANALYTICS_EVENTS.CHART_CREATED, { chart_type: 'bar' });
+    expect(mockCapture).toHaveBeenCalledWith('chart:chart_created', {
+      chart_type: 'bar',
+      is_value_action: true,
+    });
+  });
+  it('stamps is_value_action even when the value event has no other properties', () => {
+    trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_CREATED);
+    expect(mockCapture).toHaveBeenCalledWith('kpi:annotation_created', { is_value_action: true });
+  });
+  it('does NOT stamp is_value_action on the anonymous public dashboard view', () => {
+    // Value actions feed a unique-USERS metric; a public view is an anonymous
+    // device with no person profile, so it must stay out of that count.
+    trackEvent(ANALYTICS_EVENTS.PUBLIC_DASHBOARD_VIEWED, {
+      org_slug: 'ngo-slug',
+      org_name: 'NGO Name',
+    });
+    expect(mockCapture).toHaveBeenCalledWith('dashboard:public_dashboard_viewed', {
+      org_slug: 'ngo-slug',
+      org_name: 'NGO Name',
+    });
+  });
+  it('does NOT stamp is_value_action on a plumbing event', () => {
+    trackEvent(ANALYTICS_EVENTS.PIPELINE_TRIGGERED, { is_manual: true });
+    expect(mockCapture).toHaveBeenCalledWith('pipeline:pipeline_triggered', { is_manual: true });
   });
 });
 
@@ -72,14 +103,24 @@ describe('trackFeatureView', () => {
 describe('identifyUser', () => {
   it('identifies by user_id, sets is_internal + current_role, registers role, never sends email', () => {
     mockGetDistinctId.mockReturnValue('42');
-    identifyUser(42, 'staff@dalgo.org', { role: 'account-manager' });
+    identifyUser(42, 'staff@dalgo.org', { role: ROLES.ADMIN });
     expect(mockIdentify).toHaveBeenCalledWith('42', {
       is_internal: true,
-      current_role: 'account-manager',
+      current_role: ROLES.ADMIN,
+      work_domain: null,
     });
-    expect(mockRegister).toHaveBeenCalledWith({ role: 'account-manager' });
+    expect(mockRegister).toHaveBeenCalledWith({ role: ROLES.ADMIN });
     const identifyArgs = mockIdentify.mock.calls[0];
     expect(JSON.stringify(identifyArgs)).not.toContain('staff@dalgo.org');
+  });
+  it('sends work_domain as a person property when provided', () => {
+    mockGetDistinctId.mockReturnValue('7');
+    identifyUser(7, 'user@ngo.example', { role: 'viewer', workDomain: 'ngo.example' });
+    expect(mockIdentify).toHaveBeenCalledWith('7', {
+      is_internal: false,
+      current_role: 'viewer',
+      work_domain: 'ngo.example',
+    });
   });
   it('resets first when the current distinct_id is an old email identity, then identifies by id', () => {
     mockGetDistinctId.mockReturnValue('jake@agency.fund');
@@ -88,31 +129,60 @@ describe('identifyUser', () => {
     expect(mockIdentify).toHaveBeenCalledWith('101', {
       is_internal: false,
       current_role: 'viewer',
+      work_domain: null,
     });
   });
   it('does NOT reset when already identified by a numeric id', () => {
     mockGetDistinctId.mockReturnValue('60');
-    identifyUser(60, 'user@ngo.example', { role: 'admin' });
+    identifyUser(60, 'user@ngo.example', { role: ROLES.ADMIN });
     expect(mockReset).not.toHaveBeenCalled();
   });
   it('no-ops when userId is falsy (backend not yet deployed)', () => {
-    identifyUser(0, 'staff@dalgo.org', { role: 'admin' });
+    identifyUser(0, 'staff@dalgo.org', { role: ROLES.ADMIN });
     expect(mockIdentify).not.toHaveBeenCalled();
   });
 });
 
 describe('identifyOrg', () => {
   it('groups by organization and sets current_org_* person properties', () => {
-    identifyOrg('ngo-slug', { name: 'NGO Name', plan: 'Free Trial' });
+    identifyOrg('ngo-slug', {
+      name: 'NGO Name',
+      plan: 'Free Trial',
+      onboardedDate: '2025-01-15T00:00:00Z',
+    });
     expect(mockGroup).toHaveBeenCalledWith('organization', 'ngo-slug', {
       name: 'NGO Name',
       slug: 'ngo-slug',
       subscription_plan: 'Free Trial',
+      onboarded_date: '2025-01-15T00:00:00Z',
     });
     expect(mockSetPersonProperties).toHaveBeenCalledWith({
       current_org_slug: 'ngo-slug',
       current_org_name: 'NGO Name',
       current_subscription_plan: 'Free Trial',
+    });
+  });
+
+  it('registers the org as super properties so a per-org filter needs no group join', () => {
+    // The group above stays the canonical org dimension (existing metrics aggregate on
+    // $group_0). These are the convenience layer: plain event properties, so a trial-only
+    // or single-org filter is a one-liner in any insight.
+    identifyOrg('ngo-slug', { name: 'NGO Name', plan: 'Free Trial' });
+    expect(mockRegister).toHaveBeenCalledWith({
+      org_slug: 'ngo-slug',
+      org_name: 'NGO Name',
+      org_plan: 'Free Trial',
+    });
+  });
+
+  it('registers a null plan rather than omitting it, so the property never goes stale on switch', () => {
+    // register() persists client-side. Omitting org_plan for a plan-less org would leave the
+    // previous org's plan riding every subsequent event.
+    identifyOrg('other-ngo', { name: 'Other NGO' });
+    expect(mockRegister).toHaveBeenCalledWith({
+      org_slug: 'other-ngo',
+      org_name: 'Other NGO',
+      org_plan: null,
     });
   });
 });

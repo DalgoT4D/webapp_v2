@@ -33,13 +33,17 @@ export function usePostHogIdentify(): void {
       (identifiedRef.current?.userId !== orgUser.user_id ||
         identifiedRef.current?.orgSlug !== orgSlug)
     ) {
-      identifyUser(orgUser.user_id, orgUser.email, { role: orgUser.new_role_slug });
+      identifyUser(orgUser.user_id, orgUser.email, {
+        role: orgUser.new_role_slug,
+        workDomain: orgUser.work_domain,
+      });
       identifiedRef.current = { userId: orgUser.user_id, orgSlug };
     }
     if (currentOrg?.slug) {
       identifyOrg(currentOrg.slug, {
         name: currentOrg.name,
         plan: orgUser?.subscription_plan ?? null,
+        onboardedDate: currentOrg.created_at ?? null,
       });
     }
   }, [isAuthenticated, currentOrg?.slug, getCurrentOrgUser]);

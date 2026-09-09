@@ -6,7 +6,7 @@ import {
   Plus,
   Lock,
   Loader2,
-  MoreHorizontal,
+  MoreVertical,
   History,
   RefreshCw,
   Pencil,
@@ -32,13 +32,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { DocsLink } from '@/components/ui/docs-link';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { usePipelines, deletePipeline, triggerPipelineRun } from '@/hooks/api/usePipelines';
 import type { Pipeline } from '@/types/pipeline';
 import {
@@ -54,19 +57,24 @@ import { cn } from '@/lib/utils';
 
 export function PipelineList() {
   const router = useRouter();
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
   const { pipelines, isLoading, mutate } = usePipelines();
   const { confirm, DialogComponent } = useConfirmationDialog();
+  // Raised by the create form as it finishes the automate-pipeline walkthrough, and rendered
+  // here so the pipeline the user just built is what's behind the dialog.
+  const pipelineCelebration = useInsightWalkthroughStore(
+    (s) => s.pendingCelebration === 'pipeline'
+  );
 
   const [selectedPipeline, setSelectedPipeline] = useState<Pipeline | null>(null);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
 
   // Permissions
-  const canViewPipeline = hasPermission('can_view_pipeline');
-  const canCreatePipeline = hasPermission('can_create_pipeline');
-  const canRunPipeline = hasPermission('can_run_pipeline');
-  const canEditPipeline = hasPermission('can_edit_pipeline');
-  const canDeletePipeline = hasPermission('can_delete_pipeline');
+  const canViewPipeline = hasPermission(PERMISSIONS.CAN_VIEW_PIPELINE);
+  const canCreatePipeline = hasPermission(PERMISSIONS.CAN_CREATE_PIPELINE);
+  const canRunPipeline = hasPermission(PERMISSIONS.CAN_RUN_PIPELINE);
+  const canEditPipeline = hasPermission(PERMISSIONS.CAN_EDIT_PIPELINE);
+  const canDeletePipeline = hasPermission(PERMISSIONS.CAN_DELETE_PIPELINE);
 
   const handleViewHistory = useCallback((pipeline: Pipeline) => {
     setSelectedPipeline(pipeline);
@@ -77,7 +85,9 @@ export function PipelineList() {
     async (deploymentId: string) => {
       try {
         await triggerPipelineRun(deploymentId);
-        trackEvent(ANALYTICS_EVENTS.PIPELINE_TRIGGERED, { deployment_id: deploymentId });
+        // Fires only on a manual run (the user clicked Run) — scheduled runs happen
+        // in the backend and are not captured here.
+        trackEvent(ANALYTICS_EVENTS.PIPELINE_TRIGGERED);
         toastSuccess.generic('Pipeline started successfully');
         mutate(); // this cause the polling and based on lock condition the refreshinterval keeps on polling the data.
         return {};
@@ -111,6 +121,7 @@ export function PipelineList() {
         try {
           const result = await deletePipeline(deploymentId);
           if (result?.success) {
+            trackEvent(ANALYTICS_EVENTS.PIPELINE_DELETED);
             toastSuccess.deleted('Pipeline');
             mutate();
           } else {
@@ -138,7 +149,9 @@ export function PipelineList() {
       <div className="flex-shrink-0 border-b bg-background">
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
           <div>
-            <h1 className="text-3xl font-bold">Pipelines</h1>
+            <DocsLink path="/data/orchestrate">
+              <h1 className="text-3xl font-bold">Pipelines</h1>
+            </DocsLink>
             <div className="flex items-center gap-1 md:gap-2 mt-1">
               <p className="text-muted-foreground">
                 Manage your data sync and transformation workflows
@@ -170,12 +183,15 @@ export function PipelineList() {
               </TooltipProvider>
             </div>
           </div>
-          {canCreatePipeline && (
-            <Button variant="primary" onClick={handleCreate} data-testid="create-pipeline-btn">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Pipeline
-            </Button>
-          )}
+          <Button
+            variant="primary"
+            onClick={handleCreate}
+            disabled={!canCreatePipeline}
+            data-testid="create-pipeline-btn"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            CREATE PIPELINE
+          </Button>
         </div>
       </div>
 
@@ -189,12 +205,12 @@ export function PipelineList() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50 hover:bg-gray-50">
-                    <TableHead className="text-base font-medium text-center">Pipeline</TableHead>
-                    <TableHead className="text-base font-medium text-center">Schedule</TableHead>
-                    <TableHead className="text-base font-medium text-center">Status</TableHead>
-                    <TableHead className="text-base font-medium text-center">Last Run</TableHead>
-                    <TableHead className="text-base font-medium text-center">Result</TableHead>
-                    <TableHead className="text-base font-medium text-center">Actions</TableHead>
+                    <TableHead className="text-base font-medium">Pipeline</TableHead>
+                    <TableHead className="text-base font-medium">Schedule</TableHead>
+                    <TableHead className="text-base font-medium">Status</TableHead>
+                    <TableHead className="text-base font-medium">Last Run</TableHead>
+                    <TableHead className="text-base font-medium">Result</TableHead>
+                    <TableHead className="text-base font-medium">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -228,6 +244,21 @@ export function PipelineList() {
           onOpenChange={setShowHistoryDialog}
         />
       )}
+
+      {/* Closes the automate-pipeline walkthrough. No onCta: the pipeline is already on the
+          page behind this, so "View Pipeline" just gets the dialog out of the way. */}
+      <CelebrationModal
+        open={pipelineCelebration}
+        onOpenChange={(open) => {
+          if (open) return;
+          useInsightWalkthroughStore.getState().setPendingCelebration(null);
+        }}
+        title="Congratulations, your Pipeline is live!"
+        description="Your data pipeline is built, and you can now build insights with your data!"
+        ctaLabel="View Pipeline"
+        dismissEvent={ANALYTICS_EVENTS.PIPELINE_LIVE_MODAL_DISMISSED}
+        testId="pipeline-live-modal"
+      />
     </div>
   );
 }
@@ -380,7 +411,7 @@ function PipelineRow({
 
       {/* Actions */}
       <TableCell className="py-4">
-        <div className="flex items-center justify-center gap-1">
+        <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
@@ -397,7 +428,7 @@ function PipelineRow({
             variant="ghost"
             size="icon"
             onClick={handleRunClick}
-            disabled={isDisabled || !canRunPipeline}
+            disabled={!canRunPipeline || isRunning}
             data-testid={`run-btn-${deploymentId}`}
             className={cn('h-8 w-8 p-0 hover:bg-gray-100', isRunning && 'cursor-not-allowed')}
             aria-label="Run"
@@ -418,30 +449,28 @@ function PipelineRow({
                 className="h-8 w-8 p-0 hover:bg-gray-100"
                 data-testid={`more-btn-${deploymentId}`}
               >
-                <MoreHorizontal className="w-4 h-4 text-gray-600" />
+                <MoreVertical className="w-4 h-4 text-gray-600" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
-              {canEditPipeline && (
-                <DropdownMenuItem
-                  onClick={() => onEdit(deploymentId)}
-                  className="text-[14px]"
-                  data-testid={`edit-menu-item-${deploymentId}`}
-                >
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
-                </DropdownMenuItem>
-              )}
-              {canDeletePipeline && (
-                <DropdownMenuItem
-                  onClick={() => onDelete(deploymentId)}
-                  className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
-                  data-testid={`delete-menu-item-${deploymentId}`}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem
+                onClick={() => onEdit(deploymentId)}
+                disabled={!canEditPipeline}
+                className="text-[14px]"
+                data-testid={`edit-menu-item-${deploymentId}`}
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onDelete(deploymentId)}
+                disabled={!canDeletePipeline}
+                className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
+                data-testid={`delete-menu-item-${deploymentId}`}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

@@ -14,7 +14,16 @@ export enum FlowRunStatus {
   COMPLETED = 'COMPLETED',
   FAILED = 'FAILED',
   CRASHED = 'CRASHED',
+  CANCELLED = 'CANCELLED',
 }
+
+// Terminal states — polling should stop once the flow run reaches one of these
+export const TERMINAL_FLOW_RUN_STATES: string[] = [
+  FlowRunStatus.COMPLETED,
+  FlowRunStatus.FAILED,
+  FlowRunStatus.CRASHED,
+  FlowRunStatus.CANCELLED,
+];
 
 // Prefect flow run state name
 export enum FlowRunStateName {
@@ -67,6 +76,7 @@ export const SYSTEM_COMMAND_ORDER: Record<string, number> = {
   'dbt-test': 6,
   'dbt-docs-generate': 8,
   'dbt-cloud-job': 20,
+  'generate-edr': 25,
 };
 
 // Custom command ordering - custom tasks sit between system dbt-run (5) and system dbt-test (6)

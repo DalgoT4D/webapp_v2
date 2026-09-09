@@ -63,3 +63,46 @@ export function getApiCustomizations(
 
   return customizations;
 }
+
+/**
+ * Resolves the rendered column order for a table at a given drill-down level.
+ *
+ * In drill-down mode the table only shows one dimension at a time. The saved
+ * columnOrder is authored against the first drill-down dimension; at deeper
+ * levels we substitute that dim slot for the dim being displayed.
+ *
+ * Returns the rendered column list, or `cols` if no order is set or doesn't match
+ * the visible columns.
+ */
+export function resolveTableColumnOrder({
+  cols,
+  savedOrder,
+  drillDownDimensions,
+  currentDimensionColumn,
+}: {
+  cols: string[];
+  savedOrder?: string[];
+  drillDownDimensions?: string[];
+  currentDimensionColumn?: string;
+}): string[] {
+  if (!savedOrder?.length) return cols;
+
+  let order = savedOrder;
+  if (
+    drillDownDimensions?.length &&
+    currentDimensionColumn &&
+    drillDownDimensions[0] !== currentDimensionColumn
+  ) {
+    const firstDim = drillDownDimensions[0];
+    order = savedOrder.map((c) => (c === firstDim ? currentDimensionColumn : c));
+  }
+
+  if (
+    order.length === cols.length &&
+    new Set(order).size === order.length &&
+    order.every((c) => cols.includes(c))
+  ) {
+    return order;
+  }
+  return cols;
+}

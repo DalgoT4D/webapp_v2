@@ -63,14 +63,6 @@ export enum TaskStatus {
 // Schema change severity
 export const SCHEMA_CHANGE_BREAKING = 'breaking' as const;
 
-export const CONNECTION_PERMISSIONS = {
-  CREATE: 'can_create_connection',
-  EDIT: 'can_edit_connection',
-  DELETE: 'can_delete_connection',
-  RESET: 'can_reset_connection',
-  SYNC: 'can_sync_sources',
-} as const;
-
 // Sync history pagination size
 export const SYNC_HISTORY_PAGE_SIZE = 20;
 
@@ -97,3 +89,24 @@ export const SYNC_STATUS_CONFIG: Record<string, { label: string; colorClass: str
 
 // Fallback for unrecognized statuses
 export const SYNC_STATUS_DEFAULT = { label: 'Unknown', colorClass: 'text-gray-500' };
+
+// Source definition names (case-insensitive) that support the post-sync cast column.
+// Add names here to enable the "Cast to" dropdown for additional sources.
+export const CAST_SUPPORTED_SOURCES: string[] = ['Google Sheets'];
+
+export function isCastSupportedSource(sourceDefName: string): boolean {
+  const normalized = sourceDefName.toLowerCase().replace(/\s+/g, ' ').trim();
+  return CAST_SUPPORTED_SOURCES.some(
+    (name) => name.toLowerCase().replace(/\s+/g, ' ').trim() === normalized
+  );
+}
+
+export const CAST_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'numeric', label: 'Numeric' },
+  { value: 'integer', label: 'Integer' },
+  { value: 'bigint', label: 'Big Integer' },
+  { value: 'boolean', label: 'Boolean' },
+  { value: 'date', label: 'Date' },
+  { value: 'timestamp', label: 'Timestamp' },
+  { value: 'text', label: 'Text' },
+];

@@ -34,7 +34,7 @@ function ConsumerCount({
         <button
           className={
             variant === 'inherit'
-              ? 'underline cursor-pointer hover:opacity-80 text-amber-700'
+              ? 'underline cursor-pointer hover:opacity-80'
               : 'underline font-medium cursor-pointer hover:opacity-80'
           }
           style={variant === 'inherit' ? undefined : { color: 'var(--primary)' }}
@@ -64,14 +64,16 @@ function ConsumerCount({
 export function ConsumerLinks({ consumers, variant = 'default' }: ConsumerLinksProps) {
   const hasCharts = consumers.charts.length > 0;
   const hasKpis = consumers.kpis.length > 0;
+  const hasAlerts = (consumers.alerts?.length ?? 0) > 0;
 
-  if (!hasCharts && !hasKpis) {
+  if (!hasCharts && !hasKpis && !hasAlerts) {
     return <span className="text-sm text-gray-400">unused</span>;
   }
 
-  return (
-    <span className="text-sm inline-flex items-center gap-1">
+  const groups = [
+    hasCharts && (
       <ConsumerCount
+        key="charts"
         count={consumers.charts.length}
         label="Chart"
         items={consumers.charts}
@@ -79,8 +81,10 @@ export function ConsumerLinks({ consumers, variant = 'default' }: ConsumerLinksP
         getName={(item) => (item as any).title || `Chart #${item.id}`}
         variant={variant}
       />
-      {hasCharts && hasKpis && <span>,</span>}
+    ),
+    hasKpis && (
       <ConsumerCount
+        key="kpis"
         count={consumers.kpis.length}
         label="KPI"
         items={consumers.kpis}
@@ -88,6 +92,28 @@ export function ConsumerLinks({ consumers, variant = 'default' }: ConsumerLinksP
         getName={(item) => (item as any).name || `KPI #${item.id}`}
         variant={variant}
       />
+    ),
+    hasAlerts && (
+      <ConsumerCount
+        key="alerts"
+        count={consumers.alerts.length}
+        label="Alert"
+        items={consumers.alerts}
+        getHref={() => `/alerts`}
+        getName={(item) => (item as any).name || `Alert #${item.id}`}
+        variant={variant}
+      />
+    ),
+  ].filter(Boolean);
+
+  return (
+    <span className="text-sm inline-flex items-center gap-1">
+      {groups.map((node, i) => (
+        <span key={i} className="inline-flex items-center gap-1">
+          {i > 0 && <span>,</span>}
+          {node}
+        </span>
+      ))}
     </span>
   );
 }

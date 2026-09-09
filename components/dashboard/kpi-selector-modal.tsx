@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { useKPIs } from '@/hooks/api/useKPIs';
+import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 import { Loader2, Search, Plus } from 'lucide-react';
 import Link from 'next/link';
 
@@ -108,8 +109,16 @@ export function KPISelectorModal({
                       </svg>
                     </div>
                     <div className="text-center">
-                      <h4 className="text-sm font-medium truncate mb-1">{kpi.name}</h4>
-                      <p className="text-xs text-gray-500 truncate">{kpi.metric.name}</p>
+                      <OverflowTooltip
+                        text={kpi.name}
+                        className="text-sm font-medium mb-1"
+                        tooltipAlign="center"
+                      />
+                      <OverflowTooltip
+                        text={kpi.metric.name}
+                        className="text-xs text-gray-500"
+                        tooltipAlign="center"
+                      />
                       {isAlreadyAdded && (
                         <p className="text-xs text-orange-600 font-medium mt-1">Already added</p>
                       )}

@@ -5,6 +5,9 @@ import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, AlertCircle, Home, Loader2 } from 'lucide-react';
+import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
+import { getPivotRenderProps } from '@/components/charts/pivot-table/utils';
+import type { PivotTableResponse } from '@/types/pivot-table';
 import { useChart } from '@/hooks/api/useCharts';
 import {
   useChartDataPreview,
@@ -24,7 +27,7 @@ import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import type { ChartTitleConfig } from '@/lib/chart-title-utils';
-import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
+import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
 import {
   resolveDashboardFilters,
   formatAsChartFilters,
@@ -52,7 +55,8 @@ import {
   applyLineBarDateFormatting,
 } from '@/lib/chart-formatting-utils';
 import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
-import { ChartTypes, type ChartDataPayload } from '@/types/charts';
+import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
+import { ChartTypes, type ChartDataPayload, type ChartDimension } from '@/types/charts';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, GaugeChart, ScatterChart, MapChart } from 'echarts/charts';
 import {
@@ -170,7 +174,7 @@ export function ChartElementV2({
 
       // Check if drill-down is enabled
       const isDrillDownEnabled = chart.extra_config?.dimensions?.some(
-        (dim: any) => dim.enable_drill_down === true
+        (dim: ChartDimension) => dim.enable_drill_down === true
       );
 
       if (!isDrillDownEnabled) return;
@@ -178,8 +182,8 @@ export function ChartElementV2({
       // Get all dimensions in order (only those with drill-down enabled)
       const allDimensions =
         chart.extra_config?.dimensions
-          ?.filter((dim: any) => dim.enable_drill_down)
-          .map((d: any) => d.column)
+          ?.filter((dim: ChartDimension) => dim.enable_drill_down)
+          .map((d: ChartDimension) => d.column)
           .filter(Boolean) || [];
 
       if (allDimensions.length === 0) return;
@@ -229,8 +233,8 @@ export function ChartElementV2({
 
     const allDimensions =
       chart?.extra_config?.dimensions
-        ?.filter((dim: any) => dim.enable_drill_down)
-        .map((d: any) => d.column)
+        ?.filter((dim: ChartDimension) => dim.enable_drill_down)
+        .map((d: ChartDimension) => d.column)
         .filter(Boolean) || [];
 
     const newLevel = tableDrillDownState.currentLevel - 1;
@@ -324,26 +328,31 @@ export function ChartElementV2({
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
 
   // Fetch geojsons for the current drill-down region (e.g., Karnataka districts)
-  const { data: regionGeojsons } = useRegionGeoJSONs(currentDrillDownRegionId);
+  const {
+    data: regionGeojsons,
+    error: regionGeojsonsError,
+    isLoading: regionGeojsonsLoading,
+  } = useRegionGeoJSONs(currentDrillDownRegionId);
 
   // For map charts, determine which geojson and data to fetch based on drill-down state
   let activeGeojsonId = null;
   let activeGeographicColumn = null;
+  const activeDrillDownLevel =
+    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1] : null;
+  const drillDownGeojsonResolution = resolveDrillDownGeoJSON({
+    isDrillDownActive: Boolean(activeDrillDownLevel),
+    regionId: currentDrillDownRegionId,
+    regionGeojsons,
+    regionGeojsonsLoading,
+    regionGeojsonsError,
+    fallbackGeojsonId: activeDrillDownLevel?.geojson_id,
+  });
 
   if (chart?.chart_type === ChartTypes.MAP) {
-    if (drillDownPath.length > 0) {
+    if (activeDrillDownLevel) {
       // We're in a drill-down state, use the first available geojson for this region
-      const lastDrillDown = drillDownPath[drillDownPath.length - 1];
-      activeGeographicColumn = lastDrillDown.geographic_column;
-
-      if (regionGeojsons && regionGeojsons.length > 0) {
-        // Use the first available geojson for this region (e.g., Karnataka districts)
-        activeGeojsonId = regionGeojsons[0].id;
-        console.log(`🗺️ Using geojson ID ${activeGeojsonId} for region ${lastDrillDown.name}`);
-      } else {
-        // Fallback to the stored geojson_id (if any)
-        activeGeojsonId = lastDrillDown.geojson_id;
-      }
+      activeGeographicColumn = activeDrillDownLevel.geographic_column;
+      activeGeojsonId = drillDownGeojsonResolution.geojsonId;
     } else if (currentLayer) {
       // Use current layer configuration (first layer)
       activeGeojsonId = currentLayer.geojson_id;
@@ -359,13 +368,15 @@ export function ChartElementV2({
 
   // Now that activeGeographicColumn is defined, create the map data overlay payload
   const mapDataOverlayPayload = useMemo(() => {
+    const metric = chart?.extra_config?.metrics?.[0];
     return chart?.chart_type === ChartTypes.MAP && chart.extra_config && activeGeographicColumn
       ? {
           schema_name: chart.schema_name,
           table_name: chart.table_name,
           geographic_column: activeGeographicColumn,
+          metric,
           value_column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
-          aggregate_function: chart.extra_config.aggregate_function || 'sum',
+          aggregate_function: chart.extra_config.aggregate_function || (metric ? undefined : 'sum'),
           filters: filters, // Drill-down filters
           // Convert appliedFilters to dashboard_filters format (filter_id -> value)
           dashboard_filters: appliedFilters,
@@ -399,9 +410,12 @@ export function ChartElementV2({
   // Now fetch the data that depends on the above variables
   const {
     data: geojsonData,
-    error: geojsonError,
-    isLoading: geojsonLoading,
+    error: geojsonDataError,
+    isLoading: geojsonDataLoading,
   } = useGeoJSONData(activeGeojsonId);
+
+  const geojsonError = regionGeojsonsError || geojsonDataError;
+  const geojsonLoading = drillDownGeojsonResolution.isResolving || geojsonDataLoading;
 
   // Fetch map data using the working map-data-overlay endpoint
   const {
@@ -495,13 +509,15 @@ export function ChartElementV2({
         ...(chart.chart_type === ChartTypes.TABLE && {
           dimensions: (() => {
             const isDrillDownEnabled = chart.extra_config?.dimensions?.some(
-              (dim: any) => dim.enable_drill_down === true
+              (dim: ChartDimension) => dim.enable_drill_down === true
             );
 
             if (!isDrillDownEnabled) {
               // Show all dimensions if drill-down disabled
               if (chart.extra_config?.dimensions && chart.extra_config.dimensions.length > 0) {
-                return chart.extra_config.dimensions.map((d: any) => d.column).filter(Boolean);
+                return chart.extra_config.dimensions
+                  .map((d: ChartDimension) => d.column)
+                  .filter(Boolean);
               }
               if (
                 chart.extra_config?.dimension_columns &&
@@ -514,8 +530,8 @@ export function ChartElementV2({
 
             // When drill-down is enabled, only use dimensions with enable_drill_down
             const drillDownDimensions = chart.extra_config.dimensions
-              .filter((dim: any) => dim.enable_drill_down)
-              .map((d: any) => d.column)
+              .filter((dim: ChartDimension) => dim.enable_drill_down)
+              .map((d: ChartDimension) => d.column)
               .filter(Boolean);
 
             // When drill-down is enabled and active, use only the current level dimension
@@ -1299,6 +1315,23 @@ export function ChartElementV2({
                   </div>
                 </div>
               </div>
+            ) : chart?.chart_type === ChartTypes.PIVOT_TABLE ? (
+              <div className="w-full h-full">
+                {dataLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : chartData?.data ? (
+                  <PivotTableChart
+                    data={chartData.data as unknown as PivotTableResponse}
+                    {...getPivotRenderProps(chart.extra_config)}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    No data available
+                  </div>
+                )}
+              </div>
             ) : chart?.chart_type === ChartTypes.TABLE ? (
               <div className="flex flex-col h-full">
                 {/* Breadcrumb navigation for drill-down */}
@@ -1318,7 +1351,23 @@ export function ChartElementV2({
                   <TableChart
                     data={Array.isArray(tableData?.data) ? tableData.data : []}
                     config={{
-                      table_columns: tableData?.columns || [],
+                      table_columns: (() => {
+                        const cols = tableData?.columns || [];
+                        const drillDownDimensions =
+                          chart?.extra_config?.dimensions
+                            ?.filter((dim: ChartDimension) => dim.enable_drill_down)
+                            .map((d: ChartDimension) => d.column)
+                            .filter(Boolean) || [];
+                        const currentDim = tableDrillDownState
+                          ? drillDownDimensions[tableDrillDownState.currentLevel + 1]
+                          : drillDownDimensions[0];
+                        return resolveTableColumnOrder({
+                          cols,
+                          savedOrder: chart?.extra_config?.customizations?.columnOrder,
+                          drillDownDimensions,
+                          currentDimensionColumn: currentDim,
+                        });
+                      })(),
                       column_formatting: mergeTableColumnFormatting(
                         chart?.extra_config?.customizations
                       ),
@@ -1327,6 +1376,13 @@ export function ChartElementV2({
                         enabled: true,
                         page_size: 20,
                       },
+                      conditionalFormatting:
+                        chart?.extra_config?.customizations?.conditionalFormatting || [],
+                      columnAlignment: chart?.extra_config?.customizations?.columnAlignment || {},
+                      zebraRows: chart?.extra_config?.customizations?.zebraRows ?? true,
+                      freezeFirstColumn:
+                        chart?.extra_config?.customizations?.freezeFirstColumn || false,
+                      theme: chart?.extra_config?.customizations?.theme,
                     }}
                     isLoading={tableLoading}
                     error={tableError}
@@ -1343,17 +1399,17 @@ export function ChartElementV2({
                     }
                     onRowClick={handleTableRowClick}
                     drillDownEnabled={chart?.extra_config?.dimensions?.some(
-                      (dim: any) => dim.enable_drill_down === true
+                      (dim: ChartDimension) => dim.enable_drill_down === true
                     )}
                     currentDimensionColumn={
                       tableDrillDownState
                         ? chart?.extra_config?.dimensions
-                            ?.filter((dim: any) => dim.enable_drill_down)
-                            .map((d: any) => d.column)
+                            ?.filter((dim: ChartDimension) => dim.enable_drill_down)
+                            .map((d: ChartDimension) => d.column)
                             .filter(Boolean)[tableDrillDownState.currentLevel + 1]
                         : chart?.extra_config?.dimensions
-                            ?.filter((dim: any) => dim.enable_drill_down)
-                            .map((d: any) => d.column)
+                            ?.filter((dim: ChartDimension) => dim.enable_drill_down)
+                            .map((d: ChartDimension) => d.column)
                             .filter(Boolean)[0]
                     }
                   />

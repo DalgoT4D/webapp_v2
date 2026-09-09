@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 import GridLayoutLib, {
   Responsive as ResponsiveGridLayout,
   WidthProvider as GridLayoutWidthProvider,
@@ -55,12 +56,12 @@ import {
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
+import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { useAuthStore } from '@/stores/authStore';
 import { ChartElementView } from './chart-element-view';
 import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
-import { compactVertical } from '@/lib/dashboard-animation-utils';
 import { UnifiedTextElement } from './text-element-unified';
 import { KPIChartElement } from './kpi-chart-element';
 import {
@@ -72,8 +73,9 @@ import {
   type DashboardFilterConfig,
 } from '@/types/dashboard-filters';
 import { useToast } from '@/components/ui/use-toast';
+import { toastSuccess } from '@/lib/toast';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { ShareModal } from '@/components/ui/share-modal';
-import { getDashboardSharingStatus, updateDashboardSharing } from '@/hooks/api/useDashboards';
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -91,9 +93,35 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Star, StarOff, Settings } from 'lucide-react';
 import { useFullscreen } from '@/hooks/useFullscreen';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import {
+  markDashboardShared,
+  type WalkthroughStage,
+} from '@/components/onboarding/insight-walkthrough-constants';
+
+import { CelebrationModal } from '@/components/onboarding/celebration-modal';
+import { EmbedCodeDropdown } from '@/components/dashboard/embed-code-dropdown';
+
+/**
+ * Walkthrough stages whose coachmark target lives INSIDE the share dialog — those keep their
+ * spotlight while the dialog is open; every other stage's is suppressed.
+ */
+const SHARE_DIALOG_COACHMARK_STAGES: WalkthroughStage[] = [
+  'share_public_toggle',
+  'share_copy_link',
+];
+
+/** Stages the share dialog can be opened FROM — either routes on into the dialog's own steps. */
+const SHARE_DIALOG_ENTRY_STAGES: WalkthroughStage[] = ['share', 'share_public_toggle'];
+
+/**
+ * Every stage from which copying the public link is the walkthrough's final act. Not just
+ * 'share_copy_link': a dashboard that was already public never fires the sharing handler, so
+ * the stage can still be one of the earlier two when the user copies.
+ */
+const SHARE_TAIL_STAGES: WalkthroughStage[] = ['share', 'share_public_toggle', 'share_copy_link'];
 
 // Define responsive breakpoints and column configurations (same as builder)
 // Superset-style: Always 12 columns, they just scale with container width
@@ -242,6 +270,8 @@ interface DashboardNativeViewProps {
   commentStates?: CommentStates; // Comment states array with target_type and chart_id
   onCommentStateChange?: () => void; // Callback to revalidate comment states
   autoOpenCommentChartId?: string; // Chart ID whose comment popover should auto-open (from email deep-link)
+  onFiltersChange?: (filters: AppliedFilters) => void; // Notifies the parent whenever selectedFilters changes (e.g. so it can be included in a PDF export request)
+  canModerateComments?: boolean; // Caller has Edit access on the parent report — enables moderator Delete on other users' comments
 }
 
 export function DashboardNativeView({
@@ -263,8 +293,12 @@ export function DashboardNativeView({
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
+  onFiltersChange,
+  canModerateComments = false,
 }: DashboardNativeViewProps) {
   const router = useRouter();
+  const { initialOpen: initialShareModalOpen, clearParam: clearShareDeepLink } =
+    useOpenShareDeepLink();
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>(() => {
     // In report mode, dashboardData is pre-fetched so filters are available immediately.
     // Compute defaults synchronously to avoid a double-render cycle with empty filters.
@@ -276,13 +310,22 @@ export function DashboardNativeView({
     }
     return {};
   });
+
+  useEffect(() => {
+    onFiltersChange?.(selectedFilters);
+  }, [selectedFilters, onFiltersChange]);
+
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [actualContainerWidth, setActualContainerWidth] = useState(
     typeof window !== 'undefined' ? window.innerWidth : 1200
   );
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
-  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(initialShareModalOpen);
+  // Walkthrough only — the "you're officially live" beat, after the public link is copied.
+  const [dashboardLiveModalOpen, setDashboardLiveModalOpen] = useState(false);
+  const walkthroughStage = useInsightWalkthroughStore((state) => state.stage);
+
   const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
   // Filters panel collapse state
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
@@ -335,6 +378,37 @@ export function DashboardNativeView({
   const dashboard =
     (isPublicMode || isReportMode) && dashboardData ? dashboardData : dashboardFromApi;
 
+  // The share dialog gets no coachmark of its own while the user is finding their way around
+  // it, so the spotlight hides (same pattern as the KPI/chart picker modals in
+  // dashboard-builder-v2) — except for the two stages whose targets are inside this very
+  // dialog: the Public Access switch and, once that's on, the copy button.
+  useEffect(() => {
+    useInsightWalkthroughStore
+      .getState()
+      .setSuppressCoachmark(
+        shareModalOpen && !SHARE_DIALOG_COACHMARK_STAGES.includes(walkthroughStage!)
+      );
+    // Opening the dialog is what completes the 'share' step. Where it goes next depends on the
+    // dashboard: a private one needs the Public Access switch flipped, an ALREADY-public one
+    // has nothing to flip, so it goes straight to the copy button. Without that second case
+    // the walkthrough parks on a switch that is already on, the sharing handler (its only way
+    // forward) never fires, and the flow can never reach finish() — nothing written to the
+    // backend, no tick on the Get Started checklist.
+    if (shareModalOpen && SHARE_DIALOG_ENTRY_STAGES.includes(walkthroughStage!)) {
+      useInsightWalkthroughStore
+        .getState()
+        .advanceIfBefore(dashboard?.is_public ? 'share_copy_link' : 'share_public_toggle');
+    }
+  }, [shareModalOpen, walkthroughStage, dashboard?.is_public]);
+
+  // Org logo for fullscreen overlays:
+  // - Private mode: user is logged in, auth store has the org logo
+  // - Public mode: no auth store, logo comes from backend dashboard API response
+  const currentOrg = useAuthStore((state) => state.currentOrg);
+  const orgLogoUrl = isPublicMode
+    ? (dashboard?.org_logo_url ?? null)
+    : (currentOrg?.logo_url ?? null);
+
   // Override loading and error states when we have pre-fetched data
   const isLoading = (isPublicMode || isReportMode) && dashboardData ? false : apiIsLoading;
   const isError = (isPublicMode || isReportMode) && dashboardData ? false : apiIsError;
@@ -343,13 +417,15 @@ export function DashboardNativeView({
   const responsive = useResponsiveLayout();
 
   // Get user permissions
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
 
-  // Check if user can edit - requires can_edit_dashboards permission
+  // Can this user edit THIS dashboard? Per-resource access (grants + org floor
+  // + ownership), surfaced by the API as `access_level`. Not the role permission —
+  // a member granted edit has access_level === "edit" but no role edit slug.
   const canEdit = useMemo(() => {
     if (isPublicMode || !dashboard || !currentUser) return false;
-    return hasPermission('can_edit_dashboards');
-  }, [isPublicMode, dashboard, currentUser, hasPermission]);
+    return dashboard.access_level === 'edit';
+  }, [isPublicMode, dashboard, currentUser]);
 
   // Check if dashboard is locked
   const isLocked = dashboard?.is_locked || false;
@@ -361,8 +437,8 @@ export function DashboardNativeView({
   // Check landing page status
   const isPersonalLanding = currentUser?.landing_dashboard_id === dashboardId;
   const isOrgDefault = currentUser?.org_default_dashboard_id === dashboardId;
-  const canManageOrgDefault =
-    currentUser?.new_role_slug === 'admin' || currentUser?.new_role_slug === 'super-admin';
+  // Same permission gate as the dashboard list — keep role assignments authoritative
+  const canManageOrgDefault = hasPermission(PERMISSIONS.CAN_MANAGE_ORG_DEFAULT_DASHBOARD);
 
   // Get target screen size (the size dashboard was designed for)
   const targetScreenSize = (dashboard?.target_screen_size as ScreenSizeKey) || 'desktop';
@@ -425,12 +501,11 @@ export function DashboardNativeView({
 
   // Allow editing in preview mode without any conditions
 
-  // Track dashboard view once per mount
-  useEffect(() => {
-    trackEvent(ANALYTICS_EVENTS.DASHBOARD_VIEWED, { dashboard_id: dashboardId });
-    // Fire once per mount — the dashboard id is stable for the view.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // DASHBOARD_VIEWED is intentionally NOT fired here. This component is shared by the
+  // live dashboard route, the impact/landing page, report snapshots, and public share
+  // views, so firing here leaked DASHBOARD_VIEWED into report and impact opens. The event
+  // now lives on the live dashboard route only (app/dashboards/[id]/page.tsx) so each page
+  // fires exactly its own view event.
 
   // Update current screen size on resize
   useEffect(() => {
@@ -500,12 +575,42 @@ export function DashboardNativeView({
   // Handle share modal close
   const handleShareModalClose = () => {
     setShareModalOpen(false);
+    clearShareDeepLink();
   };
 
   // Handle dashboard update after sharing changes
   const handleDashboardUpdate = () => {
     mutate(); // Refresh the dashboard data
   };
+
+  // ShareModal (a components/ui/ component we keep free of onboarding logic) reports when
+  // General access flips to Public, and that is what moves the walkthrough on — same trick
+  // dashboard-list-v2 uses for the "shared" milestone. The dialog stays open: the next stage
+  // points at the copy button inside it.
+  const handleMadePublic = useCallback(() => {
+    markDashboardShared();
+    const walkthrough = useInsightWalkthroughStore.getState();
+    // Either stage can be live here: 'share_public_toggle' normally, or 'share' if the user
+    // reached the access picker without the dialog-open effect having run (a resumed flow).
+    if (walkthrough.active) walkthrough.advanceIfBefore('share_copy_link');
+  }, []);
+
+  // Copying the link is the walkthrough's last action — the flow ends on a celebration
+  // rather than a toast, and stays put so the user is looking at what they just built.
+  const handleCopyLink = useCallback(() => {
+    // The share itself. Fired before the walkthrough branch so it lands on every copy,
+    // not only during onboarding. DASHBOARD_MADE_PUBLIC (from updateGeneralAccess)
+    // only means the link exists; this means the user actually handed it out.
+    // dashboard.id, not the dashboardId prop: it is what ShareModal was opened with,
+    // and it is a real id here (the modal only renders outside public mode).
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { dashboard_id: dashboard?.id });
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && SHARE_TAIL_STAGES.includes(walkthrough.stage!)) {
+      walkthrough.finish();
+      setShareModalOpen(false);
+      setDashboardLiveModalOpen(true);
+    }
+  }, [dashboard?.id]);
 
   // Handle refresh
   const handleRefresh = async () => {
@@ -545,6 +650,7 @@ export function DashboardNativeView({
 
     try {
       await deleteDashboard(dashboardId);
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED, { dashboard_id: dashboardId });
 
       toast({
         title: 'Dashboard deleted',
@@ -615,6 +721,8 @@ export function DashboardNativeView({
               commentStates={isReportMode ? commentStates : undefined}
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+              canModerateComments={isReportMode ? canModerateComments : undefined}
+              orgLogoUrl={orgLogoUrl}
             />
           </div>
         );
@@ -661,9 +769,13 @@ export function DashboardNativeView({
               config={component.config}
               dashboardFilters={selectedFilters}
               snapshotId={isReportMode ? snapshotId : undefined}
+              publicToken={publicToken}
+              isPublicMode={isPublicMode}
+              isReportMode={isReportMode}
               commentStates={isReportMode ? commentStates : undefined}
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
+              canModerateComments={isReportMode ? canModerateComments : undefined}
             />
           </div>
         );
@@ -769,7 +881,7 @@ export function DashboardNativeView({
       )}
     >
       {/* Fixed Header - Conditional rendering for landing page */}
-      {!hideHeader && !showMinimalHeader && !isEmbedMode && (
+      {!hideHeader && !showMinimalHeader && !isPublicMode && (
         <div className="bg-white border-b shadow-sm flex-shrink-0">
           {/* Mobile Header */}
           <div className="lg:hidden">
@@ -788,9 +900,11 @@ export function DashboardNativeView({
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-lg font-bold text-gray-900 truncate dashboard-header-title">
-                      {dashboard.title}
-                    </h1>
+                    {(!isPublicMode || isFullscreen) && (
+                      <h1 className="text-lg font-bold text-gray-900 truncate dashboard-header-title">
+                        {dashboard.title}
+                      </h1>
+                    )}
                     {dashboard.is_published && (
                       <Badge
                         variant="default"
@@ -809,7 +923,7 @@ export function DashboardNativeView({
                       </Badge>
                     )}
                   </div>
-                  {dashboard.description && (
+                  {dashboard.description && (!isPublicMode || isFullscreen) && (
                     <p className="text-xs text-gray-600 mt-1 truncate">{dashboard.description}</p>
                   )}
                 </div>
@@ -817,6 +931,13 @@ export function DashboardNativeView({
 
               {/* Mobile Quick Actions */}
               <div className="flex items-center gap-1 flex-shrink-0">
+                {!isPublicMode && !isReportMode && (
+                  <RequestEditPill
+                    rtype="dashboard"
+                    resourceId={dashboard.id}
+                    resourceAccessLevel={dashboard.access_level}
+                  />
+                )}
                 {!isPublicMode && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -897,6 +1018,14 @@ export function DashboardNativeView({
                 >
                   <Maximize2 className="w-4 h-4" />
                 </Button>
+
+                {!isPublicMode && dashboard?.public_share_token && (
+                  <EmbedCodeDropdown
+                    token={dashboard.public_share_token}
+                    dashboardTitle={dashboard?.title ?? ''}
+                    dashboardId={dashboard?.id}
+                  />
+                )}
               </div>
             </div>
 
@@ -941,10 +1070,12 @@ export function DashboardNativeView({
                   onDelete={handleDelete}
                   onRefresh={handleRefresh}
                   canEdit={canEdit && !isLockedByOther}
+                  canShare={canEdit}
                   isDeleting={isDeleting}
                   isRefreshing={isRefreshing}
                   dashboardTitle={dashboard?.title}
                   className="justify-end"
+                  suppressShareTestId
                 />
               </div>
             )}
@@ -982,9 +1113,11 @@ export function DashboardNativeView({
                 <div className="min-w-0 flex-1">
                   {/* Title row: title + badges + modified-by/last-updated inline */}
                   <div className="flex items-center gap-3 min-w-0">
-                    <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title truncate flex-shrink-0 max-w-md">
-                      {dashboard.title}
-                    </h1>
+                    {(!isPublicMode || isFullscreen) && (
+                      <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title truncate flex-shrink-0 max-w-md">
+                        {dashboard.title}
+                      </h1>
+                    )}
                     {dashboard.is_published && (
                       <Badge
                         variant="default"
@@ -1020,7 +1153,7 @@ export function DashboardNativeView({
                   </div>
 
                   {/* Subtitle / description below the title */}
-                  {dashboard.description && (
+                  {dashboard.description && (!isPublicMode || isFullscreen) && (
                     <p
                       className="text-sm text-gray-600 mt-1 line-clamp-2 max-w-3xl"
                       data-testid="dashboard-description"
@@ -1032,6 +1165,13 @@ export function DashboardNativeView({
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0">
+                {!isPublicMode && !isReportMode && (
+                  <RequestEditPill
+                    rtype="dashboard"
+                    resourceId={dashboard.id}
+                    resourceAccessLevel={dashboard.access_level}
+                  />
+                )}
                 {/* Landing page controls */}
                 {!isPublicMode && (
                   <DropdownMenu>
@@ -1101,6 +1241,14 @@ export function DashboardNativeView({
                   <Maximize2 className="w-4 h-4" />
                 </Button>
 
+                {!isPublicMode && dashboard?.public_share_token && (
+                  <EmbedCodeDropdown
+                    token={dashboard.public_share_token}
+                    dashboardTitle={dashboard?.title ?? ''}
+                    dashboardId={dashboard?.id}
+                  />
+                )}
+
                 {/* COMMENTED OUT: Device Size Preview Selector - not needed in view mode */}
                 {/* <Select
                 value={effectiveScreenSize}
@@ -1138,6 +1286,7 @@ export function DashboardNativeView({
                     onDelete={handleDelete}
                     onRefresh={handleRefresh}
                     canEdit={canEdit && !isLockedByOther}
+                    canShare={canEdit}
                     isDeleting={isDeleting}
                     isRefreshing={isRefreshing}
                     dashboardTitle={dashboard?.title}
@@ -1315,7 +1464,12 @@ export function DashboardNativeView({
                     // widget at its own (x,y,w,h) with gravity-up, matching the editor.
                     <GridLayout
                       className="dashboard-grid"
-                      layout={compactVertical(modifiedLayout, effectiveScreenConfig.cols)}
+                      // Pass the raw layout and let RGL's compactType="vertical" handle
+                      // compaction — identical to the editor canvas. A prior compactVertical()
+                      // pass here used a "global topmost free slot" search that let items jump
+                      // a full-width separator into an exactly-sized gap above it, so the view
+                      // reflowed differently from edit. See git history / dashboard 328.
+                      layout={modifiedLayout}
                       cols={effectiveScreenConfig.cols}
                       rowHeight={20}
                       width={actualContainerWidth}
@@ -1429,20 +1583,26 @@ export function DashboardNativeView({
         `
           : ''}
       `}</style>
+      <CelebrationModal
+        open={dashboardLiveModalOpen}
+        onOpenChange={setDashboardLiveModalOpen}
+        title="Congratulations, you're officially live!"
+        description="Your insights are built and your new dashboard is ready to go."
+        ctaLabel="View Dashboard"
+        dismissEvent={ANALYTICS_EVENTS.DASHBOARD_LIVE_MODAL_DISMISSED}
+        testId="dashboard-live-modal"
+      />
       {/* Share Modal */}
       {dashboard && !isPublicMode && (
         <ShareModal
+          rtype="dashboard"
           entityId={dashboard.id}
-          entityLabel="Dashboard"
+          entityLabel={dashboard.title || 'Dashboard'}
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
-          initialShareStatus={{
-            is_public: dashboard.is_public,
-            public_access_count: dashboard.public_access_count,
-          }}
-          getShareStatus={getDashboardSharingStatus}
-          updateSharing={updateDashboardSharing}
+          onCopyLink={handleCopyLink}
+          onMadePublic={handleMadePublic}
         />
       )}
     </div>

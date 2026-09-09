@@ -10,6 +10,7 @@ import userEvent from '@testing-library/user-event';
 import { Table, TableBody } from '@/components/ui/table';
 import { ConnectionRow } from '../connection-row';
 import { LockStatus } from '@/constants/pipeline';
+import type { Connection } from '@/types/connections';
 import { createMockConnection } from './connections-mock-data';
 
 // ============ Mocks ============
@@ -32,7 +33,7 @@ jest.mock('@/components/pipeline/utils', () => ({
 }));
 
 const defaultProps = {
-  syncingIds: [],
+  syncingIds: [] as string[],
   canSync: true,
   canEdit: true,
   canDelete: true,
@@ -64,6 +65,18 @@ describe('ConnectionRow', () => {
   it('renders connection name', () => {
     renderRow(createMockConnection());
     expect(screen.getByTestId('connection-name-conn-1')).toHaveTextContent('My Connection');
+  });
+
+  it('shows the source → destination column by default', () => {
+    renderRow(createMockConnection());
+    expect(screen.getByText('Prod DB')).toBeInTheDocument();
+    expect(screen.getByText('Warehouse')).toBeInTheDocument();
+  });
+
+  it('hides the source → destination column when hideSourceDestination is set', () => {
+    renderRow(createMockConnection(), { hideSourceDestination: true });
+    expect(screen.queryByText('Prod DB')).not.toBeInTheDocument();
+    expect(screen.queryByText('Warehouse')).not.toBeInTheDocument();
   });
 
   it('disables sync button when connection is syncing', () => {

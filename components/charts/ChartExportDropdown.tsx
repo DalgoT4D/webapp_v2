@@ -13,9 +13,11 @@ import { toast } from 'sonner';
 import { ChartExporter, generateFilename } from '@/lib/chart-export';
 import type * as echarts from 'echarts';
 import type { ChartDataPayload } from '@/types/charts';
+import type { PivotTableResponse } from '@/types/pivot-table';
 import { apiPostBinary } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, CHART_EXPORT_SOURCES } from '@/constants/analytics';
+import { useAuthStore } from '@/stores/authStore';
 
 interface ChartExportDropdownProps {
   chartTitle: string;
@@ -32,10 +34,16 @@ interface ChartExportDropdownProps {
   tableElement?: HTMLElement | null;
   // Chart data payload for CSV export
   chartDataPayload?: ChartDataPayload | null;
+  // Pivot CSV is generated client-side from the already-fetched cross-tab
+  // response (the backend stream can't represent pivot column dims/subtotals).
+  pivotData?: PivotTableResponse;
+  pivotExtraConfig?: Record<string, unknown>;
   // Public mode props
   isPublicMode?: boolean;
   publicToken?: string;
   chartId?: number;
+  // T12: drill-down filter context — when set, appended to filename and label changes
+  drillFilters?: Record<string, string>;
 }
 
 export function ChartExportDropdown({
@@ -51,11 +59,22 @@ export function ChartExportDropdown({
   chartType,
   tableElement,
   chartDataPayload,
+  pivotData,
+  pivotExtraConfig,
   isPublicMode = false,
   publicToken,
   chartId,
+  drillFilters,
 }: ChartExportDropdownProps) {
   const [isExporting, setIsExporting] = useState(false);
+  const currentOrg = useAuthStore((state) => state.currentOrg);
+  const orgLogoUrl = currentOrg?.logo_url ?? null;
+
+  // T12: when drill-down filters are active, append them to the export title
+  const effectiveTitle =
+    drillFilters && Object.keys(drillFilters).length > 0
+      ? `${chartTitle} - ${Object.values(drillFilters).join(' - ')}`
+      : chartTitle;
 
   const handleExport = async (format: 'png' | 'pdf' | 'csv') => {
     if (isExporting) return;
@@ -64,12 +83,29 @@ export function ChartExportDropdown({
     onExportStart?.();
 
     try {
-      const filename = generateFilename(chartTitle, format);
+      const filename = generateFilename(effectiveTitle, format);
       const exportOptions = {
         filename,
         format,
         backgroundColor: '#ffffff',
       };
+
+      // Pivot tables generate the cross-tab CSV client-side from the already
+      // rendered response — the backend stream only emits flat table shapes.
+      if (format === 'csv' && chartType === 'pivot_table') {
+        await ChartExporter.exportPivotAsCSV(pivotData, pivotExtraConfig, { filename });
+        // Early-return path (pivot CSV) — same props as the main export below, or
+        // pivot exports would be missing chart_id/source in the same event.
+        trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, {
+          format,
+          chart_type: chartType,
+          chart_id: chartId,
+          source: CHART_EXPORT_SOURCES.CHART_DETAIL,
+        });
+        toast.success('CSV downloaded successfully');
+        onExportComplete?.();
+        return;
+      }
 
       // Handle CSV export for all chart types using streaming endpoint
       if (format === 'csv') {
@@ -107,27 +143,44 @@ export function ChartExportDropdown({
         toast.success('CSV downloaded successfully', {
           description: `File: ${csvFilename}`,
         });
-      } else if (chartType === 'table') {
-        // Handle table image exports (PNG)
+      } else if (chartType === 'table' || chartType === 'pivot_table') {
+        // Handle table/pivot image exports (PNG)
         if (format === 'png') {
           if (!tableElement) {
             throw new Error('Table element is not available for export');
           }
-          await ChartExporter.exportTableAsImage(tableElement, exportOptions);
+          await ChartExporter.exportTableWithBranding(tableElement, {
+            ...exportOptions,
+            orgLogoUrl,
+            chartTitle,
+          });
           toast.success(`Table exported as PNG`, {
             description: 'High resolution image',
           });
         }
       } else {
-        // Export chart as PNG/PDF
-        await ChartExporter.exportChart(chartElement, chartInstance, exportOptions);
+        // PNG and PDF both get org logo + powered-by branding when a live chart instance is available
+        if ((format === 'png' || format === 'pdf') && chartInstance) {
+          await ChartExporter.exportEChartsWithBranding(chartInstance, {
+            ...exportOptions,
+            orgLogoUrl,
+            chartTitle,
+          });
+        } else {
+          await ChartExporter.exportChart(chartElement, chartInstance, exportOptions);
+        }
         const formatName = format.toUpperCase();
         toast.success(`Chart exported as ${formatName}`, {
           description: format === 'pdf' ? 'Portable Document Format' : 'High resolution image',
         });
       }
 
-      trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, { format });
+      trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, {
+        format,
+        chart_type: chartType,
+        chart_id: chartId,
+        source: CHART_EXPORT_SOURCES.CHART_DETAIL,
+      });
       onExportComplete?.();
     } catch (error: any) {
       console.error('Export error:', error);
@@ -150,12 +203,17 @@ export function ChartExportDropdown({
           ) : (
             <Download className={`w-4 h-4 ${showText ? 'mr-2' : ''}`} />
           )}
-          {showText && (isExporting ? 'Exporting...' : 'Export')}
+          {showText &&
+            (isExporting
+              ? 'Exporting...'
+              : drillFilters && Object.keys(drillFilters).length > 0
+                ? 'Export current view'
+                : 'Export')}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        {chartType === 'table' ? (
-          // Table charts show PNG and CSV export
+        {chartType === 'table' || chartType === 'pivot_table' ? (
+          // Table/pivot charts show PNG and CSV export
           <>
             <DropdownMenuItem
               onClick={() => handleExport('png')}

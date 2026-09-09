@@ -7,14 +7,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DBTTaskList } from '../DBTTaskList';
 import * as usePrefectTasksHook from '@/hooks/api/usePrefectTasks';
-import * as usePermissionsHook from '@/hooks/api/usePermissions';
+import * as rbac from '@/lib/rbac';
 import { LockStatus } from '@/constants/pipeline';
 import { createMockTask } from './transform-mock-data';
 
 // ============ Mocks ============
 
 jest.mock('@/hooks/api/usePrefectTasks');
-jest.mock('@/hooks/api/usePermissions');
+jest.mock('@/lib/rbac', () => ({ ...jest.requireActual('@/lib/rbac'), useRbac: jest.fn() }));
 
 jest.mock('@/components/pipeline/log-card', () => ({
   LogCard: () => <div data-testid="log-card" />,
@@ -44,7 +44,7 @@ describe('DBTTaskList', () => {
       mutate: mockMutate,
     });
 
-    (usePermissionsHook.useUserPermissions as jest.Mock).mockReturnValue({
+    (rbac.useRbac as jest.Mock).mockReturnValue({
       hasPermission: (perm: string) => ['can_run_orgtask', 'can_delete_orgtask'].includes(perm),
     });
 

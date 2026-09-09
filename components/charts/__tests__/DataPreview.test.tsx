@@ -113,8 +113,8 @@ describe('DataPreview', () => {
     it.each([
       ['null', null, '-'],
       ['undefined', undefined, '-'],
-      ['number with decimals', 1234567.89, '1,234,567.89'],
-      ['large number', 1000000, '1,000,000'],
+      ['number with decimals', 1234567.89, (1234567.89).toLocaleString()],
+      ['large number', 1000000, (1000000).toLocaleString()],
       ['zero', 0, '0'],
       ['boolean', true, 'true'],
       ['string', 'test', 'test'],

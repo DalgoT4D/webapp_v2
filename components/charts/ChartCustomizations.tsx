@@ -16,6 +16,8 @@ import { PieChartCustomizations } from './types/pie/PieChartCustomizations';
 import { NumberChartCustomizations } from './types/number/NumberChartCustomizations';
 import { MapChartCustomizations } from './types/map/MapChartCustomizations';
 import { TableChartCustomizations } from './types/table/TableChartCustomizations';
+import PivotTableCustomizations from '@/components/charts/pivot-table/PivotTableCustomizations';
+import { pruneStaleFormatting } from '@/components/charts/pivot-table/utils';
 
 interface ColumnInfo {
   column_name?: string;
@@ -29,6 +31,8 @@ interface ChartCustomizationsProps {
   onChange: (updates: Partial<ChartBuilderFormData>) => void;
   disabled?: boolean;
   columns?: ColumnInfo[]; // Column metadata for filtering by type
+  /** Index into the drill-down dimensions list for the currently-displayed level (0 = top). */
+  currentDrillLevel?: number;
 }
 
 export function ChartCustomizations({
@@ -37,6 +41,7 @@ export function ChartCustomizations({
   onChange,
   disabled,
   columns = [],
+  currentDrillLevel = 0,
 }: ChartCustomizationsProps) {
   // Memoize customizations to avoid dependency issues
   const customizations = useMemo(() => formData?.customizations || {}, [formData?.customizations]);
@@ -54,21 +59,24 @@ export function ChartCustomizations({
     [onChange, customizations]
   );
 
+  // Build a map of raw column names to their data types (used by both memos below)
+  const rawColumnTypeMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    columns.forEach((col) => {
+      const colName = col.column_name || col.name || '';
+      if (colName) {
+        map[colName] = col.data_type?.toLowerCase() || '';
+      }
+    });
+    return map;
+  }, [columns]);
+
   // Compute numericColumns for table charts (needed for useEffect cleanup)
   const numericColumns = useMemo(() => {
     if (chartType !== ChartTypes.TABLE || !formData) return [];
 
     const hasAggregation =
       (formData.dimensions?.length || 0) > 0 || (formData.metrics?.length || 0) > 0;
-
-    // Build a map of column names to their data types
-    const columnTypeMap: Record<string, string> = {};
-    columns.forEach((col) => {
-      const colName = col.column_name || col.name || '';
-      if (colName) {
-        columnTypeMap[colName] = col.data_type?.toLowerCase() || '';
-      }
-    });
 
     if (hasAggregation) {
       const metricCols =
@@ -78,7 +86,7 @@ export function ChartCustomizations({
 
       const dimensionCols = formData.dimensions?.map((d) => d.column).filter(Boolean) || [];
       const numericDimensionCols = dimensionCols.filter((colName) => {
-        const dataType = columnTypeMap[colName];
+        const dataType = rawColumnTypeMap[colName];
         return (
           dataType && Object.values(NumericDataType).includes(dataType as NumericDataTypeValue)
         );
@@ -88,13 +96,64 @@ export function ChartCustomizations({
     } else {
       const displayedCols = formData.table_columns || [];
       return displayedCols.filter((colName) => {
-        const dataType = columnTypeMap[colName];
+        const dataType = rawColumnTypeMap[colName];
         return (
           dataType && Object.values(NumericDataType).includes(dataType as NumericDataTypeValue)
         );
       });
     }
-  }, [chartType, formData, columns]);
+  }, [chartType, formData, rawColumnTypeMap]);
+
+  // Compute columnTypeMap for conditional formatting — maps each displayed column to 'numeric' | 'text'
+  const columnTypeMap = useMemo((): Record<string, 'numeric' | 'text'> => {
+    if (chartType !== ChartTypes.TABLE || !formData) return {};
+
+    const hasAggregation =
+      (formData.dimensions?.length || 0) > 0 || (formData.metrics?.length || 0) > 0;
+
+    const result: Record<string, 'numeric' | 'text'> = {};
+
+    if (hasAggregation) {
+      // Dimension columns: check raw data type
+      (formData.dimensions || []).forEach((d) => {
+        const colName = d.column;
+        if (!colName) return;
+        const dataType = rawColumnTypeMap[colName];
+        result[colName] =
+          dataType && Object.values(NumericDataType).includes(dataType as NumericDataTypeValue)
+            ? 'numeric'
+            : 'text';
+      });
+      // Metric alias columns: always numeric (they are aggregations)
+      (formData.metrics || []).forEach((m) => {
+        const alias = m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation);
+        if (alias) result[alias] = 'numeric';
+      });
+    } else {
+      (formData.table_columns || []).forEach((colName) => {
+        const dataType = rawColumnTypeMap[colName];
+        result[colName] =
+          dataType && Object.values(NumericDataType).includes(dataType as NumericDataTypeValue)
+            ? 'numeric'
+            : 'text';
+      });
+    }
+
+    return result;
+  }, [chartType, formData, rawColumnTypeMap]);
+
+  // Compute drill-down context for conditional formatting UI
+  const drillDownEnabled =
+    chartType === ChartTypes.TABLE &&
+    (formData?.dimensions?.some((d) => d.enable_drill_down) ?? false);
+
+  const orderedDimensions = useMemo(() => {
+    if (!drillDownEnabled || !formData?.dimensions) return [];
+    return formData.dimensions
+      .filter((d) => d.enable_drill_down)
+      .map((d) => d.column)
+      .filter(Boolean) as string[];
+  }, [drillDownEnabled, formData?.dimensions]);
 
   // Compute dateColumns for table charts (needed for useEffect cleanup)
   const dateColumns = useMemo(() => {
@@ -163,6 +222,51 @@ export function ChartCustomizations({
       updateCustomization('dateColumnFormatting', cleanedDateFormatting);
     }
   }, [chartType, customizations.dateColumnFormatting, dateColumns, updateCustomization]);
+
+  // --- Pivot table: metric + date columns eligible for formatting (also drives the
+  // stale-config cleanup below, mirroring the table chart) ---
+  const pivotMetricColumns = useMemo(() => {
+    if (chartType !== ChartTypes.PIVOT_TABLE || !formData) return [];
+    return (
+      formData.metrics
+        ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
+        .filter(Boolean) || []
+    );
+  }, [chartType, formData]);
+
+  // Datetime dimensions (row + column) eligible for display-only date formatting.
+  const pivotDateColumns = useMemo(() => {
+    if (chartType !== ChartTypes.PIVOT_TABLE || !formData) return [];
+    const rowDims = formData.extra_config?.row_dimensions || [];
+    const colDims = formData.extra_config?.column_dimensions || [];
+    const isDateColumn = (col: string) => {
+      const type = rawColumnTypeMap[col] || '';
+      return type.includes('date') || type.includes('timestamp') || type.includes('time');
+    };
+    return [...rowDims, ...colDims]
+      .filter(isDateColumn)
+      .filter((c, idx, arr) => arr.indexOf(c) === idx);
+  }, [chartType, formData, rawColumnTypeMap]);
+
+  // Clean up stale pivot number formatting when metrics change
+  useEffect(() => {
+    if (chartType !== ChartTypes.PIVOT_TABLE) return;
+    const { cleaned, changed } = pruneStaleFormatting(
+      customizations.columnFormatting as Record<string, unknown> | undefined,
+      pivotMetricColumns
+    );
+    if (changed) updateCustomization('columnFormatting', cleaned);
+  }, [chartType, customizations.columnFormatting, pivotMetricColumns, updateCustomization]);
+
+  // Clean up stale pivot date formatting when date dimensions change
+  useEffect(() => {
+    if (chartType !== ChartTypes.PIVOT_TABLE) return;
+    const { cleaned, changed } = pruneStaleFormatting(
+      customizations.dateColumnFormatting as Record<string, unknown> | undefined,
+      pivotDateColumns
+    );
+    if (changed) updateCustomization('dateColumnFormatting', cleaned);
+  }, [chartType, customizations.dateColumnFormatting, pivotDateColumns, updateCustomization]);
 
   // Safety check for undefined formData (after hooks)
   if (!formData) {
@@ -269,13 +373,79 @@ export function ChartCustomizations({
     case ChartTypes.TABLE: {
       // numericColumns is computed in useMemo above
       // Stale formatting cleanup is handled in useEffect above
+
+      // Get all displayed column names including metric aliases
+      const hasTableAggregation =
+        (formData.dimensions?.length || 0) > 0 || (formData.metrics?.length || 0) > 0;
+
+      // Build the metric-alias list once (shared by both column lists below).
+      const metricAliases =
+        formData.metrics
+          ?.map((m) => m.alias || (m.column ? `${m.aggregation}_${m.column}` : m.aggregation))
+          .filter(Boolean) || [];
+
+      // Column rearrangement mirrors what the table shows: when drill-down is
+      // enabled, only the dim for the currently-displayed level is visible.
+      const drillDownDims = drillDownEnabled
+        ? formData.dimensions?.filter((d) => d.enable_drill_down) || []
+        : [];
+      const visibleDrillDim =
+        drillDownDims[Math.min(currentDrillLevel, Math.max(drillDownDims.length - 1, 0))];
+      const visibleDimensions = drillDownEnabled
+        ? visibleDrillDim
+          ? [visibleDrillDim]
+          : []
+        : formData.dimensions || [];
+
+      const visibleTopLevelColumns = hasTableAggregation
+        ? [...visibleDimensions.map((d) => d.column).filter(Boolean), ...metricAliases]
+        : formData.table_columns || [];
+
+      // Conditional formatting needs the FULL column set (all drill-down dims + metrics)
+      // so users can target columns that only appear at deeper drill levels.
+      const cfAvailableColumns = hasTableAggregation
+        ? [...(formData.dimensions?.map((d) => d.column).filter(Boolean) || []), ...metricAliases]
+        : formData.table_columns || [];
+
+      // Use saved column order if it matches the visible top-level columns exactly
+      const savedOrder: string[] | undefined = customizations.columnOrder;
+      const allDisplayedColumns =
+        savedOrder &&
+        savedOrder.length === visibleTopLevelColumns.length &&
+        new Set(savedOrder).size === savedOrder.length &&
+        savedOrder.every((col: string) => visibleTopLevelColumns.includes(col))
+          ? savedOrder
+          : visibleTopLevelColumns;
+
       return (
         <TableChartCustomizations
           customizations={customizations}
           updateCustomization={updateCustomization}
           disabled={disabled}
           availableColumns={numericColumns}
+          allColumns={allDisplayedColumns}
+          cfAvailableColumns={cfAvailableColumns}
+          columnTypeMap={columnTypeMap}
+          drillDownEnabled={drillDownEnabled}
+          orderedDimensions={orderedDimensions}
+          onTableColumnsChange={(newOrder: string[]) => {
+            updateCustomization('columnOrder', newOrder);
+          }}
           availableDateColumns={dateColumns}
+        />
+      );
+    }
+
+    case ChartTypes.PIVOT_TABLE: {
+      // pivotMetricColumns / pivotDateColumns are computed at the top level so the
+      // stale-config cleanup effects can share them.
+      return (
+        <PivotTableCustomizations
+          customizations={customizations}
+          updateCustomization={updateCustomization}
+          disabled={disabled}
+          metricColumns={pivotMetricColumns}
+          dateColumns={pivotDateColumns}
         />
       );
     }

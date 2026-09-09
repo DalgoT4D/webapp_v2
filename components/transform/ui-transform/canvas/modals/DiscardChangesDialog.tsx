@@ -10,6 +10,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface DiscardChangesDialogProps {
   open: boolean;
@@ -35,7 +37,13 @@ export default function DiscardChangesDialog({
           <AlertDialogCancel onClick={onClose} data-testid="cancel-discard-btn">
             Cancel
           </AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} data-testid="confirm-discard-btn">
+          <AlertDialogAction
+            onClick={() => {
+              trackEvent(ANALYTICS_EVENTS.TRANSFORM_CHANGES_DISCARDED);
+              onConfirm();
+            }}
+            data-testid="confirm-discard-btn"
+          >
             Confirm
           </AlertDialogAction>
         </AlertDialogFooter>

@@ -1,13 +1,17 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDashboard } from '@/hooks/api/useDashboards';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { IndividualDashboardView } from '@/components/dashboard/individual-dashboard-view';
+import { NoAccess } from '@/components/no-access';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useUserPermissions } from '@/hooks/api/usePermissions';
+import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Lock } from 'lucide-react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 export default function DashboardViewPage() {
   const params = useParams();
@@ -15,13 +19,36 @@ export default function DashboardViewPage() {
   const dashboardId = params.id as string;
 
   // Get user permissions
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission } = useRbac();
+  const canViewDashboard = hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS);
 
-  // Fetch dashboard to determine type
-  const { data: dashboard, isLoading } = useDashboard(parseInt(dashboardId));
+  // Fetch dashboard to determine type — don't start the request without view permission
+  const {
+    data: dashboard,
+    isLoading,
+    isError,
+  } = useDashboard(canViewDashboard ? parseInt(dashboardId) : null);
+
+  // 403 from the native API means the dashboard exists in the org but the
+  // caller has no access — render the Request Access screen. 404 falls through
+  // to Superset (native lookup misses for Superset dashboards).
+  const noAccessOnNative = (isError as (Error & { status?: number }) | undefined)?.status === 403;
+
+  // Fire DASHBOARD_VIEWED here — the live dashboard route is the only genuine dashboard
+  // view. Firing inside DashboardNativeView leaked the event into the impact/landing page
+  // and report snapshots (which reuse that component). Only native (Dalgo) dashboards are
+  // counted — Superset dashboards are out of scope. Ref-guarded to fire once per dashboard.
+  const viewTrackedRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (dashboard?.dashboard_type !== 'native') return;
+    const id = parseInt(dashboardId);
+    if (viewTrackedRef.current === id) return;
+    viewTrackedRef.current = id;
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_VIEWED, { dashboard_id: id });
+  }, [dashboard, dashboardId]);
 
   // Check if user has view permissions
-  if (!hasPermission('can_view_dashboards')) {
+  if (!canViewDashboard) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
@@ -56,6 +83,10 @@ export default function DashboardViewPage() {
         </div>
       </div>
     );
+  }
+
+  if (noAccessOnNative) {
+    return <NoAccess rtype="dashboard" resourceId={parseInt(dashboardId)} />;
   }
 
   // Render appropriate view based on dashboard type

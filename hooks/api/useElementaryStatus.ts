@@ -4,11 +4,8 @@ import {
   ElementarySetupStatusResponse,
   ElementaryReportTokenResponse,
   ElementaryRefreshResponse,
-  ElementaryStatus,
-  GitPullResponse,
-  ElementaryProfileResponse,
-  CreateTrackingTablesResponse,
-  EdrDeploymentResponse,
+  ElementaryCheckResponse,
+  ElementaryInstallResponse,
   ElementaryLockResponse,
   TaskProgressResponse,
 } from '@/types/data-quality';
@@ -40,38 +37,20 @@ export function useElementaryStatus() {
 // ============ Mutation Functions ============
 
 /**
- * Pull latest dbt changes from git
+ * Preflight check: pull latest dbt code + verify elementary config exists in
+ * packages.yml and dbt_project.yml. Returns either `ready` or
+ * `needs_repo_changes` with the exists/missing snippets.
  */
-export async function gitPull(): Promise<GitPullResponse> {
-  return apiPost('/api/dbt/git_pull/', {});
+export async function elementaryCheck(): Promise<ElementaryCheckResponse> {
+  return apiPost('/api/dbt/elementary/check', {});
 }
 
 /**
- * Check dbt files for Elementary config (packages.yml, dbt_project.yml)
+ * Kick off the consolidated Elementary install celery task. Returns a task
+ * handle to poll via `pollTaskProgress`.
  */
-export async function checkDbtFiles(): Promise<ElementaryStatus> {
-  return apiGet('/api/dbt/check-dbt-files');
-}
-
-/**
- * Create Elementary credentials profile
- */
-export async function createElementaryProfile(): Promise<ElementaryProfileResponse> {
-  return apiPost('/api/dbt/create-elementary-profile/', {});
-}
-
-/**
- * Start async task to create Elementary tracking tables
- */
-export async function createElementaryTrackingTables(): Promise<CreateTrackingTablesResponse> {
-  return apiPost('/api/dbt/create-elementary-tracking-tables/', {});
-}
-
-/**
- * Create EDR (Elementary Data Reliability) deployment in Prefect
- */
-export async function createEdrDeployment(): Promise<EdrDeploymentResponse> {
-  return apiPost('/api/dbt/create-edr-deployment/', {});
+export async function elementaryInstall(): Promise<ElementaryInstallResponse> {
+  return apiPost('/api/dbt/elementary/install', {});
 }
 
 /**
@@ -96,7 +75,7 @@ export async function checkElementaryLock(): Promise<ElementaryLockResponse> {
 }
 
 /**
- * Poll for async task progress (used during tracking table creation)
+ * Poll for async task progress (used during install to render step list)
  */
 export async function pollTaskProgress(
   taskId: string,

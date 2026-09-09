@@ -65,6 +65,8 @@ export function useCanvasOperations(): UseCanvasOperationsReturn {
           `/api/transform/v2/dbt_project/models/${dbtmodelUuid}/nodes/`,
           {}
         );
+        // Engagement signal: user started building a transformation by adding a source.
+        trackEvent(ANALYTICS_EVENTS.TRANSFORM_SOURCE_ADDED);
         await refreshGraph();
         return response;
       } finally {
@@ -112,6 +114,7 @@ export function useCanvasOperations(): UseCanvasOperationsReturn {
           `/api/transform/v2/dbt_project/operations/nodes/${nodeUuid}/`,
           payload
         );
+        trackEvent(ANALYTICS_EVENTS.TRANSFORM_OPERATION_UPDATED);
         await refreshGraph();
         return response;
       } finally {
@@ -126,6 +129,7 @@ export function useCanvasOperations(): UseCanvasOperationsReturn {
       setIsDeleting(true);
       try {
         await apiDelete(`/api/transform/v2/dbt_project/nodes/${nodeUuid}/`);
+        trackEvent(ANALYTICS_EVENTS.TRANSFORM_OPERATION_DELETED);
         await refreshGraph();
       } finally {
         setIsDeleting(false);
@@ -139,6 +143,7 @@ export function useCanvasOperations(): UseCanvasOperationsReturn {
       setIsDeleting(true);
       try {
         await apiDelete(`/api/transform/v2/dbt_project/model/${nodeUuid}/`);
+        trackEvent(ANALYTICS_EVENTS.TRANSFORM_MODEL_DELETED);
         await refreshGraph();
       } finally {
         setIsDeleting(false);

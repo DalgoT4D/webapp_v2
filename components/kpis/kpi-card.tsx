@@ -15,16 +15,22 @@ import { Download, FileImage, FileText, Maximize2, MoreVertical } from 'lucide-r
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { RAG_COLORS } from '@/types/kpis';
 import { toastSuccess, toastError } from '@/lib/toast';
-import { formatMetricValue } from '@/lib/formatters';
+import { formatKPIValue } from '@/lib/formatters';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS, type KpiExportSource } from '@/constants/analytics';
+import type { KPICustomizations } from '@/types/kpis';
+import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 import type { RAGStatus } from '@/types/kpis';
 import { formatDistanceToNow, format as formatDate, parseISO, isValid } from 'date-fns';
 
 function EChartsRenderer({
   config,
   height = 'h-32',
+  customizations,
 }: {
   config: Record<string, any>;
   height?: string;
+  customizations?: KPICustomizations;
 }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -36,7 +42,20 @@ function EChartsRenderer({
       chartInstance.current.dispose();
     }
     chartInstance.current = echarts.init(chartRef.current);
-    chartInstance.current.setOption(config);
+
+    // Inject a tooltip valueFormatter so trendline hover values render with
+    // the KPI's customizations (matches the card's current value + target).
+    const effectiveConfig = customizations
+      ? {
+          ...config,
+          tooltip: {
+            ...(config.tooltip || {}),
+            valueFormatter: (value: number | null) => formatKPIValue(value, customizations),
+          },
+        }
+      : config;
+
+    chartInstance.current.setOption(effectiveConfig);
 
     const handleResize = () => chartInstance.current?.resize();
     window.addEventListener('resize', handleResize);
@@ -51,7 +70,7 @@ function EChartsRenderer({
       chartInstance.current?.dispose();
       chartInstance.current = null;
     };
-  }, [config]);
+  }, [config, customizations]);
 
   if (!config || Object.keys(config).length === 0) {
     return (
@@ -84,6 +103,11 @@ export interface KPICardData {
   updatedAt: string;
   isLoading: boolean;
   periods?: { period: string; period_date?: string | null; value: number | null }[];
+  /**
+   * Display customizations for the current value + target. When undefined,
+   * the card falls back to the legacy compact display via formatKPIValue.
+   */
+  customizations?: KPICustomizations;
 }
 
 interface KPICardProps {
@@ -100,6 +124,10 @@ interface KPICardProps {
   downloadInMenu?: boolean;
   /** When true, shows a fullscreen toggle button (used on dashboards) */
   showFullscreen?: boolean;
+  /** Analytics only — the KPI behind this card, so exports can be joined to it. */
+  kpiId?: number;
+  /** Analytics only — which surface this card is rendered on (KPI_EXPORT_SOURCES). */
+  exportSource?: KpiExportSource;
 }
 
 export function KPICard({
@@ -114,6 +142,8 @@ export function KPICard({
   showDownload = true,
   downloadInMenu,
   showFullscreen,
+  kpiId,
+  exportSource,
 }: KPICardProps) {
   const {
     currentValue,
@@ -153,12 +183,20 @@ export function KPICard({
       link.download = `kpi-${name}.png`;
       link.click();
       toastSuccess.exported(name, 'png');
+      // Inside the try, after the click — html2canvas can fail, and a failed render
+      // must not count as an export.
+      trackEvent(ANALYTICS_EVENTS.KPI_EXPORTED, {
+        kpi_id: kpiId,
+        format: 'png',
+        source: exportSource,
+      });
     } catch {
       toastError.api(null, 'Failed to download');
     }
-  }, [name]);
+  }, [name, kpiId, exportSource]);
 
   const handleDownloadCSV = useCallback(() => {
+    // Early return before the event: an empty KPI exports nothing.
     if (!periods || periods.length === 0) {
       toastError.api(null, 'No data to export');
       return;
@@ -174,7 +212,12 @@ export function KPICard({
     link.click();
     URL.revokeObjectURL(link.href);
     toastSuccess.exported(name, 'csv');
-  }, [name, periods]);
+    trackEvent(ANALYTICS_EVENTS.KPI_EXPORTED, {
+      kpi_id: kpiId,
+      format: 'csv',
+      source: exportSource,
+    });
+  }, [name, periods, kpiId, exportSource]);
 
   const isPositiveChange =
     popChange !== null &&
@@ -231,8 +274,10 @@ export function KPICard({
       {/* Header */}
       <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-2 border-b">
         <div className="min-w-0">
-          <h3 className="font-semibold text-gray-900 truncate">{name}</h3>
-          {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
+          <OverflowTooltip text={name} className="font-semibold text-gray-900" />
+          {subtitle && (
+            <OverflowTooltip text={subtitle} className="text-xs text-muted-foreground" />
+          )}
         </div>
         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
           {ragInfo && (
@@ -275,11 +320,11 @@ export function KPICard({
         ) : (
           <>
             <div className="text-4xl font-bold text-gray-900">
-              {formatMetricValue(currentValue)}
+              {formatKPIValue(currentValue, data.customizations)}
             </div>
             {targetValue !== null && targetValue !== undefined && (
               <p className="text-sm text-muted-foreground mt-0.5">
-                Target: {formatMetricValue(targetValue)}
+                Target: {formatKPIValue(targetValue, data.customizations)}
               </p>
             )}
             {popChange !== null && (
@@ -305,7 +350,11 @@ export function KPICard({
         {isLoading ? (
           <Skeleton className="h-32 w-full" />
         ) : (
-          <EChartsRenderer config={echartsConfig || {}} height="h-full" />
+          <EChartsRenderer
+            config={echartsConfig || {}}
+            height="h-full"
+            customizations={data.customizations}
+          />
         )}
       </div>
 
