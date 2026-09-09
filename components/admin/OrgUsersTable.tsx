@@ -37,17 +37,20 @@ export function OrgUsersTable({ orgId }: OrgUsersTableProps) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [roleTarget, setRoleTarget] = useState<AdminOrgUser | null>(null);
   const [removeTarget, setRemoveTarget] = useState<AdminOrgUser | null>(null);
-  const [busyId, setBusyId] = useState<number | null>(null);
+  // Scoped to invitations on purpose. Member ids (orguser_id) and invitation ids come
+  // from different tables and can collide, so one shared "busy" id would disable an
+  // unrelated row; keep any future member-level busy state in its own piece of state.
+  const [busyInviteId, setBusyInviteId] = useState<number | null>(null);
 
   const onCancelInvite = async (invitationId: number) => {
-    setBusyId(invitationId);
+    setBusyInviteId(invitationId);
     try {
       await cancelInvitation(orgId, invitationId);
       await mutate();
     } catch {
       // toast surfaced in the hook
     } finally {
-      setBusyId(null);
+      setBusyInviteId(null);
     }
   };
 
@@ -129,7 +132,7 @@ export function OrgUsersTable({ orgId }: OrgUsersTableProps) {
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={busyId === inv.id}
+                      disabled={busyInviteId === inv.id}
                       onClick={() => onCancelInvite(inv.id)}
                       data-testid={`org-invite-cancel-${inv.id}`}
                     >

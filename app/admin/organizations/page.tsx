@@ -87,10 +87,23 @@ export default function AdminOrganizationsPage() {
               </TableRow>
             ) : (
               filtered.map((org) => (
+                // The whole row is the target (any cell is a fine place to click), so it
+                // carries the link semantics rather than the name cell — with keyboard
+                // equivalents, since a TableRow is not focusable on its own.
                 <TableRow
                   key={org.id}
-                  className="cursor-pointer"
+                  role="link"
+                  tabIndex={0}
+                  aria-label={`Open ${org.name}`}
+                  data-testid={`admin-org-row-${org.id}`}
+                  className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => router.push(`/admin/organizations/${org.id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault(); // Space would otherwise scroll the page
+                      router.push(`/admin/organizations/${org.id}`);
+                    }
+                  }}
                 >
                   <TableCell className="font-medium">{org.name}</TableCell>
                   <TableCell className="text-muted-foreground">{org.slug}</TableCell>

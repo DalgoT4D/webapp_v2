@@ -59,7 +59,12 @@ export function useAdminSession() {
 
   return {
     session: data,
-    isPlatformAdmin: data ? Boolean(data.is_platform_admin) : false,
+    // FAIL CLOSED: SWR keeps the last good `data` when a later revalidation fails, so
+    // deriving admin-ness from `data` alone would keep the admin shell rendered after
+    // the session went away (revoked permission, expired session, backend down). The
+    // error has to veto the stale answer. The cost is that a transient blip drops the
+    // admin back to /admin/login — the right trade for an access-control gate.
+    isPlatformAdmin: !error && data ? Boolean(data.is_platform_admin) : false,
     isLoading,
     // `isError` is the repo-wide read-hook contract (rules/api-hooks.md, useCharts /
     // usePipelines); `error` is kept alongside it for the existing callers.
@@ -146,7 +151,7 @@ export function useAdminOrgActions() {
       const org = (await apiPost('/api/v1/admin/orgs', data)) as AdminOrg;
       toastSuccess.generic('Organization created');
       return org;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toastError.api(error, 'Failed to create organization');
       throw error;
     }
@@ -157,7 +162,7 @@ export function useAdminOrgActions() {
       const org = (await apiPut(`/api/v1/admin/orgs/${orgId}`, data)) as AdminOrg;
       toastSuccess.generic('Organization updated');
       return org;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toastError.api(error, 'Failed to update organization');
       throw error;
     }
@@ -167,7 +172,7 @@ export function useAdminOrgActions() {
     try {
       await apiDelete(`/api/v1/admin/orgs/${orgId}`);
       toastSuccess.generic('Organization deleted');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toastError.api(error, 'Failed to delete organization');
       throw error;
     }
@@ -330,7 +335,7 @@ export function useAdminFlagActions() {
       return (await apiPut(`/api/v1/admin/orgs/${orgId}/flags/${flagName}`, {
         enabled,
       })) as Record<string, boolean>;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toastError.api(error, 'Failed to update the flag');
       throw error;
     }
@@ -345,7 +350,7 @@ export function useAdminOrgUserActions() {
     try {
       await apiPost(`/api/v1/admin/orgs/${orgId}/users/invite`, data);
       toastSuccess.generic('Invitation sent');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toastError.api(error, 'Failed to send invitation');
       throw error;
     }
@@ -357,7 +362,7 @@ export function useAdminOrgUserActions() {
         role_uuid: roleUuid,
       });
       toastSuccess.generic('Role updated');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toastError.api(error, 'Failed to update role');
       throw error;
     }
@@ -367,7 +372,7 @@ export function useAdminOrgUserActions() {
     try {
       await apiDelete(`/api/v1/admin/orgs/${orgId}/users/${orgUserId}`);
       toastSuccess.generic('User removed from organization');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toastError.api(error, 'Failed to remove user');
       throw error;
     }
@@ -377,7 +382,7 @@ export function useAdminOrgUserActions() {
     try {
       await apiDelete(`/api/v1/admin/orgs/${orgId}/invitations/${invitationId}`);
       toastSuccess.generic('Invitation cancelled');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toastError.api(error, 'Failed to cancel invitation');
       throw error;
     }
@@ -461,7 +466,7 @@ export function useAdminNotificationActions() {
       return (await apiPost('/api/v1/admin/notifications/preview', {
         org_ids: orgIds,
       })) as AdminNotificationPreview;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toastError.api(error, 'Failed to preview recipients');
       throw error;
     }
@@ -477,7 +482,7 @@ export function useAdminNotificationActions() {
       )) as AdminNotification;
       toastSuccess.generic('Broadcast sent');
       return notification;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toastError.api(error, 'Failed to send broadcast');
       throw error;
     }

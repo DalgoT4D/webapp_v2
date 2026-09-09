@@ -21,8 +21,9 @@ import { useAdminOrg, useAdminOrgActions } from '@/hooks/api/useAdminPortal';
 import { OrgUsersTable } from '@/components/admin/OrgUsersTable';
 import { OrgFlagsPanel } from '@/components/admin/OrgFlagsPanel';
 import { DeleteOrgDialog } from '@/components/admin/DeleteOrgDialog';
-import { trackFeatureView } from '@/lib/analytics';
-import { FEATURES } from '@/constants/analytics';
+import { trackEvent, trackFeatureView } from '@/lib/analytics';
+import { ANALYTICS_EVENTS, FEATURES } from '@/constants/analytics';
+import { isValidVizUrl, VIZ_URL_ERROR } from '@/components/admin/utils';
 
 const BASE_PLANS = ['Free Trial', 'Dalgo', 'Internal'];
 
@@ -50,6 +51,7 @@ export default function AdminOrganizationDetailPage() {
   const [vizUrl, setVizUrl] = useState('');
   const [basePlan, setBasePlan] = useState('Free Trial');
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string; vizUrl?: string }>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -81,13 +83,28 @@ export default function AdminOrganizationDetailPage() {
   }
 
   const onSave = async () => {
+    const trimmedName = name.trim();
+    const trimmedVizUrl = vizUrl.trim();
+
+    // Both were previously sent as `undefined` when cleared, which the backend reads as
+    // "leave unchanged" — so a blank name silently reverted on the next fetch with no
+    // hint that nothing was saved. Say so instead.
+    const nextErrors: { name?: string; vizUrl?: string } = {};
+    if (!trimmedName) nextErrors.name = 'Name is required';
+    if (trimmedVizUrl && !isValidVizUrl(trimmedVizUrl)) {
+      nextErrors.vizUrl = VIZ_URL_ERROR;
+    }
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
     setSaving(true);
     try {
       await updateOrg(org.id, {
-        name: name.trim() || undefined,
-        viz_url: vizUrl.trim() || undefined,
+        name: trimmedName,
+        viz_url: trimmedVizUrl || undefined,
         base_plan: basePlan,
       });
+      trackEvent(ANALYTICS_EVENTS.ADMIN_ORG_UPDATED, { base_plan: basePlan });
       await mutate();
       setEditing(false);
     } catch {
@@ -119,6 +136,7 @@ export default function AdminOrganizationDetailPage() {
                 data-testid="edit-org-button"
                 onClick={() => {
                   setActiveTab('overview');
+                  setErrors({});
                   setEditing(true);
                 }}
               >
@@ -167,7 +185,13 @@ export default function AdminOrganizationDetailPage() {
                 <div className="space-y-5">
                   <div className="space-y-2">
                     <Label htmlFor="edit-name">Name</Label>
-                    <Input id="edit-name" value={name} onChange={(e) => setName(e.target.value)} />
+                    <Input
+                      id="edit-name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className={errors.name ? 'border-destructive' : ''}
+                    />
+                    {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit-slug">Slug</Label>
@@ -184,7 +208,10 @@ export default function AdminOrganizationDetailPage() {
                       value={vizUrl}
                       onChange={(e) => setVizUrl(e.target.value)}
                       placeholder="https://superset.example.org"
+                      className={errors.vizUrl ? 'border-destructive' : ''}
+                      data-testid="edit-org-viz-url-input"
                     />
+                    {errors.vizUrl && <p className="text-sm text-destructive">{errors.vizUrl}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit-base-plan">Plan</Label>
@@ -205,7 +232,19 @@ export default function AdminOrganizationDetailPage() {
                     <Button onClick={onSave} disabled={saving}>
                       {saving ? 'Saving…' : 'Save changes'}
                     </Button>
-                    <Button variant="outline" onClick={() => setEditing(false)} disabled={saving}>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        // Discard the edit: drop the errors AND the unsaved values, so
+                        // re-opening Edit starts from what the server actually has.
+                        setErrors({});
+                        setName(org.name);
+                        setVizUrl(org.viz_url ?? '');
+                        setBasePlan(org.base_plan ?? 'Free Trial');
+                        setEditing(false);
+                      }}
+                      disabled={saving}
+                    >
                       Cancel
                     </Button>
                   </div>

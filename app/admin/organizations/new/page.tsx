@@ -17,6 +17,9 @@ import {
 } from '@/components/ui/select';
 import { useAdminOrgActions } from '@/hooks/api/useAdminPortal';
 import { EMAIL_RE } from '@/components/admin/constants';
+import { isValidVizUrl, VIZ_URL_ERROR } from '@/components/admin/utils';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 const BASE_PLANS = ['Free Trial', 'Dalgo', 'Internal'];
 
@@ -28,19 +31,24 @@ export default function AdminCreateOrganizationPage() {
   const [vizUrl, setVizUrl] = useState('');
   const [basePlan, setBasePlan] = useState('Free Trial');
   const [submitting, setSubmitting] = useState(false);
-  const [errors, setErrors] = useState<{ adminEmail?: string }>({});
+  const [errors, setErrors] = useState<{ adminEmail?: string; vizUrl?: string }>({});
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !adminEmail.trim()) return;
 
-    // same check as the Users-tab invite dialog — a typo here means the org's only
-    // admin never gets their invitation
+    // same checks as the edit form on the org detail page — noValidate is set, so
+    // neither the email nor the URL field is checked by the browser. A typo in the
+    // email means the org's only admin never gets their invitation.
+    const nextErrors: { adminEmail?: string; vizUrl?: string } = {};
     if (!EMAIL_RE.test(adminEmail.trim())) {
-      setErrors({ adminEmail: 'Invalid email address' });
-      return;
+      nextErrors.adminEmail = 'Invalid email address';
     }
-    setErrors({});
+    if (vizUrl.trim() && !isValidVizUrl(vizUrl.trim())) {
+      nextErrors.vizUrl = VIZ_URL_ERROR;
+    }
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
 
     setSubmitting(true);
     try {
@@ -50,6 +58,9 @@ export default function AdminCreateOrganizationPage() {
         base_plan: basePlan,
         admin_email: adminEmail.trim(),
       });
+      // Success path only. No email or org name — PostHog attaches the person itself,
+      // and base_plan is the dimension worth segmenting new orgs by.
+      trackEvent(ANALYTICS_EVENTS.ADMIN_ORG_CREATED, { base_plan: basePlan });
       router.push(`/admin/organizations/${org.id}`);
     } catch {
       // toast already surfaced by the action; stay on the form
@@ -117,7 +128,10 @@ export default function AdminCreateOrganizationPage() {
                 value={vizUrl}
                 onChange={(e) => setVizUrl(e.target.value)}
                 placeholder="https://superset.example.org"
+                className={errors.vizUrl ? 'border-destructive' : ''}
+                data-testid="org-viz-url-input"
               />
+              {errors.vizUrl && <p className="text-sm text-destructive">{errors.vizUrl}</p>}
             </div>
 
             <div className="space-y-2">

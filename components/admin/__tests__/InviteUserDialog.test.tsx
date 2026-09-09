@@ -5,12 +5,18 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
 import * as useAdminPortal from '@/hooks/api/useAdminPortal';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 jest.mock('@/hooks/api/useAdminPortal');
+
+const mockTrackEvent = jest.fn();
+jest.mock('@/lib/analytics', () => ({
+  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+}));
 jest.mock('@/hooks/api/useUserManagement', () => ({
   useRoles: () => ({ roles: [{ uuid: 'role-guest', name: 'Guest', slug: 'guest' }] }),
 }));
@@ -54,5 +60,36 @@ describe('Admin InviteUserDialog', () => {
 
     expect(screen.getByText('Invalid email address')).toBeInTheDocument();
     expect(mockInvite).not.toHaveBeenCalled();
+  });
+
+  it('reports the invite on success, by role and never by email', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderDialog();
+
+    await user.type(screen.getByTestId('admin-invite-email-input'), 'priya@akshara.org');
+    await user.click(screen.getByTestId('admin-invite-role-select'));
+    await user.click(await screen.findByRole('option', { name: 'Guest' }));
+    await user.click(screen.getByTestId('admin-invite-submit'));
+
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.ADMIN_USER_INVITED, {
+        role: 'guest',
+      })
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain('priya@akshara.org');
+  });
+
+  it('does not report an invite that failed', async () => {
+    const user = userEvent.setup({ delay: null });
+    mockInvite.mockRejectedValueOnce(new Error('backend down'));
+    renderDialog();
+
+    await user.type(screen.getByTestId('admin-invite-email-input'), 'priya@akshara.org');
+    await user.click(screen.getByTestId('admin-invite-role-select'));
+    await user.click(await screen.findByRole('option', { name: 'Guest' }));
+    await user.click(screen.getByTestId('admin-invite-submit'));
+
+    await waitFor(() => expect(mockInvite).toHaveBeenCalled());
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 });

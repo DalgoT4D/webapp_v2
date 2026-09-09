@@ -52,6 +52,16 @@ export const ANALYTICS_EVENTS = {
   // so its sign-in is tracked apart from auth:user_logged_in.
   ADMIN_LOGGED_IN: 'admin:admin_logged_in',
   ADMIN_LOGIN_FAILED: 'admin:admin_login_failed',
+  // Organization lifecycle, run cross-org from the portal (distinct from anything
+  // an org's own admin can do, hence the admin: prefix rather than settings:).
+  ADMIN_ORG_CREATED: 'admin:org_created',
+  ADMIN_ORG_UPDATED: 'admin:org_updated',
+  ADMIN_ORG_DELETED: 'admin:org_deleted',
+  // Cross-org user management (Users tab). Removal is destructive and audited,
+  // so unlike ordinary deletes it is worth an event.
+  ADMIN_USER_INVITED: 'admin:user_invited',
+  ADMIN_USER_ROLE_CHANGED: 'admin:user_role_changed',
+  ADMIN_USER_REMOVED: 'admin:user_removed',
   // Feature flags (per-org on/off)
   ADMIN_FLAG_SET: 'admin:flag_set',
   // Broadcast notifications (whole platform, one org, or several orgs at once)

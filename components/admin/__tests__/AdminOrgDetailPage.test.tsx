@@ -13,14 +13,16 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AdminOrganizationDetailPage from '@/app/admin/organizations/[id]/page';
 import * as useAdminPortal from '@/hooks/api/useAdminPortal';
-import { FEATURES } from '@/constants/analytics';
+import type { AdminOrg } from '@/hooks/api/useAdminPortal';
+import { ANALYTICS_EVENTS, FEATURES } from '@/constants/analytics';
 
 jest.mock('@/hooks/api/useAdminPortal');
 
 const mockTrackFeatureView = jest.fn();
+const mockTrackEvent = jest.fn();
 jest.mock('@/lib/analytics', () => ({
   trackFeatureView: (...args: unknown[]) => mockTrackFeatureView(...args),
-  trackEvent: jest.fn(),
+  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
 }));
 
 jest.mock('next/navigation', () => ({
@@ -36,7 +38,7 @@ jest.mock('@/components/admin/OrgFlagsPanel', () => ({
   OrgFlagsPanel: () => <div data-testid="org-flags-panel" />,
 }));
 
-const org = {
+const org: AdminOrg = {
   id: 42,
   name: 'Akshara',
   slug: 'akshara',
@@ -45,8 +47,11 @@ const org = {
   user_count: 5,
 };
 
+let mockUpdateOrg: jest.Mock;
+
 beforeEach(() => {
   jest.clearAllMocks();
+  mockUpdateOrg = jest.fn().mockResolvedValue(org);
   (useAdminPortal.useAdminOrg as jest.Mock).mockReturnValue({
     org,
     isLoading: false,
@@ -54,8 +59,92 @@ beforeEach(() => {
   });
   (useAdminPortal.useAdminOrgActions as jest.Mock).mockReturnValue({
     createOrg: jest.fn(),
-    updateOrg: jest.fn(),
+    updateOrg: mockUpdateOrg,
     deleteOrg: jest.fn(),
+  });
+});
+
+/** Open the Overview edit form. */
+const startEditing = async (user: ReturnType<typeof userEvent.setup>) => {
+  render(<AdminOrganizationDetailPage />);
+  await user.click(screen.getByTestId('edit-org-button'));
+};
+
+describe('AdminOrganizationDetailPage edit form', () => {
+  // A cleared name used to be sent as `undefined`, which the backend reads as "leave
+  // unchanged": the save appeared to succeed and the old name reappeared, with nothing
+  // on screen saying why.
+  it('refuses to save a cleared name and says so', async () => {
+    const user = userEvent.setup({ delay: null });
+    await startEditing(user);
+
+    await user.clear(screen.getByLabelText('Name'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(screen.getByText('Name is required')).toBeInTheDocument();
+    expect(mockUpdateOrg).not.toHaveBeenCalled();
+  });
+
+  // type="url" on an input outside a <form> is never checked by the browser, so any
+  // string reached the API.
+  it('rejects a visualization URL that is not a real URL', async () => {
+    const user = userEvent.setup({ delay: null });
+    await startEditing(user);
+
+    await user.type(screen.getByLabelText('Visualization URL'), 'superset.example.org');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(
+      screen.getByText('Enter a full URL, e.g. https://superset.example.org')
+    ).toBeInTheDocument();
+    expect(mockUpdateOrg).not.toHaveBeenCalled();
+  });
+
+  it('saves valid changes and reports the update', async () => {
+    const user = userEvent.setup({ delay: null });
+    await startEditing(user);
+
+    await user.clear(screen.getByLabelText('Name'));
+    await user.type(screen.getByLabelText('Name'), 'Akshara Foundation');
+    await user.type(screen.getByLabelText('Visualization URL'), 'https://superset.example.org');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(mockUpdateOrg).toHaveBeenCalledWith(42, {
+      name: 'Akshara Foundation',
+      viz_url: 'https://superset.example.org',
+      base_plan: 'Dalgo',
+    });
+    expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.ADMIN_ORG_UPDATED, {
+      base_plan: 'Dalgo',
+    });
+  });
+
+  it('leaves the optional visualization URL out when it is blank', async () => {
+    const user = userEvent.setup({ delay: null });
+    await startEditing(user);
+
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(mockUpdateOrg).toHaveBeenCalledWith(42, {
+      name: 'Akshara',
+      viz_url: undefined,
+      base_plan: 'Dalgo',
+    });
+  });
+
+  it('discards unsaved edits and their errors on Cancel', async () => {
+    const user = userEvent.setup({ delay: null });
+    await startEditing(user);
+
+    await user.clear(screen.getByLabelText('Name'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(screen.getByText('Name is required')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByTestId('edit-org-button'));
+
+    expect(screen.queryByText('Name is required')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toHaveValue('Akshara');
   });
 });
 

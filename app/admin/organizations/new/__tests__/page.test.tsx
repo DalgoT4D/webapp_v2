@@ -13,8 +13,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AdminCreateOrganizationPage from '@/app/admin/organizations/new/page';
 import * as useAdminPortal from '@/hooks/api/useAdminPortal';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 jest.mock('@/hooks/api/useAdminPortal');
+
+const mockTrackEvent = jest.fn();
+jest.mock('@/lib/analytics', () => ({
+  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+}));
 
 const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
@@ -108,6 +114,68 @@ describe('AdminCreateOrganizationPage admin email', () => {
     expect(screen.getByTestId('org-admin-email-input')).toHaveValue('owner@bhumi.org');
     expect(screen.getByTestId('create-org-submit')).not.toBeDisabled();
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('reports the creation by plan on success only, never by email', async () => {
+    const user = userEvent.setup({ delay: null });
+    render(<AdminCreateOrganizationPage />);
+
+    await user.type(screen.getByLabelText('Name'), 'Bhumi');
+    await user.type(screen.getByTestId('org-admin-email-input'), 'owner@bhumi.org');
+    await user.click(screen.getByTestId('create-org-submit'));
+
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.ADMIN_ORG_CREATED, {
+        base_plan: 'Free Trial',
+      })
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain('owner@bhumi.org');
+  });
+
+  it('does not report a creation that failed', async () => {
+    mockCreateOrg.mockRejectedValueOnce(new Error('airbyte is down'));
+    const user = userEvent.setup({ delay: null });
+    render(<AdminCreateOrganizationPage />);
+
+    await user.type(screen.getByLabelText('Name'), 'Bhumi');
+    await user.type(screen.getByTestId('org-admin-email-input'), 'owner@bhumi.org');
+    await user.click(screen.getByTestId('create-org-submit'));
+
+    await waitFor(() => expect(mockCreateOrg).toHaveBeenCalled());
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  // Same trap as the edit form: the field is type="url" but the form sets noValidate,
+  // so the browser never checks it and any string used to reach the API.
+  it('rejects a visualization URL that is not a real URL', async () => {
+    const user = userEvent.setup({ delay: null });
+    render(<AdminCreateOrganizationPage />);
+
+    await user.type(screen.getByLabelText('Name'), 'Bhumi');
+    await user.type(screen.getByTestId('org-admin-email-input'), 'owner@bhumi.org');
+    await user.type(screen.getByTestId('org-viz-url-input'), 'superset.example.org');
+    await user.click(screen.getByTestId('create-org-submit'));
+
+    expect(
+      screen.getByText('Enter a full URL, e.g. https://superset.example.org')
+    ).toBeInTheDocument();
+    expect(mockCreateOrg).not.toHaveBeenCalled();
+  });
+
+  it('accepts a full visualization URL', async () => {
+    const user = userEvent.setup({ delay: null });
+    render(<AdminCreateOrganizationPage />);
+
+    await user.type(screen.getByLabelText('Name'), 'Bhumi');
+    await user.type(screen.getByTestId('org-admin-email-input'), 'owner@bhumi.org');
+    await user.type(screen.getByTestId('org-viz-url-input'), 'https://superset.example.org');
+    await user.click(screen.getByTestId('create-org-submit'));
+
+    await waitFor(() =>
+      expect(mockCreateOrg).toHaveBeenCalledWith(
+        expect.objectContaining({ viz_url: 'https://superset.example.org' })
+      )
+    );
   });
 
   it('tells the admin what will happen to the person they name', () => {

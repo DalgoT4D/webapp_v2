@@ -17,6 +17,8 @@ import {
   type AdminOrgUser,
 } from '@/hooks/api/useAdminPortal';
 import { useImpactPreflight } from '@/components/admin/useImpactPreflight';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface RemoveUserDialogProps {
   open: boolean;
@@ -64,6 +66,13 @@ export function RemoveUserDialog({
     setIsRemoving(true);
     try {
       await removeUser(orgId, orgUser.orguser_id);
+      // The highest-stakes action in the portal — worth an event despite the general
+      // "skip deletes" rule. Counts only, never the removed user's email.
+      trackEvent(ANALYTICS_EVENTS.ADMIN_USER_REMOVED, {
+        dashboards_orphaned: impact?.dashboards_orphaned ?? 0,
+        charts_orphaned: impact?.charts_orphaned ?? 0,
+        reports_orphaned: impact?.reports_orphaned ?? 0,
+      });
       onSuccess();
     } catch {
       // toast surfaced in the hook

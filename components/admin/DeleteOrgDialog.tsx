@@ -17,6 +17,8 @@ import {
   type AdminOrg,
 } from '@/hooks/api/useAdminPortal';
 import { useImpactPreflight } from '@/components/admin/useImpactPreflight';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface DeleteOrgDialogProps {
   open: boolean;
@@ -55,6 +57,13 @@ export function DeleteOrgDialog({ open, onOpenChange, org, onSuccess }: DeleteOr
     setIsDeleting(true);
     try {
       await deleteOrg(org.id);
+      // Irreversible and cross-org — the one delete worth an event. Counts only, so the
+      // scale of what was torn down is visible without naming the org.
+      trackEvent(ANALYTICS_EVENTS.ADMIN_ORG_DELETED, {
+        user_count: impact?.user_count ?? 0,
+        pipeline_count: impact?.pipeline_count ?? 0,
+        dashboard_count: impact?.dashboard_count ?? 0,
+      });
       onSuccess();
     } catch {
       // toast surfaced in the hook

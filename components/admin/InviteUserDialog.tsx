@@ -22,6 +22,8 @@ import {
 import { useRoles } from '@/hooks/api/useUserManagement';
 import { useAdminOrgUserActions } from '@/hooks/api/useAdminPortal';
 import { EMAIL_RE } from '@/components/admin/constants';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface InviteUserDialogProps {
   open: boolean;
@@ -66,6 +68,10 @@ export function InviteUserDialog({ open, onOpenChange, orgId, onSuccess }: Invit
     setIsSubmitting(true);
     try {
       await inviteUser(orgId, { invited_email: email.trim(), invited_role_uuid: roleUuid });
+      // Success path only, and never the invitee's email — the role is the one
+      // dimension worth segmenting admin invites by.
+      const invitedRole = roles?.find((r) => r.uuid === roleUuid);
+      trackEvent(ANALYTICS_EVENTS.ADMIN_USER_INVITED, { role: invitedRole?.slug ?? roleUuid });
       reset();
       onSuccess();
       onOpenChange(false);

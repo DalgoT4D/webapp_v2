@@ -20,6 +20,8 @@ import {
 } from '@/components/ui/select';
 import { useRoles } from '@/hooks/api/useUserManagement';
 import { useAdminOrgUserActions, type AdminOrgUser } from '@/hooks/api/useAdminPortal';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface ChangeRoleDialogProps {
   open: boolean;
@@ -61,6 +63,12 @@ export function ChangeRoleDialog({
     setIsSubmitting(true);
     try {
       await changeRole(orgId, orgUser.orguser_id, roleUuid);
+      // Success path only. The role assigned is the dimension; the affected user is not
+      // identified (PostHog attaches the acting admin, which is who the event is about).
+      const assignedRole = roles?.find((r) => r.uuid === roleUuid);
+      trackEvent(ANALYTICS_EVENTS.ADMIN_USER_ROLE_CHANGED, {
+        role: assignedRole?.slug ?? roleUuid,
+      });
       onSuccess();
       onOpenChange(false);
     } catch {

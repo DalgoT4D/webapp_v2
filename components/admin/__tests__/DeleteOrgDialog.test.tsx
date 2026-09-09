@@ -12,8 +12,14 @@ import userEvent from '@testing-library/user-event';
 import { DeleteOrgDialog } from '@/components/admin/DeleteOrgDialog';
 import * as useAdminPortal from '@/hooks/api/useAdminPortal';
 import type { AdminOrg } from '@/hooks/api/useAdminPortal';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 jest.mock('@/hooks/api/useAdminPortal');
+
+const mockTrackEvent = jest.fn();
+jest.mock('@/lib/analytics', () => ({
+  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+}));
 
 const mockDeleteOrg = jest.fn().mockResolvedValue(undefined);
 const mockGetOrgDeletionImpact = useAdminPortal.getOrgDeletionImpact as jest.Mock;
@@ -117,5 +123,44 @@ describe('DeleteOrgDialog', () => {
 
     await userEvent.click(confirm);
     expect(mockDeleteOrg).toHaveBeenCalledWith(42);
+  });
+
+  it('reports the deletion with the destroyed counts, and not at all when it fails', async () => {
+    mockGetOrgDeletionImpact.mockResolvedValue({
+      user_count: 3,
+      warehouse_count: 1,
+      connection_count: 2,
+      pipeline_count: 4,
+      dashboard_count: 6,
+      chart_count: 9,
+      report_count: 0,
+    });
+
+    const { unmount } = renderDialog();
+    await waitFor(() =>
+      expect(screen.getByTestId('org-deletion-impact-summary')).toBeInTheDocument()
+    );
+    await userEvent.click(screen.getByTestId('delete-org-confirm'));
+
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.ADMIN_ORG_DELETED, {
+        user_count: 3,
+        pipeline_count: 4,
+        dashboard_count: 6,
+      })
+    );
+
+    unmount();
+    mockTrackEvent.mockClear();
+    mockDeleteOrg.mockRejectedValueOnce(new Error('backend down'));
+
+    renderDialog();
+    await waitFor(() =>
+      expect(screen.getByTestId('org-deletion-impact-summary')).toBeInTheDocument()
+    );
+    await userEvent.click(screen.getByTestId('delete-org-confirm'));
+
+    await waitFor(() => expect(mockDeleteOrg).toHaveBeenCalledTimes(2));
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 });

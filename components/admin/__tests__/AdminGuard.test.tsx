@@ -123,6 +123,27 @@ describe('AdminGuard', () => {
     expect(screen.queryByText('admin shell')).not.toBeInTheDocument();
   });
 
+  // Fail closed: SWR hands back the last good `data` alongside the new `error` when a
+  // revalidation fails, so a guard that reads only `data` keeps the admin shell up after
+  // the session is gone (permission revoked, session expired, backend down).
+  it('stops trusting a cached admin session once a revalidation fails', async () => {
+    const cache = new Map<string, any>();
+
+    mockApiGet.mockResolvedValue({ email: 'admin@dalgo.org', is_platform_admin: true });
+    const signedIn = renderGuardWithSharedCache(cache);
+    expect(await screen.findByText('admin shell')).toBeInTheDocument();
+
+    // Remount (soft navigation within /admin) — this time the identity read fails.
+    signedIn.unmount();
+    mockReplace.mockClear();
+    mockApiGet.mockReset();
+    mockApiGet.mockRejectedValue(new Error('Authentication failed. Please log in again.'));
+    renderGuardWithSharedCache(cache);
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/admin/login'));
+    expect(screen.queryByText('admin shell')).not.toBeInTheDocument();
+  });
+
   it('renders the shell for a platform admin', async () => {
     mockApiGet.mockResolvedValue({ email: 'admin@dalgo.org', is_platform_admin: true });
 

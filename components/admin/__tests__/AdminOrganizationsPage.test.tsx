@@ -1,5 +1,6 @@
 /**
- * AdminOrganizationsPage tests — the org list: rendering and the search filter.
+ * AdminOrganizationsPage tests — the org list: rendering, the search filter, and
+ * reaching an org's detail page (which must work without a mouse).
  */
 
 import React from 'react';
@@ -48,5 +49,30 @@ describe('AdminOrganizationsPage', () => {
     await user.type(screen.getByPlaceholderText('Search by name or slug'), 'bhumi');
     expect(screen.queryByText('Akshara')).not.toBeInTheDocument();
     expect(screen.getByText('Bhumi')).toBeInTheDocument();
+  });
+
+  it('opens an org when its row is clicked', async () => {
+    const user = userEvent.setup();
+    render(<AdminOrganizationsPage />);
+    await user.click(screen.getByText('Bhumi'));
+    expect(mockPush).toHaveBeenCalledWith('/admin/organizations/2');
+  });
+
+  // The row is the only route to an org's detail page, so it has to be reachable by
+  // keyboard: a TableRow is neither focusable nor keyboard-activatable on its own.
+  it('opens an org from the keyboard', async () => {
+    const user = userEvent.setup();
+    render(<AdminOrganizationsPage />);
+
+    const row = screen.getByRole('link', { name: 'Open Bhumi' });
+    row.focus();
+    expect(row).toHaveFocus();
+
+    await user.keyboard('{Enter}');
+    expect(mockPush).toHaveBeenCalledWith('/admin/organizations/2');
+
+    mockPush.mockClear();
+    await user.keyboard(' ');
+    expect(mockPush).toHaveBeenCalledWith('/admin/organizations/2');
   });
 });

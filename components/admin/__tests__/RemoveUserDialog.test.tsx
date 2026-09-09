@@ -10,8 +10,14 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RemoveUserDialog } from '@/components/admin/RemoveUserDialog';
 import * as useAdminPortal from '@/hooks/api/useAdminPortal';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 jest.mock('@/hooks/api/useAdminPortal');
+
+const mockTrackEvent = jest.fn();
+jest.mock('@/lib/analytics', () => ({
+  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+}));
 
 const mockRemoveUser = jest.fn().mockResolvedValue(undefined);
 const mockGetRemovalImpact = useAdminPortal.getRemovalImpact as jest.Mock;
@@ -103,5 +109,44 @@ describe('RemoveUserDialog', () => {
 
     await userEvent.click(confirm);
     expect(mockRemoveUser).toHaveBeenCalledWith(42, 7);
+  });
+
+  it('reports the removal with the orphan counts and no email', async () => {
+    mockGetRemovalImpact.mockResolvedValue({
+      dashboards_orphaned: 1,
+      charts_orphaned: 4,
+      reports_orphaned: 0,
+    });
+
+    renderDialog();
+
+    await waitFor(() => expect(screen.getByTestId('removal-impact-summary')).toBeInTheDocument());
+    await userEvent.click(screen.getByTestId('remove-user-confirm'));
+
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.ADMIN_USER_REMOVED, {
+        dashboards_orphaned: 1,
+        charts_orphaned: 4,
+        reports_orphaned: 0,
+      })
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain('priya@akshara.org');
+  });
+
+  it('does not report a removal that failed', async () => {
+    mockGetRemovalImpact.mockResolvedValue({
+      dashboards_orphaned: 0,
+      charts_orphaned: 0,
+      reports_orphaned: 0,
+    });
+    mockRemoveUser.mockRejectedValueOnce(new Error('backend down'));
+
+    renderDialog();
+
+    await waitFor(() => expect(screen.getByTestId('removal-impact-summary')).toBeInTheDocument());
+    await userEvent.click(screen.getByTestId('remove-user-confirm'));
+
+    await waitFor(() => expect(mockRemoveUser).toHaveBeenCalled());
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 });

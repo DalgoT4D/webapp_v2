@@ -9,8 +9,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ChangeRoleDialog } from '@/components/admin/ChangeRoleDialog';
 import * as useAdminPortal from '@/hooks/api/useAdminPortal';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 jest.mock('@/hooks/api/useAdminPortal');
+
+const mockTrackEvent = jest.fn();
+jest.mock('@/lib/analytics', () => ({
+  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+}));
 jest.mock('@/hooks/api/useUserManagement', () => ({
   useRoles: () => ({
     roles: [
@@ -57,5 +63,31 @@ describe('Admin ChangeRoleDialog', () => {
 
     await user.click(save);
     expect(mockChangeRole).toHaveBeenCalledWith(42, 7, 'role-guest');
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.ADMIN_USER_ROLE_CHANGED, {
+        role: 'guest',
+      })
+    );
+  });
+
+  it('does not report a role change that failed', async () => {
+    mockChangeRole.mockRejectedValueOnce(new Error('backend down'));
+    const user = userEvent.setup();
+    render(
+      <ChangeRoleDialog
+        open
+        onOpenChange={jest.fn()}
+        orgId={42}
+        orgUser={orgUser}
+        onSuccess={jest.fn()}
+      />
+    );
+
+    const save = screen.getByTestId('admin-change-role-submit');
+    await waitFor(() => expect(save).toBeEnabled());
+    await user.click(save);
+
+    await waitFor(() => expect(mockChangeRole).toHaveBeenCalled());
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 });
