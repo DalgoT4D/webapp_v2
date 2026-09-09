@@ -106,10 +106,10 @@ describe('StreamConfigTable progressive disclosure', () => {
     expect(screen.getByRole('columnheader', { name: /Confirm type/ })).toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Cast to' })).not.toBeInTheDocument();
     expect(screen.getByText('col_a')).toBeInTheDocument();
-    expect(screen.getByTestId('cast-type-form_one-col_a')).toHaveTextContent('String (incoming)');
+    expect(screen.getByTestId('cast-type-form_one-col_a')).toHaveTextContent('String');
     expect(screen.getByTestId('confirm-column-type-form_one-col_a')).not.toBeChecked();
     expect(screen.getByTestId('confirm-all-column-types-form_one')).toHaveTextContent(
-      'Confirm all'
+      'Confirm all column types'
     );
     expect(screen.getByTestId('columns-detail-table-form_one')).toHaveClass(
       'w-[42rem]',
@@ -160,7 +160,7 @@ describe('StreamConfigTable progressive disclosure', () => {
     );
 
     expect(screen.getByTestId('confirm-all-column-types-form_one')).toHaveTextContent(
-      'All confirmed'
+      'All column types confirmed'
     );
     expect(screen.getByTestId('confirm-all-column-types-form_one')).toBeDisabled();
   });

@@ -544,6 +544,30 @@ export function StreamConfigTable({
                     stream.columns.length > 0 && (
                       <tr key={`cols-${stream.name}`} className="bg-muted/30">
                         <td colSpan={colCount} className="px-4 py-2">
+                          {showCastColumn && (
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                              <p className="text-xs text-muted-foreground">
+                                Review the detected type for each selected column.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => onConfirmAllColumnTypes(stream.name)}
+                                disabled={
+                                  disabled ||
+                                  isSaving ||
+                                  !isSelected ||
+                                  selectedColumns.length === 0 ||
+                                  allColumnTypesConfirmed
+                                }
+                                className="rounded border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                                data-testid={`confirm-all-column-types-${stream.name}`}
+                              >
+                                {allColumnTypesConfirmed
+                                  ? 'All column types confirmed'
+                                  : 'Confirm all column types'}
+                              </button>
+                            </div>
+                          )}
                           <table
                             data-testid={`columns-detail-table-${stream.name}`}
                             className={
@@ -563,24 +587,7 @@ export function StreamConfigTable({
                                 </th>
                                 {showCastColumn && (
                                   <th className="w-52 py-1 px-2 text-left text-xs font-medium text-muted-foreground">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span>Confirm type</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => onConfirmAllColumnTypes(stream.name)}
-                                        disabled={
-                                          disabled ||
-                                          isSaving ||
-                                          !isSelected ||
-                                          selectedColumns.length === 0 ||
-                                          allColumnTypesConfirmed
-                                        }
-                                        className="rounded border bg-background px-2 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                                        data-testid={`confirm-all-column-types-${stream.name}`}
-                                      >
-                                        {allColumnTypesConfirmed ? 'All confirmed' : 'Confirm all'}
-                                      </button>
-                                    </div>
+                                    Confirm type
                                   </th>
                                 )}
                               </tr>
@@ -644,7 +651,7 @@ export function StreamConfigTable({
                                           </SelectTrigger>
                                           <SelectContent>
                                             <SelectItem value="__incoming__">
-                                              {col.data_type} (incoming)
+                                              {col.data_type}
                                             </SelectItem>
                                             {CAST_TYPE_OPTIONS.map((opt) => (
                                               <SelectItem key={opt.value} value={opt.value}>
