@@ -358,6 +358,24 @@ export const ANALYTICS_EVENTS = {
   // Notifications
   NOTIFICATION_PREFERENCES_UPDATED: 'notification:preferences_updated',
   NOTIFICATIONS_ALL_READ: 'notification:all_marked_read',
+  // Admin portal — a separate, higher-privilege surface with its own session,
+  // so its sign-in is tracked apart from auth:user_logged_in.
+  ADMIN_LOGGED_IN: 'admin:admin_logged_in',
+  ADMIN_LOGIN_FAILED: 'admin:admin_login_failed',
+  // Organization lifecycle, run cross-org from the portal (distinct from anything
+  // an org's own admin can do, hence the admin: prefix rather than settings:).
+  ADMIN_ORG_CREATED: 'admin:org_created',
+  ADMIN_ORG_UPDATED: 'admin:org_updated',
+  ADMIN_ORG_DELETED: 'admin:org_deleted',
+  // Cross-org user management (Users tab). Removal is destructive and audited,
+  // so unlike ordinary deletes it is worth an event.
+  ADMIN_USER_INVITED: 'admin:user_invited',
+  ADMIN_USER_ROLE_CHANGED: 'admin:user_role_changed',
+  ADMIN_USER_REMOVED: 'admin:user_removed',
+  // Feature flags (per-org on/off)
+  ADMIN_FLAG_SET: 'admin:flag_set',
+  // Broadcast notifications (whole platform, one org, or several orgs at once)
+  ADMIN_BROADCAST_SENT: 'admin:broadcast_sent',
 } as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
@@ -683,6 +701,11 @@ export const FEATURES = {
   NOTIFICATIONS: 'notifications',
   SETTINGS_USER_MANAGEMENT: 'settings_user_management',
   SETTINGS_SUPERSET_USAGE: 'settings_superset_usage',
+  ADMIN_LOGIN: 'admin_login',
+  ADMIN_PORTAL: 'admin_portal',
+  ADMIN_ORGANIZATIONS: 'admin_organizations',
+  ADMIN_FEATURE_FLAGS: 'admin_feature_flags',
+  ADMIN_NOTIFICATIONS: 'admin_notifications',
   SETTINGS_BRANDING: 'settings_branding',
   // The warehouse moved out of the ingest page onto its own Settings route; without an
   // entry here (and in PATHNAME_TO_FEATURE) that page fired no feature:viewed at all.
@@ -719,6 +742,12 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/notifications', feature: FEATURES.NOTIFICATIONS },
   { prefix: '/settings/access', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
   { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
+  // more specific first: /admin/login is the public sign-in, not the portal itself
+  { prefix: '/admin/login', feature: FEATURES.ADMIN_LOGIN },
+  { prefix: '/admin/organizations', feature: FEATURES.ADMIN_ORGANIZATIONS },
+  { prefix: '/admin/feature-flags', feature: FEATURES.ADMIN_FEATURE_FLAGS },
+  { prefix: '/admin/notifications', feature: FEATURES.ADMIN_NOTIFICATIONS },
+  { prefix: '/admin', feature: FEATURES.ADMIN_PORTAL },
   { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
   { prefix: '/settings/warehouse', feature: FEATURES.SETTINGS_WAREHOUSE },
   { prefix: '/free-trial/activate', feature: FEATURES.FREE_TRIAL_ACTIVATE },

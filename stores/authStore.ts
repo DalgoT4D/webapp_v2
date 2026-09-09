@@ -25,6 +25,7 @@ export interface OrgUser {
   landing_dashboard_id?: number | null; // Personal landing page dashboard ID
   org_default_dashboard_id?: number | null; // Organization default dashboard ID
   subscription_plan?: string | null; // Org base plan, used for analytics segmentation
+  is_platform_admin?: boolean; // Global flag: Dalgo ops user who can access the admin portal
   // The org plan's validity window (OrgPlans.start_date/end_date on the backend). Null for orgs
   // with no plan row. THE source of truth for every trial day count — countdown badge, lifecycle
   // nudges, billing page. Never substitute org.created_at: it is when the org row was made, not
