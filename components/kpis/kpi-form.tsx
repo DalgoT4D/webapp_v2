@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
+import { useSWRConfig } from 'swr';
 import {
   Dialog,
   DialogContent,
@@ -125,6 +126,7 @@ export function KPIForm({
   createSource = KPI_CREATE_SOURCES.KPIS_PAGE,
 }: KPIFormProps) {
   const isEdit = !!kpi;
+  const { mutate } = useSWRConfig();
 
   const [step, setStep] = useState<Step>(1);
   const [saving, setSaving] = useState(false);
@@ -376,7 +378,8 @@ export function KPIForm({
           program_tags: data.program_tags,
           extra_config: extraConfig,
         };
-        await updateKPI(kpi.id, updateData);
+        const updated = await updateKPI(kpi.id, updateData);
+        await mutate(`/api/kpis/${kpi.id}/`, updated, { revalidate: false });
         trackEvent(ANALYTICS_EVENTS.KPI_UPDATED, {
           kpi_id: kpi.id,
           metric_type_tag: data.metric_type_tag || null,

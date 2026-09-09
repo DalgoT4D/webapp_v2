@@ -1,19 +1,13 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { DashboardCell } from '../DashboardCell';
 import { DashboardComponentType } from '@/types/dashboard';
 import type { DashboardFilterConfig } from '@/types/dashboard-filters';
+import { TestWrapper } from '@/test-utils/render';
+import { mockApiGet } from '@/test-utils/api';
 
-jest.mock('../chart-element-v2', () => ({
-  ChartElementV2: () => <div>Chart preview</div>,
-}));
-
-jest.mock('../kpi-chart-element', () => ({
-  KPIChartElement: () => <div>KPI preview</div>,
-}));
-
-jest.mock('../text-element-unified', () => ({
-  UnifiedTextElement: () => <div>Text preview</div>,
-}));
+jest.mock('../chart-element-v2', () => ({ ChartElementV2: () => <div>Chart preview</div> }));
+jest.mock('../kpi-chart-element', () => ({ KPIChartElement: () => <div>KPI preview</div> }));
+jest.mock('../text-element-unified', () => ({ UnifiedTextElement: () => <div>Text preview</div> }));
 
 const baseProps = {
   item: { i: 'widget-1', x: 0, y: 0, w: 4, h: 4 },
@@ -29,72 +23,78 @@ const baseProps = {
   onEditChart: jest.fn(),
   onViewKpi: jest.fn(),
   onEditKpi: jest.fn(),
-  canEditCharts: true,
-  canEditKpis: true,
   onRemove: jest.fn(),
   onUpdate: jest.fn(),
 };
 
-describe('DashboardCell widget navigation', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockApiGet.mockReset();
+});
+
+const resources = [
+  {
+    label: 'KPI',
+    type: DashboardComponentType.KPI,
+    config: { kpiId: 17 },
+    url: '/api/kpis/17/',
+    id: 17,
+    onView: baseProps.onViewKpi,
+    onEdit: baseProps.onEditKpi,
+  },
+  {
+    label: 'Chart',
+    type: DashboardComponentType.CHART,
+    config: { chartId: 23 },
+    url: '/api/charts/23/',
+    id: 23,
+    onView: baseProps.onViewChart,
+    onEdit: baseProps.onEditChart,
+  },
+];
+
+describe.each(resources)('$label widget navigation', (resource) => {
+  const component = { id: 'widget-1', type: resource.type, config: resource.config };
+
+  it('offers View and Edit for the resource with effective edit access', async () => {
+    mockApiGet.mockResolvedValue({ id: resource.id, access_level: 'edit' });
+    render(<DashboardCell {...baseProps} component={component} />, { wrapper: TestWrapper });
+    fireEvent.click(screen.getByTitle(`View ${resource.label}`));
+    fireEvent.click(await screen.findByTitle(`Edit ${resource.label}`));
+    expect(resource.onView).toHaveBeenCalledWith(resource.id);
+    expect(resource.onEdit).toHaveBeenCalledWith(resource.id);
+    expect(mockApiGet).toHaveBeenCalledWith(resource.url);
   });
 
-  it('offers the same View and Edit actions for a KPI as for a chart', () => {
-    const { rerender } = render(
-      <DashboardCell
-        {...baseProps}
-        component={{ id: 'widget-1', type: DashboardComponentType.KPI, config: { kpiId: 17 } }}
-      />
-    );
+  it.each(['view', undefined] as const)(
+    'keeps View but hides Edit when resource access is %s',
+    async (access_level) => {
+      mockApiGet.mockResolvedValue({ id: resource.id, access_level });
+      render(<DashboardCell {...baseProps} component={component} />, { wrapper: TestWrapper });
+      await waitFor(() => expect(mockApiGet).toHaveBeenCalledWith(resource.url));
+      expect(screen.getByTitle(`View ${resource.label}`)).toBeInTheDocument();
+      expect(screen.queryByTitle(`Edit ${resource.label}`)).not.toBeInTheDocument();
+      expect(screen.getByTitle(`Remove ${resource.label} From Dashboard`)).toBeInTheDocument();
+    }
+  );
 
-    fireEvent.click(screen.getByTitle('View KPI'));
-    fireEvent.click(screen.getByTitle('Edit KPI'));
-    expect(baseProps.onViewKpi).toHaveBeenCalledWith(17);
-    expect(baseProps.onEditKpi).toHaveBeenCalledWith(17);
-
-    rerender(
-      <DashboardCell
-        {...baseProps}
-        component={{
-          id: 'widget-1',
-          type: DashboardComponentType.CHART,
-          config: { chartId: 23 },
-        }}
-      />
-    );
-
-    fireEvent.click(screen.getByTitle('View Chart'));
-    fireEvent.click(screen.getByTitle('Edit Chart'));
-    expect(baseProps.onViewChart).toHaveBeenCalledWith(23);
-    expect(baseProps.onEditChart).toHaveBeenCalledWith(23);
+  it('hides Edit until access has loaded', () => {
+    mockApiGet.mockReturnValue(new Promise(() => {}));
+    render(<DashboardCell {...baseProps} component={component} />, { wrapper: TestWrapper });
+    expect(screen.queryByTitle(`Edit ${resource.label}`)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTitle(`View ${resource.label}`));
+    expect(resource.onView).toHaveBeenCalledWith(resource.id);
   });
+});
 
-  it('keeps View available while hiding Edit without the matching permission', () => {
-    const { rerender } = render(
-      <DashboardCell
-        {...baseProps}
-        canEditKpis={false}
-        component={{ id: 'widget-1', type: DashboardComponentType.KPI, config: { kpiId: 17 } }}
-      />
-    );
-
-    expect(screen.getByTitle('View KPI')).toBeInTheDocument();
-    expect(screen.queryByTitle('Edit KPI')).not.toBeInTheDocument();
-
-    rerender(
-      <DashboardCell
-        {...baseProps}
-        canEditCharts={false}
-        component={{
-          id: 'widget-1',
-          type: DashboardComponentType.CHART,
-          config: { chartId: 23 },
-        }}
-      />
-    );
-
-    expect(screen.getByTitle('View Chart')).toBeInTheDocument();
-    expect(screen.queryByTitle('Edit Chart')).not.toBeInTheDocument();
-  });
+it('does not request chart or KPI permissions for text elements', () => {
+  render(
+    <DashboardCell
+      {...baseProps}
+      component={{ id: 'widget-1', type: DashboardComponentType.TEXT, config: {} }}
+    />,
+    { wrapper: TestWrapper }
+  );
+  expect(screen.getByText('Text preview')).toBeInTheDocument();
+  expect(mockApiGet).not.toHaveBeenCalled();
 });

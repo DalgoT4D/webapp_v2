@@ -8,6 +8,8 @@ import { KPIChartElement } from './kpi-chart-element';
 import { UnifiedTextElement, type UnifiedTextConfig } from './text-element-unified';
 import { DashboardComponentType } from '@/types/dashboard';
 import type { DashboardFilterConfig } from '@/types/dashboard-filters';
+import { useChart } from '@/hooks/api/useCharts';
+import { useKPI } from '@/hooks/api/useKPIs';
 
 interface DashboardLayout {
   i: string;
@@ -46,8 +48,6 @@ interface DashboardCellProps {
   onEditChart: (chartId: number) => void;
   onViewKpi: (kpiId: number) => void;
   onEditKpi: (kpiId: number) => void;
-  canEditCharts: boolean;
-  canEditKpis: boolean;
   onRemove: (id: string) => void;
   onUpdate: (id: string, config: any) => void;
 }
@@ -68,14 +68,16 @@ function DashboardCellInner({
   onEditChart,
   onViewKpi,
   onEditKpi,
-  canEditCharts,
-  canEditKpis,
   onRemove,
   onUpdate,
 }: DashboardCellProps) {
   const isChart = component.type === DashboardComponentType.CHART;
   const isText = component.type === DashboardComponentType.TEXT;
   const isKPI = component.type === DashboardComponentType.KPI;
+  const { data: chart } = useChart(isChart ? component.config.chartId : null);
+  const { kpi } = useKPI(isKPI ? component.config.kpiId : null);
+  const canEditCharts = chart?.access_level === 'edit';
+  const canEditKpis = kpi?.access_level === 'edit';
 
   return (
     <div
@@ -89,7 +91,7 @@ function DashboardCellInner({
     >
       {/* Chart Action Buttons - Single clean row */}
       {isChart && (
-        <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -143,7 +145,7 @@ function DashboardCellInner({
 
       {/* Action Buttons for KPI Elements */}
       {isKPI && (
-        <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="absolute top-2 right-2 z-50 flex gap-1 drag-cancel opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200">
           <button
             onClick={(e) => {
               e.stopPropagation();

@@ -484,14 +484,15 @@ export function ConnectionFormBody({
   // Clear each inline error as soon as the user satisfies it.
   useEffect(() => {
     setErrors((prev) => {
-      if (!prev.name && !prev.source && !prev.streams) return prev;
+      if (!prev.name && !prev.source && !prev.streams && !prev.columnTypes) return prev;
       const next = { ...prev };
       if (name.trim()) delete next.name;
       if (selectedSourceId) delete next.source;
       if (hasSelectedStreams) delete next.streams;
+      if (!showCastColumn || allSelectedColumnTypesConfirmed) delete next.columnTypes;
       return next;
     });
-  }, [name, selectedSourceId, hasSelectedStreams]);
+  }, [name, selectedSourceId, hasSelectedStreams, showCastColumn, allSelectedColumnTypesConfirmed]);
 
   const handleConceptFocus = useCallback((concept: ConnectionConceptId | null) => {
     setActiveConcept(concept);

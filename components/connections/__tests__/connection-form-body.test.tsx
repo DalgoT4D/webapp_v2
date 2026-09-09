@@ -393,3 +393,22 @@ describe('ConnectionFormBody split help + custom view', () => {
     });
   });
 });
+
+it('clears the column-confirmation error once all selected types are confirmed', async () => {
+  mockStreams = [{ name: 'responses', selected: true }];
+  mockHasSelectedStreams = true;
+  mockAllSelectedColumnTypesConfirmed = false;
+  const props = {
+    mode: FormMode.CREATE,
+    presetSourceId: 'gs-1',
+    onSuccess: jest.fn(),
+    onCancel: jest.fn(),
+  };
+  const user = userEvent.setup();
+  const { rerender } = render(<ConnectionFormBody {...props} />);
+  await user.click(screen.getByTestId('save-connection-btn'));
+  expect(screen.getByTestId('connection-column-types-error')).toBeInTheDocument();
+  mockAllSelectedColumnTypesConfirmed = true;
+  rerender(<ConnectionFormBody {...props} />);
+  expect(screen.queryByTestId('connection-column-types-error')).not.toBeInTheDocument();
+});

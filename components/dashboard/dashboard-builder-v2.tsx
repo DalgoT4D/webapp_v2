@@ -77,7 +77,6 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { useAuthStore } from '@/stores/authStore';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import {
   getChartEditUrl,
   getChartViewUrl,
@@ -418,9 +417,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     ref
   ) {
     const router = useRouter();
-    const { hasPermission } = useRbac();
-    const canEditCharts = hasPermission(PERMISSIONS.CAN_EDIT_CHARTS);
-    const canEditKpis = hasPermission(PERMISSIONS.CAN_EDIT_KPIS);
 
     // Canvas is always driven by tab content — layout and components live inside tabs only.
     // If tabs exist, load the first tab's canvas. Otherwise start empty (new dashboard).
@@ -2887,8 +2883,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           onEditChart={handleEditChart}
                           onViewKpi={handleViewKpi}
                           onEditKpi={handleEditKpi}
-                          canEditCharts={canEditCharts}
-                          canEditKpis={canEditKpis}
                           onRemove={stableRemoveComponent}
                           onUpdate={stableUpdateComponent}
                         />

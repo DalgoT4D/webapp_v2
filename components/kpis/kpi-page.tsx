@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DocsLink } from '@/components/ui/docs-link';
-import { useKPIs, useKPI, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
+import { useKPIs, fetchKPI, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -193,6 +193,7 @@ export function KPIPageComponent() {
   const editKpiId = parseKpiId(searchParams.get('edit'));
   const deepLinkedKpiId = editKpiId ?? openKpiId;
   const navigationSource = parseWidgetNavigationSource(searchParams.get('from'));
+  const queryString = searchParams.toString();
   const handledDeepLinkRef = useRef<string | null>(null);
   const orgUsers = useAuthStore((s) => s.orgUsers);
   const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
@@ -218,10 +219,8 @@ export function KPIPageComponent() {
   );
 
   const { hasPermission } = useRbac();
-  // Create/edit/delete affordances are hidden for view-only roles (members) and
-  // shown to roles that hold the matching permission (admins + analysts).
+  // Creation is role-based; editing an existing KPI uses its effective access level.
   const canCreateKpis = hasPermission(PERMISSIONS.CAN_CREATE_KPIS);
-  const canEditKpis = hasPermission(PERMISSIONS.CAN_EDIT_KPIS);
   const canDeleteKpis = hasPermission(PERMISSIONS.CAN_DELETE_KPIS);
   const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
 
@@ -241,7 +240,6 @@ export function KPIPageComponent() {
     metricType: metricTypeFilter || undefined,
     programTag: programTagFilter || undefined,
   });
-  const { kpi: deepLinkedKpi, isError: deepLinkedKpiError } = useKPI(deepLinkedKpiId);
 
   const { tags: programTags } = useProgramTags();
   const { mutate: globalMutate } = useSWRConfig();
@@ -250,15 +248,16 @@ export function KPIPageComponent() {
   // current paginated list. After consuming the action, keep `from` in the URL so
   // the page can offer the same source-aware back action as chart detail pages.
   useEffect(() => {
-    const hasOpenParam = searchParams.has('open');
-    const hasEditParam = searchParams.has('edit');
+    const params = new URLSearchParams(queryString);
+    const hasOpenParam = params.has('open');
+    const hasEditParam = params.has('edit');
     if (!hasOpenParam && !hasEditParam) {
       handledDeepLinkRef.current = null;
-      return;
+      return undefined;
     }
 
     const clearActionParams = () => {
-      const next = new URLSearchParams(searchParams.toString());
+      const next = new URLSearchParams(queryString);
       next.delete('open');
       next.delete('edit');
       const qs = next.toString();
@@ -267,50 +266,48 @@ export function KPIPageComponent() {
 
     if (!deepLinkedKpiId) {
       clearActionParams();
-      return;
+      return undefined;
     }
 
     const mode = editKpiId ? 'edit' : 'open';
-    const deepLinkKey = `${mode}:${deepLinkedKpiId}`;
-    if (handledDeepLinkRef.current === deepLinkKey) return;
+    const deepLinkKey = `${selectedOrgSlug}:${mode}:${deepLinkedKpiId}`;
+    if (handledDeepLinkRef.current === deepLinkKey) return undefined;
 
-    if (deepLinkedKpiError) {
-      handledDeepLinkRef.current = deepLinkKey;
-      toastError.load(deepLinkedKpiError, 'KPI');
-      clearActionParams();
-      return;
-    }
-
-    if (!deepLinkedKpi || deepLinkedKpi.id !== deepLinkedKpiId) return;
-
-    handledDeepLinkRef.current = deepLinkKey;
-    if (mode === 'edit' && canEditKpis) {
-      setDrawerOpen(false);
-      setEditingKpi(deepLinkedKpi);
-      setFormOpen(true);
-    } else {
-      if (mode === 'edit') {
-        toastError.api('You do not have permission to edit this KPI.');
-      }
-      trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, {
-        kpi_id: deepLinkedKpi.id,
-        source: KPI_VIEW_SOURCES.DEEP_LINK,
-        metric_type_tag: deepLinkedKpi.metric_type_tag || null,
+    const controller = new AbortController();
+    // Open once from a fresh response. Subsequent cache updates must not reset a
+    // dirty form, and an old request must not open after navigation or an org switch.
+    fetchKPI(deepLinkedKpiId, controller.signal)
+      .then((kpi) => {
+        if (controller.signal.aborted) return;
+        handledDeepLinkRef.current = deepLinkKey;
+        void globalMutate(`/api/kpis/${kpi.id}/`, kpi, { revalidate: false });
+        if (mode === 'edit' && kpi.access_level === 'edit') {
+          setDrawerOpen(false);
+          setEditingKpi(kpi);
+          setFormOpen(true);
+        } else {
+          if (mode === 'edit') {
+            toastError.api('You do not have permission to edit this KPI.');
+          }
+          trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, {
+            kpi_id: kpi.id,
+            source: KPI_VIEW_SOURCES.DEEP_LINK,
+            metric_type_tag: kpi.metric_type_tag || null,
+          });
+          setSelectedKpi(kpi);
+          setDrawerOpen(true);
+        }
+        clearActionParams();
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        handledDeepLinkRef.current = deepLinkKey;
+        toastError.load(error, 'KPI');
+        clearActionParams();
       });
-      setSelectedKpi(deepLinkedKpi);
-      setDrawerOpen(true);
-    }
 
-    clearActionParams();
-  }, [
-    canEditKpis,
-    deepLinkedKpi,
-    deepLinkedKpiError,
-    deepLinkedKpiId,
-    editKpiId,
-    router,
-    searchParams,
-  ]);
+    return () => controller.abort();
+  }, [deepLinkedKpiId, editKpiId, globalMutate, queryString, router, selectedOrgSlug]);
 
   // Auto-open share modal when ?openShare=true&kpiId={id} is in the URL —
   // deep link from an access-request notification.

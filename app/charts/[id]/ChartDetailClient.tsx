@@ -842,6 +842,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               <Link
                 data-testid="chart-detail-edit-link"
                 href={getChartEditUrl(chartId, navigationSource)}
+                replace={navigationSource !== null}
               >
                 <Button variant="outline">
                   <Edit className="mr-2 h-4 w-4" />

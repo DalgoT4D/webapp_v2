@@ -1816,9 +1816,9 @@ export function ChartElementView({
         </>
       )}
 
-      {/* Chart toolbar - only visible on hover in view mode (non-report) */}
+      {/* View toolbar: reveal on hover/focus, and keep visible on touch devices. */}
       {viewMode && !frozenChartConfig && (
-        <div className="absolute top-2 right-2 z-10 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="absolute top-2 right-2 z-10 flex items-center gap-2 opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200">
           <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
             {onView && !isPublicMode && (
               <Button

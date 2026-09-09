@@ -236,9 +236,9 @@ export function KPICard({
       className={`bg-white flex flex-col relative group ${borderless ? '' : 'border rounded-lg hover:shadow-md transition-shadow'} ${isFullscreen ? '!h-screen !w-screen p-4' : ''} ${onClick ? 'cursor-pointer' : ''} ${className || ''}`}
       onClick={onClick}
     >
-      {/* Hover toolbar (download + fullscreen) */}
+      {/* Navigation, download and fullscreen actions, including keyboard/touch access. */}
       {(toolbarActions || (showDownload && !downloadInMenu && !isLoading) || showFullscreen) && (
-        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="absolute top-2 right-2 z-10 opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200">
           <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
             {toolbarActions}
             {showDownload && !downloadInMenu && !isLoading && (

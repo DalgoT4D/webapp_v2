@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -34,11 +34,20 @@ export function ProductVideoPlayer({
   const hasTrackedFirstPlay = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  const trackFirstPlay = () => {
+  const trackFirstPlay = useCallback(() => {
     if (hasTrackedFirstPlay.current) return;
     hasTrackedFirstPlay.current = true;
     onFirstPlay();
-  };
+  }, [onFirstPlay]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    // Native autoplay can start before hydration attaches React's onPlay handler.
+    if (video && !video.paused && !video.ended) {
+      setIsPlaying(true);
+      trackFirstPlay();
+    }
+  }, [trackFirstPlay]);
 
   const handlePlay = async () => {
     const video = videoRef.current;
