@@ -2,6 +2,11 @@ import {
   WALKTHROUGH_STAGE_ORDER,
   OWN_DATA_WALKTHROUGH_STAGE_ORDER,
   AUTOMATE_PIPELINE_STAGE_ORDER,
+  INGEST_STAGES,
+  CONNECTION_WATCH_STAGES,
+  OWN_DATA_WIZARD_STAGES,
+  PIPELINE_WIZARD_STAGES,
+  isWizardCoachedStage,
   POST_SYNC_STAGE_FOR,
   CHART_ENTRY_STAGE,
   getStoredWalkthroughStage,
@@ -371,6 +376,48 @@ describe('insight-walkthrough-constants', () => {
           POST_SYNC_STAGE_FOR.automate_pipeline
         )
       ).toBe(true);
+    });
+  });
+
+  describe('the add-source wizard stages', () => {
+    it('runs the wizard between the picker\u2019s Next and whatever the fork does after ingest', () => {
+      const from = OWN_DATA_WALKTHROUGH_STAGE_ORDER.indexOf('own_data_source_next');
+      expect(OWN_DATA_WALKTHROUGH_STAGE_ORDER.slice(from + 1, from + 7)).toEqual(
+        OWN_DATA_WIZARD_STAGES
+      );
+      const pipelineFrom = AUTOMATE_PIPELINE_STAGE_ORDER.indexOf('pipeline_source_next');
+      expect(AUTOMATE_PIPELINE_STAGE_ORDER.slice(pipelineFrom + 1, pipelineFrom + 7)).toEqual(
+        PIPELINE_WIZARD_STAGES
+      );
+    });
+
+    it('counts every wizard step as an ingest stage, so the new connection is watched', () => {
+      // CONNECTION_WATCH_STAGES is built from INGEST_STAGES, and the connection is CREATED on
+      // the last wizard stage. Leave them out and the walkthrough never follows that
+      // connection to its first sync — it parks on "connect your data" with data already in.
+      for (const stage of [...OWN_DATA_WIZARD_STAGES, ...PIPELINE_WIZARD_STAGES]) {
+        expect(INGEST_STAGES).toContain(stage);
+        expect(CONNECTION_WATCH_STAGES).toContain(stage);
+      }
+    });
+
+    it('treats every wizard step as coached inside the dialog', () => {
+      // ingest-view.tsx suppresses coachmarks while the wizard is open unless the stage says
+      // it lives in there. Without this the new coachmarks would be hidden by the very dialog
+      // they point into.
+      for (const stage of [...OWN_DATA_WIZARD_STAGES, ...PIPELINE_WIZARD_STAGES]) {
+        expect(isWizardCoachedStage(stage)).toBe(true);
+      }
+    });
+
+    it('rewinds every wizard step to its own fork\u2019s New Source button', () => {
+      // Closing the dialog strands them all in exactly the way it strands the picker.
+      for (const stage of OWN_DATA_WIZARD_STAGES) {
+        expect(getResumeAnchorStage(stage)).toBe('own_data_ingest');
+      }
+      for (const stage of PIPELINE_WIZARD_STAGES) {
+        expect(getResumeAnchorStage(stage)).toBe('pipeline_ingest');
+      }
     });
   });
 

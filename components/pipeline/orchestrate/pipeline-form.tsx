@@ -39,7 +39,7 @@ import {
   localTimeToUTC,
   utcTimeToLocal,
 } from '../utils';
-import { WEEKDAYS, SCHEDULE_OPTIONS } from '@/constants/pipeline';
+import { WEEKDAYS, SCHEDULE_OPTIONS, DEFAULT_PIPELINE_NAME } from '@/constants/pipeline';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
@@ -95,7 +95,7 @@ function computeInitialValues(
     return {
       formValues: {
         active: true,
-        name: '',
+        name: DEFAULT_PIPELINE_NAME,
         connections: [],
         cron: null,
         tasks: [],

@@ -109,7 +109,7 @@ export function LeaveWalkthroughDialog({
                 onSkip();
               }}
             >
-              Skip walkthrough
+              Exit walkthrough
             </Button>
             <Button
               variant="primary"

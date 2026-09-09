@@ -831,6 +831,177 @@ describe('InsightWalkthroughCoachmark', () => {
     );
   });
 
+  describe('the add-source wizard stages', () => {
+    /** The wizard is a dialog on /ingest, and its stages are coached from inside it. */
+    function mountWizard(inner: HTMLElement): HTMLElement {
+      mockPathname = '/ingest';
+      window.history.pushState({}, '', '/ingest');
+      const dialog = document.createElement('div');
+      dialog.setAttribute('role', 'dialog');
+      dialog.appendChild(inner);
+      document.body.appendChild(dialog);
+      return dialog;
+    }
+
+    function el(testId: string, tag = 'div'): HTMLElement {
+      const node = document.createElement(tag);
+      node.setAttribute('data-testid', testId);
+      return node;
+    }
+
+    function gotIt(): HTMLElement | null {
+      return document.querySelector('.dalgo-tour-next-btn');
+    }
+
+    it('asks for the sheet link, and moves on once one is pasted', async () => {
+      const input = document.createElement('input');
+      const field = el('gsheets-primary-fields');
+      field.appendChild(input);
+      mountWizard(field);
+      setStage('own_data_sheet_link', { path: 'own_data' });
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Point us at your sheet'));
+
+      await userEvent.type(input, 'https://docs.google.com/spreadsheets/d/abc/edit');
+      act(() => input.dispatchEvent(new FocusEvent('blur')));
+
+      await waitFor(() =>
+        expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_sheet_auth')
+      );
+    });
+
+    it('explains sharing the sheet and waits for Got it', async () => {
+      // The user has to leave for Google Sheets and come back, so a click on the panel must not
+      // dismiss the instructions they are still following.
+      const panel = el('gsheets-auth-choice');
+      mountWizard(panel);
+      setStage('own_data_sheet_auth', { path: 'own_data' });
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Let Dalgo read it'));
+
+      await userEvent.click(panel);
+      expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_sheet_auth');
+
+      await userEvent.click(gotIt()!);
+
+      await waitFor(() =>
+        expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_config_next')
+      );
+    });
+
+    it('falls back to the plain sign-in form where no managed key is offered', async () => {
+      // Deployments without a managed service account render the sign-in block instead, and the
+      // stage takes whichever is on screen rather than assuming a configuration.
+      mountWizard(el('google-sheets-form'));
+      setStage('own_data_sheet_auth', { path: 'own_data' });
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(popoverTitle()).toContain('Let Dalgo read it'));
+    });
+
+    it('rings Next on the configure step without advancing on the click', async () => {
+      // The click creates the source; the connection step's own mount is what moves the
+      // walkthrough on, so listening here would advance with the request still in flight.
+      const next = el('wizard-next-btn', 'button');
+      mountWizard(next);
+      setStage('own_data_config_next', { path: 'own_data' });
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Create the source'));
+
+      expect(next.classList.contains('dalgo-tour-ring')).toBe(true);
+
+      await userEvent.click(next);
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 50));
+      });
+      expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_config_next');
+    });
+
+    it('walks the select-data step from the table list to casting to Create', async () => {
+      const dialog = mountWizard(el('streams-scroll-hint'));
+      dialog.appendChild(el('cast-type-pivottest-beneficiaries_reached'));
+      dialog.appendChild(el('save-connection-btn', 'button'));
+      setStage('own_data_streams_scroll', { path: 'own_data' });
+      const { rerender } = render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Choose what to bring in'));
+
+      await userEvent.click(gotIt()!);
+
+      await waitFor(() =>
+        expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_streams_cast')
+      );
+      rerender(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Give numbers a number type'));
+      expect(popoverDescription()).toContain('numeric column');
+
+      await userEvent.click(gotIt()!);
+
+      await waitFor(() =>
+        expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_connection_create')
+      );
+    });
+
+    it('waits for a slow table instead of hopping to Create', async () => {
+      // Regression: stream discovery is async, so the table isn't there when the stage opens.
+      // The hint-hop rule treated that like a conditional field that was never coming and
+      // marched past BOTH Got-it coachmarks — the user only ever saw "click Create".
+      const dialog = mountWizard(el('save-connection-btn', 'button'));
+      setStage('own_data_streams_scroll', { path: 'own_data' });
+      render(<InsightWalkthroughCoachmark />);
+
+      // Well past the hint timeout, with the wizard dialog open the whole time.
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 3000));
+      });
+      expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_streams_scroll');
+
+      // Discovery lands and the table renders, hint and all.
+      act(() => {
+        dialog.appendChild(el('streams-table'));
+        dialog.appendChild(el('streams-scroll-hint'));
+      });
+
+      await waitFor(() => expect(popoverTitle()).toContain('Choose what to bring in'));
+    }, 10000);
+
+    it('points at the table when the list is too short for a scroll hint', async () => {
+      // stream-config-table only draws that line above SCROLL_HINT_MIN_STREAMS.
+      mountWizard(el('streams-table'));
+      setStage('own_data_streams_scroll', { path: 'own_data' });
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(popoverTitle()).toContain('Choose what to bring in'));
+    });
+
+    it('points at the table when no row is expanded to show a cast dropdown', async () => {
+      // The cast controls live inside an expanded row, and this coachmark is what tells the
+      // user to go open one — so it cannot require one to already be open.
+      mountWizard(el('streams-table'));
+      setStage('own_data_streams_cast', { path: 'own_data' });
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(popoverTitle()).toContain('Give numbers a number type'));
+      expect(popoverDescription()).toContain('Cast to');
+    });
+
+    it('coaches the pipeline fork through the same wizard', async () => {
+      // Same dialog, same copy — the two forks differ only in which ingest step they rewind to.
+      mountWizard(el('streams-scroll-hint'));
+      setStage('pipeline_streams_scroll', {
+        path: 'automate_pipeline',
+        flow: 'automate_pipeline',
+      });
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Choose what to bring in'));
+
+      await userEvent.click(gotIt()!);
+
+      await waitFor(() =>
+        expect(useInsightWalkthroughStore.getState().stage).toBe('pipeline_streams_cast')
+      );
+    });
+  });
+
   describe('sync holding stages', () => {
     it('points the waiting coachmark at the tracked connection’s sync button', async () => {
       // The button, not the row: a row-wide target parks the popover in the middle of the

@@ -87,6 +87,134 @@ const SOURCE_NEXT_STAGE: StageConfig = {
   align: 'end',
 };
 
+/**
+ * The rest of the add-source wizard — the CONFIGURE step's fields and the SELECT DATA step's
+ * table list — built once and mapped onto each fork's own stage ids, exactly as
+ * PICK_SOURCE_STAGE and SOURCE_NEXT_STAGE are. The copy is identical between forks; only the
+ * `nextOnInteraction` targets differ, which is why this is a factory rather than a constant.
+ *
+ * These steps used to run uncoached: SOURCE_NEXT_STAGE deliberately ended the guidance and let
+ * the flow go quiet until the first sync was detected. It now continues, but only as far as
+ * each step can honestly go:
+ *  - The CONFIGURE stages describe Google Sheets' own fields, so only a Google Sheets run
+ *    enters them (CreateSourceStep decides). Another source's configure step is left alone.
+ *  - The SELECT DATA stages describe the connection form, which is the same for every source,
+ *    so every run enters them. Casting is the exception — it is offered for Google Sheets only
+ *    (see isCastSupportedSource), and connection-form-body.tsx steps over that one stage where
+ *    the column isn't rendered.
+ *
+ * @param stages - this fork's six wizard stage ids, in wizard order.
+ */
+function wizardStageConfigs(
+  stages: readonly [
+    sheetLink: WalkthroughStage,
+    sheetAuth: WalkthroughStage,
+    configNext: WalkthroughStage,
+    streamsScroll: WalkthroughStage,
+    streamsCast: WalkthroughStage,
+    connectionCreate: WalkthroughStage,
+  ]
+): Record<WalkthroughStage, StageConfig> {
+  const [sheetLink, sheetAuth, configNext, streamsScroll, streamsCast, connectionCreate] = stages;
+  return {
+    [sheetLink]: {
+      route: '/ingest',
+      selector: '[data-testid="gsheets-primary-fields"]',
+      // Advances on the pasted link rather than a click: the field starts empty and the whole
+      // point of the step is getting a URL into it, so a click on an empty box proves nothing.
+      advanceOn: 'value',
+      nextOnInteraction: sheetAuth,
+      title: 'Point us at your sheet',
+      description:
+        'Paste the link to your Google Sheet — the address from your browser’s bar with the sheet open.',
+      // The configure step is a centred, narrow dialog, so there is always open page to its
+      // right; a popover above or below would sit on the wizard's own header or footer.
+      side: 'right',
+      align: 'start',
+    },
+    [sheetAuth]: {
+      route: '/ingest',
+      // The managed-service-account choice when the deployment offers one, and the plain
+      // sign-in block when it doesn't — the same beat either way, so the stage takes whichever
+      // is on screen rather than assuming a deployment's configuration.
+      selector: () =>
+        document.querySelector('[data-testid="gsheets-auth-choice"]')
+          ? '[data-testid="gsheets-auth-choice"]'
+          : '[data-testid="google-sheets-form"]',
+      // Got it, not a click: this stage asks the user to go off to Google Sheets and share the
+      // sheet, then come back. Advancing on a click of the panel would drop the instructions
+      // the moment they started reading them.
+      advanceOn: 'never',
+      showNext: true,
+      nextOnInteraction: configNext,
+      title: 'Let Dalgo read it',
+      description:
+        'Share the sheet with the address shown here and give it Viewer access. Dalgo can then read that one sheet and nothing else in your Drive.',
+      side: 'right',
+      align: 'start',
+    },
+    [configNext]: {
+      ring: true,
+      route: '/ingest',
+      selector: '[data-testid="wizard-next-btn"]',
+      // No advance rule of its own: the click creates the source, and the connection step's
+      // own mount is what moves the walkthrough on (see connection-form-body.tsx). Listening
+      // here would advance while the create request was still in flight.
+      title: 'Create the source',
+      description: 'Click Next — we’ll check the connection and fetch what’s in your sheet.',
+      side: 'right',
+      align: 'end',
+    },
+    [streamsScroll]: {
+      route: '/ingest',
+      // The scroll hint itself when the list is long enough to need one, the table otherwise:
+      // stream-config-table only renders that line above SCROLL_HINT_MIN_STREAMS, and a sheet
+      // with two tabs would have left this coachmark pointing at nothing.
+      selector: () =>
+        document.querySelector('[data-testid="streams-scroll-hint"]')
+          ? '[data-testid="streams-scroll-hint"]'
+          : '[data-testid="streams-table"]',
+      advanceOn: 'never',
+      showNext: true,
+      nextOnInteraction: streamsCast,
+      title: 'Choose what to bring in',
+      description:
+        'Every tab in your sheet shows up here as a table. Scroll the list to see them all, and switch on the ones you want in your warehouse.',
+      side: 'right',
+      align: 'start',
+    },
+    [streamsCast]: {
+      route: '/ingest',
+      // Any cast dropdown will do — the stage is teaching what the column is for, and the
+      // stream and column names are the user's own, so there is no fixed testid to name. Falls
+      // back to the table because the dropdowns live inside an expanded row: until the user
+      // opens one there is no cast control on screen, and the coachmark is what tells them to
+      // go looking.
+      selector: () =>
+        document.querySelector('[data-testid^="cast-type-"]')
+          ? '[data-testid^="cast-type-"]'
+          : '[data-testid="streams-table"]',
+      advanceOn: 'never',
+      showNext: true,
+      nextOnInteraction: connectionCreate,
+      title: 'Give numbers a number type',
+      description:
+        'Everything from a sheet arrives as text, so every column here is a text column. Use Cast to and set your numeric columns to a number type — charts, KPIs and metrics can only be built on numbers. Make sure the sheet you picked has numeric data in it, or there will be nothing to measure.',
+      side: 'right',
+      align: 'start',
+    },
+    [connectionCreate]: {
+      ring: true,
+      route: '/ingest',
+      selector: '[data-testid="save-connection-btn"]',
+      title: 'Bring the data in',
+      description: 'Click Create to set up the connection and start the first sync.',
+      side: 'left',
+      align: 'end',
+    },
+  } as Record<WalkthroughStage, StageConfig>;
+}
+
 /** Set on <body> (where driver.js puts `driver-active`) for every stage — see tour.css. */
 const PASSTHROUGH_CLASS = 'dalgo-tour-passthrough';
 
@@ -438,6 +566,26 @@ interface StageConfig {
 const DASHBOARD_BUILDER_EXITS = ['[data-testid="dashboard-back-btn"]'];
 
 /**
+ * The workflow canvas's way out — see StageConfig.pageRoamExits.
+ *
+ * The canvas is the dashboard builder of the transform leg: the tree panel, the nodes, the
+ * operation panel and the Preview/Logs pane are all one workspace, and a user shaping their own
+ * tables needs every part of it. So the canvas stages roam the whole page and guard only Back,
+ * which returns to /transform and ends the step.
+ */
+const WORKFLOW_CANVAS_EXITS = ['[data-testid="back-to-transform-btn"]'];
+
+/**
+ * The create-pipeline form's way out — see StageConfig.pageRoamExits.
+ *
+ * Same call as the canvas above: name, connections, transform tasks and the schedule are one
+ * form, and the user has to fill all of it in before Create Pipeline is even enabled. So the
+ * whole form is open and only Cancel — which drops the half-built pipeline and returns to
+ * /orchestrate — asks first.
+ */
+const PIPELINE_FORM_EXITS = ['[data-testid="cancel-btn"]'];
+
+/**
  * The filter controls on a saved dashboard — see StageConfig.alsoClickable.
  *
  * The share stages ask for one thing (hit Share), but a dashboard the user has just built is
@@ -753,6 +901,14 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   own_data_pick_source: PICK_SOURCE_STAGE,
   own_data_source_next: SOURCE_NEXT_STAGE,
+  ...wizardStageConfigs([
+    'own_data_sheet_link',
+    'own_data_sheet_auth',
+    'own_data_config_next',
+    'own_data_streams_scroll',
+    'own_data_streams_cast',
+    'own_data_connection_create',
+  ]),
   // --- Waiting on the tracked connection's first sync. Shared by both real-data forks; only
   // tour-gate's checkpoint moves the user in and out of these. ---
   sync_running: {
@@ -951,6 +1107,14 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   pipeline_pick_source: PICK_SOURCE_STAGE,
   pipeline_source_next: SOURCE_NEXT_STAGE,
+  ...wizardStageConfigs([
+    'pipeline_sheet_link',
+    'pipeline_sheet_auth',
+    'pipeline_config_next',
+    'pipeline_streams_scroll',
+    'pipeline_streams_cast',
+    'pipeline_connection_create',
+  ]),
   pipeline_transform_intro: {
     ring: true,
     route: null, // shown wherever the user is when the tracked connection's sync is detected
@@ -985,6 +1149,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Select your desired table',
     description:
       'This left pane represents all the data in your warehouse. Find the table you just connected to Dalgo by searching for its name, then click the + icon. (For a Google Sheet, search the name of the tab, not the name of the sheet.)',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
   },
   pipeline_select_node: {
     route: '/transform/canvas',
@@ -996,6 +1163,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     },
     title: 'Open it up',
     description: 'Click this table to start building — a functions panel opens on the right.',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
   },
   pipeline_pick_function: {
     ring: true,
@@ -1010,6 +1180,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="operation-dropcolumns"]',
     title: 'Let’s start with a simple function',
     description: 'Select the Drop function to remove columns that you don’t need.',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
     // Every stage below lives in the canvas's right-hand panel, which is flush with the
     // viewport's right edge — a 'right' popover has nowhere to go and gets clamped over the
     // panel it's pointing at. The canvas to their left is always open space.
@@ -1026,6 +1199,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="drop-search"]',
     title: 'Drop the clutter',
     description: 'Tick the fields you do not report on, then hit Save.',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
     side: 'left',
     align: 'center',
   },
@@ -1036,6 +1212,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Create a table',
     description:
       'Save this new cleaned data to your warehouse so that you can build insights with it.',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
     side: 'left',
     align: 'center',
   },
@@ -1052,6 +1231,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Name your table',
     description:
       'We have pre-filled the intermediate schema. Give it a clear name — like customer_summary.',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
     side: 'left',
     align: 'start',
   },
@@ -1062,6 +1244,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Save table',
     description:
       'Hit Save to build your first table. You can then string a few more functions together to build your desired final table, or go straight ahead and publish.',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
     side: 'left',
     align: 'center',
   },
@@ -1072,6 +1257,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Publish your changes',
     description:
       'Once your table is successfully created, click Publish to make sure it’s saved and reusable in your pipeline.',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
     // Toolbar button at the top-right of the canvas — same clamping problem as Edit workflow.
     side: 'bottom',
     align: 'end',
@@ -1105,6 +1293,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   pipeline_add_connection: {
     alsoClickable: PIPELINE_FORM_REQUIRED_FIELDS,
+    // The form IS the step — see PIPELINE_FORM_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: PIPELINE_FORM_EXITS,
     route: '/orchestrate/create',
     selector: '[data-testid="connections-container"]',
     title: 'Add a connection',
@@ -1113,6 +1304,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   pipeline_run_transform: {
     alsoClickable: PIPELINE_FORM_REQUIRED_FIELDS,
+    // The form IS the step — see PIPELINE_FORM_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: PIPELINE_FORM_EXITS,
     route: '/orchestrate/create',
     selector: '[data-testid="run-transform-tasks-checkbox"]',
     title: 'Run all the tasks',
@@ -1129,6 +1323,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   pipeline_set_schedule: {
     alsoClickable: PIPELINE_FORM_REQUIRED_FIELDS,
+    // The form IS the step — see PIPELINE_FORM_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: PIPELINE_FORM_EXITS,
     route: '/orchestrate/create',
     selector: '[data-testid="cron-container"]',
     title: 'Set a schedule',
@@ -1140,6 +1337,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   pipeline_create_it: {
     alsoClickable: PIPELINE_FORM_REQUIRED_FIELDS,
+    // The form IS the step — see PIPELINE_FORM_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: PIPELINE_FORM_EXITS,
     ring: true,
     route: '/orchestrate/create',
     selector: '[data-testid="submit-btn"]',
@@ -1331,9 +1531,16 @@ export function InsightWalkthroughCoachmark() {
         // Before the wait, not after: for a target inside the Data submenu the link doesn't
         // exist in the DOM until this opens the menu, so waiting first would time out.
         revealSidebarTarget(resolvedSelector);
+        // A HINT stage is one whose advance is the user acting on the field — those give up
+        // quickly and hop, because a field that hasn't rendered inside an already-open dialog
+        // is conditional and isn't coming. A Got-it stage (`advanceOn: 'never'`) is not a hint:
+        // it advances only when the user presses a button, and its target may legitimately be
+        // slow — the connection step's table appears only once stream discovery returns. Hopping
+        // those marched the walkthrough straight past both Got-it coachmarks to "click Create".
+        const isHintStage = !!config.nextOnInteraction && config.advanceOn !== 'never';
         const el = await waitForElement(
           resolvedSelector,
-          config.nextOnInteraction ? HINT_TARGET_TIMEOUT_MS : undefined
+          isHintStage ? HINT_TARGET_TIMEOUT_MS : undefined
         );
         if (cancelled) return;
         if (!el) {
@@ -1341,7 +1548,7 @@ export function InsightWalkthroughCoachmark() {
           // A hint whose field never appeared while its dialog IS open: the field is
           // conditional and this metric doesn't have it (Direction hands off to Time Column,
           // which only renders for a metric with a date column). Hop to the next hint.
-          if (document.querySelector('[role="dialog"]')) {
+          if (isHintStage && document.querySelector('[role="dialog"]')) {
             advancePastHint();
             return;
           }

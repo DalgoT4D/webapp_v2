@@ -62,6 +62,21 @@ export type WalkthroughStage =
   | 'own_data_ingest'
   | 'own_data_pick_source'
   | 'own_data_source_next'
+  // The rest of the add-source wizard, which used to run uncoached. Split by wizard step
+  // because the two halves have different audiences:
+  //  - *_sheet_link / *_sheet_auth / *_config_next are the CONFIGURE step, whose fields are
+  //    the chosen source's own. Only a Google Sheets run enters them (see
+  //    CreateSourceStep) — a Postgres user has no spreadsheet link to be coached about.
+  //  - *_streams_scroll / *_streams_cast / *_connection_create are the SELECT DATA step,
+  //    which looks the same whatever the source, so every run enters it. The cast stage is
+  //    the one exception and is stepped over where casting isn't offered (see
+  //    connection-form-body.tsx).
+  | 'own_data_sheet_link'
+  | 'own_data_sheet_auth'
+  | 'own_data_config_next'
+  | 'own_data_streams_scroll'
+  | 'own_data_streams_cast'
+  | 'own_data_connection_create'
   // The two states of waiting on the tracked connection's first sync, shared by BOTH real-data
   // forks (own_data and automate_pipeline) — the wait is identical, only what comes after it
   // differs (see POST_SYNC_STAGE_FOR), so one pair of stages serves both.
@@ -104,6 +119,14 @@ export type WalkthroughStage =
   | 'pipeline_ingest'
   | 'pipeline_pick_source'
   | 'pipeline_source_next'
+  // This fork's copies of the wizard stages above — same wizard, same copy, separate ids so
+  // each fork rewinds to its own ingest step.
+  | 'pipeline_sheet_link'
+  | 'pipeline_sheet_auth'
+  | 'pipeline_config_next'
+  | 'pipeline_streams_scroll'
+  | 'pipeline_streams_cast'
+  | 'pipeline_connection_create'
   | 'pipeline_transform_intro'
   | 'pipeline_workflow_intro'
   | 'pipeline_pick_table'
@@ -219,11 +242,37 @@ const TRANSFORM_ORCHESTRATE_STAGES: WalkthroughStage[] = [
 // again at dashboard_intro, which both paths reuse). Contains no pipeline_* stage by
 // design: connecting your own data and charting it is the whole flow. Also the order used
 // when the chart tail is entered directly, without the fork — see CHART_ENTRY_STAGE.
+/**
+ * The add-source wizard's own steps, in the order the wizard renders them, for each fork.
+ *
+ * Named arrays rather than inline entries because five separate places need exactly this set:
+ * the fork's order, INGEST_STAGES (and through it the sync-watch sets), and the wizard-rewind
+ * map. Spelling it out at each of those was how the earlier ingest stages drifted.
+ */
+export const OWN_DATA_WIZARD_STAGES: WalkthroughStage[] = [
+  'own_data_sheet_link',
+  'own_data_sheet_auth',
+  'own_data_config_next',
+  'own_data_streams_scroll',
+  'own_data_streams_cast',
+  'own_data_connection_create',
+];
+
+export const PIPELINE_WIZARD_STAGES: WalkthroughStage[] = [
+  'pipeline_sheet_link',
+  'pipeline_sheet_auth',
+  'pipeline_config_next',
+  'pipeline_streams_scroll',
+  'pipeline_streams_cast',
+  'pipeline_connection_create',
+];
+
 export const OWN_DATA_WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   'fork2',
   'own_data_ingest',
   'own_data_pick_source',
   'own_data_source_next',
+  ...OWN_DATA_WIZARD_STAGES,
   ...CHART_TO_SHARE_TAIL,
 ];
 
@@ -236,6 +285,7 @@ export const AUTOMATE_PIPELINE_STAGE_ORDER: WalkthroughStage[] = [
   'pipeline_ingest',
   'pipeline_pick_source',
   'pipeline_source_next',
+  ...PIPELINE_WIZARD_STAGES,
   ...TRANSFORM_ORCHESTRATE_STAGES,
 ];
 
@@ -292,12 +342,18 @@ export const INGEST_STAGES: WalkthroughStage[] = [
   'own_data_ingest',
   'own_data_pick_source',
   'own_data_source_next',
+  // The wizard's own steps count as ingest: the connection is CREATED on the last of them, and
+  // CONNECTION_WATCH_STAGES (built from this list) is what decides whether that connection
+  // becomes the one the walkthrough follows to its first sync. Omit them and the flow parks on
+  // "connect your data" with the data already syncing.
+  ...OWN_DATA_WIZARD_STAGES,
   // The nudge included: "go connect your data" is just as misleading as "add a source" once
   // the connection they already made is mid-sync.
   'pipeline_ingest_nudge',
   'pipeline_ingest',
   'pipeline_pick_source',
   'pipeline_source_next',
+  ...PIPELINE_WIZARD_STAGES,
 ];
 
 /** Every stage from which the sync checkpoint may show a waiting/failed coachmark. */
@@ -398,8 +454,49 @@ export const SOURCE_NEXT_STAGE_FOR: Partial<Record<WalkthroughStage, Walkthrough
 };
 
 /**
- * Every stage whose coachmark target lives INSIDE the add-source wizard dialog — the picker
- * and its Next button — mapped to the "click New Source" stage that reopens it.
+ * Where the walkthrough picks up when the CONFIGURE step of the add-source wizard mounts —
+ * keyed by the stage the run is currently on, so only a run that is genuinely at the wizard's
+ * door walks through it.
+ *
+ * Entered from the picker's Next stage, and Google Sheets only (see CreateSourceStep): the
+ * stages behind this map describe Google's own fields. Everything else carries on as it did
+ * before these stages existed — silent through configure, rejoining at the connection step.
+ */
+export const WIZARD_CONFIG_ENTRY_STAGE_FOR: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
+  own_data_source_next: 'own_data_sheet_link',
+  pipeline_source_next: 'pipeline_sheet_link',
+};
+
+/**
+ * Where the walkthrough picks up when the SELECT DATA step mounts, keyed by the fork.
+ *
+ * Unlike the configure step this is source-agnostic — the connection form looks the same
+ * whatever was picked — so every run enters it, including the ones that skipped the configure
+ * coachmarks entirely. `advanceIfBefore` is what makes that safe: a Google Sheets run is
+ * already past these, and jumping a Postgres run forward from the picker's Next stage is
+ * exactly the intent.
+ */
+export const WIZARD_STREAMS_ENTRY_STAGE_FOR: Partial<Record<WalkthroughPath, WalkthroughStage>> = {
+  own_data: 'own_data_streams_scroll',
+  automate_pipeline: 'pipeline_streams_scroll',
+};
+
+/**
+ * The stage to skip the cast coachmark forward to, keyed by the cast stage itself.
+ *
+ * Casting is offered for Google Sheets alone (see isCastSupportedSource), so for every other
+ * source the "cast a numeric column" stage points at a column that isn't rendered. Rather than
+ * let it sit there waiting, the connection form steps straight over it.
+ */
+export const WIZARD_CAST_SKIP_STAGE_FOR: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
+  own_data_streams_cast: 'own_data_connection_create',
+  pipeline_streams_cast: 'pipeline_connection_create',
+};
+
+/**
+ * Every stage whose coachmark target lives INSIDE the add-source wizard dialog — the picker,
+ * its Next button, and each of the wizard's own steps — mapped to the "click New Source" stage
+ * that reopens it.
  *
  * Two consumers, both needing the same set:
  *  - ingest-view.tsx, which otherwise hides every coachmark while the wizard is open (these
@@ -408,11 +505,21 @@ export const SOURCE_NEXT_STAGE_FOR: Partial<Record<WalkthroughStage, Walkthrough
  *    waiting on a card that no longer exists.
  *  - RESUME_ANCHOR_STAGES below, for the same reason on a cold page load.
  */
+const WIZARD_STAGES_FOR_PICK_SOURCE: Partial<Record<WalkthroughStage, WalkthroughStage[]>> = {
+  own_data_pick_source: OWN_DATA_WIZARD_STAGES,
+  pipeline_pick_source: PIPELINE_WIZARD_STAGES,
+};
+
 export const PICK_SOURCE_REWIND_STAGES: Partial<Record<WalkthroughStage, WalkthroughStage>> =
   Object.fromEntries(
     Object.entries(PICK_SOURCE_TO_INGEST_STAGE).flatMap(([pickStage, ingestStage]) => [
       [pickStage, ingestStage],
       [SOURCE_NEXT_STAGE_FOR[pickStage as WalkthroughStage]!, ingestStage],
+      // Every later step of the same wizard rewinds to the same place. They are all inside the
+      // dialog, so closing it strands them exactly as it strands the picker.
+      ...(WIZARD_STAGES_FOR_PICK_SOURCE[pickStage as WalkthroughStage] ?? []).map(
+        (wizardStage) => [wizardStage, ingestStage] as const
+      ),
     ])
   );
 
