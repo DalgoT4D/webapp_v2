@@ -105,12 +105,13 @@ describe('ConnectionHelpPanel', () => {
     expect(screen.getByTestId('connection-help-collapse')).toHaveTextContent('Hide');
   });
 
-  it('explains that Google Sheets columns and casts work without advanced settings', () => {
+  it('explains that Google Sheets column types must be confirmed without advanced settings', () => {
     const columns = getConnectionHelp({ supportsColumnCasting: true }).find(
       (concept) => concept.id === 'columns'
     );
 
-    expect(columns?.body).toContain('Cast to');
+    expect(columns?.body).toContain('Column type');
+    expect(columns?.body).toContain('confirm every selected column');
     expect(columns?.body).toContain('without turning on Advanced per-table settings');
   });
 });

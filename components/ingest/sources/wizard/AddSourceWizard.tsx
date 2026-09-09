@@ -139,7 +139,9 @@ export function AddSourceWizard({
     },
     select: {
       title: 'Choose your data source',
-      description: 'Pick a popular source below, or search the full catalog.',
+      // The visible copy sits directly above the picker search field. Keep this
+      // associated description screen-reader-only so Radix still announces it.
+      description: 'Search across 600+ connectors, or choose a popular source below.',
     },
     configure: {
       title: `Configure ${def?.name ?? 'source'}`,
@@ -171,7 +173,7 @@ export function AddSourceWizard({
           // streams table alongside the help panel.
           'transition-[max-width,width] duration-300 ease-out',
           step === 'select'
-            ? 'sm:max-w-xl'
+            ? 'sm:max-w-3xl'
             : step === 'connection'
               ? connectionExpanded
                 ? '!max-w-[1600px] !w-[96vw] max-h-[85vh]'
@@ -209,7 +211,9 @@ export function AddSourceWizard({
             )}
             {header.title}
           </DialogTitle>
-          <DialogDescription className="text-base">{header.description}</DialogDescription>
+          <DialogDescription className={step === 'select' ? 'sr-only' : 'text-base'}>
+            {header.description}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-1 min-h-0 flex-col">

@@ -37,10 +37,14 @@ jest.mock('@/hooks/api/useConnections', () => ({
 // Mutable so a test can simulate discovered streams (the help panel + streams
 // table only appear once discovery returns rows). Prefixed `mock` for hoisting.
 let mockStreams: unknown[] = [];
+let mockHasSelectedStreams = false;
+let mockAllSelectedColumnTypesConfirmed = true;
 
 afterEach(() => {
   mockConnectionData = null;
   mockStreams = [];
+  mockHasSelectedStreams = false;
+  mockAllSelectedColumnTypesConfirmed = true;
 });
 
 jest.mock('@/hooks/useBackendWebSocket', () => ({
@@ -95,11 +99,14 @@ jest.mock('../hooks/useStreamConfig', () => ({
     updateStreamPrimaryKey: jest.fn(),
     toggleColumn: jest.fn(),
     updateCastType: jest.fn(),
+    setColumnTypeConfirmed: jest.fn(),
+    confirmAllColumnTypes: jest.fn(),
     toggleStreamExpand: jest.fn(),
     handleIncrementalAllToggle: jest.fn(),
     filteredStreams: mockStreams,
     allSelected: false,
-    hasSelectedStreams: false,
+    hasSelectedStreams: mockHasSelectedStreams,
+    allSelectedColumnTypesConfirmed: mockAllSelectedColumnTypesConfirmed,
   }),
 }));
 
@@ -130,6 +137,28 @@ jest.mock('@/components/ingest/sources/custom/registry', () => ({
 // ============ ConnectionFormBody Tests ============
 
 describe('ConnectionFormBody', () => {
+  it('blocks a Google Sheets connection until every selected column type is confirmed', async () => {
+    const user = userEvent.setup();
+    mockStreams = [{ name: 'responses', selected: true }];
+    mockHasSelectedStreams = true;
+    mockAllSelectedColumnTypesConfirmed = false;
+
+    render(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="gs-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByTestId('save-connection-btn'));
+
+    expect(screen.getByTestId('connection-column-types-error')).toHaveTextContent(
+      'Confirm the column type for every selected column before continuing'
+    );
+  });
+
   it('locks the source (no picker) when presetSourceId is given', () => {
     render(
       <ConnectionFormBody

@@ -63,7 +63,7 @@ export function getConnectionHelp(opts: HelpOptions = {}): ConnectionConcept[] {
     id: 'columns',
     title: 'Columns',
     body: supportsColumnCasting
-      ? 'Use the chevron at the right of a sheet row to expand its columns and detected types. Cast to lets you convert a selected column to a more useful warehouse type after each sync. You can use these column settings without turning on Advanced per-table settings.'
+      ? 'Use the chevron at the right of a sheet row to expand its columns. Each Column type starts with the incoming type; change it when needed, then confirm every selected column before continuing. You can use these column settings without turning on Advanced per-table settings.'
       : 'Turn on Advanced per-table settings, then use the chevron at the right of a table row to expand it and see its columns — the individual fields inside it, like "district" or "submission_date". Every selected column comes across when the table is synced.',
     impact: supportsColumnCasting
       ? 'Confirm the fields you expect and correct their warehouse types before building transformations or dashboards.'
