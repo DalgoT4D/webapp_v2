@@ -26,6 +26,22 @@ import type { Metric, MetricPayload } from '@/types/metrics';
 import { AGGREGATION_OPTIONS } from '@/types/metrics';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, METRIC_CREATE_SOURCES } from '@/constants/analytics';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+
+/**
+ * How many metrics the picker offers during an onboarding walkthrough run.
+ *
+ * One. The guided KPI is a demonstration — any metric produces the same lesson — so the step
+ * only needs a click, and a full scrollable library turned that into a decision, complete with
+ * a search box to get lost in. Capping the list is what forces the choice: there is nothing to
+ * scroll to and nothing else to pick, rather than rows that are visible but refuse to respond.
+ *
+ * Applied for the whole walkthrough run, not just the stage that coaches this field. Scoping it
+ * to that stage looked tighter and quietly broke the feature: the stage advances on the click
+ * that opens the dropdown, so the list repopulated with the full library under that very click.
+ * Anyone not in a walkthrough sees the whole library, as always.
+ */
+const WALKTHROUGH_METRIC_LIMIT = 1;
 
 const NUMERIC_TYPES = [
   'integer',
@@ -69,6 +85,11 @@ export const KpiMetricStep = forwardRef<KpiMetricStepHandle, KpiMetricStepProps>
     const { mutate: globalMutate } = useSWRConfig();
 
     const [mode, setMode] = useState<'select' | 'create'>('select');
+    // Whether a walkthrough is running at all — deliberately NOT which stage it is on. Scoping
+    // the cap to the metric stage looked tighter but was self-defeating: that stage advances the
+    // moment the user clicks the field, which is the same moment the dropdown opens, so the list
+    // repopulated with the full library under the click that opened it.
+    const walkthroughActive = useInsightWalkthroughStore((state) => state.active);
     const [validationState, setValidationState] = useState<ValidationState>('idle');
     const [validationError, setValidationError] = useState<string | null>(null);
     const [creating, setCreating] = useState(false);
@@ -243,6 +264,7 @@ export const KpiMetricStep = forwardRef<KpiMetricStepHandle, KpiMetricStepProps>
                   if (id !== null) onMetricSelected(id, '');
                 }}
                 hideCreateLink
+                maxItems={walkthroughActive ? WALKTHROUGH_METRIC_LIMIT : undefined}
               />
             </div>
             <button

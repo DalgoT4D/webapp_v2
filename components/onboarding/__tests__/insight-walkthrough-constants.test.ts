@@ -212,6 +212,22 @@ describe('insight-walkthrough-constants', () => {
       expect(WALKTHROUGH_STAGE_ORDER[WALKTHROUGH_STAGE_ORDER.length - 1]).toBe('share_copy_link');
     });
 
+    it('sends the sample fork to look at the new KPI before nudging it to dashboards', () => {
+      // The handover used to go straight from Create KPI to "build a dashboard", skipping the
+      // thing the user had just made.
+      const from = WALKTHROUGH_STAGE_ORDER.indexOf('kpi_submit');
+      expect(WALKTHROUGH_STAGE_ORDER.slice(from, from + 5)).toEqual([
+        'kpi_submit',
+        'kpi_view_card',
+        'kpi_duration',
+        'kpi_add_note',
+        'dashboard_nudge',
+      ]);
+      // Only the sample fork builds a KPI — the other two open on ingest.
+      expect(OWN_DATA_WALKTHROUGH_STAGE_ORDER).not.toContain('kpi_view_card');
+      expect(AUTOMATE_PIPELINE_STAGE_ORDER).not.toContain('kpi_view_card');
+    });
+
     it('runs the pipeline fork from the Ingest nudge to the created pipeline, and stops there', () => {
       // Opens on the sidebar nudge, not on New Source: picking the flow no longer navigates
       // anywhere — the user clicks Ingest themselves.
@@ -369,6 +385,14 @@ describe('insight-walkthrough-constants', () => {
       // The New Source stages themselves are reachable cold, so they resume as themselves.
       expect(getResumeAnchorStage('own_data_ingest')).toBe('own_data_ingest');
       expect(getResumeAnchorStage('pipeline_ingest')).toBe('pipeline_ingest');
+    });
+
+    it('rewinds both KPI-drawer stages to the card that opens the drawer', () => {
+      // A reload closes the detail drawer, so both targets are gone; the card that opens it is
+      // right there on a cold /kpis.
+      expect(getResumeAnchorStage('kpi_duration')).toBe('kpi_view_card');
+      expect(getResumeAnchorStage('kpi_add_note')).toBe('kpi_view_card');
+      expect(getResumeAnchorStage('kpi_view_card')).toBe('kpi_view_card');
     });
 
     it('resumes the sidebar-anchored stages as themselves, wherever the user is', () => {

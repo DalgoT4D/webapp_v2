@@ -4,7 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { InsightWalkthroughCoachmark } from '../insight-walkthrough-coachmark';
-import type { WalkthroughStage } from '../insight-walkthrough-constants';
+import {
+  WALKTHROUGH_DEFAULT_TARGET,
+  type WalkthroughStage,
+} from '../insight-walkthrough-constants';
 
 let mockPathname = '/kpis';
 
@@ -527,14 +530,17 @@ describe('InsightWalkthroughCoachmark', () => {
   });
 
   describe('coachmark guidance', () => {
-    it('makes clear that users may choose any metric', async () => {
+    it('points at the one metric on offer rather than inviting a choice', async () => {
+      // The copy used to read "Choose any metric to get started", which stopped being true when
+      // the picker started capping itself to a single row for this stage (see
+      // WALKTHROUGH_METRIC_LIMIT in KpiMetricStep.tsx) — it offered a choice that wasn't there.
       mountTarget('kpi-form-metric-field');
       setStage('kpi_metric');
       render(<InsightWalkthroughCoachmark />);
 
       await waitFor(() =>
         expect(popoverDescription()).toBe(
-          'The measure this KPI tracks, for example a count of beneficiaries. Choose any metric to get started.'
+          'The measure this KPI tracks, for example a count of beneficiaries. Open the list and pick the metric waiting there.'
         )
       );
     });
@@ -659,32 +665,54 @@ describe('InsightWalkthroughCoachmark', () => {
       );
     });
 
-    it('stays put while a typed field is being filled, and moves on once it is', async () => {
+    it('waits for Got it on the target, which arrives already filled in', async () => {
+      // The target field is prefilled (see WALKTHROUGH_DEFAULT_TARGET), so this stage cannot
+      // advance on a keystroke: a user happy with the number would never produce one and the
+      // walkthrough would sit here for good. Editing it must not advance either — the field
+      // stays editable, and typing over the number is not the same as being done reading.
       const input = document.createElement('input');
       mountTarget('kpi-form-target-field', input);
       setStage('kpi_target');
       render(<InsightWalkthroughCoachmark />);
-      await waitFor(() => expect(skipButton()).not.toBeNull());
+      await waitFor(() => expect(popoverTitle()).toContain('Target value'));
 
-      // Clicking into the field and typing must NOT move the coachmark mid-keystroke.
       await userEvent.click(input);
       await userEvent.type(input, '500');
+      act(() => input.dispatchEvent(new FocusEvent('blur')));
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 50));
+      });
       expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_target');
 
-      // Leaving the field is the user saying they're done with it.
-      act(() => input.dispatchEvent(new FocusEvent('blur')));
+      await userEvent.click(document.querySelector('.dalgo-tour-next-btn') as HTMLElement);
 
       await waitFor(() =>
         expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_direction')
       );
     });
 
-    it('does not move on when a typed field is left empty', async () => {
-      const input = document.createElement('input');
-      mountTarget('kpi-form-target-field', input);
+    it('names the prefilled target in the copy, from the same constant that fills it', async () => {
+      mountTarget('kpi-form-target-field', document.createElement('input'));
       setStage('kpi_target');
       render(<InsightWalkthroughCoachmark />);
-      await waitFor(() => expect(skipButton()).not.toBeNull());
+
+      await waitFor(() =>
+        expect(popoverDescription()).toContain(`filled in ${WALKTHROUGH_DEFAULT_TARGET}`)
+      );
+    });
+
+    it('does not move on when a typed field is left empty', async () => {
+      // The transform fork's Output Name is the remaining `advanceOn: 'value'` stage: blurring
+      // an untouched field is not an answer, so the coachmark stays put. That stage is pinned to
+      // the canvas route, so this test has to stand there rather than on /kpis.
+      mockPathname = '/transform/canvas';
+      window.history.pushState({}, '', '/transform/canvas');
+      const input = document.createElement('input');
+      input.setAttribute('data-testid', 'output-name-input');
+      document.body.appendChild(input);
+      setStage('pipeline_name_table', { path: 'automate_pipeline', flow: 'automate_pipeline' });
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Name your table'));
 
       await userEvent.click(input);
       act(() => input.dispatchEvent(new FocusEvent('blur')));
@@ -692,7 +720,7 @@ describe('InsightWalkthroughCoachmark', () => {
         await new Promise((r) => setTimeout(r, 50));
       });
 
-      expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_target');
+      expect(useInsightWalkthroughStore.getState().stage).toBe('pipeline_name_table');
     });
   });
 
@@ -1012,6 +1040,145 @@ describe('InsightWalkthroughCoachmark', () => {
 
       await waitFor(() => expect(popoverTitle()).toContain('Track your targets'));
       expect(useSidebarStore.getState().collapsed).toBe(true);
+    });
+  });
+
+  describe('looking at the KPI you just built', () => {
+    const CREATED_KPI_ID = 7;
+
+    /** The KPI detail drawer, which both in-drawer stages are coached inside. */
+    function mountDrawer(inner: HTMLElement): HTMLElement {
+      const drawer = document.createElement('div');
+      drawer.setAttribute('role', 'dialog');
+      drawer.appendChild(inner);
+      document.body.appendChild(drawer);
+      return drawer;
+    }
+
+    /** The popover's "Got it" — the coachmark adds this class only when showNext is set. */
+    function gotItButton(): HTMLElement | null {
+      return document.querySelector('.dalgo-tour-next-btn');
+    }
+
+    it('rings the card of the KPI this walkthrough created, not whichever sorts first', async () => {
+      // The list is sorted and paginated, so "the new one" and "the first one" are different
+      // cards — the stage resolves its selector from the id the creation recorded.
+      mountTarget(`kpi-card-${CREATED_KPI_ID}`);
+      const otherCard = mountTarget('kpi-card-99');
+      setStage('kpi_view_card', { createdKpiId: CREATED_KPI_ID });
+
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(popoverTitle()).toContain('Take a look'));
+      const ringed = document.querySelector(`[data-testid="kpi-card-${CREATED_KPI_ID}"]`)!;
+      expect(ringed.classList).toContain('dalgo-tour-ring');
+      expect(otherCard.classList.contains('dalgo-tour-ring')).toBe(false);
+    });
+
+    it('shows nothing until the created KPI is known', async () => {
+      // A null id resolves to no selector at all. Highlighting some other card would point the
+      // user at a KPI they didn't make.
+      mountTarget('kpi-card-99');
+      setStage('kpi_view_card', { createdKpiId: null });
+
+      render(<InsightWalkthroughCoachmark />);
+
+      // Nothing to wait for — assert the absence holds across a few frames rather than in the
+      // one tick before the highlight would have been drawn.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(skipButton()).toBeNull();
+      expect(document.querySelector('.dalgo-tour-ring')).toBeNull();
+    });
+
+    it('does not advance when the user actually uses the coached control', async () => {
+      // The whole point of these two stages: the user is invited to TRY the control while the
+      // coachmark stands there. Every other showNext stage advances on a click of its target,
+      // which here would tear the card down the moment they did as it suggested.
+      const periodControls = document.createElement('button');
+      periodControls.setAttribute('data-testid', 'kpi-detail-period-controls');
+      mountDrawer(periodControls);
+      setStage('kpi_duration', { createdKpiId: CREATED_KPI_ID });
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Set the period'));
+
+      await userEvent.click(periodControls);
+
+      expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_duration');
+      expect(leavePrompt()).toBeNull();
+    });
+
+    it('moves on only when Got it is pressed', async () => {
+      const periodControls = document.createElement('button');
+      periodControls.setAttribute('data-testid', 'kpi-detail-period-controls');
+      mountDrawer(periodControls);
+      setStage('kpi_duration', { createdKpiId: CREATED_KPI_ID });
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(gotItButton()).not.toBeNull());
+
+      await userEvent.click(gotItButton()!);
+
+      await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_add_note'));
+    });
+
+    it('hands over to the dashboard nudge after the last Got it', async () => {
+      const addNote = document.createElement('button');
+      addNote.setAttribute('data-testid', 'kpi-detail-add-note-btn');
+      mountDrawer(addNote);
+      mountLink('/dashboards');
+      setStage('kpi_add_note', { createdKpiId: CREATED_KPI_ID });
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Add context'));
+
+      await userEvent.click(gotItButton()!);
+
+      await waitFor(() =>
+        expect(useInsightWalkthroughStore.getState().stage).toBe('dashboard_nudge')
+      );
+    });
+
+    it('leaves the rest of the drawer clickable', async () => {
+      // The coachmark points at one control; the drawer around it is the user's to explore.
+      const periodControls = document.createElement('button');
+      periodControls.setAttribute('data-testid', 'kpi-detail-period-controls');
+      const drawer = mountDrawer(periodControls);
+      const elsewhere = document.createElement('button');
+      const onElsewhereClick = jest.fn();
+      elsewhere.addEventListener('click', onElsewhereClick);
+      drawer.appendChild(elsewhere);
+      setStage('kpi_duration', { createdKpiId: CREATED_KPI_ID });
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Set the period'));
+
+      await userEvent.click(elsewhere);
+
+      expect(onElsewhereClick).toHaveBeenCalledTimes(1);
+      expect(leavePrompt()).toBeNull();
+    });
+
+    it('asks before the drawer is closed out from under the coachmark', async () => {
+      // The drawer's ✕ is icon-only, so the guard can only recognise it by its aria-label —
+      // see the comment on that button in kpi-detail-drawer.tsx.
+      const periodControls = document.createElement('button');
+      periodControls.setAttribute('data-testid', 'kpi-detail-period-controls');
+      const drawer = mountDrawer(periodControls);
+      const close = document.createElement('button');
+      close.setAttribute('aria-label', 'Close');
+      const onCloseClick = jest.fn();
+      close.addEventListener('click', onCloseClick);
+      drawer.appendChild(close);
+      setStage('kpi_duration', { createdKpiId: CREATED_KPI_ID });
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Set the period'));
+
+      await userEvent.click(close);
+
+      await waitFor(() => expect(leavePrompt()).not.toBeNull());
+      expect(onCloseClick).not.toHaveBeenCalled();
     });
   });
 

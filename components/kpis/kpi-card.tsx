@@ -124,7 +124,11 @@ interface KPICardProps {
   downloadInMenu?: boolean;
   /** When true, shows a fullscreen toggle button (used on dashboards) */
   showFullscreen?: boolean;
-  /** Analytics only — the KPI behind this card, so exports can be joined to it. */
+  /**
+   * The KPI behind this card. Joins exports to it in analytics, and identifies the card in the
+   * DOM (`data-testid="kpi-card-<id>"`) — the onboarding walkthrough highlights the card of the
+   * KPI the user just made, which it can only find by id.
+   */
   kpiId?: number;
   /** Analytics only — which surface this card is rendered on (KPI_EXPORT_SOURCES). */
   exportSource?: KpiExportSource;
@@ -229,6 +233,7 @@ export function KPICard({
   return (
     <div
       ref={cardRef}
+      data-testid={kpiId === undefined ? undefined : `kpi-card-${kpiId}`}
       className={`bg-white flex flex-col relative group ${borderless ? '' : 'border rounded-lg hover:shadow-md transition-shadow'} ${isFullscreen ? '!h-screen !w-screen p-4' : ''} ${onClick ? 'cursor-pointer' : ''} ${className || ''}`}
       onClick={onClick}
     >

@@ -32,6 +32,9 @@ import {
   getStoredTrackedConnection,
   saveTrackedConnection,
   clearTrackedConnection,
+  getStoredCreatedKpiId,
+  clearCreatedKpiId,
+  saveCreatedKpiId,
   clearWalkthroughStorage,
   CHART_ENTRY_STAGE,
   saveActiveWalkthroughFlow,
@@ -86,6 +89,13 @@ interface InsightWalkthroughState {
    * later page load can check whether THIS connection (not just any connection in the
    * org) has synced. Stored per flow, so each walkthrough watches the connection it made. */
   trackedConnectionId: string | null;
+  /**
+   * The KPI created during this walkthrough, which `kpi_view_card` highlights and the two
+   * drawer stages after it belong to. Persisted per flow (see saveCreatedKpiId) because those
+   * stages span a dialog close and a drawer open, and a refresh in between must not leave the
+   * coachmark pointing at a card it can no longer name.
+   */
+  createdKpiId: number | null;
   /** True while a plain interaction (e.g. a picker modal) is covering the spotlighted
    * target — the coachmark hides rather than darkening content it doesn't own. */
   suppressCoachmark: boolean;
@@ -120,6 +130,8 @@ interface InsightWalkthroughState {
   /** advanceTo, but never backwards — see isStageBefore. */
   advanceIfBefore: (stage: WalkthroughStage) => void;
   setTargetNodeId: (nodeId: string | null) => void;
+  /** Record the KPI just created, so the stages that follow can point at its card. */
+  trackCreatedKpi: (kpiId: number) => void;
   /** @param opts.entry - which surface sent them here (see WALKTHROUGH_ENTRIES). */
   chooseSample: (opts?: { entry?: WalkthroughEntry }) => void;
   chooseOwnData: (opts?: { entry?: WalkthroughEntry }) => void;
@@ -145,6 +157,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   stage: null,
   path: null,
   trackedConnectionId: null,
+  createdKpiId: null,
   suppressCoachmark: false,
   pendingCelebration: null,
   targetNodeId: null,
@@ -161,6 +174,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
       stage: 'fork2',
       path: null,
       trackedConnectionId: null,
+      createdKpiId: null,
     });
   },
 
@@ -184,6 +198,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
       stage,
       path,
       trackedConnectionId: getStoredTrackedConnection(flow),
+      createdKpiId: getStoredCreatedKpiId(flow),
     });
   },
 
@@ -257,6 +272,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
       stage: CHART_ENTRY_STAGE,
       path: 'own_data',
       trackedConnectionId: null,
+      createdKpiId: null,
     });
   },
 
@@ -279,6 +295,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
       stage: 'pipeline_ingest_nudge',
       path: 'automate_pipeline',
       trackedConnectionId: null,
+      createdKpiId: null,
     });
   },
 
@@ -347,6 +364,15 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
 
   setTargetNodeId: (nodeId) => set({ targetNodeId: nodeId }),
 
+  trackCreatedKpi: (kpiId) => {
+    const { flow } = get();
+    // Persisted only when a flow owns it. The KPI page calls this on every creation it makes
+    // during a live walkthrough, so a run that has somehow lost its flow just keeps the id in
+    // memory rather than writing it to a key no resume would ever read back.
+    if (flow) saveCreatedKpiId(flow, kpiId);
+    set({ createdKpiId: kpiId });
+  },
+
   skip: () => {
     // Both flows end on a page that collapsed the sidebar on arrival (a saved dashboard, the
     // canvas), and nothing else ever expands it again. Whether they finished or quit, the user
@@ -356,6 +382,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
     if (orgSlug && flow) {
       clearWalkthroughState(flow);
       clearTrackedConnection(flow);
+      clearCreatedKpiId(flow);
       clearActiveWalkthroughFlow();
       trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_SKIPPED, { stage });
       if (path)
@@ -372,6 +399,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
       flow: null,
       stage: null,
       trackedConnectionId: null,
+      createdKpiId: null,
       pendingCelebration: null,
     });
   },
@@ -383,6 +411,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
     if (orgSlug && flow) {
       clearWalkthroughState(flow);
       clearTrackedConnection(flow);
+      clearCreatedKpiId(flow);
       clearActiveWalkthroughFlow();
       markWalkthroughDone(flow);
       trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_COMPLETED);
@@ -397,6 +426,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
       flow: null,
       stage: null,
       trackedConnectionId: null,
+      createdKpiId: null,
     });
   },
 }));

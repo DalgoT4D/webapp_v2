@@ -22,6 +22,7 @@ import { useSidebarStore } from '@/stores/sidebarStore';
 import {
   getResumeAnchorStage,
   INGEST_STAGES,
+  WALKTHROUGH_DEFAULT_TARGET,
   type WalkthroughStage,
 } from './insight-walkthrough-constants';
 import { alignPopoverCloseWithHeader, outlinePopoverArrow } from './tour-popover-chrome';
@@ -295,8 +296,14 @@ interface StageConfig {
    *   the options and keeps the default is done with the field either way. Opt-in rather than
    *   the default because advancing on pointerdown tears the coachmark down while a real
    *   button's click is still in flight (see advancePastHint).
+   * - 'never' — no engagement listener at all: nothing the user does to the control advances
+   *   the stage; only the popover's "Got it" does (so it requires `showNext`). For kpi_target
+   *   and the two KPI-drawer stages, which point at controls the user is invited to actually
+   *   USE while the coachmark stands there — edit the prefilled target, set a time grain, write
+   *   a note. Every other `showNext` stage ALSO advances on a click of its target, which here
+   *   would tear the coachmark down the moment the user did the thing it was suggesting.
    */
-  advanceOn?: 'click' | 'value' | 'open';
+  advanceOn?: 'click' | 'value' | 'open' | 'never';
   /**
    * Element the `nextOnInteraction` listener attaches to, when that isn't the element being
    * spotlighted. Defaults to `selector`.
@@ -492,8 +499,11 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     nextOnInteraction: 'kpi_step1_continue',
     selector: '[data-testid="kpi-form-metric-field"]',
     title: 'Pick a metric',
+    // "Choose any metric" no longer describes what they'll see: the picker offers a single
+    // option for the whole walkthrough run (see WALKTHROUGH_METRIC_LIMIT), so the copy points
+    // at the one row rather than offering a choice that isn't there.
     description:
-      'The measure this KPI tracks, for example a count of beneficiaries. Choose any metric to get started.',
+      'The measure this KPI tracks, for example a count of beneficiaries. Open the list and pick the metric waiting there.',
   },
   // Everything after this stage lives on the wizard's step 2, so this button is the gate that
   // puts those targets in the DOM at all — the walkthrough has to wait on it rather than
@@ -509,11 +519,17 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     alsoClickable: KPI_SETUP_REQUIRED_FIELDS,
     route: '/kpis',
     nextOnInteraction: 'kpi_direction',
-    advanceOn: 'value',
+    // Got it, not typing. The field arrives already holding a target (see
+    // WALKTHROUGH_DEFAULT_TARGET), and 'value' only fires on a real keystroke —
+    // a user happy with the number we filled in would never have produced one, and the
+    // walkthrough would have sat on this field for good.
+    advanceOn: 'never',
+    showNext: true,
     selector: '[data-testid="kpi-form-target-field"]',
     title: 'Target value',
-    description:
-      'The number you are aiming for. Dalgo marks the KPI green once you reach it and red when you fall short.',
+    // Built from the constant the form fills the field with, so the number the copy quotes and
+    // the number on screen can never drift apart.
+    description: `The number you are aiming for. We have filled in ${WALKTHROUGH_DEFAULT_TARGET} so this KPI has something to measure against — change it if you have your own figure in mind. Dalgo marks the KPI green once the target is reached and red when it falls short.`,
   },
   kpi_direction: {
     alsoClickable: KPI_SETUP_REQUIRED_FIELDS,
@@ -555,13 +571,63 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Create your KPI',
     description: 'Click Create KPI to save it.',
   },
+  // Between creating the KPI and being sent off to dashboards: look at the thing you just
+  // built. The celebration dialog's CTA closes onto this stage (see kpi-page.tsx).
+  kpi_view_card: {
+    ring: true,
+    route: '/kpis',
+    // The card of the KPI THIS walkthrough created, not whichever one sorts first — the list
+    // is sorted and paginated, so those are different cards (see store.createdKpiId).
+    selector: () => {
+      const id = useInsightWalkthroughStore.getState().createdKpiId;
+      return id === null ? null : `[data-testid="kpi-card-${id}"]`;
+    },
+    title: 'Take a look',
+    description:
+      'Open your new KPI to see its current value, how it is trending, and where it stands against your target.',
+  },
+  // Both drawer stages: `advanceOn: 'never'` so using the control the coachmark is pointing at
+  // doesn't dismiss it — the user reads, tries it, and presses Got it when they're done. The
+  // drawer around them stays fully clickable through the exit guard's dialog rule (the coached
+  // target is inside the drawer, so only its ✕ raises the leave prompt).
+  kpi_duration: {
+    route: '/kpis',
+    advanceOn: 'never',
+    showNext: true,
+    nextOnInteraction: 'kpi_add_note',
+    // The whole period row — Select Duration AND the grain dropdown beside it — rather than
+    // either control alone. They're one decision in two parts (how far back to look, how
+    // finely to slice it), and coaching one while pointing away from the other left the user
+    // reading about a control that was half the answer.
+    selector: '[data-testid="kpi-detail-period-controls"]',
+    // Below the row, not beside it: a 'left' popover covered the date picker and the KPI's own
+    // value. Right-aligned because the row is flush with the drawer's right edge and the drawer
+    // is flush with the viewport's, so a 'start' align would push the card off screen.
+    side: 'bottom',
+    align: 'end',
+    title: 'Set the period',
+    description:
+      'Change the duration to choose how far back to look, and the frequency — daily, weekly, monthly or quarterly — to choose how finely the trend is sliced.',
+  },
+  kpi_add_note: {
+    route: '/kpis',
+    advanceOn: 'never',
+    showNext: true,
+    nextOnInteraction: 'dashboard_nudge',
+    selector: '[data-testid="kpi-detail-add-note-btn"]',
+    side: 'left',
+    align: 'start',
+    title: 'Add context',
+    description:
+      'Record what was happening behind a number — a beneficiary quote, or a note explaining a jump or a dip.',
+  },
   dashboard_nudge: {
     ring: true,
     route: '/kpis',
     selector: 'a[href="/dashboards"]',
     imageSrc: DASHBOARD_NUDGE_IMAGE,
-    // "Your KPI is live" moved to the celebration dialog that opens right before this
-    // (kpi-live-modal.tsx) — repeating it here read as the same message twice.
+    // No second celebration here: "Your KPI is live" was said three stages ago, by the dialog
+    // that handed the user to their new KPI (see kpi-page.tsx). This is the plain next step.
     title: 'Build your first dashboard',
     description: 'Now add your KPI and a few charts to a dashboard and share it!',
   },
@@ -1102,6 +1168,9 @@ export function InsightWalkthroughCoachmark() {
   const stage = useInsightWalkthroughStore((s) => s.stage);
   const suppressCoachmark = useInsightWalkthroughStore((s) => s.suppressCoachmark);
   const trackedConnectionId = useInsightWalkthroughStore((s) => s.trackedConnectionId);
+  // Read as state, not through getState(), so kpi_view_card's function selector re-resolves
+  // the moment the id lands rather than waiting for some other dependency to change.
+  const createdKpiId = useInsightWalkthroughStore((s) => s.createdKpiId);
   const driverRef = useRef<Driver | null>(null);
   const trackingFrameRef = useRef<number>(0);
   // The element currently wearing RING_CLASS. Held in a ref rather than re-queried on
@@ -1203,6 +1272,8 @@ export function InsightWalkthroughCoachmark() {
 
       const listenForEngagement = (el: Element): (() => void) => {
         if (!config.nextOnInteraction) return () => {};
+        // 'never' stages hand the whole advance to the popover's Got it — see advanceOn.
+        if (config.advanceOn === 'never') return () => {};
 
         if (config.advanceOn === 'value') {
           const input = (
@@ -1443,7 +1514,7 @@ export function InsightWalkthroughCoachmark() {
       ringedElRef.current = null;
       driverRef.current?.destroy();
     };
-  }, [active, stage, pathname, suppressCoachmark, trackedConnectionId, trackTarget]);
+  }, [active, stage, pathname, suppressCoachmark, trackedConnectionId, createdKpiId, trackTarget]);
 
   // Route-driven advances: reaching a mapped route auto-advances to the stage it unlocks.
   useEffect(() => {

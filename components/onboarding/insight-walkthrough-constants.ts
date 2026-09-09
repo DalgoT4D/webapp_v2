@@ -32,6 +32,14 @@ export type WalkthroughStage =
   | 'kpi_time_column'
   | 'kpi_type'
   | 'kpi_submit'
+  // The three stages between creating a KPI and being sent to dashboards: look at the thing
+  // you just built before being asked to do the next thing with it. kpi_view_card points at
+  // the new KPI's card on /kpis; the other two live inside the detail drawer that opens from
+  // it, and are the walkthrough's only "read this, then press Got it" stages — see
+  // `advanceOn: 'never'` in insight-walkthrough-coachmark.tsx.
+  | 'kpi_view_card'
+  | 'kpi_duration'
+  | 'kpi_add_note'
   | 'dashboard_nudge'
   | 'dashboard_intro'
   | 'builder_add_kpi'
@@ -140,6 +148,9 @@ export const WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   'kpi_continue',
   'kpi_type',
   'kpi_submit',
+  'kpi_view_card',
+  'kpi_duration',
+  'kpi_add_note',
   'dashboard_nudge',
   'dashboard_intro',
   'builder_add_kpi',
@@ -322,6 +333,20 @@ export const CONNECTION_WATCH_STAGES: WalkthroughStage[] = [...INGEST_STAGES, 's
  * Unknown stages (not in this fork's order) count as "before" — better to advance than to
  * leave the walkthrough stuck behind a stage that isn't part of this path at all.
  */
+/**
+ * Target prefilled into the KPI created during the walkthrough, and quoted in the coachmark
+ * copy that explains it.
+ *
+ * The guided KPI runs on sample data whose values are fractions, so this is a target it can
+ * actually be measured against — the RAG status and the "against target" line have something
+ * real to show rather than reading as broken. Left EDITABLE in the form: a starting point for a
+ * demonstration, not a decision taken away from anyone who has their own figure in mind.
+ *
+ * Lives here rather than in the KPI form because the form fills the field and the coachmark
+ * names the number, and the two must not be able to disagree.
+ */
+export const WALKTHROUGH_DEFAULT_TARGET = '0.10';
+
 export function isStageBefore(
   path: WalkthroughPath | null,
   stage: WalkthroughStage,
@@ -417,6 +442,11 @@ export const RESUME_ANCHOR_STAGES: Partial<Record<WalkthroughStage, WalkthroughS
   kpi_time_column: 'kpi_intro',
   kpi_type: 'kpi_intro',
   kpi_submit: 'kpi_intro',
+  // Both drawer stages need the KPI detail drawer open, and a reload closes it. Re-enter at
+  // the card that opens it — which IS reachable from a cold /kpis — rather than waiting on a
+  // control inside a drawer nobody has opened.
+  kpi_duration: 'kpi_view_card',
+  kpi_add_note: 'kpi_view_card',
   // The builder stages need a dashboard in progress — an unsaved one is gone on reload, so
   // re-enter at "create a dashboard". 'share' needs a dashboard id we can't know either.
   builder_add_kpi: 'dashboard_intro',
@@ -625,6 +655,29 @@ const SYNC_DISMISSED_RUN_STORAGE_PREFIX = 'dalgo_insight_walkthrough_sync_dismis
 
 export function getDismissedSyncRun(flow: WalkthroughFlow): string | null {
   return readFlowValue(SYNC_DISMISSED_RUN_STORAGE_PREFIX, flow);
+}
+
+// The KPI the user created during THIS walkthrough, so `kpi_view_card` can point at that exact
+// card rather than at whichever one happens to sort first (the list is paginated and sortable,
+// so "the new one" and "the first one" are not the same card).
+//
+// Persisted, unlike the other one-moment ids in the store: the three stages it feeds run across
+// a dialog close, a drawer open and a drawer close, and losing the id on a refresh would leave
+// `kpi_view_card` highlighting nothing on a page that looks perfectly fine.
+const CREATED_KPI_STORAGE_PREFIX = 'dalgo_insight_walkthrough_created_kpi_';
+
+export function getStoredCreatedKpiId(flow: WalkthroughFlow): number | null {
+  const raw = readFlowValue(CREATED_KPI_STORAGE_PREFIX, flow);
+  const id = raw === null ? NaN : Number(raw);
+  return Number.isFinite(id) ? id : null;
+}
+
+export function saveCreatedKpiId(flow: WalkthroughFlow, kpiId: number): void {
+  writeFlowValue(CREATED_KPI_STORAGE_PREFIX, flow, String(kpiId));
+}
+
+export function clearCreatedKpiId(flow: WalkthroughFlow): void {
+  removeFlowValue(CREATED_KPI_STORAGE_PREFIX, flow);
 }
 
 export function saveDismissedSyncRun(flow: WalkthroughFlow, runId: string): void {

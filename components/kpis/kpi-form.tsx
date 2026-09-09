@@ -22,6 +22,7 @@ import {
   type KpiCreateSource,
 } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { WALKTHROUGH_DEFAULT_TARGET } from '@/components/onboarding/insight-walkthrough-constants';
 import type { KPI, KPICreate, KPIUpdate, KPIExtraConfig } from '@/types/kpis';
 import type { Metric } from '@/types/metrics';
 import { cn } from '@/lib/utils';
@@ -114,7 +115,11 @@ function StepIndicator({ step }: { step: Step }) {
 interface KPIFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
+  /**
+   * @param createdKpiId - id of the KPI just created, or undefined on an edit. The walkthrough
+   *   needs it to point its next coachmark at that exact card (see kpi-page.tsx).
+   */
+  onSuccess: (createdKpiId?: number) => void;
   kpi?: KPI | null;
   preselectedMetricId?: number;
   /** Analytics only — which surface opened this wizard (KPI_CREATE_SOURCES). The KPIs page
@@ -259,7 +264,11 @@ export function KPIForm({
         reset({
           metric_id: preselectedMetricId || null,
           name: '',
-          target_value: '',
+          // Prefilled only for a walkthrough run — see WALKTHROUGH_DEFAULT_TARGET. Everyone
+          // else starts on an empty field, because only they know what they are aiming for.
+          target_value: useInsightWalkthroughStore.getState().active
+            ? WALKTHROUGH_DEFAULT_TARGET
+            : '',
           direction: 'increase',
           green_threshold_pct: '80',
           amber_threshold_pct: '50',
@@ -370,6 +379,10 @@ export function KPIForm({
     const extraConfig: KPIExtraConfig =
       Object.keys(customizations).length > 0 ? { customizations } : {};
 
+    // Set on the create path only, and handed to onSuccess below — the response is the only
+    // place the new id exists.
+    let createdKpiId: number | undefined;
+
     try {
       if (isEdit && kpi) {
         const updateData: KPIUpdate = {
@@ -414,6 +427,7 @@ export function KPIForm({
           extra_config: extraConfig,
         };
         const created = await createKPI(createData);
+        createdKpiId = created.id;
         // kpi_id from the response — it is the only place the new id exists, and it is what
         // lets created -> viewed -> deleted be joined for one KPI.
         trackEvent(ANALYTICS_EVENTS.KPI_CREATED, {
@@ -429,7 +443,7 @@ export function KPIForm({
           });
         }
       }
-      onSuccess();
+      onSuccess(createdKpiId);
       onOpenChange(false);
     } catch (err: any) {
       setSaveError(err.message || 'Failed to save KPI');

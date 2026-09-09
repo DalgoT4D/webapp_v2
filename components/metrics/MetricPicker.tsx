@@ -13,6 +13,16 @@ interface MetricPickerProps {
   placeholder?: string;
   pageSize?: number;
   hideCreateLink?: boolean;
+  /**
+   * Show at most this many metrics, taking the first ones the API returned.
+   *
+   * For the onboarding walkthrough, which caps the list at one: the guided KPI is a
+   * demonstration, any metric serves, and a full scrollable list gave the user a decision to
+   * make where the flow only needed a click. Capping the options is how that is enforced —
+   * there is nothing to scroll to and nothing else to pick — rather than by blocking clicks
+   * on rows that are still on screen.
+   */
+  maxItems?: number;
 }
 
 export function MetricPicker({
@@ -22,18 +32,19 @@ export function MetricPicker({
   placeholder = 'Search from your Metrics Library',
   pageSize = 100,
   hideCreateLink = false,
+  maxItems,
 }: MetricPickerProps) {
   const { data: metrics, isLoading } = useMetrics({ pageSize });
 
   const items = useMemo(
     () =>
-      metrics.map((m) => ({
+      (maxItems === undefined ? metrics : metrics.slice(0, maxItems)).map((m) => ({
         value: String(m.id),
         label: m.name,
         data_type: `${m.schema_name}.${m.table_name}${m.description ? ' · ' + m.description : ''}`,
         disabled: false,
       })),
-    [metrics]
+    [metrics, maxItems]
   );
 
   return (
