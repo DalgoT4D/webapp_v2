@@ -1154,12 +1154,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         let removed = false;
         setState((prev) => {
           if (prev.tabs.length <= 1) return prev;
-          const idx = prev.tabs.findIndex((tab) => tab.id === tabId);
-          if (idx < 0) return prev;
+          const tabIndex = prev.tabs.findIndex((tab) => tab.id === tabId);
+          if (tabIndex < 0) return prev;
           const tabs = prev.tabs.filter((tab) => tab.id !== tabId);
           const activeTabId =
             prev.activeTabId === tabId
-              ? tabs[Math.max(0, idx - 1)]?.id || tabs[0].id
+              ? tabs[Math.max(0, tabIndex - 1)]?.id || tabs[0].id
               : prev.activeTabId;
           removed = true;
           return { tabs, activeTabId };
@@ -1955,7 +1955,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     const handleFilterCreate = async (filterPayload: CreateFilterPayload) => {
       if (!dashboardId) return;
-
+      console.log('calleedddddddd');
       try {
         // Create filter in database first using typed API
         const newFilterFromAPI = await createDashboardFilter(dashboardId, {
@@ -1966,6 +1966,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           column_name: filterPayload.column_name,
           settings: filterPayload.settings,
         });
+
+        console.log('newFilterFromAPI', newFilterFromAPI);
         trackEvent(ANALYTICS_EVENTS.DASHBOARD_FILTER_CREATED, {
           dashboard_id: dashboardId,
           filter_type: filterPayload.filter_type,

@@ -21,8 +21,7 @@ export interface UnifiedTextConfig {
   backgroundColor?: string;
   imageUrl?: string;
   imageName?: string;
-  // Only set for images uploaded to S3 (not external image links) — needed to
-  // delete the S3 object when the image is removed or replaced.
+  // Only present when the image was uploaded to S3, not for external image links.
   imageKey?: string;
   imageSize?: 'fill' | 'fit' | 'stretch';
   caption?: string;
