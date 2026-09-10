@@ -203,23 +203,6 @@ export function useStreamConfig() {
     []
   );
 
-  const setColumnTypeConfirmed = useCallback(
-    (streamName: string, columnName: string, confirmed: boolean) => {
-      setStreams((prev) =>
-        prev.map((s) => {
-          if (s.name !== streamName) return s;
-          return {
-            ...s,
-            columns: s.columns.map((c) =>
-              c.name === columnName && c.selected ? { ...c, type_confirmed: confirmed } : c
-            ),
-          };
-        })
-      );
-    },
-    []
-  );
-
   // Confirmation is scoped to one stream so users can review a table at a time.
   const confirmAllColumnTypes = useCallback((streamName: string) => {
     setStreams((prev) =>
@@ -327,7 +310,6 @@ export function useStreamConfig() {
     updateStreamPrimaryKey,
     toggleColumn,
     updateCastType,
-    setColumnTypeConfirmed,
     confirmAllColumnTypes,
     toggleStreamExpand,
     handleIncrementalAllToggle,

@@ -99,7 +99,6 @@ jest.mock('../hooks/useStreamConfig', () => ({
     updateStreamPrimaryKey: jest.fn(),
     toggleColumn: jest.fn(),
     updateCastType: jest.fn(),
-    setColumnTypeConfirmed: jest.fn(),
     confirmAllColumnTypes: jest.fn(),
     toggleStreamExpand: jest.fn(),
     handleIncrementalAllToggle: jest.fn(),

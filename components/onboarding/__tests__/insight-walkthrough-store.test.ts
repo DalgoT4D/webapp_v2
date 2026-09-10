@@ -50,6 +50,33 @@ describe('insightWalkthroughStore', () => {
     expect(getStoredWalkthroughStage('automate_pipeline')).toBeNull();
   });
 
+  it('keeps the original return point across repeated Back and persists the reviewed step', () => {
+    store().start(ORG_A);
+    store().chooseSample();
+    store().advanceTo('kpi_submit');
+    store().rewindTo('kpi_type');
+    store().rewindTo('kpi_target');
+    expect(store().reviewReturnStage).toBe('kpi_submit');
+    expect(getStoredWalkthroughStage('insights')).toBe('kpi_target');
+    store().advanceTo('kpi_submit');
+    expect(store().reviewReturnStage).toBeNull();
+    expect(hasFinishedWalkthrough('insights')).toBe(false);
+  });
+
+  it('rejects Back across a completed action and clears review state on a flow switch', () => {
+    store().start(ORG_A);
+    store().chooseSample();
+    store().advanceTo('kpi_duration');
+    store().rewindTo('kpi_submit');
+    expect(store().stage).toBe('kpi_duration');
+    expect(store().reviewReturnStage).toBeNull();
+    store().advanceTo('kpi_add_note');
+    store().rewindTo('kpi_duration');
+    store().startAutomatePipeline(ORG_A);
+    expect(store().reviewReturnStage).toBeNull();
+    expect(store().stage).toBe('pipeline_ingest_nudge');
+  });
+
   it('advanceTo("share") followed by finish() marks that flow done and deactivates', () => {
     store().start(ORG_A);
     store().advanceTo('share');

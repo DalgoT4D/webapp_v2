@@ -732,7 +732,7 @@ describe('InsightWalkthroughCoachmark', () => {
       );
     });
 
-    it('names the prefilled target in the copy, from the same constant that fills it', async () => {
+    it('explains the sample target and all three performance states', async () => {
       mountTarget('kpi-form-target-field', document.createElement('input'));
       setStage('kpi_target');
       render(<InsightWalkthroughCoachmark />);
@@ -741,6 +741,10 @@ describe('InsightWalkthroughCoachmark', () => {
         // The grouped form the copy reads; the bare constant goes into the input.
         expect(popoverDescription()).toContain(`filled in ${WALKTHROUGH_DEFAULT_TARGET_DISPLAY}`)
       );
+      expect(popoverDescription()).toContain('performance thresholds you define');
+      expect(popoverDescription()).toContain('On Track, Needs Attention, or Off Track');
+      expect(popoverDescription()).not.toContain('figure in mind');
+      expect(popoverDescription()).not.toContain('green');
     });
 
     it('does not move on when a typed field is left empty', async () => {

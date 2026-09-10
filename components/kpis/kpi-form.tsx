@@ -24,6 +24,7 @@ import {
   type KpiCreateSource,
 } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { KPI_STAGE_STEP } from '@/components/onboarding/walkthrough-navigation';
 import {
   WALKTHROUGH_DEFAULT_PROGRAM_TAG,
   WALKTHROUGH_DEFAULT_TARGET,
@@ -182,6 +183,14 @@ export function KPIForm({
   });
 
   const metricId = watch('metric_id');
+  const walkthroughStage = useInsightWalkthroughStore((s) => s.stage);
+  useEffect(() => {
+    const reviewStep = walkthroughStage && KPI_STAGE_STEP[walkthroughStage];
+    if (open && !isEdit && reviewStep) {
+      setStep(reviewStep);
+      setStepError(null);
+    }
+  }, [open, isEdit, walkthroughStage]);
   const timeDimensionColumn = watch('time_dimension_column');
   const metricTypeTag = watch('metric_type_tag');
 
@@ -465,6 +474,8 @@ export function KPIForm({
         <StepIndicator step={step} />
 
         <form
+          data-testid="kpi-form"
+          data-has-time-column={dateColumns.length > 0}
           onSubmit={(e) => {
             e.preventDefault();
             if (step === 3) handleSubmit(onSubmit)(e);

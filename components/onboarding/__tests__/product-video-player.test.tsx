@@ -31,6 +31,7 @@ it('recognizes autoplay before hydration and records first play only once', asyn
   });
   try {
     expect(video.paused).toBe(false);
+    expect(video.muted).toBe(false);
     expect(screen.queryByRole('button', { name: 'Play Product tour' })).not.toBeInTheDocument();
     expect(onFirstPlay).toHaveBeenCalledTimes(1);
     fireEvent.pause(video);
@@ -54,6 +55,7 @@ it('retains the fallback when autoplay and the first manual attempt are blocked'
     .mockResolvedValueOnce(undefined);
   try {
     render(<ProductVideoPlayer {...props} onFirstPlay={onFirstPlay} />);
+    expect(screen.getByTestId('tour-video')).toHaveProperty('muted', false);
     const button = screen.getByRole('button', { name: 'Play Product tour' });
     expect(onFirstPlay).not.toHaveBeenCalled();
     await act(async () => fireEvent.click(button));
@@ -62,6 +64,7 @@ it('retains the fallback when autoplay and the first manual attempt are blocked'
     await act(async () => fireEvent.click(button));
     expect(screen.queryByRole('button', { name: 'Play Product tour' })).not.toBeInTheDocument();
     expect(onFirstPlay).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('tour-video')).toHaveProperty('muted', false);
   } finally {
     play.mockRestore();
   }

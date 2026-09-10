@@ -205,7 +205,6 @@ export function ConnectionFormBody({
     updateStreamPrimaryKey,
     toggleColumn,
     updateCastType,
-    setColumnTypeConfirmed,
     confirmAllColumnTypes,
     toggleStreamExpand,
     handleIncrementalAllToggle,
@@ -786,7 +785,6 @@ export function ConnectionFormBody({
                   onToggleStreamExpand={toggleStreamExpand}
                   onToggleColumn={toggleColumn}
                   onUpdateCastType={updateCastType}
-                  onSetColumnTypeConfirmed={setColumnTypeConfirmed}
                   onConfirmAllColumnTypes={confirmAllColumnTypes}
                   showCastColumn={showCastColumn}
                   streamNoun={connectionView?.streamNoun}

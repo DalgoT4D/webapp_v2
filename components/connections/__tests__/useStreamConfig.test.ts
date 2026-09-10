@@ -77,7 +77,7 @@ describe('useStreamConfig initialization', () => {
 });
 
 describe('useStreamConfig column type confirmation', () => {
-  it('requires every selected column to be confirmed', () => {
+  it('confirms every selected column in a table with one action', () => {
     const { result } = renderHook(() => useStreamConfig());
     const twoColumns = stream('responses');
     twoColumns.columns.push({
@@ -90,9 +90,7 @@ describe('useStreamConfig column type confirmation', () => {
     act(() => result.current.initializeStreams([twoColumns]));
 
     expect(result.current.allSelectedColumnTypesConfirmed).toBe(false);
-    act(() => result.current.setColumnTypeConfirmed('responses', 'id', true));
-    expect(result.current.allSelectedColumnTypesConfirmed).toBe(false);
-    act(() => result.current.setColumnTypeConfirmed('responses', 'score', true));
+    act(() => result.current.confirmAllColumnTypes('responses'));
     expect(result.current.allSelectedColumnTypesConfirmed).toBe(true);
   });
 

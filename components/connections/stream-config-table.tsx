@@ -1,10 +1,16 @@
 'use client';
 
 import React from 'react';
-import { ChevronDown, ChevronsDown, SlidersHorizontal } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronsDown,
+  CircleAlert,
+  SlidersHorizontal,
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Select,
@@ -58,7 +64,6 @@ interface StreamConfigTableProps {
   onToggleStreamExpand: (streamName: string) => void;
   onToggleColumn: (streamName: string, columnName: string) => void;
   onUpdateCastType: (streamName: string, columnName: string, castType: string | null) => void;
-  onSetColumnTypeConfirmed: (streamName: string, columnName: string, confirmed: boolean) => void;
   onConfirmAllColumnTypes: (streamName: string) => void;
   // Show the editable, confirmable column type in the expanded column view. Enabled only for
   // sources in CAST_SUPPORTED_SOURCES (currently Google Sheets only).
@@ -96,7 +101,6 @@ export function StreamConfigTable({
   onToggleStreamExpand,
   onToggleColumn,
   onUpdateCastType,
-  onSetColumnTypeConfirmed,
   onConfirmAllColumnTypes,
   showCastColumn = false,
   streamNoun = 'Tables',
@@ -213,6 +217,7 @@ export function StreamConfigTable({
         <table
           className={`w-full table-fixed text-sm ${tableWidthClass}`}
           data-testid="streams-table"
+          data-cast-supported={showCastColumn}
         >
           <colgroup>
             <col style={{ width: colWidths.stream }} />
@@ -379,18 +384,37 @@ export function StreamConfigTable({
                   >
                     {/* Stream name */}
                     <td className="px-3 py-3">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="inline-block max-w-full truncate align-middle text-sm font-medium text-foreground">
-                              {stream.name}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-xs break-all">
-                            <p className="text-xs">{stream.name}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="min-w-0 max-w-full truncate text-sm font-medium text-foreground">
+                                {stream.name}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs break-all">
+                              <p className="text-xs">{stream.name}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        {showCastColumn && isSelected && (
+                          <Badge
+                            variant="outline"
+                            className={
+                              allColumnTypesConfirmed
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                            }
+                          >
+                            {allColumnTypesConfirmed ? (
+                              <CheckCircle2 aria-hidden="true" />
+                            ) : (
+                              <CircleAlert aria-hidden="true" />
+                            )}
+                            {allColumnTypesConfirmed ? 'Types confirmed' : 'Needs confirmation'}
+                          </Badge>
+                        )}
+                      </div>
                     </td>
                     {/* Sync toggle */}
                     <td className="px-3 py-3 text-center">
@@ -545,7 +569,7 @@ export function StreamConfigTable({
                       <tr key={`cols-${stream.name}`} className="bg-muted/30">
                         <td colSpan={colCount} className="px-4 py-2">
                           {showCastColumn && (
-                            <div className="mb-2 flex items-center justify-between gap-3">
+                            <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
                               <p className="text-xs text-muted-foreground">
                                 Review the detected type for each selected column.
                               </p>
@@ -563,18 +587,14 @@ export function StreamConfigTable({
                                 data-testid={`confirm-all-column-types-${stream.name}`}
                               >
                                 {allColumnTypesConfirmed
-                                  ? 'All column types confirmed'
-                                  : 'Confirm all column types'}
+                                  ? 'Column types confirmed'
+                                  : 'Confirm column types'}
                               </button>
                             </div>
                           )}
                           <table
                             data-testid={`columns-detail-table-${stream.name}`}
-                            className={
-                              showCastColumn
-                                ? 'w-[42rem] max-w-full table-fixed'
-                                : 'w-[32rem] max-w-full table-fixed'
-                            }
+                            className="w-[32rem] max-w-full table-fixed"
                           >
                             <thead>
                               <tr className="border-b border-muted">
@@ -585,11 +605,6 @@ export function StreamConfigTable({
                                 <th className="w-40 py-1 px-2 text-left text-xs font-medium text-muted-foreground">
                                   {showCastColumn ? 'Column type' : 'Type'}
                                 </th>
-                                {showCastColumn && (
-                                  <th className="w-52 py-1 px-2 text-left text-xs font-medium text-muted-foreground">
-                                    Confirm type
-                                  </th>
-                                )}
                               </tr>
                             </thead>
                             <tbody>
@@ -666,28 +681,6 @@ export function StreamConfigTable({
                                         </span>
                                       )}
                                     </td>
-                                    {showCastColumn && (
-                                      <td className="w-52 py-1.5 px-2 text-left">
-                                        <label className="inline-flex items-center gap-2 text-xs text-foreground">
-                                          <Checkbox
-                                            checked={col.type_confirmed}
-                                            onCheckedChange={(checked) =>
-                                              onSetColumnTypeConfirmed(
-                                                stream.name,
-                                                col.name,
-                                                checked === true
-                                              )
-                                            }
-                                            disabled={
-                                              disabled || isSaving || !isSelected || !col.selected
-                                            }
-                                            data-testid={`confirm-column-type-${stream.name}-${col.name}`}
-                                            aria-label={`Confirm column type for ${col.name}`}
-                                          />
-                                          Confirm
-                                        </label>
-                                      </td>
-                                    )}
                                   </tr>
                                 );
                               })}

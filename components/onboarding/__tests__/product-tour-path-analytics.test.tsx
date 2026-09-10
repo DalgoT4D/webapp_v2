@@ -6,9 +6,9 @@
  * would only prove the mock was wired.
  */
 import React from 'react';
-import { act, render, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { TOUR_STEPS } from '../tour-constants';
+import { getTourProgress, TOUR_STEPS } from '../tour-constants';
 import { ProductTour, type ProductTourHandle } from '../product-tour';
 
 const mockStartPath = jest.fn();
@@ -129,6 +129,90 @@ it('reports each step as a stage of the walkthrough path, indexed in tour order'
       stageIndex: 1,
     })
   );
+});
+
+it('goes back to the previous page and saves that step for resuming', async () => {
+  const ref = renderTour();
+  await act(async () => ref.current?.startTour());
+  await waitFor(() => expect(nextButton()).not.toBeNull());
+  expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
+
+  await userEvent.click(nextButton() as HTMLElement);
+  const back = await screen.findByRole('button', { name: 'Back' });
+  expect(window.location.pathname).toBe(TOUR_STEPS[1].route);
+  await userEvent.click(back);
+
+  await waitFor(() =>
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument()
+  );
+  expect(window.location.pathname).toBe(TOUR_STEPS[0].route);
+  expect(getTourProgress('org-a')).toBe(0);
+  expect(mockStagePath).toHaveBeenLastCalledWith('walkthrough', TOUR_STEPS[0].route, {
+    stageIndex: 0,
+  });
+  expect(mockCompletePath).not.toHaveBeenCalled();
+  expect(mockExitPath).not.toHaveBeenCalled();
+});
+
+it('walks every product-tour page backwards and forwards without completing early', async () => {
+  const ref = renderTour();
+  await act(async () => ref.current?.startTour(TOUR_STEPS.length - 1));
+  for (let index = TOUR_STEPS.length - 2; index >= 0; index--) {
+    await userEvent.click(await screen.findByRole('button', { name: 'Back' }));
+    await waitFor(() => expect(getTourProgress('org-a')).toBe(index));
+    expect(window.location.pathname).toBe(TOUR_STEPS[index].route);
+    expect(mockStagePath).toHaveBeenLastCalledWith('walkthrough', TOUR_STEPS[index].route, {
+      stageIndex: index,
+    });
+  }
+  expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
+  for (let index = 1; index < TOUR_STEPS.length; index++) {
+    await userEvent.click(nextButton() as HTMLElement);
+    await waitFor(() => expect(getTourProgress('org-a')).toBe(index));
+    expect(window.location.pathname).toBe(TOUR_STEPS[index].route);
+  }
+  expect(mockCompletePath).not.toHaveBeenCalled();
+  expect(mockExitPath).not.toHaveBeenCalled();
+});
+
+it('can go back from a resumed final step without finishing the tour', async () => {
+  const ref = renderTour();
+  await act(async () => ref.current?.startTour(TOUR_STEPS.length - 1));
+  const back = await screen.findByRole('button', { name: 'Back' });
+
+  await userEvent.click(back);
+
+  await waitFor(() =>
+    expect(mockStagePath).toHaveBeenLastCalledWith(
+      'walkthrough',
+      TOUR_STEPS[TOUR_STEPS.length - 2].route,
+      { stageIndex: TOUR_STEPS.length - 2 }
+    )
+  );
+  expect(getTourProgress('org-a')).toBe(TOUR_STEPS.length - 2);
+  expect(mockCompletePath).not.toHaveBeenCalled();
+  expect(mockExitPath).not.toHaveBeenCalled();
+});
+
+it('skips an unavailable section backwards while Back and Next remain disabled in transit', async () => {
+  const ref = renderTour();
+  await act(async () => ref.current?.startTour(2));
+  const back = await screen.findByRole('button', { name: 'Back' });
+  document.querySelector(`#main-layout-sidebar a[href="${TOUR_STEPS[1].route}"]`)?.remove();
+  jest.useFakeTimers();
+  try {
+    act(() => back.click());
+    expect(back).toBeDisabled();
+    expect(nextButton()).toBeDisabled();
+    await act(async () => jest.advanceTimersByTimeAsync(6500));
+
+    expect(window.location.pathname).toBe(TOUR_STEPS[0].route);
+    expect(getTourProgress('org-a')).toBe(0);
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
+    expect(mockCompletePath).not.toHaveBeenCalled();
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 it('exits the walkthrough path with the step quit on once the user confirms the close', async () => {

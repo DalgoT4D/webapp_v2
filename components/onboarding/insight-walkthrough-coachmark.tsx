@@ -31,6 +31,7 @@ import { revealElementInScrollParents } from './tour-reveal';
 import { ensurePopoverArrow } from './tour-arrow';
 import { LeaveWalkthroughDialog } from './leave-walkthrough-dialog';
 import { useWalkthroughExitGuard } from './walkthrough-exit-guard';
+import { KPI_STAGE_STEP, previousReviewStage, nextReviewStage } from './walkthrough-navigation';
 
 /** Shared by both forks' "now build a dashboard" nudges. */
 const DASHBOARD_NUDGE_IMAGE = '/branding/dashboard-nudge-graph.jpg';
@@ -691,7 +692,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Target value',
     // Built from the constant the form fills the field with, so the number the copy quotes and
     // the number on screen can never drift apart.
-    description: `The number you are aiming for. We have filled in ${WALKTHROUGH_DEFAULT_TARGET_DISPLAY} so this KPI has something to measure against — change it if you have your own figure in mind. Dalgo marks the KPI green once the target is reached and red when it falls short.`,
+    description: `The number you are aiming for. We have filled in ${WALKTHROUGH_DEFAULT_TARGET_DISPLAY} as the target for this example. Dalgo tracks the KPI against the performance thresholds you define to show whether it is On Track, Needs Attention, or Off Track.`,
   },
   kpi_direction: {
     alsoClickable: KPI_SETUP_REQUIRED_FIELDS,
@@ -1416,10 +1417,48 @@ export const WALKTHROUGH_STAGE_ROUTES: Partial<Record<WalkthroughStage, string>>
       .map(([stage, config]) => [stage, config.route])
   );
 
+/** Review only targets belonging to the live screen. A missing/conditional field is
+ * skipped, and a dialog never sends Back to controls underneath it. The KPI wizard
+ * can restore its own steps without unmounting the form or resetting its values. */
+function canReviewStage(stage: WalkthroughStage): boolean {
+  if (
+    stage.endsWith('_streams_cast') &&
+    document.querySelector('[data-testid="streams-table"]')?.getAttribute('data-cast-supported') ===
+      'false'
+  )
+    return false;
+  const config = STAGE_CONFIG[stage];
+  if (!config || (config.route && !matchesStageRoute(config, window.location.pathname)))
+    return false;
+  const wizard = document.querySelector('[data-testid="kpi-form"]');
+  if (wizard && KPI_STAGE_STEP[stage]) {
+    return stage !== 'kpi_time_column' || wizard.getAttribute('data-has-time-column') === 'true';
+  }
+  const selector = typeof config.selector === 'function' ? config.selector() : config.selector;
+  if (!selector) return false;
+  const target = document.querySelector(selector);
+  if (!target) return false;
+  for (let element: Element | null = target; element; element = element.parentElement) {
+    const style = getComputedStyle(element);
+    if (
+      element.hasAttribute('hidden') ||
+      style.display === 'none' ||
+      style.visibility === 'hidden'
+    ) {
+      return false;
+    }
+  }
+  const dialogs = Array.from(document.querySelectorAll('[role="dialog"]')).filter(
+    (dialog) => !dialog.closest('.driver-popover') && dialog.getAttribute('data-state') !== 'closed'
+  );
+  return dialogs.length === 0 || dialogs.some((dialog) => dialog.contains(target));
+}
+
 export function InsightWalkthroughCoachmark() {
   const pathname = usePathname();
   const active = useInsightWalkthroughStore((s) => s.active);
   const stage = useInsightWalkthroughStore((s) => s.stage);
+  const reviewReturnStage = useInsightWalkthroughStore((s) => s.reviewReturnStage);
   const suppressCoachmark = useInsightWalkthroughStore((s) => s.suppressCoachmark);
   const trackedConnectionId = useInsightWalkthroughStore((s) => s.trackedConnectionId);
   const driverRef = useRef<Driver | null>(null);
@@ -1648,6 +1687,7 @@ export function InsightWalkthroughCoachmark() {
           // still works with this false. Leaving it on meant a stray click on the dimmed page
           // tore the coachmark down.
           allowClose: false,
+          allowKeyboardControl: false,
           onPopoverRender: (popover) => {
             popoverRef.current = popover;
             outlinePopoverArrow(popover);
@@ -1665,8 +1705,8 @@ export function InsightWalkthroughCoachmark() {
             // Top-right ✕ on every coachmark (same affordance as ProductTour) rather than a
             // worded "Skip"/"Later" link — it ends the whole walkthrough, not just this stage
             // (see onCloseClick).
-            if (config.showNext || config.onDismiss)
-              popover.nextButton.classList.add('dalgo-tour-next-btn');
+            popover.previousButton.classList.add('dalgo-tour-prev-btn');
+            popover.nextButton.classList.add('dalgo-tour-next-btn');
             popover.closeButton.textContent = '✕';
             popover.closeButton.setAttribute('aria-label', 'Skip walkthrough');
             popover.closeButton.setAttribute('data-testid', 'walkthrough-skip-btn');
@@ -1699,6 +1739,40 @@ export function InsightWalkthroughCoachmark() {
         });
         driverRef.current = d;
         const onDismiss = config.showNext ? null : (config.onDismiss ?? null);
+        const previous = previousReviewStage(live.path, stage!, canReviewStage);
+        const reviewNext = nextReviewStage(
+          live.path,
+          stage!,
+          live.reviewReturnStage,
+          canReviewStage
+        );
+        const navigateReview = (backwards: boolean) => {
+          const walkthrough = useInsightWalkthroughStore.getState();
+          if (cancelled || walkthrough.stage !== stage || !walkthrough.active) return;
+          // Fields can disappear after the popover was drawn (e.g. a different
+          // dataset). Re-resolve instead of leaving Back aimed at a missing field.
+          const target = backwards
+            ? previousReviewStage(walkthrough.path, stage!, canReviewStage)
+            : nextReviewStage(
+                walkthrough.path,
+                stage!,
+                walkthrough.reviewReturnStage,
+                canReviewStage
+              );
+          if (!target) return;
+          for (const button of [
+            popoverRef.current?.previousButton,
+            popoverRef.current?.nextButton,
+          ]) {
+            if (button) button.disabled = true;
+          }
+          // Tear down input/blur listeners before changing focus or form steps. A blur
+          // from the field we are leaving must not immediately advance us again.
+          detachEngagement?.();
+          detachEngagement = null;
+          if (backwards) walkthrough.rewindTo(target);
+          else walkthrough.advanceTo(target);
+        };
         const popover: Popover = {
           title: config.title,
           description: config.description,
@@ -1709,7 +1783,15 @@ export function InsightWalkthroughCoachmark() {
           // `showButtons: []` default into the step it builds, and that empty array beats the
           // instance-level config, so driver.js renders the close button with an inline
           // `display: none`. That's why these coachmarks had no dismissal control at all.
-          showButtons: config.showNext || onDismiss ? ['next', 'close'] : ['close'],
+          showButtons: [
+            ...(previous ? ['previous' as const] : []),
+            ...(reviewNext || config.showNext || onDismiss ? ['next' as const] : []),
+            'close',
+          ],
+          ...(previous && {
+            prevBtnText: 'Back',
+            onPrevClick: () => navigateReview(true),
+          }),
           ...(config.showNext && {
             nextBtnText: 'Got it',
             onNextClick: () => {
@@ -1717,6 +1799,10 @@ export function InsightWalkthroughCoachmark() {
             },
           }),
           ...(onDismiss && { nextBtnText: 'Got it', onNextClick: onDismiss }),
+          ...(reviewNext && {
+            nextBtnText: 'Next',
+            onNextClick: () => navigateReview(false),
+          }),
         };
         // Before the highlight, so driver.js measures the target where it will actually be
         // drawn. Covers the case driver.js's own scroll doesn't: a target hidden by an ANCESTOR
@@ -1780,12 +1866,21 @@ export function InsightWalkthroughCoachmark() {
       ringedElRef.current = null;
       driverRef.current?.destroy();
     };
-  }, [active, stage, pathname, suppressCoachmark, trackedConnectionId, trackTarget]);
+  }, [
+    active,
+    stage,
+    pathname,
+    suppressCoachmark,
+    trackedConnectionId,
+    trackTarget,
+    reviewReturnStage,
+  ]);
 
   // Route-driven advances: reaching a mapped route auto-advances to the stage it unlocks.
   useEffect(() => {
     if (!active || !stage) return;
     const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.reviewReturnStage) return;
 
     // dashboard_intro is shared by all 3 forks but unlocks a different next stage
     // depending which one the user took (own-data and automate-pipeline both add
