@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { GettingStartedWidget } from '../getting-started-widget';
 
@@ -35,9 +35,11 @@ describe('GettingStartedWidget', () => {
     // The Figma panel size, with the small-viewport caps that keep it on screen.
     expect(screen.getByTestId('getting-started-widget')).toHaveClass(
       'w-[499px]',
-      'min-h-[629px]',
+      'h-[629px]',
       'max-w-[calc(100vw-3rem)]',
-      'max-h-[calc(100vh-8rem)]'
+      'max-h-[calc(100dvh-8rem)]',
+      'overflow-y-auto',
+      'overscroll-contain'
     );
     expect(screen.getByTestId('getting-started-widget-title')).toHaveClass('sm:whitespace-nowrap');
     expect(screen.getByTestId('getting-started-widget-subtitle')).toHaveClass(
@@ -231,6 +233,29 @@ describe('GettingStartedWidget', () => {
     expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
   });
 
+  it('clicking the pill while the panel is open minimizes it', async () => {
+    const user = userEvent.setup();
+    render(
+      <GettingStartedWidget
+        defaultOpen
+        walkthroughActive={false}
+        hasBuiltFirstInsight={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+        onBuildInsightClick={jest.fn()}
+        onAutomatePipelineClick={jest.fn()}
+      />
+    );
+
+    const pill = screen.getByTestId('getting-started-widget-pill');
+    expect(pill).toHaveAttribute('aria-expanded', 'true');
+
+    await user.click(pill);
+
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+    expect(pill).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('re-opens on returning to the auto-open page, discarding the last visit’s minimize', async () => {
     const user = userEvent.setup();
     const props = {
@@ -258,7 +283,13 @@ describe('GettingStartedWidget', () => {
 describe('GettingStartedWidget checklist', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+    jest.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
     localStorage.clear();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('shows exactly the two checklist items in order, plus a click-to-play video', () => {
@@ -278,8 +309,16 @@ describe('GettingStartedWidget checklist', () => {
     expect(
       screen.getByRole('button', { name: 'Play Dalgo product overview video' })
     ).toBeInTheDocument();
-    // Nothing from YouTube is loaded until the user asks for it.
-    expect(screen.queryByTestId('getting-started-widget-video-iframe')).not.toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget-video-video')).toHaveAttribute(
+      'poster',
+      '/branding/dalgo-product-overview-poster.jpg'
+    );
+    expect(screen.getByTestId('getting-started-widget-video-video')).toHaveAttribute('controls');
+    expect(screen.getByTestId('getting-started-widget-video-video')).not.toHaveAttribute(
+      'autoplay'
+    );
+    expect(screen.getByTestId('getting-started-widget-video-video')).toHaveProperty('muted', false);
+    expect(screen.getByText('Watch video')).toBeInTheDocument();
     const items = screen.getAllByTestId(/getting-started-widget-item-/);
     expect(items.map((el) => el.getAttribute('data-testid'))).toEqual([
       'getting-started-widget-item-build-insight',
@@ -287,7 +326,7 @@ describe('GettingStartedWidget checklist', () => {
     ]);
   });
 
-  it('mounts the YouTube embed only once the user clicks play, and reports it once', async () => {
+  it('starts the self-hosted video in one click and reports it once', async () => {
     const user = userEvent.setup();
     render(
       <GettingStartedWidget
@@ -303,14 +342,35 @@ describe('GettingStartedWidget checklist', () => {
 
     await user.click(screen.getByTestId('getting-started-widget-video-play'));
 
-    // The privacy-preserving host and autoplay-on-click are the behaviour, not incidental:
-    // the embed is what the user asked for, so it should start without a second click.
-    expect(screen.getByTestId('getting-started-widget-video-iframe')).toHaveAttribute(
+    expect(screen.getByTestId('getting-started-widget-video-video')).toHaveAttribute(
       'src',
-      'https://www.youtube-nocookie.com/embed/R-JJNgp8xYM?autoplay=1&rel=0'
+      '/branding/dalgo-product-overview.mp4'
     );
+    expect(screen.getByTestId('getting-started-widget-video-video')).toHaveAttribute('controls');
+    expect(screen.queryByTestId('getting-started-widget-video-play')).not.toBeInTheDocument();
     expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:getting_started_video_played');
     expect(trackEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the explicit play treatment again when the video is paused', async () => {
+    const user = userEvent.setup();
+    render(
+      <GettingStartedWidget
+        defaultOpen
+        walkthroughActive={false}
+        hasBuiltFirstInsight={false}
+        hasAutomatedPipeline={false}
+        onStartTour={jest.fn()}
+        onBuildInsightClick={jest.fn()}
+        onAutomatePipelineClick={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByTestId('getting-started-widget-video-play'));
+    fireEvent.pause(screen.getByTestId('getting-started-widget-video-video'));
+
+    expect(screen.getByTestId('getting-started-widget-video-play')).toBeInTheDocument();
+    expect(screen.getByText('Watch video')).toBeInTheDocument();
   });
 
   it('stops the video when the widget is minimized and requires another click after reopening', async () => {
@@ -328,14 +388,14 @@ describe('GettingStartedWidget checklist', () => {
     );
 
     await user.click(screen.getByTestId('getting-started-widget-video-play'));
-    expect(screen.getByTestId('getting-started-widget-video-iframe')).toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget-video-video')).toHaveAttribute('controls');
 
     await user.click(screen.getByTestId('getting-started-widget-minimize'));
     await user.click(screen.getByTestId('getting-started-widget-pill'));
 
-    // The iframe is torn down rather than hidden — otherwise its audio would keep playing
+    // The player is remounted rather than hidden — otherwise its audio would keep playing
     // behind the collapsed pill.
-    expect(screen.queryByTestId('getting-started-widget-video-iframe')).not.toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget-video-video')).toHaveAttribute('controls');
     expect(screen.getByTestId('getting-started-widget-video-play')).toBeInTheDocument();
   });
 
@@ -393,7 +453,7 @@ describe('GettingStartedWidget checklist', () => {
     expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument();
   });
 
-  it('calls onStartTour and tracks analytics when the "take a 2 min tour" link is clicked', async () => {
+  it('presents the product tour as a full checklist row and starts it when clicked', async () => {
     const user = userEvent.setup();
     const onStartTour = jest.fn();
     render(
@@ -408,10 +468,18 @@ describe('GettingStartedWidget checklist', () => {
       />
     );
 
-    await user.click(screen.getByTestId('getting-started-widget-tour-link'));
+    const tourRow = screen.getByTestId('getting-started-widget-tour-link');
+    expect(tourRow.tagName).toBe('BUTTON');
+    expect(within(tourRow).getByText('Take a 2 min product tour')).toBeInTheDocument();
+    expect(
+      within(tourRow).getByText('Explore Dalgo’s key features and navigation')
+    ).toBeInTheDocument();
+
+    await user.click(tourRow);
 
     expect(onStartTour).toHaveBeenCalledTimes(1);
     expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:getting_started_tour_link_clicked');
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
   });
 
   it('keeps the tour link available once both flows are complete, alongside the docs link', () => {

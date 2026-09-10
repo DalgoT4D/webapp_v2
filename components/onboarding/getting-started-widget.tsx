@@ -12,12 +12,17 @@
  * though the pill stays available to reopen it manually.
  */
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Check, ChevronRight, Circle, Minus, Rocket } from 'lucide-react';
+import { ArrowUpRight, Check, ChevronRight, Circle, Compass, Minus, Rocket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { BOOK_A_CALL_URL, DALGO_DOCS_URL, PRODUCT_VIDEO_ID } from '@/constants/trial';
-import { YouTubeVideoPlayer } from './youtube-video-player';
+import {
+  BOOK_A_CALL_URL,
+  DALGO_DOCS_URL,
+  PRODUCT_VIDEO_POSTER_SRC,
+  PRODUCT_VIDEO_SRC,
+} from '@/constants/trial';
+import { ProductVideoPlayer } from './product-video-player';
 
 /** Kept in sync with .checklist-item-complete's animation duration in globals.css. */
 const COMPLETION_ANIMATION_MS = 1400;
@@ -120,8 +125,19 @@ export function GettingStartedWidget({
   }, [hasBuiltFirstInsight, hasAutomatedPipeline]);
 
   const minimizeWidget = () => {
+    // An explicit user close wins over a completion reveal arriving in the same render.
+    // Otherwise the reveal effect can immediately reopen a panel the user just toggled off.
+    lastRevealRef.current = revealSignal;
     setMinimized(true);
     setVideoSession((session) => session + 1);
+  };
+
+  const toggleWidget = () => {
+    if (minimized) {
+      setMinimized(false);
+      return;
+    }
+    minimizeWidget();
   };
 
   const handlePlayVideo = () => {
@@ -130,6 +146,7 @@ export function GettingStartedWidget({
 
   const handleStartTour = () => {
     trackEvent(ANALYTICS_EVENTS.GETTING_STARTED_TOUR_LINK_CLICKED);
+    minimizeWidget();
     onStartTour();
   };
 
@@ -167,12 +184,14 @@ export function GettingStartedWidget({
 
   return (
     <>
-      {/* Always visible, in both states — opens the panel when minimized, no-op if
-          already open. Panel (below) sits just above it with a gap when expanded. */}
+      {/* Always visible, in both states — toggles the panel open and closed. Panel
+          (below) sits just above it with a gap when expanded. */}
       <button
         type="button"
         data-testid="getting-started-widget-pill"
-        onClick={() => setMinimized(false)}
+        aria-expanded={!minimized}
+        aria-controls="getting-started-widget-panel"
+        onClick={toggleWidget}
         className="fixed right-6 bottom-6 z-40 flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-white shadow-xl hover:opacity-90"
       >
         <Rocket className="h-4 w-4" />
@@ -181,15 +200,14 @@ export function GettingStartedWidget({
 
       {!minimized && (
         <div
+          id="getting-started-widget-panel"
           data-testid="getting-started-widget"
           className={cn(
             'fixed right-6 bottom-24 z-40 rounded-2xl border bg-card p-6 shadow-xl',
-            // 499x629 per the Figma frame. Fixed rather than content-sized so the panel is the
-            // same card in all three heading states, instead of growing and shrinking as items
-            // get ticked off. The max-* pair keeps it on screen on a small or short viewport
-            // (bottom-24 = the 96px the pill below it occupies), and the scroll is the safety
-            // valve for the states that do run past 629 — never a clipped, unreachable CTA.
-            'min-h-[629px] w-[499px] max-h-[calc(100vh-8rem)] max-w-[calc(100vw-3rem)] overflow-y-auto'
+            // 499x629 per the Figma frame. `h`, rather than `min-h`, lets the dynamic viewport
+            // cap win on short screens; min-height used to override max-height and push the
+            // header/minimize control above the viewport. The whole card then scrolls internally.
+            'h-[629px] w-[499px] max-h-[calc(100dvh-8rem)] max-w-[calc(100vw-3rem)] overflow-y-auto overscroll-contain'
           )}
         >
           <div className="flex items-start justify-between">
@@ -223,14 +241,15 @@ export function GettingStartedWidget({
             className="mt-4 aspect-video overflow-hidden rounded-xl bg-primary/10"
           >
             {/* Remounted on `videoSession` so minimizing (or a checklist reveal) drops the
-                iframe and returns to the thumbnail, rather than leaving audio playing
+                player and returns to the poster, rather than leaving audio playing
                 behind a collapsed pill. */}
-            <YouTubeVideoPlayer
+            <ProductVideoPlayer
               key={videoSession}
-              videoId={PRODUCT_VIDEO_ID}
+              videoSrc={PRODUCT_VIDEO_SRC}
+              posterSrc={PRODUCT_VIDEO_POSTER_SRC}
               title="Dalgo product overview video"
               testIdPrefix="getting-started-widget-video"
-              onPlay={handlePlayVideo}
+              onFirstPlay={handlePlayVideo}
               playButtonSize="compact"
             />
           </div>
@@ -255,17 +274,31 @@ export function GettingStartedWidget({
             </p>
           )}
 
-          <button
-            type="button"
-            data-testid="getting-started-widget-tour-link"
-            onClick={handleStartTour}
-            className={cn('block text-sm text-muted-foreground', allComplete ? 'mt-2' : 'mt-4')}
-          >
-            New to dalgo?{' '}
-            <span className="font-medium text-primary hover:underline">Take a 2 min tour</span>
-          </button>
-
           <ul className="mt-4 divide-y">
+            <li>
+              <button
+                type="button"
+                data-testid="getting-started-widget-tour-link"
+                onClick={handleStartTour}
+                className="-mx-2 flex w-full items-start gap-3 rounded-md px-2 py-3 text-left hover:bg-muted/50"
+              >
+                <span
+                  aria-hidden="true"
+                  className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
+                >
+                  <Compass className="h-4 w-4" />
+                </span>
+                <span className="flex-1">
+                  <span className="block text-base font-semibold text-foreground">
+                    Take a 2 min product tour
+                  </span>
+                  <span className="block text-sm text-muted-foreground">
+                    Explore Dalgo’s key features and navigation
+                  </span>
+                </span>
+                <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+              </button>
+            </li>
             {items.map((item) => {
               const testId = `getting-started-widget-item-${item.key}`;
               const justCompleted = justCompletedKey === item.key;

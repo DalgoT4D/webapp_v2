@@ -96,6 +96,7 @@ import { useFullscreen } from '@/hooks/useFullscreen';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { getChartViewUrl, getKpiViewUrl, WIDGET_NAVIGATION_SOURCES } from '@/lib/widget-navigation';
 import {
   markDashboardShared,
   type WalkthroughStage,
@@ -299,6 +300,10 @@ export function DashboardNativeView({
   const router = useRouter();
   const { initialOpen: initialShareModalOpen, clearParam: clearShareDeepLink } =
     useOpenShareDeepLink();
+  const widgetNavigationSource = isReportMode
+    ? WIDGET_NAVIGATION_SOURCES.REPORT
+    : WIDGET_NAVIGATION_SOURCES.DASHBOARD;
+  const showWidgetNavigation = !isPublicMode && !isEmbedMode && !isPrintMode;
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>(() => {
     // In report mode, dashboardData is pre-fetched so filters are available immediately.
     // Compute defaults synchronously to avoid a double-render cycle with empty filters.
@@ -704,7 +709,7 @@ export function DashboardNativeView({
         return (
           <div key={componentId} className="h-full">
             <ChartElementView
-              chartId={component.config?.chartId}
+              chartId={Number(component.config?.chartId)}
               dashboardFilters={selectedFilters}
               dashboardFilterConfigs={dashboardFilters}
               viewMode={true}
@@ -723,6 +728,14 @@ export function DashboardNativeView({
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
               canModerateComments={isReportMode ? canModerateComments : undefined}
               orgLogoUrl={orgLogoUrl}
+              onView={
+                showWidgetNavigation
+                  ? () =>
+                      router.push(
+                        getChartViewUrl(Number(component.config?.chartId), widgetNavigationSource)
+                      )
+                  : undefined
+              }
             />
           </div>
         );
@@ -765,7 +778,7 @@ export function DashboardNativeView({
         return (
           <div key={componentId} className="h-full">
             <KPIChartElement
-              kpiId={component.config?.kpiId}
+              kpiId={Number(component.config?.kpiId)}
               config={component.config}
               dashboardFilters={selectedFilters}
               snapshotId={isReportMode ? snapshotId : undefined}
@@ -776,6 +789,14 @@ export function DashboardNativeView({
               onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
               autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
               canModerateComments={isReportMode ? canModerateComments : undefined}
+              onView={
+                showWidgetNavigation
+                  ? () =>
+                      router.push(
+                        getKpiViewUrl(Number(component.config?.kpiId), widgetNavigationSource)
+                      )
+                  : undefined
+              }
             />
           </div>
         );

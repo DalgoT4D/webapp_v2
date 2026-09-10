@@ -72,37 +72,6 @@ export async function checkTrialPasswordWithBackend(password: string): Promise<s
   }
 }
 
-// Webmail inboxes we can deep-link into, keyed by email domain. Deliberately small:
-// a wrong guess sends someone to a provider they don't use, which is worse than not
-// offering the shortcut at all.
-const WEBMAIL_INBOX_URLS: Readonly<Record<string, string>> = {
-  'gmail.com': 'https://mail.google.com/mail/u/0/#inbox',
-  'googlemail.com': 'https://mail.google.com/mail/u/0/#inbox',
-  'outlook.com': 'https://outlook.live.com/mail/0/inbox',
-  'hotmail.com': 'https://outlook.live.com/mail/0/inbox',
-  'live.com': 'https://outlook.live.com/mail/0/inbox',
-  'yahoo.com': 'https://mail.yahoo.com/d/folders/1',
-  'yahoo.co.in': 'https://mail.yahoo.com/d/folders/1',
-  'proton.me': 'https://mail.proton.me/u/0/inbox',
-  'protonmail.com': 'https://mail.proton.me/u/0/inbox',
-  'icloud.com': 'https://www.icloud.com/mail',
-  'zoho.com': 'https://mail.zoho.com/zm/#mail/folder/inbox',
-};
-
-/**
- * Resolve the "Check email" target for an address, or null when we can't.
- *
- * Returning null is meaningful: the caller hides the button rather than rendering one
- * that goes nowhere. Most NGO users are on a custom domain, so this shortcut is a
- * bonus for consumer inboxes, not something the screen depends on.
- */
-export function inboxUrlForEmail(email: string | null): string | null {
-  if (!email) return null;
-  const domain = email.split('@')[1]?.toLowerCase().trim();
-  if (!domain) return null;
-  return WEBMAIL_INBOX_URLS[domain] ?? null;
-}
-
 /** Map the backend's 1-based `step` onto a 0-based index into TRIAL_STEP_LABELS. */
 export function backendStepToDisplayIndex(step: number): number | null {
   return BACKEND_STEP_TO_DISPLAY_INDEX[step] ?? null;

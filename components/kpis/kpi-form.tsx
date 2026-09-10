@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
+import { useSWRConfig } from 'swr';
 import {
   Dialog,
   DialogContent,
@@ -29,7 +30,7 @@ import {
 import type { KPI, KPICreate, KPIUpdate, KPIExtraConfig } from '@/types/kpis';
 import type { Metric } from '@/types/metrics';
 import { cn } from '@/lib/utils';
-import type { KPIFormData } from './kpi-form-types';
+import { DEFAULT_KPI_DECIMAL_PLACES, type KPIFormData } from './kpi-form-types';
 import { KpiMetricStep, type KpiMetricStepHandle } from './KpiMetricStep';
 import { KpiSetupStep } from './KpiSetupStep';
 import { KpiThresholdsStep } from './KpiThresholdsStep';
@@ -54,12 +55,6 @@ const STEP_LABELS: Record<Step, string> = {
 };
 
 const STEPS: Step[] = [1, 2, 3];
-
-/**
- * Decimal places a new KPI starts on. Kept as the form's string type, since an empty string is
- * what "leave the setting off" means to the submit handler.
- */
-const DEFAULT_DECIMAL_PLACES = '2';
 
 function StepIndicator({ step }: { step: Step }) {
   return (
@@ -139,6 +134,7 @@ export function KPIForm({
   createSource = KPI_CREATE_SOURCES.KPIS_PAGE,
 }: KPIFormProps) {
   const isEdit = !!kpi;
+  const { mutate } = useSWRConfig();
 
   const [step, setStep] = useState<Step>(1);
   const [saving, setSaving] = useState(false);
@@ -178,7 +174,7 @@ export function KPIForm({
       // Two places by default: KPI values are targets and totals, and an unrounded float
       // ("1858.4000000000001") is the shape they arrive in from the warehouse. Still a plain
       // form default — the field is free to change, and clearing it drops the setting entirely.
-      decimalPlaces: DEFAULT_DECIMAL_PLACES,
+      decimalPlaces: DEFAULT_KPI_DECIMAL_PLACES,
       numberPrefix: '',
       numberSuffix: '',
     },
@@ -275,7 +271,7 @@ export function KPIForm({
             ? [WALKTHROUGH_DEFAULT_PROGRAM_TAG]
             : [],
           numberFormat: '',
-          decimalPlaces: DEFAULT_DECIMAL_PLACES,
+          decimalPlaces: DEFAULT_KPI_DECIMAL_PLACES,
           numberPrefix: '',
           numberSuffix: '',
         });
@@ -397,7 +393,8 @@ export function KPIForm({
           program_tags: data.program_tags,
           extra_config: extraConfig,
         };
-        await updateKPI(kpi.id, updateData);
+        const updated = await updateKPI(kpi.id, updateData);
+        await mutate(`/api/kpis/${kpi.id}/`, updated, { revalidate: false });
         trackEvent(ANALYTICS_EVENTS.KPI_UPDATED, {
           kpi_id: kpi.id,
           metric_type_tag: data.metric_type_tag || null,

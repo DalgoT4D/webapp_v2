@@ -22,6 +22,7 @@ import { WALKTHROUGH_ENTRIES } from '@/constants/analytics';
 import type { Connection } from '@/types/connections';
 import { ProductTour, type ProductTourHandle } from './product-tour';
 import { TourIntentModal, type TourIntentVariant } from './tour-intent-modal';
+import { useImpactPageReady } from './onboarding-route-readiness';
 import { GettingStartedWidget } from './getting-started-widget';
 import {
   COACHMARK_STAGES,
@@ -159,6 +160,7 @@ function classifySync(conn: Connection): SyncOutcome {
 export function TourGate() {
   const router = useRouter();
   const pathname = usePathname();
+  const impactPageReady = useImpactPageReady();
   const orgUsers = useAuthStore((s) => s.orgUsers);
   const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
   const orgUser = orgUsers.find((ou) => ou.org.slug === selectedOrgSlug) ?? null;
@@ -289,7 +291,9 @@ export function TourGate() {
    */
   useEffect(() => {
     if (!orgSlug || walkthroughLoading) return;
-    if (!isTrialOrg || pathname !== IMPACT_PATH || hasOpenedModalRef.current) return;
+    if (!isTrialOrg || pathname !== IMPACT_PATH || !impactPageReady || hasOpenedModalRef.current) {
+      return;
+    }
     if (
       isFlowCompleted(walkthroughState, 'insights') &&
       isFlowCompleted(walkthroughState, 'automate_pipeline')
@@ -324,6 +328,7 @@ export function TourGate() {
     orgSlug,
     planEndDate,
     pathname,
+    impactPageReady,
     walkthroughLoading,
     walkthroughState,
     walkthroughActive,
@@ -780,7 +785,7 @@ export function TourGate() {
           it can't cover the spotlighted content. */}
       {!tourRunning && (
         <GettingStartedWidget
-          defaultOpen={pathname === IMPACT_PATH}
+          defaultOpen={pathname === IMPACT_PATH && impactPageReady}
           walkthroughActive={walkthroughActive}
           revealSignal={checklistRevealSignal}
           // Both ticks read the backend, the only permanent record — the local flags are
@@ -798,7 +803,7 @@ export function TourGate() {
       {/* Still /impact-only: this is the landing-page welcome prompt, not a persistent
           affordance. It now returns once per session (see the effect above), wearing the
           'returning' copy after the first time. */}
-      {pathname === IMPACT_PATH && (
+      {pathname === IMPACT_PATH && impactPageReady && (
         <TourIntentModal
           open={intentModalOpen}
           // Closing is what records it — by the ✕, by the overlay, or by picking one of the
