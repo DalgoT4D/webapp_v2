@@ -27,6 +27,34 @@ export function formatNumber(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, '');
 }
 
+/**
+ * Describe how far the current KPI value is from its target.
+ *
+ * This deliberately describes the numeric relationship (above/below) rather than
+ * deciding whether it is good or bad. The KPI's configured direction and thresholds
+ * already make that decision through its RAG status.
+ */
+export function targetGapLabel(
+  currentValue: number | null | undefined,
+  targetValue: number | null | undefined
+): string | null {
+  if (
+    currentValue == null ||
+    targetValue == null ||
+    !Number.isFinite(currentValue) ||
+    !Number.isFinite(targetValue) ||
+    targetValue === 0
+  ) {
+    return null;
+  }
+
+  const difference = currentValue - targetValue;
+  if (difference === 0) return 'at target';
+
+  const percentage = (Math.abs(difference) / Math.abs(targetValue)) * 100;
+  return `${formatNumber(percentage)}% ${difference > 0 ? 'above' : 'below'} target`;
+}
+
 /** Numeric band edges in absolute units (not %). */
 export function bandBoundaries(
   ctx: RagThresholds

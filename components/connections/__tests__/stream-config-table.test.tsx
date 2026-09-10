@@ -12,7 +12,15 @@ const stream = (name: string, supportsIncremental: boolean): SourceStream => ({
   destinationSyncMode: DestinationSyncMode.OVERWRITE,
   cursorField: '',
   primaryKey: [],
-  columns: [{ name: 'col_a', data_type: 'string', selected: true, cast_to_type: null }],
+  columns: [
+    {
+      name: 'col_a',
+      data_type: 'String',
+      selected: true,
+      cast_to_type: null,
+      type_confirmed: false,
+    },
+  ],
   cursorFieldConfig: { sourceDefinedCursor: false, selected: [], all: [] },
   primaryKeyConfig: { sourceDefinedPrimaryKey: false, selected: [], all: [] },
 });
@@ -42,6 +50,8 @@ const baseProps = {
   onToggleStreamExpand: jest.fn(),
   onToggleColumn: jest.fn(),
   onUpdateCastType: jest.fn(),
+  onSetColumnTypeConfirmed: jest.fn(),
+  onConfirmAllColumnTypes: jest.fn(),
 };
 
 describe('StreamConfigTable progressive disclosure', () => {
@@ -79,7 +89,7 @@ describe('StreamConfigTable progressive disclosure', () => {
     expect(onConceptFocus).toHaveBeenCalledWith('columns');
   });
 
-  it('shows Google Sheets column names, detected types, and casts while advanced is closed', () => {
+  it('shows one preselected Column type dropdown and a required confirmation', () => {
     render(
       <StreamConfigTable
         {...baseProps}
@@ -92,16 +102,67 @@ describe('StreamConfigTable progressive disclosure', () => {
     );
 
     expect(screen.getByRole('columnheader', { name: 'Column' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Type' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Cast to' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Column type' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /Confirm type/ })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Cast to' })).not.toBeInTheDocument();
     expect(screen.getByText('col_a')).toBeInTheDocument();
-    expect(screen.getByText('string')).toBeInTheDocument();
-    expect(screen.getByTestId('cast-type-form_one-col_a')).toBeInTheDocument();
+    expect(screen.getByTestId('cast-type-form_one-col_a')).toHaveTextContent('String');
+    expect(screen.getByTestId('confirm-column-type-form_one-col_a')).not.toBeChecked();
+    expect(screen.getByTestId('confirm-all-column-types-form_one')).toHaveTextContent(
+      'Confirm all column types'
+    );
     expect(screen.getByTestId('columns-detail-table-form_one')).toHaveClass(
       'w-[42rem]',
       'table-fixed'
     );
-    expect(screen.getByRole('columnheader', { name: 'Type' })).toHaveClass('text-left');
+    expect(screen.getByRole('columnheader', { name: 'Column type' })).toHaveClass('text-left');
+  });
+
+  it('confirms one column or all selected columns in the stream', async () => {
+    const user = userEvent.setup();
+    const onSetColumnTypeConfirmed = jest.fn();
+    const onConfirmAllColumnTypes = jest.fn();
+    render(
+      <StreamConfigTable
+        {...baseProps}
+        advancedOpen={false}
+        showCastColumn
+        showIncremental={false}
+        expandedStreams={new Set(['form_one'])}
+        onSetColumnTypeConfirmed={onSetColumnTypeConfirmed}
+        onConfirmAllColumnTypes={onConfirmAllColumnTypes}
+        onToggleAdvanced={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByTestId('confirm-column-type-form_one-col_a'));
+    expect(onSetColumnTypeConfirmed).toHaveBeenCalledWith('form_one', 'col_a', true);
+
+    await user.click(screen.getByTestId('confirm-all-column-types-form_one'));
+    expect(onConfirmAllColumnTypes).toHaveBeenCalledWith('form_one');
+  });
+
+  it('shows a completed state once every selected type in a stream is confirmed', () => {
+    const confirmed = stream('form_one', false);
+    confirmed.columns[0].type_confirmed = true;
+
+    render(
+      <StreamConfigTable
+        {...baseProps}
+        streams={[confirmed]}
+        filteredStreams={[confirmed]}
+        advancedOpen={false}
+        showCastColumn
+        showIncremental={false}
+        expandedStreams={new Set(['form_one'])}
+        onToggleAdvanced={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('confirm-all-column-types-form_one')).toHaveTextContent(
+      'All column types confirmed'
+    );
+    expect(screen.getByTestId('confirm-all-column-types-form_one')).toBeDisabled();
   });
 
   it('shows an auto-expanded first table before it is selected, with mutations disabled', () => {

@@ -88,6 +88,7 @@ export interface StreamColumn {
   data_type: string;
   selected: boolean;
   cast_to_type: string | null;
+  type_confirmed: boolean;
 }
 
 // ============ Sync Catalog Types ============

@@ -181,7 +181,12 @@ export function ConnectionFormBody({
   const [isSaving, setIsSaving] = useState(false);
   // Inline required-field errors, surfaced on Save (matches the alerts/KPI pattern:
   // the button stays clickable and pressing it reveals what's missing).
-  const [errors, setErrors] = useState<{ name?: string; source?: string; streams?: string }>({});
+  const [errors, setErrors] = useState<{
+    name?: string;
+    source?: string;
+    streams?: string;
+    columnTypes?: string;
+  }>({});
 
   const {
     streams,
@@ -198,11 +203,14 @@ export function ConnectionFormBody({
     updateStreamPrimaryKey,
     toggleColumn,
     updateCastType,
+    setColumnTypeConfirmed,
+    confirmAllColumnTypes,
     toggleStreamExpand,
     handleIncrementalAllToggle,
     filteredStreams,
     allSelected,
     hasSelectedStreams,
+    allSelectedColumnTypesConfirmed,
   } = useStreamConfig();
 
   // Hand the walkthrough over to this step's coachmarks. Unlike the configure step before it,
@@ -350,15 +358,31 @@ export function ConnectionFormBody({
   // Required-field check. Returns validity and sets the inline error map; nothing
   // is submitted unless every required field is satisfied.
   const validate = useCallback(() => {
-    const next: { name?: string; source?: string; streams?: string } = {};
+    const next: {
+      name?: string;
+      source?: string;
+      streams?: string;
+      columnTypes?: string;
+    } = {};
     if (!name.trim()) next.name = 'Connection name is required';
     if (isCreate && !presetSourceId && !selectedSourceId) next.source = 'Source is required';
     if (!hasSelectedStreams) {
       next.streams = 'Select at least one table';
     }
+    if (showCastColumn && hasSelectedStreams && !allSelectedColumnTypesConfirmed) {
+      next.columnTypes = 'Confirm the column type for every selected column before continuing';
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
-  }, [name, isCreate, presetSourceId, selectedSourceId, hasSelectedStreams, connectionView]);
+  }, [
+    name,
+    isCreate,
+    presetSourceId,
+    selectedSourceId,
+    hasSelectedStreams,
+    showCastColumn,
+    allSelectedColumnTypesConfirmed,
+  ]);
 
   const buildPostSyncTransform = useCallback(() => {
     const ops = streams
@@ -500,14 +524,15 @@ export function ConnectionFormBody({
   // Clear each inline error as soon as the user satisfies it.
   useEffect(() => {
     setErrors((prev) => {
-      if (!prev.name && !prev.source && !prev.streams) return prev;
+      if (!prev.name && !prev.source && !prev.streams && !prev.columnTypes) return prev;
       const next = { ...prev };
       if (name.trim()) delete next.name;
       if (selectedSourceId) delete next.source;
       if (hasSelectedStreams) delete next.streams;
+      if (!showCastColumn || allSelectedColumnTypesConfirmed) delete next.columnTypes;
       return next;
     });
-  }, [name, selectedSourceId, hasSelectedStreams]);
+  }, [name, selectedSourceId, hasSelectedStreams, showCastColumn, allSelectedColumnTypesConfirmed]);
 
   const handleConceptFocus = useCallback((concept: ConnectionConceptId | null) => {
     setActiveConcept(concept);
@@ -759,6 +784,8 @@ export function ConnectionFormBody({
                   onToggleStreamExpand={toggleStreamExpand}
                   onToggleColumn={toggleColumn}
                   onUpdateCastType={updateCastType}
+                  onSetColumnTypeConfirmed={setColumnTypeConfirmed}
+                  onConfirmAllColumnTypes={confirmAllColumnTypes}
                   showCastColumn={showCastColumn}
                   streamNoun={connectionView?.streamNoun}
                   showIncremental={connectionView ? connectionView.supportsIncremental : true}
@@ -772,6 +799,11 @@ export function ConnectionFormBody({
               {errors.streams && (
                 <p className="text-sm text-destructive" data-testid="connection-streams-error">
                   {errors.streams}
+                </p>
+              )}
+              {errors.columnTypes && (
+                <p className="text-sm text-destructive" data-testid="connection-column-types-error">
+                  {errors.columnTypes}
                 </p>
               )}
             </div>

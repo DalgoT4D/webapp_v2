@@ -3,7 +3,9 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TrialSplitCard } from '@/app/free-trial/_components/TrialSplitCard';
 import { TrialNoticeCard } from '@/app/free-trial/_components/TrialNoticeCard';
 import { TrialProvisioningVideoPanel } from '@/app/free-trial/_components/TrialProvisioningVideoPanel';
@@ -24,6 +26,32 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { useTrialStatus } from '@/hooks/api/useTrialStatus';
 import { deriveCurrentIndex } from '@/app/free-trial/_lib/utils';
+
+function ProvisioningDelayInfo() {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="What happens if workspace setup takes longer?"
+          data-testid="trial-progress-delay-info"
+          className="inline-flex translate-y-0.5 rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <Info className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="start"
+        aria-label="Delayed setup information"
+        className="w-[300px] border-primary bg-primary text-left text-xs leading-relaxed text-primary-foreground"
+      >
+        If setup takes longer than expected or fails, we’ll reach out by email with your login
+        credentials and workspace access link.
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // Elapsed clock lives in its OWN component so its per-second re-render stays isolated
 // here and does NOT re-render ProgressCard. ProgressCard hosts the SWR poller, and a
@@ -190,7 +218,11 @@ function ProgressCard() {
   // Figma frame 2453:3089.
   if (failed) {
     return (
-      <TrialSplitCard testId="trial-progress-failed" aside={<TrialProvisioningVideoPanel />}>
+      <TrialSplitCard
+        testId="trial-progress-failed"
+        aside={<TrialProvisioningVideoPanel />}
+        asideOnMobile
+      >
         <div className="space-y-8">
           <TrialBrandHeader
             title="Workspace setup interrupted"
@@ -266,11 +298,20 @@ function ProgressCard() {
   // wrapper — it re-renders every second, and re-rendering this card's hooks resets
   // the SWR poller's interval before it can fire (see the notes above).
   return (
-    <TrialSplitCard testId="trial-progress-card" aside={<TrialProvisioningVideoPanel />}>
+    <TrialSplitCard
+      testId="trial-progress-card"
+      aside={<TrialProvisioningVideoPanel />}
+      asideOnMobile
+    >
       <div className="space-y-8">
         <TrialBrandHeader
-          title="Creating workspace"
-          subtitle="This usually takes 1 to 2 minutes."
+          title={
+            <span className="inline-flex items-center gap-2">
+              Creating workspace
+              <ProvisioningDelayInfo />
+            </span>
+          }
+          subtitle="This usually takes 1 to 2 minutes. Watch the video to get to know Dalgo while you wait."
           testId="trial-progress-heading"
         />
         <ElapsedClock startedAt={data?.started_at ?? null} frozen={isTerminal || pollGaveUp} />
