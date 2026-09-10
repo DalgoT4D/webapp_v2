@@ -155,7 +155,9 @@ export function ConnectionFormBody({
   const walkthroughStage = useInsightWalkthroughStore((state) => state.stage);
 
   const [activeConcept, setActiveConcept] = useState<ConnectionConceptId | null>(null);
-  const [helpPanelOpen, setHelpPanelOpen] = useState(true);
+  // Collapsed to its rail by default — open, it took a third of the modal from the table. Opens
+  // on demand: the rail, or clicking any term the form labels (see handleConceptFocus).
+  const [helpPanelOpen, setHelpPanelOpen] = useState(false);
 
   // Help-panel cards tailored to this source's capabilities. Custom sources
   // (Sheets/Kobo) only show the concepts that apply; everything else gets the

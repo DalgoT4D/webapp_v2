@@ -72,6 +72,14 @@ describe('insight-walkthrough-constants', () => {
       expect(hasFinishedWalkthrough('insights')).toBe(true);
     });
 
+    it('carries a retired stage id forward instead of resuming into nothing', () => {
+      // The reported break: a run left on 'kpi_view_card' (since removed) resumed into a stage
+      // with no coachmark, and the "successful" resume stopped the widget offering the fork.
+      saveWalkthroughStage('insights', 'kpi_view_card' as never);
+
+      expect(getStoredWalkthroughStage('insights')).toBe('dashboard_nudge');
+    });
+
     it('writes nothing at all when there is no selected org yet', () => {
       clearWalkthroughScope();
       saveWalkthroughStage('insights', 'kpi_intro');
@@ -223,14 +231,18 @@ describe('insight-walkthrough-constants', () => {
       const from = WALKTHROUGH_STAGE_ORDER.indexOf('kpi_submit');
       expect(WALKTHROUGH_STAGE_ORDER.slice(from, from + 5)).toEqual([
         'kpi_submit',
-        'kpi_view_card',
+        // Straight into the drawer — the celebration dialog's "View KPI" opens it, so there is
+        // no step ringing the new card in between.
         'kpi_duration',
         'kpi_add_note',
+        // Closing the drawer is a coached step of its own — the nudge after it rings a nav
+        // item the drawer covers.
+        'kpi_close_drawer',
         'dashboard_nudge',
       ]);
       // Only the sample fork builds a KPI — the other two open on ingest.
-      expect(OWN_DATA_WALKTHROUGH_STAGE_ORDER).not.toContain('kpi_view_card');
-      expect(AUTOMATE_PIPELINE_STAGE_ORDER).not.toContain('kpi_view_card');
+      expect(OWN_DATA_WALKTHROUGH_STAGE_ORDER).not.toContain('kpi_duration');
+      expect(AUTOMATE_PIPELINE_STAGE_ORDER).not.toContain('kpi_duration');
     });
 
     it('runs the pipeline fork from the Ingest nudge to the created pipeline, and stops there', () => {
@@ -434,12 +446,12 @@ describe('insight-walkthrough-constants', () => {
       expect(getResumeAnchorStage('pipeline_ingest')).toBe('pipeline_ingest');
     });
 
-    it('rewinds both KPI-drawer stages to the card that opens the drawer', () => {
-      // A reload closes the detail drawer, so both targets are gone; the card that opens it is
-      // right there on a cold /kpis.
-      expect(getResumeAnchorStage('kpi_duration')).toBe('kpi_view_card');
-      expect(getResumeAnchorStage('kpi_add_note')).toBe('kpi_view_card');
-      expect(getResumeAnchorStage('kpi_view_card')).toBe('kpi_view_card');
+    it('resumes every KPI-drawer stage forward, at the dashboard nudge', () => {
+      // A reload closes the drawer and nothing on a cold /kpis reopens it. Looking at the KPI
+      // is the optional beat; the dashboard is what's still owed.
+      expect(getResumeAnchorStage('kpi_duration')).toBe('dashboard_nudge');
+      expect(getResumeAnchorStage('kpi_add_note')).toBe('dashboard_nudge');
+      expect(getResumeAnchorStage('kpi_close_drawer')).toBe('dashboard_nudge');
     });
 
     it('resumes the sidebar-anchored stages as themselves, wherever the user is', () => {

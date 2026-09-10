@@ -16,6 +16,7 @@ import { useMetrics } from '@/hooks/api/useMetrics';
 import { useTableColumns } from '@/hooks/api/useWarehouse';
 import { createKPI, updateKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { trackEvent } from '@/lib/analytics';
+import { NumberFormats } from '@/lib/formatters';
 import {
   ANALYTICS_EVENTS,
   KPI_CREATE_SOURCES,
@@ -181,7 +182,6 @@ export function KPIForm({
   });
 
   const metricId = watch('metric_id');
-  const targetValue = watch('target_value');
   const timeDimensionColumn = watch('time_dimension_column');
   const metricTypeTag = watch('metric_type_tag');
 
@@ -198,15 +198,8 @@ export function KPIForm({
     if (walkthrough.active) walkthrough.advanceIfBefore('kpi_continue');
   }, [timeDimensionColumn]);
 
-  // Same watch-based reasoning as the time column effect above — waiting for onBlur
-  // requires the user to lose focus on the field first, which they may not do right away
-  // (e.g. typing a value then reaching for the mouse instead of tabbing away). Reacting to
-  // the value itself advances the moment they've actually entered something.
-  useEffect(() => {
-    if (!targetValue) return;
-    const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_direction');
-  }, [targetValue]);
+  // No equivalent effect for target_value: a walkthrough run prefills it, so advancing on "the
+  // field holds something" fired on mount and skipped the target coachmark. Got it moves it on.
 
   // KPI Type is the walkthrough's last field, so picking one moves the coachmark onto the
   // Create KPI button. Same watch-based approach as the two effects above; guarded on a
@@ -278,7 +271,11 @@ export function KPIForm({
           program_tags: useInsightWalkthroughStore.getState().active
             ? [WALKTHROUGH_DEFAULT_PROGRAM_TAG]
             : [],
-          numberFormat: '',
+          // Prefilled for a walkthrough run like the two fields above: the guided KPI's target
+          // is in the millions, and unformatted it reads as an unreadable run of digits.
+          numberFormat: useInsightWalkthroughStore.getState().active
+            ? NumberFormats.ADAPTIVE_INDIAN
+            : '',
           decimalPlaces: DEFAULT_KPI_DECIMAL_PLACES,
           numberPrefix: '',
           numberSuffix: '',

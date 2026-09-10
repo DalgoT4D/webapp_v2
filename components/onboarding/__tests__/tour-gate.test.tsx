@@ -425,6 +425,20 @@ describe('TourGate', () => {
     expect(screen.queryByTestId('get-started-option-sample')).not.toBeInTheDocument();
   });
 
+  it('falls back to the fork when the stored stage is one this build cannot draw', async () => {
+    // A retired stage id used to resume "successfully" into a stage with no coachmark, which
+    // also stopped the fork being offered. Known retirements are mapped forward; the rest land here.
+    const user = userEvent.setup();
+    setupAuthStore(buildOrgUser());
+    savePath('insights', 'sample');
+    saveWalkthroughStage('insights', 'a_stage_that_no_longer_exists' as never);
+    renderGate();
+
+    await user.click(await screen.findByTestId('tour-intent-option-insight'));
+
+    expect(await screen.findByTestId('get-started-option-sample')).toBeInTheDocument();
+  });
+
   it('hides the getting-started widget while the tour runs, and restores it when it ends', async () => {
     const user = userEvent.setup();
     suppressIntentModal();

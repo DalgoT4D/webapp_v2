@@ -343,10 +343,8 @@ export function KPIPageComponent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // The dashboard nudge rings the Dashboards item in the sidebar, which the 600px detail
-  // drawer covers. "Got it" on the last drawer coachmark is what lands the walkthrough on that
-  // stage, so getting out of the drawer is part of the same beat — the alternative is a
-  // coachmark pointing at a nav item the user has to close a panel to reach.
+  // The dashboard nudge rings a sidebar item the 600px drawer covers. Normally the user closes
+  // the drawer themselves (kpi_close_drawer); this is the safety net for every other route in.
   useEffect(() => {
     if (walkthroughActive && walkthroughStage === 'dashboard_nudge') setDrawerOpen(false);
   }, [walkthroughActive, walkthroughStage]);
@@ -358,10 +356,8 @@ export function KPIPageComponent() {
    * Waits on the refetched list rather than opening from the create response: the drawer needs a
    * full KPI object, and `mutate()` is what produces it.
    *
-   * Coachmarks stay suppressed until the drawer is up (the dialog turned that on), so the ring on
-   * the new KPI's card never flashes between the two. If the refetch settles without the id — a
-   * filter or a page that excludes it — the suppression is lifted with nothing opened, which
-   * leaves kpi_view_card's coachmark on the card as the way through.
+   * Coachmarks stay suppressed until the drawer is up, so nothing flashes on the list behind
+   * it. If the refetch never yields the id, suppression lifts and kpi_duration waits.
    */
   useEffect(() => {
     if (pendingWalkthroughKpiId === null || kpiLiveModalOpen) return;
@@ -400,28 +396,20 @@ export function KPIPageComponent() {
       if (
         walkthrough.active &&
         walkthrough.stage &&
-        isStageBefore(walkthrough.path, walkthrough.stage, 'kpi_view_card')
+        isStageBefore(walkthrough.path, walkthrough.stage, 'kpi_duration')
       ) {
         // A full celebration dialog rather than a toast — this is the moment the thing they came
-        // to build exists, and it needs a CTA, not a corner notification. The CTA hands them to
-        // the KPI itself; dashboards come after they've looked at it (see kpi_view_card).
+        // to build exists, and it needs a CTA. That CTA opens the drawer directly.
         setKpiLiveModalOpen(true);
         // Nothing else on screen while the congratulations are up. Released when the dialog
         // closes, at which point the drawer this hands them into is what they see.
         walkthrough.setSuppressCoachmark(true);
-        // Before the advance: kpi_view_card's selector is built from this id, so a stage that
-        // arrived first would resolve to nothing. Still tracked even though the happy path no
-        // longer stops on that stage — a reload mid-drawer resumes there (see
-        // RESUME_ANCHOR_STAGES).
-        if (createdKpiId !== undefined) {
-          walkthrough.trackCreatedKpi(createdKpiId);
-          // Straight into the KPI rather than onto a coachmark ringing its card: the user has
-          // just pressed "Create KPI" and the dialog's CTA already says "View KPI", so asking
-          // them to find and click the card is a step that teaches nothing. Opened once the
-          // dialog closes — see the effect below.
-          setPendingWalkthroughKpiId(createdKpiId);
-        }
-        walkthrough.advanceIfBefore('kpi_view_card');
+        // Straight into the KPI — the dialog's CTA already says "View KPI". Opened once that
+        // dialog closes; see the effect above, which also advances into the drawer.
+        if (createdKpiId !== undefined) setPendingWalkthroughKpiId(createdKpiId);
+        // Advanced here too: creating the KPI is the checkpoint whether or not the drawer opens,
+        // so a create that returns no id can't strand the walkthrough on a closed dialog.
+        walkthrough.advanceIfBefore('kpi_duration');
       }
     },
     [mutate, globalMutate, orgSlug]
@@ -446,11 +434,18 @@ export function KPIPageComponent() {
     });
     setSelectedKpi(kpi);
     setDrawerOpen(true);
-    // Opening the drawer IS this stage's completion — the coachmark asked them to look at the
-    // KPI, and the two stages after it live inside the drawer this click opens.
+  };
+
+  /**
+   * Closing the drawer is the walkthrough's kpi_close_drawer step. Advancing here rather than
+   * from the coachmark catches every way out — the ✕, Escape, a click on the backdrop.
+   */
+  const handleDrawerOpenChange = (open: boolean) => {
+    setDrawerOpen(open);
+    if (open) return;
     const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active && walkthrough.stage === 'kpi_view_card') {
-      walkthrough.advanceTo('kpi_duration');
+    if (walkthrough.active && walkthrough.stage === 'kpi_close_drawer') {
+      walkthrough.advanceTo('dashboard_nudge');
     }
   };
 
@@ -724,7 +719,7 @@ export function KPIPageComponent() {
       <KPIDetailDrawer
         kpi={selectedKpi}
         open={drawerOpen}
-        onOpenChange={setDrawerOpen}
+        onOpenChange={handleDrawerOpenChange}
         onEdit={() => selectedKpi && handleEdit(selectedKpi)}
         onDelete={() => {
           if (selectedKpi) {

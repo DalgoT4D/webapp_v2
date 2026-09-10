@@ -203,7 +203,7 @@ describe('ConnectionFormBody', () => {
 });
 
 describe('ConnectionFormBody split help + custom view', () => {
-  it('hides the help panel until streams are discovered, then shows it', () => {
+  it('hides the help rail until streams are discovered, then shows it collapsed', () => {
     const { rerender } = render(
       <ConnectionFormBody
         mode={FormMode.CREATE}
@@ -212,8 +212,9 @@ describe('ConnectionFormBody split help + custom view', () => {
         onCancel={jest.fn()}
       />
     );
-    // No streams yet → no empty docs column.
+    // No streams yet → no empty docs column, not even the rail.
     expect(screen.queryByTestId('connection-help-panel')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('connection-help-expand')).not.toBeInTheDocument();
 
     // Discovery returns rows → panel appears.
     mockStreams = [{ name: 'sheet1', selected: true }];
@@ -225,7 +226,9 @@ describe('ConnectionFormBody split help + custom view', () => {
         onCancel={jest.fn()}
       />
     );
-    expect(screen.getByTestId('connection-help-panel')).toBeInTheDocument();
+    // Collapsed, not open — the docs used to take a third of the modal. The rail is the way in.
+    expect(screen.getByTestId('connection-help-expand')).toBeInTheDocument();
+    expect(screen.queryByTestId('connection-help-panel')).not.toBeInTheDocument();
   });
 
   it('shows connection-wide settings without an Advanced options toggle', () => {
@@ -295,7 +298,28 @@ describe('ConnectionFormBody split help + custom view', () => {
     expect(screen.getByTestId('destination-schema-input')).toHaveClass('w-48');
   });
 
-  it('collapses help to a visible rail and reopens it when a table header is clicked', async () => {
+  it.each([FormMode.CREATE, FormMode.EDIT, FormMode.VIEW])(
+    'starts collapsed in %s, so every surface opens on the table not the docs',
+    (mode) => {
+      // One body serves both call sites — the standalone dialog and the wizard's SELECT DATA
+      // step (the walkthrough's) — so this covers both flows in every mode.
+      mockStreams = [{ name: 'sheet1', selected: true }];
+      render(
+        <ConnectionFormBody
+          mode={mode}
+          presetSourceId="src-1"
+          connectionId={mode === FormMode.CREATE ? undefined : 'c1'}
+          onSuccess={jest.fn()}
+          onCancel={jest.fn()}
+        />
+      );
+
+      expect(screen.queryByTestId('connection-help-panel')).not.toBeInTheDocument();
+      expect(screen.getByTestId('connection-help-expand')).toBeInTheDocument();
+    }
+  );
+
+  it('opens help from the rail, and again from a table header, then collapses back', async () => {
     const user = userEvent.setup();
     mockStreams = [{ name: 'sheet1', selected: true }];
     render(
@@ -307,7 +331,7 @@ describe('ConnectionFormBody split help + custom view', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Collapse table settings help' }));
+    // Starts collapsed.
     expect(screen.queryByTestId('connection-help-panel')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open table settings help' })).toHaveTextContent(
       'What these options mean'
@@ -316,6 +340,14 @@ describe('ConnectionFormBody split help + custom view', () => {
       '[writing-mode:vertical-rl]'
     );
 
+    // The rail opens it.
+    await user.click(screen.getByRole('button', { name: 'Open table settings help' }));
+    expect(screen.getByTestId('connection-help-panel')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Collapse table settings help' }));
+    expect(screen.queryByTestId('connection-help-panel')).not.toBeInTheDocument();
+
+    // So does clicking a term in the form, which also jumps to that term's card.
     await user.click(screen.getByRole('button', { name: 'Columns header' }));
     expect(screen.getByTestId('connection-help-panel')).toBeInTheDocument();
     expect(screen.getByTestId('active-help-concept')).toHaveTextContent('columns');

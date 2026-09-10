@@ -23,7 +23,7 @@ import {
   getResumeAnchorStage,
   INGEST_STAGES,
   WALKTHROUGH_DEFAULT_PROGRAM_TAG,
-  WALKTHROUGH_DEFAULT_TARGET,
+  WALKTHROUGH_DEFAULT_TARGET_DISPLAY,
   type WalkthroughStage,
 } from './insight-walkthrough-constants';
 import { alignPopoverCloseWithHeader, outlinePopoverArrow } from './tour-popover-chrome';
@@ -567,6 +567,17 @@ interface StageConfig {
 const DASHBOARD_BUILDER_EXITS = ['[data-testid="dashboard-back-btn"]'];
 
 /**
+ * The chart builder's ways out — see StageConfig.pageRoamExits. Three selectors for the three
+ * routes the run spans. Cancelling the click also puts the leave prompt ahead of the configure
+ * page's own "unsaved changes" dialog, which used to appear instead of it.
+ */
+const CHART_BUILDER_EXITS = [
+  '[data-testid="chart-new-back-button"]',
+  '[data-testid="chart-create-back-button"]',
+  '[data-testid="chart-edit-back-button"]',
+];
+
+/**
  * The workflow canvas's way out — see StageConfig.pageRoamExits.
  *
  * The canvas is the dashboard builder of the transform leg: the tree panel, the nodes, the
@@ -643,9 +654,10 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description:
       'A key performance indicator uses your key metrics and shows the current value of your goals against a target, its trend over time, and status. Align this with your programs for an effective overview.',
   },
+  // No `nextOnInteraction`: on a combobox the advancing click IS the click that opens the list,
+  // so the coachmark vanished on contact. handleMetricChange (kpi-form.tsx) advances on a pick.
   kpi_metric: {
     route: '/kpis',
-    nextOnInteraction: 'kpi_step1_continue',
     selector: '[data-testid="kpi-form-metric-field"]',
     title: 'Pick a metric',
     // "Choose any metric" no longer describes what they'll see: the picker offers a single
@@ -679,13 +691,16 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Target value',
     // Built from the constant the form fills the field with, so the number the copy quotes and
     // the number on screen can never drift apart.
-    description: `The number you are aiming for. We have filled in ${WALKTHROUGH_DEFAULT_TARGET} so this KPI has something to measure against — change it if you have your own figure in mind. Dalgo marks the KPI green once the target is reached and red when it falls short.`,
+    description: `The number you are aiming for. We have filled in ${WALKTHROUGH_DEFAULT_TARGET_DISPLAY} so this KPI has something to measure against — change it if you have your own figure in mind. Dalgo marks the KPI green once the target is reached and red when it falls short.`,
   },
   kpi_direction: {
     alsoClickable: KPI_SETUP_REQUIRED_FIELDS,
     route: '/kpis',
     nextOnInteraction: 'kpi_time_column',
-    advanceOn: 'open',
+    // Got it, like kpi_target: the field holds a valid default, so a user who agrees with it
+    // never touches the control — and advancing on merely opening the list was too eager.
+    advanceOn: 'never',
+    showNext: true,
     selector: '[data-testid="kpi-form-direction-field"]',
     title: 'Direction',
     description: 'Do you intend for the value of this indicator to rise or fall?',
@@ -717,8 +732,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     nextOnInteraction: 'kpi_program_tags',
     selector: '[data-testid="kpi-form-rag-field"]',
     title: 'When is this on track?',
+    // RAG named outright — it's the label on the card and in every filter.
     description:
-      'These set the KPI’s colour: 80% of target or more is green, 50–80% amber, below 50% red. Change them to suit your programme.',
+      'RAG is the KPI’s status colour — green at 80% of target or more, amber from 50%, red below that. Change the two numbers to suit your programme.',
   },
   kpi_program_tags: {
     route: '/kpis',
@@ -746,25 +762,11 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Create your KPI',
     description: 'Click Create KPI to save it.',
   },
-  // Between creating the KPI and being sent off to dashboards: look at the thing you just
-  // built. The celebration dialog's CTA closes onto this stage (see kpi-page.tsx).
-  kpi_view_card: {
-    ring: true,
-    route: '/kpis',
-    // The card of the KPI THIS walkthrough created, not whichever one sorts first — the list
-    // is sorted and paginated, so those are different cards (see store.createdKpiId).
-    selector: () => {
-      const id = useInsightWalkthroughStore.getState().createdKpiId;
-      return id === null ? null : `[data-testid="kpi-card-${id}"]`;
-    },
-    title: 'Take a look',
-    description:
-      'Open your new KPI to see its current value, how it is trending, and where it stands against your target.',
-  },
-  // Both drawer stages: `advanceOn: 'never'` so using the control the coachmark is pointing at
-  // doesn't dismiss it — the user reads, tries it, and presses Got it when they're done. The
-  // drawer around them stays fully clickable through the exit guard's dialog rule (the coached
-  // target is inside the drawer, so only its ✕ raises the leave prompt).
+  // kpi_submit hands straight to the drawer (kpi-page.tsx) — no stage rings the new card, since
+  // the celebration dialog's "View KPI" opens the drawer over it.
+  //
+  // These two use `advanceOn: 'never'` so trying the control they point at doesn't dismiss them;
+  // only Got it does. The rest of the drawer stays clickable, its ✕ aside.
   kpi_duration: {
     route: '/kpis',
     advanceOn: 'never',
@@ -788,13 +790,25 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     route: '/kpis',
     advanceOn: 'never',
     showNext: true,
-    nextOnInteraction: 'dashboard_nudge',
+    nextOnInteraction: 'kpi_close_drawer',
     selector: '[data-testid="kpi-detail-add-note-btn"]',
     side: 'left',
     align: 'start',
     title: 'Add context',
     description:
       'Record what was happening behind a number — a beneficiary quote, or a note explaining a jump or a dip.',
+  },
+  // No Got it: closing the drawer is a real action, so its own handler advances the walkthrough
+  // (see kpi-page.tsx).
+  kpi_close_drawer: {
+    ring: true,
+    route: '/kpis',
+    selector: '[data-testid="kpi-detail-close-btn"]',
+    // The button is flush with the drawer's top-right corner: 'right' lands off screen.
+    side: 'bottom',
+    align: 'end',
+    title: 'Close the KPI',
+    description: 'Close this view to move on to the next step of the walkthrough.',
   },
   dashboard_nudge: {
     ring: true,
@@ -1008,6 +1022,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   chart_pick_table: {
     // The chart builder is shaped by the user, not by us — see allowPageRoam.
     allowPageRoam: true,
+    pageRoamExits: CHART_BUILDER_EXITS,
     route: '/charts/new',
     selector: '[data-testid="chart-dataset-selector"]',
     title: 'Select the relevant data table.',
@@ -1019,6 +1034,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   chart_pick_type: {
     // The chart builder is shaped by the user, not by us — see allowPageRoam.
     allowPageRoam: true,
+    pageRoamExits: CHART_BUILDER_EXITS,
     route: '/charts/new',
     selector: '[data-testid="chart-type-grid"]',
     title: 'Select the relevant type',
@@ -1027,6 +1043,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   chart_continue: {
     // The chart builder is shaped by the user, not by us — see allowPageRoam.
     allowPageRoam: true,
+    pageRoamExits: CHART_BUILDER_EXITS,
     ring: true,
     route: '/charts/new',
     selector: '[data-testid="chart-type-continue-button"]',
@@ -1037,6 +1054,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   chart_data_config: {
     // The chart builder is shaped by the user, not by us — see allowPageRoam.
     allowPageRoam: true,
+    pageRoamExits: CHART_BUILDER_EXITS,
     route: '/charts/new/configure',
     nextOnInteraction: 'chart_styling',
     selector: '[data-testid="chart-data-config-tab"]',
@@ -1052,6 +1070,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   chart_styling: {
     // The chart builder is shaped by the user, not by us — see allowPageRoam.
     allowPageRoam: true,
+    pageRoamExits: CHART_BUILDER_EXITS,
     route: '/charts/new/configure',
     nextOnInteraction: 'chart_save',
     selector: '[data-testid="chart-styling-tab"]',
@@ -1064,6 +1083,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   chart_save: {
     // The chart builder is shaped by the user, not by us — see allowPageRoam.
     allowPageRoam: true,
+    pageRoamExits: CHART_BUILDER_EXITS,
     ring: true,
     route: '/charts/new/configure',
     selector: '[data-testid="chart-edit-save-button"]',
@@ -1377,6 +1397,13 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
 };
 
 /**
+ * Every stage that can actually draw a coachmark. The resume path checks against this so a
+ * retired id left in localStorage falls back to a fresh start instead of resuming into silence.
+ * 'fork2' is absent on purpose — it's the fork dialog, which callers open themselves.
+ */
+export const COACHMARK_STAGES: ReadonlySet<string> = new Set(Object.keys(STAGE_CONFIG));
+
+/**
  * Which route each stage's coachmark lives on — derived from STAGE_CONFIG so the two can't
  * drift. Used by the Get Started widget to send a returning user (who left mid-flow) to the
  * page their stored stage is anchored to, so the coachmark picks up exactly where they left
@@ -1395,9 +1422,6 @@ export function InsightWalkthroughCoachmark() {
   const stage = useInsightWalkthroughStore((s) => s.stage);
   const suppressCoachmark = useInsightWalkthroughStore((s) => s.suppressCoachmark);
   const trackedConnectionId = useInsightWalkthroughStore((s) => s.trackedConnectionId);
-  // Read as state, not through getState(), so kpi_view_card's function selector re-resolves
-  // the moment the id lands rather than waiting for some other dependency to change.
-  const createdKpiId = useInsightWalkthroughStore((s) => s.createdKpiId);
   const driverRef = useRef<Driver | null>(null);
   const trackingFrameRef = useRef<number>(0);
   // The element currently wearing RING_CLASS. Held in a ref rather than re-queried on
@@ -1565,12 +1589,26 @@ export function InsightWalkthroughCoachmark() {
         // slow — the connection step's table appears only once stream discovery returns. Hopping
         // those marched the walkthrough straight past both Got-it coachmarks to "click Create".
         const isHintStage = !!config.nextOnInteraction && config.advanceOn !== 'never';
+        // Also short-timeout: a dialog-internal stage (what a resume anchor elsewhere means)
+        // with no dialog on screen. The user cancelled out, so the target is never arriving.
+        const strandedInClosedDialog =
+          getResumeAnchorStage(stage!) !== stage && !document.querySelector('[role="dialog"]');
         const el = await waitForElement(
           resolvedSelector,
-          isHintStage ? HINT_TARGET_TIMEOUT_MS : undefined
+          isHintStage || strandedInClosedDialog ? HINT_TARGET_TIMEOUT_MS : undefined
         );
         if (cancelled) return;
         if (!el) {
+          const anchor = getResumeAnchorStage(stage!);
+          // Re-checked, not reused: the user may have reopened the dialog during the wait.
+          const stillStranded = anchor !== stage && !document.querySelector('[role="dialog"]');
+          // No dialog at all — the user closed it. Rewind to the stage that reopens it rather
+          // than hopping forward through fields that are all equally gone. Ahead of the hint
+          // rules because it covers Got-it and click-a-button stages too, which can't hop.
+          if (stillStranded) {
+            useInsightWalkthroughStore.getState().advanceTo(anchor);
+            return;
+          }
           if (!config.nextOnInteraction) return;
           // A hint whose field never appeared while its dialog IS open: the field is
           // conditional and this metric doesn't have it (Direction hands off to Time Column,
@@ -1579,12 +1617,6 @@ export function InsightWalkthroughCoachmark() {
             advancePastHint();
             return;
           }
-          // No dialog at all — the user closed it (Cancel, Escape, a click on the backdrop).
-          // Walking FORWARD through hints whose fields are all equally gone would march the
-          // walkthrough to its last stage and strand it. Rewind to the stage that reopens the
-          // dialog instead, so the coachmark is waiting for them when they come back.
-          const anchor = getResumeAnchorStage(stage!);
-          if (anchor !== stage) useInsightWalkthroughStore.getState().advanceTo(anchor);
           return;
         }
         // Done AFTER the target is resolved but BEFORE anything is drawn, so the wait is on
@@ -1748,7 +1780,7 @@ export function InsightWalkthroughCoachmark() {
       ringedElRef.current = null;
       driverRef.current?.destroy();
     };
-  }, [active, stage, pathname, suppressCoachmark, trackedConnectionId, createdKpiId, trackTarget]);
+  }, [active, stage, pathname, suppressCoachmark, trackedConnectionId, trackTarget]);
 
   // Route-driven advances: reaching a mapped route auto-advances to the stage it unlocks.
   useEffect(() => {
