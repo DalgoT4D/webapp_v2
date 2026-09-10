@@ -292,11 +292,8 @@ export function KPIPageComponent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // The dashboard nudge rings the Dashboards item in the sidebar, which the 600px detail drawer
-  // covers. On the normal path the user closes the drawer themselves (kpi_close_drawer coaches
-  // that ✕, and handleDrawerOpenChange below advances off it), so this is the safety net for
-  // every other way the stage can be reached — a resume, a skip, the celebration dialog's
-  // fallback — rather than leaving a coachmark on a nav item hidden behind a panel.
+  // The dashboard nudge rings a sidebar item the 600px drawer covers. Normally the user closes
+  // the drawer themselves (kpi_close_drawer); this is the safety net for every other route in.
   useEffect(() => {
     if (walkthroughActive && walkthroughStage === 'dashboard_nudge') setDrawerOpen(false);
   }, [walkthroughActive, walkthroughStage]);
@@ -308,10 +305,8 @@ export function KPIPageComponent() {
    * Waits on the refetched list rather than opening from the create response: the drawer needs a
    * full KPI object, and `mutate()` is what produces it.
    *
-   * Coachmarks stay suppressed until the drawer is up (the dialog turned that on), so nothing
-   * flashes on the list behind it in between. If the refetch settles without the id — a filter
-   * or a page that excludes it — the suppression is lifted with nothing opened, and the
-   * walkthrough is left on kpi_duration, whose coachmark waits for the drawer.
+   * Coachmarks stay suppressed until the drawer is up, so nothing flashes on the list behind
+   * it. If the refetch never yields the id, suppression lifts and kpi_duration waits.
    */
   useEffect(() => {
     if (pendingWalkthroughKpiId === null || kpiLiveModalOpen) return;
@@ -353,20 +348,16 @@ export function KPIPageComponent() {
         isStageBefore(walkthrough.path, walkthrough.stage, 'kpi_duration')
       ) {
         // A full celebration dialog rather than a toast — this is the moment the thing they came
-        // to build exists, and it needs a CTA, not a corner notification. Its CTA opens the KPI's
-        // drawer directly; there is no step in between ringing the new card.
+        // to build exists, and it needs a CTA. That CTA opens the drawer directly.
         setKpiLiveModalOpen(true);
         // Nothing else on screen while the congratulations are up. Released when the dialog
         // closes, at which point the drawer this hands them into is what they see.
         walkthrough.setSuppressCoachmark(true);
-        // Straight into the KPI: the user has just pressed "Create KPI" and the dialog's CTA
-        // already says "View KPI", so asking them to find and click the card teaches nothing.
-        // Opened once the dialog closes — see the effect above, which is also what advances the
-        // walkthrough into the drawer.
+        // Straight into the KPI — the dialog's CTA already says "View KPI". Opened once that
+        // dialog closes; see the effect above, which also advances into the drawer.
         if (createdKpiId !== undefined) setPendingWalkthroughKpiId(createdKpiId);
-        // Advanced here as well as in that effect: creating the KPI is the checkpoint whether or
-        // not the drawer ends up opening. Without it a create that returns no id would leave the
-        // walkthrough on kpi_submit, pointing into a dialog that has just closed.
+        // Advanced here too: creating the KPI is the checkpoint whether or not the drawer opens,
+        // so a create that returns no id can't strand the walkthrough on a closed dialog.
         walkthrough.advanceIfBefore('kpi_duration');
       }
     },
@@ -395,10 +386,8 @@ export function KPIPageComponent() {
   };
 
   /**
-   * Closing the drawer is the walkthrough's kpi_close_drawer step — the stage after it rings the
-   * Dashboards nav item, which the drawer covers. Advancing here rather than from the coachmark
-   * catches every way out of the drawer (the ✕, Escape, a click on the backdrop), all of which
-   * leave the user looking at the same page.
+   * Closing the drawer is the walkthrough's kpi_close_drawer step. Advancing here rather than
+   * from the coachmark catches every way out — the ✕, Escape, a click on the backdrop.
    */
   const handleDrawerOpenChange = (open: boolean) => {
     setDrawerOpen(open);

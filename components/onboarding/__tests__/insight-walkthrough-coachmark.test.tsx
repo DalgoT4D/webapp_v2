@@ -436,6 +436,33 @@ describe('InsightWalkthroughCoachmark', () => {
       await waitFor(() => expect(leavePrompt()).not.toBeNull());
     });
 
+    it('asks before Back walks out of the chart builder, ahead of the page’s own prompt', async () => {
+      // Back is the one control in the builder that ends the step. The configure page's own
+      // "unsaved changes" dialog used to be all the user saw; the click is now cancelled.
+      mockPathname = '/charts/new/configure';
+      window.history.pushState({}, '', '/charts/new/configure');
+      const content = document.createElement('main');
+      content.id = 'main-layout-main-content';
+      document.body.appendChild(content);
+      const tab = document.createElement('div');
+      tab.setAttribute('data-testid', 'chart-data-config-tab');
+      content.appendChild(tab);
+      const back = document.createElement('button');
+      back.setAttribute('data-testid', 'chart-create-back-button');
+      const onBackClick = jest.fn();
+      back.addEventListener('click', onBackClick);
+      content.appendChild(back);
+      setStage('chart_data_config', { path: 'own_data' });
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(skipButton()).not.toBeNull());
+
+      await userEvent.click(back);
+
+      await waitFor(() => expect(leavePrompt()).not.toBeNull());
+      expect(onBackClick).not.toHaveBeenCalled();
+    });
+
     it('lets filters be applied on the saved dashboard, but nothing else', async () => {
       // The share stage asks for one click, and filters are the other thing a freshly built
       // dashboard invites — everything else on that page still asks first.
@@ -653,10 +680,8 @@ describe('InsightWalkthroughCoachmark', () => {
     });
 
     it('stays on the metric field while the user opens the picker', async () => {
-      // The reported break: the picker is a combobox, so the click that would have advanced
-      // this stage is the click that OPENS the list — step 1 lost its coachmark the moment the
-      // user did what it asked. Choosing a metric is what moves this on, and the form's own
-      // handler owns that (see handleMetricChange in kpi-form.tsx).
+      // The reported break: on a combobox the advancing click IS the click that opens the
+      // list. handleMetricChange (kpi-form.tsx) advances on a real pick instead.
       const field = mountTarget('kpi-form-metric-field');
       setStage('kpi_metric');
       render(<InsightWalkthroughCoachmark />);
@@ -670,8 +695,7 @@ describe('InsightWalkthroughCoachmark', () => {
     });
 
     it('moves on when a click-advance field is clicked', async () => {
-      // KPI Type: a button group, where clicking IS the whole interaction — the remaining
-      // stage on the default `advanceOn: 'click'`.
+      // KPI Type: a button group, where clicking IS the interaction — the last `click` stage.
       const field = mountTarget('kpi-form-type-field');
       setStage('kpi_type');
       render(<InsightWalkthroughCoachmark />);
@@ -714,8 +738,7 @@ describe('InsightWalkthroughCoachmark', () => {
       render(<InsightWalkthroughCoachmark />);
 
       await waitFor(() =>
-        // The grouped form ("10,000,000"), which is what the copy reads — the bare constant is
-        // what goes into the input.
+        // The grouped form the copy reads; the bare constant goes into the input.
         expect(popoverDescription()).toContain(`filled in ${WALKTHROUGH_DEFAULT_TARGET_DISPLAY}`)
       );
     });
@@ -1302,9 +1325,8 @@ describe('InsightWalkthroughCoachmark', () => {
     });
 
     it('lets the drawer’s ✕ through once it is the coached target', async () => {
-      // Up to this stage the ✕ raises the leave prompt (see the test below). On
-      // kpi_close_drawer it IS the step, so the guard has to let the click land — otherwise the
-      // walkthrough asks for something it then blocks.
+      // Up to this stage the ✕ raises the leave prompt (see below). Here it IS the step, so
+      // the guard has to let the click land.
       const close = document.createElement('button');
       close.setAttribute('data-testid', 'kpi-detail-close-btn');
       close.setAttribute('aria-label', 'Close');

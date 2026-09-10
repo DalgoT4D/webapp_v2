@@ -201,10 +201,8 @@ export function KPIForm({
     if (walkthrough.active) walkthrough.advanceIfBefore('kpi_continue');
   }, [timeDimensionColumn]);
 
-  // No equivalent effect for target_value. It used to advance to kpi_direction as soon as the
-  // field held anything — but a walkthrough run PREFILLS it (see WALKTHROUGH_DEFAULT_TARGET),
-  // so the effect fired on mount and skipped straight past the target coachmark. kpi_target is
-  // a "read this, then press Got it" stage now, and that button is what moves it on.
+  // No equivalent effect for target_value: a walkthrough run prefills it, so advancing on "the
+  // field holds something" fired on mount and skipped the target coachmark. Got it moves it on.
 
   // KPI Type is the walkthrough's last field, so picking one moves the coachmark onto the
   // Create KPI button. Same watch-based approach as the two effects above; guarded on a

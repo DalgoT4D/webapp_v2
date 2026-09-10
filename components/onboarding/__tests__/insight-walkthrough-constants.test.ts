@@ -73,10 +73,8 @@ describe('insight-walkthrough-constants', () => {
     });
 
     it('carries a retired stage id forward instead of resuming into nothing', () => {
-      // The reported break: a run left mid-flow on 'kpi_view_card' (a stage since removed)
-      // resumed into a stage with no coachmark — nothing rendered, and because the resume
-      // "succeeded" the Get Started widget stopped offering the fork, so Build insights read
-      // as a dead button.
+      // The reported break: a run left on 'kpi_view_card' (since removed) resumed into a stage
+      // with no coachmark, and the "successful" resume stopped the widget offering the fork.
       saveWalkthroughStage('insights', 'kpi_view_card' as never);
 
       expect(getStoredWalkthroughStage('insights')).toBe('dashboard_nudge');
@@ -449,9 +447,8 @@ describe('insight-walkthrough-constants', () => {
     });
 
     it('resumes every KPI-drawer stage forward, at the dashboard nudge', () => {
-      // A reload closes the detail drawer and nothing on a cold /kpis reopens it — only the
-      // celebration dialog does, and that moment is gone. Looking at the KPI is the optional
-      // beat of this flow; the dashboard is what's still owed.
+      // A reload closes the drawer and nothing on a cold /kpis reopens it. Looking at the KPI
+      // is the optional beat; the dashboard is what's still owed.
       expect(getResumeAnchorStage('kpi_duration')).toBe('dashboard_nudge');
       expect(getResumeAnchorStage('kpi_add_note')).toBe('dashboard_nudge');
       expect(getResumeAnchorStage('kpi_close_drawer')).toBe('dashboard_nudge');

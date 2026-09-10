@@ -570,11 +570,8 @@ export function TourGate() {
       // 'fork2' isn't a coachmark — it's the dialog, which callers open directly.
       if (!stage || stage === 'fork2') return false;
       const anchor = getResumeAnchorStage(stage);
-      // A stage id we can't draw a coachmark for — an id written by an older build and since
-      // retired, without an entry in RETIRED_WALKTHROUGH_STAGES to carry it forward. Resuming
-      // it would look exactly like the widget doing nothing: the store goes active, nothing
-      // renders, and this returning true stops the caller offering the fork. Fall through to a
-      // fresh start instead.
+      // A stage we can't draw (a retired id with no RETIRED_WALKTHROUGH_STAGES entry). Resuming
+      // it renders nothing AND stops the caller offering the fork — fall through to a fresh start.
       if (!COACHMARK_STAGES.has(anchor)) return false;
       // A route-less anchor points at something in the sidebar, which is on screen already —
       // resume it where the user is rather than treating it as unresumable. Returning false

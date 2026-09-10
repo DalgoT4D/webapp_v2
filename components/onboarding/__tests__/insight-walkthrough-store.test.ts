@@ -180,9 +180,7 @@ describe('insightWalkthroughStore', () => {
 
   describe('the drawer stages after a KPI is created', () => {
     it('resume forward to the dashboard nudge — a reload closed the drawer for good', () => {
-      // Nothing on a cold /kpis reopens the detail drawer (only the celebration dialog does,
-      // and that moment is gone), so these stages can't be waited for. Looking at the KPI is
-      // the optional beat; building the dashboard is what's still owed.
+      // Nothing on a cold /kpis reopens the drawer, so these stages can't be waited for.
       store().start(ORG_A);
       store().chooseSample();
       store().advanceTo('kpi_duration');
