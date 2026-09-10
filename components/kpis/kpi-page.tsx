@@ -206,6 +206,9 @@ export function KPIPageComponent() {
   const [formOpen, setFormOpen] = useState(searchParams.get('create') === 'true');
   // Walkthrough only — see handleFormSuccess.
   const [kpiLiveModalOpen, setKpiLiveModalOpen] = useState(false);
+  // The KPI the walkthrough just created, waiting for its drawer to be opened for the user —
+  // see the effect below.
+  const [pendingWalkthroughKpiId, setPendingWalkthroughKpiId] = useState<number | null>(null);
   const [editingKpi, setEditingKpi] = useState<KPI | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedKpi, setSelectedKpi] = useState<KPI | null>(null);
@@ -217,6 +220,11 @@ export function KPIPageComponent() {
   const { initialOpen: shouldAutoOpenShare, clearParam: clearShareDeepLink } = useOpenShareDeepLink(
     ['kpiId']
   );
+
+  // Subscribed rather than read through getState(): the drawer has to close when the
+  // walkthrough moves on, which is a state change nothing on this page triggers itself.
+  const walkthroughActive = useInsightWalkthroughStore((state) => state.active);
+  const walkthroughStage = useInsightWalkthroughStore((state) => state.stage);
 
   const { hasPermission } = useRbac();
   // Creation is role-based; editing an existing KPI uses its effective access level.
@@ -335,32 +343,89 @@ export function KPIPageComponent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleFormSuccess = useCallback(() => {
-    setCurrentPage(1);
-    mutate();
-    globalMutate('/api/kpis/program-tags/');
-    // Resume-nudge milestone — set regardless of whether a coachmark session is active,
-    // so a returning user's progress is accurate (see flow-resume.ts).
-    markKpiCreated();
+  // The dashboard nudge rings the Dashboards item in the sidebar, which the 600px detail
+  // drawer covers. "Got it" on the last drawer coachmark is what lands the walkthrough on that
+  // stage, so getting out of the drawer is part of the same beat — the alternative is a
+  // coachmark pointing at a nav item the user has to close a panel to reach.
+  useEffect(() => {
+    if (walkthroughActive && walkthroughStage === 'dashboard_nudge') setDrawerOpen(false);
+  }, [walkthroughActive, walkthroughStage]);
+
+  /**
+   * Open the drawer on the KPI the walkthrough just created, once the celebration dialog is out
+   * of the way.
+   *
+   * Waits on the refetched list rather than opening from the create response: the drawer needs a
+   * full KPI object, and `mutate()` is what produces it.
+   *
+   * Coachmarks stay suppressed until the drawer is up (the dialog turned that on), so the ring on
+   * the new KPI's card never flashes between the two. If the refetch settles without the id — a
+   * filter or a page that excludes it — the suppression is lifted with nothing opened, which
+   * leaves kpi_view_card's coachmark on the card as the way through.
+   */
+  useEffect(() => {
+    if (pendingWalkthroughKpiId === null || kpiLiveModalOpen) return;
+    const created = kpis.find((k) => k.id === pendingWalkthroughKpiId);
     const walkthrough = useInsightWalkthroughStore.getState();
-    // Whatever they skipped on the way here — an optional KPI Type, a hint they clicked past
-    // — creating the KPI is the checkpoint, so catch the walkthrough up to it.
-    if (
-      walkthrough.active &&
-      walkthrough.stage &&
-      isStageBefore(walkthrough.path, walkthrough.stage, 'dashboard_nudge')
-    ) {
-      // A full celebration dialog rather than a toast — this is where the flow hands over
-      // from KPIs to dashboards, and the handover needs a CTA, not a corner notification.
-      setKpiLiveModalOpen(true);
-      // The next stage's coachmark points at the Dashboards nav item, which is visible
-      // behind this dialog — without suppressing it, congratulations and the nudge land on
-      // screen together. Released when the dialog closes, so the nudge is what the user
-      // sees next.
-      walkthrough.setSuppressCoachmark(true);
-      walkthrough.advanceIfBefore('dashboard_nudge');
+    if (!created) {
+      if (!isLoading) {
+        setPendingWalkthroughKpiId(null);
+        walkthrough.setSuppressCoachmark(false);
+      }
+      return;
     }
-  }, [mutate, globalMutate, orgSlug]);
+    trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, {
+      kpi_id: created.id,
+      source: KPI_VIEW_SOURCES.WALKTHROUGH,
+      metric_type_tag: created.metric_type_tag || null,
+    });
+    setSelectedKpi(created);
+    setDrawerOpen(true);
+    setPendingWalkthroughKpiId(null);
+    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_duration');
+    walkthrough.setSuppressCoachmark(false);
+  }, [pendingWalkthroughKpiId, kpiLiveModalOpen, kpis, isLoading]);
+
+  const handleFormSuccess = useCallback(
+    (createdKpiId?: number) => {
+      setCurrentPage(1);
+      mutate();
+      globalMutate('/api/kpis/program-tags/');
+      // Resume-nudge milestone — set regardless of whether a coachmark session is active,
+      // so a returning user's progress is accurate (see flow-resume.ts).
+      markKpiCreated();
+      const walkthrough = useInsightWalkthroughStore.getState();
+      // Whatever they skipped on the way here — an optional KPI Type, a hint they clicked past
+      // — creating the KPI is the checkpoint, so catch the walkthrough up to it.
+      if (
+        walkthrough.active &&
+        walkthrough.stage &&
+        isStageBefore(walkthrough.path, walkthrough.stage, 'kpi_view_card')
+      ) {
+        // A full celebration dialog rather than a toast — this is the moment the thing they came
+        // to build exists, and it needs a CTA, not a corner notification. The CTA hands them to
+        // the KPI itself; dashboards come after they've looked at it (see kpi_view_card).
+        setKpiLiveModalOpen(true);
+        // Nothing else on screen while the congratulations are up. Released when the dialog
+        // closes, at which point the drawer this hands them into is what they see.
+        walkthrough.setSuppressCoachmark(true);
+        // Before the advance: kpi_view_card's selector is built from this id, so a stage that
+        // arrived first would resolve to nothing. Still tracked even though the happy path no
+        // longer stops on that stage — a reload mid-drawer resumes there (see
+        // RESUME_ANCHOR_STAGES).
+        if (createdKpiId !== undefined) {
+          walkthrough.trackCreatedKpi(createdKpiId);
+          // Straight into the KPI rather than onto a coachmark ringing its card: the user has
+          // just pressed "Create KPI" and the dialog's CTA already says "View KPI", so asking
+          // them to find and click the card is a step that teaches nothing. Opened once the
+          // dialog closes — see the effect below.
+          setPendingWalkthroughKpiId(createdKpiId);
+        }
+        walkthrough.advanceIfBefore('kpi_view_card');
+      }
+    },
+    [mutate, globalMutate, orgSlug]
+  );
 
   const handleCreate = () => {
     setEditingKpi(null);
@@ -381,6 +446,12 @@ export function KPIPageComponent() {
     });
     setSelectedKpi(kpi);
     setDrawerOpen(true);
+    // Opening the drawer IS this stage's completion — the coachmark asked them to look at the
+    // KPI, and the two stages after it live inside the drawer this click opens.
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'kpi_view_card') {
+      walkthrough.advanceTo('kpi_duration');
+    }
   };
 
   const handleEdit = (kpi: KPI) => {
@@ -569,7 +640,13 @@ export function KPIPageComponent() {
               </div>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto">
+          {/* p-1.5 is a clip allowance, not spacing. `overflow-y: auto` forces overflow-x to
+              compute to `auto` as well, so this scroller clips on all four sides — and the grid
+              inside sat flush against every one of them. Anything a card paints outside its own
+              box was cut off: the cards' hover shadow, and the onboarding walkthrough's ring
+              (2px at a 4px offset = 6px), which lost whichever edges were flush and rendered as
+              a half-drawn box. 6px of room is enough for both. */}
+          <div className="flex-1 overflow-y-auto p-1.5">
             {isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[...Array(6)].map((_, i) => (
@@ -630,12 +707,16 @@ export function KPIPageComponent() {
         open={kpiLiveModalOpen}
         onOpenChange={(open) => {
           setKpiLiveModalOpen(open);
-          // Whichever way it closes, the dashboard nudge is the next thing to see.
-          if (!open) useInsightWalkthroughStore.getState().setSuppressCoachmark(false);
+          // Whichever way it closes — the CTA or the ✕ — the KPI itself is the next thing to
+          // see, and the effect above opens its drawer and lifts the suppression with it. Only
+          // released here when there is no KPI to open, so the walkthrough is never left silent.
+          if (!open && pendingWalkthroughKpiId === null) {
+            useInsightWalkthroughStore.getState().setSuppressCoachmark(false);
+          }
         }}
         title="Congratulations, your KPI is live!"
-        description="Your insight is built, and you can now add it to a dashboard!"
-        ctaLabel="Add to Dashboard"
+        description="Take a look at what you just built — its value, its trend, and how it is doing against your target."
+        ctaLabel="View KPI"
         dismissEvent={ANALYTICS_EVENTS.KPI_LIVE_MODAL_DISMISSED}
         testId="kpi-live-modal"
       />

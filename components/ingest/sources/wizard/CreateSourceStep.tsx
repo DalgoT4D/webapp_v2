@@ -21,6 +21,8 @@ import {
   GSHEETS_SERVICE_AUTH_TYPE,
 } from '@/components/ingest/sources/custom/constants';
 import { isGoogleSheetsSource } from '@/components/ingest/sources/custom/registry';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { WIZARD_CONFIG_ENTRY_STAGE_FOR } from '@/components/onboarding/insight-walkthrough-constants';
 import type { CustomSourceOAuth } from '@/components/ingest/sources/custom/types';
 
 interface Props {
@@ -33,6 +35,22 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   // Google Sheets and KoboToolbox get a hand-tailored form; every other
   // source falls back to the generic spec-driven form with no panel.
   const isGoogleSheets = isGoogleSheetsSource(def.name);
+
+  // Hand the walkthrough over to this step's own coachmarks — but only for Google Sheets.
+  // Every stage here names a field that belongs to Google's form (the spreadsheet link, the
+  // sharing instructions), so a Postgres or Kobo run would be coached about controls it does
+  // not have. Those runs stay on the picker's Next stage, which is where the guidance used to
+  // stop for everyone, and rejoin at the connection step (see connection-form-body.tsx).
+  useEffect(() => {
+    if (!isGoogleSheets) return;
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (!walkthrough.active || !walkthrough.stage) return;
+    const entry = WIZARD_CONFIG_ENTRY_STAGE_FOR[walkthrough.stage];
+    if (entry) walkthrough.advanceIfBefore(entry);
+    // Mount only: re-running on a later render would drag the user back to the first field
+    // after they had moved past it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGoogleSheets]);
 
   // Shared spec + react-hook-form plumbing (also used by the edit-source dialog).
   const { parsedSpec, specLoading, control, setValue, reset, trigger, buildConfig, custom } =

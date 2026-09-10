@@ -20,7 +20,11 @@ import {
   triggerSync,
 } from '@/hooks/api/useConnections';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
-import { CONNECTION_WATCH_STAGES } from '@/components/onboarding/insight-walkthrough-constants';
+import {
+  CONNECTION_WATCH_STAGES,
+  WIZARD_CAST_SKIP_STAGE_FOR,
+  WIZARD_STREAMS_ENTRY_STAGE_FOR,
+} from '@/components/onboarding/insight-walkthrough-constants';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import {
   SyncMode,
@@ -146,6 +150,10 @@ export function ConnectionFormBody({
     [sourceDefName]
   );
   const showCastColumn = sourceDefName ? isCastSupportedSource(sourceDefName) : false;
+  // Subscribed, not read once: the cast-skip effect below has to fire when the walkthrough
+  // ARRIVES at the cast stage, which happens while this form is already on screen.
+  const walkthroughStage = useInsightWalkthroughStore((state) => state.stage);
+
   const [activeConcept, setActiveConcept] = useState<ConnectionConceptId | null>(null);
   const [helpPanelOpen, setHelpPanelOpen] = useState(true);
 
@@ -204,6 +212,38 @@ export function ConnectionFormBody({
     hasSelectedStreams,
     allSelectedColumnTypesConfirmed,
   } = useStreamConfig();
+
+  // Hand the walkthrough over to this step's coachmarks. Unlike the configure step before it,
+  // this form looks the same whatever source was picked, so every run enters here — including
+  // the ones that skipped the Google-Sheets-only configure coachmarks. `advanceIfBefore` keeps
+  // that honest in both directions: a Sheets run is already past this stage, and a Postgres run
+  // is jumped forward from the picker's Next stage, which is exactly the intent.
+  //
+  // Creation only. Editing an existing connection is the user's own business, and advancing a
+  // half-finished walkthrough off the back of it would move them somewhere they never went.
+  useEffect(() => {
+    // Not on mount: on stream discovery finishing. Both coachmarks here point at parts of the
+    // table (the scroll hint, a cast dropdown), and none of that markup exists while discovery
+    // is still running. Entering early meant each stage waited out its timeout, decided its
+    // target was never coming, and hopped to the next one — so the user saw neither Got it and
+    // landed straight on "click Create".
+    if (!isCreate || isDiscovering || streams.length === 0) return;
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (!walkthrough.active || !walkthrough.path) return;
+    const entry = WIZARD_STREAMS_ENTRY_STAGE_FOR[walkthrough.path];
+    if (entry) walkthrough.advanceIfBefore(entry);
+  }, [isCreate, isDiscovering, streams.length]);
+
+  // Casting is offered for Google Sheets alone, so for any other source the "cast a numeric
+  // column" coachmark points at a column the table never renders. Step over it rather than
+  // leave the walkthrough waiting on something that cannot appear.
+  useEffect(() => {
+    if (!isCreate || showCastColumn) return;
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (!walkthrough.active || !walkthrough.stage) return;
+    const skipTo = WIZARD_CAST_SKIP_STAGE_FOR[walkthrough.stage];
+    if (skipTo) walkthrough.advanceIfBefore(skipTo);
+  }, [isCreate, showCastColumn, walkthroughStage]);
 
   // Create mode: prefill a default connection name once the source-definition
   // name resolves (it loads async via useSources). Functional update only fills

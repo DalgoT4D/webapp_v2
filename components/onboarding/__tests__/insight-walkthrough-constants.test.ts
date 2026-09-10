@@ -2,6 +2,11 @@ import {
   WALKTHROUGH_STAGE_ORDER,
   OWN_DATA_WALKTHROUGH_STAGE_ORDER,
   AUTOMATE_PIPELINE_STAGE_ORDER,
+  INGEST_STAGES,
+  CONNECTION_WATCH_STAGES,
+  OWN_DATA_WIZARD_STAGES,
+  PIPELINE_WIZARD_STAGES,
+  isWizardCoachedStage,
   POST_SYNC_STAGE_FOR,
   CHART_ENTRY_STAGE,
   getStoredWalkthroughStage,
@@ -212,6 +217,22 @@ describe('insight-walkthrough-constants', () => {
       expect(WALKTHROUGH_STAGE_ORDER[WALKTHROUGH_STAGE_ORDER.length - 1]).toBe('share_copy_link');
     });
 
+    it('sends the sample fork to look at the new KPI before nudging it to dashboards', () => {
+      // The handover used to go straight from Create KPI to "build a dashboard", skipping the
+      // thing the user had just made.
+      const from = WALKTHROUGH_STAGE_ORDER.indexOf('kpi_submit');
+      expect(WALKTHROUGH_STAGE_ORDER.slice(from, from + 5)).toEqual([
+        'kpi_submit',
+        'kpi_view_card',
+        'kpi_duration',
+        'kpi_add_note',
+        'dashboard_nudge',
+      ]);
+      // Only the sample fork builds a KPI — the other two open on ingest.
+      expect(OWN_DATA_WALKTHROUGH_STAGE_ORDER).not.toContain('kpi_view_card');
+      expect(AUTOMATE_PIPELINE_STAGE_ORDER).not.toContain('kpi_view_card');
+    });
+
     it('runs the pipeline fork from the Ingest nudge to the created pipeline, and stops there', () => {
       // Opens on the sidebar nudge, not on New Source: picking the flow no longer navigates
       // anywhere — the user clicks Ingest themselves.
@@ -358,6 +379,48 @@ describe('insight-walkthrough-constants', () => {
     });
   });
 
+  describe('the add-source wizard stages', () => {
+    it('runs the wizard between the picker\u2019s Next and whatever the fork does after ingest', () => {
+      const from = OWN_DATA_WALKTHROUGH_STAGE_ORDER.indexOf('own_data_source_next');
+      expect(OWN_DATA_WALKTHROUGH_STAGE_ORDER.slice(from + 1, from + 7)).toEqual(
+        OWN_DATA_WIZARD_STAGES
+      );
+      const pipelineFrom = AUTOMATE_PIPELINE_STAGE_ORDER.indexOf('pipeline_source_next');
+      expect(AUTOMATE_PIPELINE_STAGE_ORDER.slice(pipelineFrom + 1, pipelineFrom + 7)).toEqual(
+        PIPELINE_WIZARD_STAGES
+      );
+    });
+
+    it('counts every wizard step as an ingest stage, so the new connection is watched', () => {
+      // CONNECTION_WATCH_STAGES is built from INGEST_STAGES, and the connection is CREATED on
+      // the last wizard stage. Leave them out and the walkthrough never follows that
+      // connection to its first sync — it parks on "connect your data" with data already in.
+      for (const stage of [...OWN_DATA_WIZARD_STAGES, ...PIPELINE_WIZARD_STAGES]) {
+        expect(INGEST_STAGES).toContain(stage);
+        expect(CONNECTION_WATCH_STAGES).toContain(stage);
+      }
+    });
+
+    it('treats every wizard step as coached inside the dialog', () => {
+      // ingest-view.tsx suppresses coachmarks while the wizard is open unless the stage says
+      // it lives in there. Without this the new coachmarks would be hidden by the very dialog
+      // they point into.
+      for (const stage of [...OWN_DATA_WIZARD_STAGES, ...PIPELINE_WIZARD_STAGES]) {
+        expect(isWizardCoachedStage(stage)).toBe(true);
+      }
+    });
+
+    it('rewinds every wizard step to its own fork\u2019s New Source button', () => {
+      // Closing the dialog strands them all in exactly the way it strands the picker.
+      for (const stage of OWN_DATA_WIZARD_STAGES) {
+        expect(getResumeAnchorStage(stage)).toBe('own_data_ingest');
+      }
+      for (const stage of PIPELINE_WIZARD_STAGES) {
+        expect(getResumeAnchorStage(stage)).toBe('pipeline_ingest');
+      }
+    });
+  });
+
   describe('resume anchors', () => {
     it('rewinds each fork’s in-wizard stages to its own New Source step', () => {
       // Both targets live inside the add-source wizard, which a cold page load doesn't have
@@ -369,6 +432,14 @@ describe('insight-walkthrough-constants', () => {
       // The New Source stages themselves are reachable cold, so they resume as themselves.
       expect(getResumeAnchorStage('own_data_ingest')).toBe('own_data_ingest');
       expect(getResumeAnchorStage('pipeline_ingest')).toBe('pipeline_ingest');
+    });
+
+    it('rewinds both KPI-drawer stages to the card that opens the drawer', () => {
+      // A reload closes the detail drawer, so both targets are gone; the card that opens it is
+      // right there on a cold /kpis.
+      expect(getResumeAnchorStage('kpi_duration')).toBe('kpi_view_card');
+      expect(getResumeAnchorStage('kpi_add_note')).toBe('kpi_view_card');
+      expect(getResumeAnchorStage('kpi_view_card')).toBe('kpi_view_card');
     });
 
     it('resumes the sidebar-anchored stages as themselves, wherever the user is', () => {
@@ -450,5 +521,22 @@ describe('insight-walkthrough-constants', () => {
     expect(order.indexOf('kpi_time_column')).toBeLessThan(order.indexOf('kpi_continue'));
     expect(order.indexOf('kpi_continue')).toBeLessThan(order.indexOf('kpi_type'));
     expect(isStageBefore('sample', 'kpi_time_column', 'kpi_continue')).toBe(true);
+  });
+
+  it('coaches step 3 in the order the step renders its fields', () => {
+    // RAG bands, then Program Tags, then KPI Type — the wizard's step-2 Continue lands on the
+    // first of them (see handleStep2Continue), and each hands to the next on "Got it".
+    const from = WALKTHROUGH_STAGE_ORDER.indexOf('kpi_continue');
+    expect(WALKTHROUGH_STAGE_ORDER.slice(from, from + 5)).toEqual([
+      'kpi_continue',
+      'kpi_thresholds',
+      'kpi_program_tags',
+      'kpi_type',
+      'kpi_submit',
+    ]);
+    // Both live inside the KPI dialog, so a cold load has to re-enter at the button that opens
+    // it rather than waiting on a field nobody can see.
+    expect(getResumeAnchorStage('kpi_thresholds')).toBe('kpi_intro');
+    expect(getResumeAnchorStage('kpi_program_tags')).toBe('kpi_intro');
   });
 });

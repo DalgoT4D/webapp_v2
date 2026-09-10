@@ -6,6 +6,7 @@ import {
   hasFinishedWalkthrough,
   getStoredPath,
   getStoredTrackedConnection,
+  getStoredCreatedKpiId,
   getActiveWalkthroughFlow,
   markKpiCreated,
   hasKpiCreated,
@@ -175,6 +176,41 @@ describe('insightWalkthroughStore', () => {
       store().finish();
       store().setPendingCelebration('pipeline');
       expect(store().pendingCelebration).toBe('pipeline');
+    });
+  });
+
+  describe('the KPI created during the run', () => {
+    it('is remembered so the next stage can point at that exact card', () => {
+      store().start(ORG_A);
+      store().chooseSample();
+      store().trackCreatedKpi(42);
+      expect(store().createdKpiId).toBe(42);
+    });
+
+    it('is persisted, so a refresh mid-drawer still knows which card to ring', () => {
+      store().start(ORG_A);
+      store().chooseSample();
+      store().advanceTo('kpi_duration');
+      store().trackCreatedKpi(42);
+
+      // A fresh page load: the store is empty until resume() reads storage back.
+      useInsightWalkthroughStore.setState({ active: false, createdKpiId: null, stage: null });
+      store().resume(ORG_A);
+
+      expect(store().createdKpiId).toBe(42);
+      // Both drawer stages anchor back to the card that opens the drawer — a reload closed it.
+      expect(store().stage).toBe('kpi_view_card');
+    });
+
+    it('is cleared when the walkthrough ends, so the next run starts clean', () => {
+      store().start(ORG_A);
+      store().chooseSample();
+      store().trackCreatedKpi(42);
+
+      store().skip();
+
+      expect(store().createdKpiId).toBeNull();
+      expect(getStoredCreatedKpiId('insights')).toBeNull();
     });
   });
 
