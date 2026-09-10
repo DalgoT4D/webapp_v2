@@ -16,6 +16,7 @@ import { useMetrics } from '@/hooks/api/useMetrics';
 import { useTableColumns } from '@/hooks/api/useWarehouse';
 import { createKPI, updateKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { trackEvent } from '@/lib/analytics';
+import { NumberFormats } from '@/lib/formatters';
 import {
   ANALYTICS_EVENTS,
   KPI_CREATE_SOURCES,
@@ -270,7 +271,11 @@ export function KPIForm({
           program_tags: useInsightWalkthroughStore.getState().active
             ? [WALKTHROUGH_DEFAULT_PROGRAM_TAG]
             : [],
-          numberFormat: '',
+          // Prefilled for a walkthrough run like the two fields above: the guided KPI's target
+          // is in the millions, and unformatted it reads as an unreadable run of digits.
+          numberFormat: useInsightWalkthroughStore.getState().active
+            ? NumberFormats.ADAPTIVE_INDIAN
+            : '',
           decimalPlaces: DEFAULT_KPI_DECIMAL_PLACES,
           numberPrefix: '',
           numberSuffix: '',
