@@ -24,6 +24,7 @@ import { ProductTour, type ProductTourHandle } from './product-tour';
 import { TourIntentModal, type TourIntentVariant } from './tour-intent-modal';
 import { GettingStartedWidget } from './getting-started-widget';
 import {
+  COACHMARK_STAGES,
   InsightWalkthroughCoachmark,
   WALKTHROUGH_STAGE_ROUTES,
 } from './insight-walkthrough-coachmark';
@@ -569,6 +570,12 @@ export function TourGate() {
       // 'fork2' isn't a coachmark — it's the dialog, which callers open directly.
       if (!stage || stage === 'fork2') return false;
       const anchor = getResumeAnchorStage(stage);
+      // A stage id we can't draw a coachmark for — an id written by an older build and since
+      // retired, without an entry in RETIRED_WALKTHROUGH_STAGES to carry it forward. Resuming
+      // it would look exactly like the widget doing nothing: the store goes active, nothing
+      // renders, and this returning true stops the caller offering the fork. Fall through to a
+      // fresh start instead.
+      if (!COACHMARK_STAGES.has(anchor)) return false;
       // A route-less anchor points at something in the sidebar, which is on screen already —
       // resume it where the user is rather than treating it as unresumable. Returning false
       // here used to hand these stages to the fresh-start branch, which rewound a user who

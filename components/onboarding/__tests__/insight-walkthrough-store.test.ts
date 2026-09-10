@@ -6,7 +6,6 @@ import {
   hasFinishedWalkthrough,
   getStoredPath,
   getStoredTrackedConnection,
-  getStoredCreatedKpiId,
   getActiveWalkthroughFlow,
   markKpiCreated,
   hasKpiCreated,
@@ -179,38 +178,20 @@ describe('insightWalkthroughStore', () => {
     });
   });
 
-  describe('the KPI created during the run', () => {
-    it('is remembered so the next stage can point at that exact card', () => {
-      store().start(ORG_A);
-      store().chooseSample();
-      store().trackCreatedKpi(42);
-      expect(store().createdKpiId).toBe(42);
-    });
-
-    it('is persisted, so a refresh mid-drawer still knows which card to ring', () => {
+  describe('the drawer stages after a KPI is created', () => {
+    it('resume forward to the dashboard nudge — a reload closed the drawer for good', () => {
+      // Nothing on a cold /kpis reopens the detail drawer (only the celebration dialog does,
+      // and that moment is gone), so these stages can't be waited for. Looking at the KPI is
+      // the optional beat; building the dashboard is what's still owed.
       store().start(ORG_A);
       store().chooseSample();
       store().advanceTo('kpi_duration');
-      store().trackCreatedKpi(42);
 
       // A fresh page load: the store is empty until resume() reads storage back.
-      useInsightWalkthroughStore.setState({ active: false, createdKpiId: null, stage: null });
+      useInsightWalkthroughStore.setState({ active: false, stage: null });
       store().resume(ORG_A);
 
-      expect(store().createdKpiId).toBe(42);
-      // Both drawer stages anchor back to the card that opens the drawer — a reload closed it.
-      expect(store().stage).toBe('kpi_view_card');
-    });
-
-    it('is cleared when the walkthrough ends, so the next run starts clean', () => {
-      store().start(ORG_A);
-      store().chooseSample();
-      store().trackCreatedKpi(42);
-
-      store().skip();
-
-      expect(store().createdKpiId).toBeNull();
-      expect(getStoredCreatedKpiId('insights')).toBeNull();
+      expect(store().stage).toBe('dashboard_nudge');
     });
   });
 

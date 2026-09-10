@@ -37,14 +37,21 @@ export type WalkthroughStage =
   | 'kpi_program_tags'
   | 'kpi_type'
   | 'kpi_submit'
-  // The three stages between creating a KPI and being sent to dashboards: look at the thing
-  // you just built before being asked to do the next thing with it. kpi_view_card points at
-  // the new KPI's card on /kpis; the other two live inside the detail drawer that opens from
-  // it, and are the walkthrough's only "read this, then press Got it" stages — see
-  // `advanceOn: 'never'` in insight-walkthrough-coachmark.tsx.
-  | 'kpi_view_card'
+  // The stages between creating a KPI and being sent to dashboards: look at the thing you just
+  // built before being asked to do the next thing with it. All three live inside the detail
+  // drawer, which the celebration dialog's "View KPI" opens directly (see kpi-page.tsx) — there
+  // is deliberately no stage ringing the new KPI's card on /kpis first, because the dialog has
+  // already offered to open it and asking the user to hunt for the card taught nothing.
+  // kpi_duration and kpi_add_note are "read this, then press Got it" stages
+  // (`advanceOn: 'never'`), kpi_close_drawer below asks for a real click.
   | 'kpi_duration'
   | 'kpi_add_note'
+  // The drawer's ✕, coached rather than left to guesswork. The stage after this one rings the
+  // Dashboards nav item, which the 600px drawer sits on top of — so closing the drawer is a
+  // real step of the walkthrough, and every other click in the drawer (its ✕ included) has been
+  // raising the "leave the walkthrough?" prompt up to this point. Saying so turns the exit from
+  // a thing the user has to escape into the thing they're being asked to do.
+  | 'kpi_close_drawer'
   | 'dashboard_nudge'
   | 'dashboard_intro'
   | 'builder_add_kpi'
@@ -179,9 +186,9 @@ export const WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   'kpi_program_tags',
   'kpi_type',
   'kpi_submit',
-  'kpi_view_card',
   'kpi_duration',
   'kpi_add_note',
+  'kpi_close_drawer',
   'dashboard_nudge',
   'dashboard_intro',
   'builder_add_kpi',
@@ -401,15 +408,24 @@ export const CONNECTION_WATCH_STAGES: WalkthroughStage[] = [...INGEST_STAGES, 's
  * Target prefilled into the KPI created during the walkthrough, and quoted in the coachmark
  * copy that explains it.
  *
- * The guided KPI runs on sample data whose values are fractions, so this is a target it can
- * actually be measured against — the RAG status and the "against target" line have something
- * real to show rather than reading as broken. Left EDITABLE in the form: a starting point for a
- * demonstration, not a decision taken away from anyone who has their own figure in mind.
+ * A round, obviously-a-placeholder number: the point of the step is to teach what a target IS
+ * and that Dalgo colours the KPI against it, not to hand anyone a figure they might mistake for
+ * a recommendation. Left EDITABLE in the form — a starting point for a demonstration, not a
+ * decision taken away from anyone who has their own figure in mind.
  *
  * Lives here rather than in the KPI form because the form fills the field and the coachmark
  * names the number, and the two must not be able to disagree.
  */
-export const WALKTHROUGH_DEFAULT_TARGET = '0.10';
+export const WALKTHROUGH_DEFAULT_TARGET = '10000000';
+
+/**
+ * The same target, grouped for prose. The form needs a bare numeric string; the coachmark copy
+ * needs something a human can read at a glance ("10,000,000" not "10000000"). Derived rather
+ * than written out twice so the two can never drift.
+ */
+export const WALKTHROUGH_DEFAULT_TARGET_DISPLAY = Number(WALKTHROUGH_DEFAULT_TARGET).toLocaleString(
+  'en-US'
+);
 
 /**
  * Program tag prefilled into the KPI created during the walkthrough.
@@ -580,11 +596,13 @@ export const RESUME_ANCHOR_STAGES: Partial<Record<WalkthroughStage, WalkthroughS
   kpi_program_tags: 'kpi_intro',
   kpi_type: 'kpi_intro',
   kpi_submit: 'kpi_intro',
-  // Both drawer stages need the KPI detail drawer open, and a reload closes it. Re-enter at
-  // the card that opens it — which IS reachable from a cold /kpis — rather than waiting on a
-  // control inside a drawer nobody has opened.
-  kpi_duration: 'kpi_view_card',
-  kpi_add_note: 'kpi_view_card',
+  // All three drawer stages need the KPI detail drawer open, and a reload closes it. Nothing on
+  // a cold /kpis reopens it — only the celebration dialog does, and that moment is gone — so
+  // these resume FORWARD, at the dashboard nudge. Looking at the KPI is the optional beat of
+  // this flow; building the dashboard is the part still owed to the user.
+  kpi_duration: 'dashboard_nudge',
+  kpi_add_note: 'dashboard_nudge',
+  kpi_close_drawer: 'dashboard_nudge',
   // The builder stages need a dashboard in progress — an unsaved one is gone on reload, so
   // re-enter at "create a dashboard". 'share' needs a dashboard id we can't know either.
   builder_add_kpi: 'dashboard_intro',
@@ -742,8 +760,28 @@ function hasMilestone(prefix: string): boolean {
   }
 }
 
+/**
+ * Stage ids that older builds wrote to localStorage and that no longer exist, mapped to where
+ * a user sitting on one should be picked up instead.
+ *
+ * Without this a stale id resumes into a stage with no coachmark config: nothing renders, and
+ * because the resume "succeeded" the Get Started widget doesn't offer the fork either — the
+ * button reads as broken. Mapping forward keeps the user's progress; the alternative (dropping
+ * the stage) restarts a flow they were most of the way through.
+ *
+ * - kpi_view_card rang the new KPI's card on /kpis. Removed once the celebration dialog began
+ *   opening the detail drawer itself, which made the coachmark fire behind that drawer. Its
+ *   successors all live inside the drawer, which a cold load can't reopen, so these resume at
+ *   the dashboard nudge — the same place the drawer stages resume (see RESUME_ANCHOR_STAGES).
+ */
+const RETIRED_WALKTHROUGH_STAGES: Record<string, WalkthroughStage> = {
+  kpi_view_card: 'dashboard_nudge',
+};
+
 export function getStoredWalkthroughStage(flow: WalkthroughFlow): WalkthroughStage | null {
-  return (readFlowValue(STAGE_STORAGE_PREFIX, flow) as WalkthroughStage) || null;
+  const stored = readFlowValue(STAGE_STORAGE_PREFIX, flow);
+  if (!stored) return null;
+  return RETIRED_WALKTHROUGH_STAGES[stored] ?? (stored as WalkthroughStage);
 }
 
 export function saveWalkthroughStage(flow: WalkthroughFlow, stage: WalkthroughStage): void {
@@ -793,29 +831,6 @@ const SYNC_DISMISSED_RUN_STORAGE_PREFIX = 'dalgo_insight_walkthrough_sync_dismis
 
 export function getDismissedSyncRun(flow: WalkthroughFlow): string | null {
   return readFlowValue(SYNC_DISMISSED_RUN_STORAGE_PREFIX, flow);
-}
-
-// The KPI the user created during THIS walkthrough, so `kpi_view_card` can point at that exact
-// card rather than at whichever one happens to sort first (the list is paginated and sortable,
-// so "the new one" and "the first one" are not the same card).
-//
-// Persisted, unlike the other one-moment ids in the store: the three stages it feeds run across
-// a dialog close, a drawer open and a drawer close, and losing the id on a refresh would leave
-// `kpi_view_card` highlighting nothing on a page that looks perfectly fine.
-const CREATED_KPI_STORAGE_PREFIX = 'dalgo_insight_walkthrough_created_kpi_';
-
-export function getStoredCreatedKpiId(flow: WalkthroughFlow): number | null {
-  const raw = readFlowValue(CREATED_KPI_STORAGE_PREFIX, flow);
-  const id = raw === null ? NaN : Number(raw);
-  return Number.isFinite(id) ? id : null;
-}
-
-export function saveCreatedKpiId(flow: WalkthroughFlow, kpiId: number): void {
-  writeFlowValue(CREATED_KPI_STORAGE_PREFIX, flow, String(kpiId));
-}
-
-export function clearCreatedKpiId(flow: WalkthroughFlow): void {
-  removeFlowValue(CREATED_KPI_STORAGE_PREFIX, flow);
 }
 
 export function saveDismissedSyncRun(flow: WalkthroughFlow, runId: string): void {

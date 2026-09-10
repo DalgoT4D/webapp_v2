@@ -185,7 +185,6 @@ export function KPIForm({
   });
 
   const metricId = watch('metric_id');
-  const targetValue = watch('target_value');
   const timeDimensionColumn = watch('time_dimension_column');
   const metricTypeTag = watch('metric_type_tag');
 
@@ -202,15 +201,10 @@ export function KPIForm({
     if (walkthrough.active) walkthrough.advanceIfBefore('kpi_continue');
   }, [timeDimensionColumn]);
 
-  // Same watch-based reasoning as the time column effect above — waiting for onBlur
-  // requires the user to lose focus on the field first, which they may not do right away
-  // (e.g. typing a value then reaching for the mouse instead of tabbing away). Reacting to
-  // the value itself advances the moment they've actually entered something.
-  useEffect(() => {
-    if (!targetValue) return;
-    const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_direction');
-  }, [targetValue]);
+  // No equivalent effect for target_value. It used to advance to kpi_direction as soon as the
+  // field held anything — but a walkthrough run PREFILLS it (see WALKTHROUGH_DEFAULT_TARGET),
+  // so the effect fired on mount and skipped straight past the target coachmark. kpi_target is
+  // a "read this, then press Got it" stage now, and that button is what moves it on.
 
   // KPI Type is the walkthrough's last field, so picking one moves the coachmark onto the
   // Create KPI button. Same watch-based approach as the two effects above; guarded on a

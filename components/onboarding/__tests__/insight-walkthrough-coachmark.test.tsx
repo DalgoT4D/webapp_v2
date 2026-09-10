@@ -6,6 +6,7 @@ import { useSidebarStore } from '@/stores/sidebarStore';
 import { InsightWalkthroughCoachmark } from '../insight-walkthrough-coachmark';
 import {
   WALKTHROUGH_DEFAULT_TARGET,
+  WALKTHROUGH_DEFAULT_TARGET_DISPLAY,
   type WalkthroughStage,
 } from '../insight-walkthrough-constants';
 
@@ -651,7 +652,11 @@ describe('InsightWalkthroughCoachmark', () => {
       expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_metric');
     });
 
-    it('moves on when a dropdown-style field is clicked', async () => {
+    it('stays on the metric field while the user opens the picker', async () => {
+      // The reported break: the picker is a combobox, so the click that would have advanced
+      // this stage is the click that OPENS the list — step 1 lost its coachmark the moment the
+      // user did what it asked. Choosing a metric is what moves this on, and the form's own
+      // handler owns that (see handleMetricChange in kpi-form.tsx).
       const field = mountTarget('kpi-form-metric-field');
       setStage('kpi_metric');
       render(<InsightWalkthroughCoachmark />);
@@ -659,10 +664,22 @@ describe('InsightWalkthroughCoachmark', () => {
 
       await userEvent.click(field);
 
-      // Step 1's Continue, not the target field — that one only exists on step 2.
-      await waitFor(() =>
-        expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_step1_continue')
-      );
+      expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_metric');
+      expect(popoverTitle()).toContain('Pick a metric');
+      expect(leavePrompt()).toBeNull();
+    });
+
+    it('moves on when a click-advance field is clicked', async () => {
+      // KPI Type: a button group, where clicking IS the whole interaction — the remaining
+      // stage on the default `advanceOn: 'click'`.
+      const field = mountTarget('kpi-form-type-field');
+      setStage('kpi_type');
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(skipButton()).not.toBeNull());
+
+      await userEvent.click(field);
+
+      await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_submit'));
     });
 
     it('waits for Got it on the target, which arrives already filled in', async () => {
@@ -697,7 +714,9 @@ describe('InsightWalkthroughCoachmark', () => {
       render(<InsightWalkthroughCoachmark />);
 
       await waitFor(() =>
-        expect(popoverDescription()).toContain(`filled in ${WALKTHROUGH_DEFAULT_TARGET}`)
+        // The grouped form ("10,000,000"), which is what the copy reads — the bare constant is
+        // what goes into the input.
+        expect(popoverDescription()).toContain(`filled in ${WALKTHROUGH_DEFAULT_TARGET_DISPLAY}`)
       );
     });
 
@@ -1215,9 +1234,7 @@ describe('InsightWalkthroughCoachmark', () => {
   });
 
   describe('looking at the KPI you just built', () => {
-    const CREATED_KPI_ID = 7;
-
-    /** The KPI detail drawer, which both in-drawer stages are coached inside. */
+    /** The KPI detail drawer, which all three of these stages are coached inside. */
     function mountDrawer(inner: HTMLElement): HTMLElement {
       const drawer = document.createElement('div');
       drawer.setAttribute('role', 'dialog');
@@ -1231,36 +1248,6 @@ describe('InsightWalkthroughCoachmark', () => {
       return document.querySelector('.dalgo-tour-next-btn');
     }
 
-    it('rings the card of the KPI this walkthrough created, not whichever sorts first', async () => {
-      // The list is sorted and paginated, so "the new one" and "the first one" are different
-      // cards — the stage resolves its selector from the id the creation recorded.
-      mountTarget(`kpi-card-${CREATED_KPI_ID}`);
-      const otherCard = mountTarget('kpi-card-99');
-      setStage('kpi_view_card', { createdKpiId: CREATED_KPI_ID });
-
-      render(<InsightWalkthroughCoachmark />);
-
-      await waitFor(() => expect(popoverTitle()).toContain('Take a look'));
-      const ringed = document.querySelector(`[data-testid="kpi-card-${CREATED_KPI_ID}"]`)!;
-      expect(ringed.classList).toContain('dalgo-tour-ring');
-      expect(otherCard.classList.contains('dalgo-tour-ring')).toBe(false);
-    });
-
-    it('shows nothing until the created KPI is known', async () => {
-      // A null id resolves to no selector at all. Highlighting some other card would point the
-      // user at a KPI they didn't make.
-      mountTarget('kpi-card-99');
-      setStage('kpi_view_card', { createdKpiId: null });
-
-      render(<InsightWalkthroughCoachmark />);
-
-      // Nothing to wait for — assert the absence holds across a few frames rather than in the
-      // one tick before the highlight would have been drawn.
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(skipButton()).toBeNull();
-      expect(document.querySelector('.dalgo-tour-ring')).toBeNull();
-    });
-
     it('does not advance when the user actually uses the coached control', async () => {
       // The whole point of these two stages: the user is invited to TRY the control while the
       // coachmark stands there. Every other showNext stage advances on a click of its target,
@@ -1268,7 +1255,7 @@ describe('InsightWalkthroughCoachmark', () => {
       const periodControls = document.createElement('button');
       periodControls.setAttribute('data-testid', 'kpi-detail-period-controls');
       mountDrawer(periodControls);
-      setStage('kpi_duration', { createdKpiId: CREATED_KPI_ID });
+      setStage('kpi_duration');
 
       render(<InsightWalkthroughCoachmark />);
       await waitFor(() => expect(popoverTitle()).toContain('Set the period'));
@@ -1283,7 +1270,7 @@ describe('InsightWalkthroughCoachmark', () => {
       const periodControls = document.createElement('button');
       periodControls.setAttribute('data-testid', 'kpi-detail-period-controls');
       mountDrawer(periodControls);
-      setStage('kpi_duration', { createdKpiId: CREATED_KPI_ID });
+      setStage('kpi_duration');
 
       render(<InsightWalkthroughCoachmark />);
       await waitFor(() => expect(gotItButton()).not.toBeNull());
@@ -1293,12 +1280,15 @@ describe('InsightWalkthroughCoachmark', () => {
       await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_add_note'));
     });
 
-    it('hands over to the dashboard nudge after the last Got it', async () => {
+    it('hands over to the close-the-drawer step after the last Got it', async () => {
       const addNote = document.createElement('button');
       addNote.setAttribute('data-testid', 'kpi-detail-add-note-btn');
-      mountDrawer(addNote);
-      mountLink('/dashboards');
-      setStage('kpi_add_note', { createdKpiId: CREATED_KPI_ID });
+      const drawer = mountDrawer(addNote);
+      const close = document.createElement('button');
+      close.setAttribute('data-testid', 'kpi-detail-close-btn');
+      close.setAttribute('aria-label', 'Close');
+      drawer.appendChild(close);
+      setStage('kpi_add_note');
 
       render(<InsightWalkthroughCoachmark />);
       await waitFor(() => expect(popoverTitle()).toContain('Add context'));
@@ -1306,8 +1296,30 @@ describe('InsightWalkthroughCoachmark', () => {
       await userEvent.click(gotItButton()!);
 
       await waitFor(() =>
-        expect(useInsightWalkthroughStore.getState().stage).toBe('dashboard_nudge')
+        expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_close_drawer')
       );
+      await waitFor(() => expect(popoverTitle()).toContain('Close the KPI'));
+    });
+
+    it('lets the drawer’s ✕ through once it is the coached target', async () => {
+      // Up to this stage the ✕ raises the leave prompt (see the test below). On
+      // kpi_close_drawer it IS the step, so the guard has to let the click land — otherwise the
+      // walkthrough asks for something it then blocks.
+      const close = document.createElement('button');
+      close.setAttribute('data-testid', 'kpi-detail-close-btn');
+      close.setAttribute('aria-label', 'Close');
+      const onCloseClick = jest.fn();
+      close.addEventListener('click', onCloseClick);
+      mountDrawer(close);
+      setStage('kpi_close_drawer');
+
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Close the KPI'));
+
+      await userEvent.click(close);
+
+      expect(onCloseClick).toHaveBeenCalledTimes(1);
+      expect(leavePrompt()).toBeNull();
     });
 
     it('leaves the rest of the drawer clickable', async () => {
@@ -1319,7 +1331,7 @@ describe('InsightWalkthroughCoachmark', () => {
       const onElsewhereClick = jest.fn();
       elsewhere.addEventListener('click', onElsewhereClick);
       drawer.appendChild(elsewhere);
-      setStage('kpi_duration', { createdKpiId: CREATED_KPI_ID });
+      setStage('kpi_duration');
 
       render(<InsightWalkthroughCoachmark />);
       await waitFor(() => expect(popoverTitle()).toContain('Set the period'));
@@ -1341,7 +1353,7 @@ describe('InsightWalkthroughCoachmark', () => {
       const onCloseClick = jest.fn();
       close.addEventListener('click', onCloseClick);
       drawer.appendChild(close);
-      setStage('kpi_duration', { createdKpiId: CREATED_KPI_ID });
+      setStage('kpi_duration');
 
       render(<InsightWalkthroughCoachmark />);
       await waitFor(() => expect(popoverTitle()).toContain('Set the period'));

@@ -392,6 +392,22 @@ describe('TourGate', () => {
     expect(screen.queryByTestId('get-started-option-sample')).not.toBeInTheDocument();
   });
 
+  it('falls back to the fork when the stored stage is one this build cannot draw', async () => {
+    // The reported break, generalised: a stage id written by an older build and since retired
+    // resumed "successfully" into a stage with no coachmark — nothing rendered, and the
+    // successful resume stopped the fork being offered, so the entry point read as dead. Known
+    // retirements are carried forward by RETIRED_WALKTHROUGH_STAGES; anything else lands here.
+    const user = userEvent.setup();
+    setupAuthStore(buildOrgUser());
+    savePath('insights', 'sample');
+    saveWalkthroughStage('insights', 'a_stage_that_no_longer_exists' as never);
+    renderGate();
+
+    await user.click(await screen.findByTestId('tour-intent-option-insight'));
+
+    expect(await screen.findByTestId('get-started-option-sample')).toBeInTheDocument();
+  });
+
   it('hides the getting-started widget while the tour runs, and restores it when it ends', async () => {
     const user = userEvent.setup();
     suppressIntentModal();
