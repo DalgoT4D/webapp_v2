@@ -1860,7 +1860,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Remove component. Anything below the removed widget slides up (gravity-up);
     // side neighbours stay where they are. One history entry.
     const removeComponent = (componentId: string) => {
-      const removedType = activeComponents[componentId]?.type;
+      const removedComponent = activeComponents[componentId];
+      const removedType = removedComponent?.type;
+
       const newComponents = { ...activeComponents };
       delete newComponents[componentId];
 
@@ -1953,7 +1955,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     const handleFilterCreate = async (filterPayload: CreateFilterPayload) => {
       if (!dashboardId) return;
-
+      console.log('calleedddddddd');
       try {
         // Create filter in database first using typed API
         const newFilterFromAPI = await createDashboardFilter(dashboardId, {
@@ -1964,6 +1966,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           column_name: filterPayload.column_name,
           settings: filterPayload.settings,
         });
+
+        console.log('newFilterFromAPI', newFilterFromAPI);
         trackEvent(ANALYTICS_EVENTS.DASHBOARD_FILTER_CREATED, {
           dashboard_id: dashboardId,
           filter_type: filterPayload.filter_type,

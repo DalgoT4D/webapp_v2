@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { mockApiPut, mockApiDelete, resetApiMocks } from '@/test-utils/api';
 import {
   DASHBOARD_RICH_TEXT_FLUSH_EVENT,
   DASHBOARD_WIDGET_DRAG_START_EVENT,
@@ -10,6 +11,11 @@ import {
 } from '../text-element-unified';
 
 jest.mock('@/lib/analytics', () => ({ trackEvent: jest.fn() }));
+
+const mockToastErrorApi = jest.fn();
+jest.mock('@/lib/toast', () => ({
+  toastError: { api: (...args: unknown[]) => mockToastErrorApi(...args) },
+}));
 
 const mockTrackEvent = trackEvent as jest.MockedFunction<typeof trackEvent>;
 
@@ -22,6 +28,13 @@ const config: UnifiedTextConfig = {
   textDecoration: 'none',
   textAlign: 'left',
   color: '#000000',
+};
+
+const configWithImage: UnifiedTextConfig = {
+  ...config,
+  imageUrl: 'https://bucket.s3.amazonaws.com/orgs/org/dashboards/images/old.png',
+  imageKey: 'orgs/org/dashboards/images/old.png',
+  imageName: 'old.png',
 };
 
 /**
@@ -53,7 +66,8 @@ describe('UnifiedTextElement', () => {
   });
 
   beforeEach(() => {
-    mockTrackEvent.mockClear();
+    resetApiMocks(); // clears every jest.fn(), including mockTrackEvent/mockToastErrorApi
+    mockApiDelete.mockResolvedValue({ success: true });
   });
 
   // Both events carry dashboard_id so rich-text usage can be joined to its dashboard;
@@ -69,6 +83,7 @@ describe('UnifiedTextElement', () => {
       dashboard_id: 7,
     });
 
+    await user.click(screen.getByRole('button', { name: 'Text style' }));
     await user.click(screen.getByRole('button', { name: 'Heading 1' }));
     expect(mockTrackEvent).toHaveBeenCalledWith(
       ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_FORMAT_APPLIED,
@@ -167,7 +182,7 @@ describe('UnifiedTextElement', () => {
     await user.click(editor);
     await user.type(editor, ' blurred', { skipClick: true });
     expect(editor).toHaveTextContent('blurred');
-    act(() => screen.getByRole('button', { name: 'Heading 1' }).focus());
+    act(() => screen.getByRole('button', { name: 'Text style' }).focus());
     expect(onUpdate).not.toHaveBeenCalled();
     act(() => screen.getByTestId('outside-rich-text-editor').focus());
 
@@ -204,7 +219,7 @@ describe('UnifiedTextElement', () => {
     );
   });
 
-  it('renders the color choices in a fixed-width picker', async () => {
+  it('renders the color choices in a fixed-width picker with a Custom option', async () => {
     const user = userEvent.setup();
     render(<UnifiedTextElement config={config} onUpdate={jest.fn()} isEditMode />);
 
@@ -213,8 +228,62 @@ describe('UnifiedTextElement', () => {
     await user.click(await screen.findByRole('button', { name: 'Text color' }));
 
     expect(screen.getByText('Text color')).toBeInTheDocument();
-    expect(screen.getByLabelText('Custom text color').closest('div')).toHaveClass('w-40');
+    expect(screen.getByText('Text color').closest('div')).toHaveClass('w-48');
     expect(screen.getAllByRole('button', { name: /Set text color/ })).toHaveLength(8);
+    expect(screen.getByTestId('rich-text-custom-color-toggle')).toBeInTheDocument();
+  });
+
+  it('applies a custom hex color only after confirming with OK', async () => {
+    const user = userEvent.setup();
+    render(<UnifiedTextElement config={config} onUpdate={jest.fn()} isEditMode />);
+
+    const editor = await screen.findByTestId('dashboard-rich-text-editor');
+    fireEvent.click(editor);
+    await waitFor(() => expect(editor).toHaveAttribute('contenteditable', 'true'));
+
+    await user.click(screen.getByRole('button', { name: 'Text color' }));
+    await user.click(screen.getByTestId('rich-text-custom-color-toggle'));
+
+    const hexInput = screen.getByTestId('rich-text-custom-color-hex');
+    await user.clear(hexInput);
+    await user.type(hexInput, '#ABCDEF');
+
+    // Not applied yet — only previewed until OK is clicked.
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_FORMAT_APPLIED,
+      expect.objectContaining({ format_type: 'color' })
+    );
+
+    await user.click(screen.getByTestId('rich-text-custom-color-ok'));
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.DASHBOARD_RICH_TEXT_FORMAT_APPLIED,
+      expect.objectContaining({ format_type: 'color' })
+    );
+    // Dropdown closes after confirming.
+    expect(screen.queryByText('Text color')).not.toBeInTheDocument();
+  });
+
+  it('discards the custom color preview when Cancel is clicked', async () => {
+    const user = userEvent.setup();
+    render(<UnifiedTextElement config={config} onUpdate={jest.fn()} isEditMode />);
+
+    const editor = await screen.findByTestId('dashboard-rich-text-editor');
+    await activateEditor(editor);
+    await user.type(editor, 'plain text', { skipClick: true });
+
+    await user.click(screen.getByRole('button', { name: 'Text color' }));
+    await user.click(screen.getByTestId('rich-text-custom-color-toggle'));
+
+    const hexInput = screen.getByTestId('rich-text-custom-color-hex');
+    await user.clear(hexInput);
+    await user.type(hexInput, '#123456');
+    await user.click(screen.getByTestId('rich-text-custom-color-cancel'));
+
+    // Back to the presets view, nothing applied to the editor.
+    expect(screen.getByText('Text color')).toBeInTheDocument();
+    expect(screen.queryByTestId('rich-text-custom-color-hex')).not.toBeInTheDocument();
+    expect(editor.innerHTML).not.toContain('123456');
   });
 
   it('shows the font-size placeholder when the selected size is not an exact option', async () => {
@@ -295,6 +364,7 @@ describe('UnifiedTextElement', () => {
 
       const editor = await screen.findByTestId('dashboard-rich-text-editor');
       fireEvent.click(editor);
+      await user.click(await screen.findByRole('button', { name: 'Text style' }));
       await user.click(await screen.findByRole('button', { name: `Heading ${level}` }));
 
       expect(editor.querySelector(`h${level}`)).not.toBeNull();
@@ -302,4 +372,154 @@ describe('UnifiedTextElement', () => {
       expect(editor.innerHTML).not.toContain('font-size: 16px');
     }
   );
+
+  describe('widget image upload/replace/remove', () => {
+    function selectFile(input: HTMLElement, file: File) {
+      fireEvent.change(input, { target: { files: [file] } });
+    }
+
+    it('uploads a new image and applies the returned url/key to the widget', async () => {
+      mockApiPut.mockResolvedValueOnce({
+        image_url: 'https://bucket.s3.amazonaws.com/new.png',
+        image_key: 'orgs/org/dashboards/images/new.png',
+      });
+      const onUpdate = jest.fn();
+      render(<UnifiedTextElement config={config} onUpdate={onUpdate} isEditMode />);
+
+      const file = new File(['fake-bytes'], 'photo.png', { type: 'image/png' });
+      selectFile(screen.getByTestId('rich-text-image-file-input'), file);
+
+      await waitFor(() =>
+        expect(onUpdate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            imageUrl: 'https://bucket.s3.amazonaws.com/new.png',
+            imageKey: 'orgs/org/dashboards/images/new.png',
+            imageName: 'photo.png',
+          })
+        )
+      );
+      expect(mockApiPut).toHaveBeenCalledWith('/api/dashboards/images/', expect.any(FormData));
+      expect(mockApiDelete).not.toHaveBeenCalled(); // no previous image to clean up
+      expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.DASHBOARD_TEXT_IMAGE_ADDED, {
+        source: 'upload',
+      });
+    });
+
+    it('does not delete the previous S3 image when replacing it with a new upload', async () => {
+      mockApiPut.mockResolvedValueOnce({
+        image_url: 'https://bucket.s3.amazonaws.com/new.png',
+        image_key: 'orgs/org/dashboards/images/new.png',
+      });
+      const onUpdate = jest.fn();
+      render(<UnifiedTextElement config={configWithImage} onUpdate={onUpdate} isEditMode />);
+
+      const file = new File(['fake-bytes'], 'photo.png', { type: 'image/png' });
+      selectFile(screen.getByTestId('rich-text-image-file-input'), file);
+
+      await waitFor(() =>
+        expect(onUpdate).toHaveBeenCalledWith(
+          expect.objectContaining({ imageKey: 'orgs/org/dashboards/images/new.png' })
+        )
+      );
+      expect(mockApiDelete).not.toHaveBeenCalled();
+    });
+
+    it('rejects an oversized file without calling the upload API', async () => {
+      const onUpdate = jest.fn();
+      render(<UnifiedTextElement config={config} onUpdate={onUpdate} isEditMode />);
+
+      const oversizedFile = new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'big.png', {
+        type: 'image/png',
+      });
+      selectFile(screen.getByTestId('rich-text-image-file-input'), oversizedFile);
+
+      await waitFor(() =>
+        expect(mockToastErrorApi).toHaveBeenCalledWith(
+          expect.objectContaining({ message: 'Image must be smaller than 5MB.' })
+        )
+      );
+      expect(mockApiPut).not.toHaveBeenCalled();
+      expect(onUpdate).not.toHaveBeenCalled();
+    });
+
+    it('rejects a disallowed file type without calling the upload API', async () => {
+      const onUpdate = jest.fn();
+      render(<UnifiedTextElement config={config} onUpdate={onUpdate} isEditMode />);
+
+      const badFile = new File(['data'], 'doc.pdf', { type: 'application/pdf' });
+      selectFile(screen.getByTestId('rich-text-image-file-input'), badFile);
+
+      await waitFor(() =>
+        expect(mockToastErrorApi).toHaveBeenCalledWith(
+          expect.objectContaining({ message: 'Please upload a JPEG, PNG, GIF, or WEBP image.' })
+        )
+      );
+      expect(mockApiPut).not.toHaveBeenCalled();
+      expect(onUpdate).not.toHaveBeenCalled();
+    });
+
+    it('shows an error toast and keeps the widget unchanged when the upload API call fails', async () => {
+      mockApiPut.mockRejectedValueOnce(new Error('network down'));
+      const onUpdate = jest.fn();
+      render(<UnifiedTextElement config={config} onUpdate={onUpdate} isEditMode />);
+
+      const file = new File(['fake-bytes'], 'photo.png', { type: 'image/png' });
+      selectFile(screen.getByTestId('rich-text-image-file-input'), file);
+
+      await waitFor(() =>
+        expect(mockToastErrorApi).toHaveBeenCalledWith(
+          expect.any(Error),
+          'Failed to upload image. Please try again.'
+        )
+      );
+      expect(onUpdate).not.toHaveBeenCalled();
+    });
+
+    it('clears the widget when the image is removed, without deleting it from S3', async () => {
+      const onUpdate = jest.fn();
+      render(<UnifiedTextElement config={configWithImage} onUpdate={onUpdate} isEditMode />);
+
+      const editor = await screen.findByTestId('dashboard-rich-text-editor');
+      await activateEditor(editor);
+
+      await userEvent.click(screen.getByTestId('rich-text-image'));
+      await userEvent.click(await screen.findByTestId('rich-text-image-remove'));
+
+      expect(mockApiDelete).not.toHaveBeenCalled();
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          imageUrl: undefined,
+          imageKey: undefined,
+          imageName: undefined,
+        })
+      );
+      expect(mockTrackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.DASHBOARD_TEXT_IMAGE_REMOVED);
+    });
+
+    it('switching to an external image link clears the S3 imageKey without deleting the old S3 object', async () => {
+      const onUpdate = jest.fn();
+      render(<UnifiedTextElement config={configWithImage} onUpdate={onUpdate} isEditMode />);
+
+      const editor = await screen.findByTestId('dashboard-rich-text-editor');
+      await activateEditor(editor);
+
+      await userEvent.click(screen.getByTestId('rich-text-image'));
+      await userEvent.click(await screen.findByTestId('rich-text-image-reload'));
+      await userEvent.click(await screen.findByTestId('rich-text-image-tab-link'));
+      await userEvent.type(
+        await screen.findByTestId('rich-text-image-link-input'),
+        'https://example.com/pic.png'
+      );
+      await userEvent.click(await screen.findByTestId('rich-text-image-link-confirm'));
+
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          imageUrl: 'https://example.com/pic.png',
+          imageKey: undefined,
+          imageName: 'pic.png',
+        })
+      );
+      expect(mockApiDelete).not.toHaveBeenCalled();
+    });
+  });
 });
