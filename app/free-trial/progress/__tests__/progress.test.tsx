@@ -1,8 +1,8 @@
 /**
- * Tests for the /free-trial/progress live-progress + auto-login page.
+ * Tests for the /free-trial/progress live-progress + Continue-to-login page.
  *
  * Covers: rendering CloneProgress with the current index derived from a
- * running status, the completed-status auto-login flow (apiPost login call,
+ * running status, the completed-status Continue flow (apiPost login call,
  * sessionStorage cleared, setAuthenticated(true), redirect to /impact), and
  * the failed-status retry state.
  */
@@ -124,7 +124,7 @@ describe('TrialProgressPage', () => {
     expect(screen.getByTestId('trial-step-2')).toHaveAttribute('data-state', 'pending');
   });
 
-  it('autoplays the self-hosted provisioning video muted with native controls', async () => {
+  it('requests audible autoplay for the provisioning video with native controls', async () => {
     mockSwrData = {
       task_id: 'task-123',
       status: 'running',
@@ -140,11 +140,11 @@ describe('TrialProgressPage', () => {
     expect(video).toHaveAttribute('src', '/branding/dalgo-product-overview.mp4');
     expect(video).toHaveAttribute('poster', '/branding/dalgo-product-overview-poster.jpg');
     expect(video).toHaveAttribute('autoplay');
-    expect(video).toHaveProperty('muted', true);
+    expect(video).toHaveProperty('muted', false);
     expect(video).toHaveAttribute('controls');
 
-    // Muted autoplay is permitted by modern browser policies. The native volume,
-    // timeline, picture-in-picture and fullscreen controls remain available.
+    // If the browser blocks audible autoplay, the play button remains available.
+    expect(screen.getByTestId('trial-provisioning-video-play')).toBeInTheDocument();
     expect(screen.getByTestId('trial-split-card-aside')).toHaveClass('order-first');
     expect(screen.getByTestId('trial-split-card-aside')).not.toHaveClass('hidden');
 
@@ -195,13 +195,22 @@ describe('TrialProgressPage', () => {
     expect(screen.getByTestId('trial-step-1')).toHaveAttribute('data-state', 'pending');
     expect(screen.getByTestId('trial-step-6')).toHaveAttribute('data-state', 'pending');
   });
+});
 
-  it('auto-logs in on a completed status using stashed creds and redirects to /impact', async () => {
+describe('TrialProgressPage completion', () => {
+  it('keeps the playing video in place after completion and logs in only on Continue', async () => {
     sessionStorage.setItem(
       CREDS_STORAGE_KEY,
       JSON.stringify({ email: 'jane@example.org', password: 'super-secret-1' })
     );
     mockApiPost.mockResolvedValueOnce({});
+    mockSwrData = { task_id: 'task-123', status: 'running', progress: [] };
+    const { rerender } = render(<TrialProgressPage />);
+    const video = screen.getByTestId('trial-provisioning-video-video') as HTMLVideoElement;
+    video.currentTime = 42;
+    fireEvent.play(video);
+    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
+
     mockSwrData = {
       task_id: 'task-123',
       status: 'completed',
@@ -209,7 +218,17 @@ describe('TrialProgressPage', () => {
       org_slug: 'acme',
     };
 
-    render(<TrialProgressPage />);
+    rerender(<TrialProgressPage />);
+
+    expect(screen.getByText('Your workspace is ready!')).toBeInTheDocument();
+    expect(screen.getByTestId('trial-provisioning-video-video')).toBe(video);
+    expect(video.currentTime).toBe(42);
+    expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('trial-provisioning-video-play')).not.toBeInTheDocument();
+    expect(mockApiPost).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
       expect(mockApiPost).toHaveBeenCalledWith('/api/v2/login/', {
@@ -239,6 +258,9 @@ describe('TrialProgressPage', () => {
 
     render(<TrialProgressPage />);
 
+    expect(mockApiPost).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
     await waitFor(() => {
       expect(screen.getByTestId('trial-login-cta')).toBeInTheDocument();
     });
@@ -259,6 +281,9 @@ describe('TrialProgressPage', () => {
 
     render(<TrialProgressPage />);
 
+    expect(screen.queryByTestId('trial-login-cta')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
     await waitFor(() => {
       expect(screen.getByTestId('trial-login-cta')).toBeInTheDocument();
     });
@@ -267,6 +292,59 @@ describe('TrialProgressPage', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
+  it('disables Continue while login is pending and submits only once', async () => {
+    sessionStorage.setItem(
+      CREDS_STORAGE_KEY,
+      JSON.stringify({ email: 'jane@example.org', password: 'test-password' })
+    );
+    mockSwrData = { task_id: 'task-123', status: 'completed', progress: [] };
+    let resolveLogin!: (value: object) => void;
+    mockApiPost.mockImplementationOnce(() => new Promise((resolve) => (resolveLogin = resolve)));
+    render(<TrialProgressPage />);
+
+    const button = screen.getByRole('button', { name: 'Continue' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    expect(button).toBeDisabled();
+    expect(button).toHaveTextContent('Signing in…');
+    expect(mockApiPost).toHaveBeenCalledTimes(1);
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    await act(async () => resolveLogin({}));
+    expect(mockReplace).toHaveBeenCalledWith('/impact');
+  });
+
+  it('does not time out while waiting for the user to continue after completion', () => {
+    jest.useFakeTimers();
+    mockSwrData = { task_id: 'task-123', status: 'completed', progress: [] };
+    render(<TrialProgressPage />);
+
+    act(() => jest.advanceTimersByTime(420 * 1000));
+
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+    expect(screen.queryByTestId('trial-progress-timeout')).not.toBeInTheDocument();
+    expect(mockApiPost).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it.each(['invalid JSON', '{"email":"jane@example.org"}'])(
+    'offers manual login when stored credentials are unusable: %s',
+    async (raw) => {
+      sessionStorage.setItem(CREDS_STORAGE_KEY, raw);
+      mockSwrData = { task_id: 'task-123', status: 'completed', progress: [] };
+      render(<TrialProgressPage />);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+      expect(screen.getByTestId('trial-login-cta')).toHaveAttribute('href', '/login');
+      expect(sessionStorage.getItem(CREDS_STORAGE_KEY)).toBeNull();
+      expect(mockApiPost).not.toHaveBeenCalled();
+    }
+  );
+});
+
+describe('TrialProgressPage recovery', () => {
   it('flips to the timeout fallback (log-in + start-again) after the hard timeout with no terminal status', () => {
     jest.useFakeTimers();
     mockSwrData = {

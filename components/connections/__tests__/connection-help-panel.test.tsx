@@ -111,7 +111,7 @@ describe('ConnectionHelpPanel', () => {
     );
 
     expect(columns?.body).toContain('Column type');
-    expect(columns?.body).toContain('confirm every selected column');
+    expect(columns?.body).toContain('Confirm column types for that table');
     expect(columns?.body).toContain('without turning on Advanced per-table settings');
   });
 });

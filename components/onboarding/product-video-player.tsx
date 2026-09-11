@@ -79,7 +79,8 @@ export function ProductVideoPlayer({
         aria-label={title}
         preload="metadata"
         autoPlay={autoPlay}
-        muted={autoPlay}
+        // If audible autoplay is blocked, the paused-state Play button stays available.
+        muted={false}
         playsInline
         controls
         controlsList="nodownload"

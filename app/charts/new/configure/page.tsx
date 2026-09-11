@@ -190,6 +190,12 @@ function ConfigureChartPageContent() {
   });
 
   const [activeTab, setActiveTab] = useState('chart');
+  const [configurationTab, setConfigurationTab] = useState('configuration');
+  const walkthroughStage = useInsightWalkthroughStore((s) => s.stage);
+  useEffect(() => {
+    if (walkthroughStage === 'chart_data_config') setConfigurationTab('configuration');
+    if (walkthroughStage === 'chart_styling') setConfigurationTab('styling');
+  }, [walkthroughStage]);
 
   // Builder tabs are local state, so `feature:viewed` doesn't fire on switch —
   // report them explicitly. Fires on every switch (not once), so this answers
@@ -1233,7 +1239,14 @@ function ConfigureChartPageContent() {
         <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
           {/* Left Panel - 30% */}
           <div className="w-[30%] border-r">
-            <Tabs defaultValue="configuration" onValueChange={handleTabView} className="h-full">
+            <Tabs
+              value={configurationTab}
+              onValueChange={(value) => {
+                setConfigurationTab(value);
+                handleTabView(value);
+              }}
+              className="h-full"
+            >
               <div className="px-4 pt-4">
                 <TabsList className="grid w-full h-11 grid-cols-2" data-testid="chart-config-tabs">
                   <TabsTrigger

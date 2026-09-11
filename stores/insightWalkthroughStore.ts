@@ -16,6 +16,7 @@ import {
   type WalkthroughEntry,
 } from '@/constants/analytics';
 import { saveTrialWalkthroughFlow } from '@/hooks/api/useTrialWalkthrough';
+import { reviewStagesFor } from '@/components/onboarding/walkthrough-navigation';
 import {
   type WalkthroughStage,
   type WalkthroughPath,
@@ -79,6 +80,8 @@ interface InsightWalkthroughState {
    */
   flow: WalkthroughFlow | null;
   stage: WalkthroughStage | null;
+  /** Earlier guidance is being reviewed; Next returns here without repeating actions. */
+  reviewReturnStage: WalkthroughStage | null;
   /** Which fork the user took — null until they choose. Unlike `stage`, survives
    * skip()/finish() so the getting-started widget can read it afterward. */
   path: WalkthroughPath | null;
@@ -117,6 +120,7 @@ interface InsightWalkthroughState {
   start: (orgSlug: string) => void;
   resume: (orgSlug: string, flow?: WalkthroughFlow) => void;
   advanceTo: (stage: WalkthroughStage) => void;
+  rewindTo: (stage: WalkthroughStage) => void;
   /** advanceTo, but never backwards — see isStageBefore. */
   advanceIfBefore: (stage: WalkthroughStage) => void;
   setTargetNodeId: (nodeId: string | null) => void;
@@ -143,6 +147,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   orgSlug: null,
   flow: null,
   stage: null,
+  reviewReturnStage: null,
   path: null,
   trackedConnectionId: null,
   suppressCoachmark: false,
@@ -151,6 +156,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   syncFailedRunId: null,
 
   start: (orgSlug) => {
+    set({ reviewReturnStage: null });
     saveActiveWalkthroughFlow('insights');
     saveWalkthroughStage('insights', 'fork2');
     trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_STARTED);
@@ -165,6 +171,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   },
 
   resume: (orgSlug, flow = 'insights') => {
+    set({ reviewReturnStage: null });
     if (hasFinishedWalkthrough(flow)) return;
     const stored = getStoredWalkthroughStage(flow);
     if (!stored) return;
@@ -188,12 +195,30 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   },
 
   advanceTo: (stage) => {
-    const { orgSlug, flow, path } = get();
+    const { orgSlug, flow, path, reviewReturnStage } = get();
     if (!orgSlug || !flow) return;
     saveWalkthroughStage(flow, stage);
     trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_STEP_VIEWED, { stage });
     reportStage(path, stage);
-    set({ stage });
+    const reviewStages = reviewStagesFor(path, stage);
+    set({
+      stage,
+      reviewReturnStage:
+        reviewReturnStage &&
+        reviewStages.includes(reviewReturnStage) &&
+        reviewStages.indexOf(stage) < reviewStages.indexOf(reviewReturnStage)
+          ? reviewReturnStage
+          : null,
+    });
+  },
+
+  rewindTo: (target) => {
+    const { active, orgSlug, flow, path, stage, reviewReturnStage } = get();
+    if (!active || !orgSlug || !flow || !stage) return;
+    const stages = reviewStagesFor(path, stage);
+    if (!stages.includes(target) || stages.indexOf(target) >= stages.indexOf(stage)) return;
+    set({ reviewReturnStage: reviewReturnStage ?? stage });
+    get().advanceTo(target);
   },
 
   /**
@@ -211,6 +236,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   },
 
   chooseSample: (opts) => {
+    set({ reviewReturnStage: null });
     const orgSlug = get().orgSlug;
     if (!orgSlug) return;
     savePath('insights', 'sample');
@@ -223,6 +249,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   },
 
   chooseOwnData: (opts) => {
+    set({ reviewReturnStage: null });
     const orgSlug = get().orgSlug;
     if (!orgSlug) return;
     savePath('insights', 'own_data');
@@ -243,6 +270,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
    * chart tail (OWN_DATA_WALKTHROUGH_STAGE_ORDER).
    */
   startChartFlow: (orgSlug) => {
+    set({ reviewReturnStage: null });
     saveActiveWalkthroughFlow('insights');
     savePath('insights', 'own_data');
     saveWalkthroughStage('insights', CHART_ENTRY_STAGE);
@@ -267,6 +295,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   // 'automate_pipeline' namespace, so a build-insights run left half-finished is untouched and
   // still resumable.
   startAutomatePipeline: (orgSlug) => {
+    set({ reviewReturnStage: null });
     saveActiveWalkthroughFlow('automate_pipeline');
     savePath('automate_pipeline', 'automate_pipeline');
     saveWalkthroughStage('automate_pipeline', 'pipeline_ingest_nudge');
@@ -348,6 +377,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   setTargetNodeId: (nodeId) => set({ targetNodeId: nodeId }),
 
   skip: () => {
+    set({ reviewReturnStage: null });
     // Both flows end on a page that collapsed the sidebar on arrival (a saved dashboard, the
     // canvas), and nothing else ever expands it again. Whether they finished or quit, the user
     // is now on their own and needs the labelled menu back to find anything.
@@ -377,6 +407,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   },
 
   finish: () => {
+    set({ reviewReturnStage: null });
     // See skip() — the flow ends on a collapsed page and the menu has to come back.
     useSidebarStore.getState().setCollapsed(false);
     const { orgSlug, flow, path } = get();

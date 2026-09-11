@@ -509,6 +509,7 @@ function decoratePopover(popover: PopoverDOM, step: TourStep): void {
   popover.closeButton.setAttribute('aria-label', 'Skip tour');
   popover.closeButton.classList.add('dalgo-tour-close-btn');
   popover.nextButton.classList.add('dalgo-tour-next-btn');
+  popover.previousButton.classList.add('dalgo-tour-prev-btn');
   outlinePopoverArrow(popover);
   alignPopoverCloseWithHeader(popover, 'product-tour');
 
@@ -517,6 +518,14 @@ function decoratePopover(popover: PopoverDOM, step: TourStep): void {
   // driver.js calls its own auto-positioning function right after this hook returns, which
   // would otherwise clobber a same-tick override.
   requestAnimationFrame(() => anchorPopoverToSidebar(popover, step));
+}
+
+function disablePopoverNavigation(popover?: PopoverDOM): void {
+  if (!popover) return;
+  for (const button of [popover.previousButton, popover.nextButton]) {
+    button.disabled = true;
+    button.style.opacity = '0.6';
+  }
 }
 
 export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(function ProductTour(
@@ -598,7 +607,7 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
   );
 
   const renderStep = useCallback(
-    async (index: number) => {
+    async (index: number, direction: 1 | -1 = 1) => {
       if (!activeRef.current || renderingIndexRef.current === index) return;
       renderingIndexRef.current = index;
       stepIndexRef.current = index;
@@ -638,13 +647,17 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
           // This step's nav item never showed up — the current user/org doesn't have that
           // feature (e.g. Reports gated by role or Superset setup). Skip it instead of
           // leaving the previous step's popover hanging on screen forever.
-          if (isLast) {
+          const nextIndex = index + direction;
+          if (nextIndex < 0) {
+            // There is no earlier accessible step. Return to the first available one.
+            void renderStep(index + 1);
+          } else if (nextIndex >= TOUR_STEPS.length) {
             activeRef.current = false;
             finish('completed');
             openPostTourModal();
             driverRef.current?.destroy();
           } else {
-            void renderStep(index + 1);
+            void renderStep(nextIndex, direction);
           }
           return;
         }
@@ -684,20 +697,18 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
             description: `<div>${step.content}</div>`,
             side: 'right',
             align: 'start',
-            showButtons: ['next', 'close'],
+            showButtons: index > 0 ? ['previous', 'next', 'close'] : ['next', 'close'],
+            prevBtnText: 'Back',
             nextBtnText: step.ctaLabel ?? 'Next',
+            onPrevClick: (_el, _step, { state }) => {
+              if (index === 0 || !activeRef.current || renderingIndexRef.current !== null) return;
+              disablePopoverNavigation(state.popover);
+              void renderStep(index - 1, -1);
+            },
             onNextClick: (_el, _step, { state }) => {
-              // Give instant feedback the moment Next is clicked — the actual step change can
-              // take a beat (route navigation, waiting for the new page's content to mount),
-              // and without this the popover just sits frozen on the old step, reading as
-              // "stuck", then jumps to the new one all at once. Grabbing the button off
-              // `state.popover` (rather than a querySelector) targets exactly the button that
-              // was clicked.
-              const btn = state.popover?.nextButton;
-              if (btn) {
-                btn.disabled = true;
-                btn.style.opacity = '0.6';
-              }
+              if (!activeRef.current || renderingIndexRef.current !== null) return;
+              // Disable both directions while navigation and the next highlight settle.
+              disablePopoverNavigation(state.popover);
               if (isLast) {
                 // Call finish() directly rather than relying on driver.js's onDestroyed hook
                 // to detect completion — that hook only fires if driver's OWN internal
@@ -753,7 +764,7 @@ export const ProductTour = forwardRef<ProductTourHandle, ProductTourProps>(funct
         // Rounds the cutout, and kept in sync with the band's own border-radius in tour.css so the
         // ring drawn on the band follows the same curve as the hole it sits in.
         stageRadius: 10,
-        // Next and ✕ in the popover are the only ways through the tour.
+        // Back, Next and ✕ in the popover are the ways through the tour.
         //
         // allowClose gates driver.js's OWN exits — overlay click and Escape — not our ✕, which
         // runs through the onCloseClick hook below and still works with this false. The overlay
