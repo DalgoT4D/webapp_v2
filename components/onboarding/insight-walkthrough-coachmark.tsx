@@ -22,6 +22,7 @@ import { useSidebarStore } from '@/stores/sidebarStore';
 import {
   getResumeAnchorStage,
   INGEST_STAGES,
+  WALKTHROUGH_DEFAULT_KPI_TYPE_DISPLAY,
   WALKTHROUGH_DEFAULT_PROGRAM_TAG,
   WALKTHROUGH_DEFAULT_TARGET_DISPLAY,
   type WalkthroughStage,
@@ -181,7 +182,7 @@ function wizardStageConfigs(
       nextOnInteraction: streamsCast,
       title: 'Choose what to bring in',
       description:
-        'Every tab in your sheet shows up here as a table. Scroll the list to see them all, and switch on the ones you want in your warehouse.',
+        'Every tab in your sheet shows up here as a table. The first table is expanded to show the columns within it. Scroll through to see all the tables. Toggle “Sync” off for the tables that you do not need.',
       side: 'right',
       align: 'start',
     },
@@ -434,6 +435,17 @@ interface StageConfig {
    *   would tear the coachmark down the moment the user did the thing it was suggesting.
    */
   advanceOn?: 'click' | 'value' | 'open' | 'never';
+  /**
+   * Hop to `nextOnInteraction` when the target never renders, for a Got-it stage
+   * (`advanceOn: 'never'`) whose field is conditional.
+   *
+   * Hint stages already do this — a field missing from an open dialog is one this metric
+   * doesn't have. Got-it stages don't, because their targets can be legitimately slow (the
+   * connection step's streams table waits on discovery) and hopping marched the walkthrough
+   * past them. kpi_time_column is both: prefilled, so it needs Got it, and absent entirely for
+   * a metric whose table has no date column, so it must not dead-end there.
+   */
+  hopIfMissing?: boolean;
   /**
    * Element the `nextOnInteraction` listener attaches to, when that isn't the element being
    * spotlighted. Defaults to `selector`.
@@ -718,9 +730,16 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     alsoClickable: KPI_SETUP_REQUIRED_FIELDS,
     route: '/kpis',
     nextOnInteraction: 'kpi_continue',
+    // Got it, like kpi_target: the walkthrough preselects the date column (kpi-form.tsx), so a
+    // user happy with it never opens the dropdown and nothing would advance the stage. The
+    // field is missing altogether for a metric with no date column, hence hopIfMissing.
+    advanceOn: 'never',
+    showNext: true,
+    hopIfMissing: true,
     selector: '[data-testid="kpi-form-time-column-field"]',
     title: 'Time column',
-    description: 'Select the relevant column from the dataset to track the KPIs trend over time.',
+    description:
+      'The date column Dalgo uses to track this KPI’s trend over time. We have picked one from your data — switch to another date column if it suits your programme better.',
   },
   // Step 3's two explainers. Both read-and-continue stages (`advanceOn: 'never'` + Got it):
   // the fields arrive already filled — 80 / 50 for the bands, WALKTHROUGH_DEFAULT_PROGRAM_TAG
@@ -751,10 +770,16 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   kpi_type: {
     route: '/kpis',
     nextOnInteraction: 'kpi_submit',
+    // Got it, like the two stages above: the walkthrough prefills the type (see
+    // WALKTHROUGH_DEFAULT_KPI_TYPE), and the type buttons toggle — a user agreeing with what we
+    // filled in never clicks one, and clicking the selected button would only clear it.
+    advanceOn: 'never',
+    showNext: true,
     selector: '[data-testid="kpi-form-type-field"]',
     title: 'KPI type',
-    description:
-      'Classify the indicator based on your results framework. Is this a measure of your inputs, outputs, outcomes or impact?',
+    // Names the type we filled in, from the same constant the form uses, so the copy and the
+    // selected button can't drift.
+    description: `Classify the indicator based on your results framework — inputs, outputs, outcomes or impact. We have set this one to “${WALKTHROUGH_DEFAULT_KPI_TYPE_DISPLAY}”; change it if your framework says otherwise.`,
   },
   kpi_submit: {
     ring: true,
@@ -1628,13 +1653,16 @@ export function InsightWalkthroughCoachmark() {
         // slow — the connection step's table appears only once stream discovery returns. Hopping
         // those marched the walkthrough straight past both Got-it coachmarks to "click Create".
         const isHintStage = !!config.nextOnInteraction && config.advanceOn !== 'never';
+        // A Got-it stage over a field that may not exist for this metric opts into the same
+        // give-up-and-hop rule — see `hopIfMissing`.
+        const hopsWhenAbsent = isHintStage || !!config.hopIfMissing;
         // Also short-timeout: a dialog-internal stage (what a resume anchor elsewhere means)
         // with no dialog on screen. The user cancelled out, so the target is never arriving.
         const strandedInClosedDialog =
           getResumeAnchorStage(stage!) !== stage && !document.querySelector('[role="dialog"]');
         const el = await waitForElement(
           resolvedSelector,
-          isHintStage || strandedInClosedDialog ? HINT_TARGET_TIMEOUT_MS : undefined
+          hopsWhenAbsent || strandedInClosedDialog ? HINT_TARGET_TIMEOUT_MS : undefined
         );
         if (cancelled) return;
         if (!el) {
@@ -1652,7 +1680,7 @@ export function InsightWalkthroughCoachmark() {
           // A hint whose field never appeared while its dialog IS open: the field is
           // conditional and this metric doesn't have it (Direction hands off to Time Column,
           // which only renders for a metric with a date column). Hop to the next hint.
-          if (isHintStage && document.querySelector('[role="dialog"]')) {
+          if (hopsWhenAbsent && document.querySelector('[role="dialog"]')) {
             advancePastHint();
             return;
           }

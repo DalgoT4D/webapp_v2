@@ -26,8 +26,10 @@ import {
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { KPI_STAGE_STEP } from '@/components/onboarding/walkthrough-navigation';
 import {
+  WALKTHROUGH_DEFAULT_KPI_TYPE,
   WALKTHROUGH_DEFAULT_PROGRAM_TAG,
   WALKTHROUGH_DEFAULT_TARGET,
+  WALKTHROUGH_PREFERRED_TIME_COLUMN,
 } from '@/components/onboarding/insight-walkthrough-constants';
 import type { KPI, KPICreate, KPIUpdate, KPIExtraConfig } from '@/types/kpis';
 import type { Metric } from '@/types/metrics';
@@ -192,33 +194,12 @@ export function KPIForm({
     }
   }, [open, isEdit, walkthroughStage]);
   const timeDimensionColumn = watch('time_dimension_column');
-  const metricTypeTag = watch('metric_type_tag');
 
-  // Watch-based rather than only reacting to the Select's onValueChange: if the table has
-  // exactly one date column, Radix's Select never fires onValueChange for re-selecting a
-  // value that's already current — the walkthrough would otherwise wait forever for a
-  // "change" that can't happen. Firing off the watched value itself (present on mount too,
-  // not just on future changes) advances correctly whether the user actively picked it or
-  // it was already set. Advances to kpi_continue (not kpi_type) since KPI Type now lives on
-  // step 3, only reachable once the user clicks step 2's Continue button.
-  useEffect(() => {
-    if (!timeDimensionColumn) return;
-    const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_continue');
-  }, [timeDimensionColumn]);
-
-  // No equivalent effect for target_value: a walkthrough run prefills it, so advancing on "the
-  // field holds something" fired on mount and skipped the target coachmark. Got it moves it on.
-
-  // KPI Type is the walkthrough's last field, so picking one moves the coachmark onto the
-  // Create KPI button. Same watch-based approach as the two effects above; guarded on a
-  // truthy value because the type buttons toggle — clicking the selected one clears it back
-  // to '', which shouldn't count as having picked anything.
-  useEffect(() => {
-    if (!metricTypeTag) return;
-    const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_submit');
-  }, [metricTypeTag]);
+  // No advance-on-value effects here for target_value, time_dimension_column or
+  // metric_type_tag: a walkthrough run prefills all three (WALKTHROUGH_DEFAULT_TARGET,
+  // WALKTHROUGH_DEFAULT_KPI_TYPE, and the first date column — see the effect below), so a
+  // watch that advanced on "the field holds something" fired on mount and skipped the very
+  // coachmark explaining the field. Each of those stages moves on with Got it instead.
 
   const { data: metrics, mutate: mutateMetrics } = useMetrics({ pageSize: 50 });
   const { tags: existingTags } = useProgramTags();
@@ -275,7 +256,11 @@ export function KPIForm({
           amber_threshold_pct: '50',
           time_grain: 'monthly',
           time_dimension_column: '',
-          metric_type_tag: '',
+          // Prefilled only for a walkthrough run — see WALKTHROUGH_DEFAULT_KPI_TYPE. The
+          // walkthrough's KPI stages are read-and-Got-it, so the field arrives answered.
+          metric_type_tag: useInsightWalkthroughStore.getState().active
+            ? WALKTHROUGH_DEFAULT_KPI_TYPE
+            : '',
           // Prefilled only for a walkthrough run — see WALKTHROUGH_DEFAULT_PROGRAM_TAG.
           program_tags: useInsightWalkthroughStore.getState().active
             ? [WALKTHROUGH_DEFAULT_PROGRAM_TAG]
@@ -294,6 +279,24 @@ export function KPIForm({
       setStepError(null);
     }
   }, [open, kpi, preselectedMetricId, reset, mutateMetrics]);
+
+  // Preselect the time column for a walkthrough run, so the guided KPI needs no dropdown of its
+  // own — the kpi_time_column coachmark explains what was picked and Got it moves on. Prefers the
+  // column named "date" (the sample dataset's), falling back to the first date column for any
+  // other table. Only on create, and only while the field is still empty, so a user who picks
+  // another column (or an edit, where the KPI's own column is loaded) is never overwritten.
+  //
+  // Declared AFTER the reset effect above and not folded into its defaults: the columns arrive
+  // async, and an effect placed before the reset set a value that the same commit's reset()
+  // wiped straight back to '' — leaving the watched value unchanged, so nothing re-ran it.
+  useEffect(() => {
+    if (!open || isEdit || timeDimensionColumn || dateColumns.length === 0) return;
+    if (!useInsightWalkthroughStore.getState().active) return;
+    const preferred = dateColumns.find(
+      (col) => col.name?.toLowerCase() === WALKTHROUGH_PREFERRED_TIME_COLUMN
+    );
+    setValue('time_dimension_column', (preferred ?? dateColumns[0]).name);
+  }, [open, isEdit, timeDimensionColumn, dateColumns, setValue]);
 
   const handleMetricSelected = (id: number, name: string) => {
     const existing = metrics.find((m) => m.id === id);

@@ -48,6 +48,7 @@ import {
   getResumeAnchorStage,
   getActiveWalkthroughFlow,
   hasConnectedRealData,
+  hasWalkthroughExited,
   hasFinishedWalkthrough,
   getDismissedSyncRun,
   getTrackedConnectionAt,
@@ -61,6 +62,7 @@ import {
   useTrialWalkthrough,
   isFlowDecided,
   isFlowCompleted,
+  isFlowSkipped,
 } from '@/hooks/api/useTrialWalkthrough';
 
 const IMPACT_PATH = '/impact';
@@ -605,10 +607,24 @@ export function TourGate() {
       // pipeline, or connected a source some other way — the fork's question has no useful
       // branch left, so skip it and start the chart flow.
       //
+      // NOT for a flow the user intentionally exited: that RESETS it, so the milestones from the
+      // run they just quit must not fast-forward the restart past the fork. Three sources,
+      // because each covers a hole the others leave:
+      //  - hasWalkthroughExited: written synchronously by skip() and outside the flow's scratch
+      //    space, so it holds even for a user who clicks straight back into the checklist;
+      //  - isFlowSkipped: the backend record, which is all a different browser or device has;
+      //  - `path`: the flow's own scratch keys, which survive only when skip()'s backend write
+      //    DIDN'T land (offline) — exactly when the two above are unavailable or stale.
+      //
+      // Walking away instead (closing the tab, navigating off) keeps a stage, and is resumed
+      // above rather than reaching here at all.
+      //
       // Deliberately no navigation: the opening stage points at the sidebar's Charts link, and
       // pushing /charts here would satisfy its own route-advance instantly, skipping the beat.
       // Clicking Charts is the step.
-      if (hasConnectedRealData()) {
+      const insightsWasExited =
+        hasWalkthroughExited('insights') || isFlowSkipped(walkthroughState, 'insights') || !!path;
+      if (!insightsWasExited && hasConnectedRealData()) {
         clearPendingPostTourScreen(orgSlug);
         useInsightWalkthroughStore.getState().startChartFlow(orgSlug);
         return;
@@ -617,7 +633,7 @@ export function TourGate() {
       // way they want to build it.
       openInsightFork(entry);
     },
-    [orgSlug, resumeStoredFlow, openInsightFork]
+    [orgSlug, resumeStoredFlow, openInsightFork, walkthroughState]
   );
 
   const handleAutomatePipelineClick = useCallback(() => {
@@ -626,8 +642,18 @@ export function TourGate() {
     const path = getStoredPath('automate_pipeline');
     if (path === 'automate_pipeline') {
       if (resumeStoredFlow('automate_pipeline')) return;
-      // Skipped, so there's no stage to resume — fall back to the milestone-derived next
-      // step, which is computed from real progress rather than coachmark position.
+      // No stage left on a flow that was never completed: the user answered "Exit
+      // walkthrough" on the leave prompt, and that resets THIS flow (the insight flow's own
+      // state is untouched — see handleBuildInsightClick). Start it over with its coachmarks
+      // rather than dropping them on the next milestone-derived page with nothing guiding
+      // them. Walking away instead keeps a stage, and is resumed above.
+      if (!isFlowCompleted(walkthroughState, 'automate_pipeline')) {
+        useInsightWalkthroughStore.getState().startAutomatePipeline(orgSlug);
+        return;
+      }
+      // Completed and re-entered (only reachable from the intent modal — the checklist renders
+      // a done row as plain text). Nobody wants the whole walkthrough again, so just take them
+      // to where the work lives.
       const step = getFlowResumeStep(path as WalkthroughPath);
       router.push(step ? FLOW_RESUME_ROUTES[step.id] : '/pipeline');
       return;
@@ -635,7 +661,7 @@ export function TourGate() {
     // This flow has no fork to choose, so the row starts it outright. No navigation: it opens
     // on a nudge pointing at the Ingest nav item, and the user clicks it themselves.
     useInsightWalkthroughStore.getState().startAutomatePipeline(orgSlug);
-  }, [orgSlug, resumeStoredFlow, router]);
+  }, [orgSlug, resumeStoredFlow, router, walkthroughState]);
 
   const chooseFork = useCallback(
     (fork: 'sample' | 'own_data') => {
@@ -676,9 +702,19 @@ export function TourGate() {
   const canOfferPipeline = !isFlowCompleted(walkthroughState, 'automate_pipeline');
 
   /**
-   * Opens the checklist panel when a walkthrough is COMPLETED. Needed because both flows finish
-   * away from /impact (a saved dashboard, the pipeline list), where the panel is a collapsed
-   * pill: the item ticked behind it and the end of the flow looked like nothing had happened.
+   * The ONE way the Get Started panel opens by itself (see getting-started-widget). Bumping
+   * this opens it wherever the user is; nothing else does, which is what stopped it reappearing
+   * every time someone walked back to /impact or left a flow (DALGO-1763). Three things earn a
+   * bump, all of them something the user just did:
+   *
+   *  - the landing-page intent modal dismissed without picking a journey (below) — the one
+   *    arrival that still ends on the checklist, since they asked for neither journey nor tour;
+   *  - a checklist item ticking off (the two effects here);
+   *  - finishing the product tour with no journey chooser left to offer (see onTourEnd).
+   *
+   * The two effects below cover the checklist case. Needed because both flows finish away from
+   * /impact (a saved dashboard, the pipeline list): the item ticked behind a collapsed pill and
+   * the end of the flow looked like nothing had happened.
    *
    * A SKIP deliberately opens nothing. Skipping says "not now", and answering it by popping the
    * panel the user just dismissed a walkthrough from reads as the app arguing back. The Get
@@ -696,8 +732,8 @@ export function TourGate() {
    * false -> true as the fetch lands, which is not an ending and must not open the panel on
    * every page.
    */
-  const [checklistRevealSignal, setChecklistRevealSignal] = useState(0);
-  const revealChecklist = useCallback(() => setChecklistRevealSignal((signal) => signal + 1), []);
+  const [getStartedOpenSignal, setGetStartedOpenSignal] = useState(0);
+  const openGetStarted = useCallback(() => setGetStartedOpenSignal((signal) => signal + 1), []);
 
   const wasWalkthroughActiveRef = useRef(false);
   // The flow `active` was last true for — `flow` is nulled by skip() and finish() alike, so by
@@ -710,9 +746,9 @@ export function TourGate() {
     wasWalkthroughActiveRef.current = walkthroughActive;
     if (walkthroughFlow) lastActiveFlowRef.current = walkthroughFlow;
     if (wasActive && !walkthroughActive && endedFlow && hasFinishedWalkthrough(endedFlow)) {
-      revealChecklist();
+      openGetStarted();
     }
-  }, [isTrialOrg, walkthroughActive, walkthroughFlow, revealChecklist]);
+  }, [isTrialOrg, walkthroughActive, walkthroughFlow, openGetStarted]);
 
   const completedFlowsRef = useRef<Record<'insights' | 'automate_pipeline', boolean> | null>(null);
   useEffect(() => {
@@ -727,8 +763,8 @@ export function TourGate() {
     const justCompleted =
       (current.insights && !previous.insights) ||
       (current.automate_pipeline && !previous.automate_pipeline);
-    if (justCompleted) revealChecklist();
-  }, [isTrialOrg, walkthroughLoading, walkthroughState, revealChecklist]);
+    if (justCompleted) openGetStarted();
+  }, [isTrialOrg, walkthroughLoading, walkthroughState, openGetStarted]);
 
   if (!isTrialOrg || !orgSlug) return null;
 
@@ -742,7 +778,16 @@ export function TourGate() {
         ref={tourRef}
         orgSlug={orgSlug}
         canOfferPostTourChoice={canOfferInsight || canOfferPipeline}
-        onTourEnd={() => setTourRunning(false)}
+        onTourEnd={(reason) => {
+          setTourRunning(false);
+          // Finishing the tour with nothing left to offer has no follow-up of its own — the
+          // checklist is it, so put it on screen. When a journey chooser IS offered the tour
+          // hands straight to that dialog (onOfferPostTourChoice), and opening the panel
+          // behind it would only stack. A ✕ out of the tour opens nothing either way.
+          if (reason === 'completed' && !canOfferInsight && !canOfferPipeline) {
+            openGetStarted();
+          }
+        }}
         onOfferPostTourChoice={() => {
           savePendingPostTourScreen(orgSlug, 'choice');
           restoredPostTourForOrgRef.current = orgSlug;
@@ -780,26 +825,25 @@ export function TourGate() {
         onSelectSample={() => chooseFork('sample')}
         onSelectOwnData={() => chooseFork('own_data')}
       />
-      {/* Available on every page — the panel itself only auto-opens on /impact (defaultOpen),
-          elsewhere it stays a pill until the user opens it. Unmounted while the tour runs so
-          it can't cover the spotlighted content. */}
-      {!tourRunning && (
-        <GettingStartedWidget
-          defaultOpen={pathname === IMPACT_PATH && impactPageReady}
-          walkthroughActive={walkthroughActive}
-          revealSignal={checklistRevealSignal}
-          // Both ticks read the backend, the only permanent record — the local flags are
-          // scratch space wiped once a flow resolves (see the store's finish/skip).
-          // Only the insights flow builds an insight. The pipeline walkthrough stops at the
-          // created pipeline, so ticking this off it would claim work the user hasn't done —
-          // and hide the very next thing we want them to do.
-          hasBuiltFirstInsight={isFlowCompleted(walkthroughState, 'insights')}
-          hasAutomatedPipeline={isFlowCompleted(walkthroughState, 'automate_pipeline')}
-          onStartTour={startTour}
-          onBuildInsightClick={handleBuildInsightClick}
-          onAutomatePipelineClick={handleAutomatePipelineClick}
-        />
-      )}
+      {/* Available on every page as a pill; the panel itself opens only when something has
+          earned it (see getStartedOpenSignal). Hidden rather than unmounted while the tour
+          runs, so it can't cover the spotlighted content AND comes back open or closed exactly
+          as the user left it. */}
+      <GettingStartedWidget
+        suppressed={tourRunning}
+        walkthroughActive={walkthroughActive}
+        openSignal={getStartedOpenSignal}
+        // Both ticks read the backend, the only permanent record — the local flags are
+        // scratch space wiped once a flow resolves (see the store's finish/skip).
+        // Only the insights flow builds an insight. The pipeline walkthrough stops at the
+        // created pipeline, so ticking this off it would claim work the user hasn't done —
+        // and hide the very next thing we want them to do.
+        hasBuiltFirstInsight={isFlowCompleted(walkthroughState, 'insights')}
+        hasAutomatedPipeline={isFlowCompleted(walkthroughState, 'automate_pipeline')}
+        onStartTour={startTour}
+        onBuildInsightClick={handleBuildInsightClick}
+        onAutomatePipelineClick={handleAutomatePipelineClick}
+      />
       {/* Still /impact-only: this is the landing-page welcome prompt, not a persistent
           affordance. It now returns once per session (see the effect above), wearing the
           'returning' copy after the first time. */}
@@ -816,6 +860,12 @@ export function TourGate() {
               markIntentModalShownThisSession(orgSlug);
             }
           }}
+          // Closed without taking any of the three options. That IS this session's "so what
+          // do you want to do" answered with "neither" — the checklist is the one thing left
+          // to offer, so it opens here and nowhere else. Fires only for the ✕ / Esc / overlay:
+          // picking an option closes the modal through onOpenChange directly, which Radix's
+          // own handler never sees (see tour-intent-modal).
+          onDismiss={openGetStarted}
           onStartTour={startTour}
           // Same handlers as the Get Started checklist rows: picking a journey here starts it
           // (or resumes one already part-way through) instead of just closing onto the widget,

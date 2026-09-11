@@ -5,11 +5,11 @@
  * The "Get Started" pill is always rendered; the full panel additionally shows above it
  * unless minimized.
  *
- * Open/closed is derived from where you are, not persisted: arriving on the landing page
- * (`defaultOpen`) always opens it — minimizing is a within-visit action, so coming back
- * re-opens it — and every other page starts minimized. A running walkthrough
- * (`walkthroughActive`) overrides both and keeps it out of the way until the flow ends,
- * though the pill stays available to reopen it manually.
+ * The panel starts minimized and opens ONLY when its owner says something has earned that
+ * (`openSignal` — see the prop). It used to open on every arrival at /impact, which meant
+ * leaving anything at all — skipping a walkthrough, closing a dialog, walking back to the
+ * landing page — put it on screen unasked (DALGO-1763). Navigating collapses it again, a
+ * running walkthrough keeps it collapsed, and the pill is always there to open it by hand.
  */
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Check, ChevronRight, Circle, Compass, Minus, Rocket } from 'lucide-react';
@@ -28,22 +28,24 @@ import { ProductVideoPlayer } from './product-video-player';
 const COMPLETION_ANIMATION_MS = 1400;
 
 interface GettingStartedWidgetProps {
-  /**
-   * Whether landing here opens the panel. True on /impact (where the checklist is the point)
-   * and false elsewhere, where the pill alone is enough and an auto-opening panel would cover
-   * the page's own content.
-   */
-  defaultOpen: boolean;
   /** A guided walkthrough is mid-flow — keep the panel out of the way until it finishes. */
   walkthroughActive: boolean;
   /**
-   * Bumped by the owner (see tour-gate) the moment a checklist item is ticked off in this
-   * session. Both flows END somewhere that isn't /impact — a saved dashboard, the pipeline
-   * list — so `defaultOpen` is false there and the item the user just finished would tick
-   * behind a collapsed pill, where nobody sees it. Any change to this value opens the panel
-   * once, wherever the user happens to be.
+   * Bumped by the owner (see tour-gate) whenever something has EARNED an auto-open: the
+   * landing-page intent modal was dismissed without picking a journey, a checklist item was
+   * ticked off, or the product tour was finished with no journey chooser left to offer. Any
+   * change to this value opens the panel once, wherever the user happens to be.
+   *
+   * The ONLY auto-open input, deliberately — every other rule the panel used to open on was
+   * a side effect of where the user was standing rather than of anything they had done.
    */
-  revealSignal?: number;
+  openSignal?: number;
+  /**
+   * The product tour is running: render nothing at all, so neither the panel nor the pill
+   * floats over the spotlighted content. Hidden rather than unmounted by the owner so the
+   * panel's open/closed state survives the tour.
+   */
+  suppressed?: boolean;
   hasBuiltFirstInsight: boolean;
   hasAutomatedPipeline: boolean;
   onStartTour: () => void;
@@ -64,9 +66,9 @@ interface ChecklistItem {
 }
 
 export function GettingStartedWidget({
-  defaultOpen,
   walkthroughActive,
-  revealSignal = 0,
+  openSignal = 0,
+  suppressed = false,
   hasBuiltFirstInsight,
   hasAutomatedPipeline,
   onStartTour,
@@ -78,28 +80,35 @@ export function GettingStartedWidget({
   const [minimized, setMinimized] = useState(true);
   const [videoSession, setVideoSession] = useState(0);
 
-  // Last `revealSignal` acted on. A ref rather than a dep-diff because the effect below has
-  // to tell "this render is a fresh completion" from "this render is any other change".
-  const lastRevealRef = useRef(revealSignal);
+  // Last values acted on. Refs rather than a dep-diff because the effect below has to tell
+  // "this render is a fresh auto-open" from "this render is any other change".
+  //
+  // Seeded with 0 rather than the incoming signal, so an open earned just before a remount
+  // still lands. The owner only ever counts up from 0, so a nonzero value on the first render
+  // means exactly that.
+  const lastOpenRef = useRef(0);
 
   useEffect(() => {
-    // An item ticked off just now outranks the route-derived rule below — the whole point of
-    // the panel opening here is to show that tick. Checked first, and returns, so the
-    // walkthrough-just-ended pass (`walkthroughActive` flipping false in the same beat) can't
-    // minimize it straight back.
-    if (revealSignal !== lastRevealRef.current) {
-      lastRevealRef.current = revealSignal;
+    // An auto-open earned just now outranks the rule below — showing the panel IS the point of
+    // the bump. Checked first, and returns, so a walkthrough ending in the same beat
+    // (`walkthroughActive` flipping false, which a completion always does) can't collapse it
+    // straight back.
+    if (openSignal !== lastOpenRef.current) {
+      lastOpenRef.current = openSignal;
       setMinimized(false);
       setVideoSession((session) => session + 1);
       return;
     }
-    // Re-derived on arrival (and whenever a walkthrough starts or ends) rather than
-    // persisted: returning to /impact re-opens the panel even if it was minimized last
-    // visit, and a running flow keeps it minimized wherever the user goes.
-    const shouldMinimize = walkthroughActive || !defaultOpen;
-    setMinimized(shouldMinimize);
-    if (shouldMinimize) setVideoSession((session) => session + 1);
-  }, [defaultOpen, walkthroughActive, revealSignal]);
+    // A running flow owns the screen; the pill stays available to reopen the panel by hand.
+    //
+    // Deliberately NOT also collapsing on navigation: the pipeline walkthrough finishes by
+    // pushing /orchestrate (pipeline-form.tsx), so a route-derived collapse would swallow the
+    // completion reveal a tick after it opened.
+    if (walkthroughActive) {
+      setMinimized(true);
+      setVideoSession((session) => session + 1);
+    }
+  }, [openSignal, walkthroughActive]);
 
   /**
    * The task whose tick appeared just now, animated for one beat (see .checklist-item-complete
@@ -124,10 +133,14 @@ export function GettingStartedWidget({
     return () => clearTimeout(timer);
   }, [hasBuiltFirstInsight, hasAutomatedPipeline]);
 
+  // After every hook, never before: the panel's open/closed state has to survive the tour so
+  // it comes back exactly as the user left it.
+  if (suppressed) return null;
+
   const minimizeWidget = () => {
-    // An explicit user close wins over a completion reveal arriving in the same render.
-    // Otherwise the reveal effect can immediately reopen a panel the user just toggled off.
-    lastRevealRef.current = revealSignal;
+    // An explicit user close wins over an auto-open arriving in the same render. Otherwise
+    // the effect above can immediately reopen a panel the user just toggled off.
+    lastOpenRef.current = openSignal;
     setMinimized(true);
     setVideoSession((session) => session + 1);
   };

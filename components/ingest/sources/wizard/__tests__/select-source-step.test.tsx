@@ -47,6 +47,17 @@ it('filters the full definition list by the search box', () => {
   expect(screen.getByText('Postgres')).toBeInTheDocument();
 });
 
+it('keeps the catalog shut while the search box merely holds focus', () => {
+  // The dialog autofocuses its first field, so opening on focus buried the popular-source
+  // cards under the 600-connector list as soon as the step mounted.
+  render(<SelectSourceStep onSelect={jest.fn()} onClose={jest.fn()} />);
+
+  fireEvent.focus(screen.getByTestId('source-search-input'));
+
+  expect(screen.queryByTestId('source-search-results')).not.toBeInTheDocument();
+  expect(screen.getByTestId('source-card-Google Sheets')).toBeInTheDocument();
+});
+
 it('opens the full catalog on click and filters it as the user types', () => {
   render(<SelectSourceStep onSelect={jest.fn()} onClose={jest.fn()} />);
   const input = screen.getByTestId('source-search-input');

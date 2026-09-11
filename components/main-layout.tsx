@@ -33,6 +33,7 @@ import PipelineOverviewIcon from '@/assets/icons/pipeline-overview';
 import OrchestrateIcon from '@/assets/icons/orchestrate';
 import { Header } from './header';
 import { useAuthStore } from '@/stores/authStore';
+import { FREE_TRIAL_PLAN_NAME } from '@/constants/trial';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { TransformTypeEnum as TransformType, useTransformType } from '@/hooks/api/useTransform';
@@ -96,7 +97,8 @@ export const getNavItems = (
   hasSupersetSetup: boolean = false,
   isFeatureFlagEnabled: (flag: FeatureFlagKeys) => boolean,
   transformType?: string,
-  roleSlug: Role | '' = ''
+  roleSlug: Role | '' = '',
+  isTrialOrg: boolean = false
 ): NavItemType[] => {
   const allNavItems: NavItemType[] = [
     {
@@ -199,9 +201,12 @@ export const getNavItems = (
           icon: DataQualityIcon,
           isActive: currentPath.startsWith('/data-quality'),
           visibleToRoles: DATA_SECTION_ROLES,
+          // Hidden for free-trial orgs: Elementary needs a full dbt setup a trial org
+          // never reaches, so the page can only ever show its not-set-up state.
           hide:
             !isFeatureFlagEnabled(FeatureFlagKeys.DATA_QUALITY) ||
-            transformType === TransformType.UI,
+            transformType === TransformType.UI ||
+            isTrialOrg,
         },
       ],
     },
@@ -543,13 +548,16 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const { role } = useRbac();
   const { isFeatureFlagEnabled } = useFeatureFlags();
   const { transformType } = useTransformType();
+  const getCurrentOrgUser = useAuthStore((s) => s.getCurrentOrgUser);
+  const isTrialOrg = getCurrentOrgUser()?.subscription_plan === FREE_TRIAL_PLAN_NAME;
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
   const navItems = getNavItems(
     pathname,
     hasSupersetSetup,
     isFeatureFlagEnabled,
     transformType,
-    role ?? ''
+    role ?? '',
+    isTrialOrg
   );
 
   // Auto-open a parent's submenu when the current path enters its subtree. Never auto-closes.

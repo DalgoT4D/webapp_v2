@@ -420,6 +420,28 @@ export const WALKTHROUGH_DEFAULT_TARGET_DISPLAY = Number(WALKTHROUGH_DEFAULT_TAR
 export const WALKTHROUGH_DEFAULT_PROGRAM_TAG = 'Education';
 
 /**
+ * KPI type prefilled into the KPI created during the walkthrough. Must stay one of
+ * METRIC_TYPE_TAG_OPTIONS' values (types/kpis.ts).
+ *
+ * Impact is the top of a results framework and the tag most NGOs recognise, so it's the one that
+ * explains the field on sight. Prefilled — like the target and the programme tag — so the whole
+ * KPI flow is Got it clicks rather than decisions; the coachmark names it and it stays editable.
+ */
+export const WALKTHROUGH_DEFAULT_KPI_TYPE = 'impact';
+
+/** The same KPI type, capitalised as it reads on the button and in coachmark prose. */
+export const WALKTHROUGH_DEFAULT_KPI_TYPE_DISPLAY = 'Impact';
+
+/**
+ * Time column preselected into the KPI created during the walkthrough, matched case-insensitively
+ * against the metric table's date columns.
+ *
+ * The sample dataset's date column is called "date", so a walkthrough on sample data lands on the
+ * intended column by name. Any other table falls back to its first date column — see kpi-form.tsx.
+ */
+export const WALKTHROUGH_PREFERRED_TIME_COLUMN = 'date';
+
+/**
  * The metric the walkthrough's KPI is built on, when the org has one by this name.
  *
  * The picker is capped at a single option for a walkthrough run (see WALKTHROUGH_METRIC_LIMIT in
@@ -864,6 +886,71 @@ export function clearActiveWalkthroughFlow(): void {
   } catch {
     // no-op
   }
+}
+
+/**
+ * Flows the user walked out of on purpose — "Exit walkthrough" on the leave prompt — and has
+ * not restarted since.
+ *
+ * An intentional exit RESETS its flow: restarting asks the fork question again instead of
+ * fast-forwarding off milestones earned in the run that was just abandoned. This is the record
+ * of that, and it exists because neither other source can carry it:
+ *  - the flow's own scratch keys (stage, chosen fork) are dropped the moment skip()'s backend
+ *    write lands, so localStorage otherwise can't tell an exited flow from one never started;
+ *  - the backend's `skipped` flag is refreshed by an async refetch, which a user clicking
+ *    straight back into the checklist can easily beat.
+ *
+ * So the key is written synchronously by skip(), and is scoped per user+org WITHOUT the flow
+ * segment — deliberately, so clearWalkthroughStorage (which matches keys ending
+ * `<flow>_<userId>_<orgSlug>`) can't take it along with the scratch space it's there to outlive.
+ * The flows themselves are held in the value.
+ *
+ * Cleared when the flow is actually restarted (a fork picked, or a forkless flow started), not
+ * when the fork is merely offered: a user who closes that dialog without choosing hasn't
+ * restarted anything and must be asked again.
+ */
+const EXITED_FLOWS_STORAGE_PREFIX = 'dalgo_insight_walkthrough_exited_';
+
+function readExitedFlows(): WalkthroughFlow[] {
+  try {
+    const scope = getWalkthroughScope();
+    if (!scope) return [];
+    const raw = localStorage.getItem(scopedKey(EXITED_FLOWS_STORAGE_PREFIX, scope));
+    if (!raw) return [];
+    return raw
+      .split(',')
+      .filter(
+        (flow): flow is WalkthroughFlow => flow === 'insights' || flow === 'automate_pipeline'
+      );
+  } catch {
+    return [];
+  }
+}
+
+function writeExitedFlows(flows: WalkthroughFlow[]): void {
+  try {
+    const scope = getWalkthroughScope();
+    if (!scope) return;
+    const key = scopedKey(EXITED_FLOWS_STORAGE_PREFIX, scope);
+    if (flows.length === 0) localStorage.removeItem(key);
+    else localStorage.setItem(key, flows.join(','));
+  } catch {
+    // no-op
+  }
+}
+
+export function markWalkthroughExited(flow: WalkthroughFlow): void {
+  const flows = readExitedFlows();
+  if (!flows.includes(flow)) writeExitedFlows([...flows, flow]);
+}
+
+export function hasWalkthroughExited(flow: WalkthroughFlow): boolean {
+  return readExitedFlows().includes(flow);
+}
+
+export function clearWalkthroughExited(flow: WalkthroughFlow): void {
+  const flows = readExitedFlows();
+  if (flows.includes(flow)) writeExitedFlows(flows.filter((entry) => entry !== flow));
 }
 
 // --- Shared milestones ---
