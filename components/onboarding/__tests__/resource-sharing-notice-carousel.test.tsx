@@ -121,10 +121,11 @@ describe('ResourceSharingNoticeCarousel', () => {
       screen.getByText(/you retain ultimate oversight allowing you to view, transfer or restrict/i)
     ).toBeInTheDocument();
     expect(screen.queryByTestId('resource-sharing-notice-back')).not.toBeInTheDocument();
-    // Docs link is Member-only
+    // Every step carries the same Access guide link (see RESOURCE_SHARING_NOTICE_STEPS) — it
+    // used to be Member-only.
     expect(
-      screen.queryByRole('link', { name: /read the full guide on access/i })
-    ).not.toBeInTheDocument();
+      screen.getByRole('link', { name: /read the full guide on access/i })
+    ).toBeInTheDocument();
 
     await user.click(screen.getByTestId('resource-sharing-notice-next'));
     // Step 2: Analyst detail, Back appears
@@ -132,12 +133,15 @@ describe('ResourceSharingNoticeCarousel', () => {
       screen.getByText(/sharing a dashboard automatically shares the charts inside it/i)
     ).toBeInTheDocument();
     expect(screen.getByTestId('resource-sharing-notice-back')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /read the full guide on access/i })
+    ).toBeInTheDocument();
 
     await user.click(screen.getByTestId('resource-sharing-notice-next'));
     // Step 3: Member detail, Continue replaces Next
     expect(screen.getByText(/focused view of the data that matters to you/i)).toBeInTheDocument();
     expect(screen.queryByTestId('resource-sharing-notice-next')).not.toBeInTheDocument();
-    // Member step links to the access docs in a new tab
+    // The link resolves to the docs site and opens in a new tab
     const docLink = screen.getByRole('link', { name: /read the full guide on access/i });
     expect(docLink).toHaveAttribute('href', 'https://docs.dalgo.org/settings/access/');
     expect(docLink).toHaveAttribute('target', '_blank');

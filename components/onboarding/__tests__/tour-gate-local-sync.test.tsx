@@ -23,6 +23,13 @@ jest.mock('@/constants/constants', () => ({
   NEXT_PUBLIC_WEBAPP_ENVIRONMENT: 'local',
 }));
 
+// TourGate reads the /impact readiness context, whose hook throws outside its provider (the
+// real one lives in client-layout). These tests all run on /ingest, where readiness is beside
+// the point — same stub tour-gate.test.tsx uses.
+jest.mock('../onboarding-route-readiness', () => ({
+  useImpactPageReady: () => true,
+}));
+
 jest.mock('../product-tour', () => ({
   ProductTour: React.forwardRef(function MockProductTour(
     _props: Record<string, unknown>,
