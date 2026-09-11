@@ -540,8 +540,8 @@ export function UnifiedTextElement({
           alt={config.imageName || 'Widget image'}
           className={cn('h-full w-full', imageObjectFitClass)}
         />
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-y-auto p-3">
-          <div className="pointer-events-auto w-full">{editorContent}</div>
+        <div className="pointer-events-none absolute inset-0 flex overflow-y-auto p-3">
+          <div className="pointer-events-auto m-auto w-full">{editorContent}</div>
         </div>
       </div>
       {(isEditMode || config.caption) && <div className="border-t">{captionRow}</div>}
