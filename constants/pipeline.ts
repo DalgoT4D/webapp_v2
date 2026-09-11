@@ -110,6 +110,11 @@ export const SCHEDULE_OPTIONS = [
   { id: 'weekly', label: 'Weekly' },
 ] as const;
 
+// Prefilled name on a new pipeline, so the required field never blocks Create Pipeline on a
+// user who hasn't thought of a name yet. Editable — most orgs rename it once they run more
+// than one pipeline.
+export const DEFAULT_PIPELINE_NAME = 'Data pipeline';
+
 // Polling intervals
 export const POLLING_INTERVAL_WHEN_LOCKED = 3000; // 3 seconds when pipeline is running
 export const POLLING_INTERVAL_IDLE = 0; // No polling when idle

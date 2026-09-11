@@ -7,6 +7,7 @@ import { NavigationTitleHandler } from '@/components/navigation-title-handler';
 import { Toaster } from 'sonner';
 import { usePostHogIdentify } from '@/hooks/usePostHogIdentify';
 import { useFeatureTracking } from '@/hooks/useFeatureTracking';
+import { OnboardingRouteReadinessProvider } from '@/components/onboarding/onboarding-route-readiness';
 
 // Define public routes that don't require authentication
 const publicRoutes = ['/login', '/forgot-password', '/resetpassword', '/invitations', '/welcome'];
@@ -60,7 +61,9 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     <div id="client-layout-protected-route">
       <NavigationTitleHandler />
       <AuthGuard>
-        <MainLayout>{children}</MainLayout>
+        <OnboardingRouteReadinessProvider>
+          <MainLayout>{children}</MainLayout>
+        </OnboardingRouteReadinessProvider>
         <Toaster richColors position="top-center" />
       </AuthGuard>
     </div>

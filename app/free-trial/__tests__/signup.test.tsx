@@ -178,14 +178,14 @@ describe('FreeTrialPage', () => {
 });
 
 describe('FreeTrialPage — check-your-email screen actions', () => {
-  it('labels the webmail shortcut "Check email" without changing its destination', async () => {
+  it('does not render a provider-specific check-email button', async () => {
     mockApiPublicPost.mockResolvedValueOnce({ status: 'ok' });
     render(<FreeTrialPage />);
     await fillAndSubmit('jane@gmail.com');
 
-    const emailLink = await screen.findByRole('link', { name: 'Check email' });
-    expect(emailLink).toHaveAttribute('href', 'https://mail.google.com/mail/u/0/#inbox');
-    expect(emailLink).toHaveAttribute('target', '_blank');
+    await screen.findByTestId('trial-signup-confirmation');
+    expect(screen.queryByRole('link', { name: 'Check email' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('trial-open-email-app')).not.toBeInTheDocument();
   });
 
   it('re-sends the verification link with the same payload from the confirmation screen', async () => {

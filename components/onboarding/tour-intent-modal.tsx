@@ -38,6 +38,13 @@ interface TourIntentModalProps {
   onSelectInsight: () => void;
   /** "Setup an automated data pipeline" — same deal, for that flow. */
   onSelectPipeline: () => void;
+  /**
+   * Closed WITHOUT picking anything — the ✕, Esc, or the overlay. Fires alongside
+   * `onOpenChange(false)`, never instead of it, and never when one of the three options was
+   * taken (those close the modal through the controlled prop directly, which Radix's own
+   * handler below doesn't see). The owner treats this as "skipped, show them the checklist".
+   */
+  onDismiss?: () => void;
   /** Which heading block to render. Defaults to the original first-visit copy. */
   variant?: TourIntentVariant;
   /** Whole days left in the trial — only read by the 'returning' variant's heading. */
@@ -78,6 +85,7 @@ export function TourIntentModal({
   onStartTour,
   onSelectInsight,
   onSelectPipeline,
+  onDismiss,
   variant = 'first_time',
   trialDaysLeft = 0,
 }: TourIntentModalProps) {
@@ -122,6 +130,7 @@ export function TourIntentModal({
       onOpenChange={(next) => {
         if (!next) {
           trackEvent(ANALYTICS_EVENTS.TOUR_INTENT_MODAL_DISMISSED, { choice: 'close', variant });
+          onDismiss?.();
         }
         onOpenChange(next);
       }}

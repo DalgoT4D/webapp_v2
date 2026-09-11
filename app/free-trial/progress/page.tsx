@@ -3,7 +3,9 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TrialSplitCard } from '@/app/free-trial/_components/TrialSplitCard';
 import { TrialNoticeCard } from '@/app/free-trial/_components/TrialNoticeCard';
 import { TrialProvisioningVideoPanel } from '@/app/free-trial/_components/TrialProvisioningVideoPanel';
@@ -24,6 +26,32 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { useTrialStatus } from '@/hooks/api/useTrialStatus';
 import { deriveCurrentIndex } from '@/app/free-trial/_lib/utils';
+
+function ProvisioningDelayInfo() {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="What happens if workspace setup takes longer?"
+          data-testid="trial-progress-delay-info"
+          className="inline-flex translate-y-0.5 rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <Info className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="start"
+        aria-label="Delayed setup information"
+        className="w-[300px] border-primary bg-primary text-left text-xs leading-relaxed text-primary-foreground"
+      >
+        If setup takes longer than expected or fails, we’ll reach out by email with your login
+        credentials and workspace access link.
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // Elapsed clock lives in its OWN component so its per-second re-render stays isolated
 // here and does NOT re-render ProgressCard. ProgressCard hosts the SWR poller, and a
@@ -59,6 +87,7 @@ function ProgressCard() {
   const loginAttemptedRef = useRef(false);
   const pollTimeoutTrackedRef = useRef(false);
   const [manualLoginNeeded, setManualLoginNeeded] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   // consecutive failed status polls (reset to 0 on any success) + hard-timeout flag.
   // Either one flips the screen off the infinite spinner onto the fallback card.
   const [pollFailures, setPollFailures] = useState(0);
@@ -89,7 +118,7 @@ function ProgressCard() {
       // Long-running async work, so this is a *_triggered event fired once the
       // re-enqueue is accepted — not a success/failure outcome.
       trackEvent(ANALYTICS_EVENTS.TRIAL_RETRY_TRIGGERED, { from });
-      loginAttemptedRef.current = false; // let a subsequent completion auto-login again
+      loginAttemptedRef.current = false;
       pollTimeoutTrackedRef.current = false;
       setManualLoginNeeded(false);
       setPollFailures(0);
@@ -106,6 +135,7 @@ function ProgressCard() {
 
   const currentIndex = useMemo(() => deriveCurrentIndex(data?.progress), [data?.progress]);
   const failed = data?.status === 'failed';
+  const completed = data?.status === 'completed';
 
   const isTerminal = data?.status === 'completed' || data?.status === 'failed';
 
@@ -127,45 +157,41 @@ function ProgressCard() {
     }
   }, [pollGaveUp, isTerminal]);
 
-  // Auto-login once cloning completes — mirrors app/login's onLogin exactly,
-  // using the creds the activate page stashed in sessionStorage.
-  useEffect(() => {
-    if (data?.status !== 'completed' || loginAttemptedRef.current) {
+  // Completion leaves the video playing. Only Continue starts login, using the
+  // credentials the activate page stashed in this tab.
+  const handleContinue = async () => {
+    if (!completed || loginAttemptedRef.current) {
       return;
     }
     loginAttemptedRef.current = true;
+    setIsLoggingIn(true);
 
-    const autoLogin = async () => {
+    try {
       const raw = sessionStorage.getItem(TRIAL_CREDS_STORAGE_KEY);
       if (!raw) {
-        // Creds missing — e.g. the tab was reloaded or progress was opened in
-        // a new tab. The clone itself still succeeded, so send the user to a
-        // manual login instead of leaving them stuck with no feedback.
-        setManualLoginNeeded(true);
-        trackEvent(ANALYTICS_EVENTS.TRIAL_MANUAL_LOGIN_REQUIRED);
-        return;
+        throw new Error('Trial credentials are unavailable in this tab');
       }
       const { email, password } = JSON.parse(raw);
-
-      try {
-        await apiPost('/api/v2/login/', { username: email, password });
-
-        sessionStorage.removeItem(TRIAL_CREDS_STORAGE_KEY);
-        useAuthStore.getState().setAuthenticated(true);
-        trackEvent(ANALYTICS_EVENTS.TRIAL_CLONE_COMPLETED);
-        router.replace('/impact');
-      } catch {
-        // Auto-login failed (network/backend blip) — the workspace clone
-        // still succeeded, so don't leave the plaintext password sitting in
-        // sessionStorage or strand the user on a spinner forever.
-        sessionStorage.removeItem(TRIAL_CREDS_STORAGE_KEY);
-        setManualLoginNeeded(true);
-        trackEvent(ANALYTICS_EVENTS.TRIAL_MANUAL_LOGIN_REQUIRED);
+      if (typeof email !== 'string' || !email || typeof password !== 'string' || !password) {
+        throw new Error('Trial credentials are incomplete');
       }
-    };
 
-    autoLogin();
-  }, [data?.status, router]);
+      await apiPost('/api/v2/login/', { username: email, password });
+
+      sessionStorage.removeItem(TRIAL_CREDS_STORAGE_KEY);
+      useAuthStore.getState().setAuthenticated(true);
+      trackEvent(ANALYTICS_EVENTS.TRIAL_CLONE_COMPLETED);
+      router.replace('/impact');
+    } catch {
+      // Setup succeeded even when automatic sign-in cannot. Clear the saved
+      // credentials and offer the normal login screen.
+      sessionStorage.removeItem(TRIAL_CREDS_STORAGE_KEY);
+      setManualLoginNeeded(true);
+      trackEvent(ANALYTICS_EVENTS.TRIAL_MANUAL_LOGIN_REQUIRED);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
 
   useEffect(() => {
     if (data?.status === 'failed') {
@@ -190,7 +216,11 @@ function ProgressCard() {
   // Figma frame 2453:3089.
   if (failed) {
     return (
-      <TrialSplitCard testId="trial-progress-failed" aside={<TrialProvisioningVideoPanel />}>
+      <TrialSplitCard
+        testId="trial-progress-failed"
+        aside={<TrialProvisioningVideoPanel />}
+        asideOnMobile
+      >
         <div className="space-y-8">
           <TrialBrandHeader
             title="Workspace setup interrupted"
@@ -237,7 +267,7 @@ function ProgressCard() {
     );
   }
 
-  if (pollGaveUp) {
+  if (pollGaveUp && !completed) {
     return (
       <TrialNoticeCard
         testId="trial-progress-timeout"
@@ -266,15 +296,48 @@ function ProgressCard() {
   // wrapper — it re-renders every second, and re-rendering this card's hooks resets
   // the SWR poller's interval before it can fire (see the notes above).
   return (
-    <TrialSplitCard testId="trial-progress-card" aside={<TrialProvisioningVideoPanel />}>
+    <TrialSplitCard
+      testId="trial-progress-card"
+      aside={<TrialProvisioningVideoPanel />}
+      asideOnMobile
+    >
       <div className="space-y-8">
-        <TrialBrandHeader
-          title="Creating workspace"
-          subtitle="This usually takes 1 to 2 minutes."
-          testId="trial-progress-heading"
-        />
-        <ElapsedClock startedAt={data?.started_at ?? null} frozen={isTerminal || pollGaveUp} />
-        <CloneProgress steps={TRIAL_STEP_LABELS} currentIndex={currentIndex} failed={failed} />
+        <div aria-live="polite">
+          <TrialBrandHeader
+            title={
+              completed ? (
+                'Your workspace is ready!'
+              ) : (
+                <span className="inline-flex items-center gap-2">
+                  Creating workspace
+                  <ProvisioningDelayInfo />
+                </span>
+              )
+            }
+            subtitle={
+              completed
+                ? 'Finish watching the video, then continue when you’re ready.'
+                : 'This usually takes 1 to 2 minutes. Watch the video to get to know Dalgo while you wait.'
+            }
+            testId="trial-progress-heading"
+          />
+        </div>
+        {completed ? (
+          <Button
+            variant="primary"
+            className="w-full"
+            onClick={handleContinue}
+            disabled={isLoggingIn}
+            data-testid="trial-progress-continue"
+          >
+            {isLoggingIn ? 'Signing in…' : 'Continue'}
+          </Button>
+        ) : (
+          <>
+            <ElapsedClock startedAt={data?.started_at ?? null} frozen={isTerminal || pollGaveUp} />
+            <CloneProgress steps={TRIAL_STEP_LABELS} currentIndex={currentIndex} failed={failed} />
+          </>
+        )}
       </div>
     </TrialSplitCard>
   );

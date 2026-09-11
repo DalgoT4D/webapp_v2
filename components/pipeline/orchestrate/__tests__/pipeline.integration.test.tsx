@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   mockApiGet,
@@ -26,12 +26,15 @@ import {
 import { PipelineList } from '../pipeline-list';
 import { PipelineForm } from '../pipeline-form';
 import { LockStatus } from '@/constants/pipeline';
+import { InsightWalkthroughCoachmark } from '@/components/onboarding/insight-walkthrough-coachmark';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 
 // ============ Mocks ============
 
 const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
+  usePathname: () => window.location.pathname,
 }));
 
 jest.mock('sonner', () => ({
@@ -397,6 +400,56 @@ describe('Pipeline List - Integration Tests', () => {
 // ============ Pipeline Form Integration Tests ============
 
 describe('Pipeline Form - Integration Tests', () => {
+  it('preserves the name, schedule, selected connections and tasks through Back/Next', async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, '', '/orchestrate/create');
+    render(
+      <TestWrapper>
+        <PipelineForm deploymentId="existing-dep" />
+        <InsightWalkthroughCoachmark />
+      </TestWrapper>
+    );
+    const name = await screen.findByTestId('name');
+    await user.clear(name);
+    await user.type(name, 'My retained pipeline');
+    const form = screen.getByTestId('submit-btn').closest('form')!;
+    const values = () =>
+      Array.from(form.querySelectorAll('input, [role="checkbox"], [role="combobox"]')).map(
+        (element) => ({
+          value: (element as HTMLInputElement).value,
+          checked: element.getAttribute('aria-checked'),
+          text: element.textContent,
+        })
+      );
+    const before = values();
+    act(() =>
+      useInsightWalkthroughStore.setState({
+        active: true,
+        orgSlug: 'org-a',
+        flow: 'automate_pipeline',
+        path: 'automate_pipeline',
+        stage: 'pipeline_create_it',
+        reviewReturnStage: null,
+        suppressCoachmark: false,
+        trackedConnectionId: null,
+      })
+    );
+    for (let index = 0; index < 3; index++) {
+      await user.click(await screen.findByRole('button', { name: 'Back' }));
+    }
+    expect(useInsightWalkthroughStore.getState().stage).toBe('pipeline_add_connection');
+    for (let index = 0; index < 3; index++) {
+      await user.click(await screen.findByRole('button', { name: 'Next' }));
+    }
+    expect(useInsightWalkthroughStore.getState().stage).toBe('pipeline_create_it');
+    expect(values()).toEqual(before);
+    expect(name).toHaveValue('My retained pipeline');
+    expect(mockApiPost).not.toHaveBeenCalled();
+    expect(mockApiPut).not.toHaveBeenCalled();
+    act(() =>
+      useInsightWalkthroughStore.setState({ active: false, stage: null, reviewReturnStage: null })
+    );
+  });
   it('renders create mode with all sections, validation, modes, and cancel', async () => {
     const user = userEvent.setup();
 

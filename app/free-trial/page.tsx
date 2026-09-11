@@ -18,7 +18,6 @@ import { TrialMarketingPanel } from '@/app/free-trial/_components/TrialMarketing
 import { TrialBrandHeader } from '@/app/free-trial/_components/TrialBrandHeader';
 import { TrialField } from '@/app/free-trial/_components/TrialField';
 import { TRIAL_MARKETING_PANELS } from '@/app/free-trial/_lib/constants';
-import { inboxUrlForEmail } from '@/app/free-trial/_lib/utils';
 import { apiPublicPost } from '@/lib/api';
 import { toastError, toastInfo } from '@/lib/toast';
 import { trackEvent, trackFeatureView } from '@/lib/analytics';
@@ -82,8 +81,6 @@ export default function FreeTrialPage() {
   };
 
   if (submittedEmail) {
-    const inboxUrl = inboxUrlForEmail(submittedEmail);
-
     return (
       <TrialCenteredCard testId="trial-signup-confirmation">
         <TrialBrandHeader
@@ -109,21 +106,6 @@ export default function FreeTrialPage() {
               Change email address
             </button>
           </p>
-
-          {/* Only rendered when we can resolve the provider — a button that goes
-              nowhere is worse than no button. */}
-          {inboxUrl ? (
-            <Button variant="primary" className="w-full" asChild>
-              <a
-                href={inboxUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                data-testid="trial-open-email-app"
-              >
-                Check email
-              </a>
-            </Button>
-          ) : null}
 
           <p className="text-center text-xs text-muted-foreground">
             Didn&apos;t receive it?{' '}

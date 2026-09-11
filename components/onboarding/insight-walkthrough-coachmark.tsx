@@ -12,7 +12,7 @@
  * The one stage NOT rendered here is 'fork2' (sample vs own data) — that's a dialog now,
  * see get-started-modal.tsx, rendered by tour-gate.tsx.
  */
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { driver, type Driver, type Popover, type PopoverDOM } from 'driver.js';
 import 'driver.js/dist/driver.css';
@@ -22,11 +22,17 @@ import { useSidebarStore } from '@/stores/sidebarStore';
 import {
   getResumeAnchorStage,
   INGEST_STAGES,
+  WALKTHROUGH_DEFAULT_KPI_TYPE_DISPLAY,
+  WALKTHROUGH_DEFAULT_PROGRAM_TAG,
+  WALKTHROUGH_DEFAULT_TARGET_DISPLAY,
   type WalkthroughStage,
 } from './insight-walkthrough-constants';
 import { alignPopoverCloseWithHeader, outlinePopoverArrow } from './tour-popover-chrome';
 import { revealElementInScrollParents } from './tour-reveal';
 import { ensurePopoverArrow } from './tour-arrow';
+import { LeaveWalkthroughDialog } from './leave-walkthrough-dialog';
+import { useWalkthroughExitGuard } from './walkthrough-exit-guard';
+import { KPI_STAGE_STEP, previousReviewStage, nextReviewStage } from './walkthrough-navigation';
 
 /** Shared by both forks' "now build a dashboard" nudges. */
 const DASHBOARD_NUDGE_IMAGE = '/branding/dashboard-nudge-graph.jpg';
@@ -84,11 +90,163 @@ const SOURCE_NEXT_STAGE: StageConfig = {
   align: 'end',
 };
 
+/**
+ * The rest of the add-source wizard — the CONFIGURE step's fields and the SELECT DATA step's
+ * table list — built once and mapped onto each fork's own stage ids, exactly as
+ * PICK_SOURCE_STAGE and SOURCE_NEXT_STAGE are. The copy is identical between forks; only the
+ * `nextOnInteraction` targets differ, which is why this is a factory rather than a constant.
+ *
+ * These steps used to run uncoached: SOURCE_NEXT_STAGE deliberately ended the guidance and let
+ * the flow go quiet until the first sync was detected. It now continues, but only as far as
+ * each step can honestly go:
+ *  - The CONFIGURE stages describe Google Sheets' own fields, so only a Google Sheets run
+ *    enters them (CreateSourceStep decides). Another source's configure step is left alone.
+ *  - The SELECT DATA stages describe the connection form, which is the same for every source,
+ *    so every run enters them. Casting is the exception — it is offered for Google Sheets only
+ *    (see isCastSupportedSource), and connection-form-body.tsx steps over that one stage where
+ *    the column isn't rendered.
+ *
+ * @param stages - this fork's six wizard stage ids, in wizard order.
+ */
+function wizardStageConfigs(
+  stages: readonly [
+    sheetLink: WalkthroughStage,
+    sheetAuth: WalkthroughStage,
+    configNext: WalkthroughStage,
+    streamsScroll: WalkthroughStage,
+    streamsCast: WalkthroughStage,
+    connectionCreate: WalkthroughStage,
+  ]
+): Record<WalkthroughStage, StageConfig> {
+  const [sheetLink, sheetAuth, configNext, streamsScroll, streamsCast, connectionCreate] = stages;
+  return {
+    [sheetLink]: {
+      route: '/ingest',
+      selector: '[data-testid="gsheets-primary-fields"]',
+      // Advances on the pasted link rather than a click: the field starts empty and the whole
+      // point of the step is getting a URL into it, so a click on an empty box proves nothing.
+      advanceOn: 'value',
+      nextOnInteraction: sheetAuth,
+      title: 'Point us at your sheet',
+      description:
+        'Paste the link to your Google Sheet — the address from your browser’s bar with the sheet open.',
+      // The configure step is a centred, narrow dialog, so there is always open page to its
+      // right; a popover above or below would sit on the wizard's own header or footer.
+      side: 'right',
+      align: 'start',
+    },
+    [sheetAuth]: {
+      route: '/ingest',
+      // The managed-service-account choice when the deployment offers one, and the plain
+      // sign-in block when it doesn't — the same beat either way, so the stage takes whichever
+      // is on screen rather than assuming a deployment's configuration.
+      selector: () =>
+        document.querySelector('[data-testid="gsheets-auth-choice"]')
+          ? '[data-testid="gsheets-auth-choice"]'
+          : '[data-testid="google-sheets-form"]',
+      // Got it, not a click: this stage asks the user to go off to Google Sheets and share the
+      // sheet, then come back. Advancing on a click of the panel would drop the instructions
+      // the moment they started reading them.
+      advanceOn: 'never',
+      showNext: true,
+      nextOnInteraction: configNext,
+      title: 'Let Dalgo read it',
+      description:
+        'Share the sheet with the address shown here and give it Viewer access. Dalgo can then read that one sheet and nothing else in your Drive.',
+      side: 'right',
+      align: 'start',
+    },
+    [configNext]: {
+      ring: true,
+      route: '/ingest',
+      selector: '[data-testid="wizard-next-btn"]',
+      // No advance rule of its own: the click creates the source, and the connection step's
+      // own mount is what moves the walkthrough on (see connection-form-body.tsx). Listening
+      // here would advance while the create request was still in flight.
+      title: 'Create the source',
+      description: 'Click Next — we’ll check the connection and fetch what’s in your sheet.',
+      side: 'right',
+      align: 'end',
+    },
+    [streamsScroll]: {
+      route: '/ingest',
+      // The scroll hint itself when the list is long enough to need one, the table otherwise:
+      // stream-config-table only renders that line above SCROLL_HINT_MIN_STREAMS, and a sheet
+      // with two tabs would have left this coachmark pointing at nothing.
+      selector: () =>
+        document.querySelector('[data-testid="streams-scroll-hint"]')
+          ? '[data-testid="streams-scroll-hint"]'
+          : '[data-testid="streams-table"]',
+      advanceOn: 'never',
+      showNext: true,
+      nextOnInteraction: streamsCast,
+      title: 'Choose what to bring in',
+      description:
+        'Every tab in your sheet shows up here as a table. The first table is expanded to show the columns within it. Scroll through to see all the tables. Toggle “Sync” off for the tables that you do not need.',
+      side: 'right',
+      align: 'start',
+    },
+    [streamsCast]: {
+      route: '/ingest',
+      // Any cast dropdown will do — the stage is teaching what the column is for, and the
+      // stream and column names are the user's own, so there is no fixed testid to name. Falls
+      // back to the table because the dropdowns live inside an expanded row: until the user
+      // opens one there is no cast control on screen, and the coachmark is what tells them to
+      // go looking.
+      selector: () =>
+        document.querySelector('[data-testid^="cast-type-"]')
+          ? '[data-testid^="cast-type-"]'
+          : '[data-testid="streams-table"]',
+      advanceOn: 'never',
+      showNext: true,
+      nextOnInteraction: connectionCreate,
+      title: 'Give numbers a number type',
+      description:
+        'Everything from a sheet arrives as text, so every column here is a text column. Use Cast to and set your numeric columns to a number type — charts, KPIs and metrics can only be built on numbers. Make sure the sheet you picked has numeric data in it, or there will be nothing to measure.',
+      side: 'right',
+      align: 'start',
+    },
+    [connectionCreate]: {
+      ring: true,
+      route: '/ingest',
+      selector: '[data-testid="save-connection-btn"]',
+      title: 'Bring the data in',
+      description: 'Click Create to set up the connection and start the first sync.',
+      side: 'left',
+      align: 'end',
+    },
+  } as Record<WalkthroughStage, StageConfig>;
+}
+
 /** Set on <body> (where driver.js puts `driver-active`) for every stage — see tour.css. */
 const PASSTHROUGH_CLASS = 'dalgo-tour-passthrough';
 
 /** The rounded brand outline drawn on `ring: true` targets — see tour.css. */
 const RING_CLASS = 'dalgo-tour-ring';
+
+/**
+ * Dim drawn behind a stage whose target is a SIDEBAR NAV ITEM (see SIDEBAR_LINK_SELECTOR), so
+ * the one link the user has to click is the only lit thing on screen.
+ *
+ * Only those stages. Every other stage sits on a page the user is actively working in — a form,
+ * a builder, a dialog — where greying the surroundings would fight the step instead of guiding
+ * it; those keep the ring-only highlight at opacity 0. Sidebar hand-offs are the opposite case:
+ * the step is "stop what you're doing and go here", and the page behind it is finished work.
+ *
+ * Same value as the product tour's overlay, so the two read as one system.
+ */
+const SIDEBAR_STAGE_OVERLAY_OPACITY = 0.55;
+
+/**
+ * Cutout padding on a dimmed sidebar stage, in place of the 6px every other stage uses.
+ *
+ * The ring (`.dalgo-tour-ring` — a 2px outline at 4px offset) reaches exactly 6px past the nav
+ * item, so at the default padding it lands ON the cutout's edge: its corners get clipped by
+ * `stageRadius` and its sides dim along with the page. 10 leaves the whole ring inside the lit
+ * hole with a little margin to spare. Only matters where there IS a dim — an unlit stage's
+ * cutout has no visible edge for the ring to collide with.
+ */
+const SIDEBAR_STAGE_PADDING_PX = 10;
 
 /**
  * driver.js focuses its popover on every render (`[popover, element][0].focus()`), which is
@@ -128,6 +286,24 @@ const VALUE_IDLE_MS = 600;
  */
 const DROPDOWN_CLOSE_TIMEOUT_MS = 15000;
 
+/**
+ * Modals that stay guarded while the walkthrough is active EVEN WITH NO COACHMARK on screen.
+ *
+ * The add-source wizard's later steps (configure, connection) deliberately carry no stage —
+ * they explain themselves — so the coachmark goes quiet there and, without this, the exit guard
+ * stood down with it: ✕, Cancel and Back dropped the user out of a live walkthrough silently,
+ * mid-way through creating the source the whole flow depends on. The wizard is still the flow,
+ * coachmark or not.
+ *
+ * Scoped to named dialogs rather than "any open dialog": a stage like sync_running explicitly
+ * tells the user to go and explore, and prompting them for closing some unrelated dialog while
+ * they wait would be nonsense.
+ */
+const WALKTHROUGH_PROTECTED_DIALOGS = '[data-testid="add-source-wizard"]';
+
+/** The layout's content region — everything but the navbar and sidebar. See main-layout.tsx. */
+const PAGE_CONTENT_SELECTOR = '#main-layout-main-content';
+
 /** Radix popover content, mounted and open — every Combobox dropdown in the app is one. */
 const OPEN_DROPDOWN_SELECTOR = '[data-slot="popover-content"][data-state="open"]';
 
@@ -152,6 +328,11 @@ function waitForDropdownsClosed(timeout = DROPDOWN_CLOSE_TIMEOUT_MS): Promise<vo
  * StageConfig flag so the two can't disagree.
  */
 const SIDEBAR_LINK_SELECTOR = /^a\[href="([^"]+)"\]$/;
+
+/** True when this stage's target is a sidebar nav link — see SIDEBAR_LINK_SELECTOR. */
+function isSidebarLinkSelector(selector: string): boolean {
+  return SIDEBAR_LINK_SELECTOR.test(selector);
+}
 
 /**
  * Open the sidebar when this stage points at a nav item, and leave it open.
@@ -246,8 +427,25 @@ interface StageConfig {
    *   the options and keeps the default is done with the field either way. Opt-in rather than
    *   the default because advancing on pointerdown tears the coachmark down while a real
    *   button's click is still in flight (see advancePastHint).
+   * - 'never' — no engagement listener at all: nothing the user does to the control advances
+   *   the stage; only the popover's "Got it" does (so it requires `showNext`). For kpi_target
+   *   and the two KPI-drawer stages, which point at controls the user is invited to actually
+   *   USE while the coachmark stands there — edit the prefilled target, set a time grain, write
+   *   a note. Every other `showNext` stage ALSO advances on a click of its target, which here
+   *   would tear the coachmark down the moment the user did the thing it was suggesting.
    */
-  advanceOn?: 'click' | 'value' | 'open';
+  advanceOn?: 'click' | 'value' | 'open' | 'never';
+  /**
+   * Hop to `nextOnInteraction` when the target never renders, for a Got-it stage
+   * (`advanceOn: 'never'`) whose field is conditional.
+   *
+   * Hint stages already do this — a field missing from an open dialog is one this metric
+   * doesn't have. Got-it stages don't, because their targets can be legitimately slow (the
+   * connection step's streams table waits on discovery) and hopping marched the walkthrough
+   * past them. kpi_time_column is both: prefilled, so it needs Got it, and absent entirely for
+   * a metric whose table has no date column, so it must not dead-end there.
+   */
+  hopIfMissing?: boolean;
   /**
    * Element the `nextOnInteraction` listener attaches to, when that isn't the element being
    * spotlighted. Defaults to `selector`.
@@ -306,10 +504,50 @@ interface StageConfig {
    * the whole-panel/whole-form targets — is left unringed: outlining a form field made every
    * field on the dialog look like the button to press.
    *
-   * There is no dim overlay on any stage (both drivers run at overlayOpacity: 0), so this
-   * outline plus the popover IS the highlight.
+   * On every stage but a sidebar hand-off there is no dim overlay (see
+   * SIDEBAR_STAGE_OVERLAY_OPACITY), so this outline plus the popover IS the highlight. On a
+   * sidebar stage it reinforces the cutout, marking WHICH nav item inside the lit hole to click.
    */
   ring?: boolean;
+  /**
+   * Extra selectors that stay clickable on this stage, on top of the coached target.
+   *
+   * ONLY for a control the step cannot be completed without and that no stage coaches — a
+   * required field, in practice. The exit guard holds every other click to the target (see
+   * walkthrough-exit-guard.ts), so without this the user reaches a validation error they have no
+   * way to fix and the walkthrough's only exit is Skip. Resolved per click, so a field that
+   * mounts later still counts.
+   */
+  alsoClickable?: string[];
+  /**
+   * Leaves the whole page content area clickable on this stage, guarding only the app chrome
+   * (sidebar, navbar) and the coachmark's own ✕.
+   *
+   * For the chart builder, where "the step" is genuinely the whole screen: picking a dataset,
+   * switching Data / Raw / Preview tabs, every configuration and customisation control, the
+   * chart's name. A chart is something the user has to shape to their own data, and no set of
+   * stages can coach that field by field — pointing at one tab while blocking the panel under it
+   * turns guidance into an obstacle.
+   */
+  allowPageRoam?: boolean;
+  /**
+   * Controls inside the page that stay guarded even under `allowPageRoam` — the ones that leave
+   * the screen this stage lives on. The dashboard builder's Back button is the case: everything
+   * else in the builder is the step (adding charts and KPIs, moving tiles, filters), and leaving
+   * is the one thing worth asking about.
+   */
+  pageRoamExits?: string[];
+  /**
+   * Stands the exit guard down for this stage: the user can click anywhere, and only the ✕ still
+   * raises the leave prompt.
+   *
+   * For a stage that asks for NOTHING — `sync_running`, where the copy is "leave it running,
+   * we'll move you on when it finishes". That wait runs for minutes, so holding the app hostage
+   * would be absurd; the walkthrough picks the user up again from wherever they are once the
+   * sync lands (see tour-gate.tsx's sync detection). A stage that asks for an action never gets
+   * this — the guard is what keeps the action the only thing on the table.
+   */
+  allowFreeRoam?: boolean;
   /**
    * Popover placement relative to the target. Defaults to 'right'/'start', which suits
    * sidebar-anchored targets (open canvas to their right). Toolbar buttons mid-row aren't near
@@ -320,6 +558,77 @@ interface StageConfig {
   side?: 'top' | 'bottom' | 'left' | 'right';
   align?: 'start' | 'center' | 'end';
 }
+
+/**
+ * Required fields the walkthrough never points at, which therefore have to stay clickable while
+ * their step is on screen — see StageConfig.alsoClickable.
+ *
+ * The KPI wizard's step 2 asks for a name (KpiSetupStep, `#kpi-name`) and the pipeline form
+ * opens with one (pipeline-form.tsx, `[data-testid="name"]`). Both are `required` with an empty
+ * default, so Continue / Create Pipeline simply fails validation until they're filled — and
+ * every stage on those steps coaches a DIFFERENT control.
+ *
+ * The pipeline form's schedule adds two more: picking Daily or Weekly REVEALS Time of Day (and,
+ * for Weekly, Days of the Week), both required and both rendered as siblings of the coached
+ * `cron-container` rather than inside it. Choosing a frequency and then being unable to finish
+ * setting it is the exact opposite of what that stage is asking for.
+ */
+/**
+ * The dashboard builder's way out — see StageConfig.pageRoamExits. Both header layouts (compact
+ * and full) render the same button, so one selector covers them.
+ */
+const DASHBOARD_BUILDER_EXITS = ['[data-testid="dashboard-back-btn"]'];
+
+/**
+ * The chart builder's ways out — see StageConfig.pageRoamExits. Three selectors for the three
+ * routes the run spans. Cancelling the click also puts the leave prompt ahead of the configure
+ * page's own "unsaved changes" dialog, which used to appear instead of it.
+ */
+const CHART_BUILDER_EXITS = [
+  '[data-testid="chart-new-back-button"]',
+  '[data-testid="chart-create-back-button"]',
+  '[data-testid="chart-edit-back-button"]',
+];
+
+/**
+ * The workflow canvas's way out — see StageConfig.pageRoamExits.
+ *
+ * The canvas is the dashboard builder of the transform leg: the tree panel, the nodes, the
+ * operation panel and the Preview/Logs pane are all one workspace, and a user shaping their own
+ * tables needs every part of it. So the canvas stages roam the whole page and guard only Back,
+ * which returns to /transform and ends the step.
+ */
+const WORKFLOW_CANVAS_EXITS = ['[data-testid="back-to-transform-btn"]'];
+
+/**
+ * The create-pipeline form's way out — see StageConfig.pageRoamExits.
+ *
+ * Same call as the canvas above: name, connections, transform tasks and the schedule are one
+ * form, and the user has to fill all of it in before Create Pipeline is even enabled. So the
+ * whole form is open and only Cancel — which drops the half-built pipeline and returns to
+ * /orchestrate — asks first.
+ */
+const PIPELINE_FORM_EXITS = ['[data-testid="cancel-btn"]'];
+
+/**
+ * The filter controls on a saved dashboard — see StageConfig.alsoClickable.
+ *
+ * The share stages ask for one thing (hit Share), but a dashboard the user has just built is
+ * also the first place they try their filters, and that's the only other thing the page offers.
+ * Two selectors because the panel switches layout with the viewport: a vertical sidebar on
+ * desktop, an accordion above the grid on smaller screens.
+ */
+const DASHBOARD_VIEW_FILTERS = [
+  '[data-testid="dashboard-filters-panel"]',
+  '[data-testid="dashboard-filters-section"]',
+];
+
+const KPI_SETUP_REQUIRED_FIELDS = ['#kpi-name'];
+const PIPELINE_FORM_REQUIRED_FIELDS = [
+  '[data-testid="name"]',
+  '[data-testid="cron-days-of-week-container"]',
+  '[data-testid="cron-time-of-day-container"]',
+];
 
 // Stages driven purely by route change (no manual advanceTo call needed elsewhere) map here
 // to the NEXT stage they unlock once that route is reached.
@@ -358,13 +667,18 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description:
       'A key performance indicator uses your key metrics and shows the current value of your goals against a target, its trend over time, and status. Align this with your programs for an effective overview.',
   },
+  // No `nextOnInteraction`: on a combobox the advancing click IS the click that opens the list,
+  // so the coachmark vanished on contact. handleMetricChange (kpi-form.tsx) advances on a pick.
   kpi_metric: {
     route: '/kpis',
-    nextOnInteraction: 'kpi_step1_continue',
     selector: '[data-testid="kpi-form-metric-field"]',
     title: 'Pick a metric',
+    // "Choose any metric" no longer describes what they'll see: the picker offers a single
+    // option for the whole walkthrough run (see WALKTHROUGH_METRIC_LIMIT and
+    // WALKTHROUGH_METRIC_NAME), so the copy points at the one row rather than offering a choice
+    // that isn't there.
     description:
-      'The measure this KPI tracks, for example a count of beneficiaries. Choose any metric to get started.',
+      'The number this KPI tracks. We have kept one ready for you — open the list and pick it.',
   },
   // Everything after this stage lives on the wizard's step 2, so this button is the gate that
   // puts those targets in the DOM at all — the walkthrough has to wait on it rather than
@@ -377,23 +691,35 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description: 'Click Continue to set this KPI’s target.',
   },
   kpi_target: {
+    alsoClickable: KPI_SETUP_REQUIRED_FIELDS,
     route: '/kpis',
     nextOnInteraction: 'kpi_direction',
-    advanceOn: 'value',
+    // Got it, not typing. The field arrives already holding a target (see
+    // WALKTHROUGH_DEFAULT_TARGET), and 'value' only fires on a real keystroke —
+    // a user happy with the number we filled in would never have produced one, and the
+    // walkthrough would have sat on this field for good.
+    advanceOn: 'never',
+    showNext: true,
     selector: '[data-testid="kpi-form-target-field"]',
     title: 'Target value',
-    description:
-      'The number you are aiming for. Dalgo marks the KPI green once you reach it and red when you fall short.',
+    // Built from the constant the form fills the field with, so the number the copy quotes and
+    // the number on screen can never drift apart.
+    description: `The number you are aiming for. We have filled in ${WALKTHROUGH_DEFAULT_TARGET_DISPLAY} as the target for this example. Dalgo tracks the KPI against the performance thresholds you define to show whether it is On Track, Needs Attention, or Off Track.`,
   },
   kpi_direction: {
+    alsoClickable: KPI_SETUP_REQUIRED_FIELDS,
     route: '/kpis',
     nextOnInteraction: 'kpi_time_column',
-    advanceOn: 'open',
+    // Got it, like kpi_target: the field holds a valid default, so a user who agrees with it
+    // never touches the control — and advancing on merely opening the list was too eager.
+    advanceOn: 'never',
+    showNext: true,
     selector: '[data-testid="kpi-form-direction-field"]',
     title: 'Direction',
     description: 'Do you intend for the value of this indicator to rise or fall?',
   },
   kpi_continue: {
+    alsoClickable: KPI_SETUP_REQUIRED_FIELDS,
     ring: true,
     route: '/kpis',
     selector: '[data-testid="kpi-form-continue-btn"]',
@@ -401,19 +727,59 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description: 'Click Continue to set the rest of the KPI details.',
   },
   kpi_time_column: {
+    alsoClickable: KPI_SETUP_REQUIRED_FIELDS,
     route: '/kpis',
     nextOnInteraction: 'kpi_continue',
+    // Got it, like kpi_target: the walkthrough preselects the date column (kpi-form.tsx), so a
+    // user happy with it never opens the dropdown and nothing would advance the stage. The
+    // field is missing altogether for a metric with no date column, hence hopIfMissing.
+    advanceOn: 'never',
+    showNext: true,
+    hopIfMissing: true,
     selector: '[data-testid="kpi-form-time-column-field"]',
     title: 'Time column',
-    description: 'Select the relevant column from the dataset to track the KPIs trend over time.',
+    description:
+      'The date column Dalgo uses to track this KPI’s trend over time. We have picked one from your data — switch to another date column if it suits your programme better.',
+  },
+  // Step 3's two explainers. Both read-and-continue stages (`advanceOn: 'never'` + Got it):
+  // the fields arrive already filled — 80 / 50 for the bands, WALKTHROUGH_DEFAULT_PROGRAM_TAG
+  // for the tag — so there is no keystroke or dropdown to advance on, and a user happy with
+  // what we filled in would have left the coachmark sitting there for good.
+  kpi_thresholds: {
+    route: '/kpis',
+    advanceOn: 'never',
+    showNext: true,
+    nextOnInteraction: 'kpi_program_tags',
+    selector: '[data-testid="kpi-form-rag-field"]',
+    title: 'When is this on track?',
+    // RAG named outright — it's the label on the card and in every filter.
+    description:
+      'RAG is the KPI’s status colour — green at 80% of target or more, amber from 50%, red below that. Change the two numbers to suit your programme.',
+  },
+  kpi_program_tags: {
+    route: '/kpis',
+    advanceOn: 'never',
+    showNext: true,
+    nextOnInteraction: 'kpi_type',
+    selector: '[data-testid="kpi-form-program-tags-field"]',
+    title: 'Which programme is this for?',
+    // Names the tag we filled in, from the same constant the form uses, so the copy and the
+    // chip on screen can't drift.
+    description: `Tag the programme this KPI belongs to, so you can filter by it later. We have added “${WALKTHROUGH_DEFAULT_PROGRAM_TAG}” — swap it for yours.`,
   },
   kpi_type: {
     route: '/kpis',
     nextOnInteraction: 'kpi_submit',
+    // Got it, like the two stages above: the walkthrough prefills the type (see
+    // WALKTHROUGH_DEFAULT_KPI_TYPE), and the type buttons toggle — a user agreeing with what we
+    // filled in never clicks one, and clicking the selected button would only clear it.
+    advanceOn: 'never',
+    showNext: true,
     selector: '[data-testid="kpi-form-type-field"]',
     title: 'KPI type',
-    description:
-      'Classify the indicator based on your results framework. Is this a measure of your inputs, outputs, outcomes or impact?',
+    // Names the type we filled in, from the same constant the form uses, so the copy and the
+    // selected button can't drift.
+    description: `Classify the indicator based on your results framework — inputs, outputs, outcomes or impact. We have set this one to “${WALKTHROUGH_DEFAULT_KPI_TYPE_DISPLAY}”; change it if your framework says otherwise.`,
   },
   kpi_submit: {
     ring: true,
@@ -422,13 +788,61 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Create your KPI',
     description: 'Click Create KPI to save it.',
   },
+  // kpi_submit hands straight to the drawer (kpi-page.tsx) — no stage rings the new card, since
+  // the celebration dialog's "View KPI" opens the drawer over it.
+  //
+  // These two use `advanceOn: 'never'` so trying the control they point at doesn't dismiss them;
+  // only Got it does. The rest of the drawer stays clickable, its ✕ aside.
+  kpi_duration: {
+    route: '/kpis',
+    advanceOn: 'never',
+    showNext: true,
+    nextOnInteraction: 'kpi_add_note',
+    // The whole period row — Select Duration AND the grain dropdown beside it — rather than
+    // either control alone. They're one decision in two parts (how far back to look, how
+    // finely to slice it), and coaching one while pointing away from the other left the user
+    // reading about a control that was half the answer.
+    selector: '[data-testid="kpi-detail-period-controls"]',
+    // Below the row, not beside it: a 'left' popover covered the date picker and the KPI's own
+    // value. Right-aligned because the row is flush with the drawer's right edge and the drawer
+    // is flush with the viewport's, so a 'start' align would push the card off screen.
+    side: 'bottom',
+    align: 'end',
+    title: 'Set the period',
+    description:
+      'Change the duration to choose how far back to look, and the frequency — daily, weekly, monthly or quarterly — to choose how finely the trend is sliced.',
+  },
+  kpi_add_note: {
+    route: '/kpis',
+    advanceOn: 'never',
+    showNext: true,
+    nextOnInteraction: 'kpi_close_drawer',
+    selector: '[data-testid="kpi-detail-add-note-btn"]',
+    side: 'left',
+    align: 'start',
+    title: 'Add context',
+    description:
+      'Record what was happening behind a number — a beneficiary quote, or a note explaining a jump or a dip.',
+  },
+  // No Got it: closing the drawer is a real action, so its own handler advances the walkthrough
+  // (see kpi-page.tsx).
+  kpi_close_drawer: {
+    ring: true,
+    route: '/kpis',
+    selector: '[data-testid="kpi-detail-close-btn"]',
+    // The button is flush with the drawer's top-right corner: 'right' lands off screen.
+    side: 'bottom',
+    align: 'end',
+    title: 'Close the KPI',
+    description: 'Close this view to move on to the next step of the walkthrough.',
+  },
   dashboard_nudge: {
     ring: true,
     route: '/kpis',
     selector: 'a[href="/dashboards"]',
     imageSrc: DASHBOARD_NUDGE_IMAGE,
-    // "Your KPI is live" moved to the celebration dialog that opens right before this
-    // (kpi-live-modal.tsx) — repeating it here read as the same message twice.
+    // No second celebration here: "Your KPI is live" was said three stages ago, by the dialog
+    // that handed the user to their new KPI (see kpi-page.tsx). This is the plain next step.
     title: 'Build your first dashboard',
     description: 'Now add your KPI and a few charts to a dashboard and share it!',
   },
@@ -441,6 +855,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
       'Build a unified view of all the insights that are important to you. Add KPIs, charts, text, and filters.',
   },
   builder_add_kpi: {
+    // The builder IS the step: charts, KPIs, tile moves, filters — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: DASHBOARD_BUILDER_EXITS,
     ring: true,
     route: '/dashboards/create',
     routeMatch: DASHBOARD_BUILDER_ROUTE,
@@ -450,6 +867,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     side: 'bottom',
   },
   builder_add_chart: {
+    // The builder IS the step: charts, KPIs, tile moves, filters — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: DASHBOARD_BUILDER_EXITS,
     ring: true,
     route: '/dashboards/create',
     routeMatch: DASHBOARD_BUILDER_ROUTE,
@@ -459,6 +879,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     side: 'bottom',
   },
   builder_resize: {
+    // The builder IS the step: charts, KPIs, tile moves, filters — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: DASHBOARD_BUILDER_EXITS,
     route: '/dashboards/create',
     routeMatch: DASHBOARD_BUILDER_ROUTE,
     // Newest tile has no stable id to key a static selector on (grid items are created with
@@ -471,6 +894,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
       'Drag a corner to resize, or grab a tile to move it around — now make your dashboard look nice.',
   },
   builder_save: {
+    // The builder IS the step: charts, KPIs, tile moves, filters — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: DASHBOARD_BUILDER_EXITS,
     ring: true,
     route: '/dashboards/create',
     routeMatch: DASHBOARD_BUILDER_ROUTE,
@@ -480,6 +906,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     side: 'bottom',
   },
   builder_preview: {
+    // The builder IS the step: charts, KPIs, tile moves, filters — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: DASHBOARD_BUILDER_EXITS,
     ring: true,
     route: '/dashboards/create',
     routeMatch: DASHBOARD_BUILDER_ROUTE,
@@ -490,6 +919,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     side: 'bottom',
   },
   share: {
+    alsoClickable: DASHBOARD_VIEW_FILTERS,
     ring: true,
     route: null, // resolved dynamically to /dashboards/{id} — matched by pathname regex below
     selector: '[data-testid="dashboard-share-btn"]',
@@ -501,6 +931,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     align: 'end',
   },
   share_public_toggle: {
+    alsoClickable: DASHBOARD_VIEW_FILTERS,
     route: null, // same dynamic /dashboards/{id} as 'share'
     // Resource sharing replaced the old on/off "public access" switch with a three-way
     // General access picker (Private / Everyone in the org / Public), so this points at the
@@ -517,6 +948,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     align: 'start',
   },
   share_copy_link: {
+    alsoClickable: DASHBOARD_VIEW_FILTERS,
     ring: true,
     route: null, // same dynamic /dashboards/{id} as 'share'
     selector: '[data-testid="copy-link-btn"]',
@@ -536,9 +968,19 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   own_data_pick_source: PICK_SOURCE_STAGE,
   own_data_source_next: SOURCE_NEXT_STAGE,
+  ...wizardStageConfigs([
+    'own_data_sheet_link',
+    'own_data_sheet_auth',
+    'own_data_config_next',
+    'own_data_streams_scroll',
+    'own_data_streams_cast',
+    'own_data_connection_create',
+  ]),
   // --- Waiting on the tracked connection's first sync. Shared by both real-data forks; only
   // tour-gate's checkpoint moves the user in and out of these. ---
   sync_running: {
+    // The one stage that asks for nothing: it's a wait, not a step. See allowFreeRoam.
+    allowFreeRoam: true,
     // Route-less on purpose: the stage stays live while the user wanders, it just doesn't
     // DRAW anywhere except /ingest (see below).
     route: null,
@@ -604,6 +1046,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description: 'Visualise your data to deliver insights effectively for your team.',
   },
   chart_pick_table: {
+    // The chart builder is shaped by the user, not by us — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: CHART_BUILDER_EXITS,
     route: '/charts/new',
     selector: '[data-testid="chart-dataset-selector"]',
     title: 'Select the relevant data table.',
@@ -613,12 +1058,18 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     // OPENED, jumping to the chart-type coachmark over a still-open dataset list.
   },
   chart_pick_type: {
+    // The chart builder is shaped by the user, not by us — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: CHART_BUILDER_EXITS,
     route: '/charts/new',
     selector: '[data-testid="chart-type-grid"]',
     title: 'Select the relevant type',
     description: 'Pick the type of visualisation you wish to build. Try a bar chart to start',
   },
   chart_continue: {
+    // The chart builder is shaped by the user, not by us — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: CHART_BUILDER_EXITS,
     ring: true,
     route: '/charts/new',
     selector: '[data-testid="chart-type-continue-button"]',
@@ -627,6 +1078,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     side: 'top',
   },
   chart_data_config: {
+    // The chart builder is shaped by the user, not by us — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: CHART_BUILDER_EXITS,
     route: '/charts/new/configure',
     nextOnInteraction: 'chart_styling',
     selector: '[data-testid="chart-data-config-tab"]',
@@ -640,6 +1094,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     align: 'start',
   },
   chart_styling: {
+    // The chart builder is shaped by the user, not by us — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: CHART_BUILDER_EXITS,
     route: '/charts/new/configure',
     nextOnInteraction: 'chart_save',
     selector: '[data-testid="chart-styling-tab"]',
@@ -650,6 +1107,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     align: 'center',
   },
   chart_save: {
+    // The chart builder is shaped by the user, not by us — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: CHART_BUILDER_EXITS,
     ring: true,
     route: '/charts/new/configure',
     selector: '[data-testid="chart-edit-save-button"]',
@@ -670,6 +1130,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description: 'Now add your KPI and a few charts to a dashboard and share it!',
   },
   builder_add_chart_first: {
+    // The builder IS the step: charts, KPIs, tile moves, filters — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: DASHBOARD_BUILDER_EXITS,
     ring: true,
     route: '/dashboards/create',
     routeMatch: DASHBOARD_BUILDER_ROUTE,
@@ -679,6 +1142,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     side: 'bottom',
   },
   builder_add_kpi_second: {
+    // The builder IS the step: charts, KPIs, tile moves, filters — see allowPageRoam.
+    allowPageRoam: true,
+    pageRoamExits: DASHBOARD_BUILDER_EXITS,
     ring: true,
     route: '/dashboards/create',
     routeMatch: DASHBOARD_BUILDER_ROUTE,
@@ -714,6 +1180,14 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   pipeline_pick_source: PICK_SOURCE_STAGE,
   pipeline_source_next: SOURCE_NEXT_STAGE,
+  ...wizardStageConfigs([
+    'pipeline_sheet_link',
+    'pipeline_sheet_auth',
+    'pipeline_config_next',
+    'pipeline_streams_scroll',
+    'pipeline_streams_cast',
+    'pipeline_connection_create',
+  ]),
   pipeline_transform_intro: {
     ring: true,
     route: null, // shown wherever the user is when the tracked connection's sync is detected
@@ -748,6 +1222,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Select your desired table',
     description:
       'This left pane represents all the data in your warehouse. Find the table you just connected to Dalgo by searching for its name, then click the + icon. (For a Google Sheet, search the name of the tab, not the name of the sheet.)',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
   },
   pipeline_select_node: {
     route: '/transform/canvas',
@@ -759,6 +1236,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     },
     title: 'Open it up',
     description: 'Click this table to start building — a functions panel opens on the right.',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
   },
   pipeline_pick_function: {
     ring: true,
@@ -773,6 +1253,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="operation-dropcolumns"]',
     title: 'Let’s start with a simple function',
     description: 'Select the Drop function to remove columns that you don’t need.',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
     // Every stage below lives in the canvas's right-hand panel, which is flush with the
     // viewport's right edge — a 'right' popover has nowhere to go and gets clamped over the
     // panel it's pointing at. The canvas to their left is always open space.
@@ -789,6 +1272,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     selector: '[data-testid="drop-search"]',
     title: 'Drop the clutter',
     description: 'Tick the fields you do not report on, then hit Save.',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
     side: 'left',
     align: 'center',
   },
@@ -799,6 +1285,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Create a table',
     description:
       'Save this new cleaned data to your warehouse so that you can build insights with it.',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
     side: 'left',
     align: 'center',
   },
@@ -815,6 +1304,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Name your table',
     description:
       'We have pre-filled the intermediate schema. Give it a clear name — like customer_summary.',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
     side: 'left',
     align: 'start',
   },
@@ -825,6 +1317,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Save table',
     description:
       'Hit Save to build your first table. You can then string a few more functions together to build your desired final table, or go straight ahead and publish.',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
     side: 'left',
     align: 'center',
   },
@@ -835,6 +1330,9 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Publish your changes',
     description:
       'Once your table is successfully created, click Publish to make sure it’s saved and reusable in your pipeline.',
+    // The canvas IS the step — see WORKFLOW_CANVAS_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: WORKFLOW_CANVAS_EXITS,
     // Toolbar button at the top-right of the canvas — same clamping problem as Edit workflow.
     side: 'bottom',
     align: 'end',
@@ -867,6 +1365,10 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     description: 'Click here to configure your first data pipeline with Dalgo',
   },
   pipeline_add_connection: {
+    alsoClickable: PIPELINE_FORM_REQUIRED_FIELDS,
+    // The form IS the step — see PIPELINE_FORM_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: PIPELINE_FORM_EXITS,
     route: '/orchestrate/create',
     selector: '[data-testid="connections-container"]',
     title: 'Add a connection',
@@ -874,6 +1376,10 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
       'Pick the data that you connected in the ingest step to refresh it on a regular schedule.',
   },
   pipeline_run_transform: {
+    alsoClickable: PIPELINE_FORM_REQUIRED_FIELDS,
+    // The form IS the step — see PIPELINE_FORM_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: PIPELINE_FORM_EXITS,
     route: '/orchestrate/create',
     selector: '[data-testid="run-transform-tasks-checkbox"]',
     title: 'Run all the tasks',
@@ -889,6 +1395,10 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     align: 'start',
   },
   pipeline_set_schedule: {
+    alsoClickable: PIPELINE_FORM_REQUIRED_FIELDS,
+    // The form IS the step — see PIPELINE_FORM_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: PIPELINE_FORM_EXITS,
     route: '/orchestrate/create',
     selector: '[data-testid="cron-container"]',
     title: 'Set a schedule',
@@ -899,6 +1409,10 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     align: 'start',
   },
   pipeline_create_it: {
+    alsoClickable: PIPELINE_FORM_REQUIRED_FIELDS,
+    // The form IS the step — see PIPELINE_FORM_EXITS.
+    allowPageRoam: true,
+    pageRoamExits: PIPELINE_FORM_EXITS,
     ring: true,
     route: '/orchestrate/create',
     selector: '[data-testid="submit-btn"]',
@@ -907,6 +1421,13 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
       'Once you’ve added a connection or transform task and set a schedule, click Create Pipeline to save it.',
   },
 };
+
+/**
+ * Every stage that can actually draw a coachmark. The resume path checks against this so a
+ * retired id left in localStorage falls back to a fresh start instead of resuming into silence.
+ * 'fork2' is absent on purpose — it's the fork dialog, which callers open themselves.
+ */
+export const COACHMARK_STAGES: ReadonlySet<string> = new Set(Object.keys(STAGE_CONFIG));
 
 /**
  * Which route each stage's coachmark lives on — derived from STAGE_CONFIG so the two can't
@@ -921,10 +1442,48 @@ export const WALKTHROUGH_STAGE_ROUTES: Partial<Record<WalkthroughStage, string>>
       .map(([stage, config]) => [stage, config.route])
   );
 
-export function InsightWalkthroughCoachmark(): null {
+/** Review only targets belonging to the live screen. A missing/conditional field is
+ * skipped, and a dialog never sends Back to controls underneath it. The KPI wizard
+ * can restore its own steps without unmounting the form or resetting its values. */
+function canReviewStage(stage: WalkthroughStage): boolean {
+  if (
+    stage.endsWith('_streams_cast') &&
+    document.querySelector('[data-testid="streams-table"]')?.getAttribute('data-cast-supported') ===
+      'false'
+  )
+    return false;
+  const config = STAGE_CONFIG[stage];
+  if (!config || (config.route && !matchesStageRoute(config, window.location.pathname)))
+    return false;
+  const wizard = document.querySelector('[data-testid="kpi-form"]');
+  if (wizard && KPI_STAGE_STEP[stage]) {
+    return stage !== 'kpi_time_column' || wizard.getAttribute('data-has-time-column') === 'true';
+  }
+  const selector = typeof config.selector === 'function' ? config.selector() : config.selector;
+  if (!selector) return false;
+  const target = document.querySelector(selector);
+  if (!target) return false;
+  for (let element: Element | null = target; element; element = element.parentElement) {
+    const style = getComputedStyle(element);
+    if (
+      element.hasAttribute('hidden') ||
+      style.display === 'none' ||
+      style.visibility === 'hidden'
+    ) {
+      return false;
+    }
+  }
+  const dialogs = Array.from(document.querySelectorAll('[role="dialog"]')).filter(
+    (dialog) => !dialog.closest('.driver-popover') && dialog.getAttribute('data-state') !== 'closed'
+  );
+  return dialogs.length === 0 || dialogs.some((dialog) => dialog.contains(target));
+}
+
+export function InsightWalkthroughCoachmark() {
   const pathname = usePathname();
   const active = useInsightWalkthroughStore((s) => s.active);
   const stage = useInsightWalkthroughStore((s) => s.stage);
+  const reviewReturnStage = useInsightWalkthroughStore((s) => s.reviewReturnStage);
   const suppressCoachmark = useInsightWalkthroughStore((s) => s.suppressCoachmark);
   const trackedConnectionId = useInsightWalkthroughStore((s) => s.trackedConnectionId);
   const driverRef = useRef<Driver | null>(null);
@@ -939,6 +1498,24 @@ export function InsightWalkthroughCoachmark(): null {
   // onPopoverRender rather than looked up — the tracking loop needs it to keep the pointer
   // triangle attached to the right edge (see ensurePopoverArrow).
   const popoverRef = useRef<PopoverDOM | null>(null);
+
+  // The "Leave the walkthrough?" prompt, and the three things the exit guard needs to decide
+  // whether a click belongs to the live stage (see walkthrough-exit-guard.ts). All refs: the
+  // guard reads them from a native listener, and a stage's target can be re-resolved mid-stage
+  // by the trackTarget -> show() recovery loop.
+  const [leavePromptOpen, setLeavePromptOpen] = useState(false);
+  /** True only while a coachmark is actually painted — not merely while the store is active. */
+  const coachmarkLiveRef = useRef(false);
+  const guardTargetRef = useRef<Element | null>(null);
+  const guardInteractionRef = useRef<Element | null>(null);
+  /** The live stage's `alsoClickable` selectors — see StageConfig. */
+  const guardExtraSelectorsRef = useRef<string[]>([]);
+  /** The live stage's `allowFreeRoam` — see StageConfig. */
+  const guardFreeRoamRef = useRef(false);
+  /** The live stage's `allowPageRoam` — see StageConfig. */
+  const guardPageRoamRef = useRef(false);
+  /** The live stage's `pageRoamExits` — see StageConfig. */
+  const guardExitSelectorsRef = useRef<string[]>([]);
 
   // Keeps a highlight glued to its target while layout is still moving under it —
   // a sidebar collapsing, a canvas pan/zoom settling, dagre re-laying nodes out —
@@ -1010,6 +1587,8 @@ export function InsightWalkthroughCoachmark(): null {
 
       const listenForEngagement = (el: Element): (() => void) => {
         if (!config.nextOnInteraction) return () => {};
+        // 'never' stages hand the whole advance to the popover's Got it — see advanceOn.
+        if (config.advanceOn === 'never') return () => {};
 
         if (config.advanceOn === 'value') {
           const input = (
@@ -1060,29 +1639,51 @@ export function InsightWalkthroughCoachmark(): null {
         const resolvedSelector =
           typeof config.selector === 'function' ? config.selector() : config.selector;
         if (!resolvedSelector) return;
+        // Whether this stage greys the page out behind its target — sidebar hand-offs only
+        // (see SIDEBAR_STAGE_OVERLAY_OPACITY). Read off the selector, like revealSidebarTarget
+        // below, so the dim and the sidebar-opening can never disagree about what a stage is.
+        const dimsPage = isSidebarLinkSelector(resolvedSelector);
         // Before the wait, not after: for a target inside the Data submenu the link doesn't
         // exist in the DOM until this opens the menu, so waiting first would time out.
         revealSidebarTarget(resolvedSelector);
+        // A HINT stage is one whose advance is the user acting on the field — those give up
+        // quickly and hop, because a field that hasn't rendered inside an already-open dialog
+        // is conditional and isn't coming. A Got-it stage (`advanceOn: 'never'`) is not a hint:
+        // it advances only when the user presses a button, and its target may legitimately be
+        // slow — the connection step's table appears only once stream discovery returns. Hopping
+        // those marched the walkthrough straight past both Got-it coachmarks to "click Create".
+        const isHintStage = !!config.nextOnInteraction && config.advanceOn !== 'never';
+        // A Got-it stage over a field that may not exist for this metric opts into the same
+        // give-up-and-hop rule — see `hopIfMissing`.
+        const hopsWhenAbsent = isHintStage || !!config.hopIfMissing;
+        // Also short-timeout: a dialog-internal stage (what a resume anchor elsewhere means)
+        // with no dialog on screen. The user cancelled out, so the target is never arriving.
+        const strandedInClosedDialog =
+          getResumeAnchorStage(stage!) !== stage && !document.querySelector('[role="dialog"]');
         const el = await waitForElement(
           resolvedSelector,
-          config.nextOnInteraction ? HINT_TARGET_TIMEOUT_MS : undefined
+          hopsWhenAbsent || strandedInClosedDialog ? HINT_TARGET_TIMEOUT_MS : undefined
         );
         if (cancelled) return;
         if (!el) {
+          const anchor = getResumeAnchorStage(stage!);
+          // Re-checked, not reused: the user may have reopened the dialog during the wait.
+          const stillStranded = anchor !== stage && !document.querySelector('[role="dialog"]');
+          // No dialog at all — the user closed it. Rewind to the stage that reopens it rather
+          // than hopping forward through fields that are all equally gone. Ahead of the hint
+          // rules because it covers Got-it and click-a-button stages too, which can't hop.
+          if (stillStranded) {
+            useInsightWalkthroughStore.getState().advanceTo(anchor);
+            return;
+          }
           if (!config.nextOnInteraction) return;
           // A hint whose field never appeared while its dialog IS open: the field is
           // conditional and this metric doesn't have it (Direction hands off to Time Column,
           // which only renders for a metric with a date column). Hop to the next hint.
-          if (document.querySelector('[role="dialog"]')) {
+          if (hopsWhenAbsent && document.querySelector('[role="dialog"]')) {
             advancePastHint();
             return;
           }
-          // No dialog at all — the user closed it (Cancel, Escape, a click on the backdrop).
-          // Walking FORWARD through hints whose fields are all equally gone would march the
-          // walkthrough to its last stage and strand it. Rewind to the stage that reopens the
-          // dialog instead, so the coachmark is waiting for them when they come back.
-          const anchor = getResumeAnchorStage(stage!);
-          if (anchor !== stage) useInsightWalkthroughStore.getState().advanceTo(anchor);
           return;
         }
         // Done AFTER the target is resolved but BEFORE anything is drawn, so the wait is on
@@ -1099,18 +1700,22 @@ export function InsightWalkthroughCoachmark(): null {
         const d = driver({
           popoverClass: 'dalgo-tour dalgo-tour-coach',
           overlayColor: '#000000',
-          // No dim, ever: the highlight is the rounded ring on the target (see RING_CLASS)
-          // plus the popover. driver.js still needs an overlay element for its own
-          // positioning/refresh machinery, so it stays — fully transparent and, via
-          // PASSTHROUGH_CLASS, click-through (see tour.css).
-          overlayOpacity: 0,
-          stagePadding: 6,
+          // Dim only on a sidebar hand-off (see SIDEBAR_STAGE_OVERLAY_OPACITY), where the
+          // cutout over the nav item makes it the one lit thing on the page. Everywhere else
+          // the highlight is the rounded ring on the target (see RING_CLASS) plus the popover,
+          // and the overlay is fully transparent — driver.js still needs the element for its
+          // own positioning/refresh machinery, so it stays. Either way it's click-through via
+          // PASSTHROUGH_CLASS (see tour.css): the dim is a visual cue, and the exit guard, not
+          // the overlay, is what holds the user to the step.
+          overlayOpacity: dimsPage ? SIDEBAR_STAGE_OVERLAY_OPACITY : 0,
+          stagePadding: dimsPage ? SIDEBAR_STAGE_PADDING_PX : 6,
           stageRadius: 10,
           // The ✕ is the ONLY exit. `allowClose` gates driver.js's own dismissals — Escape and
           // overlay click — not our close button, which runs through `onCloseClick` below and
           // still works with this false. Leaving it on meant a stray click on the dimmed page
           // tore the coachmark down.
           allowClose: false,
+          allowKeyboardControl: false,
           onPopoverRender: (popover) => {
             popoverRef.current = popover;
             outlinePopoverArrow(popover);
@@ -1128,8 +1733,8 @@ export function InsightWalkthroughCoachmark(): null {
             // Top-right ✕ on every coachmark (same affordance as ProductTour) rather than a
             // worded "Skip"/"Later" link — it ends the whole walkthrough, not just this stage
             // (see onCloseClick).
-            if (config.showNext || config.onDismiss)
-              popover.nextButton.classList.add('dalgo-tour-next-btn');
+            popover.previousButton.classList.add('dalgo-tour-prev-btn');
+            popover.nextButton.classList.add('dalgo-tour-next-btn');
             popover.closeButton.textContent = '✕';
             popover.closeButton.setAttribute('aria-label', 'Skip walkthrough');
             popover.closeButton.setAttribute('data-testid', 'walkthrough-skip-btn');
@@ -1137,16 +1742,65 @@ export function InsightWalkthroughCoachmark(): null {
             alignPopoverCloseWithHeader(popover, 'coachmark');
           },
           onCloseClick: () => {
-            useInsightWalkthroughStore.getState().skip();
-            d.destroy();
+            // Asks rather than skipping outright — the confirmed answer runs skipWalkthrough()
+            // below, which is what this used to do inline. Deferred a tick because this runs
+            // from driver.js's own native click handler: mounting the Dialog synchronously
+            // would let Radix read the still-bubbling click as an outside click and close the
+            // prompt before it's ever seen.
+            setTimeout(() => setLeavePromptOpen(true), 0);
           },
           onDestroyed: () => {
             driverRef.current = null;
             popoverRef.current = null;
+            // No coachmark on screen means nothing to keep the user on: the guard stands down
+            // until the next stage paints. Covers the recovery loop's teardown (a target that
+            // left the DOM) as well as a confirmed skip.
+            coachmarkLiveRef.current = false;
+            guardTargetRef.current = null;
+            guardInteractionRef.current = null;
+            // Back to the stricter default — a stale `true` would leave the guard disarmed for
+            // whatever stage comes next.
+            guardFreeRoamRef.current = false;
+            guardPageRoamRef.current = false;
+            guardExitSelectorsRef.current = [];
           },
         });
         driverRef.current = d;
         const onDismiss = config.showNext ? null : (config.onDismiss ?? null);
+        const previous = previousReviewStage(live.path, stage!, canReviewStage);
+        const reviewNext = nextReviewStage(
+          live.path,
+          stage!,
+          live.reviewReturnStage,
+          canReviewStage
+        );
+        const navigateReview = (backwards: boolean) => {
+          const walkthrough = useInsightWalkthroughStore.getState();
+          if (cancelled || walkthrough.stage !== stage || !walkthrough.active) return;
+          // Fields can disappear after the popover was drawn (e.g. a different
+          // dataset). Re-resolve instead of leaving Back aimed at a missing field.
+          const target = backwards
+            ? previousReviewStage(walkthrough.path, stage!, canReviewStage)
+            : nextReviewStage(
+                walkthrough.path,
+                stage!,
+                walkthrough.reviewReturnStage,
+                canReviewStage
+              );
+          if (!target) return;
+          for (const button of [
+            popoverRef.current?.previousButton,
+            popoverRef.current?.nextButton,
+          ]) {
+            if (button) button.disabled = true;
+          }
+          // Tear down input/blur listeners before changing focus or form steps. A blur
+          // from the field we are leaving must not immediately advance us again.
+          detachEngagement?.();
+          detachEngagement = null;
+          if (backwards) walkthrough.rewindTo(target);
+          else walkthrough.advanceTo(target);
+        };
         const popover: Popover = {
           title: config.title,
           description: config.description,
@@ -1157,7 +1811,15 @@ export function InsightWalkthroughCoachmark(): null {
           // `showButtons: []` default into the step it builds, and that empty array beats the
           // instance-level config, so driver.js renders the close button with an inline
           // `display: none`. That's why these coachmarks had no dismissal control at all.
-          showButtons: config.showNext || onDismiss ? ['next', 'close'] : ['close'],
+          showButtons: [
+            ...(previous ? ['previous' as const] : []),
+            ...(reviewNext || config.showNext || onDismiss ? ['next' as const] : []),
+            'close',
+          ],
+          ...(previous && {
+            prevBtnText: 'Back',
+            onPrevClick: () => navigateReview(true),
+          }),
           ...(config.showNext && {
             nextBtnText: 'Got it',
             onNextClick: () => {
@@ -1165,6 +1827,10 @@ export function InsightWalkthroughCoachmark(): null {
             },
           }),
           ...(onDismiss && { nextBtnText: 'Got it', onNextClick: onDismiss }),
+          ...(reviewNext && {
+            nextBtnText: 'Next',
+            onNextClick: () => navigateReview(false),
+          }),
         };
         // Before the highlight, so driver.js measures the target where it will actually be
         // drawn. Covers the case driver.js's own scroll doesn't: a target hidden by an ANCESTOR
@@ -1192,6 +1858,16 @@ export function InsightWalkthroughCoachmark(): null {
         const interactionEl =
           (config.interactionSelector && document.querySelector(config.interactionSelector)) || el;
         detachEngagement = listenForEngagement(interactionEl);
+        // The stage is now on screen: arm the exit guard against THIS stage's targets. Set
+        // after the highlight so a click landing during the wait above is never judged against
+        // a stale target.
+        guardTargetRef.current = el;
+        guardInteractionRef.current = interactionEl;
+        guardExtraSelectorsRef.current = config.alsoClickable ?? [];
+        guardFreeRoamRef.current = !!config.allowFreeRoam;
+        guardPageRoamRef.current = !!config.allowPageRoam;
+        guardExitSelectorsRef.current = config.pageRoamExits ?? [];
+        coachmarkLiveRef.current = true;
         trackTarget(d, el, () => {
           detachEngagement?.();
           detachEngagement = null;
@@ -1207,17 +1883,32 @@ export function InsightWalkthroughCoachmark(): null {
       cancelAnimationFrame(trackingFrameRef.current);
       cancelled = true;
       detachEngagement?.();
+      coachmarkLiveRef.current = false;
+      guardTargetRef.current = null;
+      guardInteractionRef.current = null;
+      guardFreeRoamRef.current = false;
+      guardPageRoamRef.current = false;
+      guardExitSelectorsRef.current = [];
       document.body.classList.remove(PASSTHROUGH_CLASS);
       ringedElRef.current?.classList.remove(RING_CLASS);
       ringedElRef.current = null;
       driverRef.current?.destroy();
     };
-  }, [active, stage, pathname, suppressCoachmark, trackedConnectionId, trackTarget]);
+  }, [
+    active,
+    stage,
+    pathname,
+    suppressCoachmark,
+    trackedConnectionId,
+    trackTarget,
+    reviewReturnStage,
+  ]);
 
   // Route-driven advances: reaching a mapped route auto-advances to the stage it unlocks.
   useEffect(() => {
     if (!active || !stage) return;
     const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.reviewReturnStage) return;
 
     // dashboard_intro is shared by all 3 forks but unlocks a different next stage
     // depending which one the user took (own-data and automate-pipeline both add
@@ -1259,5 +1950,46 @@ export function InsightWalkthroughCoachmark(): null {
     };
   }, []);
 
-  return null;
+  /** The confirmed exit — what the ✕ used to do inline. */
+  const skipWalkthrough = useCallback(() => {
+    setLeavePromptOpen(false);
+    useInsightWalkthroughStore.getState().skip();
+    driverRef.current?.destroy();
+  }, []);
+
+  // While a coachmark is up, the coached control is the only thing the user can click — its
+  // dropdown's option list included, since that's part of using it. Everything else, Cancel and
+  // ✕ on the dialog the coachmark points into included, asks whether they meant to leave. The
+  // target goes first: the guard reads it to tell a dialog the flow is IN from one the coached
+  // click just opened (see isClickInsideForeignDialog).
+  useWalkthroughExitGuard({
+    // Stays armed while the prompt is up: dropping the guard there let the pointerdown be
+    // cancelled but the FOLLOWING click through, so the card the user clicked opened anyway
+    // behind the prompt. onLeaveIntent is idempotent, so re-raising is a no-op.
+    //
+    // Also armed on a coachmark-less step of a protected modal — see
+    // WALKTHROUGH_PROTECTED_DIALOGS. With no coached target the modal rule is all that applies:
+    // its contents stay free, its ✕ / Cancel / Back and its backdrop ask first.
+    isArmed: () =>
+      (coachmarkLiveRef.current && !guardFreeRoamRef.current) ||
+      (active && document.querySelector(WALKTHROUGH_PROTECTED_DIALOGS) !== null),
+    getAllowedRoots: () => [
+      guardTargetRef.current,
+      guardInteractionRef.current,
+      ...guardExtraSelectorsRef.current.map((selector) => document.querySelector(selector)),
+      guardPageRoamRef.current ? document.querySelector(PAGE_CONTENT_SELECTOR) : null,
+    ],
+    getGuardedExits: () => guardExitSelectorsRef.current,
+    onLeaveIntent: () => setLeavePromptOpen(true),
+  });
+
+  return (
+    <LeaveWalkthroughDialog
+      open={leavePromptOpen}
+      surface="insight_walkthrough"
+      stage={stage}
+      onContinue={() => setLeavePromptOpen(false)}
+      onSkip={skipWalkthrough}
+    />
+  );
 }

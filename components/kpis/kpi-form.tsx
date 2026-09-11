@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
+import { useSWRConfig } from 'swr';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,7 @@ import { useMetrics } from '@/hooks/api/useMetrics';
 import { useTableColumns } from '@/hooks/api/useWarehouse';
 import { createKPI, updateKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { trackEvent } from '@/lib/analytics';
+import { NumberFormats } from '@/lib/formatters';
 import {
   ANALYTICS_EVENTS,
   KPI_CREATE_SOURCES,
@@ -22,10 +24,17 @@ import {
   type KpiCreateSource,
 } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { KPI_STAGE_STEP } from '@/components/onboarding/walkthrough-navigation';
+import {
+  WALKTHROUGH_DEFAULT_KPI_TYPE,
+  WALKTHROUGH_DEFAULT_PROGRAM_TAG,
+  WALKTHROUGH_DEFAULT_TARGET,
+  WALKTHROUGH_PREFERRED_TIME_COLUMN,
+} from '@/components/onboarding/insight-walkthrough-constants';
 import type { KPI, KPICreate, KPIUpdate, KPIExtraConfig } from '@/types/kpis';
 import type { Metric } from '@/types/metrics';
 import { cn } from '@/lib/utils';
-import type { KPIFormData } from './kpi-form-types';
+import { DEFAULT_KPI_DECIMAL_PLACES, type KPIFormData } from './kpi-form-types';
 import { KpiMetricStep, type KpiMetricStepHandle } from './KpiMetricStep';
 import { KpiSetupStep } from './KpiSetupStep';
 import { KpiThresholdsStep } from './KpiThresholdsStep';
@@ -108,7 +117,11 @@ function StepIndicator({ step }: { step: Step }) {
 interface KPIFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
+  /**
+   * @param createdKpiId - id of the KPI just created, or undefined on an edit. The walkthrough
+   *   needs it to point its next coachmark at that exact card (see kpi-page.tsx).
+   */
+  onSuccess: (createdKpiId?: number) => void;
   kpi?: KPI | null;
   preselectedMetricId?: number;
   /** Analytics only — which surface opened this wizard (KPI_CREATE_SOURCES). The KPIs page
@@ -125,6 +138,7 @@ export function KPIForm({
   createSource = KPI_CREATE_SOURCES.KPIS_PAGE,
 }: KPIFormProps) {
   const isEdit = !!kpi;
+  const { mutate } = useSWRConfig();
 
   const [step, setStep] = useState<Step>(1);
   const [saving, setSaving] = useState(false);
@@ -161,49 +175,31 @@ export function KPIForm({
       metric_type_tag: '',
       program_tags: [],
       numberFormat: '',
-      decimalPlaces: '',
+      // Two places by default: KPI values are targets and totals, and an unrounded float
+      // ("1858.4000000000001") is the shape they arrive in from the warehouse. Still a plain
+      // form default — the field is free to change, and clearing it drops the setting entirely.
+      decimalPlaces: DEFAULT_KPI_DECIMAL_PLACES,
       numberPrefix: '',
       numberSuffix: '',
     },
   });
 
   const metricId = watch('metric_id');
-  const targetValue = watch('target_value');
+  const walkthroughStage = useInsightWalkthroughStore((s) => s.stage);
+  useEffect(() => {
+    const reviewStep = walkthroughStage && KPI_STAGE_STEP[walkthroughStage];
+    if (open && !isEdit && reviewStep) {
+      setStep(reviewStep);
+      setStepError(null);
+    }
+  }, [open, isEdit, walkthroughStage]);
   const timeDimensionColumn = watch('time_dimension_column');
-  const metricTypeTag = watch('metric_type_tag');
 
-  // Watch-based rather than only reacting to the Select's onValueChange: if the table has
-  // exactly one date column, Radix's Select never fires onValueChange for re-selecting a
-  // value that's already current — the walkthrough would otherwise wait forever for a
-  // "change" that can't happen. Firing off the watched value itself (present on mount too,
-  // not just on future changes) advances correctly whether the user actively picked it or
-  // it was already set. Advances to kpi_continue (not kpi_type) since KPI Type now lives on
-  // step 3, only reachable once the user clicks step 2's Continue button.
-  useEffect(() => {
-    if (!timeDimensionColumn) return;
-    const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_continue');
-  }, [timeDimensionColumn]);
-
-  // Same watch-based reasoning as the time column effect above — waiting for onBlur
-  // requires the user to lose focus on the field first, which they may not do right away
-  // (e.g. typing a value then reaching for the mouse instead of tabbing away). Reacting to
-  // the value itself advances the moment they've actually entered something.
-  useEffect(() => {
-    if (!targetValue) return;
-    const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_direction');
-  }, [targetValue]);
-
-  // KPI Type is the walkthrough's last field, so picking one moves the coachmark onto the
-  // Create KPI button. Same watch-based approach as the two effects above; guarded on a
-  // truthy value because the type buttons toggle — clicking the selected one clears it back
-  // to '', which shouldn't count as having picked anything.
-  useEffect(() => {
-    if (!metricTypeTag) return;
-    const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_submit');
-  }, [metricTypeTag]);
+  // No advance-on-value effects here for target_value, time_dimension_column or
+  // metric_type_tag: a walkthrough run prefills all three (WALKTHROUGH_DEFAULT_TARGET,
+  // WALKTHROUGH_DEFAULT_KPI_TYPE, and the first date column — see the effect below), so a
+  // watch that advanced on "the field holds something" fired on mount and skipped the very
+  // coachmark explaining the field. Each of those stages moves on with Got it instead.
 
   const { data: metrics, mutate: mutateMetrics } = useMetrics({ pageSize: 50 });
   const { tags: existingTags } = useProgramTags();
@@ -250,16 +246,31 @@ export function KPIForm({
         reset({
           metric_id: preselectedMetricId || null,
           name: '',
-          target_value: '',
+          // Prefilled only for a walkthrough run — see WALKTHROUGH_DEFAULT_TARGET. Everyone
+          // else starts on an empty field, because only they know what they are aiming for.
+          target_value: useInsightWalkthroughStore.getState().active
+            ? WALKTHROUGH_DEFAULT_TARGET
+            : '',
           direction: 'increase',
           green_threshold_pct: '80',
           amber_threshold_pct: '50',
           time_grain: 'monthly',
           time_dimension_column: '',
-          metric_type_tag: '',
-          program_tags: [],
-          numberFormat: '',
-          decimalPlaces: '',
+          // Prefilled only for a walkthrough run — see WALKTHROUGH_DEFAULT_KPI_TYPE. The
+          // walkthrough's KPI stages are read-and-Got-it, so the field arrives answered.
+          metric_type_tag: useInsightWalkthroughStore.getState().active
+            ? WALKTHROUGH_DEFAULT_KPI_TYPE
+            : '',
+          // Prefilled only for a walkthrough run — see WALKTHROUGH_DEFAULT_PROGRAM_TAG.
+          program_tags: useInsightWalkthroughStore.getState().active
+            ? [WALKTHROUGH_DEFAULT_PROGRAM_TAG]
+            : [],
+          // Prefilled for a walkthrough run like the two fields above: the guided KPI's target
+          // is in the millions, and unformatted it reads as an unreadable run of digits.
+          numberFormat: useInsightWalkthroughStore.getState().active
+            ? NumberFormats.ADAPTIVE_INDIAN
+            : '',
+          decimalPlaces: DEFAULT_KPI_DECIMAL_PLACES,
           numberPrefix: '',
           numberSuffix: '',
         });
@@ -268,6 +279,24 @@ export function KPIForm({
       setStepError(null);
     }
   }, [open, kpi, preselectedMetricId, reset, mutateMetrics]);
+
+  // Preselect the time column for a walkthrough run, so the guided KPI needs no dropdown of its
+  // own — the kpi_time_column coachmark explains what was picked and Got it moves on. Prefers the
+  // column named "date" (the sample dataset's), falling back to the first date column for any
+  // other table. Only on create, and only while the field is still empty, so a user who picks
+  // another column (or an edit, where the KPI's own column is loaded) is never overwritten.
+  //
+  // Declared AFTER the reset effect above and not folded into its defaults: the columns arrive
+  // async, and an effect placed before the reset set a value that the same commit's reset()
+  // wiped straight back to '' — leaving the watched value unchanged, so nothing re-ran it.
+  useEffect(() => {
+    if (!open || isEdit || timeDimensionColumn || dateColumns.length === 0) return;
+    if (!useInsightWalkthroughStore.getState().active) return;
+    const preferred = dateColumns.find(
+      (col) => col.name?.toLowerCase() === WALKTHROUGH_PREFERRED_TIME_COLUMN
+    );
+    setValue('time_dimension_column', (preferred ?? dateColumns[0]).name);
+  }, [open, isEdit, timeDimensionColumn, dateColumns, setValue]);
 
   const handleMetricSelected = (id: number, name: string) => {
     const existing = metrics.find((m) => m.id === id);
@@ -322,9 +351,10 @@ export function KPIForm({
     if (ok) {
       setStep(3);
       // Catches up anyone who skipped the step-2 hints (a defaulted dropdown left alone, a
-      // field clicked past) — advanceIfBefore only ever moves forward.
+      // field clicked past) — advanceIfBefore only ever moves forward. Lands on the first of
+      // step 3's stages, which is the RAG explainer.
       const walkthrough = useInsightWalkthroughStore.getState();
-      if (walkthrough.active) walkthrough.advanceIfBefore('kpi_type');
+      if (walkthrough.active) walkthrough.advanceIfBefore('kpi_thresholds');
     }
   };
 
@@ -361,6 +391,10 @@ export function KPIForm({
     const extraConfig: KPIExtraConfig =
       Object.keys(customizations).length > 0 ? { customizations } : {};
 
+    // Set on the create path only, and handed to onSuccess below — the response is the only
+    // place the new id exists.
+    let createdKpiId: number | undefined;
+
     try {
       if (isEdit && kpi) {
         const updateData: KPIUpdate = {
@@ -376,7 +410,8 @@ export function KPIForm({
           program_tags: data.program_tags,
           extra_config: extraConfig,
         };
-        await updateKPI(kpi.id, updateData);
+        const updated = await updateKPI(kpi.id, updateData);
+        await mutate(`/api/kpis/${kpi.id}/`, updated, { revalidate: false });
         trackEvent(ANALYTICS_EVENTS.KPI_UPDATED, {
           kpi_id: kpi.id,
           metric_type_tag: data.metric_type_tag || null,
@@ -405,6 +440,7 @@ export function KPIForm({
           extra_config: extraConfig,
         };
         const created = await createKPI(createData);
+        createdKpiId = created.id;
         // kpi_id from the response — it is the only place the new id exists, and it is what
         // lets created -> viewed -> deleted be joined for one KPI.
         trackEvent(ANALYTICS_EVENTS.KPI_CREATED, {
@@ -420,7 +456,7 @@ export function KPIForm({
           });
         }
       }
-      onSuccess();
+      onSuccess(createdKpiId);
       onOpenChange(false);
     } catch (err: any) {
       setSaveError(err.message || 'Failed to save KPI');
@@ -441,6 +477,8 @@ export function KPIForm({
         <StepIndicator step={step} />
 
         <form
+          data-testid="kpi-form"
+          data-has-time-column={dateColumns.length > 0}
           onSubmit={(e) => {
             e.preventDefault();
             if (step === 3) handleSubmit(onSubmit)(e);

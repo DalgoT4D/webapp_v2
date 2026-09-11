@@ -30,8 +30,20 @@ export type WalkthroughStage =
   | 'kpi_direction'
   | 'kpi_continue'
   | 'kpi_time_column'
+  // Step 3's two explainers, ahead of KPI Type. Both are things an NGO has to understand
+  // before the numbers on the card mean anything — what makes a KPI green rather than red,
+  // and which programme the KPI belongs to — and neither was coached at all.
+  | 'kpi_thresholds'
+  | 'kpi_program_tags'
   | 'kpi_type'
   | 'kpi_submit'
+  // Look at the KPI you just built. All three live inside the detail drawer, which the
+  // celebration dialog's "View KPI" opens directly — no stage rings the new card first.
+  | 'kpi_duration'
+  | 'kpi_add_note'
+  // The drawer's ✕. Coached because the next stage rings the Dashboards nav item, which the
+  // 600px drawer covers — closing it is a real step, not an escape.
+  | 'kpi_close_drawer'
   | 'dashboard_nudge'
   | 'dashboard_intro'
   | 'builder_add_kpi'
@@ -54,6 +66,21 @@ export type WalkthroughStage =
   | 'own_data_ingest'
   | 'own_data_pick_source'
   | 'own_data_source_next'
+  // The rest of the add-source wizard, which used to run uncoached. Split by wizard step
+  // because the two halves have different audiences:
+  //  - *_sheet_link / *_sheet_auth / *_config_next are the CONFIGURE step, whose fields are
+  //    the chosen source's own. Only a Google Sheets run enters them (see
+  //    CreateSourceStep) — a Postgres user has no spreadsheet link to be coached about.
+  //  - *_streams_scroll / *_streams_cast / *_connection_create are the SELECT DATA step,
+  //    which looks the same whatever the source, so every run enters it. The cast stage is
+  //    the one exception and is stepped over where casting isn't offered (see
+  //    connection-form-body.tsx).
+  | 'own_data_sheet_link'
+  | 'own_data_sheet_auth'
+  | 'own_data_config_next'
+  | 'own_data_streams_scroll'
+  | 'own_data_streams_cast'
+  | 'own_data_connection_create'
   // The two states of waiting on the tracked connection's first sync, shared by BOTH real-data
   // forks (own_data and automate_pipeline) — the wait is identical, only what comes after it
   // differs (see POST_SYNC_STAGE_FOR), so one pair of stages serves both.
@@ -96,6 +123,14 @@ export type WalkthroughStage =
   | 'pipeline_ingest'
   | 'pipeline_pick_source'
   | 'pipeline_source_next'
+  // This fork's copies of the wizard stages above — same wizard, same copy, separate ids so
+  // each fork rewinds to its own ingest step.
+  | 'pipeline_sheet_link'
+  | 'pipeline_sheet_auth'
+  | 'pipeline_config_next'
+  | 'pipeline_streams_scroll'
+  | 'pipeline_streams_cast'
+  | 'pipeline_connection_create'
   | 'pipeline_transform_intro'
   | 'pipeline_workflow_intro'
   | 'pipeline_pick_table'
@@ -138,8 +173,14 @@ export const WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   // count as AFTER Continue, so the checkpoint could never catch anyone up from it.
   'kpi_time_column',
   'kpi_continue',
+  // Step 3, in the order the step renders: RAG thresholds, then Program Tags, then KPI Type.
+  'kpi_thresholds',
+  'kpi_program_tags',
   'kpi_type',
   'kpi_submit',
+  'kpi_duration',
+  'kpi_add_note',
+  'kpi_close_drawer',
   'dashboard_nudge',
   'dashboard_intro',
   'builder_add_kpi',
@@ -208,11 +249,37 @@ const TRANSFORM_ORCHESTRATE_STAGES: WalkthroughStage[] = [
 // again at dashboard_intro, which both paths reuse). Contains no pipeline_* stage by
 // design: connecting your own data and charting it is the whole flow. Also the order used
 // when the chart tail is entered directly, without the fork — see CHART_ENTRY_STAGE.
+/**
+ * The add-source wizard's own steps, in the order the wizard renders them, for each fork.
+ *
+ * Named arrays rather than inline entries because five separate places need exactly this set:
+ * the fork's order, INGEST_STAGES (and through it the sync-watch sets), and the wizard-rewind
+ * map. Spelling it out at each of those was how the earlier ingest stages drifted.
+ */
+export const OWN_DATA_WIZARD_STAGES: WalkthroughStage[] = [
+  'own_data_sheet_link',
+  'own_data_sheet_auth',
+  'own_data_config_next',
+  'own_data_streams_scroll',
+  'own_data_streams_cast',
+  'own_data_connection_create',
+];
+
+export const PIPELINE_WIZARD_STAGES: WalkthroughStage[] = [
+  'pipeline_sheet_link',
+  'pipeline_sheet_auth',
+  'pipeline_config_next',
+  'pipeline_streams_scroll',
+  'pipeline_streams_cast',
+  'pipeline_connection_create',
+];
+
 export const OWN_DATA_WALKTHROUGH_STAGE_ORDER: WalkthroughStage[] = [
   'fork2',
   'own_data_ingest',
   'own_data_pick_source',
   'own_data_source_next',
+  ...OWN_DATA_WIZARD_STAGES,
   ...CHART_TO_SHARE_TAIL,
 ];
 
@@ -225,6 +292,7 @@ export const AUTOMATE_PIPELINE_STAGE_ORDER: WalkthroughStage[] = [
   'pipeline_ingest',
   'pipeline_pick_source',
   'pipeline_source_next',
+  ...PIPELINE_WIZARD_STAGES,
   ...TRANSFORM_ORCHESTRATE_STAGES,
 ];
 
@@ -281,12 +349,18 @@ export const INGEST_STAGES: WalkthroughStage[] = [
   'own_data_ingest',
   'own_data_pick_source',
   'own_data_source_next',
+  // The wizard's own steps count as ingest: the connection is CREATED on the last of them, and
+  // CONNECTION_WATCH_STAGES (built from this list) is what decides whether that connection
+  // becomes the one the walkthrough follows to its first sync. Omit them and the flow parks on
+  // "connect your data" with the data already syncing.
+  ...OWN_DATA_WIZARD_STAGES,
   // The nudge included: "go connect your data" is just as misleading as "add a source" once
   // the connection they already made is mid-sync.
   'pipeline_ingest_nudge',
   'pipeline_ingest',
   'pipeline_pick_source',
   'pipeline_source_next',
+  ...PIPELINE_WIZARD_STAGES,
 ];
 
 /** Every stage from which the sync checkpoint may show a waiting/failed coachmark. */
@@ -322,6 +396,63 @@ export const CONNECTION_WATCH_STAGES: WalkthroughStage[] = [...INGEST_STAGES, 's
  * Unknown stages (not in this fork's order) count as "before" — better to advance than to
  * leave the walkthrough stuck behind a stage that isn't part of this path at all.
  */
+/**
+ * Target prefilled into the KPI created during the walkthrough, and quoted in the coachmark
+ * copy that explains it.
+ *
+ * A round, obviously-a-placeholder number, left editable. Lives here because the form fills the
+ * field and the coachmark names it — the two must not disagree.
+ */
+export const WALKTHROUGH_DEFAULT_TARGET = '10000000';
+
+/** The same target, grouped for prose ("10,000,000"). The input needs the bare string. */
+export const WALKTHROUGH_DEFAULT_TARGET_DISPLAY = Number(WALKTHROUGH_DEFAULT_TARGET).toLocaleString(
+  'en-US'
+);
+
+/**
+ * Program tag prefilled into the KPI created during the walkthrough.
+ *
+ * The tag is how an NGO later filters its KPIs by programme, and an empty field taught none of
+ * that. One filled-in tag shows what a tag looks like and leaves the user something to remove or
+ * rename — see the kpi_program_tags coachmark. Editable, like the target above.
+ */
+export const WALKTHROUGH_DEFAULT_PROGRAM_TAG = 'Education';
+
+/**
+ * KPI type prefilled into the KPI created during the walkthrough. Must stay one of
+ * METRIC_TYPE_TAG_OPTIONS' values (types/kpis.ts).
+ *
+ * Impact is the top of a results framework and the tag most NGOs recognise, so it's the one that
+ * explains the field on sight. Prefilled — like the target and the programme tag — so the whole
+ * KPI flow is Got it clicks rather than decisions; the coachmark names it and it stays editable.
+ */
+export const WALKTHROUGH_DEFAULT_KPI_TYPE = 'impact';
+
+/** The same KPI type, capitalised as it reads on the button and in coachmark prose. */
+export const WALKTHROUGH_DEFAULT_KPI_TYPE_DISPLAY = 'Impact';
+
+/**
+ * Time column preselected into the KPI created during the walkthrough, matched case-insensitively
+ * against the metric table's date columns.
+ *
+ * The sample dataset's date column is called "date", so a walkthrough on sample data lands on the
+ * intended column by name. Any other table falls back to its first date column — see kpi-form.tsx.
+ */
+export const WALKTHROUGH_PREFERRED_TIME_COLUMN = 'date';
+
+/**
+ * The metric the walkthrough's KPI is built on, when the org has one by this name.
+ *
+ * The picker is capped at a single option for a walkthrough run (see WALKTHROUGH_METRIC_LIMIT in
+ * KpiMetricStep) so the step needs a click rather than a decision. Which option that is used to
+ * be "whatever the API returned first" — an arbitrary metric whose value could be anything,
+ * including one that charts as nothing. This names the seeded sample metric instead, so the
+ * guided KPI lands on a number that reads sensibly. Falls back to the first metric wherever it
+ * doesn't exist (an org with its own metrics library, sample data not seeded).
+ */
+export const WALKTHROUGH_METRIC_NAME = 'total_students';
+
 export function isStageBefore(
   path: WalkthroughPath | null,
   stage: WalkthroughStage,
@@ -373,8 +504,49 @@ export const SOURCE_NEXT_STAGE_FOR: Partial<Record<WalkthroughStage, Walkthrough
 };
 
 /**
- * Every stage whose coachmark target lives INSIDE the add-source wizard dialog — the picker
- * and its Next button — mapped to the "click New Source" stage that reopens it.
+ * Where the walkthrough picks up when the CONFIGURE step of the add-source wizard mounts —
+ * keyed by the stage the run is currently on, so only a run that is genuinely at the wizard's
+ * door walks through it.
+ *
+ * Entered from the picker's Next stage, and Google Sheets only (see CreateSourceStep): the
+ * stages behind this map describe Google's own fields. Everything else carries on as it did
+ * before these stages existed — silent through configure, rejoining at the connection step.
+ */
+export const WIZARD_CONFIG_ENTRY_STAGE_FOR: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
+  own_data_source_next: 'own_data_sheet_link',
+  pipeline_source_next: 'pipeline_sheet_link',
+};
+
+/**
+ * Where the walkthrough picks up when the SELECT DATA step mounts, keyed by the fork.
+ *
+ * Unlike the configure step this is source-agnostic — the connection form looks the same
+ * whatever was picked — so every run enters it, including the ones that skipped the configure
+ * coachmarks entirely. `advanceIfBefore` is what makes that safe: a Google Sheets run is
+ * already past these, and jumping a Postgres run forward from the picker's Next stage is
+ * exactly the intent.
+ */
+export const WIZARD_STREAMS_ENTRY_STAGE_FOR: Partial<Record<WalkthroughPath, WalkthroughStage>> = {
+  own_data: 'own_data_streams_scroll',
+  automate_pipeline: 'pipeline_streams_scroll',
+};
+
+/**
+ * The stage to skip the cast coachmark forward to, keyed by the cast stage itself.
+ *
+ * Casting is offered for Google Sheets alone (see isCastSupportedSource), so for every other
+ * source the "cast a numeric column" stage points at a column that isn't rendered. Rather than
+ * let it sit there waiting, the connection form steps straight over it.
+ */
+export const WIZARD_CAST_SKIP_STAGE_FOR: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
+  own_data_streams_cast: 'own_data_connection_create',
+  pipeline_streams_cast: 'pipeline_connection_create',
+};
+
+/**
+ * Every stage whose coachmark target lives INSIDE the add-source wizard dialog — the picker,
+ * its Next button, and each of the wizard's own steps — mapped to the "click New Source" stage
+ * that reopens it.
  *
  * Two consumers, both needing the same set:
  *  - ingest-view.tsx, which otherwise hides every coachmark while the wizard is open (these
@@ -383,11 +555,21 @@ export const SOURCE_NEXT_STAGE_FOR: Partial<Record<WalkthroughStage, Walkthrough
  *    waiting on a card that no longer exists.
  *  - RESUME_ANCHOR_STAGES below, for the same reason on a cold page load.
  */
+const WIZARD_STAGES_FOR_PICK_SOURCE: Partial<Record<WalkthroughStage, WalkthroughStage[]>> = {
+  own_data_pick_source: OWN_DATA_WIZARD_STAGES,
+  pipeline_pick_source: PIPELINE_WIZARD_STAGES,
+};
+
 export const PICK_SOURCE_REWIND_STAGES: Partial<Record<WalkthroughStage, WalkthroughStage>> =
   Object.fromEntries(
     Object.entries(PICK_SOURCE_TO_INGEST_STAGE).flatMap(([pickStage, ingestStage]) => [
       [pickStage, ingestStage],
       [SOURCE_NEXT_STAGE_FOR[pickStage as WalkthroughStage]!, ingestStage],
+      // Every later step of the same wizard rewinds to the same place. They are all inside the
+      // dialog, so closing it strands them exactly as it strands the picker.
+      ...(WIZARD_STAGES_FOR_PICK_SOURCE[pickStage as WalkthroughStage] ?? []).map(
+        (wizardStage) => [wizardStage, ingestStage] as const
+      ),
     ])
   );
 
@@ -415,8 +597,15 @@ export const RESUME_ANCHOR_STAGES: Partial<Record<WalkthroughStage, WalkthroughS
   kpi_direction: 'kpi_intro',
   kpi_continue: 'kpi_intro',
   kpi_time_column: 'kpi_intro',
+  kpi_thresholds: 'kpi_intro',
+  kpi_program_tags: 'kpi_intro',
   kpi_type: 'kpi_intro',
   kpi_submit: 'kpi_intro',
+  // A reload closes the drawer and nothing on a cold /kpis reopens it, so these resume FORWARD.
+  // Looking at the KPI is optional; the dashboard is what's still owed.
+  kpi_duration: 'dashboard_nudge',
+  kpi_add_note: 'dashboard_nudge',
+  kpi_close_drawer: 'dashboard_nudge',
   // The builder stages need a dashboard in progress — an unsaved one is gone on reload, so
   // re-enter at "create a dashboard". 'share' needs a dashboard id we can't know either.
   builder_add_kpi: 'dashboard_intro',
@@ -574,8 +763,18 @@ function hasMilestone(prefix: string): boolean {
   }
 }
 
+/**
+ * Retired stage ids still sitting in localStorage, mapped forward. Without this a stale id
+ * resumes into a stage with no coachmark: nothing renders and the entry point reads as dead.
+ */
+const RETIRED_WALKTHROUGH_STAGES: Record<string, WalkthroughStage> = {
+  kpi_view_card: 'dashboard_nudge',
+};
+
 export function getStoredWalkthroughStage(flow: WalkthroughFlow): WalkthroughStage | null {
-  return (readFlowValue(STAGE_STORAGE_PREFIX, flow) as WalkthroughStage) || null;
+  const stored = readFlowValue(STAGE_STORAGE_PREFIX, flow);
+  if (!stored) return null;
+  return RETIRED_WALKTHROUGH_STAGES[stored] ?? (stored as WalkthroughStage);
 }
 
 export function saveWalkthroughStage(flow: WalkthroughFlow, stage: WalkthroughStage): void {
@@ -687,6 +886,71 @@ export function clearActiveWalkthroughFlow(): void {
   } catch {
     // no-op
   }
+}
+
+/**
+ * Flows the user walked out of on purpose — "Exit walkthrough" on the leave prompt — and has
+ * not restarted since.
+ *
+ * An intentional exit RESETS its flow: restarting asks the fork question again instead of
+ * fast-forwarding off milestones earned in the run that was just abandoned. This is the record
+ * of that, and it exists because neither other source can carry it:
+ *  - the flow's own scratch keys (stage, chosen fork) are dropped the moment skip()'s backend
+ *    write lands, so localStorage otherwise can't tell an exited flow from one never started;
+ *  - the backend's `skipped` flag is refreshed by an async refetch, which a user clicking
+ *    straight back into the checklist can easily beat.
+ *
+ * So the key is written synchronously by skip(), and is scoped per user+org WITHOUT the flow
+ * segment — deliberately, so clearWalkthroughStorage (which matches keys ending
+ * `<flow>_<userId>_<orgSlug>`) can't take it along with the scratch space it's there to outlive.
+ * The flows themselves are held in the value.
+ *
+ * Cleared when the flow is actually restarted (a fork picked, or a forkless flow started), not
+ * when the fork is merely offered: a user who closes that dialog without choosing hasn't
+ * restarted anything and must be asked again.
+ */
+const EXITED_FLOWS_STORAGE_PREFIX = 'dalgo_insight_walkthrough_exited_';
+
+function readExitedFlows(): WalkthroughFlow[] {
+  try {
+    const scope = getWalkthroughScope();
+    if (!scope) return [];
+    const raw = localStorage.getItem(scopedKey(EXITED_FLOWS_STORAGE_PREFIX, scope));
+    if (!raw) return [];
+    return raw
+      .split(',')
+      .filter(
+        (flow): flow is WalkthroughFlow => flow === 'insights' || flow === 'automate_pipeline'
+      );
+  } catch {
+    return [];
+  }
+}
+
+function writeExitedFlows(flows: WalkthroughFlow[]): void {
+  try {
+    const scope = getWalkthroughScope();
+    if (!scope) return;
+    const key = scopedKey(EXITED_FLOWS_STORAGE_PREFIX, scope);
+    if (flows.length === 0) localStorage.removeItem(key);
+    else localStorage.setItem(key, flows.join(','));
+  } catch {
+    // no-op
+  }
+}
+
+export function markWalkthroughExited(flow: WalkthroughFlow): void {
+  const flows = readExitedFlows();
+  if (!flows.includes(flow)) writeExitedFlows([...flows, flow]);
+}
+
+export function hasWalkthroughExited(flow: WalkthroughFlow): boolean {
+  return readExitedFlows().includes(flow);
+}
+
+export function clearWalkthroughExited(flow: WalkthroughFlow): void {
+  const flows = readExitedFlows();
+  if (flows.includes(flow)) writeExitedFlows(flows.filter((entry) => entry !== flow));
 }
 
 // --- Shared milestones ---

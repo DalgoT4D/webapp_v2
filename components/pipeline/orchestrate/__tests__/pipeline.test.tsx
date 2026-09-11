@@ -14,7 +14,7 @@ import * as usePipelinesHook from '@/hooks/api/usePipelines';
 import * as rbac from '@/lib/rbac';
 import type { Pipeline, TransformTask, PipelineDetailResponse } from '@/types/pipeline';
 import type { Connection } from '@/types/connections';
-import { LockStatus } from '@/constants/pipeline';
+import { DEFAULT_PIPELINE_NAME, LockStatus } from '@/constants/pipeline';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 
 // ============ Mocks ============
@@ -419,6 +419,9 @@ describe('PipelineForm', () => {
 
     // Form input
     const nameInput = screen.getByTestId('name');
+    // Create mode ships with a prefilled name (DEFAULT_PIPELINE_NAME), which the user overwrites.
+    expect(nameInput).toHaveValue(DEFAULT_PIPELINE_NAME);
+    await user.clear(nameInput);
     await user.type(nameInput, 'My New Pipeline');
     expect(nameInput).toHaveValue('My New Pipeline');
 
@@ -476,6 +479,7 @@ describe('PipelineForm', () => {
     const user = userEvent.setup();
     render(<PipelineForm />);
 
+    await user.clear(screen.getByTestId('name'));
     await user.type(screen.getByTestId('name'), 'Connection only');
     await user.click(screen.getByTestId('connections-search'));
     await user.click(screen.getByTestId('connections-item-conn-1'));
@@ -498,6 +502,7 @@ describe('PipelineForm', () => {
     const user = userEvent.setup();
     render(<PipelineForm />);
 
+    await user.clear(screen.getByTestId('name'));
     await user.type(screen.getByTestId('name'), 'Transform only');
     await user.click(screen.getByTestId('run-transform-tasks-checkbox'));
     await user.click(screen.getByTestId('cron-input'));
