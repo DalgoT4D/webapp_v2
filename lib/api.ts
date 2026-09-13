@@ -4,6 +4,45 @@ import { useAuthStore } from '@/stores/authStore';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8002';
 
+// The admin portal shares the normal session cookie — it signs in through
+// POST /api/v2/login/ and every admin route is gated by @platform_admin_required. So a
+// 401 refreshes through the SAME token endpoint as everything else. What stays
+// admin-aware is only where we send the user when auth is unrecoverable: an admin route
+// must land on /admin/login, not the product login.
+const ADMIN_API_PREFIX = '/api/v1/admin';
+
+// Signing in is not a session that can expire: a 401 from these endpoints means "those
+// credentials are wrong", so there is nothing to refresh, nothing to log out of and
+// nowhere to bounce to. The caller (the sign-in form) renders the message itself.
+const AUTH_ENDPOINTS = ['/api/v2/login/', '/api/v2/token/refresh'];
+
+export function isAdminPath(path: string): boolean {
+  return path.startsWith(ADMIN_API_PREFIX);
+}
+
+export function isAuthEndpoint(path: string): boolean {
+  return AUTH_ENDPOINTS.some((endpoint) => path.startsWith(endpoint));
+}
+
+function isAdminUiPath(pathname: string): boolean {
+  return pathname === '/admin' || pathname.startsWith('/admin/');
+}
+
+/**
+ * Where an unrecoverable auth failure should land the user.
+ *
+ * The BROWSER path decides first, because the admin portal signs in through the shared
+ * /api/v2/login/ — not an /api/v1/admin/* path. Keying off the request alone sent a
+ * failed admin sign-in to the product login. `path` is still the fallback, for an admin
+ * call made from outside the /admin UI.
+ */
+export function adminAwareLoginPath(path: string, currentPath?: string): string {
+  if (currentPath && isAdminUiPath(currentPath)) {
+    return '/admin/login';
+  }
+  return isAdminPath(path) ? '/admin/login' : '/login';
+}
+
 // Track ongoing refresh request to prevent multiple simultaneous refreshes
 let isRefreshing = false;
 let refreshPromise: Promise<boolean> = Promise.resolve(false);
@@ -45,30 +84,31 @@ function getHeaders() {
   };
 }
 
-function handleAuthFailure() {
-  if (typeof window !== 'undefined') {
-    // Don't redirect if we're on a public dashboard page
-    const currentPath = window.location.pathname;
-    if (
-      currentPath.startsWith('/share/dashboard/') ||
-      currentPath.startsWith('/public/dashboard/') ||
-      currentPath.startsWith('/share/report/')
-    ) {
-      console.log('[handleAuthFailure] Ignoring auth failure on public page');
-      return;
-    }
+function handleAuthFailure(requestPath: string) {
+  if (typeof window === 'undefined') {
+    return;
+  }
 
-    // Clear organization selection
-    localStorage.removeItem('selectedOrg');
+  // Don't redirect if we're on a public dashboard page
+  const currentPath = window.location.pathname;
+  if (
+    currentPath.startsWith('/share/dashboard/') ||
+    currentPath.startsWith('/public/dashboard/') ||
+    currentPath.startsWith('/share/report/')
+  ) {
+    console.log('[handleAuthFailure] Ignoring auth failure on public page');
+    return;
+  }
 
-    // Update auth store
-    const store = useAuthStore.getState();
-    store.logout();
+  // One shared session now, so an admin 401 means the SAME session is gone: clear org
+  // selection + auth store exactly as for any other route. Only the destination differs
+  // — an admin route sends them to /admin/login rather than the product login.
+  const loginPath = adminAwareLoginPath(requestPath, currentPath);
 
-    // Navigate to login page
-    if (window.location.pathname !== '/login') {
-      window.location.href = '/login';
-    }
+  localStorage.removeItem('selectedOrg');
+  useAuthStore.getState().logout();
+  if (currentPath !== loginPath) {
+    window.location.href = loginPath;
   }
 }
 
@@ -95,8 +135,12 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
       credentials: 'include', // Always include cookies
     });
 
-    // Handle 498 - access token expired, try to refresh using refresh token
-    if (response.status === 498) {
+    // Handle 498 - access token expired, try to refresh using refresh token.
+    // Sign-in endpoints are exempt from the whole recovery path: a rejection there
+    // answers "are these credentials valid?", it is not an expired session. Refreshing,
+    // clearing the store and navigating away all just stop the form from showing the
+    // error (it used to throw the admin sign-in out to the product /login).
+    if (response.status === 498 && !isAuthEndpoint(path)) {
       if (retryCount === 0) {
         // Prevent multiple simultaneous refresh attempts
         if (!isRefreshing) {
@@ -114,14 +158,18 @@ async function apiFetch(path: string, options: RequestInit = {}, retryCount = 0)
         }
       }
 
-      // Refresh failed or retry still got 498 - logout the user
-      handleAuthFailure();
+      // Refresh failed or retry still got 498 - logout the user.
+      // `path` decides the destination: an /api/v1/admin/* route lands on /admin/login.
+      handleAuthFailure(path);
       throw new Error('Authentication failed. Please log in again.');
     }
 
-    // Handle 401 - completely unauthorized (blacklisted, invalid, or refresh token expired)
-    if (response.status === 401) {
-      handleAuthFailure();
+    // Handle 401 - completely unauthorized (blacklisted, invalid, or refresh token
+    // expired). Nothing to refresh, so this logs out immediately — but sign-in
+    // endpoints stay exempt for the same reason as above: a 401 from /api/v2/login/
+    // is "wrong password", and the form has to be left alone to render it.
+    if (response.status === 401 && !isAuthEndpoint(path)) {
+      handleAuthFailure(path);
       throw new Error('Authentication failed. Please log in again.');
     }
 

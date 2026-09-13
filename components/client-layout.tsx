@@ -3,6 +3,8 @@
 import { usePathname } from 'next/navigation';
 import { AuthGuard } from '@/components/auth-guard';
 import { MainLayout } from '@/components/main-layout';
+import { AdminGuard } from '@/components/admin/AdminGuard';
+import { AdminLayout } from '@/components/admin/AdminLayout';
 import { NavigationTitleHandler } from '@/components/navigation-title-handler';
 import { Toaster } from 'sonner';
 import { usePostHogIdentify } from '@/hooks/usePostHogIdentify';
@@ -21,6 +23,9 @@ export function ClientLayout({ children }: ClientLayoutProps) {
   const pathname = usePathname();
   const isPublicRoute =
     publicRoutes.includes(pathname) ||
+    // the admin portal's own sign-in — public, so it is NOT wrapped in AuthGuard/AdminGuard
+    // (which would bounce an unauthenticated visitor away before they could sign in)
+    pathname === '/admin/login' ||
     pathname.startsWith('/public/dashboard/') ||
     pathname.startsWith('/share/dashboard/') ||
     pathname.startsWith('/share/report/') ||
@@ -50,6 +55,25 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     return (
       <div id="client-layout-public-route">
         {children}
+        <Toaster richColors position="top-center" />
+      </div>
+    );
+  }
+
+  // Admin portal - gated by AdminGuard alone, its own sidebar shell.
+  // Deliberately NOT wrapped in AuthGuard, even though the session is now shared with the
+  // normal product: AuthGuard pushes to /login when /api/currentuserv2 comes back empty,
+  // which would bounce an admin who signed in at /admin/login into the normal app's
+  // post-login flow. AdminGuard is the right gate here — it resolves identity from
+  // /api/v1/admin/currentuser (@platform_admin_required) and sends non-admins to
+  // /admin/login.
+  if (pathname.startsWith('/admin')) {
+    return (
+      <div id="client-layout-admin-route">
+        <NavigationTitleHandler />
+        <AdminGuard>
+          <AdminLayout>{children}</AdminLayout>
+        </AdminGuard>
         <Toaster richColors position="top-center" />
       </div>
     );
