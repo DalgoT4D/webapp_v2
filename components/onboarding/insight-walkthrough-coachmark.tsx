@@ -737,8 +737,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     hopIfMissing: true,
     selector: '[data-testid="kpi-form-time-column-field"]',
     title: 'Time column',
-    description:
-      'The date column Dalgo uses to track this KPI’s trend over time. We have picked one from your data — switch to another date column if it suits your programme better.',
+    description: 'The date column Dalgo uses to track this KPI’s trend over time.',
   },
   // Step 3's two explainers. Both read-and-continue stages (`advanceOn: 'never'` + Got it):
   // the fields arrive already filled — 80 / 50 for the bands, WALKTHROUGH_DEFAULT_PROGRAM_TAG
@@ -1480,6 +1479,7 @@ export function InsightWalkthroughCoachmark() {
   const pathname = usePathname();
   const active = useInsightWalkthroughStore((s) => s.active);
   const stage = useInsightWalkthroughStore((s) => s.stage);
+  const path = useInsightWalkthroughStore((s) => s.path);
   const reviewReturnStage = useInsightWalkthroughStore((s) => s.reviewReturnStage);
   const suppressCoachmark = useInsightWalkthroughStore((s) => s.suppressCoachmark);
   const trackedConnectionId = useInsightWalkthroughStore((s) => s.trackedConnectionId);
@@ -1800,7 +1800,10 @@ export function InsightWalkthroughCoachmark() {
         };
         const popover: Popover = {
           title: config.title,
-          description: config.description,
+          description:
+            stage === 'kpi_time_column' && path === 'sample'
+              ? `${config.description} We have picked one from the sample data.`
+              : config.description,
           side: config.side ?? 'right',
           align: config.align ?? 'start',
           // Must be set HERE, per popover — NOT as a driver() config option. `driver.highlight()`
@@ -1894,6 +1897,7 @@ export function InsightWalkthroughCoachmark() {
   }, [
     active,
     stage,
+    path,
     pathname,
     suppressCoachmark,
     trackedConnectionId,
