@@ -991,8 +991,13 @@ describe('InsightWalkthroughCoachmark', () => {
         expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_streams_cast')
       );
       rerender(<InsightWalkthroughCoachmark />);
-      await waitFor(() => expect(popoverTitle()).toContain('Review your column types'));
-      expect(popoverDescription()).toContain('Column type dropdown');
+      await waitFor(() =>
+        expect(popoverTitle()).toContain('Choose the right type for each column')
+      );
+      expect(popoverDescription()).toContain('“String” means Dalgo reads the column as text');
+      expect(popoverDescription()).toContain(
+        'In Column type, choose Numeric for amounts or counts'
+      );
       expect(popoverDescription()).toContain('Confirm column types for each table');
 
       await userEvent.click(gotIt()!);
@@ -1041,8 +1046,12 @@ describe('InsightWalkthroughCoachmark', () => {
       setStage('own_data_streams_cast', { path: 'own_data' });
       render(<InsightWalkthroughCoachmark />);
 
-      await waitFor(() => expect(popoverTitle()).toContain('Review your column types'));
-      expect(popoverDescription()).toContain('Column type dropdown');
+      await waitFor(() =>
+        expect(popoverTitle()).toContain('Choose the right type for each column')
+      );
+      expect(popoverDescription()).toContain(
+        'In Column type, choose Numeric for amounts or counts'
+      );
     });
 
     it('coaches the pipeline fork through the same wizard', async () => {

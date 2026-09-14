@@ -199,9 +199,9 @@ function wizardStageConfigs(
       advanceOn: 'never',
       showNext: true,
       nextOnInteraction: connectionCreate,
-      title: 'Review your column types',
+      title: 'Choose the right type for each column',
       description:
-        'Review the detected type in each Column type dropdown. Choose a number type for numeric values and Date or Timestamp for dates when needed. Then click Confirm column types for each table you want to sync. The badge beside each table shows whether it still needs confirmation.',
+        '“String” means Dalgo reads the column as text, even if it contains numbers or dates. Leave this selected for names and descriptions. In Column type, choose Numeric for amounts or counts so Dalgo can use them in calculations, and Date for dates. Then click Confirm column types for each table.',
       side: 'right',
       align: 'start',
     },
