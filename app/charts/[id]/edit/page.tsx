@@ -88,7 +88,8 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         legendPosition: 'top',
         xAxisTitle: '',
         yAxisTitle: '',
-        xAxisLabelRotation: 'horizontal',
+        // Bar categories are usually long text labels — 45° keeps them readable without truncation
+        xAxisLabelRotation: '45',
         yAxisLabelRotation: 'horizontal',
       };
     case ChartTypes.PIE:

@@ -694,14 +694,22 @@ describe('InsightWalkthroughCoachmark', () => {
       expect(leavePrompt()).toBeNull();
     });
 
-    it('moves on when a click-advance field is clicked', async () => {
-      // KPI Type: a button group, where clicking IS the interaction — the last `click` stage.
+    it('waits for Got it on the KPI type, which arrives already chosen', async () => {
+      // The type is prefilled (see WALKTHROUGH_DEFAULT_KPI_TYPE), and the buttons toggle: a user
+      // who agrees never clicks one, and clicking the selected button would only clear it. So
+      // this stage advances on Got it alone, like kpi_target.
       const field = mountTarget('kpi-form-type-field');
       setStage('kpi_type');
       render(<InsightWalkthroughCoachmark />);
       await waitFor(() => expect(skipButton()).not.toBeNull());
 
       await userEvent.click(field);
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 50));
+      });
+      expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_type');
+
+      await userEvent.click(document.querySelector('.dalgo-tour-next-btn') as HTMLElement);
 
       await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_submit'));
     });

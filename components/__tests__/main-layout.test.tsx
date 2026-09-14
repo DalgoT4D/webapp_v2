@@ -114,6 +114,28 @@ describe('getNavItems', () => {
     expect(settings?.children?.find((c) => c.title === 'User Management')?.hide).toBeFalsy();
   });
 
+  describe('Data → Quality trial gating', () => {
+    const dataQuality = (isTrialOrg: boolean) =>
+      getNavItems('/', false, () => true, undefined, ROLES.ADMIN, isTrialOrg)
+        .find((i) => i.title === 'Data')
+        ?.children?.find((c) => c.title === 'Quality');
+
+    it('shows Quality for a non-trial org when the flag is on', () => {
+      expect(dataQuality(false)?.hide).toBe(false);
+    });
+
+    it('hides Quality for a trial org even when the flag is on', () => {
+      expect(dataQuality(true)?.hide).toBe(true);
+    });
+
+    it('defaults to non-trial when the flag is omitted', () => {
+      const quality = getNavItems('/', false, () => true, undefined, ROLES.ADMIN)
+        .find((i) => i.title === 'Data')
+        ?.children?.find((c) => c.title === 'Quality');
+      expect(quality?.hide).toBe(false);
+    });
+  });
+
   it('shows Data and User Management for super-admin', () => {
     const items = getNavItems('/', false, () => false, undefined, ROLES.SUPER_ADMIN);
     expect(items.find((i) => i.title === 'Data')?.hide).toBeFalsy();

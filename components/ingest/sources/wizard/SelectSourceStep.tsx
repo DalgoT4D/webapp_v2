@@ -110,8 +110,11 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
               setSearch(e.target.value);
               setSearchOpen(true);
             }}
+            // Click and typing open the catalog; FOCUS deliberately does not. The dialog
+            // autofocuses its first field, so opening on focus dropped the 600-connector list
+            // over the popular-source cards the moment the step mounted — before the user had
+            // asked for anything.
             onClick={() => setSearchOpen(true)}
-            onFocus={() => setSearchOpen(true)}
             onKeyDown={(event) => {
               if (event.key === 'Escape') setSearchOpen(false);
             }}

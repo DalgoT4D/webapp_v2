@@ -37,6 +37,8 @@ import {
   CHART_ENTRY_STAGE,
   saveActiveWalkthroughFlow,
   clearActiveWalkthroughFlow,
+  markWalkthroughExited,
+  clearWalkthroughExited,
   saveDismissedSyncRun,
   SYNC_RETRY_STAGE_FOR,
   SYNC_WAIT_STAGES,
@@ -239,6 +241,10 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
     set({ reviewReturnStage: null });
     const orgSlug = get().orgSlug;
     if (!orgSlug) return;
+    // The fork has been answered, so a previous exit has been honoured — see
+    // markWalkthroughExited. Cleared here rather than where the dialog OPENS: closing it
+    // without picking restarts nothing, and must still be asked again.
+    clearWalkthroughExited('insights');
     savePath('insights', 'sample');
     saveWalkthroughStage('insights', 'kpi_intro');
     trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_STEP_VIEWED, { stage: 'kpi_intro' });
@@ -252,6 +258,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
     set({ reviewReturnStage: null });
     const orgSlug = get().orgSlug;
     if (!orgSlug) return;
+    clearWalkthroughExited('insights');
     savePath('insights', 'own_data');
     saveWalkthroughStage('insights', 'own_data_ingest');
     trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_STEP_VIEWED, { stage: 'own_data_ingest' });
@@ -272,6 +279,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   startChartFlow: (orgSlug) => {
     set({ reviewReturnStage: null });
     saveActiveWalkthroughFlow('insights');
+    clearWalkthroughExited('insights');
     savePath('insights', 'own_data');
     saveWalkthroughStage('insights', CHART_ENTRY_STAGE);
     trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_STARTED, { path: 'own_data', entry: 'chart' });
@@ -297,6 +305,7 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
   startAutomatePipeline: (orgSlug) => {
     set({ reviewReturnStage: null });
     saveActiveWalkthroughFlow('automate_pipeline');
+    clearWalkthroughExited('automate_pipeline');
     savePath('automate_pipeline', 'automate_pipeline');
     saveWalkthroughStage('automate_pipeline', 'pipeline_ingest_nudge');
     trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_STARTED, { path: 'automate_pipeline' });
@@ -387,6 +396,10 @@ export const useInsightWalkthroughStore = create<InsightWalkthroughState>((set, 
       clearWalkthroughState(flow);
       clearTrackedConnection(flow);
       clearActiveWalkthroughFlow();
+      // Written synchronously and outside this flow's scratch space, so it outlives both the
+      // storage wipe below and the backend refetch — see markWalkthroughExited. It's what makes
+      // the next start of this flow a reset rather than a fast-forward.
+      markWalkthroughExited(flow);
       trackEvent(ANALYTICS_EVENTS.INSIGHT_WALKTHROUGH_SKIPPED, { stage });
       if (path)
         exitOnboardingPath(ANALYTICS_PATH_FOR[path], stage, {

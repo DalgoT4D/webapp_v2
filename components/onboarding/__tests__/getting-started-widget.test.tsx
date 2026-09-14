@@ -19,10 +19,10 @@ describe('GettingStartedWidget', () => {
     jest.restoreAllMocks();
   });
 
-  it('opens the panel when defaultOpen is set (the /impact case), pill always present too', () => {
+  it('opens the panel for an openSignal the owner has already raised, pill always present too', () => {
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={1}
         walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
@@ -48,10 +48,10 @@ describe('GettingStartedWidget', () => {
     expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument();
   });
 
-  it('stays collapsed to just the pill when defaultOpen is false (any page but /impact)', () => {
+  it('stays collapsed to just the pill until something earns an open', () => {
     render(
       <GettingStartedWidget
-        defaultOpen={false}
+        openSignal={0}
         walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
@@ -65,10 +65,10 @@ describe('GettingStartedWidget', () => {
     expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
   });
 
-  it('stays minimized for the duration of a walkthrough, even on the auto-open page', () => {
+  it('stays minimized for the duration of a walkthrough', () => {
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={0}
         walkthroughActive
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
@@ -82,9 +82,12 @@ describe('GettingStartedWidget', () => {
     expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
   });
 
-  it('collapses an open panel the moment a walkthrough starts, and restores it when it ends', () => {
+  it('collapses an open panel the moment a walkthrough starts, and leaves it collapsed when it ends', () => {
+    // A flow ENDING is not itself a reason to reopen: a skip says "not now", and answering it
+    // by popping the panel back up is the churn this whole signal replaced (DALGO-1763). Only
+    // an explicit bump from the owner — which a COMPLETION sends — reopens it.
     const props = {
-      defaultOpen: true,
+      openSignal: 1,
       hasBuiltFirstInsight: false,
       hasAutomatedPipeline: false,
       onStartTour: jest.fn(),
@@ -98,24 +101,22 @@ describe('GettingStartedWidget', () => {
     expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
 
     rerender(<GettingStartedWidget {...props} walkthroughActive={false} />);
-    expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
   });
 
-  it('opens off the auto-open page when an item is ticked off, so the user sees it happen', () => {
-    // Both flows END somewhere that isn't /impact — a saved dashboard, the pipeline list — so
-    // defaultOpen is false there. Without this the item ticked behind a collapsed pill and the
-    // completion looked like nothing had happened.
+  it('opens on a completion bump wherever the user is, so they see the tick happen', () => {
+    // Both flows END somewhere the panel is collapsed — a saved dashboard, the pipeline list.
+    // Without this the item ticked behind the pill and the completion looked like nothing
+    // happened. The bump also has to beat the walkthrough going inactive in the same beat.
     const props = {
-      defaultOpen: false,
+      openSignal: 0,
       hasBuiltFirstInsight: false,
       hasAutomatedPipeline: false,
       onStartTour: jest.fn(),
       onBuildInsightClick: jest.fn(),
       onAutomatePipelineClick: jest.fn(),
     };
-    const { rerender } = render(
-      <GettingStartedWidget {...props} walkthroughActive revealSignal={0} />
-    );
+    const { rerender } = render(<GettingStartedWidget {...props} walkthroughActive />);
     expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
 
     // The flow ends: it goes inactive and the backend records the completion in the same beat.
@@ -124,7 +125,7 @@ describe('GettingStartedWidget', () => {
         {...props}
         hasBuiltFirstInsight
         walkthroughActive={false}
-        revealSignal={1}
+        openSignal={1}
       />
     );
 
@@ -134,17 +135,15 @@ describe('GettingStartedWidget', () => {
 
   it('animates the row whose tick just appeared, and only that one', () => {
     const props = {
-      defaultOpen: true,
+      openSignal: 1,
       hasAutomatedPipeline: false,
       onStartTour: jest.fn(),
       onBuildInsightClick: jest.fn(),
       onAutomatePipelineClick: jest.fn(),
       walkthroughActive: false,
     };
-    const { rerender } = render(
-      <GettingStartedWidget {...props} hasBuiltFirstInsight={false} revealSignal={0} />
-    );
-    rerender(<GettingStartedWidget {...props} hasBuiltFirstInsight revealSignal={1} />);
+    const { rerender } = render(<GettingStartedWidget {...props} hasBuiltFirstInsight={false} />);
+    rerender(<GettingStartedWidget {...props} hasBuiltFirstInsight openSignal={2} />);
 
     expect(screen.getByTestId('getting-started-widget-item-build-insight')).toHaveClass(
       'checklist-item-complete'
@@ -159,7 +158,7 @@ describe('GettingStartedWidget', () => {
     // would read as the task completing again.
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={1}
         walkthroughActive={false}
         hasBuiltFirstInsight
         hasAutomatedPipeline={false}
@@ -174,9 +173,12 @@ describe('GettingStartedWidget', () => {
     );
   });
 
-  it('a reveal does not pin the panel open — the next page still collapses it', () => {
+  it('an auto-open survives the re-renders around it, and only a walkthrough collapses it', () => {
+    // The pipeline flow finishes by pushing /orchestrate (pipeline-form.tsx), so the panel has
+    // to stay open across whatever re-renders that navigation causes — otherwise the
+    // completion reveal is swallowed a tick after it opened.
     const props = {
-      defaultOpen: false,
+      openSignal: 0,
       hasBuiltFirstInsight: true,
       hasAutomatedPipeline: false,
       onStartTour: jest.fn(),
@@ -184,20 +186,64 @@ describe('GettingStartedWidget', () => {
       onAutomatePipelineClick: jest.fn(),
       walkthroughActive: false,
     };
-    const { rerender } = render(<GettingStartedWidget {...props} revealSignal={0} />);
-    rerender(<GettingStartedWidget {...props} revealSignal={1} />);
+    const { rerender } = render(<GettingStartedWidget {...props} />);
+    rerender(<GettingStartedWidget {...props} openSignal={1} />);
     expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
 
-    // Same signal from here on — the route-derived rule is back in charge.
-    rerender(<GettingStartedWidget {...props} revealSignal={1} walkthroughActive />);
+    rerender(<GettingStartedWidget {...props} openSignal={1} hasAutomatedPipeline />);
+    expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
+
+    rerender(<GettingStartedWidget {...props} openSignal={1} walkthroughActive />);
     expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+  });
+
+  it('renders nothing at all while suppressed, then comes back as the user left it', () => {
+    // The product tour spotlights one region at a time; a floating pill or panel would sit on
+    // top of the very thing each step points at.
+    const props = {
+      openSignal: 1,
+      hasBuiltFirstInsight: false,
+      hasAutomatedPipeline: false,
+      onStartTour: jest.fn(),
+      onBuildInsightClick: jest.fn(),
+      onAutomatePipelineClick: jest.fn(),
+      walkthroughActive: false,
+    };
+    const { rerender } = render(<GettingStartedWidget {...props} />);
+    expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
+
+    rerender(<GettingStartedWidget {...props} suppressed />);
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('getting-started-widget-pill')).not.toBeInTheDocument();
+
+    // Hidden, not unmounted — the panel was open before the tour, so it is open after.
+    rerender(<GettingStartedWidget {...props} suppressed={false} />);
+    expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
+  });
+
+  it('lets an auto-open through even while a walkthrough is running', () => {
+    // The completion bump arrives in the same beat as the flow going inactive; whichever order
+    // React settles them in, the panel has to end up open.
+    const props = {
+      openSignal: 0,
+      hasBuiltFirstInsight: false,
+      hasAutomatedPipeline: false,
+      onStartTour: jest.fn(),
+      onBuildInsightClick: jest.fn(),
+      onAutomatePipelineClick: jest.fn(),
+      walkthroughActive: true,
+    };
+    const { rerender } = render(<GettingStartedWidget {...props} />);
+    rerender(<GettingStartedWidget {...props} openSignal={1} />);
+
+    expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
   });
 
   it('minimizing hides the panel but keeps the pill visible', async () => {
     const user = userEvent.setup();
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={1}
         walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
@@ -217,7 +263,7 @@ describe('GettingStartedWidget', () => {
     const user = userEvent.setup();
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={1}
         walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
@@ -237,7 +283,7 @@ describe('GettingStartedWidget', () => {
     const user = userEvent.setup();
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={1}
         walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
@@ -256,10 +302,10 @@ describe('GettingStartedWidget', () => {
     expect(pill).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('re-opens on returning to the auto-open page, discarding the last visit’s minimize', async () => {
+  it('re-opens on a remount while the owner’s open still stands, discarding the last minimize', async () => {
     const user = userEvent.setup();
     const props = {
-      defaultOpen: true,
+      openSignal: 1,
       walkthroughActive: false,
       hasBuiltFirstInsight: false,
       hasAutomatedPipeline: false,
@@ -272,8 +318,8 @@ describe('GettingStartedWidget', () => {
     expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
     unmount();
 
-    // Arriving again (remount) re-derives from defaultOpen rather than restoring the
-    // previous visit's minimize — minimizing is a within-visit action, not a preference.
+    // A remount re-reads the owner's signal rather than restoring the previous mount's
+    // minimize — minimizing is a within-visit action, not a persisted preference.
     render(<GettingStartedWidget {...props} />);
 
     expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
@@ -295,7 +341,7 @@ describe('GettingStartedWidget checklist', () => {
   it('shows exactly the two checklist items in order, plus a click-to-play video', () => {
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={1}
         walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
@@ -330,7 +376,7 @@ describe('GettingStartedWidget checklist', () => {
     const user = userEvent.setup();
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={1}
         walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
@@ -356,7 +402,7 @@ describe('GettingStartedWidget checklist', () => {
     const user = userEvent.setup();
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={1}
         walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
@@ -377,7 +423,7 @@ describe('GettingStartedWidget checklist', () => {
     const user = userEvent.setup();
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={1}
         walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
@@ -405,7 +451,7 @@ describe('GettingStartedWidget checklist', () => {
     const onAutomatePipelineClick = jest.fn();
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={1}
         walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
@@ -437,7 +483,7 @@ describe('GettingStartedWidget checklist', () => {
     const user = userEvent.setup();
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={1}
         walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
@@ -458,7 +504,7 @@ describe('GettingStartedWidget checklist', () => {
     const onStartTour = jest.fn();
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={1}
         walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={false}
@@ -485,7 +531,7 @@ describe('GettingStartedWidget checklist', () => {
   it('keeps the tour link available once both flows are complete, alongside the docs link', () => {
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={1}
         walkthroughActive={false}
         hasBuiltFirstInsight
         hasAutomatedPipeline
@@ -502,7 +548,7 @@ describe('GettingStartedWidget checklist', () => {
   it('shows "Build your first insight" as checked when hasBuiltFirstInsight is true', () => {
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={1}
         walkthroughActive={false}
         hasBuiltFirstInsight={true}
         hasAutomatedPipeline={false}
@@ -524,7 +570,7 @@ describe('GettingStartedWidget checklist', () => {
   it('shows "Setup an automated data pipeline" as checked when hasAutomatedPipeline is true', () => {
     render(
       <GettingStartedWidget
-        defaultOpen
+        openSignal={1}
         walkthroughActive={false}
         hasBuiltFirstInsight={false}
         hasAutomatedPipeline={true}
