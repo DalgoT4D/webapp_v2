@@ -421,7 +421,12 @@ export function RichTextToolbar({
           />
         </Button>
         {showColorPicker && (
-          <div className="absolute right-0 top-9 z-[10000] w-48 rounded-lg border bg-white p-3 shadow-xl">
+          <div
+            className={cn(
+              'absolute right-0 z-[10000] w-48 rounded-lg border bg-white p-3 shadow-xl',
+              toolbarPosition.top > 200 ? 'bottom-9' : 'top-9'
+            )}
+          >
             {!showCustomPicker ? (
               <>
                 <p className="mb-2 text-xs font-medium text-gray-700">Text color</p>

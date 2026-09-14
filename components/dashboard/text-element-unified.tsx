@@ -550,14 +550,14 @@ export function UnifiedTextElement({
     <div
       ref={containerRef}
       className={cn(
-        'drag-cancel flex h-full w-full items-center p-4',
+        'drag-cancel flex h-full w-full overflow-y-auto p-4',
         isEditMode && 'cursor-text',
         isEditing && 'rounded bg-white'
       )}
       style={{ backgroundColor: config.backgroundColor || 'transparent' }}
       onClick={startEditing}
     >
-      {editorContent}
+      <div className="m-auto w-full">{editorContent}</div>
     </div>
   );
 
