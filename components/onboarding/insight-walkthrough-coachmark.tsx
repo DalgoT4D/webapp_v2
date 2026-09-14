@@ -22,7 +22,6 @@ import { useSidebarStore } from '@/stores/sidebarStore';
 import {
   getResumeAnchorStage,
   INGEST_STAGES,
-  WALKTHROUGH_DEFAULT_KPI_TYPE_DISPLAY,
   WALKTHROUGH_DEFAULT_PROGRAM_TAG,
   WALKTHROUGH_DEFAULT_TARGET_DISPLAY,
   type WalkthroughStage,
@@ -200,9 +199,9 @@ function wizardStageConfigs(
       advanceOn: 'never',
       showNext: true,
       nextOnInteraction: connectionCreate,
-      title: 'Give numbers a number type',
+      title: 'Review your column types',
       description:
-        'Everything from a sheet arrives as text, so every column here is a text column. Use Cast to and set your numeric columns to a number type — charts, KPIs and metrics can only be built on numbers. Make sure the sheet you picked has numeric data in it, or there will be nothing to measure.',
+        'Review the detected type in each Column type dropdown. Choose a number type for numeric values and Date or Timestamp for dates when needed. Then click Confirm column types for each table you want to sync. The badge beside each table shows whether it still needs confirmation.',
       side: 'right',
       align: 'start',
     },
@@ -211,7 +210,7 @@ function wizardStageConfigs(
       route: '/ingest',
       selector: '[data-testid="save-connection-btn"]',
       title: 'Bring the data in',
-      description: 'Click Create to set up the connection and start the first sync.',
+      description: 'Click Add data to set up the connection and start the first sync.',
       side: 'left',
       align: 'end',
     },
@@ -663,7 +662,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     ring: true,
     route: '/kpis',
     selector: '[data-testid="create-kpi-btn"]',
-    title: 'Track your targets',
+    title: 'Start by building your first KPI',
     description:
       'A key performance indicator uses your key metrics and shows the current value of your goals against a target, its trend over time, and status. Align this with your programs for an effective overview.',
   },
@@ -704,7 +703,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Target value',
     // Built from the constant the form fills the field with, so the number the copy quotes and
     // the number on screen can never drift apart.
-    description: `The number you are aiming for. We have filled in ${WALKTHROUGH_DEFAULT_TARGET_DISPLAY} as the target for this example. Dalgo tracks the KPI against the performance thresholds you define to show whether it is On Track, Needs Attention, or Off Track.`,
+    description: `The number you are aiming for. We have filled in ${WALKTHROUGH_DEFAULT_TARGET_DISPLAY} as the target based on the sample data for this metric.`,
   },
   kpi_direction: {
     alsoClickable: KPI_SETUP_REQUIRED_FIELDS,
@@ -716,7 +715,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     showNext: true,
     selector: '[data-testid="kpi-form-direction-field"]',
     title: 'Direction',
-    description: 'Do you intend for the value of this indicator to rise or fall?',
+    description: `Define whether the KPI should increase or decrease to meet its target. In this case higher is better, we want to reach more children with the education program, targeting ${WALKTHROUGH_DEFAULT_TARGET_DISPLAY}.`,
   },
   kpi_continue: {
     alsoClickable: KPI_SETUP_REQUIRED_FIELDS,
@@ -752,9 +751,8 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     nextOnInteraction: 'kpi_program_tags',
     selector: '[data-testid="kpi-form-rag-field"]',
     title: 'When is this on track?',
-    // RAG named outright — it's the label on the card and in every filter.
     description:
-      'RAG is the KPI’s status colour — green at 80% of target or more, amber from 50%, red below that. Change the two numbers to suit your programme.',
+      'Dalgo tracks the value of the KPI in accordance with performance thresholds you define, to help you understand when a KPI is On Track, Needs Attention or Off Track.',
   },
   kpi_program_tags: {
     route: '/kpis',
@@ -765,7 +763,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     title: 'Which programme is this for?',
     // Names the tag we filled in, from the same constant the form uses, so the copy and the
     // chip on screen can't drift.
-    description: `Tag the programme this KPI belongs to, so you can filter by it later. We have added “${WALKTHROUGH_DEFAULT_PROGRAM_TAG}” — swap it for yours.`,
+    description: `Tag the programme this KPI belongs to, so you can filter by it later. We have added an “${WALKTHROUGH_DEFAULT_PROGRAM_TAG}” tag for this KPI.`,
   },
   kpi_type: {
     route: '/kpis',
@@ -777,9 +775,8 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     showNext: true,
     selector: '[data-testid="kpi-form-type-field"]',
     title: 'KPI type',
-    // Names the type we filled in, from the same constant the form uses, so the copy and the
-    // selected button can't drift.
-    description: `Classify the indicator based on your results framework — inputs, outputs, outcomes or impact. We have set this one to “${WALKTHROUGH_DEFAULT_KPI_TYPE_DISPLAY}”; change it if your framework says otherwise.`,
+    description:
+      'Classify the indicator based on your results framework. Is “students reached” a measure of your inputs, outputs, outcomes or impact?',
   },
   kpi_submit: {
     ring: true,
@@ -863,7 +860,7 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
     routeMatch: DASHBOARD_BUILDER_ROUTE,
     selector: '[data-testid="add-kpi-btn"]',
     title: 'Add your KPI',
-    description: 'Click Add KPI and pick the KPI you just built to add it to the dashboard',
+    description: 'Click “Add KPI” and pick the KPI you just built to add it to your dashboard.',
     side: 'bottom',
   },
   builder_add_chart: {

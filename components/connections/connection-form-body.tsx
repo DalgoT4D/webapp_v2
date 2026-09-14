@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useId } from 'react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { ReadyState } from 'react-use-websocket';
@@ -40,7 +40,12 @@ import { useStreamConfig } from './hooks/useStreamConfig';
 import { StreamConfigTable } from './stream-config-table';
 import { getCustomSource } from '@/components/ingest/sources/custom/registry';
 import { ConnectionHelpPanel } from './connection-help-panel';
-import { getConnectionHelp, allowsDedup, type ConnectionConceptId } from './constants';
+import {
+  getConnectionHelp,
+  allowsDedup,
+  COLUMN_TYPE_CONFIRMATION_MESSAGE,
+  type ConnectionConceptId,
+} from './constants';
 
 const SCHEMA_DISCOVERY_WS_PATH = 'airbyte/connection/schema_catalog';
 
@@ -181,8 +186,8 @@ export function ConnectionFormBody({
   const [discoveredCatalog, setDiscoveredCatalog] = useState<SyncCatalog | null>(null);
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  // Inline required-field errors, surfaced on Save (matches the alerts/KPI pattern:
-  // the button stays clickable and pressing it reveals what's missing).
+  // Other required-field errors are surfaced on Save; pending type confirmations
+  // are explained beside the disabled action before the user tries to submit.
   const [errors, setErrors] = useState<{
     name?: string;
     source?: string;
@@ -213,6 +218,10 @@ export function ConnectionFormBody({
     hasSelectedStreams,
     allSelectedColumnTypesConfirmed,
   } = useStreamConfig();
+
+  const confirmationHintId = useId();
+  const needsColumnTypeConfirmation =
+    showCastColumn && hasSelectedStreams && !allSelectedColumnTypesConfirmed;
 
   // Hand the walkthrough over to this step's coachmarks. Unlike the configure step before it,
   // this form looks the same whatever source was picked, so every run enters here — including
@@ -371,7 +380,7 @@ export function ConnectionFormBody({
       next.streams = 'Select at least one table';
     }
     if (showCastColumn && hasSelectedStreams && !allSelectedColumnTypesConfirmed) {
-      next.columnTypes = 'Confirm the column type for every selected column before continuing';
+      next.columnTypes = COLUMN_TYPE_CONFIRMATION_MESSAGE;
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -801,11 +810,6 @@ export function ConnectionFormBody({
                   {errors.streams}
                 </p>
               )}
-              {errors.columnTypes && (
-                <p className="text-sm text-destructive" data-testid="connection-column-types-error">
-                  {errors.columnTypes}
-                </p>
-              )}
             </div>
           </div>
           {/* The help panel fills the left column's height and scrolls on its
@@ -856,27 +860,38 @@ export function ConnectionFormBody({
           </Button>
         </DialogFooter>
       ) : (
-        <DialogFooter className="flex-shrink-0 gap-2 border-t px-6 py-4">
-          <Button
-            variant="outline"
-            onClick={onCancel}
-            disabled={isSaving}
-            data-testid="connection-cancel-btn"
-          >
-            Cancel
-          </Button>
-          {/* Stays clickable so pressing it surfaces inline required-field errors
-              (handleSave validates and blocks). Only disabled while saving. */}
-          <Button
-            variant="primary"
-            className="uppercase"
-            onClick={handleSave}
-            disabled={isSaving}
-            data-testid="save-connection-btn"
-          >
-            {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-            {isCreate ? 'Create' : 'Update'}
-          </Button>
+        <DialogFooter className="flex-shrink-0 flex-col gap-2 border-t px-6 py-4 sm:flex-col">
+          {(needsColumnTypeConfirmation || errors.columnTypes) && (
+            <p
+              id={confirmationHintId}
+              role="status"
+              className="text-sm text-muted-foreground"
+              data-testid="connection-column-types-error"
+            >
+              {COLUMN_TYPE_CONFIRMATION_MESSAGE}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={onCancel}
+              disabled={isSaving}
+              data-testid="connection-cancel-btn"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              className="uppercase"
+              onClick={handleSave}
+              disabled={isSaving || needsColumnTypeConfirmation}
+              aria-describedby={needsColumnTypeConfirmation ? confirmationHintId : undefined}
+              data-testid="save-connection-btn"
+            >
+              {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              {isCreate ? 'Add data' : 'Update'}
+            </Button>
+          </div>
         </DialogFooter>
       )}
     </>

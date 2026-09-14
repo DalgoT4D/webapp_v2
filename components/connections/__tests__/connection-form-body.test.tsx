@@ -6,11 +6,12 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConnectionFormBody } from '../connection-form-body';
 import { FormMode } from '@/constants/connections';
 import type { Connection } from '@/types/connections';
+import { createConnection } from '@/hooks/api/useConnections';
 
 // ============ Mocks ============
 
@@ -151,11 +152,14 @@ describe('ConnectionFormBody', () => {
       />
     );
 
-    await user.click(screen.getByTestId('save-connection-btn'));
-
-    expect(screen.getByTestId('connection-column-types-error')).toHaveTextContent(
-      'Confirm the column type for every selected column before continuing'
-    );
+    const button = screen.getByRole('button', { name: 'Add data' });
+    expect(button).toBeDisabled();
+    const hint = screen.getByRole('status');
+    expect(hint).toHaveTextContent('Confirm column types for each selected table');
+    expect(button).toHaveAccessibleDescription(hint.textContent!);
+    expect(within(hint.parentElement!).getByRole('button', { name: 'Add data' })).toBe(button);
+    await user.click(button);
+    expect(createConnection).not.toHaveBeenCalled();
   });
 
   it('locks the source (no picker) when presetSourceId is given', () => {
@@ -425,7 +429,7 @@ describe('ConnectionFormBody split help + custom view', () => {
   });
 });
 
-it('clears the column-confirmation error once all selected types are confirmed', async () => {
+it('enables submission after confirmation and disables it again when types need review', () => {
   mockStreams = [{ name: 'responses', selected: true }];
   mockHasSelectedStreams = true;
   mockAllSelectedColumnTypesConfirmed = false;
@@ -435,11 +439,15 @@ it('clears the column-confirmation error once all selected types are confirmed',
     onSuccess: jest.fn(),
     onCancel: jest.fn(),
   };
-  const user = userEvent.setup();
   const { rerender } = render(<ConnectionFormBody {...props} />);
-  await user.click(screen.getByTestId('save-connection-btn'));
+  expect(screen.getByTestId('save-connection-btn')).toBeDisabled();
   expect(screen.getByTestId('connection-column-types-error')).toBeInTheDocument();
   mockAllSelectedColumnTypesConfirmed = true;
   rerender(<ConnectionFormBody {...props} />);
   expect(screen.queryByTestId('connection-column-types-error')).not.toBeInTheDocument();
+  expect(screen.getByTestId('save-connection-btn')).toBeEnabled();
+  mockAllSelectedColumnTypesConfirmed = false;
+  rerender(<ConnectionFormBody {...props} />);
+  expect(screen.getByTestId('save-connection-btn')).toBeDisabled();
+  expect(screen.getByRole('status')).toBeInTheDocument();
 });
