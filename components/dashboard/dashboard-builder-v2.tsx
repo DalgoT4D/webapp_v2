@@ -78,6 +78,13 @@ import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytic
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { useAuthStore } from '@/stores/authStore';
 import {
+  getChartEditUrl,
+  getChartViewUrl,
+  getKpiEditUrl,
+  getKpiViewUrl,
+  WIDGET_NAVIGATION_SOURCES,
+} from '@/lib/widget-navigation';
+import {
   markChartAddedToDashboard,
   markKpiAddedToDashboard,
 } from '@/components/onboarding/insight-walkthrough-constants';
@@ -2108,14 +2115,28 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     const handleViewChart = useCallback(
       (chartId: number) => {
-        router.push(`/charts/${chartId}?from=dashboard`);
+        router.push(getChartViewUrl(chartId, WIDGET_NAVIGATION_SOURCES.DASHBOARD));
       },
       [router]
     );
 
     const handleEditChart = useCallback(
       (chartId: number) => {
-        router.push(`/charts/${chartId}/edit?from=dashboard`);
+        router.push(getChartEditUrl(chartId, WIDGET_NAVIGATION_SOURCES.DASHBOARD));
+      },
+      [router]
+    );
+
+    const handleViewKpi = useCallback(
+      (kpiId: number) => {
+        router.push(getKpiViewUrl(kpiId, WIDGET_NAVIGATION_SOURCES.DASHBOARD));
+      },
+      [router]
+    );
+
+    const handleEditKpi = useCallback(
+      (kpiId: number) => {
+        router.push(getKpiEditUrl(kpiId, WIDGET_NAVIGATION_SOURCES.DASHBOARD));
       },
       [router]
     );
@@ -2207,7 +2228,17 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             <div className="px-4 py-2 flex items-center justify-between">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 {onBack && (
-                  <Button variant="ghost" size="sm" onClick={onBack} className="p-1 flex-shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onBack}
+                    aria-label="Back"
+                    // testid read by the walkthrough's exit guard: the builder is otherwise
+                    // fully usable mid-walkthrough, and leaving it is the one thing that asks
+                    // first (see DASHBOARD_BUILDER_EXITS in insight-walkthrough-coachmark.tsx).
+                    data-testid="dashboard-back-btn"
+                    className="p-1 flex-shrink-0"
+                  >
                     <ArrowLeft className="w-4 h-4" />
                   </Button>
                 )}
@@ -2440,7 +2471,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               <div className="flex items-center gap-3 min-w-0">
                 {/* Back button */}
                 {onBack && (
-                  <Button variant="ghost" size="sm" onClick={onBack}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onBack}
+                    // See the compact header's copy of this button above.
+                    data-testid="dashboard-back-btn"
+                  >
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Back
                   </Button>
@@ -2860,6 +2897,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                           dashboardId={dashboardId}
                           onViewChart={handleViewChart}
                           onEditChart={handleEditChart}
+                          onViewKpi={handleViewKpi}
+                          onEditKpi={handleEditKpi}
                           onRemove={stableRemoveComponent}
                           onUpdate={stableUpdateComponent}
                         />

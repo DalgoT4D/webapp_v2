@@ -1,7 +1,11 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AddSourceWizard } from '../AddSourceWizard';
 import { CreateSourceStep } from '../CreateSourceStep';
+import { InsightWalkthroughCoachmark } from '@/components/onboarding/insight-walkthrough-coachmark';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+
+jest.mock('next/navigation', () => ({ usePathname: () => window.location.pathname }));
 
 // MANAGED-SA bridge — the wizard step with a deployment-managed service account configured, which
 // is what every trial deployment runs. Sibling file covers the bridge-off (OAuth) wiring.
@@ -55,7 +59,11 @@ jest.mock('@/hooks/api/useSources', () => ({
   }),
 }));
 jest.mock('@/hooks/useSourceSave', () => ({
-  useSourceSave: () => ({ save: jest.fn(), loading: false, setupLogs: [] }),
+  useSourceSave: (): { save: jest.Mock; loading: boolean; setupLogs: never[] } => ({
+    save: jest.fn(),
+    loading: false,
+    setupLogs: [],
+  }),
 }));
 // Wizard-in-dialog run below only needs the picker to land on Google Sheets; the later steps stay
 // stubbed so the dialog itself (Radix overlay + focus scope) is the only extra machinery.
@@ -102,6 +110,64 @@ it('switches between the two options, keeping a typed key', async () => {
 
   await user.click(screen.getByTestId('gsheets-managed-option'));
   expect(screen.getByTestId('gsheets-managed-option-radio')).toBeChecked();
+});
+
+it('retains the sheet URL, authentication choice and entered key during Back/Next review', async () => {
+  window.history.replaceState({}, '', '/ingest');
+  const user = userEvent.setup();
+  render(
+    <>
+      <CreateSourceStep
+        def={{ sourceDefinitionId: 'gs', name: 'Google Sheets' }}
+        onCreated={jest.fn()}
+        onBack={jest.fn()}
+      />
+      <InsightWalkthroughCoachmark />
+    </>
+  );
+  const sheet = screen.getByLabelText(/Spreadsheet Link/i);
+  await user.type(sheet, 'https://docs.google.com/spreadsheets/d/test-sheet/edit');
+  await user.click(screen.getByTestId('gsheets-own-option'));
+  const key = screen.getByLabelText(/Service Account Information/i);
+  await user.type(key, '{{"test_key":"preserve-me"}');
+  const savedKey = (key as HTMLInputElement).value;
+  act(() =>
+    useInsightWalkthroughStore.setState({
+      active: true,
+      orgSlug: 'org-a',
+      path: 'own_data',
+      flow: 'insights',
+      stage: 'own_data_config_next',
+      reviewReturnStage: null,
+      trackedConnectionId: null,
+      suppressCoachmark: false,
+    })
+  );
+  const button = (name: string) =>
+    within(document.querySelector('.driver-popover') as HTMLElement).getByRole('button', {
+      name,
+    });
+  await waitFor(() => expect(button('Back')).toBeVisible());
+  await user.click(button('Back'));
+  await waitFor(() =>
+    expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_sheet_auth')
+  );
+  await user.click(button('Back'));
+  await waitFor(() =>
+    expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_sheet_link')
+  );
+  await user.click(button('Next'));
+  await waitFor(() =>
+    expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_sheet_auth')
+  );
+  await user.click(button('Next'));
+  expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_config_next');
+  expect(sheet).toHaveValue('https://docs.google.com/spreadsheets/d/test-sheet/edit');
+  expect(key).toHaveValue(savedKey);
+  expect(screen.getByTestId('gsheets-own-option-radio')).toBeChecked();
+  act(() =>
+    useInsightWalkthroughStore.setState({ active: false, stage: null, reviewReturnStage: null })
+  );
 });
 
 // The real user path: the step lives inside the wizard's Radix dialog.

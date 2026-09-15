@@ -43,7 +43,7 @@ export function useStreamConfig() {
             }
             return { ...s, selected: true };
           }
-          // When deselecting, reset syncMode, destMode and cast types
+          // When deselecting, reset syncMode, destMode, casts, and confirmations.
           return {
             ...s,
             selected: false,
@@ -52,7 +52,9 @@ export function useStreamConfig() {
               s.destinationSyncMode !== DestinationSyncMode.OVERWRITE
                 ? DestinationSyncMode.OVERWRITE
                 : s.destinationSyncMode,
-            columns: s.columns.map((c): StreamColumn => ({ ...c, cast_to_type: null })),
+            columns: s.columns.map(
+              (c): StreamColumn => ({ ...c, cast_to_type: null, type_confirmed: false })
+            ),
           };
         })
       );
@@ -85,7 +87,9 @@ export function useStreamConfig() {
             s.destinationSyncMode !== DestinationSyncMode.OVERWRITE
               ? DestinationSyncMode.OVERWRITE
               : s.destinationSyncMode,
-          columns: s.columns.map((c): StreamColumn => ({ ...c, cast_to_type: null })),
+          columns: s.columns.map(
+            (c): StreamColumn => ({ ...c, cast_to_type: null, type_confirmed: false })
+          ),
         };
       })
     );
@@ -154,7 +158,7 @@ export function useStreamConfig() {
   }, []);
 
   // Toggle a column's selection; prevents deselecting cursor or primary key columns.
-  // Clears cast_to_type when a column is deselected.
+  // Clears cast_to_type and its confirmation when a column is deselected.
   const toggleColumn = useCallback((streamName: string, columnName: string) => {
     setStreams((prev) =>
       prev.map((s) => {
@@ -172,6 +176,7 @@ export function useStreamConfig() {
               ...c,
               selected: nowSelected,
               cast_to_type: nowSelected ? c.cast_to_type : null,
+              type_confirmed: false,
             };
           }),
         };
@@ -179,7 +184,8 @@ export function useStreamConfig() {
     );
   }, []);
 
-  // Set cast target type for a column; null clears the cast
+  // Set a column's effective warehouse type. Null means keep the incoming type.
+  // Any change must be explicitly reconfirmed before the connection can be saved.
   const updateCastType = useCallback(
     (streamName: string, columnName: string, castType: string | null) => {
       setStreams((prev) =>
@@ -188,7 +194,7 @@ export function useStreamConfig() {
           return {
             ...s,
             columns: s.columns.map((c) =>
-              c.name === columnName ? { ...c, cast_to_type: castType } : c
+              c.name === columnName ? { ...c, cast_to_type: castType, type_confirmed: false } : c
             ),
           };
         })
@@ -196,6 +202,20 @@ export function useStreamConfig() {
     },
     []
   );
+
+  // Confirmation is scoped to one stream so users can review a table at a time.
+  const confirmAllColumnTypes = useCallback((streamName: string) => {
+    setStreams((prev) =>
+      prev.map((s) =>
+        s.name === streamName
+          ? {
+              ...s,
+              columns: s.columns.map((c) => (c.selected ? { ...c, type_confirmed: true } : c)),
+            }
+          : s
+      )
+    );
+  }, []);
 
   // Expand or collapse a stream's detail view
   const toggleStreamExpand = useCallback((streamName: string) => {
@@ -257,6 +277,13 @@ export function useStreamConfig() {
 
   const allSelected = streams.length > 0 && streams.every((s) => s.selected);
   const hasSelectedStreams = streams.some((s) => s.selected);
+  const allSelectedColumnTypesConfirmed = useMemo(
+    () =>
+      streams
+        .filter((s) => s.selected)
+        .every((s) => s.columns.filter((c) => c.selected).every((c) => c.type_confirmed)),
+    [streams]
+  );
 
   // True if any selected incremental stream is missing a cursor field
   const isAnyCursorAbsent = useMemo(
@@ -283,11 +310,13 @@ export function useStreamConfig() {
     updateStreamPrimaryKey,
     toggleColumn,
     updateCastType,
+    confirmAllColumnTypes,
     toggleStreamExpand,
     handleIncrementalAllToggle,
     filteredStreams,
     allSelected,
     hasSelectedStreams,
+    allSelectedColumnTypesConfirmed,
     isAnyCursorAbsent,
   };
 }

@@ -296,7 +296,13 @@ export function GoogleSheetsForm({
 
   return (
     <div className="space-y-4" data-testid="google-sheets-form">
-      {primary.map((field) => renderField(field, control, setValue, disabled))}
+      {/* Wrapped so the onboarding walkthrough has one element to point at for "paste your
+          sheet link". The fields are spec-driven, so none of them carries a testid of its own.
+          `space-y-4` is repeated here because the wrapper collapses these into a single child
+          of the parent's stack, which would otherwise close the gaps between them. */}
+      <div className="space-y-4" data-testid="gsheets-primary-fields">
+        {primary.map((field) => renderField(field, control, setValue, disabled))}
+      </div>
 
       {/* MANAGED-SA: with a key configured, the two options replace sign-in entirely. */}
       {useManagedChoice && managedEmail ? (
