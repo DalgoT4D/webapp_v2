@@ -62,6 +62,7 @@ export function UnifiedTextElement({
 }: UnifiedTextElementProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showBgColorPicker, setShowBgColorPicker] = useState(false);
   const [showHeadingDropdown, setShowHeadingDropdown] = useState(false);
   const [showAlignDropdown, setShowAlignDropdown] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState({
@@ -86,6 +87,7 @@ export function UnifiedTextElement({
 
   const closeAllDropdowns = useCallback(() => {
     setShowColorPicker(false);
+    setShowBgColorPicker(false);
     setShowImageDropdown(false);
     setShowHeadingDropdown(false);
     setShowAlignDropdown(false);
@@ -427,6 +429,14 @@ export function UnifiedTextElement({
     [onUpdate]
   );
 
+  const handleBackgroundColorChange = useCallback(
+    (color: string) => {
+      onUpdate({ ...configRef.current, backgroundColor: color });
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_IMAGE_UPDATED, { field: 'background_color' });
+    },
+    [onUpdate]
+  );
+
   const commitCaption = useCallback(() => {
     onUpdate({ ...configRef.current, caption: tempCaption });
     setIsEditingCaption(false);
@@ -442,6 +452,8 @@ export function UnifiedTextElement({
       toolbarPosition={toolbarPosition}
       showColorPicker={showColorPicker}
       setShowColorPicker={setShowColorPicker}
+      showBgColorPicker={showBgColorPicker}
+      setShowBgColorPicker={setShowBgColorPicker}
       showHeadingDropdown={showHeadingDropdown}
       setShowHeadingDropdown={setShowHeadingDropdown}
       showAlignDropdown={showAlignDropdown}
@@ -463,6 +475,7 @@ export function UnifiedTextElement({
       onImageSizeChange={handleImageSizeChange}
       onCaptionAlignChange={handleCaptionAlignChange}
       onCancelReplaceImage={handleCancelReplaceImage}
+      onBackgroundColorChange={handleBackgroundColorChange}
     />
   ) : null;
 
@@ -579,7 +592,7 @@ export function UnifiedTextElement({
         // interrupting the upload before handleImageUpload can even run.
         data-rich-text-toolbar
       />
-      <Card className="h-full w-full">
+      <Card className="h-full w-full overflow-hidden">
         <CardContent className="h-full p-0">{content}</CardContent>
       </Card>
     </>

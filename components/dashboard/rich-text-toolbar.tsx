@@ -19,6 +19,7 @@ import {
   AlignCenter,
   AlignRight,
   Palette,
+  PaintBucket,
   ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -119,6 +120,114 @@ function setHeadingLevel(
     .run();
 }
 
+interface ColorPickerDropdownProps {
+  /** Distinguishes data-testids between the two instances (text vs background). */
+  prefix: string;
+  label: string;
+  color: string;
+  isOpen: boolean;
+  onSelect: (color: string) => void;
+}
+
+// Shared by the text-color and background-color toolbar buttons: a preset grid
+// plus a "Custom" hex sub-view (react-colorful). isOpen resets back to the
+// preset grid whenever the dropdown closes, so it never reopens mid-custom-pick.
+function ColorPickerDropdown({ prefix, label, color, isOpen, onSelect }: ColorPickerDropdownProps) {
+  const [showCustomPicker, setShowCustomPicker] = useState(false);
+  const [customColor, setCustomColor] = useState(color);
+
+  useEffect(() => {
+    if (!isOpen) setShowCustomPicker(false);
+  }, [isOpen]);
+
+  if (showCustomPicker) {
+    return (
+      <div className="flex flex-col gap-2">
+        <HexColorPicker color={customColor} onChange={setCustomColor} className="!w-full" />
+        <div className="flex items-center gap-2">
+          <span
+            className="h-6 w-6 flex-shrink-0 rounded border border-gray-300"
+            style={{ backgroundColor: customColor }}
+          />
+          <input
+            type="text"
+            value={customColor}
+            onChange={(event) => setCustomColor(event.target.value)}
+            className="h-7 w-full rounded border px-2 text-xs uppercase"
+            aria-label={`Custom ${label.toLowerCase()} hex value`}
+            data-testid={`rich-text-custom-${prefix}-hex`}
+          />
+        </div>
+        <div className="mt-1 flex justify-end gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 px-3 text-xs"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setShowCustomPicker(false)}
+            data-testid={`rich-text-custom-${prefix}-cancel`}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="primary"
+            className="h-7 px-3 text-xs"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => onSelect(customColor)}
+            data-testid={`rich-text-custom-${prefix}-ok`}
+          >
+            OK
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <p className="mb-2 text-xs font-medium text-gray-700">{label}</p>
+      <div className="grid grid-cols-4 gap-2">
+        {COLOR_PRESETS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            className={cn(
+              'h-7 w-7 rounded-md border border-gray-200 transition-transform hover:scale-110',
+              color === preset && 'ring-2 ring-blue-500 ring-offset-1'
+            )}
+            style={{ backgroundColor: preset }}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => onSelect(preset)}
+            aria-label={`Set ${label.toLowerCase()} ${preset}`}
+            data-testid={`rich-text-${prefix}-${preset.slice(1).toLowerCase()}`}
+          />
+        ))}
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => {
+          setCustomColor(color);
+          setShowCustomPicker(true);
+        }}
+        className="mt-3 h-7 w-full justify-between px-3 text-xs normal-case"
+        data-testid={`rich-text-custom-${prefix}-toggle`}
+      >
+        Custom
+        <span
+          className="h-5 w-5 rounded border border-gray-300"
+          style={{ backgroundColor: color }}
+        />
+      </Button>
+    </>
+  );
+}
+
 export interface RichTextToolbarProps {
   editor: NonNullable<ReturnType<typeof useEditor>>;
   /** Analytics only, so format-applied events can be joined to their dashboard. */
@@ -126,6 +235,8 @@ export interface RichTextToolbarProps {
   toolbarPosition: { top: number; left: number };
   showColorPicker: boolean;
   setShowColorPicker: Dispatch<SetStateAction<boolean>>;
+  showBgColorPicker: boolean;
+  setShowBgColorPicker: Dispatch<SetStateAction<boolean>>;
   showHeadingDropdown: boolean;
   setShowHeadingDropdown: Dispatch<SetStateAction<boolean>>;
   showAlignDropdown: boolean;
@@ -147,6 +258,7 @@ export interface RichTextToolbarProps {
   onImageSizeChange: (size: 'fill' | 'fit' | 'stretch') => void;
   onCaptionAlignChange: (align: 'left' | 'center' | 'right') => void;
   onCancelReplaceImage: () => void;
+  onBackgroundColorChange: (color: string) => void;
 }
 
 // The floating rich-text formatting toolbar (heading, font size, bold/italic/
@@ -159,6 +271,8 @@ export function RichTextToolbar({
   toolbarPosition,
   showColorPicker,
   setShowColorPicker,
+  showBgColorPicker,
+  setShowBgColorPicker,
   showHeadingDropdown,
   setShowHeadingDropdown,
   showAlignDropdown,
@@ -180,6 +294,7 @@ export function RichTextToolbar({
   onImageSizeChange,
   onCaptionAlignChange,
   onCancelReplaceImage,
+  onBackgroundColorChange,
 }: RichTextToolbarProps) {
   const toolbarState = useEditorState({
     editor,
@@ -217,13 +332,6 @@ export function RichTextToolbar({
     [dashboardId]
   );
 
-  const [showCustomPicker, setShowCustomPicker] = useState(false);
-  const [customColor, setCustomColor] = useState('#000000');
-
-  useEffect(() => {
-    if (!showColorPicker) setShowCustomPicker(false);
-  }, [showColorPicker]);
-
   return createPortal(
     <div
       className="drag-cancel fixed z-[9999] flex max-w-[calc(100vw-16px)] flex-wrap items-center gap-1 rounded-lg border bg-white p-2 shadow-2xl"
@@ -240,6 +348,7 @@ export function RichTextToolbar({
           onClick={() => {
             setShowHeadingDropdown((visible) => !visible);
             setShowColorPicker(false);
+            setShowBgColorPicker(false);
             setShowImageDropdown(false);
             setShowAlignDropdown(false);
           }}
@@ -359,6 +468,7 @@ export function RichTextToolbar({
           onClick={() => {
             setShowAlignDropdown((visible) => !visible);
             setShowColorPicker(false);
+            setShowBgColorPicker(false);
             setShowImageDropdown(false);
             setShowHeadingDropdown(false);
           }}
@@ -407,6 +517,7 @@ export function RichTextToolbar({
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => {
             setShowColorPicker((visible) => !visible);
+            setShowBgColorPicker(false);
             setShowImageDropdown(false);
             setShowHeadingDropdown(false);
             setShowAlignDropdown(false);
@@ -427,102 +538,64 @@ export function RichTextToolbar({
               toolbarPosition.top > 200 ? 'bottom-9' : 'top-9'
             )}
           >
-            {!showCustomPicker ? (
-              <>
-                <p className="mb-2 text-xs font-medium text-gray-700">Text color</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {COLOR_PRESETS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      className={cn(
-                        'h-7 w-7 rounded-md border border-gray-200 transition-transform hover:scale-110',
-                        toolbarState?.color === color && 'ring-2 ring-blue-500 ring-offset-1'
-                      )}
-                      style={{ backgroundColor: color }}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        applyFormatting('color', () =>
-                          editor.chain().focus().setColor(color).run()
-                        );
-                        setShowColorPicker(false);
-                      }}
-                      aria-label={`Set text color ${color}`}
-                      data-testid={`rich-text-color-${color.slice(1).toLowerCase()}`}
-                    />
-                  ))}
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => {
-                    setCustomColor(toolbarState?.color || '#000000');
-                    setShowCustomPicker(true);
-                  }}
-                  className="mt-3 h-7 w-full justify-between px-3 text-xs normal-case"
-                  data-testid="rich-text-custom-color-toggle"
-                >
-                  Custom
-                  <span
-                    className="h-5 w-5 rounded border border-gray-300"
-                    style={{ backgroundColor: toolbarState?.color || '#000000' }}
-                  />
-                </Button>
-              </>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <HexColorPicker color={customColor} onChange={setCustomColor} className="!w-full" />
-                <div className="flex items-center gap-2">
-                  <span
-                    className="h-6 w-6 flex-shrink-0 rounded border border-gray-300"
-                    style={{ backgroundColor: customColor }}
-                  />
-                  <input
-                    type="text"
-                    value={customColor}
-                    onChange={(event) => setCustomColor(event.target.value)}
-                    className="h-7 w-full rounded border px-2 text-xs uppercase"
-                    aria-label="Custom color hex value"
-                    data-testid="rich-text-custom-color-hex"
-                  />
-                </div>
-                <div className="mt-1 flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 px-3 text-xs"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => setShowCustomPicker(false)}
-                    data-testid="rich-text-custom-color-cancel"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="primary"
-                    className="h-7 px-3 text-xs"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
-                      applyFormatting('color', () =>
-                        editor.chain().focus().setColor(customColor).run()
-                      );
-                      setShowCustomPicker(false);
-                      setShowColorPicker(false);
-                    }}
-                    data-testid="rich-text-custom-color-ok"
-                  >
-                    OK
-                  </Button>
-                </div>
-              </div>
-            )}
+            <ColorPickerDropdown
+              prefix="color"
+              label="Text color"
+              color={toolbarState?.color || '#000000'}
+              isOpen={showColorPicker}
+              onSelect={(color) => {
+                applyFormatting('color', () => editor.chain().focus().setColor(color).run());
+                setShowColorPicker(false);
+              }}
+            />
           </div>
         )}
       </div>
+      {!config.imageUrl && (
+        <div className="relative">
+          <Button
+            type="button"
+            size="sm"
+            variant={showBgColorPicker ? 'default' : 'ghost'}
+            className="h-7 w-7 p-0"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              setShowBgColorPicker((visible) => !visible);
+              setShowColorPicker(false);
+              setShowImageDropdown(false);
+              setShowHeadingDropdown(false);
+              setShowAlignDropdown(false);
+            }}
+            aria-label="Widget background color"
+            data-testid="rich-text-bg-color-picker"
+          >
+            <PaintBucket className="h-3.5 w-3.5" />
+            <span
+              className="absolute bottom-0.5 right-0.5 h-2 w-2 rounded-full border border-white"
+              style={{ backgroundColor: config.backgroundColor || '#FFFFFF' }}
+            />
+          </Button>
+          {showBgColorPicker && (
+            <div
+              className={cn(
+                'absolute right-0 z-[10000] w-48 rounded-lg border bg-white p-3 shadow-xl',
+                toolbarPosition.top > 200 ? 'bottom-9' : 'top-9'
+              )}
+            >
+              <ColorPickerDropdown
+                prefix="bg-color"
+                label="Background color"
+                color={config.backgroundColor || '#FFFFFF'}
+                isOpen={showBgColorPicker}
+                onSelect={(color) => {
+                  onBackgroundColorChange(color);
+                  setShowBgColorPicker(false);
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
       <ImageControls
         config={config}
         dropUp={toolbarPosition.top > 200}
@@ -534,6 +607,7 @@ export function RichTextToolbar({
             return next;
           });
           setShowColorPicker(false);
+          setShowBgColorPicker(false);
           setShowHeadingDropdown(false);
           setShowAlignDropdown(false);
         }}
