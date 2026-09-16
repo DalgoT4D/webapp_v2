@@ -46,8 +46,14 @@ const TOOLBAR_MAX_WIDTH_PX = 620;
 const TOOLBAR_HEIGHT_PX = 56;
 const TOOLBAR_VIEWPORT_GUTTER_PX = 8;
 // Mirrors the backend's PUT /api/dashboards/images/ validation
-// (ddpui/services/dashboard_service.py) so bad files fail fast client-side.
-const ALLOWED_WIDGET_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+// (ddpui/utils/constants.py) so bad files fail fast client-side.
+const ALLOWED_WIDGET_IMAGE_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
+]);
 const MAX_WIDGET_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const IMAGE_OVERLAY_PLACEHOLDER = 'Type on image (optional)…';
@@ -338,7 +344,7 @@ export function UnifiedTextElement({
       if (!file) return;
 
       if (!ALLOWED_WIDGET_IMAGE_TYPES.has(file.type)) {
-        toastError.api(new Error('Please upload a JPEG, PNG, GIF, or WEBP image.'));
+        toastError.api(new Error('Please upload a JPEG, PNG, GIF, WEBP, or SVG image.'));
         return;
       }
       if (file.size > MAX_WIDGET_IMAGE_SIZE_BYTES) {

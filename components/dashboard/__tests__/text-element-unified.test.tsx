@@ -451,7 +451,9 @@ describe('UnifiedTextElement', () => {
 
       await waitFor(() =>
         expect(mockToastErrorApi).toHaveBeenCalledWith(
-          expect.objectContaining({ message: 'Please upload a JPEG, PNG, GIF, or WEBP image.' })
+          expect.objectContaining({
+            message: 'Please upload a JPEG, PNG, GIF, WEBP, or SVG image.',
+          })
         )
       );
       expect(mockApiPut).not.toHaveBeenCalled();
