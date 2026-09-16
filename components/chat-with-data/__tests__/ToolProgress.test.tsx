@@ -16,11 +16,10 @@ const sqlTool: ToolActivity = {
 };
 
 describe('ToolProgress', () => {
-  it('shows the steps while the turn is streaming', () => {
+  it('shows the current step with the thinking sparkle while streaming', () => {
     render(<ToolProgress tools={[runningTool, sqlTool]} streaming />);
-    expect(screen.getByText('Thinking…')).toBeInTheDocument();
-    expect(screen.getByText('Looking at your tables…')).toBeInTheDocument();
     expect(screen.getByText('Running query…')).toBeInTheDocument();
+    expect(screen.queryByText('Looking at your tables…')).not.toBeInTheDocument();
   });
 
   it('collapses finished reasoning behind a toggle, SQL included', () => {

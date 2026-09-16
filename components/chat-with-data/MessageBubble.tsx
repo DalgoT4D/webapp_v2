@@ -7,6 +7,7 @@ import { ToolProgress } from './ToolProgress';
 import { ResultTable } from './ResultTable';
 import { AssistantMarkdown } from './AssistantMarkdown';
 import { SqlBlock } from './SqlBlock';
+import { ThinkingIndicator } from './ThinkingIndicator';
 import type { ApprovalRequest, ChatMessage } from '@/types/chat-with-data';
 
 /** Plain-language receipt for a tool call awaiting approval */
@@ -118,9 +119,7 @@ export function MessageBubble({
       <ToolProgress tools={message.tools} streaming={message.streaming} />
 
       {showThinking && message.tools.length === 0 && (
-        <p className="animate-pulse text-sm text-[#7A7A8C]" data-testid="chat-thinking">
-          Thinking…
-        </p>
+        <ThinkingIndicator data-testid="chat-thinking" />
       )}
 
       {message.content && <AssistantMarkdown content={message.content} />}

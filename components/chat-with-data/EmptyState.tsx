@@ -20,7 +20,7 @@ const SUGGESTION_CARDS: SuggestionCard[] = [
     title: 'What can Dalgo do?',
     description: 'Explore platform and its capabilities',
     image: '/images/chat-with-data/card-explore.png',
-    prompt: 'What can Dalgo Copilot help me with?',
+    prompt: 'What can Copilot help me with?',
   },
   {
     title: 'Check your data',

@@ -1076,3 +1076,77 @@
   top: 0;
   left: 0;
 }
+
+/* Copilot "thinking" sparkle (Figma node 3877:23119). One 2s loop: the logo
+   rotates 180° (eased half, linear half) while each arm's gradient layer
+   fades in on its own phase — timings from the Figma motion tracks. */
+.copilot-think-spin {
+  animation: copilot-think-spin 2s infinite;
+}
+.copilot-think-fade-1 {
+  animation: copilot-think-fade-1 2s infinite;
+}
+.copilot-think-fade-2 {
+  animation: copilot-think-fade-2 2s infinite;
+}
+.copilot-think-fade-3 {
+  animation: copilot-think-fade-3 2s infinite linear;
+}
+
+@keyframes copilot-think-spin {
+  0% {
+    transform: rotate(0deg);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+  }
+  50% {
+    transform: rotate(90deg);
+    animation-timing-function: linear;
+  }
+  100% {
+    transform: rotate(180deg);
+  }
+}
+
+@keyframes copilot-think-fade-1 {
+  0% {
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+  }
+  39.55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes copilot-think-fade-2 {
+  0% {
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+  }
+  82.53% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes copilot-think-fade-3 {
+  0% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.04;
+  }
+  50% {
+    opacity: 0.19;
+  }
+  75% {
+    opacity: 0.46;
+  }
+  100% {
+    opacity: 0.84;
+  }
+}

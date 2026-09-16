@@ -19,7 +19,6 @@ import {
   Home,
   LayoutDashboard,
   ChartBarBig,
-  Sparkles,
   ChevronLeft,
   ChevronRight,
   Users,
@@ -32,6 +31,7 @@ import ExploreIcon from '@/assets/icons/explore';
 import DataQualityIcon from '@/assets/icons/data-quality';
 import PipelineOverviewIcon from '@/assets/icons/pipeline-overview';
 import OrchestrateIcon from '@/assets/icons/orchestrate';
+import CopilotIcon from '@/assets/icons/copilot';
 import { Header } from './header';
 import { useAuthStore } from '@/stores/authStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
@@ -144,9 +144,9 @@ export const getNavItems = (
       hide: !isFeatureFlagEnabled(FeatureFlagKeys.REPORTS),
     },
     {
-      title: 'Dalgo Copilot',
+      title: 'Copilot',
       href: '/chat-with-data',
-      icon: Sparkles,
+      icon: CopilotIcon,
       isActive: currentPath.startsWith('/chat-with-data'),
       hide: !isFeatureFlagEnabled(FeatureFlagKeys.CHAT_WITH_DATA) || !canUseChatWithData,
     },
@@ -245,7 +245,7 @@ export const getNavItems = (
         {
           title: 'Copilot',
           href: '/settings/copilot',
-          icon: Sparkles,
+          icon: CopilotIcon,
           isActive: currentPath.startsWith('/settings/copilot'),
           visibleToRoles: ADMIN_ROLES,
         },

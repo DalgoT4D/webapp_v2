@@ -1,16 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { SqlBlock } from './SqlBlock';
+import { ThinkingIndicator } from './ThinkingIndicator';
 import type { ToolActivity } from '@/types/chat-with-data';
 
 /**
- * The agent's visible reasoning: while a turn runs the steps stream in under a
- * left rail; once the answer lands they collapse behind a "Thought process"
- * toggle, with any generated SQL in QUERY blocks — per the Dalgo 2.0 design.
+ * The agent's visible reasoning. While a turn runs, the animated Copilot
+ * sparkle shows the current step; once the answer lands the steps collapse
+ * behind a "Thought process" toggle, with any generated SQL in QUERY blocks —
+ * per the Dalgo 2.0 design.
  */
 export function ToolProgress({
   tools,
@@ -19,17 +21,24 @@ export function ToolProgress({
   tools: ToolActivity[];
   streaming?: boolean;
 }) {
-  const [openWhileIdle, setOpenWhileIdle] = useState(false);
+  const [open, setOpen] = useState(false);
 
   if (!tools.length) return null;
 
-  // streaming turns always show their steps; finished turns collapse
-  const open = streaming || openWhileIdle;
+  if (streaming) {
+    const current = tools[tools.length - 1];
+    return (
+      <div data-testid="chat-tool-progress">
+        <ThinkingIndicator label={current.label} />
+      </div>
+    );
+  }
+
   const Chevron = open ? ChevronUp : ChevronDown;
   const sqlSteps = tools.filter((activity) => activity.sql);
 
   const toggle = () => {
-    setOpenWhileIdle((current) => {
+    setOpen((current) => {
       if (!current && sqlSteps.length) trackEvent(ANALYTICS_EVENTS.CHAT_SQL_VIEWED);
       return !current;
     });
@@ -41,11 +50,10 @@ export function ToolProgress({
         type="button"
         data-testid="chat-reasoning-toggle"
         onClick={toggle}
-        disabled={streaming}
         className="flex items-center gap-1 text-sm text-[#7A7A8C]"
       >
-        {streaming ? <Loader2 className="size-4 animate-spin" /> : <Chevron className="size-4" />}
-        {streaming ? 'Thinking…' : 'Thought process'}
+        <Chevron className="size-4" />
+        Thought process
       </button>
 
       {open && (

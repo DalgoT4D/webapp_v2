@@ -61,7 +61,7 @@ export default function CopilotSettings() {
     try {
       await apiPut(SETTINGS_KEY, { enabled: checked });
       await Promise.all([mutate(SETTINGS_KEY), mutate(FLAGS_KEY)]);
-      toastSuccess.saved(checked ? 'Dalgo Copilot enabled' : 'Dalgo Copilot disabled');
+      toastSuccess.saved(checked ? 'Copilot enabled' : 'Copilot disabled');
     } catch (error) {
       toastError.save(error, 'Copilot settings');
     } finally {
@@ -86,7 +86,7 @@ export default function CopilotSettings() {
     <div className="h-full flex flex-col">
       <div className="flex-shrink-0 border-b bg-background">
         <div className="p-6 pb-0 mb-6">
-          <h1 className="text-3xl font-bold">Dalgo Copilot</h1>
+          <h1 className="text-3xl font-bold">Copilot</h1>
           <p className="text-muted-foreground mt-1">
             Enable the AI assistant for your organization and teach it about your data
           </p>
@@ -98,7 +98,7 @@ export default function CopilotSettings() {
           {/* Enable */}
           <div className="bg-white border rounded-lg p-6 flex items-center justify-between gap-6">
             <div>
-              <h2 className="text-lg font-semibold">Enable Dalgo Copilot</h2>
+              <h2 className="text-lg font-semibold">Enable Copilot</h2>
               <p className="text-sm text-muted-foreground mt-1">
                 Admins get an AI assistant that answers questions from your warehouse in plain
                 language. By enabling this, you approve that questions and query results from your
