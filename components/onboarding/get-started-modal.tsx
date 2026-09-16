@@ -40,6 +40,27 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 const ILLUSTRATION_SRC = '/branding/get-started-illustration.jpg';
 
 export type GetStartedScreen = 'choice' | 'insight';
+
+/**
+ * Each screen is its own tracked surface with its own viewed/dismissed pair, fired once per
+ * screen VISIT rather than once per dialog open.
+ *
+ * The two screens ask different questions (which journey vs which data), and one Dialog hosts
+ * both only so the swap doesn't flicker. Reporting them as one surface broke both totals: a
+ * close on the fork screen logged a choice-screen dismissal even when that screen had never
+ * rendered (widget/resume entry), and choice -> fork -> close logged TWO choice-screen
+ * dismissals for one visit. Per-visit pairing keeps `*_viewed` and `*_dismissed` equal per
+ * screen, which is what makes a take-rate a breakdown instead of a hand-computed ratio.
+ */
+const SCREEN_VIEWED_EVENT = {
+  choice: ANALYTICS_EVENTS.POST_TOUR_MODAL_VIEWED,
+  insight: ANALYTICS_EVENTS.INSIGHT_FORK_MODAL_VIEWED,
+} as const;
+
+const SCREEN_DISMISSED_EVENT = {
+  choice: ANALYTICS_EVENTS.POST_TOUR_MODAL_DISMISSED,
+  insight: ANALYTICS_EVENTS.INSIGHT_FORK_MODAL_DISMISSED,
+} as const;
 /** Where the dialog was opened from — analytics only. */
 export type GetStartedEntry = 'post_tour' | 'widget' | 'resume' | 'intent_modal';
 
@@ -109,6 +130,11 @@ export function GetStartedModal({
   onSelectOwnData,
 }: GetStartedModalProps) {
   const [screen, setScreen] = useState<GetStartedScreen>(initialScreen);
+  // The entry that got the user to the CURRENT screen, which is not always the dialog's own
+  // `entry`: reaching the fork from the choice screen makes that visit a 'post_tour' one.
+  // Analytics only — it rides both of the current screen's events so a dismissal can be
+  // attributed to the surface that produced it.
+  const [screenEntry, setScreenEntry] = useState<GetStartedEntry>(entry);
   // Re-derived on every open rather than kept from last time: the entry point decides
   // which screen this is, and a stale 'insight' would skip the post-tour choice.
   const [cameFromChoice, setCameFromChoice] = useState(false);
@@ -116,39 +142,51 @@ export function GetStartedModal({
   useEffect(() => {
     if (!open) return;
     setScreen(initialScreen);
+    setScreenEntry(entry);
     // A restored post-tour insight screen still belongs to the journey chooser, so its back
     // arrow must survive the refresh too. Widget/resume entry points open the same screen
     // directly and intentionally have no journey list behind them.
     setCameFromChoice(initialScreen === 'insight' && entry === 'post_tour');
-    trackEvent(
-      initialScreen === 'choice'
-        ? ANALYTICS_EVENTS.POST_TOUR_MODAL_VIEWED
-        : ANALYTICS_EVENTS.INSIGHT_FORK_MODAL_VIEWED,
-      { entry }
-    );
+    trackEvent(SCREEN_VIEWED_EVENT[initialScreen], { entry });
   }, [open, initialScreen, entry]);
 
+  /** Ends the current screen's visit (see SCREEN_DISMISSED_EVENT). */
+  const dismissScreen = (choice: string) => {
+    trackEvent(SCREEN_DISMISSED_EVENT[screen], { choice, entry: screenEntry });
+  };
+
+  /** Swap screens in place and open a fresh tracked visit for the one arrived at. */
+  const goToScreen = (next: GetStartedScreen, nextEntry: GetStartedEntry) => {
+    setScreen(next);
+    setScreenEntry(nextEntry);
+    onScreenChange(next);
+    trackEvent(SCREEN_VIEWED_EVENT[next], { entry: nextEntry });
+  };
+
   const openInsightScreen = () => {
-    trackEvent(ANALYTICS_EVENTS.POST_TOUR_MODAL_DISMISSED, { choice: 'insight' });
+    dismissScreen('insight');
     setCameFromChoice(true);
-    setScreen('insight');
-    onScreenChange('insight');
-    trackEvent(ANALYTICS_EVENTS.INSIGHT_FORK_MODAL_VIEWED, { entry: 'post_tour' });
+    goToScreen('insight', 'post_tour');
   };
 
   const returnToChoiceScreen = () => {
-    setScreen('choice');
+    // The back arrow is the only way out of the fork that isn't a choice or a close, and it
+    // ends that screen's visit like either of them — tracked so the fork's viewed/dismissed
+    // totals stay paired. It exists only on a fork reached from the choice screen, so the
+    // screen it returns to is always a post-tour one.
+    dismissScreen('back');
     setCameFromChoice(false);
-    onScreenChange('choice');
+    goToScreen('choice', 'post_tour');
   };
 
   const handlePipeline = () => {
-    trackEvent(ANALYTICS_EVENTS.POST_TOUR_MODAL_DISMISSED, { choice: 'pipeline' });
+    dismissScreen('pipeline');
     onOpenChange(false);
     onSelectPipeline();
   };
 
   const handleFork = (choice: 'sample' | 'own_data') => {
+    dismissScreen(choice);
     trackEvent(ANALYTICS_EVENTS.INSIGHT_FORK_CHOSEN, { choice });
     onOpenChange(false);
     if (choice === 'sample') {
@@ -162,9 +200,9 @@ export function GetStartedModal({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) {
-          trackEvent(ANALYTICS_EVENTS.POST_TOUR_MODAL_DISMISSED, { choice: 'close', screen });
-        }
+        // Only the ✕/Escape reaches this: every option handler above closes through the
+        // `onOpenChange` PROP, so a chosen option never also counts as a close.
+        if (!next) dismissScreen('close');
         onOpenChange(next);
       }}
     >

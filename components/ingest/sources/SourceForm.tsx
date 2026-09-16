@@ -32,7 +32,7 @@ import { savedLinkPointsAt } from '@/components/ingest/sources/custom/utils';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { useSourceConfigForm } from '@/hooks/useSourceConfigForm';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, SOURCE_AUTH_MODES } from '@/constants/analytics';
 import { toastSuccess, toastError } from '@/lib/toast';
 
 // WebSocket endpoint for source connection check
@@ -285,8 +285,11 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       // source_type rides along on every update, same as SOURCE_CREATED — without
       // it, edits can't be broken down by connector in PostHog.
       trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED, {
+        source_id: sourceId,
         source_type: selectedName,
-        ...(isGoogleSheetsCustom ? { auth_mode: 'service_account' } : {}),
+        // Not managed_key/own_key: on edit those two are indistinguishable (see
+        // SOURCE_AUTH_MODES.SERVICE_ACCOUNT). Create is where the real route is known.
+        ...(isGoogleSheetsCustom ? { auth_mode: SOURCE_AUTH_MODES.SERVICE_ACCOUNT } : {}),
       });
       toastSuccess.updated('Source');
       mutateSource();
@@ -360,8 +363,9 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
         refresh_token_ref: oauthRef!,
       });
       trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED, {
+        source_id: sourceId,
         source_type: 'Google Sheets',
-        auth_mode: 'oauth',
+        auth_mode: SOURCE_AUTH_MODES.OAUTH,
       });
       toastSuccess.updated('Source');
       mutateSource();

@@ -7,6 +7,7 @@ import type { CommentStates, CommentIconState } from '@/types/comments';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { computePopChanges } from '@/lib/formatters';
 import { useKPIData } from '@/hooks/api/useKPIs';
+import { KPI_EXPORT_SOURCES } from '@/constants/analytics';
 
 interface KPIChartElementProps {
   kpiId: number;
@@ -20,6 +21,7 @@ interface KPIChartElementProps {
   commentStates?: CommentStates;
   onCommentStateChange?: () => void;
   autoOpenCommentChartId?: string;
+  canModerateComments?: boolean;
 }
 
 export function KPIChartElement({
@@ -33,6 +35,7 @@ export function KPIChartElement({
   commentStates,
   onCommentStateChange,
   autoOpenCommentChartId,
+  canModerateComments = false,
 }: KPIChartElementProps) {
   const { chartData, echartsConfig, isError, isLoading } = useKPIData(kpiId || null, snapshotId, {
     dashboardFilters,
@@ -83,6 +86,7 @@ export function KPIChartElement({
       triggerClassName="h-7 w-7 p-0"
       onStateChange={onCommentStateChange}
       autoOpen={autoOpenCommentChartId === String(kpiId)}
+      canModerate={canModerateComments}
     />
   ) : null;
 
@@ -94,6 +98,8 @@ export function KPIChartElement({
         headerActions={commentButton}
         className="h-full"
         borderless
+        kpiId={kpiId}
+        exportSource={KPI_EXPORT_SOURCES.DASHBOARD}
         showDownload={!snapshotId}
         showFullscreen={!snapshotId}
       />

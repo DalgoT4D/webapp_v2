@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, CHART_EXPORT_SOURCES } from '@/constants/analytics';
 import { ChartExporter, generateFilename, type TableData } from '@/lib/chart-export';
 import { MapExportHandler } from '@/lib/map-export-handler';
 import { buildPivotDataFields } from '@/components/charts/pivot-table/utils';
@@ -71,7 +71,12 @@ export function ChartExportDropdownForList({
       }
 
       const formatName = format.toUpperCase();
-      trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, { format, chart_type: chartType });
+      trackEvent(ANALYTICS_EVENTS.CHART_EXPORTED, {
+        format,
+        chart_type: chartType,
+        chart_id: chartId,
+        source: CHART_EXPORT_SOURCES.CHARTS_LIST,
+      });
       toastSuccess.exported(chartTitle, format);
       onExportComplete?.();
     } catch (error: any) {

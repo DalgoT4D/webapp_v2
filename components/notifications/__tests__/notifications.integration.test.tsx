@@ -62,7 +62,6 @@ describe('Notifications Page Integration', () => {
 
     (notificationHooks.usePreferenceActions as jest.Mock).mockReturnValue({
       updateUserPreferences: mocks.mockUpdateUserPreferences,
-      updateOrgPreferences: mocks.mockUpdateOrgPreferences,
     });
 
     (rbac.useRbac as jest.Mock).mockReturnValue(createMockPermissions(true));

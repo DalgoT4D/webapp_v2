@@ -21,6 +21,7 @@ export interface Dashboard {
   published_at?: string;
   is_locked: boolean;
   locked_by?: string;
+  is_favorite?: boolean;
   created_by: string;
   org_id: number;
   last_modified_by?: string;
@@ -163,6 +164,14 @@ export async function unlockDashboard(id: number) {
   return apiDelete(`/api/dashboards/${id}/lock/`);
 }
 
+export async function favoriteDashboard(id: number) {
+  return apiPost(`/api/dashboards/${id}/favorite/`, {});
+}
+
+export async function unfavoriteDashboard(id: number) {
+  return apiDelete(`/api/dashboards/${id}/favorite/`);
+}
+
 export async function getFilterOptions(params: {
   schema_name: string;
   table_name: string;
@@ -239,9 +248,15 @@ export async function duplicateDashboard(dashboardId: number): Promise<Dashboard
 }
 
 // Dashboard sharing functions
+// Tracked here rather than at the call sites because two of them exist (the dashboard
+// view and the list row menu) and ShareModal itself lives in components/ui/, which we
+// keep free of analytics. Only going public fires: turning sharing OFF is not an
+// outcome we measure, and one event for both directions made the count meaningless.
 export async function updateDashboardSharing(dashboardId: number, data: { is_public: boolean }) {
   const result = await apiPut(`/api/dashboards/${dashboardId}/share/`, data);
-  trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { is_public: data.is_public });
+  if (data.is_public) {
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_MADE_PUBLIC, { dashboard_id: dashboardId });
+  }
   return result;
 }
 

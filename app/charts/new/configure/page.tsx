@@ -45,8 +45,19 @@ import {
   mergeTableColumnFormatting,
   resolveTableColumnOrder,
 } from '@/lib/chart-payload-utils';
-import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { trackEvent, trackFeatureView } from '@/lib/analytics';
+import {
+  ANALYTICS_EVENTS,
+  CHART_CREATE_SOURCES,
+  FEATURES,
+  METRIC_USE_SOURCES,
+} from '@/constants/analytics';
+import {
+  CHART_BUILDER_TAB_ANALYTICS,
+  getMetricAnalyticsProps,
+  getUsedSavedMetricIds,
+  isDrillDownEnabled,
+} from '@/components/charts/utils';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { DashboardNameHint } from '@/components/onboarding/dashboard-name-hint';
 import { Label } from '@/components/ui/label';
@@ -179,6 +190,19 @@ function ConfigureChartPageContent() {
   });
 
   const [activeTab, setActiveTab] = useState('chart');
+
+  // Builder tabs are local state, so `feature:viewed` doesn't fire on switch —
+  // report them explicitly. Fires on every switch (not once), so this answers
+  // "did they ever open Chart Styling", not "how many times".
+  const handleTabView = (tabValue: string) => {
+    trackFeatureView(FEATURES.CHARTS, { tab: CHART_BUILDER_TAB_ANALYTICS[tabValue] ?? tabValue });
+  };
+
+  const handlePreviewTabChange = (tabValue: string) => {
+    setActiveTab(tabValue);
+    handleTabView(tabValue);
+  };
+
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
   const [dataPreviewPageSize, setDataPreviewPageSize] = useState(20);
   const [rawDataPage, setRawDataPage] = useState(1);
@@ -265,6 +289,14 @@ function ConfigureChartPageContent() {
     }
 
     if (formData.chart_type === 'number') {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          metric.column_expression ||
+          (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       return !!(
         formData.aggregate_function &&
         (formData.aggregate_function === 'count' || formData.aggregate_column)
@@ -272,6 +304,16 @@ function ConfigureChartPageContent() {
     }
 
     if (formData.chart_type === 'map') {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          formData.geographic_column &&
+          formData.selected_geojson_id &&
+          (metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       return !!(
         formData.geographic_column &&
         formData.value_column &&
@@ -641,12 +683,16 @@ function ConfigureChartPageContent() {
 
   // Generate map preview payloads in create mode
   useEffect(() => {
+    const metric = formData.metrics?.[0];
+    const hasValidMetric = metric
+      ? !!(metric.column_expression || metric.aggregation)
+      : !!(formData.aggregate_column && formData.aggregate_function);
+
     if (
       formData.chart_type === 'map' &&
       formData.geographic_column &&
       formData.selected_geojson_id &&
-      formData.aggregate_column &&
-      formData.aggregate_function &&
+      hasValidMetric &&
       formData.schema_name &&
       formData.table_name
     ) {
@@ -655,7 +701,8 @@ function ConfigureChartPageContent() {
         !formData.geojsonPreviewPayload ||
         !formData.dataOverlayPayload ||
         formData.geojsonPreviewPayload.geojsonId !== formData.selected_geojson_id ||
-        formData.dataOverlayPayload.geographic_column !== formData.geographic_column;
+        formData.dataOverlayPayload.geographic_column !== formData.geographic_column ||
+        JSON.stringify(formData.dataOverlayPayload.metric || {}) !== JSON.stringify(metric || {});
 
       if (needsUpdate) {
         const geojsonPayload = {
@@ -666,7 +713,9 @@ function ConfigureChartPageContent() {
           schema_name: formData.schema_name,
           table_name: formData.table_name,
           geographic_column: formData.geographic_column,
-          value_column: formData.aggregate_column,
+          metric,
+          value_column:
+            formData.aggregate_column || formData.value_column || formData.geographic_column,
           aggregate_function: formData.aggregate_function,
           selected_geojson_id: formData.selected_geojson_id,
           filters: {},
@@ -679,6 +728,12 @@ function ConfigureChartPageContent() {
           dataOverlayPayload: dataOverlayPayload,
         }));
       }
+    } else if (formData.chart_type === 'map' && !hasValidMetric && formData.dataOverlayPayload) {
+      // Metric removed/invalid — clear the stale payload so the map stops showing old data.
+      setFormData((prev) => ({
+        ...prev,
+        dataOverlayPayload: undefined,
+      }));
     }
   }, [
     formData.chart_type,
@@ -686,6 +741,7 @@ function ConfigureChartPageContent() {
     formData.selected_geojson_id,
     formData.aggregate_column,
     formData.aggregate_function,
+    formData.value_column,
     formData.schema_name,
     formData.table_name,
     formData.filters,
@@ -694,6 +750,7 @@ function ConfigureChartPageContent() {
     // Stringify payloads to prevent infinite loops
     JSON.stringify(formData.geojsonPreviewPayload || {}),
     JSON.stringify(formData.dataOverlayPayload || {}),
+    JSON.stringify(formData.metrics?.[0] || {}),
   ]);
 
   const handleDataPreviewPageSizeChange = (newPageSize: number) => {
@@ -861,6 +918,14 @@ function ConfigureChartPageContent() {
     }
 
     if (formData.chart_type === 'number') {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          metric.column_expression ||
+          (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       const needsAggregateColumn = formData.aggregate_function !== 'count';
       return !!(
         formData.aggregate_function &&
@@ -869,6 +934,16 @@ function ConfigureChartPageContent() {
     }
 
     if (formData.chart_type === 'map') {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          formData.geographic_column &&
+          formData.selected_geojson_id &&
+          (metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       // Count(*) doesn't need a value_column, similar to other chart types
       const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
       return !!(
@@ -992,7 +1067,27 @@ function ConfigureChartPageContent() {
 
     try {
       const result = await createChart(chartData);
-      trackEvent(ANALYTICS_EVENTS.CHART_CREATED, { chart_type: chartData.chart_type });
+      trackEvent(ANALYTICS_EVENTS.CHART_CREATED, {
+        chart_type: chartData.chart_type,
+        chart_id: result.id,
+        // Entered from the dashboard builder vs the charts list — same page, very
+        // different intent, so they get distinct sources rather than one 'new'.
+        source: isFromDashboard
+          ? CHART_CREATE_SOURCES.NEW_FROM_DASHBOARD
+          : CHART_CREATE_SOURCES.NEW,
+        ...getMetricAnalyticsProps(formData.metrics),
+        drill_down_enabled: isDrillDownEnabled(formData),
+      });
+      // Charts are the main consumer of the metrics library — one METRIC_USED per
+      // distinct saved metric, same as the KPI form does on its create path.
+      getUsedSavedMetricIds(formData.metrics).forEach((metricId) => {
+        // chart_id too — answers "which chart consumed this metric", not just how often.
+        trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
+          metric_id: metricId,
+          chart_id: result.id,
+          source: METRIC_USE_SOURCES.CHART,
+        });
+      });
       // Reset unsaved changes state after successful save
       setOriginalFormData({ ...formData });
       toastSuccess.created('Chart');
@@ -1138,7 +1233,7 @@ function ConfigureChartPageContent() {
         <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
           {/* Left Panel - 30% */}
           <div className="w-[30%] border-r">
-            <Tabs defaultValue="configuration" className="h-full">
+            <Tabs defaultValue="configuration" onValueChange={handleTabView} className="h-full">
               <div className="px-4 pt-4">
                 <TabsList className="grid w-full h-11 grid-cols-2" data-testid="chart-config-tabs">
                   <TabsTrigger
@@ -1210,7 +1305,7 @@ function ConfigureChartPageContent() {
 
           {/* Right Panel - 70% */}
           <div className="w-[70%]">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
+            <Tabs value={activeTab} onValueChange={handlePreviewTabChange} className="h-full">
               <div className="px-4">
                 <TabsList className="grid grid-cols-2">
                   <TabsTrigger value="chart" className="flex items-center gap-2">

@@ -8,7 +8,7 @@ import {
   TRIAL_COUNTDOWN_TICK_MS,
   TRIAL_PERIOD_DAYS,
 } from '@/constants/trial';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, SUBSCRIPTION_REQUEST_SOURCES } from '@/constants/analytics';
 import { TrialBadge } from '../trial-badge';
 
 // ============ Mocks ============
@@ -283,6 +283,37 @@ describe('TrialBadge subscription request flow', () => {
     );
     expect(mockApiPost).not.toHaveBeenCalled();
     expect(screen.getByTestId('trial-subscribe-cta')).toBeInTheDocument();
+  });
+
+  it('reports cancelling the confirm modal as an abandoned request', async () => {
+    const user = userEvent.setup();
+
+    renderBadge();
+    await user.click(await screen.findByTestId('trial-subscribe-cta'));
+    await user.click(screen.getByTestId('subscription-cancel-button'));
+
+    // Without this, OPENED -> SENT has an invisible drop-off step from this surface.
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_ABANDONED,
+      expect.objectContaining({ source: SUBSCRIPTION_REQUEST_SOURCES.HEADER_BADGE })
+    );
+  });
+
+  it('does not report an abandon after the request was sent', async () => {
+    const user = userEvent.setup();
+    mockApiPost.mockResolvedValue({ success: true, already_requested: false });
+
+    renderBadge();
+    await user.click(await screen.findByTestId('trial-subscribe-cta'));
+    await user.click(screen.getByTestId('subscription-confirm-button'));
+    expect(await screen.findByTestId('subscription-sent-modal')).toBeInTheDocument();
+    // Closing the success screen is not an abandonment.
+    await user.keyboard('{Escape}');
+
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.SUBSCRIPTION_REQUEST_ABANDONED,
+      expect.anything()
+    );
   });
 
   it('keeps the confirm modal open and toasts when the request fails', async () => {

@@ -8,7 +8,7 @@ import type { ChartMetric } from '@/types/charts';
 import { useMetrics, createMetric } from '@/hooks/api/useMetrics';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, METRIC_CREATE_SOURCES } from '@/constants/analytics';
 import { MetricAccordionItem } from './MetricAccordionItem';
 
 // Default Display Name for the auto-added count-all metric. Matches the auto-prefill label in
@@ -215,7 +215,12 @@ export function MetricsSelector({
         alias: metric.alias || saved.name,
       });
       mutateSavedMetrics();
-      trackEvent(ANALYTICS_EVENTS.METRIC_CREATED, { source: 'chart_builder', metric_type: mode });
+      // `mode` is only ever 'simple' | 'calculated' here — the Saved tab has no save form.
+      trackEvent(ANALYTICS_EVENTS.METRIC_CREATED, {
+        source: METRIC_CREATE_SOURCES.CHART_BUILDER,
+        metric_type: mode,
+        metric_id: saved.id,
+      });
       toastSuccess.generic(`Saved metric "${saved.name}"`);
     } catch (err) {
       toastError.save(err, 'metric');

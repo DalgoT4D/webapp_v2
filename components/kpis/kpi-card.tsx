@@ -16,6 +16,8 @@ import { useFullscreen } from '@/hooks/useFullscreen';
 import { RAG_COLORS } from '@/types/kpis';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { formatKPIValue } from '@/lib/formatters';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS, type KpiExportSource } from '@/constants/analytics';
 import type { KPICustomizations } from '@/types/kpis';
 import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 import type { RAGStatus } from '@/types/kpis';
@@ -122,6 +124,10 @@ interface KPICardProps {
   downloadInMenu?: boolean;
   /** When true, shows a fullscreen toggle button (used on dashboards) */
   showFullscreen?: boolean;
+  /** Analytics only — the KPI behind this card, so exports can be joined to it. */
+  kpiId?: number;
+  /** Analytics only — which surface this card is rendered on (KPI_EXPORT_SOURCES). */
+  exportSource?: KpiExportSource;
 }
 
 export function KPICard({
@@ -136,6 +142,8 @@ export function KPICard({
   showDownload = true,
   downloadInMenu,
   showFullscreen,
+  kpiId,
+  exportSource,
 }: KPICardProps) {
   const {
     currentValue,
@@ -175,12 +183,20 @@ export function KPICard({
       link.download = `kpi-${name}.png`;
       link.click();
       toastSuccess.exported(name, 'png');
+      // Inside the try, after the click — html2canvas can fail, and a failed render
+      // must not count as an export.
+      trackEvent(ANALYTICS_EVENTS.KPI_EXPORTED, {
+        kpi_id: kpiId,
+        format: 'png',
+        source: exportSource,
+      });
     } catch {
       toastError.api(null, 'Failed to download');
     }
-  }, [name]);
+  }, [name, kpiId, exportSource]);
 
   const handleDownloadCSV = useCallback(() => {
+    // Early return before the event: an empty KPI exports nothing.
     if (!periods || periods.length === 0) {
       toastError.api(null, 'No data to export');
       return;
@@ -196,7 +212,12 @@ export function KPICard({
     link.click();
     URL.revokeObjectURL(link.href);
     toastSuccess.exported(name, 'csv');
-  }, [name, periods]);
+    trackEvent(ANALYTICS_EVENTS.KPI_EXPORTED, {
+      kpi_id: kpiId,
+      format: 'csv',
+      source: exportSource,
+    });
+  }, [name, periods, kpiId, exportSource]);
 
   const isPositiveChange =
     popChange !== null &&

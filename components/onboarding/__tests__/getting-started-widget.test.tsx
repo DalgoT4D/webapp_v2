@@ -309,7 +309,7 @@ describe('GettingStartedWidget checklist', () => {
       'src',
       'https://www.youtube-nocookie.com/embed/R-JJNgp8xYM?autoplay=1&rel=0'
     );
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:getting_started_video_played');
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:getting_started_video_played');
     expect(trackEvent).toHaveBeenCalledTimes(1);
   });
 
@@ -365,10 +365,10 @@ describe('GettingStartedWidget checklist', () => {
 
     expect(onBuildInsightClick).toHaveBeenCalledTimes(1);
     expect(onAutomatePipelineClick).toHaveBeenCalledTimes(1);
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:getting_started_item_clicked', {
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:getting_started_item_clicked', {
       item: 'build-insight',
     });
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:getting_started_item_clicked', {
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:getting_started_item_clicked', {
       item: 'automate-pipeline',
     });
   });
@@ -411,7 +411,7 @@ describe('GettingStartedWidget checklist', () => {
     await user.click(screen.getByTestId('getting-started-widget-tour-link'));
 
     expect(onStartTour).toHaveBeenCalledTimes(1);
-    expect(trackEvent).toHaveBeenCalledWith('onboarding:getting_started_tour_link_clicked');
+    expect(trackEvent).toHaveBeenCalledWith('trial_onboarding:getting_started_tour_link_clicked');
   });
 
   it('keeps the tour link available once both flows are complete, alongside the docs link', () => {

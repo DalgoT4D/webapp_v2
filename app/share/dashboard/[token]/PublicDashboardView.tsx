@@ -1,12 +1,14 @@
 'use client';
 
 import type { ErrorInfo, ReactNode } from 'react';
-import React, { Component } from 'react';
+import React, { Component, useEffect, useRef } from 'react';
 import Link from 'next/link';
 
 import { Eye, ExternalLink, AlertCircle, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { usePublicDashboard } from '@/hooks/api/useDashboards';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -72,6 +74,33 @@ export function PublicDashboardView({
 }: PublicDashboardViewProps) {
   const { dashboard, isLoading, isError } = usePublicDashboard(token);
 
+  // Public views are anonymous: there is no identified person and no organization
+  // group to attach, so org_slug/org_name ride along as event properties (the one
+  // documented exception to "don't put org on events"). org_slug is the breakdown
+  // key — it matches the slug used for the organization group elsewhere, so both
+  // paths line up if group analytics is ever enabled.
+  // The ref keys on the token so a re-render or SWR revalidation can't double-fire,
+  // and React StrictMode's double effect in dev fires once.
+  const trackedTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!dashboard?.is_valid || !dashboard.org_slug) return;
+    if (trackedTokenRef.current === token) return;
+    trackedTokenRef.current = token;
+    trackEvent(ANALYTICS_EVENTS.PUBLIC_DASHBOARD_VIEWED, {
+      org_slug: dashboard.org_slug,
+      org_name: dashboard.org_name,
+      dashboard_id: dashboard.id ?? undefined,
+      is_embed: isEmbedMode,
+    });
+  }, [
+    dashboard?.is_valid,
+    dashboard?.org_slug,
+    dashboard?.org_name,
+    dashboard?.id,
+    token,
+    isEmbedMode,
+  ]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -91,14 +120,20 @@ export function PublicDashboardView({
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h2 className="text-lg font-semibold mb-2">Dashboard Not Found</h2>
             <p className="text-gray-600 mb-4">
-              This dashboard is no longer available or the link has expired.
+              This dashboard is no longer available or the link has expired. Sign in to your
+              organization to access shared dashboards.
             </p>
-            <Link href="https://dalgo.org" target="_blank">
-              <Button variant="outline">
-                Learn about Dalgo
-                <ExternalLink className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
+            <div className="flex flex-col items-center gap-2">
+              <Link href="/login">
+                <Button variant="primary">Sign in to Dalgo</Button>
+              </Link>
+              <Link href="https://dalgo.org" target="_blank" className="text-sm">
+                <Button variant="link" size="sm" className="text-muted-foreground">
+                  Learn about Dalgo
+                  <ExternalLink className="h-3.5 w-3.5 ml-1" />
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

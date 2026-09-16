@@ -30,6 +30,9 @@ export const createMockSnapshot = (overrides: Partial<ReportSnapshot> = {}): Rep
   created_by: 'user@test.com',
   created_at: '2025-01-31T10:00:00Z',
   updated_at: '2025-01-31T10:00:00Z',
+  // Resource-sharing: mock defaults to Edit so delete/share affordances render.
+  // Tests that need view-only behaviour should override to `'view'`.
+  access_level: 'edit',
   ...overrides,
 });
 
@@ -75,6 +78,9 @@ export const createMockSnapshotViewData = (
     dashboard_title: 'Sales Dashboard',
   },
   frozen_chart_configs: {},
+  // Resource-sharing: default to Edit so summary/comment edit affordances render.
+  // Tests that need view-only behaviour should override to `'view'`.
+  access_level: 'edit',
   ...overrides,
 });
 

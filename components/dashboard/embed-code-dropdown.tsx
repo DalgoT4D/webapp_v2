@@ -16,9 +16,12 @@ import { Switch } from '@/components/ui/switch';
 interface EmbedCodeDropdownProps {
   token: string;
   dashboardTitle: string;
+  /** For analytics only, so the embed event can be joined to the dashboard. The share
+   *  `token` is never sent to PostHog — it grants access to the data. */
+  dashboardId?: number;
 }
 
-export function EmbedCodeDropdown({ token, dashboardTitle }: EmbedCodeDropdownProps) {
+export function EmbedCodeDropdown({ token, dashboardTitle, dashboardId }: EmbedCodeDropdownProps) {
   const [copied, setCopied] = useState(false);
   const [embedOptions, setEmbedOptions] = useState({
     showTitle: true,
@@ -56,7 +59,10 @@ export function EmbedCodeDropdown({ token, dashboardTitle }: EmbedCodeDropdownPr
       await navigator.clipboard.writeText(generateEmbedCode());
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_EMBED_CODE_COPIED, { theme: embedOptions.theme });
+      trackEvent(ANALYTICS_EVENTS.DASHBOARD_EMBED_CODE_COPIED, {
+        dashboard_id: dashboardId,
+        theme: embedOptions.theme,
+      });
     } catch (error) {
       console.error('Failed to copy embed code:', error);
     }

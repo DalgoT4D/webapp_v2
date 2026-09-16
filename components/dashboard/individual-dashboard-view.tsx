@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { apiGet } from '@/lib/api';
 import { SupersetEmbed } from './superset-embed';
+import { NoAccess } from '@/components/no-access';
 
 interface IndividualDashboardViewProps {
   dashboardId: string;

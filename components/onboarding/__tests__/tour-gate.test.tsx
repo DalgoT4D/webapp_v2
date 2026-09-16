@@ -91,7 +91,7 @@ function buildOrgUser(overrides: Partial<OrgUser> = {}): OrgUser {
     active: true,
     new_role_slug: 'analyst',
     permissions: [],
-    has_seen_rbac_notice: true,
+    has_seen_resource_sharing_notice: true,
     subscription_plan: 'Free Trial',
     // Mid-trial by default, so the intent modal isn't standing down for a lifecycle nudge in
     // every unrelated test. Individual tests override it.

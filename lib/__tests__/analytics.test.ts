@@ -68,6 +68,18 @@ describe('trackEvent', () => {
     trackEvent(ANALYTICS_EVENTS.KPI_ANNOTATION_CREATED);
     expect(mockCapture).toHaveBeenCalledWith('kpi:annotation_created', { is_value_action: true });
   });
+  it('does NOT stamp is_value_action on the anonymous public dashboard view', () => {
+    // Value actions feed a unique-USERS metric; a public view is an anonymous
+    // device with no person profile, so it must stay out of that count.
+    trackEvent(ANALYTICS_EVENTS.PUBLIC_DASHBOARD_VIEWED, {
+      org_slug: 'ngo-slug',
+      org_name: 'NGO Name',
+    });
+    expect(mockCapture).toHaveBeenCalledWith('dashboard:public_dashboard_viewed', {
+      org_slug: 'ngo-slug',
+      org_name: 'NGO Name',
+    });
+  });
   it('does NOT stamp is_value_action on a plumbing event', () => {
     trackEvent(ANALYTICS_EVENTS.PIPELINE_TRIGGERED, { is_manual: true });
     expect(mockCapture).toHaveBeenCalledWith('pipeline:pipeline_triggered', { is_manual: true });
@@ -148,6 +160,29 @@ describe('identifyOrg', () => {
       current_org_slug: 'ngo-slug',
       current_org_name: 'NGO Name',
       current_subscription_plan: 'Free Trial',
+    });
+  });
+
+  it('registers the org as super properties so a per-org filter needs no group join', () => {
+    // The group above stays the canonical org dimension (existing metrics aggregate on
+    // $group_0). These are the convenience layer: plain event properties, so a trial-only
+    // or single-org filter is a one-liner in any insight.
+    identifyOrg('ngo-slug', { name: 'NGO Name', plan: 'Free Trial' });
+    expect(mockRegister).toHaveBeenCalledWith({
+      org_slug: 'ngo-slug',
+      org_name: 'NGO Name',
+      org_plan: 'Free Trial',
+    });
+  });
+
+  it('registers a null plan rather than omitting it, so the property never goes stale on switch', () => {
+    // register() persists client-side. Omitting org_plan for a plan-less org would leave the
+    // previous org's plan riding every subsequent event.
+    identifyOrg('other-ngo', { name: 'Other NGO' });
+    expect(mockRegister).toHaveBeenCalledWith({
+      org_slug: 'other-ngo',
+      org_name: 'Other NGO',
+      org_plan: null,
     });
   });
 });

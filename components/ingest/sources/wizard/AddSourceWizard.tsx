@@ -15,6 +15,8 @@ import type { SourceDefinition } from '@/types/source';
 import { SelectSourceStep } from './SelectSourceStep';
 import { CreateSourceStep } from './CreateSourceStep';
 import type { WizardStep } from './wizard-state';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS, WAREHOUSE_CREATE_SOURCES } from '@/constants/analytics';
 
 interface Props {
   open: boolean;
@@ -49,6 +51,18 @@ export function AddSourceWizard({
   const [hasWarehouseStep, setHasWarehouseStep] = useState(needsWarehouse);
   const needsWarehouseRef = useRef(needsWarehouse);
   needsWarehouseRef.current = needsWarehouse;
+  // Step funnel for the Add Source wizard, so the step people abandon on is visible
+  // (same shape as the KPI and alert wizards). has_warehouse_step matters because a first
+  // source in a fresh org carries an extra warehouse step ahead of everything else.
+  useEffect(() => {
+    if (open) {
+      trackEvent(ANALYTICS_EVENTS.SOURCE_WIZARD_STEP_VIEWED, {
+        step,
+        has_warehouse_step: hasWarehouseStep,
+      });
+    }
+  }, [open, step, hasWarehouseStep]);
+
   const [def, setDef] = useState<SourceDefinition | null>(null);
   const [createdSourceId, setCreatedSourceId] = useState<string | null>(null);
   // Connection step starts compact (just name + "Fetching…") and widens only
@@ -202,6 +216,7 @@ export function AddSourceWizard({
           {step === 'warehouse' && (
             <WarehouseFormBody
               submitLabel="Save & Continue"
+              createSource={WAREHOUSE_CREATE_SOURCES.ADD_SOURCE_WIZARD}
               onCancel={handleDismiss}
               onSuccess={() => {
                 // Warehouse now exists server-side. Advance to the source picker.

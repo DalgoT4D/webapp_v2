@@ -502,13 +502,17 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   },
   share_public_toggle: {
     route: null, // same dynamic /dashboards/{id} as 'share'
-    selector: '[data-testid="share-toggle"]',
+    // Resource sharing replaced the old on/off "public access" switch with a three-way
+    // General access picker (Private / Everyone in the org / Public), so this points at the
+    // select. The stage name is kept: it is persisted in localStorage for resumed flows and
+    // reported to analytics, and renaming it would orphan both.
+    selector: '[data-testid="general-access-select"]',
     title: 'Turn on public access',
     description:
-      'Flip this on to create a shareable link — anyone you send it to can open the dashboard, no login needed.',
-    // Beside the dialog rather than inside it: the switch sits at the dialog's right edge, so
-    // a 'right' popover clears the dialog entirely instead of covering the copy explaining
-    // what the switch does.
+      'Set this to Public to create a shareable link — anyone you send it to can open the dashboard, no login needed.',
+    // Beside the dialog rather than inside it: the picker sits at the General access row's
+    // right edge, so a 'right' popover clears the dialog entirely instead of covering the
+    // copy explaining what the setting does.
     side: 'right',
     align: 'start',
   },

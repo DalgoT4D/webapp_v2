@@ -100,7 +100,8 @@ export function WarehouseDisplay() {
     setIsDeleting(true);
     try {
       await deleteWarehouse();
-      trackEvent(ANALYTICS_EVENTS.WAREHOUSE_DELETED);
+      // Type read before the mutate() below clears the warehouse from local state.
+      trackEvent(ANALYTICS_EVENTS.WAREHOUSE_DELETED, { warehouse_type: warehouse?.wtype });
       await mutate(undefined, { revalidate: true });
       toastSuccess.deleted('Warehouse');
       setDeleteDialogOpen(false);

@@ -11,7 +11,7 @@ import { connectGoogleSpreadsheet } from '@/components/connectors/google-oauth-c
 import { useSourceSave } from '@/hooks/useSourceSave';
 import { useSourceConfigForm } from '@/hooks/useSourceConfigForm';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { ANALYTICS_EVENTS, SOURCE_AUTH_MODES, type SourceAuthMode } from '@/constants/analytics';
 import { toastError, toastSuccess } from '@/lib/toast';
 import type { SourceDefinition } from '@/types/source';
 import { SourceConfigFields } from '@/components/ingest/sources/SourceConfigFields';
@@ -88,14 +88,23 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
     }
   }, [parsedSpec, def.sourceDefinitionId, reset]);
 
+  // Reported by GoogleSheetsForm — the config alone can't distinguish Dalgo's managed key
+  // from the user's own, since the managed route deliberately leaves credentials empty.
+  // Declared above useSourceSave: its onSaved closure reads it.
+  const [formAuthMode, setFormAuthMode] = useState<SourceAuthMode | null>(null);
+
   const { save, loading, setupLogs } = useSourceSave({
     sourceDefId: def.sourceDefinitionId,
     sourceDefName: def.name,
     getConfig: buildConfig,
     onSaved: (sourceId) => {
+      // auth_mode says which of the three routes the user actually finished on — the flat
+      // 'service_account' it replaced couldn't tell Dalgo's managed key from the user's own,
+      // which is the whole point of offering the managed one.
       trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, {
+        source_id: sourceId,
         source_type: def.name,
-        ...(isGoogleSheets ? { auth_mode: 'service_account' } : {}),
+        ...(isGoogleSheets ? { auth_mode: formAuthMode ?? SOURCE_AUTH_MODES.OWN_KEY } : {}),
       });
       onCreated(sourceId);
     },
@@ -146,8 +155,9 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
       });
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
       trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, {
+        source_id: sourceId,
         source_type: 'Google Sheets',
-        auth_mode: 'oauth',
+        auth_mode: SOURCE_AUTH_MODES.OAUTH,
       });
       toastSuccess.created('Source');
       onCreated(sourceId);
@@ -263,6 +273,7 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
               mode="create"
               nameField={custom ? nameField : undefined}
               onAuthSatisfiedChange={isGoogleSheets ? setFormAuthSatisfied : undefined}
+              onAuthModeChange={isGoogleSheets ? setFormAuthMode : undefined}
               oauth={
                 isGoogleSheets
                   ? ({

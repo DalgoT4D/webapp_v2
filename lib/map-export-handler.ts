@@ -7,6 +7,50 @@ export interface MapExportData {
   mapData?: any[];
 }
 
+// Builds and sends the map-data-overlay request for chart export, preferring the chart's
+// calculated metric (column_expression) over the legacy aggregate_column/value_column fields.
+async function fetchMapOverlayForExport(
+  chart: any,
+  activeGeographicColumn: string
+): Promise<any[]> {
+  const exportMetric = chart.extra_config?.metrics?.[0];
+  const legacyColumn = chart.extra_config?.aggregate_column || chart.extra_config?.value_column;
+  if (!(exportMetric?.column_expression || legacyColumn)) {
+    return [];
+  }
+
+  try {
+    const mapDataPayload = {
+      schema_name: chart.schema_name,
+      table_name: chart.table_name,
+      geographic_column: activeGeographicColumn,
+      ...(!exportMetric?.column_expression && { value_column: legacyColumn }),
+      metrics: [
+        exportMetric?.column_expression
+          ? {
+              column_expression: exportMetric.column_expression,
+              alias: 'value',
+            }
+          : {
+              column: legacyColumn,
+              aggregation: chart.extra_config.aggregate_function || 'sum',
+              alias: 'value',
+            },
+      ],
+      filters: {}, // No drill-down filters for export
+      chart_filters: chart.extra_config.filters || [],
+    };
+
+    const { apiPost } = await import('@/lib/api');
+    const mapDataResponse = await apiPost('/api/charts/map-data-overlay/', mapDataPayload);
+    return mapDataResponse?.data || [];
+  } catch (dataError) {
+    console.warn('Failed to fetch map data overlay, proceeding with empty map:', dataError);
+    // Continue with empty map data rather than failing completely
+    return [];
+  }
+}
+
 /**
  * Handles export functionality for map charts by fetching required geojson data
  * and creating a temporary rendered map for export
@@ -55,33 +99,9 @@ export class MapExportHandler {
       }
 
       // Step 4: Fetch map data overlay if we have the required configuration
-      let mapData = [];
-      if (activeGeographicColumn && chart.extra_config?.value_column) {
-        try {
-          const mapDataPayload = {
-            schema_name: chart.schema_name,
-            table_name: chart.table_name,
-            geographic_column: activeGeographicColumn,
-            value_column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
-            metrics: [
-              {
-                column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
-                aggregation: chart.extra_config.aggregate_function || 'sum',
-                alias: 'value',
-              },
-            ],
-            filters: {}, // No drill-down filters for export
-            chart_filters: chart.extra_config.filters || [],
-          };
-
-          const { apiPost } = await import('@/lib/api');
-          const mapDataResponse = await apiPost('/api/charts/map-data-overlay/', mapDataPayload);
-          mapData = mapDataResponse?.data || [];
-        } catch (dataError) {
-          console.warn('Failed to fetch map data overlay, proceeding with empty map:', dataError);
-          // Continue with empty map data rather than failing completely
-        }
-      }
+      const mapData = activeGeographicColumn
+        ? await fetchMapOverlayForExport(chart, activeGeographicColumn)
+        : [];
 
       return {
         geojson: geojsonResponse.geojson_data,

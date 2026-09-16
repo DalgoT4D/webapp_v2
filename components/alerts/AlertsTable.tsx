@@ -11,6 +11,7 @@ import {
   ChevronUp,
   ChevronDown,
   BellRing,
+  User as UserIcon,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cronToString, localTimezone } from '@/components/pipeline/utils';
@@ -91,12 +92,15 @@ interface AlertsTableProps {
   isLoading: boolean;
   /** Empty state to render when alerts.length === 0 && !isLoading */
   emptyState: React.ReactNode;
-  canEdit: boolean;
-  canDelete: boolean;
+  canEdit: (a: AlertListItem) => boolean;
+  canDelete: (a: AlertListItem) => boolean;
   onEdit: (a: AlertListItem) => void;
   onDelete: (a: AlertListItem) => void;
   onToggle: (a: AlertListItem) => void;
   onOpenLog: (a: AlertListItem) => void;
+  /** Row-level owner-or-admin gate for the Transfer Ownership entry. */
+  canTransfer: (a: AlertListItem) => boolean;
+  onTransfer: (a: AlertListItem) => void;
 }
 
 function sourceHref(a: AlertListItem): string | null {
@@ -142,6 +146,8 @@ export function AlertsTable({
   onDelete,
   onToggle,
   onOpenLog,
+  canTransfer,
+  onTransfer,
 }: AlertsTableProps) {
   const [sortBy, setSortBy] = useState<AlertSortKey>('last_fire_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -286,10 +292,10 @@ export function AlertsTable({
                   <TableCell className="py-4">
                     <div className="flex flex-col">
                       <button
-                        onClick={() => canEdit && onEdit(a)}
+                        onClick={() => canEdit(a) && onEdit(a)}
                         className={cn(
                           'font-medium text-lg text-left',
-                          canEdit
+                          canEdit(a)
                             ? 'cursor-pointer hover:text-teal-700 hover:underline'
                             : 'cursor-default',
                           a.is_active ? 'text-gray-900' : 'text-gray-500'
@@ -337,14 +343,12 @@ export function AlertsTable({
 
                   {/* Enabled toggle */}
                   <TableCell className="py-4">
-                    <span title={canEdit ? '' : 'You need Edit Alerts permission to change this.'}>
-                      <Switch
-                        checked={a.is_active}
-                        onCheckedChange={() => onToggle(a)}
-                        disabled={!canEdit}
-                        aria-label={`Toggle ${a.name}`}
-                      />
-                    </span>
+                    <Switch
+                      checked={a.is_active}
+                      onCheckedChange={() => onToggle(a)}
+                      disabled={!canEdit(a)}
+                      aria-label={`Toggle ${a.name}`}
+                    />
                   </TableCell>
 
                   {/* Frequency */}
@@ -380,30 +384,34 @@ export function AlertsTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem
-                          onClick={() => onEdit(a)}
-                          disabled={!canEdit}
-                          title={canEdit ? '' : 'You need Edit Alerts permission to edit this.'}
-                        >
-                          <Pencil className="w-4 h-4 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
+                        {canEdit(a) && (
+                          <DropdownMenuItem onClick={() => onEdit(a)}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => onOpenLog(a)}>
                           <ListOrdered className="w-4 h-4 mr-2" />
                           Alert log
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => onDelete(a)}
-                          className="text-destructive focus:text-destructive"
-                          disabled={!canDelete}
-                          title={
-                            canDelete ? '' : 'You need Delete Alerts permission to remove this.'
-                          }
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
+                        {canTransfer(a) && (
+                          <DropdownMenuItem onClick={() => onTransfer(a)}>
+                            <UserIcon className="w-4 h-4 mr-2" />
+                            Transfer ownership
+                          </DropdownMenuItem>
+                        )}
+                        {canDelete(a) && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => onDelete(a)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

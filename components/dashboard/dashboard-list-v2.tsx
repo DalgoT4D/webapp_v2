@@ -93,11 +93,20 @@ import {
   useDashboards,
   deleteDashboard,
   duplicateDashboard,
-  getDashboardSharingStatus,
-  updateDashboardSharing,
+  favoriteDashboard,
+  unfavoriteDashboard,
+  type Dashboard,
 } from '@/hooks/api/useDashboards';
 import { ShareModal } from '@/components/ui/share-modal';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { toastSuccess, toastError } from '@/lib/toast';
+import { toggleFavorite } from '@/lib/favorite-utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useAuthStore } from '@/stores/authStore';
@@ -132,7 +141,6 @@ export function DashboardListV2() {
   const viewMode = 'table';
   const [sortBy, setSortBy] = useState<'name' | 'updated_at' | 'created_by'>('updated_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [favorites, setFavorites] = useState<Set<number>>(new Set());
 
   // Column filter states
   const [nameFilters, setNameFilters] = useState({
@@ -261,7 +269,7 @@ export function DashboardListV2() {
         }
       }
 
-      if (nameFilters.showFavorites && !favorites.has(dashboard.id)) {
+      if (nameFilters.showFavorites && !dashboard.is_favorite) {
         return false;
       }
 
@@ -341,20 +349,16 @@ export function DashboardListV2() {
         return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
       }
     });
-  }, [dashboards, nameFilters, ownerFilters, dateFilters, favorites, sortBy, sortOrder]);
+  }, [dashboards, nameFilters, ownerFilters, dateFilters, sortBy, sortOrder]);
 
-  // Handle favorites toggle
-  const handleToggleFavorite = (dashboardId: number) => {
-    setFavorites((prev) => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(dashboardId)) {
-        newFavorites.delete(dashboardId);
-      } else {
-        newFavorites.add(dashboardId);
-      }
-      return newFavorites;
-    });
-  };
+  const handleToggleFavorite = (dashboard: Dashboard) =>
+    toggleFavorite(
+      dashboard.is_favorite ?? false,
+      dashboard.id,
+      favoriteDashboard,
+      unfavoriteDashboard,
+      mutate
+    );
 
   // Get unique owners for filter options
   const uniqueOwners = useMemo(() => {
@@ -423,7 +427,8 @@ export function DashboardListV2() {
 
       try {
         await deleteDashboard(dashboardId);
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED);
+        // Id read from the handler arg, not from list state — mutate() below drops the row.
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED, { dashboard_id: dashboardId });
 
         // Refresh the dashboard list
         await mutate();
@@ -446,7 +451,12 @@ export function DashboardListV2() {
 
       try {
         const newDashboard = await duplicateDashboard(dashboardId);
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DUPLICATED);
+        // Both ids: dashboard_id is the one that was copied (which dashboards people
+        // reuse as templates), new_dashboard_id joins forward to the copy's own events.
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_DUPLICATED, {
+          dashboard_id: dashboardId,
+          new_dashboard_id: newDashboard.id,
+        });
 
         // Refresh the dashboard list
         await mutate();
@@ -484,17 +494,19 @@ export function DashboardListV2() {
     mutate(); // Refresh the dashboard list
   }, [mutate]);
 
-  // Wraps updateDashboardSharing (passed to ShareModal, a components/ui/ component we don't
-  // modify) so the resume-nudge "shared" milestone is set on the actual is_public=true action,
-  // without adding onboarding logic to the shared modal itself.
-  const handleUpdateDashboardSharing = useCallback(
-    async (id: number, data: { is_public: boolean }) => {
-      const result = await updateDashboardSharing(id, data);
-      if (data.is_public) markDashboardShared();
-      return result;
-    },
-    [selectedOrgSlug]
-  );
+  // Copying the public link is the share act itself, so it fires here too — the list row
+  // menu is a second entry point into the same dialog, and without this the event would
+  // only exist on the dashboard view page.
+  const handleCopyLink = useCallback(() => {
+    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { dashboard_id: selectedDashboard?.id });
+  }, [selectedDashboard?.id]);
+
+  // ShareModal (a components/ui/ component we keep free of onboarding logic) reports when
+  // General access flips to Public, so the resume-nudge "shared" milestone is set on that
+  // action rather than inside the shared modal.
+  const handleMadePublic = useCallback(() => {
+    markDashboardShared();
+  }, []);
 
   // Landing page handlers
   const handleSetPersonalLanding = useCallback(
@@ -802,7 +814,7 @@ export function DashboardListV2() {
     const isLocked = dashboard.is_locked;
     const isLockedByOther =
       isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
-    const isFavorited = favorites.has(dashboard.id);
+    const isFavorited = dashboard.is_favorite ?? false;
 
     const getNavigationUrl = () => {
       return hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? `/dashboards/${dashboard.id}` : '#';
@@ -819,7 +831,7 @@ export function DashboardListV2() {
               className="h-8 w-8 p-0 hover:bg-yellow-50"
               onClick={(e) => {
                 e.preventDefault();
-                handleToggleFavorite(dashboard.id);
+                handleToggleFavorite(dashboard);
               }}
             >
               {isFavorited ? (
@@ -902,14 +914,14 @@ export function DashboardListV2() {
         {/* Actions Column */}
         <TableCell className="py-4">
           <div className="flex items-center gap-2">
-            {hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS) && (
+            {dashboard.access_level === 'edit' && (
               <Link href={`/dashboards/${dashboard.id}/edit`}>
                 <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
                   <Edit className="w-4 h-4 text-gray-600" />
                 </Button>
               </Link>
             )}
-            {hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS) && (
+            {dashboard.access_level === 'edit' && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -1097,7 +1109,7 @@ export function DashboardListV2() {
             </TooltipProvider>
 
             {/* Edit Button */}
-            {hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS) && (
+            {dashboard.access_level === 'edit' && (
               <Link href={`/dashboards/${dashboard.id}/edit`}>
                 <Button
                   variant="outline"
@@ -1110,7 +1122,7 @@ export function DashboardListV2() {
             )}
 
             {/* Share Button */}
-            {hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS) && (
+            {dashboard.access_level === 'edit' && (
               <Button
                 variant="outline"
                 size="icon"
@@ -1434,7 +1446,7 @@ export function DashboardListV2() {
 
             {/* Action Buttons - Edit and Share as icon-only buttons */}
             <div className="flex items-center gap-2 ml-4">
-              {hasPermission(PERMISSIONS.CAN_EDIT_DASHBOARDS) && (
+              {dashboard.access_level === 'edit' && (
                 <Link href={`/dashboards/${dashboard.id}/edit`}>
                   <Button
                     variant="outline"
@@ -1445,7 +1457,7 @@ export function DashboardListV2() {
                   </Button>
                 </Link>
               )}
-              {hasPermission(PERMISSIONS.CAN_SHARE_DASHBOARDS) && (
+              {dashboard.access_level === 'edit' && (
                 <Button
                   variant="outline"
                   size="icon"
@@ -1642,14 +1654,16 @@ export function DashboardListV2() {
             </p>
           </div>
 
-          {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
-            <Link id="dashboard-create-link" href="/dashboards/create">
-              <Button id="dashboard-create-button" variant="primary">
-                <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
-                CREATE DASHBOARD
-              </Button>
-            </Link>
-          )}
+          <div className="flex items-center gap-2">
+            {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
+              <Link id="dashboard-create-link" href="/dashboards/create">
+                <Button id="dashboard-create-button" variant="primary">
+                  <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
+                  CREATE DASHBOARD
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Filter Summary - Only shows when filters are active to save space */}
@@ -2040,17 +2054,14 @@ export function DashboardListV2() {
       {/* Share Modal */}
       {selectedDashboard && (
         <ShareModal
+          rtype="dashboard"
           entityId={selectedDashboard.id}
-          entityLabel="Dashboard"
+          entityLabel={selectedDashboard.title || 'Dashboard'}
           isOpen={shareModalOpen}
           onClose={handleShareModalClose}
           onUpdate={handleDashboardUpdate}
-          initialShareStatus={{
-            is_public: selectedDashboard.is_public,
-            public_access_count: selectedDashboard.public_access_count,
-          }}
-          getShareStatus={getDashboardSharingStatus}
-          updateSharing={handleUpdateDashboardSharing}
+          onCopyLink={handleCopyLink}
+          onMadePublic={handleMadePublic}
         />
       )}
     </div>

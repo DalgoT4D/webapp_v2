@@ -252,76 +252,78 @@ export const ConnectionRow = memo(function ConnectionRow({
               </TooltipProvider>
             ))}
 
-          {/* Three-dot menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-                data-testid={`connection-menu-${conn.connectionId}`}
-              >
-                <MoreVertical className="w-4 h-4 text-gray-600" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
-              {canEdit && (
-                <DropdownMenuItem
-                  onClick={onEdit}
-                  className="text-[14px]"
-                  data-testid={`edit-connection-${conn.connectionId}`}
+          {/* Three-dot menu — hidden when user has no actions */}
+          {(canEdit || canDelete || canReset) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                  data-testid={`connection-menu-${conn.connectionId}`}
                 >
-                  {isLocked ? (
-                    <>
-                      <Eye className="h-4 w-4 mr-2" />
-                      View
-                    </>
-                  ) : (
-                    <>
-                      <Pencil className="h-4 w-4 mr-2" />
-                      Edit
-                    </>
-                  )}
-                </DropdownMenuItem>
-              )}
-              {canEdit && (
-                <DropdownMenuItem
-                  onClick={onRefreshSchema}
-                  disabled={isLocked}
-                  className="text-[14px]"
-                  data-testid={`refresh-schema-${conn.connectionId}`}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh Schema
-                </DropdownMenuItem>
-              )}
-              {canReset && conn.clearConnDeploymentId && (
-                <DropdownMenuItem
-                  onClick={onClearStreams}
-                  disabled={isLocked}
-                  className="text-[14px]"
-                  data-testid={`clear-streams-${conn.connectionId}`}
-                >
-                  <Eraser className="h-4 w-4 mr-2" />
-                  Clear Streams
-                </DropdownMenuItem>
-              )}
-              {canDelete && (
-                <>
-                  <DropdownMenuSeparator />
+                  <MoreVertical className="w-4 h-4 text-gray-600" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                {canEdit && (
                   <DropdownMenuItem
-                    onClick={onDelete}
-                    disabled={isLocked}
-                    className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
-                    data-testid={`delete-connection-${conn.connectionId}`}
+                    onClick={onEdit}
+                    className="text-[14px]"
+                    data-testid={`edit-connection-${conn.connectionId}`}
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
+                    {isLocked ? (
+                      <>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </>
+                    ) : (
+                      <>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Edit
+                      </>
+                    )}
                   </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                )}
+                {canEdit && (
+                  <DropdownMenuItem
+                    onClick={onRefreshSchema}
+                    disabled={isLocked}
+                    className="text-[14px]"
+                    data-testid={`refresh-schema-${conn.connectionId}`}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh Schema
+                  </DropdownMenuItem>
+                )}
+                {canReset && conn.clearConnDeploymentId && (
+                  <DropdownMenuItem
+                    onClick={onClearStreams}
+                    disabled={isLocked}
+                    className="text-[14px]"
+                    data-testid={`clear-streams-${conn.connectionId}`}
+                  >
+                    <Eraser className="h-4 w-4 mr-2" />
+                    Clear Streams
+                  </DropdownMenuItem>
+                )}
+                {canDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={onDelete}
+                      disabled={isLocked}
+                      className="text-[14px] text-red-600 focus:text-red-600 focus:bg-red-50"
+                      data-testid={`delete-connection-${conn.connectionId}`}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </TableCell>
     </TableRow>

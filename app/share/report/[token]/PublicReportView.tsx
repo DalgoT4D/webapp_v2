@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { PoweredByDalgoImage } from '@/components/ui/powered-by-dalgo-image';
 import { Eye, ExternalLink, AlertCircle, Calendar } from 'lucide-react';
@@ -12,14 +13,50 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { PoweredByDalgoFooter } from '@/components/ui/powered-by-dalgo-footer';
 import { OrgBrand } from '@/components/ui/org-brand';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
 interface PublicReportViewProps {
   token: string;
   printMode?: boolean;
+  dashboardFilters?: Record<string, any>; // Only meaningful in printMode — see page.tsx
 }
 
-export function PublicReportView({ token, printMode = false }: PublicReportViewProps) {
+export function PublicReportView({
+  token,
+  printMode = false,
+  dashboardFilters,
+}: PublicReportViewProps) {
   const { viewData, isLoading, isError } = usePublicReport(token);
+
+  // Public views are anonymous: no identified person and no organization group to attach,
+  // so the org rides along as event properties (the documented exception to "don't put org
+  // on events"). org_slug is the one that can actually be joined on — org_name is a display
+  // name and can be renamed — and it matches the slug used for the organization group
+  // everywhere else, so public reads line up with the rest of the org's numbers.
+  //
+  // printMode is excluded on purpose: `?print=true` renders this same component for the
+  // PDF-capture pass, so counting it would log a machine fetch as a human read every time
+  // someone exports. Ref keyed on the token so an SWR revalidation, a re-render, or
+  // StrictMode's double effect in dev can't double-fire it.
+  const trackedTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (printMode || !viewData?.is_valid) return;
+    if (trackedTokenRef.current === token) return;
+    trackedTokenRef.current = token;
+    trackEvent(ANALYTICS_EVENTS.PUBLIC_REPORT_VIEWED, {
+      org_slug: viewData.org_slug,
+      org_name: viewData.org_name,
+      report_id: viewData.report_metadata?.snapshot_id,
+    });
+  }, [
+    printMode,
+    viewData?.is_valid,
+    viewData?.org_slug,
+    viewData?.org_name,
+    viewData?.report_metadata?.snapshot_id,
+    token,
+  ]);
 
   if (isLoading) {
     if (printMode) return null;
@@ -41,14 +78,20 @@ export function PublicReportView({ token, printMode = false }: PublicReportViewP
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h2 className="text-lg font-semibold mb-2">Report Not Found</h2>
             <p className="text-gray-600 mb-4">
-              This report is no longer available or the link has expired.
+              This report is no longer available or the link has expired. Sign in to your
+              organization to access shared reports.
             </p>
-            <Link href="https://dalgo.org" target="_blank">
-              <Button variant="outline">
-                Learn about Dalgo
-                <ExternalLink className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
+            <div className="flex flex-col items-center gap-2">
+              <Link href="/login">
+                <Button variant="primary">Sign in to Dalgo</Button>
+              </Link>
+              <Link href="https://dalgo.org" target="_blank" className="text-sm">
+                <Button variant="link" size="sm" className="text-muted-foreground">
+                  Learn about Dalgo
+                  <ExternalLink className="h-3.5 w-3.5 ml-1" />
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -109,6 +152,7 @@ export function PublicReportView({ token, printMode = false }: PublicReportViewP
           frozenChartConfigs={frozen_chart_configs}
           publicToken={token}
           isPublicMode={true}
+          dashboardFilters={dashboardFilters}
         />
       </div>
     );

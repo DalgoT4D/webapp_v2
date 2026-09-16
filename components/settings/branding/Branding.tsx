@@ -16,6 +16,7 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DocsLink } from '@/components/ui/docs-link';
 import { isValidHttpUrl } from '@/lib/utils';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
@@ -203,10 +204,10 @@ export default function Branding() {
       }
 
       await mutate('/api/currentuserv2');
+      // Only the categorical source ('upload' | 'link') is sent — never the
+      // filename or URL (both are customer-derived strings / PII).
       trackEvent(ANALYTICS_EVENTS.BRANDING_LOGO_SAVED, {
         logo_source: activeTab,
-        filename: res?.data?.logo_filename ?? null,
-        logo_url: savedUrl,
       });
       toastSuccess.saved('Organization logo');
       doCancel();
@@ -255,7 +256,9 @@ export default function Branding() {
     <div className="h-full flex flex-col">
       <div className="flex-shrink-0 border-b bg-background">
         <div className="p-6 pb-0 mb-6">
-          <h1 className="text-3xl font-bold">Organization Branding</h1>
+          <DocsLink path="/settings/branding">
+            <h1 className="text-3xl font-bold">Organization Branding</h1>
+          </DocsLink>
           <p className="text-muted-foreground mt-1">
             Manage the visual identity of your workspace across all dashboards, reports, and PDFs
           </p>

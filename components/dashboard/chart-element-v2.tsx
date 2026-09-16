@@ -368,13 +368,15 @@ export function ChartElementV2({
 
   // Now that activeGeographicColumn is defined, create the map data overlay payload
   const mapDataOverlayPayload = useMemo(() => {
+    const metric = chart?.extra_config?.metrics?.[0];
     return chart?.chart_type === ChartTypes.MAP && chart.extra_config && activeGeographicColumn
       ? {
           schema_name: chart.schema_name,
           table_name: chart.table_name,
           geographic_column: activeGeographicColumn,
+          metric,
           value_column: chart.extra_config.aggregate_column || chart.extra_config.value_column,
-          aggregate_function: chart.extra_config.aggregate_function || 'sum',
+          aggregate_function: chart.extra_config.aggregate_function || (metric ? undefined : 'sum'),
           filters: filters, // Drill-down filters
           // Convert appliedFilters to dashboard_filters format (filter_id -> value)
           dashboard_filters: appliedFilters,

@@ -141,7 +141,7 @@ describe('TrialProgressPage', () => {
       'src',
       'https://www.youtube-nocookie.com/embed/R-JJNgp8xYM?autoplay=1&rel=0'
     );
-    expect(mockTrackEvent).toHaveBeenCalledWith('trial:provisioning_video_played');
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial_onboarding:provisioning_video_played');
   });
 
   it('shows the FIRST step (not all-done) when the history has only a "queued" marker', () => {
@@ -185,7 +185,7 @@ describe('TrialProgressPage', () => {
 
     expect(sessionStorage.getItem(CREDS_STORAGE_KEY)).toBeNull();
     expect(mockSetAuthenticated).toHaveBeenCalledWith(true);
-    expect(mockTrackEvent).toHaveBeenCalledWith('trial:clone_completed');
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial_onboarding:clone_completed');
     expect(mockReplace).toHaveBeenCalledWith('/impact');
   });
 
@@ -254,7 +254,7 @@ describe('TrialProgressPage', () => {
     expect(screen.getByTestId('trial-timeout-login-button')).toHaveAttribute('href', '/login');
     // "Start again" is now a retry button (POSTs /retry), not a link to /free-trial
     expect(screen.getByTestId('trial-timeout-retry-button').tagName).toBe('BUTTON');
-    expect(mockTrackEvent).toHaveBeenCalledWith('trial:poll_timeout');
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial_onboarding:poll_timeout');
 
     jest.useRealTimers();
   });
@@ -278,7 +278,7 @@ describe('TrialProgressPage', () => {
       'href',
       'mailto:support@dalgo.org'
     );
-    expect(mockTrackEvent).toHaveBeenCalledWith('trial:clone_failed');
+    expect(mockTrackEvent).toHaveBeenCalledWith('trial_onboarding:clone_failed');
   });
 
   it('re-enqueues the clone under the same task_id when "Try again" is clicked', async () => {

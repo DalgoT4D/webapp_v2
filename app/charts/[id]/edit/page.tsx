@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Database, BarChart3, Lock, ArrowLeft } from 'lucide-react';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
 import { ChartPreview } from '@/components/charts/ChartPreview';
@@ -48,8 +47,20 @@ import { AlertCircle } from 'lucide-react';
 import { deepEqual } from '@/lib/form-utils';
 import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { trackEvent, trackFeatureView } from '@/lib/analytics';
+import {
+  ANALYTICS_EVENTS,
+  CHART_CREATE_SOURCES,
+  FEATURES,
+  METRIC_USE_SOURCES,
+} from '@/constants/analytics';
+import {
+  CHART_BUILDER_TAB_ANALYTICS,
+  getMetricAnalyticsProps,
+  getNewlyUsedSavedMetricIds,
+  getUsedSavedMetricIds,
+  isDrillDownEnabled,
+} from '@/components/charts/utils';
 import type {
   ChartCreate,
   ChartUpdate,
@@ -135,15 +146,10 @@ function EditChartPageContent() {
   const searchParams = useSearchParams();
   const isFromDashboard = searchParams.get('from') === 'dashboard';
   const chartId = Number(params.id);
-  const { hasPermission } = useRbac();
-  const canEditChart = hasPermission(PERMISSIONS.CAN_EDIT_CHARTS);
-  // Don't start the chart request without edit permission; the access-denied
-  // return lives below, after all hooks (Rules of Hooks)
-  const {
-    data: chart,
-    error: chartError,
-    isLoading: chartLoading,
-  } = useChart(canEditChart ? chartId : null);
+  const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
+  // Per-resource access — a member granted edit has chart.access_level === 'edit'
+  // even without the role-level can_edit_charts slug. Backend enforces on save.
+  const canEditThisChart = chart?.access_level === 'edit';
   const { trigger: updateChart, isMutating } = useUpdateChart();
   const { trigger: createChart, isMutating: isCreating } = useCreateChart();
 
@@ -159,6 +165,19 @@ function EditChartPageContent() {
   const [formData, setFormData] = useState<ChartBuilderFormData>(initialFormData);
 
   const [activeTab, setActiveTab] = useState('chart');
+
+  // Builder tabs are local state, so `feature:viewed` doesn't fire on switch —
+  // report them explicitly. Fires on every switch (not once), so this answers
+  // "did they ever open Chart Styling", not "how many times".
+  const handleTabView = (tabValue: string) => {
+    trackFeatureView(FEATURES.CHARTS, { tab: CHART_BUILDER_TAB_ANALYTICS[tabValue] ?? tabValue });
+  };
+
+  const handlePreviewTabChange = (tabValue: string) => {
+    setActiveTab(tabValue);
+    handleTabView(tabValue);
+  };
+
   const [dataPreviewPage, setDataPreviewPage] = useState(1);
   const [dataPreviewPageSize, setDataPreviewPageSize] = useState(25);
   const [rawDataPage, setRawDataPage] = useState(1);
@@ -427,6 +446,14 @@ function EditChartPageContent() {
     }
 
     if (formData.chart_type === ChartTypes.NUMBER) {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          metric.column_expression ||
+          (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       return !!(
         formData.aggregate_function &&
         (formData.aggregate_function === 'count' || formData.aggregate_column)
@@ -434,6 +461,16 @@ function EditChartPageContent() {
     }
 
     if (formData.chart_type === ChartTypes.MAP) {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          formData.geographic_column &&
+          formData.selected_geojson_id &&
+          (metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       // Count(*) doesn't need a value_column, similar to other chart types
       const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
       return !!(
@@ -704,13 +741,12 @@ function EditChartPageContent() {
         regionGeojsons,
         regionGeojsonsLoading,
         regionGeojsonsError,
-        fallbackGeojsonId:
-          drillDownPath.length > 0 ? null : formData.geojsonPreviewPayload?.geojsonId,
+        fallbackGeojsonId: drillDownPath.length > 0 ? null : formData.selected_geojson_id,
       }),
     [
       currentDrillDownRegionId,
       drillDownPath.length,
-      formData.geojsonPreviewPayload?.geojsonId,
+      formData.selected_geojson_id,
       regionGeojsons,
       regionGeojsonsError,
       regionGeojsonsLoading,
@@ -721,6 +757,7 @@ function EditChartPageContent() {
 
   // Dynamic map data overlay payload with drill-down filters
   // Build map data overlay payload similar to view component (stable approach)
+  const activeMapMetricKey = JSON.stringify(formData.metrics?.[0] || {});
   const activeDataOverlayPayload = useMemo(() => {
     if (formData.chart_type !== ChartTypes.MAP || !formData.schema_name || !formData.table_name)
       return null;
@@ -748,13 +785,16 @@ function EditChartPageContent() {
       }
     }
 
+    const metric = formData.metrics?.[0];
+
     return activeGeographicColumn
       ? {
           schema_name: formData.schema_name,
           table_name: formData.table_name,
           geographic_column: activeGeographicColumn,
+          metric,
           value_column: formData.aggregate_column,
-          aggregate_function: formData.aggregate_function || 'sum',
+          aggregate_function: formData.aggregate_function || (metric ? undefined : 'sum'),
           filters: filters,
           chart_filters: [] as any[],
           chart_id: chartId ? parseInt(String(chartId)) : undefined,
@@ -771,6 +811,7 @@ function EditChartPageContent() {
     formData.district_column,
     drillDownPath,
     chartId,
+    activeMapMetricKey,
   ]);
 
   // Fetch GeoJSON data for maps (dynamic based on drill-down state)
@@ -1152,6 +1193,14 @@ function EditChartPageContent() {
     }
 
     if (formData.chart_type === ChartTypes.NUMBER) {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          metric.column_expression ||
+          (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       const needsAggregateColumn = formData.aggregate_function !== 'count';
       return !!(
         formData.aggregate_function &&
@@ -1160,6 +1209,16 @@ function EditChartPageContent() {
     }
 
     if (formData.chart_type === ChartTypes.MAP) {
+      const metric = formData.metrics?.[0];
+      if (metric) {
+        return !!(
+          formData.geographic_column &&
+          formData.selected_geojson_id &&
+          (metric.column_expression ||
+            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
+        );
+      }
+      // Legacy charts saved before the metrics array existed
       // Count(*) doesn't need a value_column, similar to other chart types
       const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
       return !!(
@@ -1362,7 +1421,23 @@ function EditChartPageContent() {
         id: chartId,
         data: updateData,
       });
-      trackEvent(ANALYTICS_EVENTS.CHART_SAVED, { chart_type: chartData.chart_type });
+      trackEvent(ANALYTICS_EVENTS.CHART_UPDATED, {
+        chart_type: chartData.chart_type,
+        chart_id: chartId,
+        ...getMetricAnalyticsProps(formData.metrics),
+        drill_down_enabled: isDrillDownEnabled(formData),
+      });
+      // Only metrics this edit newly attached — otherwise every re-save of an
+      // unchanged chart would re-report the same metrics as freshly used.
+      getNewlyUsedSavedMetricIds(formData.metrics, originalFormData?.metrics).forEach(
+        (metricId) => {
+          trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
+            metric_id: metricId,
+            chart_id: chartId,
+            source: METRIC_USE_SOURCES.CHART,
+          });
+        }
+      );
 
       // Update original data to reflect saved state
       setOriginalFormData({ ...formData });
@@ -1394,7 +1469,22 @@ function EditChartPageContent() {
       };
 
       const result = await createChart(newChartData);
-      trackEvent(ANALYTICS_EVENTS.CHART_SAVED_AS_NEW, { chart_type: newChartData.chart_type });
+      // Save-as-new creates a chart, so it fires CHART_CREATED like every other
+      // create path — `source` is what distinguishes it.
+      trackEvent(ANALYTICS_EVENTS.CHART_CREATED, {
+        chart_type: newChartData.chart_type,
+        chart_id: result.id,
+        source: CHART_CREATE_SOURCES.SAVE_AS_NEW,
+        ...getMetricAnalyticsProps(formData.metrics),
+        drill_down_enabled: isDrillDownEnabled(formData),
+      });
+      getUsedSavedMetricIds(formData.metrics).forEach((metricId) => {
+        trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
+          metric_id: metricId,
+          chart_id: result.id,
+          source: METRIC_USE_SOURCES.CHART,
+        });
+      });
 
       toastSuccess.created(`Chart "${newTitle}"`);
 
@@ -1454,8 +1544,9 @@ function EditChartPageContent() {
     setShowExitDialog(false);
   };
 
-  // Check if user has edit permissions (after all hooks — Rules of Hooks)
-  if (!canEditChart) {
+  // Per-resource access denied — chart loaded but caller lacks edit on THIS chart.
+  // (Gated after load so the loading skeleton doesn't briefly flash the denied UI.)
+  if (!chartLoading && chart && !canEditThisChart) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
@@ -1463,7 +1554,7 @@ function EditChartPageContent() {
             <Lock className="w-6 h-6 text-red-600" />
           </div>
           <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground mb-4">You don't have permission to edit charts.</p>
+          <p className="text-muted-foreground mb-4">You don't have edit access to this chart.</p>
           <Button variant="outline" onClick={() => router.push('/charts')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Charts
@@ -1590,7 +1681,7 @@ function EditChartPageContent() {
         <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
           {/* Left Panel - 30% */}
           <div className="w-[30%] border-r">
-            <Tabs defaultValue="configuration" className="h-full">
+            <Tabs defaultValue="configuration" onValueChange={handleTabView} className="h-full">
               <div className="px-4 pt-4">
                 <TabsList className="grid w-full h-11 grid-cols-2">
                   <TabsTrigger
@@ -1652,7 +1743,7 @@ function EditChartPageContent() {
 
           {/* Right Panel - 70% */}
           <div className="w-[70%]">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
+            <Tabs value={activeTab} onValueChange={handlePreviewTabChange} className="h-full">
               <div className="px-4">
                 <TabsList className="grid grid-cols-2">
                   <TabsTrigger value="chart" className="flex items-center gap-2">

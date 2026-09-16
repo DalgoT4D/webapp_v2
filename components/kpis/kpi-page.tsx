@@ -6,6 +6,7 @@ import { useSWRConfig } from 'swr';
 import {
   Plus,
   Search,
+  Share2,
   Target,
   MoreVertical,
   Pencil,
@@ -14,6 +15,7 @@ import {
   BellRing,
   ChevronLeft,
   ChevronRight,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +46,8 @@ import {
 } from '@/components/onboarding/insight-walkthrough-constants';
 import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
+import { ShareModal } from '@/components/ui/share-modal';
+import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';
 import { KPIDeleteDialog } from './kpi-delete-dialog';
@@ -54,7 +58,13 @@ import { RAG_COLORS, METRIC_TYPE_TAG_OPTIONS, TIME_GRAIN_OPTIONS } from '@/types
 import type { RAGStatus } from '@/types/kpis';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import {
+  ALERT_CREATE_SOURCES,
+  ANALYTICS_EVENTS,
+  KPI_EXPORT_SOURCES,
+  KPI_VIEW_SOURCES,
+  type KpiViewSource,
+} from '@/constants/analytics';
 import { formatDistanceToNow } from 'date-fns';
 import { computePopChanges } from '@/lib/formatters';
 
@@ -62,22 +72,29 @@ import { computePopChanges } from '@/lib/formatters';
 function KPICardWithData({
   kpi,
   onClick,
+  onViewFromMenu,
   onEdit,
   onDelete,
   onCreateAlert,
+  onShare,
   canCreateAlert,
   canEditKpis,
   canDeleteKpis,
+  canShare,
   statusFilter,
 }: {
   kpi: KPI;
   onClick: () => void;
+  /** ⋮ → View KPI. Same drawer as onClick, tracked with its own source. */
+  onViewFromMenu: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onCreateAlert?: () => void;
+  onShare?: () => void;
   canCreateAlert?: boolean;
   canEditKpis?: boolean;
   canDeleteKpis?: boolean;
+  canShare?: boolean;
   statusFilter?: string;
 }) {
   const { chartData, echartsConfig, isLoading } = useKPIData(kpi.id);
@@ -114,11 +131,13 @@ function KPICardWithData({
         data={cardData}
         onClick={onClick}
         className="h-full"
+        kpiId={kpi.id}
+        exportSource={KPI_EXPORT_SOURCES.KPI_PAGE}
         showDownload={false}
         downloadInMenu
         menuItems={
           <>
-            <DropdownMenuItem onClick={onClick} className="cursor-pointer">
+            <DropdownMenuItem onClick={onViewFromMenu} className="cursor-pointer">
               <Eye className="w-4 h-4 mr-2" />
               View KPI
             </DropdownMenuItem>
@@ -132,6 +151,12 @@ function KPICardWithData({
               <DropdownMenuItem onClick={onCreateAlert} className="cursor-pointer">
                 <BellRing className="w-4 h-4 mr-2" />
                 Create alert
+              </DropdownMenuItem>
+            )}
+            {canShare && onShare && (
+              <DropdownMenuItem onClick={onShare} className="cursor-pointer">
+                <Share2 className="w-4 h-4 mr-2" />
+                Share
               </DropdownMenuItem>
             )}
             {canDeleteKpis && (
@@ -174,6 +199,10 @@ export function KPIPageComponent() {
   const [deletingKpi, setDeletingKpi] = useState<KPI | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [alertKpiId, setAlertKpiId] = useState<number | null>(null);
+  const [shareModalKpi, setShareModalKpi] = useState<KPI | null>(null);
+  const { initialOpen: shouldAutoOpenShare, clearParam: clearShareDeepLink } = useOpenShareDeepLink(
+    ['kpiId']
+  );
 
   const { hasPermission } = useRbac();
   // Create/edit/delete affordances are hidden for view-only roles (members) and
@@ -210,6 +239,15 @@ export function KPIPageComponent() {
     if (openId && kpis.length > 0) {
       const kpi = kpis.find((k) => k.id === parseInt(openId));
       if (kpi) {
+        // This opens the same drawer as a card click, so it is a KPI view too — it was
+        // previously untracked, making every arrival from an alert/notification link
+        // invisible. Safe to fire inline: the param is stripped below, so the effect
+        // cannot run again for this id.
+        trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, {
+          kpi_id: kpi.id,
+          source: KPI_VIEW_SOURCES.DEEP_LINK,
+          metric_type_tag: kpi.metric_type_tag || null,
+        });
         setSelectedKpi(kpi);
         setDrawerOpen(true);
       }
@@ -219,6 +257,20 @@ export function KPIPageComponent() {
       router.replace(qs ? `/kpis?${qs}` : '/kpis', { scroll: false });
     }
   }, [searchParams, kpis, router]);
+
+  // Auto-open share modal when ?openShare=true&kpiId={id} is in the URL —
+  // deep link from an access-request notification.
+  useEffect(() => {
+    if (!shouldAutoOpenShare || kpis.length === 0) return;
+    const kpiId = searchParams.get('kpiId');
+    if (!kpiId) return;
+    const kpi = kpis.find((k) => k.id === parseInt(kpiId));
+    if (kpi) {
+      setShareModalKpi(kpi);
+    }
+    clearShareDeepLink();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldAutoOpenShare, kpis]);
 
   // Strip `?create=true` after consuming it on mount so a refresh doesn't
   // re-open the create form.
@@ -268,8 +320,14 @@ export function KPIPageComponent() {
     }
   };
 
-  const handleCardClick = (kpi: KPI) => {
-    trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, { metric_type_tag: kpi.metric_type_tag || null });
+  // `source` distinguishes the card body from the ⋮ → View KPI item: both land here, so
+  // without it there is no way to tell which affordance people actually use.
+  const handleCardClick = (kpi: KPI, source: KpiViewSource = KPI_VIEW_SOURCES.CARD) => {
+    trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, {
+      kpi_id: kpi.id,
+      source,
+      metric_type_tag: kpi.metric_type_tag || null,
+    });
     setSelectedKpi(kpi);
     setDrawerOpen(true);
   };
@@ -290,7 +348,9 @@ export function KPIPageComponent() {
     setIsDeleting(true);
     try {
       await deleteKPI(deletingKpi.id);
+      // Id read before the mutate() below drops the row from local state.
       trackEvent(ANALYTICS_EVENTS.KPI_DELETED, {
+        kpi_id: deletingKpi.id,
         metric_type_tag: deletingKpi.metric_type_tag || null,
       });
       if (kpis.length === 1 && currentPage > 1) {
@@ -463,12 +523,15 @@ export function KPIPageComponent() {
                     key={kpi.id}
                     kpi={kpi}
                     onClick={() => handleCardClick(kpi)}
+                    onViewFromMenu={() => handleCardClick(kpi, KPI_VIEW_SOURCES.MENU)}
                     onEdit={() => handleEdit(kpi)}
                     onDelete={() => handleDeleteClick(kpi)}
                     onCreateAlert={() => setAlertKpiId(kpi.id)}
+                    onShare={() => setShareModalKpi(kpi)}
                     canCreateAlert={canCreateAlert}
-                    canEditKpis={canEditKpis}
+                    canEditKpis={kpi.access_level === 'edit'}
                     canDeleteKpis={canDeleteKpis}
+                    canShare={kpi.access_level === 'edit'}
                     statusFilter={statusFilter || undefined}
                   />
                 ))}
@@ -538,7 +601,22 @@ export function KPIPageComponent() {
         open={alertKpiId !== null}
         onOpenChange={(o) => !o && setAlertKpiId(null)}
         initial={{ alertType: 'kpi_rag', kpiId: alertKpiId }}
+        createSource={ALERT_CREATE_SOURCES.KPI_LIST}
       />
+
+      {shareModalKpi && (
+        <ShareModal
+          rtype="kpi"
+          entityId={shareModalKpi.id}
+          entityLabel={shareModalKpi.name}
+          isOpen={shareModalKpi !== null}
+          onClose={() => {
+            setShareModalKpi(null);
+            clearShareDeepLink();
+          }}
+          onUpdate={mutate}
+        />
+      )}
     </div>
   );
 }
