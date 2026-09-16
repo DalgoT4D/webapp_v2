@@ -1,20 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import {
-  BarChart3,
-  LayoutDashboard,
-  AlertTriangle,
-  Sparkles,
-  ShieldQuestion,
-  Check,
-  X,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { BarChart3, ChevronDown, ChevronUp, LayoutDashboard, TriangleAlert } from 'lucide-react';
 import { ToolProgress } from './ToolProgress';
 import { ResultTable } from './ResultTable';
 import { AssistantMarkdown } from './AssistantMarkdown';
+import { SqlBlock } from './SqlBlock';
 import type { ApprovalRequest, ChatMessage } from '@/types/chat-with-data';
 
 /** Plain-language receipt for a tool call awaiting approval */
@@ -40,10 +32,63 @@ const DECIDED_LABELS: Record<string, string> = {
   cancelled: 'Cancelled — nothing was run',
 };
 
+/** One approval request: summary, query (open by default), approve/cancel */
+function ApprovalCard({
+  request,
+  status,
+  onRespond,
+}: {
+  request: ApprovalRequest;
+  status: string;
+  onRespond?: (approve: boolean) => void;
+}) {
+  const [queryOpen, setQueryOpen] = useState(true);
+  const Chevron = queryOpen ? ChevronUp : ChevronDown;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[15px] leading-[22px] text-[#1A1A2E]">{approvalSummary(request)}</p>
+      {request.sql && (
+        <>
+          <button
+            type="button"
+            onClick={() => setQueryOpen((open) => !open)}
+            className="flex items-center gap-1 self-start text-sm text-primary"
+          >
+            <Chevron className="size-4" />
+            View query
+          </button>
+          {queryOpen && <SqlBlock sql={request.sql} />}
+        </>
+      )}
+      {status === 'pending' && (
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            data-testid="chat-approve"
+            onClick={() => onRespond?.(true)}
+            className="rounded-md bg-primary px-[19px] py-2 text-[13px] font-medium uppercase tracking-wide text-white hover:bg-primary/90"
+          >
+            Approve
+          </button>
+          <button
+            type="button"
+            data-testid="chat-cancel"
+            onClick={() => onRespond?.(false)}
+            className="rounded-md border border-[#CBD5E1] bg-white px-6 py-2 text-[13px] font-medium uppercase tracking-wide text-[#1A1A2E] hover:bg-[#F8FAFB]"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
- * One conversation bubble. Assistant answers render through the markdown
- * SUBSET the agent is prompted to emit (AssistantMarkdown); user messages
- * stay literal text.
+ * One conversation turn. User messages render as the compact grey bubble on
+ * the right; assistant answers render as an open column of text, reasoning,
+ * tables, and cards — per the Dalgo 2.0 Copilot design.
  */
 export function MessageBubble({
   message,
@@ -56,126 +101,97 @@ export function MessageBubble({
   const showThinking = message.streaming && !message.content && !message.error;
   const inputRequest = message.inputRequest;
 
+  if (isUser) {
+    return (
+      <div className="flex w-full justify-end" data-testid={`chat-message-${message.id}`}>
+        <div className="max-w-[75%] rounded-xl rounded-br-[4px] bg-[#E8ECEF] px-3.5 py-2.5">
+          <p className="whitespace-pre-wrap text-[15px] leading-[22px] text-[#1A1A2E]">
+            {message.content}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div
-      className={cn('flex w-full gap-2', isUser ? 'justify-end' : 'justify-start')}
-      data-testid={`chat-message-${message.id}`}
-    >
-      {!isUser && (
-        <div
-          className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10"
-          aria-hidden="true"
-        >
-          <Sparkles className="h-3.5 w-3.5 text-primary" />
+    <div className="flex w-full flex-col gap-3" data-testid={`chat-message-${message.id}`}>
+      <ToolProgress tools={message.tools} streaming={message.streaming} />
+
+      {showThinking && message.tools.length === 0 && (
+        <p className="animate-pulse text-sm text-[#7A7A8C]" data-testid="chat-thinking">
+          Thinking…
+        </p>
+      )}
+
+      {message.content && <AssistantMarkdown content={message.content} />}
+
+      {inputRequest?.kind === 'approval' && (
+        <div data-testid="chat-approval-card" className="flex flex-col gap-3">
+          {inputRequest.requests.map((request, index) => (
+            <ApprovalCard
+              // requests are fixed for the life of the card; index is stable
+              // eslint-disable-next-line react/no-array-index-key
+              key={index}
+              request={request}
+              status={inputRequest.status}
+              onRespond={onApprovalRespond}
+            />
+          ))}
+          {inputRequest.status !== 'pending' && (
+            <p className="text-xs text-[#7A7A8C]" data-testid="chat-approval-state">
+              {DECIDED_LABELS[inputRequest.status] ?? inputRequest.status}
+            </p>
+          )}
         </div>
       )}
-      <div className={cn('max-w-[85%]', isUser && 'rounded-2xl bg-primary/10 px-4 py-2')}>
-        {!isUser && <ToolProgress tools={message.tools} />}
 
-        {showThinking && (
-          <p
-            className="mt-1 animate-pulse text-sm text-muted-foreground"
-            data-testid="chat-thinking"
-          >
-            Thinking…
-          </p>
-        )}
+      {inputRequest?.kind === 'question' && inputRequest.status === 'pending' && (
+        <p className="text-xs text-[#7A7A8C]" data-testid="chat-question-hint">
+          Waiting for your reply — type your answer below.
+        </p>
+      )}
 
-        {message.content &&
-          (isUser ? (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
-          ) : (
-            <AssistantMarkdown content={message.content} />
-          ))}
+      {message.error && (
+        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {message.error}
+        </p>
+      )}
 
-        {!isUser && inputRequest?.kind === 'approval' && (
-          <div
-            data-testid="chat-approval-card"
-            className="mt-2 rounded-md border bg-muted/30 px-3 py-2"
-          >
-            <p className="flex items-center gap-1.5 text-sm font-medium">
-              <ShieldQuestion className="h-4 w-4 text-primary" />
-              Needs your go-ahead
-            </p>
-            {inputRequest.requests.map((request, index) => (
-              <div key={index} className="mt-2">
-                <p className="text-sm">{approvalSummary(request)}</p>
-                {request.sql && (
-                  <pre className="mt-1 max-h-40 overflow-auto rounded bg-muted px-2 py-1 font-mono text-xs">
-                    {request.sql}
-                  </pre>
-                )}
-              </div>
-            ))}
-            {inputRequest.status === 'pending' ? (
-              <div className="mt-3 flex gap-2">
-                <Button
-                  size="sm"
-                  data-testid="chat-approve"
-                  onClick={() => onApprovalRespond?.(true)}
-                >
-                  <Check className="mr-1 h-3.5 w-3.5" />
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  data-testid="chat-cancel"
-                  onClick={() => onApprovalRespond?.(false)}
-                >
-                  <X className="mr-1 h-3.5 w-3.5" />
-                  Cancel
-                </Button>
-              </div>
+      {message.resultTable && <ResultTable table={message.resultTable} />}
+
+      {message.validation?.verdict === 'warn' && message.validation.caveat && (
+        <p
+          data-testid="chat-validation-caveat"
+          className="flex items-start gap-2 rounded-[10px] bg-[#FFFAF0] px-3 py-2.5 text-[13px] leading-snug text-[#9F2D00]"
+        >
+          <TriangleAlert className="mt-0.5 size-[15px] shrink-0" />
+          <span>
+            <span className="font-semibold">Worth checking </span>
+            {message.validation.caveat}
+          </span>
+        </p>
+      )}
+
+      {message.charts?.map((chart) => (
+        <Link
+          key={chart.url_path}
+          href={chart.url_path}
+          data-testid={`chat-chart-link-${chart.chart_id}`}
+          className="flex h-11 items-center justify-between rounded-md border border-[#E8ECEF] bg-[#F8FAFB] px-4 text-sm hover:border-primary/40"
+        >
+          <span className="flex min-w-0 items-center gap-2 text-[#1A1A2E]">
+            {chart.url_path.startsWith('/dashboards') ? (
+              <LayoutDashboard className="size-4 shrink-0 text-[#5C5C6D]" />
             ) : (
-              <p className="mt-2 text-xs text-muted-foreground" data-testid="chat-approval-state">
-                {DECIDED_LABELS[inputRequest.status] ?? inputRequest.status}
-              </p>
+              <BarChart3 className="size-4 shrink-0 text-[#5C5C6D]" />
             )}
-          </div>
-        )}
-
-        {!isUser && inputRequest?.kind === 'question' && inputRequest.status === 'pending' && (
-          <p className="mt-2 text-xs text-muted-foreground" data-testid="chat-question-hint">
-            Waiting for your reply — type your answer below.
-          </p>
-        )}
-
-        {!isUser && message.validation?.verdict === 'warn' && message.validation.caveat && (
-          <p
-            data-testid="chat-validation-caveat"
-            className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
-          >
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>Worth checking: {message.validation.caveat}</span>
-          </p>
-        )}
-
-        {message.error && (
-          <p className="mt-1 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-            {message.error}
-          </p>
-        )}
-
-        {!isUser && message.resultTable && <ResultTable table={message.resultTable} />}
-
-        {!isUser &&
-          message.charts?.map((chart) => (
-            <Link
-              key={chart.url_path}
-              href={chart.url_path}
-              data-testid={`chat-chart-link-${chart.chart_id}`}
-              className="mt-2 inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium text-primary hover:bg-accent"
-            >
-              {chart.url_path.startsWith('/dashboards') ? (
-                <LayoutDashboard className="h-4 w-4" />
-              ) : (
-                <BarChart3 className="h-4 w-4" />
-              )}
-              {chart.title}
-            </Link>
-          ))}
-      </div>
+            <span className="truncate">{chart.title}</span>
+          </span>
+          <span className="shrink-0 font-semibold text-primary">
+            {chart.url_path.startsWith('/dashboards') ? 'Open in Dashboards' : 'Open in Charts'}
+          </span>
+        </Link>
+      ))}
     </div>
   );
 }

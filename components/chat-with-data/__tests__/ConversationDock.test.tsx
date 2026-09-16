@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { SessionSidebar } from '../SessionSidebar';
+import { ConversationDock } from '../ConversationDock';
 import type { ChatSession } from '@/types/chat-with-data';
 
 const sessions: ChatSession[] = [
@@ -7,10 +7,10 @@ const sessions: ChatSession[] = [
   { id: 1, title: 'Pune attendance', created_at: 'c1', updated_at: 'u1' },
 ];
 
-describe('SessionSidebar', () => {
+describe('ConversationDock', () => {
   it('lists sessions and marks the active one', () => {
     render(
-      <SessionSidebar
+      <ConversationDock
         sessions={sessions}
         activeSessionId={2}
         onSelect={jest.fn()}
@@ -29,7 +29,7 @@ describe('SessionSidebar', () => {
     const onSelect = jest.fn();
     const onNewChat = jest.fn();
     render(
-      <SessionSidebar
+      <ConversationDock
         sessions={sessions}
         activeSessionId={null}
         onSelect={onSelect}

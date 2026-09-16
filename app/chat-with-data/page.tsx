@@ -15,7 +15,8 @@ import {
   useChatWithDataStatus,
 } from '@/hooks/api/useChatSessions';
 import { historyToChatMessages, useChatWithData } from '@/hooks/useChatWithData';
-import { SessionSidebar } from '@/components/chat-with-data/SessionSidebar';
+import { ConversationDock } from '@/components/chat-with-data/ConversationDock';
+import { ChatHeadbar } from '@/components/chat-with-data/ChatHeadbar';
 import { ChatPane } from '@/components/chat-with-data/ChatPane';
 import type { ChatStatusReason } from '@/types/chat-with-data';
 
@@ -62,6 +63,7 @@ export default function ChatWithDataPage() {
   const { status, isLoading: statusLoading, isError: statusError } = useChatWithDataStatus();
   const { sessions, mutate: refreshSessions } = useChatSessions();
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [dockOpen, setDockOpen] = useState(true);
   // question typed before any session existed; sent once the new session's socket is up
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   // model pick applies per turn; null until the user touches the selector
@@ -91,14 +93,9 @@ export default function ChatWithDataPage() {
     }
   }, [pendingQuestion, activeSessionId, sendMessage, activeModel]);
 
-  const handleNewChat = async () => {
-    try {
-      const session = await createChatSession();
-      setActiveSessionId(session.id);
-      trackEvent(ANALYTICS_EVENTS.CHAT_SESSION_CREATED);
-    } catch {
-      toastError.api('Could not start a new chat');
-    }
+  // Back to the hero empty state; the session itself is created on first send
+  const handleNewChat = () => {
+    setActiveSessionId(null);
   };
 
   const handleSend = async (question: string) => {
@@ -139,8 +136,8 @@ export default function ChatWithDataPage() {
   if (statusLoading) {
     return (
       <div className="flex h-full gap-4 p-4">
-        <Skeleton className="h-full w-64" />
         <Skeleton className="h-full flex-1" />
+        <Skeleton className="h-full w-56" />
       </div>
     );
   }
@@ -154,26 +151,31 @@ export default function ChatWithDataPage() {
   }
 
   return (
-    <div className="flex h-full bg-background">
-      <div className="hidden md:flex">
-        <SessionSidebar
-          sessions={sessions}
-          activeSessionId={activeSessionId}
-          onSelect={setActiveSessionId}
-          onNewChat={handleNewChat}
-          onRename={handleRename}
-          onDelete={handleDelete}
+    <div className="flex h-full bg-[#F8FAFB]">
+      {dockOpen && (
+        <div className="hidden h-full md:flex">
+          <ConversationDock
+            sessions={sessions}
+            activeSessionId={activeSessionId}
+            onSelect={setActiveSessionId}
+            onNewChat={handleNewChat}
+            onRename={handleRename}
+            onDelete={handleDelete}
+          />
+        </div>
+      )}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <ChatHeadbar dockOpen={dockOpen} onToggleDock={() => setDockOpen((open) => !open)} />
+        <ChatPane
+          messages={messages}
+          isStreaming={isStreaming}
+          onSend={handleSend}
+          onApprovalRespond={respondToApproval}
+          models={status.models ?? []}
+          selectedModel={activeModel}
+          onModelChange={setSelectedModel}
         />
       </div>
-      <ChatPane
-        messages={messages}
-        isStreaming={isStreaming}
-        onSend={handleSend}
-        onApprovalRespond={respondToApproval}
-        models={status.models ?? []}
-        selectedModel={activeModel}
-        onModelChange={setSelectedModel}
-      />
     </div>
   );
 }

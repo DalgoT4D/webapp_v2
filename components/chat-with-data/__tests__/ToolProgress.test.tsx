@@ -16,17 +16,19 @@ const sqlTool: ToolActivity = {
 };
 
 describe('ToolProgress', () => {
-  it('shows a plain-language chip per tool activity', () => {
-    render(<ToolProgress tools={[runningTool, sqlTool]} />);
+  it('shows the steps while the turn is streaming', () => {
+    render(<ToolProgress tools={[runningTool, sqlTool]} streaming />);
+    expect(screen.getByText('Thinking…')).toBeInTheDocument();
     expect(screen.getByText('Looking at your tables…')).toBeInTheDocument();
     expect(screen.getByText('Running query…')).toBeInTheDocument();
   });
 
-  it('reveals the SQL behind a collapsible toggle', () => {
+  it('collapses finished reasoning behind a toggle, SQL included', () => {
     render(<ToolProgress tools={[sqlTool]} />);
     expect(screen.queryByText(sqlTool.sql as string)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId('view-sql-toggle-0'));
+    fireEvent.click(screen.getByTestId('chat-reasoning-toggle'));
+    expect(screen.getByText('Running query…')).toBeInTheDocument();
     expect(screen.getByText(sqlTool.sql as string)).toBeInTheDocument();
   });
 

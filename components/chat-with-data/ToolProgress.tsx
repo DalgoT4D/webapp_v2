@@ -1,78 +1,75 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Loader2, CircleCheck, CircleX } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { SqlBlock } from './SqlBlock';
 import type { ToolActivity } from '@/types/chat-with-data';
 
-function StatusIcon({ status }: { status: ToolActivity['status'] }) {
-  if (status === 'running') {
-    return <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />;
-  }
-  if (status === 'error') {
-    return <CircleX className="h-3.5 w-3.5 text-destructive" />;
-  }
-  return <CircleCheck className="h-3.5 w-3.5 text-primary" />;
-}
-
 /**
- * What the agent is doing while a turn runs — plain-language chips for Priya,
- * with the generated SQL behind a "view SQL" toggle for the data-savvy.
+ * The agent's visible reasoning: while a turn runs the steps stream in under a
+ * left rail; once the answer lands they collapse behind a "Thought process"
+ * toggle, with any generated SQL in QUERY blocks — per the Dalgo 2.0 design.
  */
-export function ToolProgress({ tools }: { tools: ToolActivity[] }) {
-  const [openSql, setOpenSql] = useState<Record<number, boolean>>({});
+export function ToolProgress({
+  tools,
+  streaming = false,
+}: {
+  tools: ToolActivity[];
+  streaming?: boolean;
+}) {
+  const [openWhileIdle, setOpenWhileIdle] = useState(false);
 
   if (!tools.length) return null;
 
-  const toggleSql = (index: number) => {
-    setOpenSql((current) => {
-      const next = { ...current, [index]: !current[index] };
-      if (next[index]) {
-        trackEvent(ANALYTICS_EVENTS.CHAT_SQL_VIEWED);
-      }
-      return next;
+  // streaming turns always show their steps; finished turns collapse
+  const open = streaming || openWhileIdle;
+  const Chevron = open ? ChevronUp : ChevronDown;
+  const sqlSteps = tools.filter((activity) => activity.sql);
+
+  const toggle = () => {
+    setOpenWhileIdle((current) => {
+      if (!current && sqlSteps.length) trackEvent(ANALYTICS_EVENTS.CHAT_SQL_VIEWED);
+      return !current;
     });
   };
 
   return (
-    <div className="mt-1 flex flex-col gap-1" data-testid="chat-tool-progress">
-      {tools.map((activity, index) => (
-        // activities append-only within a turn, so index is a stable key
-        // eslint-disable-next-line react/no-array-index-key
-        <div key={`tool-${index}`}>
-          <div
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
-              activity.status === 'running' ? 'text-foreground' : 'text-muted-foreground'
-            )}
-          >
-            <StatusIcon status={activity.status} />
-            <span>{activity.label}</span>
-            {activity.sql && (
-              <button
-                type="button"
-                data-testid={`view-sql-toggle-${index}`}
-                onClick={() => toggleSql(index)}
-                className="ml-1 inline-flex items-center gap-0.5 font-medium text-primary hover:underline"
-              >
-                {openSql[index] ? (
-                  <ChevronDown className="h-3 w-3" />
-                ) : (
-                  <ChevronRight className="h-3 w-3" />
-                )}
-                view SQL
-              </button>
-            )}
+    <div data-testid="chat-tool-progress">
+      <button
+        type="button"
+        data-testid="chat-reasoning-toggle"
+        onClick={toggle}
+        disabled={streaming}
+        className="flex items-center gap-1 text-sm text-[#7A7A8C]"
+      >
+        {streaming ? <Loader2 className="size-4 animate-spin" /> : <Chevron className="size-4" />}
+        {streaming ? 'Thinking…' : 'Thought process'}
+      </button>
+
+      {open && (
+        <div className="ml-[7px] mt-1.5 flex gap-4 border-l-2 border-[#E8ECEF] pl-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              {tools.map((activity, index) => (
+                // activities append-only within a turn, so index is a stable key
+                // eslint-disable-next-line react/no-array-index-key
+                <p key={`step-${index}`} className="text-xs text-[#7A7A8C]">
+                  {activity.label}
+                </p>
+              ))}
+            </div>
+            {sqlSteps.map((activity, index) => (
+              // eslint-disable-next-line react/no-array-index-key
+              <div key={`query-${index}`} className="flex flex-col gap-1.5">
+                <p className="text-[11px] font-semibold tracking-[0.6px] text-[#A3A3B0]">QUERY</p>
+                <SqlBlock sql={activity.sql as string} />
+              </div>
+            ))}
           </div>
-          {activity.sql && openSql[index] && (
-            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 text-xs">
-              {activity.sql}
-            </pre>
-          )}
         </div>
-      ))}
+      )}
     </div>
   );
 }
