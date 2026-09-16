@@ -2,7 +2,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CreateSourceStep } from '../CreateSourceStep';
 import { createOAuthSource } from '@/hooks/api/useSources';
-import { connectGoogleSpreadsheet } from '@/components/connectors/google-oauth-connect';
+import {
+  connectGoogleSpreadsheet,
+  pickSpreadsheetForRef,
+} from '@/components/connectors/google-oauth-connect';
+import { PickerCancelledError } from '@/components/connectors/google-picker';
 
 // A realistic Google Sheets spec: `spreadsheet_id` (title "Spreadsheet Link"), the
 // `credentials` oneOf (OAuth Client + Service branches), and the SQL-conversion toggle.
@@ -82,12 +86,20 @@ jest.mock('@/hooks/useSourceSave', () => ({
 // consent + popup + Google Picker as one flow (see google-oauth-connect)
 jest.mock('@/components/connectors/google-oauth-connect', () => ({
   connectGoogleSpreadsheet: jest.fn(),
+  pickSpreadsheetForRef: jest.fn(),
 }));
 
 const PICKED = {
   id: 'sheet-id',
   name: 'Q3 enrolments',
   url: 'https://docs.google.com/spreadsheets/d/sheet-id/edit',
+};
+
+/** What the user swaps to via "Replace Google Sheet", before anything is saved. */
+const REPICKED = {
+  id: 'other-sheet-id',
+  name: 'Q4 enrolments',
+  url: 'https://docs.google.com/spreadsheets/d/other-sheet-id/edit',
 };
 
 beforeEach(() => {
@@ -98,9 +110,25 @@ beforeEach(() => {
     ref: 'ref-abc',
     spreadsheet: PICKED,
   });
+  (pickSpreadsheetForRef as jest.Mock).mockReset();
+  (pickSpreadsheetForRef as jest.Mock).mockResolvedValue(REPICKED);
   (createOAuthSource as jest.Mock).mockReset();
   (createOAuthSource as jest.Mock).mockResolvedValue({ sourceId: 'src-oauth' });
 });
+
+/** Render the Google Sheets step and authorize, leaving PICKED as the chosen sheet. */
+async function authorizeGoogleSheets(onCreated = jest.fn()) {
+  mockSourceSpec = GSHEETS_SPEC;
+  render(
+    <CreateSourceStep
+      def={{ sourceDefinitionId: 'gs', name: 'Google Sheets' }}
+      onCreated={onCreated}
+      onBack={jest.fn()}
+    />
+  );
+  await userEvent.click(screen.getByTestId('gsheets-oauth-connect-btn'));
+  await waitFor(() => expect(screen.getByText(new RegExp(PICKED.name))).toBeInTheDocument());
+}
 
 // Under `drive.file` the user names the sheet inside Google's Picker, so the flow has to
 // bring that choice back into the form — and save exactly it.
@@ -135,6 +163,80 @@ it('fills the spreadsheet link from the Google Picker and saves that link', asyn
     )
   );
   await waitFor(() => expect(onCreated).toHaveBeenCalledWith('src-oauth'));
+});
+
+// Picking the wrong file in the Picker is easy, and before the source exists there is nothing
+// to protect — so the chosen sheet stays swappable without another consent round-trip.
+it('swaps the chosen sheet through Replace Google Sheet, and creates the source on the new one', async () => {
+  await authorizeGoogleSheets();
+
+  await userEvent.click(screen.getByTestId('gsheets-replace-sheet-btn'));
+
+  await waitFor(() => expect(screen.getByText(new RegExp(REPICKED.name))).toBeInTheDocument());
+  expect(pickSpreadsheetForRef).toHaveBeenCalledWith('Google Sheets', 'ref-abc');
+  // The ref survives the swap, so Google never asks for consent a second time.
+  expect(connectGoogleSpreadsheet).toHaveBeenCalledTimes(1);
+
+  await userEvent.click(screen.getByTestId('wizard-next-btn'));
+
+  await waitFor(() =>
+    expect(createOAuthSource).toHaveBeenCalledWith(
+      expect.objectContaining({
+        refresh_token_ref: 'ref-abc',
+        config: expect.objectContaining({ spreadsheet_id: REPICKED.url }),
+      })
+    )
+  );
+});
+
+it('keeps the sheet already chosen when the replace Picker is closed without choosing', async () => {
+  await authorizeGoogleSheets();
+  (pickSpreadsheetForRef as jest.Mock).mockRejectedValue(new PickerCancelledError());
+
+  await userEvent.click(screen.getByTestId('gsheets-replace-sheet-btn'));
+
+  // Changing their mind about changing their mind is not an error: the first pick still stands.
+  await waitFor(() => expect(screen.getByText(new RegExp(PICKED.name))).toBeInTheDocument());
+  expect(screen.getByTestId('gsheets-replace-sheet-btn')).toBeInTheDocument();
+});
+
+it('re-runs consent when the ref behind Replace Google Sheet has expired', async () => {
+  await authorizeGoogleSheets();
+  (pickSpreadsheetForRef as jest.Mock).mockRejectedValue(
+    new Error('invalid or expired oauth session')
+  );
+  (connectGoogleSpreadsheet as jest.Mock).mockResolvedValue({
+    ref: 'ref-fresh',
+    spreadsheet: REPICKED,
+  });
+
+  await userEvent.click(screen.getByTestId('gsheets-replace-sheet-btn'));
+
+  // A ref only lives minutes; an expired one is recoverable by consenting again, so the user
+  // lands back in the Picker rather than on an error they can do nothing with.
+  await waitFor(() => expect(connectGoogleSpreadsheet).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.getByText(new RegExp(REPICKED.name))).toBeInTheDocument());
+});
+
+// The hint tells an existing source which sheet to pick back. A source being created syncs
+// nothing yet, so there is no such sheet — and a link typed on the service-account route is
+// not one either.
+it('never asks the wizard to pick back a sheet, even after a link is typed on the other route', async () => {
+  const user = userEvent.setup();
+  mockSourceSpec = GSHEETS_SPEC;
+  render(
+    <CreateSourceStep
+      def={{ sourceDefinitionId: 'gs', name: 'Google Sheets' }}
+      onCreated={jest.fn()}
+      onBack={jest.fn()}
+    />
+  );
+
+  await user.click(screen.getByTestId('gsheets-service-option-radio'));
+  await user.type(screen.getByLabelText(/Spreadsheet Link/i), PICKED.url);
+  await user.click(screen.getByTestId('gsheets-oauth-option-radio'));
+
+  expect(screen.queryByTestId('gsheets-repick-hint')).not.toBeInTheDocument();
 });
 
 it('keeps the wizard on the service-account path when the Google flow fails', async () => {

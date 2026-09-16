@@ -117,7 +117,11 @@ export function GoogleSheetsForm({
     if (!discriminatorPath) return;
 
     if (usingOAuth) {
-      if (serviceValue) setValue(servicePath, '');
+      // `undefined`, not '': an empty string is still a key, and JSON keeps it. Airbyte's
+      // `credentials` oneOf is additionalProperties:false, so `service_account_info: ''` sent
+      // next to auth_type 'Client' matches neither branch and the save is rejected. Undefined
+      // drops out of the request body — the same clear the client-branch fields below use.
+      if (serviceValue) setValue(servicePath, undefined);
       setValue(discriminatorPath, GSHEETS_OAUTH_AUTH_TYPE);
       return;
     }
@@ -144,7 +148,7 @@ export function GoogleSheetsForm({
   const pickedName = oauth?.connectedSheet?.name;
 
   // Which link belongs to the Google route, and keeping it out of the service card's input.
-  const { oauthLink, openedOnOAuth } = useGsheetsOAuthLink({
+  const { oauthLink } = useGsheetsOAuthLink({
     mode,
     connected,
     usingOAuth,
@@ -157,10 +161,14 @@ export function GoogleSheetsForm({
 
   const linkable = !!oauthLink && /^https?:\/\//.test(oauthLink);
   // Airbyte stores the link but never the title, so a source connected in an earlier session has
-  // no name to show. Titles are user-chosen and can be long: the row truncates and keeps the full
-  // name in `title` rather than pushing the button around. A bare id (also valid in this field)
-  // would make a dead relative href, so it gets no link.
-  const sheetLabel = pickedName ?? 'Open the connected sheet';
+  // no name to show. "View sheet" is then the whole offer — one click to check the file in Drive,
+  // which is what the name was for. A bare id (also valid in this field) would make a dead
+  // relative href, so it gets no link.
+  const sheetLabel = pickedName ?? 'View sheet';
+  // Titles are user-chosen and can run long: cap the width so one cannot push the button around,
+  // ellipsize the rest, and keep the whole name in `title`. Roughly 30 characters at this size —
+  // enough for most real titles while leaving the button its room in a narrow dialog.
+  const sheetNameMaxWidth = 'max-w-[15rem]';
   const sheetLink = linkable ? (
     <a
       href={oauthLink}
@@ -168,27 +176,27 @@ export function GoogleSheetsForm({
       rel="noopener noreferrer"
       title={sheetLabel}
       data-testid="gsheets-sheet-link"
-      className="min-w-0 truncate font-medium text-primary underline decoration-dotted underline-offset-2 hover:decoration-solid"
+      className={`min-w-0 truncate font-medium text-primary underline decoration-dotted underline-offset-2 hover:decoration-solid ${sheetNameMaxWidth}`}
     >
       {sheetLabel}
     </a>
   ) : pickedName ? (
-    <span className="min-w-0 truncate font-medium" title={pickedName}>
+    <span className={`min-w-0 truncate font-medium ${sheetNameMaxWidth}`} title={pickedName}>
       “{pickedName}”
     </span>
   ) : null;
-
-  // Moving over from a service-account key: the typed link earns no `drive.file` grant, so the
-  // user has to hand us that same file through the Picker. Naming it saves them guessing which
-  // of their spreadsheets this source was on.
-  const linkToRepick = !openedOnOAuth && !oauthLink && savedLink?.trim() ? savedLink : null;
 
   const oauthSlot = oauth ? (
     <GsheetsOAuthCard
       oauth={oauth}
       disabled={disabled}
       sheetLink={sheetLink}
-      linkToRepick={linkToRepick}
+      // Whether that link carries a real title. With none, the "Syncing"/"Selected" label has
+      // no name to introduce and the bare "View sheet" link stands on its own.
+      sheetIsNamed={!!pickedName}
+      // Straight from the host: which sheet this source syncs today is something only it can
+      // still answer, since the field this form reads is overwritten by every pick.
+      linkToRepick={oauth.linkToRepick ?? null}
     />
   ) : null;
 

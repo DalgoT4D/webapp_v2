@@ -75,6 +75,7 @@ const SHEET_URL = 'https://docs.google.com/spreadsheets/d/abc/edit';
 
 function Harness({
   connected = false,
+  authedThisSession = false,
   onAuthType,
   parsedSpec = spec,
   onAuthSatisfiedChange,
@@ -87,6 +88,8 @@ function Harness({
   lateLink,
 }: {
   connected?: boolean;
+  /** The user completed a Google sign-in in this render's session (drives the tick + "Selected"). */
+  authedThisSession?: boolean;
   onAuthType?: (v: unknown) => void;
   parsedSpec?: ParsedSpec;
   onAuthSatisfiedChange?: (satisfied: boolean) => void;
@@ -129,6 +132,7 @@ function Harness({
         busy: false,
         buttonLabel: 'Sign in with Google to authorize Dalgo',
         lockWhenConnected: true,
+        authedThisSession,
         onClick: () => {},
         connectedSheet,
       }}
@@ -278,14 +282,21 @@ describe('GoogleSheetsForm', () => {
     });
 
     // A source connected in an earlier session: Airbyte stored the link, never the title, so
-    // there is no name to show — but the link still is worth offering.
-    it('falls back to the saved link when no name came from this session', () => {
+    // there is no name to show. The sheet is still one click away, which is the useful part.
+    it('offers "View sheet" when no name came from this session', () => {
       render(<Harness mode="edit" connected savedLink={SHEET_URL} />);
 
-      expect(screen.getByRole('link', { name: /Open the connected sheet/i })).toHaveAttribute(
-        'href',
-        SHEET_URL
-      );
+      const link = screen.getByRole('link', { name: /view sheet/i });
+      expect(link).toHaveAttribute('href', SHEET_URL);
+      expect(link).toHaveAttribute('target', '_blank');
+    });
+
+    // "Syncing View sheet" is not a sentence. The Syncing/Selected label introduces a NAME, so
+    // with no name there is nothing for it to introduce — the link stands on its own.
+    it('drops the Syncing label when there is no name to introduce', () => {
+      render(<Harness mode="edit" connected savedLink={SHEET_URL} />);
+
+      expect(screen.getByTestId('gsheets-picked-sheet')).not.toHaveTextContent(/syncing/i);
     });
 
     // `spreadsheet_id` accepts a bare id as well as a link, and older sources may hold one.
@@ -380,13 +391,34 @@ describe('GoogleSheetsForm', () => {
       expect(screen.queryByTestId('gsheets-sheet-link')).not.toBeInTheDocument();
     });
 
-    // The label reads as a result, not a status: the sheet is attached and clickable.
-    it('labels the picked sheet as added', () => {
-      render(<Harness connected connectedSheet={{ name: 'hobbit_pantry_2024', url: SHEET_URL }} />);
+    // "Selected" in the wizard, because nothing syncs until the source exists — only a saved
+    // source can claim "Syncing".
+    it('labels the picked sheet as selected while the source is being created', () => {
+      render(
+        <Harness
+          connected
+          authedThisSession
+          connectedSheet={{ name: 'hobbit_pantry_2024', url: SHEET_URL }}
+        />
+      );
 
       // The gap between label and name is flex spacing, not a text node.
       expect(screen.getByTestId('gsheets-picked-sheet')).toHaveTextContent(
-        /Sheet added\s*hobbit_pantry_2024/
+        /Selected\s*hobbit_pantry_2024/
+      );
+    });
+
+    it('labels the sheet as syncing on a saved source', () => {
+      render(
+        <Harness
+          mode="edit"
+          connected
+          connectedSheet={{ name: 'hobbit_pantry_2024', url: SHEET_URL }}
+        />
+      );
+
+      expect(screen.getByTestId('gsheets-picked-sheet')).toHaveTextContent(
+        /Syncing\s*hobbit_pantry_2024/
       );
     });
   });
@@ -407,6 +439,17 @@ describe('GoogleSheetsForm', () => {
       expect(screen.getByTestId('gsheets-service-option-radio')).toBeChecked();
       expect(serviceKeyField()).toHaveValue(SAVED_KEY);
       expect(screen.getByLabelText(/Spreadsheet Link/)).toHaveValue(link);
+    });
+
+    // Looking at Google sign-in and thinking better of it must not cost the user the key their
+    // source already runs on — Airbyte returns it masked, so they cannot retype what they see.
+    it('gives the saved key back when the user returns to the service route', async () => {
+      render(<Harness mode="edit" savedKey={SAVED_KEY} />);
+
+      await userEvent.click(screen.getByTestId('gsheets-oauth-option-radio'));
+      await userEvent.click(screen.getByTestId('gsheets-service-option-radio'));
+
+      expect(serviceKeyField()).toHaveValue(SAVED_KEY);
     });
 
     it('counts a saved key as satisfying auth without the user touching it', () => {

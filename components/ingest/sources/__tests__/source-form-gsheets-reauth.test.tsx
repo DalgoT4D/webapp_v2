@@ -1,13 +1,13 @@
 /**
  * Re-authenticating an existing Google Sheets source in the edit dialog.
  *
- * Two flows meet here, and which one runs is the point of these tests. A source already on the
- * Google route only re-consents: Google records the `drive.file` grant against (client, user,
- * file), so a fresh token still reads its sheet, and showing a file chooser would only invite an
- * accidental repoint. A source moving over from a service-account key has no grant to inherit —
- * its link was typed — so that one runs the full pick.
+ * One flow, and what it does with the answer is the point of these tests. Every consent ends in
+ * Google's Picker, because under `drive.file` the grant a fresh token can act on is the one the
+ * Picker creates — so re-auth always asks for the sheet again. Picking the sheet the source
+ * already syncs is the expected answer; picking a different one is allowed but warned about,
+ * since the connections built on this source read the old sheet's tabs.
  *
- * Real spec parser, real dialog; only the Google flows and the save call are stubbed.
+ * Real spec parser, real dialog; only the Google flow and the save call are stubbed.
  */
 
 import { render, screen, waitFor } from '@testing-library/react';
@@ -18,7 +18,7 @@ import { mockApiGet } from '@/test-utils/api';
 import { updateOAuthSource } from '@/hooks/api/useSources';
 import {
   connectGoogleSpreadsheet,
-  reconnectGoogle,
+  pickSpreadsheetForRef,
 } from '@/components/connectors/google-oauth-connect';
 
 jest.mock('@/hooks/useBackendWebSocket', () => ({
@@ -32,7 +32,7 @@ jest.mock('@/hooks/api/useSources', () => ({
 
 jest.mock('@/components/connectors/google-oauth-connect', () => ({
   connectGoogleSpreadsheet: jest.fn(),
-  reconnectGoogle: jest.fn(),
+  pickSpreadsheetForRef: jest.fn(),
 }));
 
 const GSHEETS_SPEC = {
@@ -96,14 +96,18 @@ const SERVICE_SOURCE = {
   },
 };
 
-/** A pick that moves the source somewhere else — the case the guard has to refuse. */
+/** A pick that moves the source somewhere else — the case that has to be warned about. */
 const PICKED = {
   id: 'new-sheet',
   name: 'Q3 enrolments',
   url: 'https://docs.google.com/spreadsheets/d/new-sheet/edit',
 };
 
-/** The correct pick when switching auth method: the sheet the source already reads. */
+/** Title of the sheet the source syncs today, resolved from Drive during the flow — Airbyte
+ *  stores the link only, so this name never comes from the saved config. */
+const PREVIOUS_SHEET_NAME = 'Support Tickets Tracker';
+
+/** The expected pick on re-auth: the sheet the source already reads. */
 const SAME_SHEET_PICK = { id: 'old-sheet', name: 'My sheet', url: SAVED_SHEET };
 
 beforeEach(() => {
@@ -111,8 +115,9 @@ beforeEach(() => {
   (connectGoogleSpreadsheet as jest.Mock).mockResolvedValue({
     ref: 'ref-abc',
     spreadsheet: PICKED,
+    previousSheetName: PREVIOUS_SHEET_NAME,
   });
-  (reconnectGoogle as jest.Mock).mockResolvedValue({ ref: 'ref-abc' });
+  (pickSpreadsheetForRef as jest.Mock).mockResolvedValue(PICKED);
   (updateOAuthSource as jest.Mock).mockResolvedValue({ sourceId: 'src-1' });
   mockApiGet.mockImplementation((url: string) => {
     if (url === '/api/airbyte/source_definitions')
@@ -129,17 +134,26 @@ function renderDialog() {
   });
 }
 
-it('reconnects without the Picker and saves the same sheet', async () => {
+// Re-auth re-picks. Under `drive.file` a token reads only what was handed over in the Picker,
+// so the pick is what makes the new token able to read this sheet at all.
+it('re-authenticates through the Picker and saves the sheet picked back', async () => {
+  (connectGoogleSpreadsheet as jest.Mock).mockResolvedValue({
+    ref: 'ref-abc',
+    spreadsheet: SAME_SHEET_PICK,
+  });
   const user = userEvent.setup();
   renderDialog();
 
   await waitFor(() => expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument());
   await user.click(screen.getByTestId('gsheets-oauth-connect-btn'));
 
-  await waitFor(() => expect(reconnectGoogle).toHaveBeenCalledWith('gs', 'Google Sheets'));
-  // No file chooser: a stray click in one is how a source silently ends up on another sheet,
-  // changing its streams and breaking the connection built on them.
-  expect(connectGoogleSpreadsheet).not.toHaveBeenCalled();
+  await waitFor(() =>
+    expect(connectGoogleSpreadsheet).toHaveBeenCalledWith('gs', 'Google Sheets', {
+      previousSheet: SAVED_SHEET,
+    })
+  );
+  // The sheet came back unchanged, so there is nothing to warn about.
+  expect(screen.queryByTestId('gsheets-sheet-mismatch')).not.toBeInTheDocument();
 
   await user.click(screen.getByTestId('source-save-btn'));
 
@@ -154,17 +168,92 @@ it('reconnects without the Picker and saves the same sheet', async () => {
   );
 });
 
-it('says that reconnecting keeps the sheet, and where to go to change it', async () => {
+it('warns that the sheet has to be picked again, and links the one to look for', async () => {
   renderDialog();
 
   await waitFor(() => expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument());
 
-  expect(screen.getByTestId('gsheets-reconnect-hint')).toHaveTextContent(/same sheet/i);
-  expect(screen.getByTestId('gsheets-reconnect-hint')).toHaveTextContent(/new source/i);
+  expect(screen.getByTestId('gsheets-repick-hint')).toHaveTextContent(/choose the sheet again/i);
+  // One link, not two: the sheet row above the note is what opens the current sheet.
+  expect(screen.getByTestId('gsheets-sheet-link')).toHaveAttribute('href', SAVED_SHEET);
+  expect(screen.queryByTestId('gsheets-repick-link')).not.toBeInTheDocument();
+});
+
+// The card is two rows in both hosts: authentication on top, the sheet and the button that
+// changes it below. A saved source offers the swap too — changing its sheet is allowed, it is
+// just warned about.
+it('offers the sheet row and its swap button on a saved source', async () => {
+  renderDialog();
+
+  await waitFor(() => expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument());
+
+  const sheetRow = screen.getByTestId('gsheets-sheet-row');
+  expect(sheetRow).toContainElement(screen.getByTestId('gsheets-sheet-link'));
+  expect(sheetRow).toContainElement(screen.getByTestId('gsheets-replace-sheet-btn'));
+  // The authentication row holds the sign-in control and nothing else.
+  expect(screen.getByTestId('gsheets-auth-row')).not.toContainElement(
+    screen.getByTestId('gsheets-replace-sheet-btn')
+  );
+});
+
+// No ref is held until a consent happens, and a pick without one grants nothing — so on a
+// saved source this button has to run the whole flow, not just the Picker.
+it('runs consent then the Picker when the sheet is swapped before any sign-in', async () => {
+  const user = userEvent.setup();
+  renderDialog();
+
+  await waitFor(() => expect(screen.getByTestId('gsheets-replace-sheet-btn')).toBeInTheDocument());
+  await user.click(screen.getByTestId('gsheets-replace-sheet-btn'));
+
+  await waitFor(() =>
+    expect(connectGoogleSpreadsheet).toHaveBeenCalledWith('gs', 'Google Sheets', {
+      previousSheet: SAVED_SHEET,
+    })
+  );
+  // A different sheet came back, so the same warning applies as when re-authenticating.
+  expect(await screen.findByTestId('gsheets-sheet-mismatch')).toHaveTextContent(
+    new RegExp(PICKED.name)
+  );
+});
+
+// Once a consent has happened this session the ref is in hand, so swapping again costs only
+// the Picker — no second trip through Google's consent screen.
+it('reopens only the Picker when the sheet is swapped after signing in', async () => {
+  (pickSpreadsheetForRef as jest.Mock).mockResolvedValue(SAME_SHEET_PICK);
+  const user = userEvent.setup();
+  renderDialog();
+
+  await waitFor(() => expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument());
+  await user.click(screen.getByTestId('gsheets-oauth-connect-btn'));
+  await screen.findByTestId('gsheets-sheet-mismatch');
+
+  await user.click(screen.getByTestId('gsheets-replace-sheet-btn'));
+
+  await waitFor(() =>
+    expect(pickSpreadsheetForRef).toHaveBeenCalledWith('Google Sheets', 'ref-abc')
+  );
+  expect(connectGoogleSpreadsheet).toHaveBeenCalledTimes(1);
+  // Swapped back to the sheet the source syncs, so the warning goes.
+  await waitFor(() =>
+    expect(screen.queryByTestId('gsheets-sheet-mismatch')).not.toBeInTheDocument()
+  );
+});
+
+// The warning says the wrong sheet was picked; without the link the user has nothing to
+// navigate by to find the right one, which is exactly when they need it most.
+it('keeps the link to the right sheet on screen while the mismatch warning is up', async () => {
+  const user = userEvent.setup();
+  renderDialog();
+
+  await waitFor(() => expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument());
+  await user.click(screen.getByTestId('gsheets-oauth-connect-btn'));
+
+  await screen.findByTestId('gsheets-sheet-mismatch');
+  expect(screen.getByTestId('gsheets-repick-link')).toHaveAttribute('href', SAVED_SHEET);
 });
 
 it('leaves the saved sheet alone when the consent flow fails', async () => {
-  (reconnectGoogle as jest.Mock).mockRejectedValue(new Error('Popup closed'));
+  (connectGoogleSpreadsheet as jest.Mock).mockRejectedValue(new Error('Popup closed'));
   const user = userEvent.setup();
   renderDialog();
 
@@ -200,9 +289,31 @@ async function switchToGoogleAndConnect(user: ReturnType<typeof userEvent.setup>
   await user.click(screen.getByTestId('gsheets-oauth-connect-btn'));
 }
 
-// A service-account source moving to Google is the one edit-mode case that DOES pick: its link
-// was typed, so no `drive.file` grant exists for it and a fresh token would read nothing.
-it('runs the full pick flow for a source switching off a service-account key', async () => {
+// The flow for a source that was set up with a pasted service-account key: sign in, pick the
+// sheet, save. It updates the SAME source, so its connections survive — but the config that
+// goes up must describe one route only. Airbyte's `credentials` oneOf sets
+// additionalProperties: false, so an emptied `service_account_info` riding along with
+// auth_type 'Client' matches neither branch and the save is rejected.
+it('sends only the Google branch when a service-account source switches over', async () => {
+  serveServiceSource();
+  (connectGoogleSpreadsheet as jest.Mock).mockResolvedValue({
+    ref: 'ref-abc',
+    spreadsheet: SAME_SHEET_PICK,
+  });
+  const user = userEvent.setup();
+  renderDialog();
+
+  await switchToGoogleAndConnect(user);
+  await waitFor(() => expect(connectGoogleSpreadsheet).toHaveBeenCalled());
+  await user.click(screen.getByTestId('source-save-btn'));
+
+  await waitFor(() => expect(updateOAuthSource).toHaveBeenCalled());
+  const payload = (updateOAuthSource as jest.Mock).mock.calls[0][1];
+  // Exact, not objectContaining: the whole point is that no key from the other branch is left.
+  expect(payload.config.credentials).toEqual({ auth_type: 'Client' });
+});
+
+it('runs the same pick flow for a source switching off a service-account key', async () => {
   serveServiceSource();
   (connectGoogleSpreadsheet as jest.Mock).mockResolvedValue({
     ref: 'ref-abc',
@@ -219,39 +330,143 @@ it('runs the full pick flow for a source switching off a service-account key', a
 
   await user.click(screen.getByTestId('gsheets-oauth-connect-btn'));
 
-  await waitFor(() => expect(connectGoogleSpreadsheet).toHaveBeenCalledWith('gs', 'Google Sheets'));
-  expect(reconnectGoogle).not.toHaveBeenCalled();
+  await waitFor(() =>
+    expect(connectGoogleSpreadsheet).toHaveBeenCalledWith('gs', 'Google Sheets', {
+      previousSheet: SAVED_SHEET,
+    })
+  );
   expect(await screen.findByText(new RegExp(SAME_SHEET_PICK.name))).toBeInTheDocument();
 });
 
 // This update keeps the source's id, so its connections survive it — and their catalogs describe
-// the tabs of the sheet it reads today. A different pick would leave them on streams that are
-// gone, so the pick is rejected rather than warned about.
-it('rejects a pick that is a different spreadsheet', async () => {
-  serveServiceSource();
+// the tabs of the sheet it reads today. A different pick may still be what the user meant, so it
+// is taken and warned about rather than refused.
+it('warns when the pick is a different spreadsheet, and still lets it be saved', async () => {
   const user = userEvent.setup();
   renderDialog();
 
-  await switchToGoogleAndConnect(user);
+  await waitFor(() => expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument());
+  await user.click(screen.getByTestId('gsheets-oauth-connect-btn'));
 
-  const error = await screen.findByTestId('gsheets-auth-error');
-  expect(error).toHaveTextContent(/different spreadsheet/i);
-  expect(error).toHaveTextContent(/new source/i);
+  const warning = await screen.findByTestId('gsheets-sheet-mismatch');
+  // Both sheets by name, so the warning is readable without opening either link.
+  expect(warning).toHaveTextContent(new RegExp(PICKED.name));
+  expect(warning).toHaveTextContent(new RegExp(PREVIOUS_SHEET_NAME));
+  expect(warning).toHaveTextContent(/may break/i);
+
+  await user.click(screen.getByTestId('source-save-btn'));
+
+  // Warned, not blocked: the sheet the user chose is what gets saved.
+  await waitFor(() =>
+    expect(updateOAuthSource).toHaveBeenCalledWith(
+      'src-1',
+      expect.objectContaining({
+        refresh_token_ref: 'ref-abc',
+        config: expect.objectContaining({ spreadsheet_id: PICKED.url }),
+      })
+    )
+  );
 });
 
-it('keeps the source on its service-account key when a pick is rejected', async () => {
+// Drive names the old sheet on a best-effort basis: the grant may have been revoked, the file
+// deleted, or the saved value may be a bare id no rule can parse. The warning still has to say
+// what happened.
+it('warns without the old name when Drive would not give one', async () => {
+  (connectGoogleSpreadsheet as jest.Mock).mockResolvedValue({
+    ref: 'ref-abc',
+    spreadsheet: PICKED,
+    previousSheetName: undefined,
+  });
+  const user = userEvent.setup();
+  renderDialog();
+
+  await waitFor(() => expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument());
+  await user.click(screen.getByTestId('gsheets-oauth-connect-btn'));
+
+  const warning = await screen.findByTestId('gsheets-sheet-mismatch');
+  expect(warning).toHaveTextContent(new RegExp(PICKED.name));
+  expect(warning).toHaveTextContent(/different sheet/i);
+  expect(warning).toHaveTextContent(/may break/i);
+});
+
+it('drops the warning once the right spreadsheet is picked', async () => {
+  const user = userEvent.setup();
+  renderDialog();
+
+  await waitFor(() => expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument());
+  await user.click(screen.getByTestId('gsheets-oauth-connect-btn'));
+  await screen.findByTestId('gsheets-sheet-mismatch');
+
+  // The hint told them which file to find; re-authenticating again is how they correct it.
+  (connectGoogleSpreadsheet as jest.Mock).mockResolvedValue({
+    ref: 'ref-def',
+    spreadsheet: SAME_SHEET_PICK,
+  });
+  await user.click(screen.getByTestId('gsheets-oauth-connect-btn'));
+
+  await waitFor(() =>
+    expect(screen.queryByTestId('gsheets-sheet-mismatch')).not.toBeInTheDocument()
+  );
+});
+
+it('warns rather than refuses when a source leaving a service-account key picks elsewhere', async () => {
   serveServiceSource();
   const user = userEvent.setup();
   renderDialog();
 
   await switchToGoogleAndConnect(user);
-  await screen.findByTestId('gsheets-auth-error');
 
-  // No ref was kept, so nothing claims the source is connected. The error names the rejected
-  // sheet, but no confirmation chip does — that would read as "added".
-  expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument();
-  expect(screen.queryByTestId('gsheets-picked-sheet')).not.toBeInTheDocument();
+  expect(await screen.findByTestId('gsheets-sheet-mismatch')).toHaveTextContent(
+    new RegExp(PREVIOUS_SHEET_NAME)
+  );
+  // The pick is accepted, so the source now reads as connected to the sheet just chosen.
+  expect(screen.getByTestId('gsheets-picked-sheet')).toHaveTextContent(new RegExp(PICKED.name));
+});
 
-  await user.click(screen.getByTestId('gsheets-service-option-radio'));
-  expect(screen.getByLabelText(/Spreadsheet Link/i)).toHaveValue(SAVED_SHEET);
+// Which route the dialog opens on is read from the SAVED config, and Airbyte does not always
+// return const discriminator keys — the form has `inferDiscriminators` precisely because
+// `auth_type` can be missing. The route has to be inferred from the branch's own fields, or an
+// OAuth source opens on the service-account card and looks like it needs a key pasted.
+describe('opening on the route the source actually saved with', () => {
+  function serveSource(credentials: Record<string, unknown>) {
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/api/airbyte/source_definitions')
+        return Promise.resolve([{ sourceDefinitionId: 'gs', name: 'Google Sheets' }]);
+      if (url === '/api/airbyte/sources/src-1')
+        return Promise.resolve({
+          ...SOURCE,
+          connectionConfiguration: { spreadsheet_id: SAVED_SHEET, credentials },
+        });
+      if (url.includes('/specifications')) return Promise.resolve(GSHEETS_SPEC);
+      return Promise.resolve(undefined);
+    });
+  }
+
+  it('opens on Google for a source whose stored auth_type says Client', async () => {
+    serveSource({ auth_type: 'Client' });
+    renderDialog();
+
+    await waitFor(() => expect(screen.getByTestId('gsheets-oauth-option-radio')).toBeChecked());
+  });
+
+  it('opens on the key route for a source whose stored auth_type says Service', async () => {
+    serveSource({ auth_type: 'Service', service_account_info: '{"client_email":"a@b.iam"}' });
+    renderDialog();
+
+    await waitFor(() => expect(screen.getByTestId('gsheets-service-option-radio')).toBeChecked());
+  });
+
+  it('opens on Google when auth_type is missing but the OAuth fields are there', async () => {
+    serveSource({ client_id: 'cid', client_secret: '****', refresh_token: '****' });
+    renderDialog();
+
+    await waitFor(() => expect(screen.getByTestId('gsheets-oauth-option-radio')).toBeChecked());
+  });
+
+  it('opens on the key route when auth_type is missing but a key is there', async () => {
+    serveSource({ service_account_info: '{"client_email":"a@b.iam"}' });
+    renderDialog();
+
+    await waitFor(() => expect(screen.getByTestId('gsheets-service-option-radio')).toBeChecked());
+  });
 });

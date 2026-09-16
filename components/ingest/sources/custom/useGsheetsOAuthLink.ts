@@ -21,8 +21,6 @@ interface UseGsheetsOAuthLinkArgs {
 interface UseGsheetsOAuthLinkResult {
   /** The sheet that belongs to the Google route, if there is one. */
   oauthLink?: string;
-  /** Whether this source arrived already on the Google route. */
-  openedOnOAuth: boolean;
 }
 
 /**
@@ -67,5 +65,5 @@ export function useGsheetsOAuthLink({
     if (savedLink === oauthLink) setValue(spreadsheetPath, '', { shouldValidate: true });
   }, [usingOAuth, oauthLink, savedLink, spreadsheetPath, hasSpreadsheetField, setValue]);
 
-  return { oauthLink, openedOnOAuth };
+  return { oauthLink };
 }

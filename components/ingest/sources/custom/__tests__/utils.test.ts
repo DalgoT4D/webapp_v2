@@ -1,4 +1,4 @@
-import { savedLinkPointsAt } from '../utils';
+import { savedLinkPointsAt, spreadsheetIdFromSavedValue } from '../utils';
 
 const ID = '1xYTDT4hB9QLB2MXizExHIVFIJYsNEyqmWyUb9Hc_EAw';
 const OTHER_ID = '1aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789_-abcde';
@@ -55,5 +55,36 @@ describe('savedLinkPointsAt', () => {
   // is a substring of everything, which would wave every pick through.
   it('is false when there is no picked id to look for', () => {
     expect(savedLinkPointsAt(`https://docs.google.com/spreadsheets/d/${ID}/edit`, '')).toBe(false);
+  });
+});
+
+// Extraction, unlike the comparison above, is unavoidable when the id itself is what an API
+// needs. It applies Airbyte's own documented rule (source-google-sheets manifest.yaml) rather
+// than a guess at URL shapes: the first `/`-prefixed run of 20+ [-\w] characters, or the whole
+// value when it is not an http(s) URL.
+describe('spreadsheetIdFromSavedValue', () => {
+  it.each([
+    ['the address bar, with tab', `https://docs.google.com/spreadsheets/d/${ID}/edit?gid=103589`],
+    ['multi-account', `https://docs.google.com/spreadsheets/u/0/d/${ID}/edit`],
+    ['a Workspace-domain link', `https://docs.google.com/a/example.org/spreadsheets/d/${ID}/edit`],
+    ['a CSV export link', `https://docs.google.com/spreadsheets/d/${ID}/export?format=csv`],
+    ['plain http rather than https', `http://docs.google.com/spreadsheets/d/${ID}/edit`],
+  ])('reads the id out of %s', (_form, saved) => {
+    expect(spreadsheetIdFromSavedValue(saved)).toBe(ID);
+  });
+
+  it('returns a bare id as-is, whitespace trimmed', () => {
+    expect(spreadsheetIdFromSavedValue(`  ${ID}  `)).toBe(ID);
+  });
+
+  // Airbyte's rule only looks at `/`-delimited segments, so a query-string id is out of reach.
+  // Better to admit that than to invent a second rule: the caller just shows no name.
+  it('is null for a link that carries the id in the query string', () => {
+    expect(spreadsheetIdFromSavedValue(`https://drive.google.com/open?id=${ID}`)).toBeNull();
+  });
+
+  it('is null for an empty or missing value', () => {
+    expect(spreadsheetIdFromSavedValue('   ')).toBeNull();
+    expect(spreadsheetIdFromSavedValue(undefined)).toBeNull();
   });
 });

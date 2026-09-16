@@ -7,11 +7,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { extractSpecDefaults } from '@/components/connectors/utils';
 import { createOAuthSource } from '@/hooks/api/useSources';
-import { connectGoogleSpreadsheet } from '@/components/connectors/google-oauth-connect';
+import {
+  connectGoogleSpreadsheet,
+  pickSpreadsheetForRef,
+} from '@/components/connectors/google-oauth-connect';
+import {
+  PickerCancelledError,
+  type PickedSpreadsheet,
+} from '@/components/connectors/google-picker';
 import { useSourceSave } from '@/hooks/useSourceSave';
 import { useSourceConfigForm } from '@/hooks/useSourceConfigForm';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS, SOURCE_AUTH_MODES, type SourceAuthMode } from '@/constants/analytics';
+import {
+  ANALYTICS_EVENTS,
+  GSHEETS_REPLACE_CONTEXTS,
+  SOURCE_AUTH_MODES,
+} from '@/constants/analytics';
 import { toastError, toastSuccess } from '@/lib/toast';
 import type { SourceDefinition } from '@/types/source';
 import { SourceConfigFields } from '@/components/ingest/sources/SourceConfigFields';
@@ -46,11 +57,12 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   const [nameError, setNameError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Two-phase Google flow: "Sign in with Google" authorizes and stashes the
-  // redeem ref; the footer's Next then creates the source from that ref. Kept
-  // local (not in useSourceSave, whose one-shot connectGoogle SourceForm still
-  // uses) — this component is remounted per source-definition, so the ref never
-  // leaks across sources.
+  // Two-phase Google flow: "Sign in with Google" authorizes and stashes the redeem ref; the
+  // footer's Next then creates the source from that ref. Two phases rather than
+  // useSourceSave's one-shot `connectGoogle` (which creates the source the moment the Picker
+  // closes) precisely so the sheet stays swappable in between — see handleReplaceSheet. Kept
+  // local: this component is remounted per source-definition, so the ref never leaks across
+  // sources.
   const [oauthRef, setOauthRef] = useState<string | null>(null);
   // The sheet the Picker returned — display only (the form value is its URL). Title and link
   // together, so the confirmation can be a link the user opens to check the right file.
@@ -88,23 +100,19 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
     }
   }, [parsedSpec, def.sourceDefinitionId, reset]);
 
-  // Reported by GoogleSheetsForm — the config alone can't distinguish Dalgo's managed key
-  // from the user's own, since the managed route deliberately leaves credentials empty.
-  // Declared above useSourceSave: its onSaved closure reads it.
-  const [formAuthMode, setFormAuthMode] = useState<SourceAuthMode | null>(null);
-
   const { save, loading, setupLogs } = useSourceSave({
     sourceDefId: def.sourceDefinitionId,
     sourceDefName: def.name,
     getConfig: buildConfig,
     onSaved: (sourceId) => {
-      // auth_mode says which of the three routes the user actually finished on — the flat
-      // 'service_account' it replaced couldn't tell Dalgo's managed key from the user's own,
-      // which is the whole point of offering the managed one.
+      // This path is the service-account route by construction: the Google route never reaches
+      // `save` — it redeems its ref through handleCreateGoogle, which reports auth_mode 'oauth'
+      // itself. Since Dalgo's managed key was retired there is only one key route left, so no
+      // reporting from the form is needed to tell them apart.
       trackEvent(ANALYTICS_EVENTS.SOURCE_CREATED, {
         source_id: sourceId,
         source_type: def.name,
-        ...(isGoogleSheets ? { auth_mode: formAuthMode ?? SOURCE_AUTH_MODES.OWN_KEY } : {}),
+        ...(isGoogleSheets ? { auth_mode: SOURCE_AUTH_MODES.OWN_KEY } : {}),
       });
       onCreated(sourceId);
     },
@@ -116,6 +124,17 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   // straight into the spreadsheet field: the connector must sync the sheet the user granted,
   // not whatever the field happened to hold. A flow that ends without a pick leaves no ref,
   // which keeps the wizard on the "not authorized yet" branch.
+  const applyPick = useCallback(
+    (spreadsheet: PickedSpreadsheet) => {
+      setValue(GSHEETS_KEY_SPREADSHEET, spreadsheet.url, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      setPickedSheet({ name: spreadsheet.name, url: spreadsheet.url });
+    },
+    [setValue]
+  );
+
   const handleAuthorizeGoogle = useCallback(async () => {
     if (authorizingRef.current) return; // a sign-in is already in progress — ignore re-entry
     if (!validateName()) return;
@@ -124,12 +143,8 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
     try {
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_STARTED, { source_type: 'Google Sheets' });
       const { ref, spreadsheet } = await connectGoogleSpreadsheet(def.sourceDefinitionId, def.name);
-      setValue(GSHEETS_KEY_SPREADSHEET, spreadsheet.url, {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
+      applyPick(spreadsheet);
       setOauthRef(ref);
-      setPickedSheet({ name: spreadsheet.name, url: spreadsheet.url });
       toastSuccess.generic(`Authorized with Google — syncing “${spreadsheet.name}”`);
     } catch (error) {
       toastError.api(error instanceof Error ? error.message : 'Google sign-in failed');
@@ -137,7 +152,40 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
       authorizingRef.current = false;
       setAuthorizing(false);
     }
-  }, [validateName, def.sourceDefinitionId, def.name, setValue]);
+  }, [validateName, def.sourceDefinitionId, def.name, applyPick]);
+
+  // Picked the wrong file, or changed their mind about which sheet to sync. Nothing is saved
+  // yet, so this is a free correction: the ref already held buys another trip through the
+  // Picker with no second consent.
+  const handleReplaceSheet = useCallback(async () => {
+    if (!oauthRef) return;
+    if (authorizingRef.current) return;
+    authorizingRef.current = true;
+    setAuthorizing(true);
+
+    let refExpired = false;
+    try {
+      const spreadsheet = await pickSpreadsheetForRef(def.name, oauthRef);
+      applyPick(spreadsheet);
+      trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_SHEET_REPLACED, {
+        source_type: 'Google Sheets',
+        context: GSHEETS_REPLACE_CONTEXTS.CREATE,
+        // Nothing is synced yet, so there is no sheet for this one to contradict.
+        mismatch: false,
+      });
+      toastSuccess.generic(`Now syncing “${spreadsheet.name}”`);
+    } catch (error) {
+      // Closing the Picker leaves the sheet already chosen in place — not an error, and not
+      // something to toast about. Anything else means the ref's short TTL has run out, which
+      // a fresh consent fixes (and that flow ends in the Picker anyway).
+      refExpired = !(error instanceof PickerCancelledError);
+    } finally {
+      authorizingRef.current = false;
+      setAuthorizing(false);
+    }
+
+    if (refExpired) await handleAuthorizeGoogle();
+  }, [oauthRef, def.name, applyPick, handleAuthorizeGoogle]);
 
   // Phase 2: create the source from the redeemed ref and advance.
   const handleCreateGoogle = useCallback(async () => {
@@ -273,19 +321,20 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
               mode="create"
               nameField={custom ? nameField : undefined}
               onAuthSatisfiedChange={isGoogleSheets ? setFormAuthSatisfied : undefined}
-              onAuthModeChange={isGoogleSheets ? setFormAuthMode : undefined}
               oauth={
                 isGoogleSheets
                   ? ({
                       connected: !!oauthRef,
                       busy: authorizing,
-                      buttonLabel: oauthRef
-                        ? 'Authenticated with Google'
-                        : 'Sign in with Google to authorize Dalgo',
+                      buttonLabel: oauthRef ? 'Signed in with Google' : 'Sign in with Google',
                       lockWhenConnected: true,
+                      authedThisSession: !!oauthRef,
                       // A new source holds no grant, so the Picker is where it gets one.
                       picksSheet: true,
                       onClick: handleAuthorizeGoogle,
+                      // Free to swap until the source exists — after that it repoints what
+                      // the connections were built on, so the edit dialog does not offer it.
+                      onReplaceSheet: oauthRef ? handleReplaceSheet : undefined,
                       error: authError ?? undefined,
                       connectedSheet: pickedSheet ?? undefined,
                     } satisfies CustomSourceOAuth)

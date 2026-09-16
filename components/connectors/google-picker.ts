@@ -27,6 +27,32 @@ export interface GooglePickerConfig {
   appId: string;
 }
 
+/** Drive's metadata endpoint. `supportsAllDrives` so a sheet on a shared drive resolves too. */
+const DRIVE_FILE_METADATA_URL = 'https://www.googleapis.com/drive/v3/files';
+
+/**
+ * A spreadsheet's title, read straight from Drive with the Picker's own access token.
+ *
+ * Only for display. Airbyte stores a sheet's link and never its title, so this is the only way
+ * to name the sheet a source already syncs. Under `drive.file` the token can read a file only
+ * if that file was handed over in a Picker at some point — true for a sheet this source was
+ * given, but not guaranteed to have survived (a revoked grant, a deleted or moved file), so
+ * callers must treat a rejection as "no name available" rather than an error worth showing.
+ */
+export async function fetchSpreadsheetName(
+  config: GooglePickerConfig,
+  fileId: string
+): Promise<string> {
+  const url = `${DRIVE_FILE_METADATA_URL}/${encodeURIComponent(fileId)}?fields=name&supportsAllDrives=true`;
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${config.accessToken}` },
+  });
+  if (!response.ok) throw new Error(`Drive returned ${response.status} for that spreadsheet`);
+  const body = (await response.json()) as { name?: string };
+  if (!body.name) throw new Error('Drive returned no name for that spreadsheet');
+  return body.name;
+}
+
 /** The user closed the Picker without choosing. Distinct from a load/config failure so the
  *  caller can tell "changed their mind" from "the Picker is broken". */
 export class PickerCancelledError extends Error {

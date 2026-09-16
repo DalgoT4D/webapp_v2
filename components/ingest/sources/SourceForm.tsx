@@ -25,15 +25,44 @@ import {
 } from '@/hooks/api/useSources';
 import {
   connectGoogleSpreadsheet,
-  reconnectGoogle,
+  pickSpreadsheetForRef,
 } from '@/components/connectors/google-oauth-connect';
-import { GSHEETS_KEY_SPREADSHEET } from '@/components/ingest/sources/custom/constants';
+import {
+  PickerCancelledError,
+  type PickedSpreadsheet,
+} from '@/components/connectors/google-picker';
+import {
+  GSHEETS_AUTH_DISCRIMINATOR,
+  GSHEETS_KEY_SPREADSHEET,
+  GSHEETS_OAUTH_AUTH_TYPE,
+  GSHEETS_OAUTH_BRANCH_KEYS,
+} from '@/components/ingest/sources/custom/constants';
 import { savedLinkPointsAt } from '@/components/ingest/sources/custom/utils';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { useSourceConfigForm } from '@/hooks/useSourceConfigForm';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS, SOURCE_AUTH_MODES } from '@/constants/analytics';
-import { toastSuccess, toastError } from '@/lib/toast';
+import {
+  ANALYTICS_EVENTS,
+  GSHEETS_REPLACE_CONTEXTS,
+  SOURCE_AUTH_MODES,
+} from '@/constants/analytics';
+import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
+
+/**
+ * The amber note under the Google card when the chosen sheet is not the one the source syncs.
+ *
+ * Ends without punctuation: the card closes the sentence with a link to the current sheet. Two
+ * wordings because the old sheet's title is best-effort — Airbyte stores only its link, so the
+ * name comes from a Drive lookup during the sign-in that may not succeed.
+ */
+function mismatchWarning(mismatch: { picked: string; previous?: string } | null) {
+  if (!mismatch) return undefined;
+  const tail =
+    'Its tables come from that sheet, so saving may break them — choose another sheet to pick it back, or save to switch this source over';
+  return mismatch.previous
+    ? `You selected “${mismatch.picked}”, but this source syncs “${mismatch.previous}”. ${tail}`
+    : `You selected “${mismatch.picked}”, which is a different sheet from the one this source syncs today. ${tail}`;
+}
 
 // WebSocket endpoint for source connection check
 const SOURCE_CHECK_WS_PATH = 'airbyte/source/check_connection';
@@ -76,7 +105,6 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     parsedSpec,
     control,
     setValue,
-    getValues,
     reset,
     handleSubmit,
     buildConfig,
@@ -104,6 +132,18 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   // source connected in an earlier session: Airbyte stores the link, not the title, so the form
   // links the saved link under a generic label until the user re-picks.
   const [pickedSheet, setPickedSheet] = useState<{ name: string; url: string } | null>(null);
+  // Set when a pick is not the sheet this source syncs today: the two sheets' names, as far as
+  // they are known. A warning rather than a block — repointing may be deliberate — but the
+  // connections built on this source read the old sheet's tabs, so it cannot pass silently.
+  // `previous` is absent when Drive would not name the old sheet (see connectGoogleSpreadsheet).
+  const [sheetMismatch, setSheetMismatch] = useState<{
+    picked: string;
+    previous?: string;
+  } | null>(null);
+  // Title of the sheet this source syncs today, resolved from Drive during a sign-in. Kept once
+  // resolved: the saved sheet cannot change while the dialog is open, and the swap button holds
+  // no token of its own to look it up again.
+  const [knownPreviousName, setPreviousSheetName] = useState<string | undefined>(undefined);
   // Inline required-field errors, surfaced on submit (same pattern as the
   // add-source wizard and the connection form: the button stays clickable and
   // pressing it reveals what's missing, rather than a silently disabled button).
@@ -115,10 +155,35 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
   const isConnected = useMemo(() => {
     if (!isGoogleSheetsCustom) return false;
     const creds = source?.connectionConfiguration?.credentials as
-      | { auth_type?: string }
+      | Record<string, unknown>
       | undefined;
-    return creds?.auth_type === 'Client';
+    if (!creds) return false;
+
+    const authType = creds[GSHEETS_AUTH_DISCRIMINATOR];
+    if (typeof authType === 'string') return authType === GSHEETS_OAUTH_AUTH_TYPE;
+
+    // Discriminator omitted — Airbyte does not always return const keys, which is why the form
+    // has `inferDiscriminators`. Infer the same way here: a credentials block carrying an
+    // OAuth-only field came from Google, whatever it does or doesn't say about auth_type.
+    // Nothing recognisable (an empty block) stays "not connected", so the card offers a
+    // sign-in rather than claiming access it cannot prove.
+    return GSHEETS_OAUTH_BRANCH_KEYS.some((key) => !!creds[key]);
   }, [isGoogleSheetsCustom, source]);
+
+  // The sheet this source syncs as saved, read from the loaded source rather than the form: the
+  // form's value is overwritten by each pick, so only this survives as something to compare a
+  // pick against.
+  const savedSheetAtLoad = useMemo(() => {
+    const saved = source?.connectionConfiguration?.[GSHEETS_KEY_SPREADSHEET];
+    return typeof saved === 'string' ? saved : undefined;
+  }, [source]);
+
+  // The same sheet, but only when it can be opened: the connector's field accepts a bare
+  // spreadsheet id too, and linking that would render a dead relative href.
+  const sheetToRepick =
+    (!pickedSheet || sheetMismatch) && /^https?:\/\//.test(savedSheetAtLoad ?? '')
+      ? savedSheetAtLoad
+      : undefined;
 
   // Load the source being edited
   useEffect(() => {
@@ -202,25 +267,55 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     onLoadingChange: setLoading,
   });
 
-  // The Google button in the edit dialog. Either way it only stashes the redeemed ref — the
-  // source is not saved until the footer "Save Changes And Test", and the OAuth credentials
-  // never reach the browser.
+  // The Google button in the edit dialog. It only stashes the redeemed ref — the source is not
+  // saved until the footer "Save Changes And Test", and the OAuth credentials never reach the
+  // browser.
   //
-  // Which flow runs depends on what the source already holds:
+  // One flow, and it always ends in the Picker. Under `drive.file` a token reads only the files
+  // handed over through the Picker, so the pick is what the new access actually consists of:
+  // that holds whether this source is already on the Google route or moving over from a
+  // service-account key, whose link was typed and so carries no grant at all.
   //
-  // - Already OAuth-connected (`isConnected`): consent only, no Picker. Google's `drive.file`
-  //   grant is recorded against (client, user, file), so a fresh consent still reads the sheet
-  //   this source was given — and skipping the Picker is the point, not an optimisation. A
-  //   Picker here would let a stray click repoint the source at another spreadsheet, changing
-  //   its streams and breaking the connection built on them. Moving to a different sheet is
-  //   adding a new source.
-  //
-  // - Not connected yet (a service-account source switching over): the full flow. There is no
-  //   grant to inherit — the saved link was typed, never picked — so the user must hand us the
-  //   file through the Picker for the new token to read anything. The pick has to be the SAME
-  //   spreadsheet: this update keeps the source's id, so its connections survive it, and their
-  //   catalogs describe the tabs of the sheet it reads today. A different pick would leave those
-  //   connections pointing at streams that no longer exist.
+  // Which sheet comes back is not enforced. This update keeps the source's id, so its
+  // connections survive it, and their catalogs describe the tabs of the sheet it reads today —
+  // a different pick leaves them on streams that may not exist. That can still be what the user
+  // meant, so it is taken and warned about (`sheetMismatch`) rather than refused.
+  // Write a pick into the form and judge it. Shared by the two ways a sheet arrives here —
+  // signing in, and the sheet row's own swap button — so both warn on the same terms.
+  const applyPick = useCallback(
+    (spreadsheet: PickedSpreadsheet, previousName?: string) => {
+      // Compared against the sheet the source was loaded with, never the live field: an earlier
+      // pick this session may already have overwritten the field, and the warning has to keep
+      // describing the sheet the source actually syncs until the update is saved.
+      const repointed =
+        !!savedSheetAtLoad?.trim() && !savedLinkPointsAt(savedSheetAtLoad, spreadsheet.id);
+
+      setValue(GSHEETS_KEY_SPREADSHEET, spreadsheet.url, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      setPickedSheet({ name: spreadsheet.name, url: spreadsheet.url });
+      setSheetMismatch(repointed ? { picked: spreadsheet.name, previous: previousName } : null);
+
+      if (repointed) {
+        trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_SHEET_REPLACED, {
+          source_type: 'Google Sheets',
+          context: GSHEETS_REPLACE_CONTEXTS.EDIT,
+          mismatch: true,
+        });
+        // Neutral toast: the consequence is what the amber note under the card is for, and a
+        // success tick over a repoint reads as approval of it.
+        toastInfo.generic(`Selected “${spreadsheet.name}” — check the note below before saving`);
+      } else {
+        toastSuccess.generic(
+          `Selected “${spreadsheet.name}” — click Save Changes And Test to apply`
+        );
+      }
+      return repointed;
+    },
+    [savedSheetAtLoad, setValue]
+  );
+
   const handleConnectGoogle = useCallback(async () => {
     if (!selectedDefId) return;
     // Same inline treatment as submit — a missing name is a form error, not a toast.
@@ -233,43 +328,49 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
     try {
       trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_STARTED, { source_type: 'Google Sheets' });
 
-      if (isConnected) {
-        const { ref } = await reconnectGoogle(selectedDefId, selectedName);
-        setOauthRef(ref);
-        trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
-        toastSuccess.generic('Reconnected with Google — click Save Changes And Test to apply');
-        return;
-      }
-
-      const savedSheet = getValues(GSHEETS_KEY_SPREADSHEET) as string | undefined;
-      const { ref, spreadsheet } = await connectGoogleSpreadsheet(selectedDefId, selectedName);
-
-      // Rejected rather than warned: there is no version of "yes, repoint it" that leaves the
-      // existing connections working. The ref is dropped with it — nothing is saved either way.
-      // A source with no saved sheet at all has nothing to contradict, so it is let through.
-      if (savedSheet?.trim() && !savedLinkPointsAt(savedSheet, spreadsheet.id)) {
-        setAuthError(
-          `That is a different spreadsheet (“${spreadsheet.name}”). Choose the one this source already syncs — to sync a different spreadsheet, add it as a new source instead.`
-        );
-        return;
-      }
-
-      setValue(GSHEETS_KEY_SPREADSHEET, spreadsheet.url, {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
-      setOauthRef(ref);
-      setPickedSheet({ name: spreadsheet.name, url: spreadsheet.url });
-      trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
-      toastSuccess.generic(
-        `Authorized with Google for “${spreadsheet.name}” — click Save Changes And Test to apply`
+      // The saved sheet rides along so the flow can name it with the token it already holds —
+      // Airbyte stores the link and never the title, so a warning could not otherwise say which
+      // sheet is being left behind. Kept for the swap button, which has no token of its own.
+      const { ref, spreadsheet, previousSheetName } = await connectGoogleSpreadsheet(
+        selectedDefId,
+        selectedName,
+        { previousSheet: savedSheetAtLoad }
       );
+
+      setOauthRef(ref);
+      if (previousSheetName) setPreviousSheetName(previousSheetName);
+      trackEvent(ANALYTICS_EVENTS.SOURCE_OAUTH_CONNECTED, { source_type: 'Google Sheets' });
+      applyPick(spreadsheet, previousSheetName ?? knownPreviousName);
     } catch (error) {
       toastError.api(error instanceof Error ? error.message : 'Google sign-in failed');
     } finally {
       setOauthConnecting(false);
     }
-  }, [selectedDefId, selectedName, sourceName, isConnected, getValues, setValue]);
+  }, [selectedDefId, selectedName, sourceName, savedSheetAtLoad, applyPick, knownPreviousName]);
+
+  // The sheet row's own button. With a ref already in hand it costs only the Picker; without
+  // one it has to run the whole flow, since a pick that no consent backs grants nothing.
+  const handleChooseAnotherSheet = useCallback(async () => {
+    if (!oauthRef) {
+      await handleConnectGoogle();
+      return;
+    }
+
+    setOauthConnecting(true);
+    let refExpired = false;
+    try {
+      const spreadsheet = await pickSpreadsheetForRef(selectedName, oauthRef);
+      applyPick(spreadsheet, knownPreviousName);
+    } catch (error) {
+      // Closing the Picker leaves the current sheet in place — not an error worth a toast.
+      // Anything else means the ref's short TTL has run out, which a fresh consent fixes.
+      refExpired = !(error instanceof PickerCancelledError);
+    } finally {
+      setOauthConnecting(false);
+    }
+
+    if (refExpired) await handleConnectGoogle();
+  }, [oauthRef, selectedName, applyPick, handleConnectGoogle, knownPreviousName]);
 
   // WS check succeeded → persist the update (v1 pattern: test, then auto-save).
   const handleSaveSource = useCallback(async () => {
@@ -287,8 +388,9 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
       trackEvent(ANALYTICS_EVENTS.SOURCE_UPDATED, {
         source_id: sourceId,
         source_type: selectedName,
-        // Not managed_key/own_key: on edit those two are indistinguishable (see
-        // SOURCE_AUTH_MODES.SERVICE_ACCOUNT). Create is where the real route is known.
+        // Not own_key: a stored key's origin isn't recorded and Airbyte returns it masked, so
+        // an edited source's key can't be attributed (see SOURCE_AUTH_MODES.SERVICE_ACCOUNT).
+        // Create is where the real route is known.
         ...(isGoogleSheetsCustom ? { auth_mode: SOURCE_AUTH_MODES.SERVICE_ACCOUNT } : {}),
       });
       toastSuccess.updated('Source');
@@ -533,20 +635,38 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
                         // "Re-" only makes sense once this source has actually used OAuth
                         // before (isConnected, from stored auth_type === 'Client'); a
                         // service-account-only source has never authenticated this way.
-                        buttonLabel: oauthRef
-                          ? isConnected
-                            ? 'Re-authenticated with Google'
-                            : 'Authenticated with Google'
-                          : isConnected
-                            ? 'Re-authenticate with Google'
-                            : 'Authenticate with Google',
+                        // The label names the action, which stays available after a sign-in
+                        // (a token can always be refreshed); the tick beside it is what reports
+                        // that this session already did it. Changing the sheet is its own
+                        // button now, so this one no longer has to hint at both.
+                        buttonLabel: isConnected
+                          ? 'Re-authenticate with Google'
+                          : 'Sign in with Google',
                         lockWhenConnected: false,
-                        // A source already on this route keeps its sheet; one moving over from
-                        // a service-account key has no grant to inherit and must pick.
-                        picksSheet: !isConnected,
+                        // The tick belongs to this session's sign-in, not to the source having
+                        // been OAuth all along.
+                        authedThisSession: !!oauthRef,
+                        // Always: the grant a fresh token can act on is the one the Picker
+                        // creates, so every re-authentication asks for the sheet again.
+                        picksSheet: true,
                         onClick: handleConnectGoogle,
+                        // The sheet row's own button, same as the wizard's. Changing a saved
+                        // source's sheet is allowed but warned about, and this button runs
+                        // consent first whenever no ref is held yet.
+                        onReplaceSheet: handleChooseAnotherSheet,
                         error: authError ?? undefined,
                         connectedSheet: pickedSheet ?? undefined,
+                        // The card appends a link to the sheet it syncs today, so this text
+                        // carries no link of its own.
+                        // No trailing full stop: the card closes the sentence with a link. Names
+                        // both sheets when Drive gave up the old one's title, so the user can
+                        // tell what they are swapping without opening anything.
+                        sheetWarning: mismatchWarning(sheetMismatch),
+                        // Which file to find in the Picker: until a pick happens, and again
+                        // whenever one missed, which is exactly when the user needs something
+                        // to navigate by. Only when the saved value is a URL — the field also
+                        // accepts a bare spreadsheet id, which would make a dead relative href.
+                        linkToRepick: sheetToRepick,
                       } satisfies CustomSourceOAuth)
                     : undefined
                 }
