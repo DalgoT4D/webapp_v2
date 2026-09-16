@@ -31,13 +31,21 @@ import ExploreIcon from '@/assets/icons/explore';
 import DataQualityIcon from '@/assets/icons/data-quality';
 import PipelineOverviewIcon from '@/assets/icons/pipeline-overview';
 import OrchestrateIcon from '@/assets/icons/orchestrate';
+import CopilotIcon from '@/assets/icons/copilot';
 import { Header } from './header';
 import { useAuthStore } from '@/stores/authStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useFeatureFlags, FeatureFlagKeys } from '@/hooks/api/useFeatureFlags';
 import { TransformTypeEnum as TransformType, useTransformType } from '@/hooks/api/useTransform';
 import Image from 'next/image';
-import { ACCESS_PAGE_ROLES, ADMIN_ROLES, DATA_SECTION_ROLES, Role, useRbac } from '@/lib/rbac';
+import {
+  ACCESS_PAGE_ROLES,
+  ADMIN_ROLES,
+  DATA_SECTION_ROLES,
+  PERMISSIONS,
+  Role,
+  useRbac,
+} from '@/lib/rbac';
 import { ResourceSharingNoticeCarousel } from '@/components/onboarding/resource-sharing-notice-carousel';
 import { TourGate } from '@/components/onboarding/tour-gate';
 
@@ -96,7 +104,8 @@ export const getNavItems = (
   hasSupersetSetup: boolean = false,
   isFeatureFlagEnabled: (flag: FeatureFlagKeys) => boolean,
   transformType?: string,
-  roleSlug: Role | '' = ''
+  roleSlug: Role | '' = '',
+  canUseChatWithData: boolean = false
 ): NavItemType[] => {
   const allNavItems: NavItemType[] = [
     {
@@ -133,6 +142,13 @@ export const getNavItems = (
       icon: FileText,
       isActive: currentPath.startsWith('/reports'),
       hide: !isFeatureFlagEnabled(FeatureFlagKeys.REPORTS),
+    },
+    {
+      title: 'Copilot',
+      href: '/chat-with-data',
+      icon: CopilotIcon,
+      isActive: currentPath.startsWith('/chat-with-data'),
+      hide: !isFeatureFlagEnabled(FeatureFlagKeys.CHAT_WITH_DATA) || !canUseChatWithData,
     },
     {
       title: 'Alerts',
@@ -224,6 +240,13 @@ export const getNavItems = (
           href: '/settings/branding',
           icon: Palette,
           isActive: currentPath.startsWith('/settings/branding'),
+          visibleToRoles: ADMIN_ROLES,
+        },
+        {
+          title: 'Copilot',
+          href: '/settings/copilot',
+          icon: CopilotIcon,
+          isActive: currentPath.startsWith('/settings/copilot'),
           visibleToRoles: ADMIN_ROLES,
         },
         {
@@ -540,7 +563,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const registerParentMenus = useSidebarStore((s) => s.registerParentMenus);
   const responsive = useResponsiveLayout();
   const { currentOrg } = useAuthStore();
-  const { role } = useRbac();
+  const { role, hasPermission } = useRbac();
   const { isFeatureFlagEnabled } = useFeatureFlags();
   const { transformType } = useTransformType();
   const hasSupersetSetup = Boolean(currentOrg?.viz_url);
@@ -549,7 +572,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     hasSupersetSetup,
     isFeatureFlagEnabled,
     transformType,
-    role ?? ''
+    role ?? '',
+    hasPermission(PERMISSIONS.CAN_USE_CHAT_WITH_DATA)
   );
 
   // Auto-open a parent's submenu when the current path enters its subtree. Never auto-closes.

@@ -10,6 +10,7 @@ export enum FeatureFlagKeys {
   AI_DATA_ANALYSIS = 'AI_DATA_ANALYSIS',
   DATA_STATISTICS = 'DATA_STATISTICS',
   REPORTS = 'REPORTS',
+  CHAT_WITH_DATA = 'CHAT_WITH_DATA',
 }
 
 interface FeatureFlags {

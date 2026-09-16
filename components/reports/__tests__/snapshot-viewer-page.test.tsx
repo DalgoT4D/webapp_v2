@@ -23,7 +23,7 @@ jest.mock('@/hooks/api/useReports');
 
 jest.mock('@/lib/toast', () => ({
   toastSuccess: { saved: jest.fn(), exported: jest.fn(), generic: jest.fn() },
-  toastError: { save: jest.fn(), export: jest.fn(), generic: jest.fn() },
+  toastError: { save: jest.fn(), export: jest.fn(), generic: jest.fn(), api: jest.fn() },
   toastInfo: { generic: jest.fn() },
 }));
 
