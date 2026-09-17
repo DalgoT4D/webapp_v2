@@ -103,12 +103,31 @@ export interface TitleUpdatedEvent {
   title: string;
 }
 
+/** One column the pending query touches, for the approval card's PII checkboxes.
+ *  has_literal: the SQL compares this column against a literal value, so that
+ *  value is in the query text and will be stored with the conversation. */
+export interface PiiColumn {
+  schema: string;
+  table: string;
+  column: string;
+  has_literal: boolean;
+}
+
+/** schema.table.column — the key the backend expects in pii_columns */
+export function piiColumnKey(column: PiiColumn): string {
+  return `${column.schema}.${column.table}.${column.column}`;
+}
+
 /** One tool call waiting for the user's go-ahead (human-in-the-loop) */
 export interface ApprovalRequest {
   tool: string;
   args: Record<string, unknown>;
   description: string;
   sql?: string | null;
+  /** null means the backend could not build the list — the card must not allow
+   *  approve, because the query would then run with nothing hashed */
+  columns?: PiiColumn[] | null;
+  columns_error?: string;
 }
 
 /**
