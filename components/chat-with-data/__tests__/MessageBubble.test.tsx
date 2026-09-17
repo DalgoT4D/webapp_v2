@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MessageBubble } from '../MessageBubble';
-import type { ChatMessage } from '@/types/chat-with-data';
+import type { ChatMessage, PiiColumn } from '@/types/chat-with-data';
 
 function message(overrides: Partial<ChatMessage>): ChatMessage {
   return {
@@ -135,9 +136,9 @@ describe('MessageBubble human-in-the-loop', () => {
     expect(screen.getByText('SELECT COUNT(*) FROM prod.surveys')).toBeInTheDocument();
 
     screen.getByTestId('chat-approve').click();
-    expect(respond).toHaveBeenCalledWith(true);
+    expect(respond).toHaveBeenCalledWith(true, []);
     screen.getByTestId('chat-cancel').click();
-    expect(respond).toHaveBeenCalledWith(false);
+    expect(respond).toHaveBeenCalledWith(false, []);
   });
 
   it('shows the decided state instead of buttons once answered', () => {
@@ -199,5 +200,64 @@ describe('MessageBubble human-in-the-loop', () => {
     expect(
       screen.getByText('Create the chart “Surveys by district” (bar) from prod.surveys?')
     ).toBeInTheDocument();
+  });
+});
+
+describe('MessageBubble PII column review', () => {
+  const piiMessage = (columns: PiiColumn[] | null, columnsError?: string) =>
+    message({
+      inputRequest: {
+        kind: 'approval',
+        status: 'pending',
+        requests: [
+          {
+            tool: 'execute_sql',
+            args: { sql: 'SELECT phone FROM prod.beneficiaries' },
+            description: 'Waiting for your go-ahead',
+            sql: 'SELECT phone FROM prod.beneficiaries',
+            columns,
+            columns_error: columnsError,
+          },
+        ],
+      },
+    });
+
+  const phone = {
+    schema: 'prod',
+    table: 'beneficiaries',
+    column: 'phone',
+    has_literal: false,
+  };
+
+  it('lists the query columns and reports none ticked', () => {
+    render(<MessageBubble message={piiMessage([phone])} />);
+    expect(screen.getByText('prod.beneficiaries.phone')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-approve')).toHaveTextContent('No PII columns');
+  });
+
+  it('sends the ticked columns and changes the approve label', async () => {
+    const respond = jest.fn();
+    render(<MessageBubble message={piiMessage([phone])} onApprovalRespond={respond} />);
+
+    await userEvent.click(screen.getByLabelText('prod.beneficiaries.phone'));
+    expect(screen.getByTestId('chat-approve')).toHaveTextContent('hash 1 column');
+
+    await userEvent.click(screen.getByTestId('chat-approve'));
+    expect(respond).toHaveBeenCalledWith(true, ['prod.beneficiaries.phone']);
+  });
+
+  it('warns only once a column with a literal is ticked', async () => {
+    render(<MessageBubble message={piiMessage([{ ...phone, has_literal: true }])} />);
+    expect(screen.queryByTestId('chat-pii-literal-warning')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText('prod.beneficiaries.phone'));
+    expect(screen.getByTestId('chat-pii-literal-warning')).toBeInTheDocument();
+  });
+
+  it('disables approve when the column list could not be built', () => {
+    render(<MessageBubble message={piiMessage(null, 'catalog unreachable')} />);
+    expect(screen.getByTestId('chat-approve')).toBeDisabled();
+    expect(screen.getByTestId('chat-cancel')).toBeEnabled();
+    expect(screen.getByTestId('chat-pii-unavailable')).toBeInTheDocument();
   });
 });

@@ -8,7 +8,7 @@ import { ResultTable } from './ResultTable';
 import { AssistantMarkdown } from './AssistantMarkdown';
 import { SqlBlock } from './SqlBlock';
 import { ThinkingIndicator } from './ThinkingIndicator';
-import type { ApprovalRequest, ChatMessage } from '@/types/chat-with-data';
+import { type ApprovalRequest, type ChatMessage, piiColumnKey } from '@/types/chat-with-data';
 
 /** Plain-language receipt for a tool call awaiting approval */
 function approvalSummary(request: ApprovalRequest): string {
@@ -33,7 +33,7 @@ const DECIDED_LABELS: Record<string, string> = {
   cancelled: 'Cancelled — nothing was run',
 };
 
-/** One approval request: summary, query (open by default), approve/cancel */
+/** One approval request: summary, query, PII column checkboxes, approve/cancel */
 function ApprovalCard({
   request,
   status,
@@ -41,10 +41,28 @@ function ApprovalCard({
 }: {
   request: ApprovalRequest;
   status: string;
-  onRespond?: (approve: boolean) => void;
+  onRespond?: (approve: boolean, piiColumns: string[]) => void;
 }) {
   const [queryOpen, setQueryOpen] = useState(true);
+  const [ticked, setTicked] = useState<string[]>([]);
   const Chevron = queryOpen ? ChevronUp : ChevronDown;
+
+  const columns = request.columns;
+  const reviewable = columns !== undefined;
+  const unavailable = reviewable && columns === null;
+  const literalTicked = (columns || []).some(
+    (column) => column.has_literal && ticked.includes(piiColumnKey(column))
+  );
+
+  const toggle = (key: string) =>
+    setTicked((current) =>
+      current.includes(key) ? current.filter((entry) => entry !== key) : [...current, key]
+    );
+
+  const approveLabel =
+    ticked.length === 0
+      ? 'Approve — No PII columns'
+      : `Approve & hash ${ticked.length} column${ticked.length === 1 ? '' : 's'}`;
 
   return (
     <div className="flex flex-col gap-3">
@@ -62,20 +80,63 @@ function ApprovalCard({
           {queryOpen && <SqlBlock sql={request.sql} />}
         </>
       )}
+      {reviewable && !unavailable && (
+        <div className="flex flex-col gap-2" data-testid="chat-pii-columns">
+          <p className="text-sm text-[#7A7A8C]">
+            Tick any column that holds personal data. Ticked columns are hashed by your warehouse
+            before the results are read.
+          </p>
+          {(columns || []).map((column) => {
+            const key = piiColumnKey(column);
+            return (
+              <label key={key} className="flex items-center gap-2 text-sm text-[#1A1A2E]">
+                <input
+                  type="checkbox"
+                  aria-label={key}
+                  checked={ticked.includes(key)}
+                  onChange={() => toggle(key)}
+                />
+                <span className="font-mono">{key}</span>
+              </label>
+            );
+          })}
+        </div>
+      )}
+      {unavailable && (
+        <p
+          className="flex items-start gap-2 text-sm text-[#B45309]"
+          data-testid="chat-pii-unavailable"
+        >
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+          Column list unavailable — this query cannot be reviewed for personal data. Cancel and try
+          asking again.
+        </p>
+      )}
+      {literalTicked && (
+        <p
+          className="flex items-start gap-2 text-sm text-[#B45309]"
+          data-testid="chat-pii-literal-warning"
+        >
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+          This query contains a value for a column you marked as personal data. That value came from
+          your message and stays in this conversation.
+        </p>
+      )}
       {status === 'pending' && (
         <div className="flex justify-end gap-2">
           <button
             type="button"
             data-testid="chat-approve"
-            onClick={() => onRespond?.(true)}
-            className="rounded-md bg-primary px-[19px] py-2 text-[13px] font-medium uppercase tracking-wide text-white hover:bg-primary/90"
+            disabled={unavailable}
+            onClick={() => onRespond?.(true, ticked)}
+            className="rounded-md bg-primary px-[19px] py-2 text-[13px] font-medium uppercase tracking-wide text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Approve
+            {approveLabel}
           </button>
           <button
             type="button"
             data-testid="chat-cancel"
-            onClick={() => onRespond?.(false)}
+            onClick={() => onRespond?.(false, [])}
             className="rounded-md border border-[#CBD5E1] bg-white px-6 py-2 text-[13px] font-medium uppercase tracking-wide text-[#1A1A2E] hover:bg-[#F8FAFB]"
           >
             Cancel
@@ -96,7 +157,7 @@ export function MessageBubble({
   onApprovalRespond,
 }: {
   message: ChatMessage;
-  onApprovalRespond?: (approve: boolean) => void;
+  onApprovalRespond?: (approve: boolean, piiColumns: string[]) => void;
 }) {
   const isUser = message.role === 'user';
   const showThinking = message.streaming && !message.content && !message.error;
