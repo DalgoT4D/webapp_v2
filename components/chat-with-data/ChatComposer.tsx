@@ -106,7 +106,20 @@ export function ChatComposer({
     </div>
   );
 
-  if (!isHero) return box;
+  const piiNotice = (
+    <p className="mt-2 text-xs text-[#7A7A8C]" data-testid="chat-pii-notice">
+      Don&apos;t enter PII data here — your message goes directly to the AI model.
+    </p>
+  );
+
+  if (!isHero) {
+    return (
+      <div>
+        {box}
+        {piiNotice}
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full max-w-[724px]">
@@ -118,6 +131,7 @@ export function ChatComposer({
       <div className="relative rounded-[14px] bg-gradient-to-r from-[rgba(180,219,255,0.72)] via-[rgba(118,204,215,0.72)] to-[rgba(105,230,216,0.72)] p-[2px]">
         {box}
       </div>
+      {piiNotice}
     </div>
   );
 }
