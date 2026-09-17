@@ -260,4 +260,15 @@ describe('MessageBubble PII column review', () => {
     expect(screen.getByTestId('chat-cancel')).toBeEnabled();
     expect(screen.getByTestId('chat-pii-unavailable')).toBeInTheDocument();
   });
+
+  it('pre-ticks columns remembered from earlier in the session', () => {
+    render(
+      <MessageBubble
+        message={piiMessage([phone])}
+        rememberedPiiColumns={['prod.beneficiaries.phone']}
+      />
+    );
+    expect(screen.getByLabelText('prod.beneficiaries.phone')).toBeChecked();
+    expect(screen.getByTestId('chat-approve')).toHaveTextContent('hash 1 column');
+  });
 });

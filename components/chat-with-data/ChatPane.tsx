@@ -11,7 +11,9 @@ interface ChatPaneProps {
   isStreaming: boolean;
   onSend: (question: string) => void;
   /** Approve/cancel a pending human-in-the-loop card */
-  onApprovalRespond?: (approve: boolean) => void;
+  onApprovalRespond?: (approve: boolean, piiColumns: string[]) => void;
+  /** PII columns ticked earlier in this session — pre-tick new approval cards */
+  rememberedPiiColumns?: string[];
   /** Models the user may pick; the selector renders only when there are 2+ */
   models?: ModelOption[];
   selectedModel?: string;
@@ -28,6 +30,7 @@ export function ChatPane({
   isStreaming,
   onSend,
   onApprovalRespond,
+  rememberedPiiColumns = [],
   models = [],
   selectedModel,
   onModelChange,
@@ -76,6 +79,7 @@ export function ChatPane({
               key={message.id}
               message={message}
               onApprovalRespond={onApprovalRespond}
+              rememberedPiiColumns={rememberedPiiColumns}
             />
           ))}
           <div ref={bottomRef} />

@@ -9,6 +9,30 @@ import type {
   ToolActivity,
 } from '@/types/chat-with-data';
 
+/** Remembered PII ticks for one open chat session. sessionStorage, not the
+ *  backend: nothing about a user's PII choices is persisted server-side in v1.
+ *  Dies with the tab, so reopening the thread later starts clean. */
+const piiStorageKey = (sessionId: number | null) => `dalgo:pii:${sessionId}`;
+
+function readRememberedPii(sessionId: number | null): string[] {
+  try {
+    return JSON.parse(sessionStorage.getItem(piiStorageKey(sessionId)) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function rememberPii(sessionId: number | null, columns: string[]) {
+  if (columns.length === 0) return;
+  try {
+    const merged = Array.from(new Set([...readRememberedPii(sessionId), ...columns]));
+    sessionStorage.setItem(piiStorageKey(sessionId), JSON.stringify(merged));
+  } catch {
+    // private windows and blocked site data throw — a forgotten tick is a
+    // usability cost, not a correctness one
+  }
+}
+
 // Client-side render keys; not sent to the backend
 let messageCounter = 0;
 function nextMessageId(): string {
@@ -265,18 +289,26 @@ export function useChatWithData(sessionId: number | null, options: UseChatWithDa
 
   /** Answer a pending approval card; the backend resumes the paused turn */
   const respondToApproval = useCallback(
-    (approve: boolean) => {
+    (approve: boolean, piiColumns: string[] = []) => {
       liveTurnStartedRef.current = true;
+      if (approve) rememberPii(sessionId, piiColumns);
       setMessages((current) => [
         ...resolvePendingInput(current, approve ? 'approved' : 'cancelled'),
         // the resumed turn streams into a fresh assistant bubble below the card
         newAssistantPlaceholder(),
       ]);
       setIsStreaming(true);
-      sendOrQueue({ action: 'resume_approval', approve });
+      sendOrQueue({ action: 'resume_approval', approve, pii_columns: piiColumns });
     },
-    [sendOrQueue]
+    [sendOrQueue, sessionId]
   );
 
-  return { messages, sendMessage, respondToApproval, isStreaming, isConnected };
+  return {
+    messages,
+    sendMessage,
+    respondToApproval,
+    rememberedPiiColumns: readRememberedPii(sessionId),
+    isStreaming,
+    isConnected,
+  };
 }

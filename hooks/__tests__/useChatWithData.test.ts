@@ -5,8 +5,10 @@
 
 import { renderHook, act } from '@testing-library/react';
 
+const sendOrQueue = jest.fn();
+
 jest.mock('@/hooks/useBackendWebSocket', () => ({
-  useBackendWebSocket: () => ({ sendOrQueue: jest.fn(), isConnected: true }),
+  useBackendWebSocket: () => ({ sendOrQueue, isConnected: true }),
 }));
 
 import {
@@ -280,5 +282,44 @@ describe('resolvePendingInput', () => {
     const resolved = resolvePendingInput([pending, decided], 'approved');
     expect(resolved[0].inputRequest?.status).toBe('approved');
     expect(resolved[1].inputRequest?.status).toBe('cancelled');
+  });
+});
+
+describe('useChatWithData PII ticks', () => {
+  beforeEach(() => {
+    sendOrQueue.mockClear();
+    sessionStorage.clear();
+  });
+
+  it('sends the ticked columns with resume_approval and remembers them', () => {
+    const { result } = renderHook(() => useChatWithData(7, { enabled: true }));
+
+    act(() => result.current.respondToApproval(true, ['prod.beneficiaries.phone']));
+
+    expect(sendOrQueue).toHaveBeenCalledWith({
+      action: 'resume_approval',
+      approve: true,
+      pii_columns: ['prod.beneficiaries.phone'],
+    });
+    expect(JSON.parse(sessionStorage.getItem('dalgo:pii:7') || '[]')).toEqual([
+      'prod.beneficiaries.phone',
+    ]);
+  });
+
+  it('does not remember ticks on a cancel', () => {
+    const { result } = renderHook(() => useChatWithData(7, { enabled: true }));
+    act(() => result.current.respondToApproval(false, ['prod.beneficiaries.phone']));
+    expect(sessionStorage.getItem('dalgo:pii:7')).toBeNull();
+  });
+
+  it('survives sessionStorage being unavailable', () => {
+    const spy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    const { result } = renderHook(() => useChatWithData(7, { enabled: true }));
+
+    expect(() => act(() => result.current.respondToApproval(true, ['prod.b.phone']))).not.toThrow();
+
+    spy.mockRestore();
   });
 });

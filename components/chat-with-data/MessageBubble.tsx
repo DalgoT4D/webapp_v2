@@ -38,13 +38,17 @@ function ApprovalCard({
   request,
   status,
   onRespond,
+  rememberedPiiColumns = [],
 }: {
   request: ApprovalRequest;
   status: string;
   onRespond?: (approve: boolean, piiColumns: string[]) => void;
+  rememberedPiiColumns?: string[];
 }) {
   const [queryOpen, setQueryOpen] = useState(true);
-  const [ticked, setTicked] = useState<string[]>([]);
+  const [ticked, setTicked] = useState<string[]>(() =>
+    (request.columns || []).map(piiColumnKey).filter((key) => rememberedPiiColumns.includes(key))
+  );
   const Chevron = queryOpen ? ChevronUp : ChevronDown;
 
   const columns = request.columns;
@@ -155,9 +159,11 @@ function ApprovalCard({
 export function MessageBubble({
   message,
   onApprovalRespond,
+  rememberedPiiColumns = [],
 }: {
   message: ChatMessage;
   onApprovalRespond?: (approve: boolean, piiColumns: string[]) => void;
+  rememberedPiiColumns?: string[];
 }) {
   const isUser = message.role === 'user';
   const showThinking = message.streaming && !message.content && !message.error;
@@ -195,6 +201,7 @@ export function MessageBubble({
               request={request}
               status={inputRequest.status}
               onRespond={onApprovalRespond}
+              rememberedPiiColumns={rememberedPiiColumns}
             />
           ))}
           {inputRequest.status !== 'pending' && (

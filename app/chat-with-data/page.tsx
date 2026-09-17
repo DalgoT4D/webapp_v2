@@ -77,14 +77,12 @@ export default function ChatWithDataPage() {
     refreshSessions();
   }, [refreshSessions]);
 
-  const { messages, sendMessage, respondToApproval, isStreaming } = useChatWithData(
-    activeSessionId,
-    {
+  const { messages, sendMessage, respondToApproval, rememberedPiiColumns, isStreaming } =
+    useChatWithData(activeSessionId, {
       enabled: Boolean(status?.enabled),
       initialMessages,
       onTitleUpdated,
-    }
-  );
+    });
 
   useEffect(() => {
     if (pendingQuestion && activeSessionId) {
@@ -171,6 +169,7 @@ export default function ChatWithDataPage() {
           isStreaming={isStreaming}
           onSend={handleSend}
           onApprovalRespond={respondToApproval}
+          rememberedPiiColumns={rememberedPiiColumns}
           models={status.models ?? []}
           selectedModel={activeModel}
           onModelChange={setSelectedModel}
