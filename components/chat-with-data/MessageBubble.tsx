@@ -86,24 +86,32 @@ function ApprovalCard({
       )}
       {reviewable && !unavailable && (
         <div className="flex flex-col gap-2" data-testid="chat-pii-columns">
-          <p className="text-sm text-[#7A7A8C]">
-            Tick any column that holds personal data. Ticked columns are hashed by your warehouse
-            before the results are read.
-          </p>
-          {(columns || []).map((column) => {
-            const key = piiColumnKey(column);
-            return (
-              <label key={key} className="flex items-center gap-2 text-sm text-[#1A1A2E]">
-                <input
-                  type="checkbox"
-                  aria-label={key}
-                  checked={ticked.includes(key)}
-                  onChange={() => toggle(key)}
-                />
-                <span className="font-mono">{key}</span>
-              </label>
-            );
-          })}
+          {(columns || []).length > 0 ? (
+            <>
+              <p className="text-sm text-[#7A7A8C]">
+                Tick any column that holds personal data. Ticked columns are hashed by your
+                warehouse before the results are read.
+              </p>
+              {(columns || []).map((column) => {
+                const key = piiColumnKey(column);
+                return (
+                  <label key={key} className="flex items-center gap-2 text-sm text-[#1A1A2E]">
+                    <input
+                      type="checkbox"
+                      aria-label={key}
+                      checked={ticked.includes(key)}
+                      onChange={() => toggle(key)}
+                    />
+                    <span className="font-mono">{key}</span>
+                  </label>
+                );
+              })}
+            </>
+          ) : (
+            <p className="text-sm text-[#7A7A8C]">
+              This query returns no column values, so there is nothing to mask.
+            </p>
+          )}
         </div>
       )}
       {unavailable && (

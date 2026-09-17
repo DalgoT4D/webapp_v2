@@ -261,6 +261,16 @@ describe('MessageBubble PII column review', () => {
     expect(screen.getByTestId('chat-pii-unavailable')).toBeInTheDocument();
   });
 
+  it('shows a reassuring message instead of an empty checkbox list for a no-column query', () => {
+    render(<MessageBubble message={piiMessage([])} />);
+    expect(
+      screen.getByText('This query returns no column values, so there is nothing to mask.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Tick any column that holds personal data/)).not.toBeInTheDocument();
+    expect(screen.getByTestId('chat-approve')).toBeEnabled();
+    expect(screen.getByTestId('chat-approve')).toHaveTextContent('No PII columns');
+  });
+
   it('pre-ticks columns remembered from earlier in the session', () => {
     render(
       <MessageBubble
