@@ -1955,7 +1955,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     const handleFilterCreate = async (filterPayload: CreateFilterPayload) => {
       if (!dashboardId) return;
-      console.log('calleedddddddd');
       try {
         // Create filter in database first using typed API
         const newFilterFromAPI = await createDashboardFilter(dashboardId, {
@@ -1966,8 +1965,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           column_name: filterPayload.column_name,
           settings: filterPayload.settings,
         });
-
-        console.log('newFilterFromAPI', newFilterFromAPI);
         trackEvent(ANALYTICS_EVENTS.DASHBOARD_FILTER_CREATED, {
           dashboard_id: dashboardId,
           filter_type: filterPayload.filter_type,
