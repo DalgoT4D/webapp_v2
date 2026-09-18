@@ -8,109 +8,145 @@ import { ResultTable } from './ResultTable';
 import { AssistantMarkdown } from './AssistantMarkdown';
 import { SqlBlock } from './SqlBlock';
 import { ThinkingIndicator } from './ThinkingIndicator';
-import { type ApprovalRequest, type ChatMessage, piiColumnKey } from '@/types/chat-with-data';
+import {
+  type ApprovalRequest,
+  type ChatMessage,
+  type PiiColumn,
+  type PiiMemory,
+  piiColumnKey,
+} from '@/types/chat-with-data';
+import { approvalSummary, groupByTable, mergeColumns } from './utils';
 
-/** Plain-language receipt for a tool call awaiting approval */
-function approvalSummary(request: ApprovalRequest): string {
-  const args = request.args || {};
-  const chartCount = Array.isArray(args.chart_ids) ? args.chart_ids.length : 0;
-  switch (request.tool) {
-    case 'execute_sql':
-      return 'Run this query on your data warehouse?';
-    case 'create_chart':
-      return `Create the chart “${args.title}” (${args.chart_type}) from ${args.schema_name}.${args.table_name}?`;
-    case 'create_dashboard':
-      return `Create the dashboard “${args.title}” with ${chartCount} chart${chartCount === 1 ? '' : 's'}?`;
-    case 'add_charts_to_dashboard':
-      return `Add ${chartCount} chart${chartCount === 1 ? '' : 's'} to your dashboard?`;
-    default:
-      return request.description || `Run ${request.tool}?`;
-  }
-}
+const EMPTY_PII_MEMORY: PiiMemory = { decided: [], pii: [] };
 
 const DECIDED_LABELS: Record<string, string> = {
   approved: 'Approved — running now',
   cancelled: 'Cancelled — nothing was run',
 };
 
-/** One approval request: summary, query, PII column checkboxes, approve/cancel */
+/**
+ * The pause's columns as one row of checkboxes per table. The table name only
+ * appears once the pause spans more than one — for the common single-table case
+ * the headline already names it, and repeating it reads as clutter.
+ */
+function ColumnGroups({
+  columns,
+  ticked,
+  onToggle,
+}: {
+  columns: PiiColumn[];
+  ticked: string[];
+  onToggle: (key: string) => void;
+}) {
+  const groups = groupByTable(columns);
+  return (
+    <>
+      {groups.map((group) => (
+        <div key={group.table} className="flex flex-col gap-1">
+          {groups.length > 1 && <p className="font-mono text-xs text-[#A3A3B0]">{group.table}</p>}
+          <div className="flex flex-wrap gap-x-5 gap-y-1.5">
+            {group.columns.map((column) => {
+              const key = piiColumnKey(column);
+              return (
+                <label
+                  key={key}
+                  className="flex cursor-pointer items-center gap-2 text-sm text-[#1A1A2E]"
+                >
+                  <input
+                    type="checkbox"
+                    aria-label={key}
+                    checked={ticked.includes(key)}
+                    onChange={() => onToggle(key)}
+                  />
+                  <span className="font-mono">{column.column}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+/**
+ * One pause, one card. The backend resumes every pending request with a single
+ * decision, so rendering a card per request showed several Approve buttons that
+ * all did the same thing. Columns are merged across the requests and deduped.
+ *
+ * The card leads with the data — which table, which columns — because that is
+ * what the user is being asked to judge. The SQL is the mechanism, so it sits
+ * collapsed underneath for anyone who wants to check it.
+ */
 function ApprovalCard({
-  request,
+  requests,
   status,
   onRespond,
-  rememberedPiiColumns = [],
+  piiMemory,
 }: {
-  request: ApprovalRequest;
+  requests: ApprovalRequest[];
   status: string;
-  onRespond?: (approve: boolean, piiColumns: string[]) => void;
-  rememberedPiiColumns?: string[];
+  onRespond?: (approve: boolean, piiColumns: string[], offeredColumns: string[]) => void;
+  piiMemory: PiiMemory;
 }) {
-  const [queryOpen, setQueryOpen] = useState(true);
-  const [ticked, setTicked] = useState<string[]>(() =>
-    (request.columns || []).map(piiColumnKey).filter((key) => rememberedPiiColumns.includes(key))
-  );
-  const Chevron = queryOpen ? ChevronUp : ChevronDown;
+  const { columns, reviewable } = mergeColumns(requests);
+  const allColumns = columns || [];
+  const offered = allColumns.map(piiColumnKey);
 
-  const columns = request.columns;
-  const reviewable = columns !== undefined;
+  const [queryOpen, setQueryOpen] = useState(true);
+  // columns marked personal earlier in the chat come back already ticked
+  const [ticked, setTicked] = useState<string[]>(() =>
+    offered.filter((key) => piiMemory.pii.includes(key))
+  );
+
   const unavailable = reviewable && columns === null;
-  const literalTicked = (columns || []).some(
+  const literalTicked = allColumns.some(
     (column) => column.has_literal && ticked.includes(piiColumnKey(column))
   );
+
+  const sqlRequests = requests.filter((request) => request.sql);
+  const QueryChevron = queryOpen ? ChevronUp : ChevronDown;
 
   const toggle = (key: string) =>
     setTicked((current) =>
       current.includes(key) ? current.filter((entry) => entry !== key) : [...current, key]
     );
 
-  const approveLabel =
-    ticked.length === 0
-      ? 'Approve — No PII columns'
-      : `Approve & hash ${ticked.length} column${ticked.length === 1 ? '' : 's'}`;
+  const approveLabel = ticked.length === 0 ? 'Approve' : `Approve & hash ${ticked.length}`;
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-[15px] leading-[22px] text-[#1A1A2E]">{approvalSummary(request)}</p>
-      {request.sql && (
+      <p className="text-[15px] leading-[22px] text-[#1A1A2E]">{approvalSummary(requests)}</p>
+      {sqlRequests.length > 0 && (
         <>
           <button
             type="button"
+            data-testid="chat-approval-query-toggle"
             onClick={() => setQueryOpen((open) => !open)}
             className="flex items-center gap-1 self-start text-sm text-primary"
           >
-            <Chevron className="size-4" />
-            View query
+            <QueryChevron className="size-4" />
+            {sqlRequests.length === 1 ? 'View query' : `View ${sqlRequests.length} queries`}
           </button>
-          {queryOpen && <SqlBlock sql={request.sql} />}
+          {queryOpen &&
+            sqlRequests.map((request, index) => (
+              // requests are fixed for the life of the card; index is stable
+              // eslint-disable-next-line react/no-array-index-key
+              <SqlBlock key={`query-${index}`} sql={request.sql as string} />
+            ))}
         </>
       )}
       {reviewable && !unavailable && (
         <div className="flex flex-col gap-2" data-testid="chat-pii-columns">
-          {(columns || []).length > 0 ? (
-            <>
-              <p className="text-sm text-[#7A7A8C]">
-                Tick any column that holds personal data. Ticked columns are hashed by your
-                warehouse before the results are read.
-              </p>
-              {(columns || []).map((column) => {
-                const key = piiColumnKey(column);
-                return (
-                  <label key={key} className="flex items-center gap-2 text-sm text-[#1A1A2E]">
-                    <input
-                      type="checkbox"
-                      aria-label={key}
-                      checked={ticked.includes(key)}
-                      onChange={() => toggle(key)}
-                    />
-                    <span className="font-mono">{key}</span>
-                  </label>
-                );
-              })}
-            </>
-          ) : (
+          {allColumns.length === 0 ? (
             <p className="text-sm text-[#7A7A8C]">
               This query returns no column values, so there is nothing to mask.
             </p>
+          ) : (
+            <>
+              <p className="text-sm text-[#7A7A8C]">Tick any column that holds personal data.</p>
+              <ColumnGroups columns={allColumns} ticked={ticked} onToggle={toggle} />
+            </>
           )}
         </div>
       )}
@@ -140,7 +176,7 @@ function ApprovalCard({
             type="button"
             data-testid="chat-approve"
             disabled={unavailable}
-            onClick={() => onRespond?.(true, ticked)}
+            onClick={() => onRespond?.(true, ticked, offered)}
             className="rounded-md bg-primary px-[19px] py-2 text-[13px] font-medium uppercase tracking-wide text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {approveLabel}
@@ -148,7 +184,7 @@ function ApprovalCard({
           <button
             type="button"
             data-testid="chat-cancel"
-            onClick={() => onRespond?.(false, [])}
+            onClick={() => onRespond?.(false, [], [])}
             className="rounded-md border border-[#CBD5E1] bg-white px-6 py-2 text-[13px] font-medium uppercase tracking-wide text-[#1A1A2E] hover:bg-[#F8FAFB]"
           >
             Cancel
@@ -167,11 +203,11 @@ function ApprovalCard({
 export function MessageBubble({
   message,
   onApprovalRespond,
-  rememberedPiiColumns = [],
+  piiMemory = EMPTY_PII_MEMORY,
 }: {
   message: ChatMessage;
-  onApprovalRespond?: (approve: boolean, piiColumns: string[]) => void;
-  rememberedPiiColumns?: string[];
+  onApprovalRespond?: (approve: boolean, piiColumns: string[], offeredColumns: string[]) => void;
+  piiMemory?: PiiMemory;
 }) {
   const isUser = message.role === 'user';
   const showThinking = message.streaming && !message.content && !message.error;
@@ -201,17 +237,13 @@ export function MessageBubble({
 
       {inputRequest?.kind === 'approval' && (
         <div data-testid="chat-approval-card" className="flex flex-col gap-3">
-          {inputRequest.requests.map((request, index) => (
-            <ApprovalCard
-              // requests are fixed for the life of the card; index is stable
-              // eslint-disable-next-line react/no-array-index-key
-              key={index}
-              request={request}
-              status={inputRequest.status}
-              onRespond={onApprovalRespond}
-              rememberedPiiColumns={rememberedPiiColumns}
-            />
-          ))}
+          <ApprovalCard
+            requests={inputRequest.requests}
+            status={inputRequest.status}
+            onRespond={onApprovalRespond}
+            piiMemory={piiMemory}
+          />
+
           {inputRequest.status !== 'pending' && (
             <p className="text-xs text-[#7A7A8C]" data-testid="chat-approval-state">
               {DECIDED_LABELS[inputRequest.status] ?? inputRequest.status}

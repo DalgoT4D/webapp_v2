@@ -294,16 +294,48 @@ describe('useChatWithData PII ticks', () => {
   it('sends the ticked columns with resume_approval and remembers them', () => {
     const { result } = renderHook(() => useChatWithData(7, { enabled: true }));
 
-    act(() => result.current.respondToApproval(true, ['prod.beneficiaries.phone']));
+    act(() =>
+      result.current.respondToApproval(
+        true,
+        ['prod.beneficiaries.phone'],
+        ['prod.beneficiaries.phone', 'prod.beneficiaries.district']
+      )
+    );
 
     expect(sendOrQueue).toHaveBeenCalledWith({
       action: 'resume_approval',
       approve: true,
       pii_columns: ['prod.beneficiaries.phone'],
     });
-    expect(JSON.parse(sessionStorage.getItem('dalgo:pii:7') || '[]')).toEqual([
-      'prod.beneficiaries.phone',
-    ]);
+    // both offered columns count as answered; only the ticked one as personal
+    expect(JSON.parse(sessionStorage.getItem('dalgo:pii:7') || 'null')).toEqual({
+      decided: ['prod.beneficiaries.phone', 'prod.beneficiaries.district'],
+      pii: ['prod.beneficiaries.phone'],
+    });
+    expect(result.current.piiMemory.pii).toEqual(['prod.beneficiaries.phone']);
+  });
+
+  it('clears a column the user un-ticks after marking it earlier', () => {
+    const { result } = renderHook(() => useChatWithData(7, { enabled: true }));
+
+    act(() =>
+      result.current.respondToApproval(true, ['prod.b.phone'], ['prod.b.phone', 'prod.b.name'])
+    );
+    act(() => result.current.respondToApproval(true, [], ['prod.b.phone']));
+
+    expect(JSON.parse(sessionStorage.getItem('dalgo:pii:7') || 'null')).toEqual({
+      decided: ['prod.b.phone', 'prod.b.name'],
+      pii: [],
+    });
+  });
+
+  it('reads a pre-tri-state session as decided and personal', () => {
+    sessionStorage.setItem('dalgo:pii:7', JSON.stringify(['prod.b.phone']));
+    const { result } = renderHook(() => useChatWithData(7, { enabled: true }));
+    expect(result.current.piiMemory).toEqual({
+      decided: ['prod.b.phone'],
+      pii: ['prod.b.phone'],
+    });
   });
 
   it('does not remember ticks on a cancel', () => {

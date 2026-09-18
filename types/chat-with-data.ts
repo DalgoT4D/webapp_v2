@@ -118,6 +118,14 @@ export function piiColumnKey(column: PiiColumn): string {
   return `${column.schema}.${column.table}.${column.column}`;
 }
 
+/** What the user has already told us about columns, for this chat session.
+ *  `pii` is always a subset of `decided`; a key in `decided` but not `pii` was
+ *  shown and deliberately left clear, so the card stops asking about it. */
+export interface PiiMemory {
+  decided: string[];
+  pii: string[];
+}
+
 /** One tool call waiting for the user's go-ahead (human-in-the-loop) */
 export interface ApprovalRequest {
   tool: string;

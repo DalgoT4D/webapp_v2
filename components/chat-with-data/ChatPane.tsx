@@ -4,16 +4,16 @@ import { useEffect, useRef, useState } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { ChatComposer } from './ChatComposer';
 import { ChatEmptyState } from './EmptyState';
-import type { ChatMessage, ModelOption } from '@/types/chat-with-data';
+import type { ChatMessage, ModelOption, PiiMemory } from '@/types/chat-with-data';
 
 interface ChatPaneProps {
   messages: ChatMessage[];
   isStreaming: boolean;
   onSend: (question: string) => void;
   /** Approve/cancel a pending human-in-the-loop card */
-  onApprovalRespond?: (approve: boolean, piiColumns: string[]) => void;
-  /** PII columns ticked earlier in this session — pre-tick new approval cards */
-  rememberedPiiColumns?: string[];
+  onApprovalRespond?: (approve: boolean, piiColumns: string[], offeredColumns: string[]) => void;
+  /** PII answers given earlier in this session — pre-tick and de-clutter new cards */
+  piiMemory?: PiiMemory;
   /** Models the user may pick; the selector renders only when there are 2+ */
   models?: ModelOption[];
   selectedModel?: string;
@@ -30,7 +30,7 @@ export function ChatPane({
   isStreaming,
   onSend,
   onApprovalRespond,
-  rememberedPiiColumns = [],
+  piiMemory,
   models = [],
   selectedModel,
   onModelChange,
@@ -79,7 +79,7 @@ export function ChatPane({
               key={message.id}
               message={message}
               onApprovalRespond={onApprovalRespond}
-              rememberedPiiColumns={rememberedPiiColumns}
+              piiMemory={piiMemory}
             />
           ))}
           <div ref={bottomRef} />

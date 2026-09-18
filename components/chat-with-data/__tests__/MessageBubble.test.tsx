@@ -133,12 +133,13 @@ describe('MessageBubble human-in-the-loop', () => {
 
     expect(screen.getByTestId('chat-approval-card')).toBeInTheDocument();
     expect(screen.getByText('Run this query on your data warehouse?')).toBeInTheDocument();
+
     expect(screen.getByText('SELECT COUNT(*) FROM prod.surveys')).toBeInTheDocument();
 
     screen.getByTestId('chat-approve').click();
-    expect(respond).toHaveBeenCalledWith(true, []);
+    expect(respond).toHaveBeenCalledWith(true, [], []);
     screen.getByTestId('chat-cancel').click();
-    expect(respond).toHaveBeenCalledWith(false, []);
+    expect(respond).toHaveBeenCalledWith(false, [], []);
   });
 
   it('shows the decided state instead of buttons once answered', () => {
@@ -229,21 +230,28 @@ describe('MessageBubble PII column review', () => {
     has_literal: false,
   };
 
-  it('lists the query columns and reports none ticked', () => {
+  it('lists the query columns bare beneath the query', () => {
     render(<MessageBubble message={piiMessage([phone])} />);
-    expect(screen.getByText('prod.beneficiaries.phone')).toBeInTheDocument();
-    expect(screen.getByTestId('chat-approve')).toHaveTextContent('No PII columns');
+    expect(screen.getByText('Run this query on your data warehouse?')).toBeInTheDocument();
+    expect(screen.getByLabelText('prod.beneficiaries.phone')).toBeInTheDocument();
+    // the query above already names the table — no repeated subheading
+    expect(screen.queryByText('prod.beneficiaries')).not.toBeInTheDocument();
+    expect(screen.getByTestId('chat-approve')).toHaveTextContent('Approve');
   });
 
-  it('sends the ticked columns and changes the approve label', async () => {
+  it('sends the ticked columns alongside everything the card offered', async () => {
     const respond = jest.fn();
     render(<MessageBubble message={piiMessage([phone])} onApprovalRespond={respond} />);
 
     await userEvent.click(screen.getByLabelText('prod.beneficiaries.phone'));
-    expect(screen.getByTestId('chat-approve')).toHaveTextContent('hash 1 column');
+    expect(screen.getByTestId('chat-approve')).toHaveTextContent('hash 1');
 
     await userEvent.click(screen.getByTestId('chat-approve'));
-    expect(respond).toHaveBeenCalledWith(true, ['prod.beneficiaries.phone']);
+    expect(respond).toHaveBeenCalledWith(
+      true,
+      ['prod.beneficiaries.phone'],
+      ['prod.beneficiaries.phone']
+    );
   });
 
   it('warns only once a column with a literal is ticked', async () => {
@@ -268,17 +276,268 @@ describe('MessageBubble PII column review', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(/Tick any column that holds personal data/)).not.toBeInTheDocument();
     expect(screen.getByTestId('chat-approve')).toBeEnabled();
-    expect(screen.getByTestId('chat-approve')).toHaveTextContent('No PII columns');
+    expect(screen.getByTestId('chat-approve')).toHaveTextContent('Approve');
   });
 
   it('pre-ticks columns remembered from earlier in the session', () => {
     render(
       <MessageBubble
         message={piiMessage([phone])}
-        rememberedPiiColumns={['prod.beneficiaries.phone']}
+        piiMemory={{ decided: [], pii: ['prod.beneficiaries.phone'] }}
       />
     );
     expect(screen.getByLabelText('prod.beneficiaries.phone')).toBeChecked();
-    expect(screen.getByTestId('chat-approve')).toHaveTextContent('hash 1 column');
+    expect(screen.getByTestId('chat-approve')).toHaveTextContent('hash 1');
+  });
+
+  it('shows a column answered earlier and left clear, still unticked', () => {
+    render(
+      <MessageBubble
+        message={piiMessage([phone])}
+        piiMemory={{ decided: ['prod.beneficiaries.phone'], pii: [] }}
+      />
+    );
+    expect(screen.getByLabelText('prod.beneficiaries.phone')).not.toBeChecked();
+    expect(screen.getByTestId('chat-approve')).toHaveTextContent('Approve');
+  });
+
+  it('carries an earlier personal mark back as a visible tick', async () => {
+    const respond = jest.fn();
+    render(
+      <MessageBubble
+        message={piiMessage([phone])}
+        piiMemory={{
+          decided: ['prod.beneficiaries.phone'],
+          pii: ['prod.beneficiaries.phone'],
+        }}
+        onApprovalRespond={respond}
+      />
+    );
+
+    expect(screen.getByLabelText('prod.beneficiaries.phone')).toBeChecked();
+    expect(screen.getByTestId('chat-approve')).toHaveTextContent('hash 1');
+
+    await userEvent.click(screen.getByTestId('chat-approve'));
+    expect(respond).toHaveBeenCalledWith(
+      true,
+      ['prod.beneficiaries.phone'],
+      ['prod.beneficiaries.phone']
+    );
+  });
+
+  it('lets a carried-over tick be cleared again', async () => {
+    render(
+      <MessageBubble
+        message={piiMessage([phone])}
+        piiMemory={{
+          decided: ['prod.beneficiaries.phone'],
+          pii: ['prod.beneficiaries.phone'],
+        }}
+      />
+    );
+
+    await userEvent.click(screen.getByLabelText('prod.beneficiaries.phone'));
+    expect(screen.getByLabelText('prod.beneficiaries.phone')).not.toBeChecked();
+    expect(screen.getByTestId('chat-approve')).toHaveTextContent('Approve');
+  });
+});
+
+describe('MessageBubble carries PII marks across cards by exact column', () => {
+  const column = (schema: string, table: string, name: string): PiiColumn => ({
+    schema,
+    table,
+    column: name,
+    has_literal: false,
+  });
+
+  const cardFor = (columns: PiiColumn[]) =>
+    message({
+      inputRequest: {
+        kind: 'approval',
+        status: 'pending',
+        requests: [{ tool: 'execute_sql', args: {}, description: '', sql: 'SELECT 1', columns }],
+      },
+    });
+
+  it('re-ticks the same schema, table and column automatically', () => {
+    render(
+      <MessageBubble
+        message={cardFor([column('production', 'population_castanddrop', 'statename')])}
+        piiMemory={{
+          decided: ['production.population_castanddrop.statename'],
+          pii: ['production.population_castanddrop.statename'],
+        }}
+      />
+    );
+    expect(screen.getByLabelText('production.population_castanddrop.statename')).toBeChecked();
+  });
+
+  it('leaves the same column name in a different table alone', () => {
+    render(
+      <MessageBubble
+        message={cardFor([column('intermediate', 'aggregated_population', 'statename')])}
+        piiMemory={{
+          decided: ['production.population_castanddrop.statename'],
+          pii: ['production.population_castanddrop.statename'],
+        }}
+      />
+    );
+    expect(screen.getByLabelText('intermediate.aggregated_population.statename')).not.toBeChecked();
+  });
+
+  it('leaves the same table and column in a different schema alone', () => {
+    render(
+      <MessageBubble
+        message={cardFor([column('staging', 'population_castanddrop', 'statename')])}
+        piiMemory={{
+          decided: ['production.population_castanddrop.statename'],
+          pii: ['production.population_castanddrop.statename'],
+        }}
+      />
+    );
+    expect(screen.getByLabelText('staging.population_castanddrop.statename')).not.toBeChecked();
+  });
+
+  it('ticks only the exact match when both tables are on one card', () => {
+    render(
+      <MessageBubble
+        message={cardFor([
+          column('production', 'population_castanddrop', 'statename'),
+          column('intermediate', 'aggregated_population', 'statename'),
+        ])}
+        piiMemory={{
+          decided: ['production.population_castanddrop.statename'],
+          pii: ['production.population_castanddrop.statename'],
+        }}
+      />
+    );
+    expect(screen.getByLabelText('production.population_castanddrop.statename')).toBeChecked();
+    expect(screen.getByLabelText('intermediate.aggregated_population.statename')).not.toBeChecked();
+    expect(screen.getByTestId('chat-approve')).toHaveTextContent('hash 1');
+  });
+});
+
+describe('MessageBubble merged approval card', () => {
+  const profileRequest = (column: string, hasLiteral = false) => ({
+    tool: 'profile_column',
+    args: { schema_name: 'staging', table_name: 'visits', column_name: column },
+    description: 'Waiting for your go-ahead',
+    columns: [
+      { schema: 'staging', table: 'visits', column, has_literal: hasLiteral },
+    ] as PiiColumn[],
+  });
+
+  const parallelProfiles = message({
+    inputRequest: {
+      kind: 'approval',
+      status: 'pending',
+      requests: [profileRequest('district'), profileRequest('gender'), profileRequest('age_group')],
+    },
+  });
+
+  it('renders one button pair for a pause with several tool calls', () => {
+    render(<MessageBubble message={parallelProfiles} />);
+    expect(screen.getAllByTestId('chat-approve')).toHaveLength(1);
+    expect(screen.getAllByTestId('chat-cancel')).toHaveLength(1);
+  });
+
+  it('summarizes the parallel calls as one line', () => {
+    render(<MessageBubble message={parallelProfiles} />);
+    expect(screen.getByText('Profile 3 columns in staging.visits?')).toBeInTheDocument();
+    expect(screen.queryByText(/Waiting for your go-ahead/)).not.toBeInTheDocument();
+  });
+
+  it('lists each column once, with no repeated table subheading', () => {
+    render(<MessageBubble message={parallelProfiles} />);
+    expect(screen.queryByText('staging.visits')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('staging.visits.district')).toBeInTheDocument();
+    expect(screen.getByLabelText('staging.visits.gender')).toBeInTheDocument();
+    expect(screen.getByLabelText('staging.visits.age_group')).toBeInTheDocument();
+  });
+
+  it('dedupes a column two pending calls both touch', () => {
+    render(
+      <MessageBubble
+        message={message({
+          inputRequest: {
+            kind: 'approval',
+            status: 'pending',
+            requests: [profileRequest('district'), profileRequest('district')],
+          },
+        })}
+      />
+    );
+    expect(screen.getAllByLabelText('staging.visits.district')).toHaveLength(1);
+  });
+
+  it('approves every pending call with one click, sending the merged ticks', async () => {
+    const respond = jest.fn();
+    render(<MessageBubble message={parallelProfiles} onApprovalRespond={respond} />);
+
+    await userEvent.click(screen.getByLabelText('staging.visits.gender'));
+    await userEvent.click(screen.getByTestId('chat-approve'));
+
+    expect(respond).toHaveBeenCalledWith(
+      true,
+      ['staging.visits.gender'],
+      ['staging.visits.district', 'staging.visits.gender', 'staging.visits.age_group']
+    );
+  });
+
+  it('refuses the whole card when any one call could not be reviewed', () => {
+    render(
+      <MessageBubble
+        message={message({
+          inputRequest: {
+            kind: 'approval',
+            status: 'pending',
+            requests: [profileRequest('district'), { ...profileRequest('gender'), columns: null }],
+          },
+        })}
+      />
+    );
+    expect(screen.getByTestId('chat-approve')).toBeDisabled();
+    expect(screen.getByTestId('chat-pii-unavailable')).toBeInTheDocument();
+  });
+
+  it('warns when a literal from any one of the merged calls is ticked', async () => {
+    render(
+      <MessageBubble
+        message={message({
+          inputRequest: {
+            kind: 'approval',
+            status: 'pending',
+            requests: [profileRequest('district'), profileRequest('gender', true)],
+          },
+        })}
+      />
+    );
+    await userEvent.click(screen.getByLabelText('staging.visits.district'));
+    expect(screen.queryByTestId('chat-pii-literal-warning')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText('staging.visits.gender'));
+    expect(screen.getByTestId('chat-pii-literal-warning')).toBeInTheDocument();
+  });
+
+  it('collects several pending queries under one toggle', async () => {
+    render(
+      <MessageBubble
+        message={message({
+          inputRequest: {
+            kind: 'approval',
+            status: 'pending',
+            requests: [
+              { tool: 'execute_sql', args: {}, description: '', sql: 'SELECT 1', columns: [] },
+              { tool: 'execute_sql', args: {}, description: '', sql: 'SELECT 2', columns: [] },
+            ],
+          },
+        })}
+      />
+    );
+    expect(screen.getByText('SELECT 1')).toBeInTheDocument();
+    expect(screen.getByText('SELECT 2')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByTestId('chat-approval-query-toggle'));
+    expect(screen.queryByText('SELECT 1')).not.toBeInTheDocument();
   });
 });

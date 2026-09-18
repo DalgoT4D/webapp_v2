@@ -6,26 +6,49 @@ import type {
   ChatHistoryMessage,
   ChatMessage,
   ChatWsEvent,
+  PiiMemory,
   ToolActivity,
 } from '@/types/chat-with-data';
 
-/** Remembered PII ticks for one open chat session. sessionStorage, not the
+/** Remembered PII decisions for one open chat session. sessionStorage, not the
  *  backend: nothing about a user's PII choices is persisted server-side in v1.
- *  Dies with the tab, so reopening the thread later starts clean. */
+ *  Dies with the tab, so reopening the thread later starts clean.
+ *
+ *  Two sets, not one: `decided` is every column the user has been shown, `pii`
+ *  the subset they ticked. Without `decided` an untouched checkbox is
+ *  indistinguishable from a column never offered, and the card cannot tell what
+ *  it may stop asking about. */
 const piiStorageKey = (sessionId: number | null) => `dalgo:pii:${sessionId}`;
 
-function readRememberedPii(sessionId: number | null): string[] {
+const EMPTY_PII_MEMORY: PiiMemory = { decided: [], pii: [] };
+
+function readPiiMemory(sessionId: number | null): PiiMemory {
   try {
-    return JSON.parse(sessionStorage.getItem(piiStorageKey(sessionId)) || '[]');
+    const stored = JSON.parse(sessionStorage.getItem(piiStorageKey(sessionId)) || 'null');
+    if (!stored) return EMPTY_PII_MEMORY;
+    // sessions opened before the tri-state change stored a bare array of ticks
+    if (Array.isArray(stored)) return { decided: stored, pii: stored };
+    return { decided: stored.decided || [], pii: stored.pii || [] };
   } catch {
-    return [];
+    return EMPTY_PII_MEMORY;
   }
 }
 
-function rememberPii(sessionId: number | null, columns: string[]) {
-  if (columns.length === 0) return;
+/**
+ * Fold one card's answer into the session's memory. `offered` is every column
+ * the card listed and `ticked` the ones marked personal — so a column the user
+ * deliberately left clear is recorded as decided-and-safe, and a re-tick or an
+ * un-tick of something decided earlier overrides the old answer.
+ */
+function rememberPii(sessionId: number | null, offered: string[], ticked: string[]) {
+  if (offered.length === 0 && ticked.length === 0) return;
   try {
-    const merged = Array.from(new Set([...readRememberedPii(sessionId), ...columns]));
+    const current = readPiiMemory(sessionId);
+    const offeredSet = new Set(offered);
+    const merged: PiiMemory = {
+      decided: Array.from(new Set([...current.decided, ...offered, ...ticked])),
+      pii: Array.from(new Set([...current.pii.filter((key) => !offeredSet.has(key)), ...ticked])),
+    };
     sessionStorage.setItem(piiStorageKey(sessionId), JSON.stringify(merged));
   } catch {
     // private windows and blocked site data throw — a forgotten tick is a
@@ -289,9 +312,9 @@ export function useChatWithData(sessionId: number | null, options: UseChatWithDa
 
   /** Answer a pending approval card; the backend resumes the paused turn */
   const respondToApproval = useCallback(
-    (approve: boolean, piiColumns: string[] = []) => {
+    (approve: boolean, piiColumns: string[] = [], offeredColumns: string[] = []) => {
       liveTurnStartedRef.current = true;
-      if (approve) rememberPii(sessionId, piiColumns);
+      if (approve) rememberPii(sessionId, offeredColumns, piiColumns);
       setMessages((current) => [
         ...resolvePendingInput(current, approve ? 'approved' : 'cancelled'),
         // the resumed turn streams into a fresh assistant bubble below the card
@@ -307,7 +330,7 @@ export function useChatWithData(sessionId: number | null, options: UseChatWithDa
     messages,
     sendMessage,
     respondToApproval,
-    rememberedPiiColumns: readRememberedPii(sessionId),
+    piiMemory: readPiiMemory(sessionId),
     isStreaming,
     isConnected,
   };
