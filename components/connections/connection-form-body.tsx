@@ -44,6 +44,10 @@ import { getConnectionHelp, allowsDedup, type ConnectionConceptId } from './cons
 
 const SCHEMA_DISCOVERY_WS_PATH = 'airbyte/connection/schema_catalog';
 
+// A toast that names every pending table becomes unreadable; past this many the
+// rest collapse into an "and N more" tail.
+const MAX_NAMED_UNCONFIRMED_STREAMS = 3;
+
 export interface ConnectionFormBodyProps {
   mode: FormMode;
   connectionId?: string;
@@ -187,7 +191,6 @@ export function ConnectionFormBody({
     name?: string;
     source?: string;
     streams?: string;
-    columnTypes?: string;
   }>({});
 
   const {
@@ -356,6 +359,16 @@ export function ConnectionFormBody({
     [initializeStreams]
   );
 
+  // Confirmation is per-table, so a save can be blocked by tables the user never
+  // opened. Named in the error so it's obvious which ones are still pending.
+  const unconfirmedStreamNames = React.useMemo(
+    () =>
+      streams
+        .filter((s) => s.selected && (s.columns ?? []).some((c) => c.selected && !c.type_confirmed))
+        .map((s) => s.name),
+    [streams]
+  );
+
   // Required-field check. Returns validity and sets the inline error map; nothing
   // is submitted unless every required field is satisfied.
   const validate = useCallback(() => {
@@ -363,18 +376,32 @@ export function ConnectionFormBody({
       name?: string;
       source?: string;
       streams?: string;
-      columnTypes?: string;
     } = {};
     if (!name.trim()) next.name = 'Connection name is required';
     if (isCreate && !presetSourceId && !selectedSourceId) next.source = 'Source is required';
     if (!hasSelectedStreams) {
       next.streams = 'Select at least one table';
     }
-    if (showCastColumn && hasSelectedStreams && !allSelectedColumnTypesConfirmed) {
-      next.columnTypes = 'Confirm the column type for every selected column before continuing';
-    }
     setErrors(next);
-    return Object.keys(next).length === 0;
+    // Unconfirmed column types are surfaced as a toast, not inline: the table can
+    // be scrolled far away from where an inline message would sit.
+    const columnTypesUnconfirmed =
+      showCastColumn && hasSelectedStreams && !allSelectedColumnTypesConfirmed;
+    if (columnTypesUnconfirmed) {
+      const pending = unconfirmedStreamNames.slice(0, MAX_NAMED_UNCONFIRMED_STREAMS);
+      const extra = unconfirmedStreamNames.length - pending.length;
+      const list = pending.join(', ') + (extra > 0 ? ` and ${extra} more` : '');
+      toastError.api(
+        null,
+        unconfirmedStreamNames.length > 0
+          ? `Confirm the column types for ${list} before continuing`
+          : 'Confirm the column type for every selected column before continuing'
+      );
+      // Open the first pending table so the Confirm control is actually reachable.
+      const [firstPending] = unconfirmedStreamNames;
+      if (firstPending && !expandedStreams.has(firstPending)) toggleStreamExpand(firstPending);
+    }
+    return Object.keys(next).length === 0 && !columnTypesUnconfirmed;
   }, [
     name,
     isCreate,
@@ -383,6 +410,9 @@ export function ConnectionFormBody({
     hasSelectedStreams,
     showCastColumn,
     allSelectedColumnTypesConfirmed,
+    unconfirmedStreamNames,
+    expandedStreams,
+    toggleStreamExpand,
   ]);
 
   const buildPostSyncTransform = useCallback(() => {
@@ -525,15 +555,14 @@ export function ConnectionFormBody({
   // Clear each inline error as soon as the user satisfies it.
   useEffect(() => {
     setErrors((prev) => {
-      if (!prev.name && !prev.source && !prev.streams && !prev.columnTypes) return prev;
+      if (!prev.name && !prev.source && !prev.streams) return prev;
       const next = { ...prev };
       if (name.trim()) delete next.name;
       if (selectedSourceId) delete next.source;
       if (hasSelectedStreams) delete next.streams;
-      if (!showCastColumn || allSelectedColumnTypesConfirmed) delete next.columnTypes;
       return next;
     });
-  }, [name, selectedSourceId, hasSelectedStreams, showCastColumn, allSelectedColumnTypesConfirmed]);
+  }, [name, selectedSourceId, hasSelectedStreams]);
 
   const handleConceptFocus = useCallback((concept: ConnectionConceptId | null) => {
     setActiveConcept(concept);
@@ -799,11 +828,6 @@ export function ConnectionFormBody({
               {errors.streams && (
                 <p className="text-sm text-destructive" data-testid="connection-streams-error">
                   {errors.streams}
-                </p>
-              )}
-              {errors.columnTypes && (
-                <p className="text-sm text-destructive" data-testid="connection-column-types-error">
-                  {errors.columnTypes}
                 </p>
               )}
             </div>
