@@ -121,10 +121,10 @@ describe('ResourceSharingNoticeCarousel', () => {
       screen.getByText(/you retain ultimate oversight allowing you to view, transfer or restrict/i)
     ).toBeInTheDocument();
     expect(screen.queryByTestId('resource-sharing-notice-back')).not.toBeInTheDocument();
-    // Docs link is Member-only
+    // Docs link is shown on every step
     expect(
-      screen.queryByRole('link', { name: /read the full guide on access/i })
-    ).not.toBeInTheDocument();
+      screen.getByRole('link', { name: /read the full guide on access/i })
+    ).toBeInTheDocument();
 
     await user.click(screen.getByTestId('resource-sharing-notice-next'));
     // Step 2: Analyst detail, Back appears
