@@ -63,6 +63,7 @@
     "posthog-js": "^1.378.1",
     "react": "^19.0.0",
     "react-arborist": "^3.4.3",
+    "react-colorful": "^5.8.1",
     "react-day-picker": "^9.6.7",
     "react-dom": "^19.0.0",
     "react-error-boundary": "^6.0.0",
