@@ -749,10 +749,16 @@ describe('InsightWalkthroughCoachmark', () => {
         // The grouped form the copy reads; the bare constant goes into the input.
         expect(popoverDescription()).toContain(`filled in ${WALKTHROUGH_DEFAULT_TARGET_DISPLAY}`)
       );
-      expect(popoverDescription()).toContain('performance thresholds you define');
-      expect(popoverDescription()).toContain('On Track, Needs Attention, or Off Track');
+      expect(popoverDescription()).toContain('based on the sample data for this metric');
       expect(popoverDescription()).not.toContain('figure in mind');
       expect(popoverDescription()).not.toContain('green');
+
+      mountTarget('kpi-form-rag-field');
+      setStage('kpi_thresholds');
+      await waitFor(() =>
+        expect(popoverDescription()).toContain('performance thresholds you define')
+      );
+      expect(popoverDescription()).toContain('On Track, Needs Attention or Off Track');
     });
 
     it('does not move on when a typed field is left empty', async () => {
@@ -985,8 +991,14 @@ describe('InsightWalkthroughCoachmark', () => {
         expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_streams_cast')
       );
       rerender(<InsightWalkthroughCoachmark />);
-      await waitFor(() => expect(popoverTitle()).toContain('Give numbers a number type'));
-      expect(popoverDescription()).toContain('numeric column');
+      await waitFor(() =>
+        expect(popoverTitle()).toContain('Choose the right type for each column')
+      );
+      expect(popoverDescription()).toContain('“String” means Dalgo reads the column as text');
+      expect(popoverDescription()).toContain(
+        'In Column type, choose Numeric for amounts or counts'
+      );
+      expect(popoverDescription()).toContain('Confirm column types for each table');
 
       await userEvent.click(gotIt()!);
 
@@ -1034,8 +1046,12 @@ describe('InsightWalkthroughCoachmark', () => {
       setStage('own_data_streams_cast', { path: 'own_data' });
       render(<InsightWalkthroughCoachmark />);
 
-      await waitFor(() => expect(popoverTitle()).toContain('Give numbers a number type'));
-      expect(popoverDescription()).toContain('Cast to');
+      await waitFor(() =>
+        expect(popoverTitle()).toContain('Choose the right type for each column')
+      );
+      expect(popoverDescription()).toContain(
+        'In Column type, choose Numeric for amounts or counts'
+      );
     });
 
     it('coaches the pipeline fork through the same wizard', async () => {
@@ -1263,7 +1279,7 @@ describe('InsightWalkthroughCoachmark', () => {
 
       render(<InsightWalkthroughCoachmark />);
 
-      await waitFor(() => expect(popoverTitle()).toContain('Track your targets'));
+      await waitFor(() => expect(popoverTitle()).toContain('Start by building your first KPI'));
       expect(useSidebarStore.getState().collapsed).toBe(true);
     });
   });
@@ -1410,7 +1426,7 @@ describe('InsightWalkthroughCoachmark', () => {
         timeout: 5000,
       });
       expect(useInsightWalkthroughStore.getState().active).toBe(true);
-      await waitFor(() => expect(popoverTitle()).toContain('Track your targets'));
+      await waitFor(() => expect(popoverTitle()).toContain('Start by building your first KPI'));
     });
   });
 });

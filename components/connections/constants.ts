@@ -20,6 +20,9 @@ export interface ConnectionConcept {
 // non-engineer reading the panel, rather than abstract ("large dataset").
 const EXAMPLE_ROW_COUNT = '10,000';
 
+export const COLUMN_TYPE_CONFIRMATION_MESSAGE =
+  'Review the column types and click Confirm column types for each selected table before continuing.';
+
 interface HelpOptions {
   // Source offers incremental sync (adds the cursor + full/incremental concepts).
   supportsIncremental?: boolean;

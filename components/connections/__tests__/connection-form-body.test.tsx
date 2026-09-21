@@ -6,12 +6,12 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConnectionFormBody } from '../connection-form-body';
 import { FormMode } from '@/constants/connections';
-import { toastError } from '@/lib/toast';
 import type { Connection } from '@/types/connections';
+import { createConnection } from '@/hooks/api/useConnections';
 
 // ============ Mocks ============
 
@@ -40,14 +40,12 @@ jest.mock('@/hooks/api/useConnections', () => ({
 let mockStreams: unknown[] = [];
 let mockHasSelectedStreams = false;
 let mockAllSelectedColumnTypesConfirmed = true;
-const mockToggleStreamExpand = jest.fn();
 
 afterEach(() => {
   mockConnectionData = null;
   mockStreams = [];
   mockHasSelectedStreams = false;
   mockAllSelectedColumnTypesConfirmed = true;
-  mockToggleStreamExpand.mockClear();
 });
 
 jest.mock('@/hooks/useBackendWebSocket', () => ({
@@ -103,7 +101,7 @@ jest.mock('../hooks/useStreamConfig', () => ({
     toggleColumn: jest.fn(),
     updateCastType: jest.fn(),
     confirmAllColumnTypes: jest.fn(),
-    toggleStreamExpand: mockToggleStreamExpand,
+    toggleStreamExpand: jest.fn(),
     handleIncrementalAllToggle: jest.fn(),
     filteredStreams: mockStreams,
     allSelected: false,
@@ -154,51 +152,14 @@ describe('ConnectionFormBody', () => {
       />
     );
 
-    await user.click(screen.getByTestId('save-connection-btn'));
-
-    // Surfaced as a toast, not inline — the streams table can be scrolled away.
-    expect(toastError.api).toHaveBeenCalledWith(
-      null,
-      'Confirm the column type for every selected column before continuing'
-    );
-  });
-
-  it('names the pending tables and opens the first one', async () => {
-    const user = userEvent.setup();
-    const unconfirmed = (name: string) => ({
-      name,
-      selected: true,
-      columns: [{ name: 'col', selected: true, type_confirmed: false }],
-    });
-    mockStreams = [
-      {
-        name: 'pivottest',
-        selected: true,
-        columns: [{ name: 'col', selected: true, type_confirmed: true }],
-      },
-      unconfirmed('populationbydistrict'),
-      unconfirmed('studentsovertime'),
-    ];
-    mockHasSelectedStreams = true;
-    mockAllSelectedColumnTypesConfirmed = false;
-    (toastError.api as jest.Mock).mockClear();
-
-    render(
-      <ConnectionFormBody
-        mode={FormMode.CREATE}
-        presetSourceId="gs-1"
-        onSuccess={jest.fn()}
-        onCancel={jest.fn()}
-      />
-    );
-
-    await user.click(screen.getByTestId('save-connection-btn'));
-
-    expect(toastError.api).toHaveBeenCalledWith(
-      null,
-      'Confirm the column types for populationbydistrict, studentsovertime before continuing'
-    );
-    expect(mockToggleStreamExpand).toHaveBeenCalledWith('populationbydistrict');
+    const button = screen.getByRole('button', { name: 'Add data' });
+    expect(button).toBeDisabled();
+    const hint = screen.getByRole('status');
+    expect(hint).toHaveTextContent('Confirm column types for each selected table');
+    expect(button).toHaveAccessibleDescription(hint.textContent!);
+    expect(within(hint.parentElement!).getByRole('button', { name: 'Add data' })).toBe(button);
+    await user.click(button);
+    expect(createConnection).not.toHaveBeenCalled();
   });
 
   it('locks the source (no picker) when presetSourceId is given', () => {
@@ -468,9 +429,8 @@ describe('ConnectionFormBody split help + custom view', () => {
   });
 });
 
-it('stops warning about column types once all selected types are confirmed', async () => {
-  // `columns` is needed because, once confirmed, the save path actually runs.
-  mockStreams = [{ name: 'responses', selected: true, columns: [] }];
+it('enables submission after confirmation and disables it again when types need review', () => {
+  mockStreams = [{ name: 'responses', selected: true }];
   mockHasSelectedStreams = true;
   mockAllSelectedColumnTypesConfirmed = false;
   const props = {
@@ -479,21 +439,15 @@ it('stops warning about column types once all selected types are confirmed', asy
     onSuccess: jest.fn(),
     onCancel: jest.fn(),
   };
-  const user = userEvent.setup();
-  (toastError.api as jest.Mock).mockClear();
   const { rerender } = render(<ConnectionFormBody {...props} />);
-  await user.click(screen.getByTestId('save-connection-btn'));
-  expect(toastError.api).toHaveBeenCalledWith(
-    null,
-    'Confirm the column type for every selected column before continuing'
-  );
-
+  expect(screen.getByTestId('save-connection-btn')).toBeDisabled();
+  expect(screen.getByTestId('connection-column-types-error')).toBeInTheDocument();
   mockAllSelectedColumnTypesConfirmed = true;
   rerender(<ConnectionFormBody {...props} />);
-  (toastError.api as jest.Mock).mockClear();
-  await user.click(screen.getByTestId('save-connection-btn'));
-  expect(toastError.api).not.toHaveBeenCalledWith(
-    null,
-    'Confirm the column type for every selected column before continuing'
-  );
+  expect(screen.queryByTestId('connection-column-types-error')).not.toBeInTheDocument();
+  expect(screen.getByTestId('save-connection-btn')).toBeEnabled();
+  mockAllSelectedColumnTypesConfirmed = false;
+  rerender(<ConnectionFormBody {...props} />);
+  expect(screen.getByTestId('save-connection-btn')).toBeDisabled();
+  expect(screen.getByRole('status')).toBeInTheDocument();
 });

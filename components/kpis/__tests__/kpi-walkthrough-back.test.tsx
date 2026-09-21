@@ -7,13 +7,14 @@ import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { createKPI } from '@/hooks/api/useKPIs';
 
 const mockMutate = jest.fn();
+let mockColumns: { name: string; data_type: string }[] = [];
 const mockMetrics = [{ id: 1, name: 'Reach', schema_name: 'public', table_name: 'reach' }];
 jest.mock('next/navigation', () => ({ usePathname: () => '/kpis' }));
 jest.mock('@/hooks/api/useMetrics', () => ({
   useMetrics: () => ({ data: mockMetrics, mutate: mockMutate }),
 }));
 jest.mock('@/hooks/api/useWarehouse', () => ({
-  useTableColumns: (): { data: never[] } => ({ data: [] }),
+  useTableColumns: () => ({ data: mockColumns }),
 }));
 jest.mock('@/hooks/api/useKPIs', () => ({
   useProgramTags: (): { tags: string[] } => ({ tags: [] }),
@@ -43,6 +44,7 @@ jest.mock('../KpiMetricStep', () => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockColumns = [];
   localStorage.clear();
   window.history.replaceState({}, '', '/kpis');
   window.scrollBy = jest.fn();
@@ -72,77 +74,125 @@ function popoverButton(name: string) {
   });
 }
 
-it('keeps entered KPI values through every earlier wizard step and saves exactly once', async () => {
+it.each(['coach', 'form', 'mixed'])(
+  'keeps KPI values through %s Back navigation and saves exactly once',
+  async (backControl) => {
+    const user = userEvent.setup();
+    const onSuccess = jest.fn();
+    render(
+      <>
+        <KPIForm open onOpenChange={jest.fn()} onSuccess={onSuccess} />
+        <InsightWalkthroughCoachmark />
+      </>
+    );
+    await user.click(await screen.findByRole('button', { name: 'Choose Reach' }));
+    await user.click(screen.getByTestId('kpi-form-step1-continue-btn'));
+    await screen.findByTestId('kpi-form-target-field');
+    await user.clear(screen.getByLabelText(/Name this KPI/));
+    await user.type(screen.getByLabelText(/Name this KPI/), 'My retained KPI');
+    await user.clear(targetInput());
+    await user.type(targetInput(), '54321');
+    await user.click(popoverButton('Got it'));
+    await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_direction'));
+    await user.click(popoverButton('Got it'));
+    // No date columns: the conditional time-column hint must be skipped.
+    await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_continue'), {
+      timeout: 3000,
+    });
+    await user.click(screen.getByTestId('kpi-form-continue-btn'));
+    await screen.findByTestId('kpi-form-rag-field');
+    const bands = within(screen.getByTestId('kpi-form-rag-field')).getAllByRole('spinbutton');
+    fireEvent.change(bands[0], { target: { value: '90' } });
+    fireEvent.change(bands[1], { target: { value: '60' } });
+    // Park at Create after filling the wizard. Back/Next only reviews hints, never submits.
+    act(() => useInsightWalkthroughStore.getState().advanceTo('kpi_submit'));
+    const form = screen.getByTestId('kpi-form');
+    for (
+      let count = 0;
+      count < 12 && useInsightWalkthroughStore.getState().stage !== 'kpi_metric';
+      count++
+    ) {
+      await waitFor(() => expect(popoverButton('Back')).toBeEnabled());
+      await user.click(
+        backControl === 'form' || (backControl === 'mixed' && count % 2 === 0)
+          ? screen.getByTestId('kpi-form-back-btn')
+          : popoverButton('Back')
+      );
+      expect(screen.queryByTestId('leave-walkthrough-dialog')).not.toBeInTheDocument();
+    }
+    expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_metric');
+    expect(screen.getByTestId('kpi-form')).toBe(form);
+    expect(createKPI).not.toHaveBeenCalled();
+    for (
+      let count = 0;
+      count < 12 && useInsightWalkthroughStore.getState().stage !== 'kpi_submit';
+      count++
+    ) {
+      await waitFor(() => expect(popoverButton('Next')).toBeEnabled());
+      await user.click(popoverButton('Next'));
+      if (useInsightWalkthroughStore.getState().stage === 'kpi_target') {
+        expect(await screen.findByLabelText(/Name this KPI/)).toHaveValue('My retained KPI');
+        expect(targetInput()).toHaveValue(54321);
+      }
+    }
+    expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_submit');
+    const restoredBands = within(screen.getByTestId('kpi-form-rag-field')).getAllByRole(
+      'spinbutton'
+    );
+    expect(restoredBands[0]).toHaveValue(90);
+    expect(restoredBands[1]).toHaveValue(60);
+    expect(createKPI).not.toHaveBeenCalled();
+    jest
+      .mocked(createKPI)
+      .mockResolvedValueOnce({ id: 99 } as Awaited<ReturnType<typeof createKPI>>);
+    await user.click(screen.getByTestId('kpi-form-submit-btn'));
+    await waitFor(() => expect(createKPI).toHaveBeenCalledTimes(1));
+    expect(createKPI).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metric_id: 1,
+        name: 'My retained KPI',
+        target_value: 54321,
+        green_threshold_pct: 90,
+        amber_threshold_pct: 60,
+        program_tags: ['Education'],
+      })
+    );
+    expect(onSuccess).toHaveBeenCalledWith(99);
+  },
+  15000
+);
+
+it('keeps the date coach on screen while changing the prefilled column and reviewing it again', async () => {
+  mockColumns = [
+    { name: 'date', data_type: 'date' },
+    { name: 'created_at', data_type: 'timestamp' },
+  ];
   const user = userEvent.setup();
-  const onSuccess = jest.fn();
   render(
     <>
-      <KPIForm open onOpenChange={jest.fn()} onSuccess={onSuccess} />
+      <KPIForm open onOpenChange={jest.fn()} onSuccess={jest.fn()} />
       <InsightWalkthroughCoachmark />
     </>
   );
   await user.click(await screen.findByRole('button', { name: 'Choose Reach' }));
   await user.click(screen.getByTestId('kpi-form-step1-continue-btn'));
-  await screen.findByTestId('kpi-form-target-field');
-  await user.clear(screen.getByLabelText(/Name this KPI/));
-  await user.type(screen.getByLabelText(/Name this KPI/), 'My retained KPI');
-  await user.clear(targetInput());
-  await user.type(targetInput(), '54321');
+  await waitFor(() => expect(popoverButton('Got it')).toBeEnabled());
   await user.click(popoverButton('Got it'));
   await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_direction'));
   await user.click(popoverButton('Got it'));
-  // No date columns: the conditional time-column hint must be skipped.
-  await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_continue'), {
-    timeout: 3000,
-  });
-  await user.click(screen.getByTestId('kpi-form-continue-btn'));
-  await screen.findByTestId('kpi-form-rag-field');
-  const bands = within(screen.getByTestId('kpi-form-rag-field')).getAllByRole('spinbutton');
-  fireEvent.change(bands[0], { target: { value: '90' } });
-  fireEvent.change(bands[1], { target: { value: '60' } });
-  // Park at Create after filling the wizard. Back/Next only reviews hints, never submits.
-  act(() => useInsightWalkthroughStore.getState().advanceTo('kpi_submit'));
-  const form = screen.getByTestId('kpi-form');
-  for (
-    let count = 0;
-    count < 12 && useInsightWalkthroughStore.getState().stage !== 'kpi_metric';
-    count++
-  ) {
-    await waitFor(() => expect(popoverButton('Back')).toBeEnabled());
-    await user.click(popoverButton('Back'));
-  }
-  expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_metric');
-  expect(screen.getByTestId('kpi-form')).toBe(form);
+  await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_time_column'));
+  const timeColumn = within(screen.getByTestId('kpi-form-time-column-field')).getByRole('combobox');
+  expect(timeColumn).toHaveTextContent('date');
+  await user.click(timeColumn);
+  await user.click(screen.getByRole('option', { name: 'created_at' }));
+  expect(timeColumn).toHaveTextContent('created_at');
+  expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_time_column');
+  await user.click(popoverButton('Got it'));
+  await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_continue'));
+  await user.click(screen.getByTestId('kpi-form-back-btn'));
+  await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_time_column'));
+  expect(timeColumn).toHaveTextContent('created_at');
+  await user.click(popoverButton('Next'));
+  await waitFor(() => expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_continue'));
   expect(createKPI).not.toHaveBeenCalled();
-  for (
-    let count = 0;
-    count < 12 && useInsightWalkthroughStore.getState().stage !== 'kpi_submit';
-    count++
-  ) {
-    await waitFor(() => expect(popoverButton('Next')).toBeEnabled());
-    await user.click(popoverButton('Next'));
-    if (useInsightWalkthroughStore.getState().stage === 'kpi_target') {
-      expect(await screen.findByLabelText(/Name this KPI/)).toHaveValue('My retained KPI');
-      expect(targetInput()).toHaveValue(54321);
-    }
-  }
-  expect(useInsightWalkthroughStore.getState().stage).toBe('kpi_submit');
-  const restoredBands = within(screen.getByTestId('kpi-form-rag-field')).getAllByRole('spinbutton');
-  expect(restoredBands[0]).toHaveValue(90);
-  expect(restoredBands[1]).toHaveValue(60);
-  expect(createKPI).not.toHaveBeenCalled();
-  jest.mocked(createKPI).mockResolvedValueOnce({ id: 99 } as Awaited<ReturnType<typeof createKPI>>);
-  await user.click(screen.getByTestId('kpi-form-submit-btn'));
-  await waitFor(() => expect(createKPI).toHaveBeenCalledTimes(1));
-  expect(createKPI).toHaveBeenCalledWith(
-    expect.objectContaining({
-      metric_id: 1,
-      name: 'My retained KPI',
-      target_value: 54321,
-      green_threshold_pct: 90,
-      amber_threshold_pct: 60,
-      program_tags: ['Education'],
-    })
-  );
-  expect(onSuccess).toHaveBeenCalledWith(99);
-}, 15000);
+});

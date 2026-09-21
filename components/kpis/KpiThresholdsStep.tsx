@@ -141,7 +141,7 @@ export function KpiThresholdsStep({
       {/* RAG Thresholds */}
       {targetValue && (
         <>
-          <p className="text-sm text-muted-foreground font-medium mb-1">Target &amp; RAG Status</p>
+          <p className="text-sm text-muted-foreground font-medium mb-1">KPI status</p>
           {/* One coachmark target for all three bands — they are a single decision, and
               highlighting the green input alone pointed away from the other two. */}
           <div className="grid grid-cols-3 gap-3" data-testid="kpi-form-rag-field">

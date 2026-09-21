@@ -24,7 +24,10 @@ import {
   type KpiCreateSource,
 } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
-import { KPI_STAGE_STEP } from '@/components/onboarding/walkthrough-navigation';
+import {
+  KPI_STAGE_STEP,
+  previousReviewStage,
+} from '@/components/onboarding/walkthrough-navigation';
 import {
   WALKTHROUGH_DEFAULT_KPI_TYPE,
   WALKTHROUGH_DEFAULT_PROGRAM_TAG,
@@ -185,14 +188,15 @@ export function KPIForm({
   });
 
   const metricId = watch('metric_id');
+  const walkthroughActive = useInsightWalkthroughStore((s) => s.active);
   const walkthroughStage = useInsightWalkthroughStore((s) => s.stage);
   useEffect(() => {
     const reviewStep = walkthroughStage && KPI_STAGE_STEP[walkthroughStage];
-    if (open && !isEdit && reviewStep) {
+    if (open && !isEdit && walkthroughActive && reviewStep) {
       setStep(reviewStep);
       setStepError(null);
     }
-  }, [open, isEdit, walkthroughStage]);
+  }, [open, isEdit, walkthroughActive, walkthroughStage]);
   const timeDimensionColumn = watch('time_dimension_column');
 
   // No advance-on-value effects here for target_value, time_dimension_column or
@@ -217,6 +221,29 @@ export function KPIForm({
     if (!tableColumns) return [];
     return tableColumns.filter((col) => DATE_TYPES.includes((col.data_type || '').toLowerCase()));
   }, [tableColumns]);
+
+  const walkthroughPath = useInsightWalkthroughStore((s) => s.path);
+  const isGuidedStep =
+    !isEdit && walkthroughActive && walkthroughStage && !!KPI_STAGE_STEP[walkthroughStage];
+  const previousGuidedStage = isGuidedStep
+    ? previousReviewStage(
+        walkthroughPath,
+        walkthroughStage,
+        (candidate) =>
+          !!KPI_STAGE_STEP[candidate] && (candidate !== 'kpi_time_column' || dateColumns.length > 0)
+      )
+    : null;
+
+  const handleBack = () => {
+    if (isGuidedStep) {
+      // Use the coach's review order, including conditional fields. Rewinding restores
+      // the matching wizard step through the effect above without resetting the form.
+      if (previousGuidedStage) useInsightWalkthroughStore.getState().rewindTo(previousGuidedStage);
+      return;
+    }
+    setStep((current) => (current - 1) as Step);
+    setStepError(null);
+  };
 
   useEffect(() => {
     if (open) {
@@ -525,12 +552,11 @@ export function KPIForm({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             CANCEL
           </Button>
-          {/* Back button — step 2 in create mode, or step 3 */}
-          {((!isEdit && step === 2) || step === 3) && (
+          {(isGuidedStep ? previousGuidedStage : (!isEdit && step === 2) || step === 3) && (
             <Button
               type="button"
               variant="outline"
-              onClick={() => setStep((s) => (s - 1) as Step)}
+              onClick={handleBack}
               data-testid="kpi-form-back-btn"
             >
               Back
