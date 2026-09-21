@@ -142,7 +142,9 @@ export function KpiThresholdsStep({
       {targetValue && (
         <>
           <p className="text-sm text-muted-foreground font-medium mb-1">Target &amp; RAG Status</p>
-          <div className="grid grid-cols-3 gap-3">
+          {/* One coachmark target for all three bands — they are a single decision, and
+              highlighting the green input alone pointed away from the other two. */}
+          <div className="grid grid-cols-3 gap-3" data-testid="kpi-form-rag-field">
             <div className="space-y-1">
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
@@ -212,7 +214,7 @@ export function KpiThresholdsStep({
 
       {/* Classification */}
       <p className="text-sm text-muted-foreground font-medium mt-2 mb-1">Classification</p>
-      <div className="space-y-1">
+      <div className="space-y-1" data-testid="kpi-form-program-tags-field">
         <Label>Program Tags</Label>
         <Controller
           control={control}

@@ -20,7 +20,11 @@ import {
   triggerSync,
 } from '@/hooks/api/useConnections';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
-import { CONNECTION_WATCH_STAGES } from '@/components/onboarding/insight-walkthrough-constants';
+import {
+  CONNECTION_WATCH_STAGES,
+  WIZARD_CAST_SKIP_STAGE_FOR,
+  WIZARD_STREAMS_ENTRY_STAGE_FOR,
+} from '@/components/onboarding/insight-walkthrough-constants';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import {
   SyncMode,
@@ -39,6 +43,10 @@ import { ConnectionHelpPanel } from './connection-help-panel';
 import { getConnectionHelp, allowsDedup, type ConnectionConceptId } from './constants';
 
 const SCHEMA_DISCOVERY_WS_PATH = 'airbyte/connection/schema_catalog';
+
+// A toast that names every pending table becomes unreadable; past this many the
+// rest collapse into an "and N more" tail.
+const MAX_NAMED_UNCONFIRMED_STREAMS = 3;
 
 export interface ConnectionFormBodyProps {
   mode: FormMode;
@@ -146,8 +154,14 @@ export function ConnectionFormBody({
     [sourceDefName]
   );
   const showCastColumn = sourceDefName ? isCastSupportedSource(sourceDefName) : false;
+  // Subscribed, not read once: the cast-skip effect below has to fire when the walkthrough
+  // ARRIVES at the cast stage, which happens while this form is already on screen.
+  const walkthroughStage = useInsightWalkthroughStore((state) => state.stage);
+
   const [activeConcept, setActiveConcept] = useState<ConnectionConceptId | null>(null);
-  const [helpPanelOpen, setHelpPanelOpen] = useState(true);
+  // Collapsed to its rail by default — open, it took a third of the modal from the table. Opens
+  // on demand: the rail, or clicking any term the form labels (see handleConceptFocus).
+  const [helpPanelOpen, setHelpPanelOpen] = useState(false);
 
   // Help-panel cards tailored to this source's capabilities. Custom sources
   // (Sheets/Kobo) only show the concepts that apply; everything else gets the
@@ -173,7 +187,11 @@ export function ConnectionFormBody({
   const [isSaving, setIsSaving] = useState(false);
   // Inline required-field errors, surfaced on Save (matches the alerts/KPI pattern:
   // the button stays clickable and pressing it reveals what's missing).
-  const [errors, setErrors] = useState<{ name?: string; source?: string; streams?: string }>({});
+  const [errors, setErrors] = useState<{
+    name?: string;
+    source?: string;
+    streams?: string;
+  }>({});
 
   const {
     streams,
@@ -190,12 +208,46 @@ export function ConnectionFormBody({
     updateStreamPrimaryKey,
     toggleColumn,
     updateCastType,
+    confirmAllColumnTypes,
     toggleStreamExpand,
     handleIncrementalAllToggle,
     filteredStreams,
     allSelected,
     hasSelectedStreams,
+    allSelectedColumnTypesConfirmed,
   } = useStreamConfig();
+
+  // Hand the walkthrough over to this step's coachmarks. Unlike the configure step before it,
+  // this form looks the same whatever source was picked, so every run enters here — including
+  // the ones that skipped the Google-Sheets-only configure coachmarks. `advanceIfBefore` keeps
+  // that honest in both directions: a Sheets run is already past this stage, and a Postgres run
+  // is jumped forward from the picker's Next stage, which is exactly the intent.
+  //
+  // Creation only. Editing an existing connection is the user's own business, and advancing a
+  // half-finished walkthrough off the back of it would move them somewhere they never went.
+  useEffect(() => {
+    // Not on mount: on stream discovery finishing. Both coachmarks here point at parts of the
+    // table (the scroll hint, a cast dropdown), and none of that markup exists while discovery
+    // is still running. Entering early meant each stage waited out its timeout, decided its
+    // target was never coming, and hopped to the next one — so the user saw neither Got it and
+    // landed straight on "click Create".
+    if (!isCreate || isDiscovering || streams.length === 0) return;
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (!walkthrough.active || !walkthrough.path) return;
+    const entry = WIZARD_STREAMS_ENTRY_STAGE_FOR[walkthrough.path];
+    if (entry) walkthrough.advanceIfBefore(entry);
+  }, [isCreate, isDiscovering, streams.length]);
+
+  // Casting is offered for Google Sheets alone, so for any other source the "cast a numeric
+  // column" coachmark points at a column the table never renders. Step over it rather than
+  // leave the walkthrough waiting on something that cannot appear.
+  useEffect(() => {
+    if (!isCreate || showCastColumn) return;
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (!walkthrough.active || !walkthrough.stage) return;
+    const skipTo = WIZARD_CAST_SKIP_STAGE_FOR[walkthrough.stage];
+    if (skipTo) walkthrough.advanceIfBefore(skipTo);
+  }, [isCreate, showCastColumn, walkthroughStage]);
 
   // Create mode: prefill a default connection name once the source-definition
   // name resolves (it loads async via useSources). Functional update only fills
@@ -307,18 +359,61 @@ export function ConnectionFormBody({
     [initializeStreams]
   );
 
+  // Confirmation is per-table, so a save can be blocked by tables the user never
+  // opened. Named in the error so it's obvious which ones are still pending.
+  const unconfirmedStreamNames = React.useMemo(
+    () =>
+      streams
+        .filter((s) => s.selected && (s.columns ?? []).some((c) => c.selected && !c.type_confirmed))
+        .map((s) => s.name),
+    [streams]
+  );
+
   // Required-field check. Returns validity and sets the inline error map; nothing
   // is submitted unless every required field is satisfied.
   const validate = useCallback(() => {
-    const next: { name?: string; source?: string; streams?: string } = {};
+    const next: {
+      name?: string;
+      source?: string;
+      streams?: string;
+    } = {};
     if (!name.trim()) next.name = 'Connection name is required';
     if (isCreate && !presetSourceId && !selectedSourceId) next.source = 'Source is required';
     if (!hasSelectedStreams) {
       next.streams = 'Select at least one table';
     }
     setErrors(next);
-    return Object.keys(next).length === 0;
-  }, [name, isCreate, presetSourceId, selectedSourceId, hasSelectedStreams, connectionView]);
+    // Unconfirmed column types are surfaced as a toast, not inline: the table can
+    // be scrolled far away from where an inline message would sit.
+    const columnTypesUnconfirmed =
+      showCastColumn && hasSelectedStreams && !allSelectedColumnTypesConfirmed;
+    if (columnTypesUnconfirmed) {
+      const pending = unconfirmedStreamNames.slice(0, MAX_NAMED_UNCONFIRMED_STREAMS);
+      const extra = unconfirmedStreamNames.length - pending.length;
+      const list = pending.join(', ') + (extra > 0 ? ` and ${extra} more` : '');
+      toastError.api(
+        null,
+        unconfirmedStreamNames.length > 0
+          ? `Confirm the column types for ${list} before continuing`
+          : 'Confirm the column type for every selected column before continuing'
+      );
+      // Open the first pending table so the Confirm control is actually reachable.
+      const [firstPending] = unconfirmedStreamNames;
+      if (firstPending && !expandedStreams.has(firstPending)) toggleStreamExpand(firstPending);
+    }
+    return Object.keys(next).length === 0 && !columnTypesUnconfirmed;
+  }, [
+    name,
+    isCreate,
+    presetSourceId,
+    selectedSourceId,
+    hasSelectedStreams,
+    showCastColumn,
+    allSelectedColumnTypesConfirmed,
+    unconfirmedStreamNames,
+    expandedStreams,
+    toggleStreamExpand,
+  ]);
 
   const buildPostSyncTransform = useCallback(() => {
     const ops = streams
@@ -719,6 +814,7 @@ export function ConnectionFormBody({
                   onToggleStreamExpand={toggleStreamExpand}
                   onToggleColumn={toggleColumn}
                   onUpdateCastType={updateCastType}
+                  onConfirmAllColumnTypes={confirmAllColumnTypes}
                   showCastColumn={showCastColumn}
                   streamNoun={connectionView?.streamNoun}
                   showIncremental={connectionView ? connectionView.supportsIncremental : true}

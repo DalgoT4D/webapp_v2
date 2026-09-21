@@ -12,8 +12,10 @@ import { DashboardNativeView } from '@/components/dashboard/dashboard-native-vie
 import { IndividualDashboardView } from '@/components/dashboard/individual-dashboard-view';
 import { DocsLink } from '@/components/ui/docs-link';
 import { useDashboard } from '@/hooks/api/useDashboards';
+import { useMarkImpactPageReady } from '@/components/onboarding/onboarding-route-readiness';
 
 export default function ImpactAtAGlancePage() {
+  useMarkImpactPageReady();
   const router = useRouter();
   const { getCurrentOrgUser } = useAuthStore();
   const currentUser = getCurrentOrgUser();
