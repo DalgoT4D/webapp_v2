@@ -4,7 +4,8 @@
  * drives) and how we read its verdict back — picked vs closed.
  */
 
-import { pickSpreadsheet, PickerCancelledError } from '../google-picker';
+import { waitFor } from '@testing-library/react';
+import { GOOGLE_PICKER_TESTID, pickSpreadsheet, PickerCancelledError } from '../google-picker';
 
 /** What one DocsView was configured with. */
 interface FakeView {
@@ -118,6 +119,65 @@ afterEach(() => {
   delete window.google;
   document.body.style.pointerEvents = '';
   document.getElementById('dalgo-picker-pointer-events')?.remove();
+  document.querySelector('.picker-dialog')?.remove();
+});
+
+/**
+ * Google's dialog, appended to document.body exactly as the real Picker appends its own.
+ * Returned so a test can assert what was stamped on it.
+ */
+function addPickerDialog(): HTMLElement {
+  const dialog = document.createElement('div');
+  dialog.className = 'picker-dialog';
+  document.body.appendChild(dialog);
+  return dialog;
+}
+
+/**
+ * The walkthrough points a coachmark at the Picker, and its container is the only part of the
+ * dialog we can address — everything inside it is a cross-origin iframe. Google's class name is
+ * translated into a testid of ours here so nothing outside this module depends on it.
+ */
+describe('marking the Picker dialog for the walkthrough coachmark', () => {
+  it('stamps a container that is already on the page', async () => {
+    const calls = installFakePicker();
+    const dialog = addPickerDialog();
+
+    const pending = pickSpreadsheet(CONFIG);
+    await Promise.resolve();
+
+    expect(dialog.getAttribute('data-testid')).toBe(GOOGLE_PICKER_TESTID);
+
+    calls.callback!({ action: 'picked', docs: [DOC] });
+    await pending;
+  });
+
+  it('stamps a container Google creates after the call', async () => {
+    const calls = installFakePicker();
+
+    const pending = pickSpreadsheet(CONFIG);
+    await Promise.resolve();
+    const dialog = addPickerDialog();
+
+    await waitFor(() => expect(dialog.getAttribute('data-testid')).toBe(GOOGLE_PICKER_TESTID));
+
+    calls.callback!({ action: 'picked', docs: [DOC] });
+    await pending;
+  });
+
+  it('stops watching once the Picker is done, so a later dialog is left alone', async () => {
+    const calls = installFakePicker();
+
+    const pending = pickSpreadsheet(CONFIG);
+    await Promise.resolve();
+    calls.callback!({ action: 'cancel' });
+    await expect(pending).rejects.toBeInstanceOf(PickerCancelledError);
+
+    const laterDialog = addPickerDialog();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(laterDialog.hasAttribute('data-testid')).toBe(false);
+  });
 });
 
 /**

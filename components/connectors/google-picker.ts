@@ -86,6 +86,57 @@ const FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder';
 const PICKER_POINTER_EVENTS_STYLE_ID = 'dalgo-picker-pointer-events';
 const PICKER_CONTAINER_SELECTORS = '.picker-dialog, .picker-dialog-bg';
 
+/**
+ * Our own handle on the Picker's outer container, so nothing outside this file has to know
+ * Google's class names.
+ *
+ * The onboarding walkthrough points a coachmark at the Picker (see the `*_sheet_picker` stages),
+ * and this container is the only part of it we can address: its contents are a cross-origin
+ * iframe. Stamped rather than wrapped because Google appends the dialog straight to
+ * document.body, leaving nothing for us to wrap it in.
+ */
+export const GOOGLE_PICKER_TESTID = 'google-picker-dialog';
+
+/** How long to keep watching for Google's dialog before giving up on the stamp. The Picker's DOM
+ *  is created synchronously by `setVisible(true)` in practice, but that is Google's business, so
+ *  this observes rather than assumes. Missing the stamp costs a coachmark, never a pick. */
+const PICKER_STAMP_TIMEOUT_MS = 10000;
+
+/**
+ * Put GOOGLE_PICKER_TESTID on the Picker's container as soon as it exists; returns the teardown.
+ *
+ * Idempotent and failure-tolerant by design: every exit path (picked, cancelled, open failed)
+ * calls the teardown, and a container that never appeared simply leaves nothing to clean up.
+ */
+function stampPickerContainer(): () => void {
+  let observer: MutationObserver | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const stop = () => {
+    observer?.disconnect();
+    observer = null;
+    if (timer !== null) clearTimeout(timer);
+    timer = null;
+  };
+
+  const stamp = (): boolean => {
+    const dialog = document.querySelector<HTMLElement>('.picker-dialog');
+    if (!dialog) return false;
+    dialog.dataset.testid = GOOGLE_PICKER_TESTID;
+    return true;
+  };
+
+  if (!stamp()) {
+    observer = new MutationObserver(() => {
+      if (stamp()) stop();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    timer = setTimeout(stop, PICKER_STAMP_TIMEOUT_MS);
+  }
+
+  return stop;
+}
+
 function ensurePickerPointerEventsStyle(): void {
   if (document.getElementById(PICKER_POINTER_EVENTS_STYLE_ID)) return;
   const style = document.createElement('style');
@@ -170,6 +221,13 @@ export async function pickSpreadsheet(config: GooglePickerConfig): Promise<Picke
 
   ensurePickerPointerEventsStyle();
   const relockBody = unlockBodyPointerEvents();
+  const stopStamping = stampPickerContainer();
+  // Both run on every terminal path, in the same order, so neither the body lock nor the
+  // observer can outlive the dialog.
+  const teardown = () => {
+    stopStamping();
+    relockBody();
+  };
 
   return new Promise<PickedSpreadsheet>((resolve, reject) => {
     // Two views, one per tab: `setEnableDrives(true)` re-roots a view at the shared-drive list,
@@ -209,14 +267,14 @@ export async function pickSpreadsheet(config: GooglePickerConfig): Promise<Picke
         // dialog is still up, so the lock goes back only on the ones that settle the promise.
         if (data.action === picker.Action.PICKED) {
           const doc = data.docs?.[0];
-          relockBody();
+          teardown();
           if (!doc) {
             reject(new PickerCancelledError());
             return;
           }
           resolve({ id: doc.id, name: doc.name, url: doc.url });
         } else if (data.action === picker.Action.CANCEL) {
-          relockBody();
+          teardown();
           reject(new PickerCancelledError());
         }
       })
@@ -226,7 +284,7 @@ export async function pickSpreadsheet(config: GooglePickerConfig): Promise<Picke
       built.setVisible(true);
     } catch (err) {
       // never leave the host modal unlocked because the Picker failed to open
-      relockBody();
+      teardown();
       throw err;
     }
   });

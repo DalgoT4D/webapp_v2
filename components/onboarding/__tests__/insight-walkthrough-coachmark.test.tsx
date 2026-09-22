@@ -893,12 +893,12 @@ describe('InsightWalkthroughCoachmark', () => {
 
   describe('the add-source wizard stages', () => {
     /** The wizard is a dialog on /ingest, and its stages are coached from inside it. */
-    function mountWizard(inner: HTMLElement): HTMLElement {
+    function mountWizard(...inner: HTMLElement[]): HTMLElement {
       mockPathname = '/ingest';
       window.history.pushState({}, '', '/ingest');
       const dialog = document.createElement('div');
       dialog.setAttribute('role', 'dialog');
-      dialog.appendChild(inner);
+      dialog.append(...inner);
       document.body.appendChild(dialog);
       return dialog;
     }
@@ -913,50 +913,116 @@ describe('InsightWalkthroughCoachmark', () => {
       return document.querySelector('.dalgo-tour-next-btn');
     }
 
-    it('asks for the sheet link, and moves on once one is pasted', async () => {
-      const input = document.createElement('input');
-      const field = el('gsheets-primary-fields');
-      field.appendChild(input);
-      mountWizard(field);
-      setStage('own_data_sheet_link', { path: 'own_data' });
+    it('hands off to the Picker stage when Sign in with Google is clicked', async () => {
+      const panel = el('gsheets-auth-method');
+      const signIn = el('gsheets-oauth-connect-btn', 'button');
+      panel.appendChild(signIn);
+      mountWizard(panel);
+      setStage('own_data_sheet_auth', { path: 'own_data' });
       render(<InsightWalkthroughCoachmark />);
-      await waitFor(() => expect(popoverTitle()).toContain('Point us at your sheet'));
+      await waitFor(() => expect(popoverTitle()).toContain('Sign in with Google'));
 
-      await userEvent.type(input, 'https://docs.google.com/spreadsheets/d/abc/edit');
-      act(() => input.dispatchEvent(new FocusEvent('blur')));
+      await userEvent.click(signIn);
 
       await waitFor(() =>
-        expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_sheet_auth')
+        expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_sheet_picker')
       );
     });
 
-    it('explains sharing the sheet and waits for Got it', async () => {
-      // The user has to leave for Google Sheets and come back, so a click on the panel must not
-      // dismiss the instructions they are still following.
+    it('does not hand off when the service-account route is chosen instead', async () => {
+      // The listener sits on the sign-in button, not the highlighted panel: a click on the
+      // service-account radio is a user taking the other route, not signing in.
+      const panel = el('gsheets-auth-method');
+      const signIn = el('gsheets-oauth-connect-btn', 'button');
+      const serviceRadio = el('gsheets-auth-service-radio', 'button');
+      panel.append(signIn, serviceRadio);
+      mountWizard(panel);
+      setStage('own_data_sheet_auth', { path: 'own_data' });
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Sign in with Google'));
+
+      await userEvent.click(serviceRadio);
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 50));
+      });
+
+      expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_sheet_auth');
+    });
+
+    it('lets Got it move past the sign-in coachmark', async () => {
       const panel = el('gsheets-auth-method');
       mountWizard(panel);
       setStage('own_data_sheet_auth', { path: 'own_data' });
       render(<InsightWalkthroughCoachmark />);
-      await waitFor(() => expect(popoverTitle()).toContain('Let Dalgo read it'));
-
-      await userEvent.click(panel);
-      expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_sheet_auth');
+      await waitFor(() => expect(popoverTitle()).toContain('Sign in with Google'));
 
       await userEvent.click(gotIt()!);
 
       await waitFor(() =>
-        expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_config_next')
+        expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_sheet_picker')
       );
     });
 
-    it('falls back to the plain sign-in form where no managed key is offered', async () => {
-      // Deployments without a managed service account render the sign-in block instead, and the
-      // stage takes whichever is on screen rather than assuming a configuration.
+    it('falls back to the plain sign-in form where no auth choice is offered', async () => {
+      // Deployments whose spec offers no choice render the sign-in block alone, and the stage
+      // takes whichever is on screen rather than assuming a configuration.
       mountWizard(el('google-sheets-form'));
       setStage('own_data_sheet_auth', { path: 'own_data' });
       render(<InsightWalkthroughCoachmark />);
 
-      await waitFor(() => expect(popoverTitle()).toContain('Let Dalgo read it'));
+      await waitFor(() => expect(popoverTitle()).toContain('Sign in with Google'));
+    });
+
+    it('points at Google’s own Picker dialog', async () => {
+      // The Picker's contents are a cross-origin iframe, so its outer container (stamped by
+      // google-picker.ts) is the only thing the coachmark can address.
+      const pickerDialog = el('google-picker-dialog');
+      mountWizard(pickerDialog);
+      setStage('own_data_sheet_picker', { path: 'own_data' });
+      render(<InsightWalkthroughCoachmark />);
+
+      await waitFor(() => expect(popoverTitle()).toContain('Pick the sheet to sync'));
+    });
+
+    it('offers no way past the Picker but choosing a sheet', async () => {
+      // A Got it here let the user dismiss their way onto "Create the source" with the Picker
+      // still open and no sheet chosen — pointing at a button behind Google's dialog, telling
+      // them to create a source with nothing to sync. Only the real pick advances this, and
+      // CreateSourceStep owns that signal.
+      const pickerDialog = el('google-picker-dialog');
+      mountWizard(pickerDialog);
+      setStage('own_data_sheet_picker', { path: 'own_data' });
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Pick the sheet to sync'));
+
+      // By label, not by presence: the same footer slot carries the Back/Next review buttons,
+      // and those are a different affordance — they step through stages already visited.
+      expect(gotIt()?.textContent ?? null).not.toBe('Got it');
+
+      await userEvent.click(pickerDialog);
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 50));
+      });
+
+      expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_sheet_picker');
+    });
+
+    it('keeps the sign-in button live so a cancelled Picker can be reopened', async () => {
+      // Closing Google's dialog without choosing leaves this stage waiting on a target that is
+      // gone. The button that reopens it is the one thing that must stay clickable.
+      const panel = el('gsheets-auth-method');
+      const signIn = el('gsheets-oauth-connect-btn', 'button');
+      const onSignIn = jest.fn();
+      signIn.addEventListener('click', onSignIn);
+      panel.appendChild(signIn);
+      mountWizard(panel, el('google-picker-dialog'));
+      setStage('own_data_sheet_picker', { path: 'own_data' });
+      render(<InsightWalkthroughCoachmark />);
+      await waitFor(() => expect(popoverTitle()).toContain('Pick the sheet to sync'));
+
+      await userEvent.click(signIn);
+
+      expect(onSignIn).toHaveBeenCalled();
     });
 
     it('rings Next on the configure step without advancing on the click', async () => {

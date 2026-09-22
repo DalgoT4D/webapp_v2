@@ -210,10 +210,10 @@ export function GoogleSheetsForm({
 
   return (
     <div className="space-y-4" data-testid="google-sheets-form">
-      {/* Wrapped so the onboarding walkthrough has one element to point at for "paste your
-          sheet link". The fields are spec-driven, so none of them carries a testid of its own.
-          `space-y-4` is repeated here because the wrapper collapses these into a single child
-          of the parent's stack, which would otherwise close the gaps between them. */}
+      {/* Wrapped so anything outside this form has one element to address these by. The fields
+          are spec-driven, so none of them carries a testid of its own. `space-y-4` is repeated
+          here because the wrapper collapses these into a single child of the parent's stack,
+          which would otherwise close the gaps between them. */}
       <div className="space-y-4" data-testid="gsheets-primary-fields">
         {primary.map((field) => (
           <div key={field.path.join('.')}>{renderField(field, control, setValue, disabled)}</div>

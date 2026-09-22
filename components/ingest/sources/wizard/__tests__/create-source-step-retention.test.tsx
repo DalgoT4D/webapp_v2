@@ -93,21 +93,19 @@ it('retains the sheet URL, authentication choice and entered key during Back/Nex
     within(document.querySelector('.driver-popover') as HTMLElement).getByRole('button', {
       name,
     });
+  await waitFor(() => expect(document.querySelector('.driver-popover')).toBeTruthy());
   await waitFor(() => expect(button('Back')).toBeVisible());
+  // The Picker stage in between is skipped in both directions: its target is Google's own
+  // dialog, which is only on screen while the Picker is actually open (see canReviewStage).
   await user.click(button('Back'));
   await waitFor(() =>
     expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_sheet_auth')
   );
-  await user.click(button('Back'));
-  await waitFor(() =>
-    expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_sheet_link')
-  );
+  await waitFor(() => expect(button('Next')).toBeVisible());
   await user.click(button('Next'));
   await waitFor(() =>
-    expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_sheet_auth')
+    expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_config_next')
   );
-  await user.click(button('Next'));
-  expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_config_next');
   expect(sheet).toHaveValue('https://docs.google.com/spreadsheets/d/test-sheet/edit');
   expect(key).toHaveValue(savedKey);
   expect(screen.getByTestId('gsheets-service-option-radio')).toBeChecked();

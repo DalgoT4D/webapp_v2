@@ -29,7 +29,10 @@ import { SourceConfigFields } from '@/components/ingest/sources/SourceConfigFiel
 import { GSHEETS_KEY_SPREADSHEET } from '@/components/ingest/sources/custom/constants';
 import { isGoogleSheetsSource } from '@/components/ingest/sources/custom/registry';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
-import { WIZARD_CONFIG_ENTRY_STAGE_FOR } from '@/components/onboarding/insight-walkthrough-constants';
+import {
+  SHEET_PICKED_STAGE_FOR,
+  WIZARD_CONFIG_ENTRY_STAGE_FOR,
+} from '@/components/onboarding/insight-walkthrough-constants';
 import type { CustomSourceOAuth } from '@/components/ingest/sources/custom/types';
 
 interface Props {
@@ -44,10 +47,10 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
   const isGoogleSheets = isGoogleSheetsSource(def.name);
 
   // Hand the walkthrough over to this step's own coachmarks — but only for Google Sheets.
-  // Every stage here names a field that belongs to Google's form (the spreadsheet link, the
-  // sharing instructions), so a Postgres or Kobo run would be coached about controls it does
-  // not have. Those runs stay on the picker's Next stage, which is where the guidance used to
-  // stop for everyone, and rejoin at the connection step (see connection-form-body.tsx).
+  // Every stage here names part of Google's own sign-in (the sign-in button, the Picker it
+  // ends in), so a Postgres or Kobo run would be coached about controls it does not have.
+  // Those runs stay on the picker's Next stage, which is where the guidance used to stop for
+  // everyone, and rejoin at the connection step (see connection-form-body.tsx).
   useEffect(() => {
     if (!isGoogleSheets) return;
     const walkthrough = useInsightWalkthroughStore.getState();
@@ -149,6 +152,16 @@ export function CreateSourceStep({ def, onCreated, onBack }: Props) {
         shouldDirty: true,
       });
       setPickedSheet({ name: spreadsheet.name, url: spreadsheet.url });
+
+      // The one signal the Picker coachmark can't produce for itself: its target is Google's
+      // dialog, which is already gone by the time the pick lands here. `advanceIfBefore` so a
+      // second trip through the Picker ("Choose another sheet") can't drag a run that has
+      // already moved on back to the wizard's Next button.
+      const walkthrough = useInsightWalkthroughStore.getState();
+      if (walkthrough.active && walkthrough.stage) {
+        const picked = SHEET_PICKED_STAGE_FOR[walkthrough.stage];
+        if (picked) walkthrough.advanceIfBefore(picked);
+      }
     },
     [setValue]
   );
