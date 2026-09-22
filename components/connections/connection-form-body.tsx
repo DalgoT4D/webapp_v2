@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useId } from 'react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { ReadyState } from 'react-use-websocket';
@@ -20,7 +20,11 @@ import {
   triggerSync,
 } from '@/hooks/api/useConnections';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
-import { CONNECTION_WATCH_STAGES } from '@/components/onboarding/insight-walkthrough-constants';
+import {
+  CONNECTION_WATCH_STAGES,
+  WIZARD_CAST_SKIP_STAGE_FOR,
+  WIZARD_STREAMS_ENTRY_STAGE_FOR,
+} from '@/components/onboarding/insight-walkthrough-constants';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import {
   SyncMode,
@@ -36,7 +40,12 @@ import { useStreamConfig } from './hooks/useStreamConfig';
 import { StreamConfigTable } from './stream-config-table';
 import { getCustomSource } from '@/components/ingest/sources/custom/registry';
 import { ConnectionHelpPanel } from './connection-help-panel';
-import { getConnectionHelp, allowsDedup, type ConnectionConceptId } from './constants';
+import {
+  getConnectionHelp,
+  allowsDedup,
+  COLUMN_TYPE_CONFIRMATION_MESSAGE,
+  type ConnectionConceptId,
+} from './constants';
 
 const SCHEMA_DISCOVERY_WS_PATH = 'airbyte/connection/schema_catalog';
 
@@ -146,8 +155,14 @@ export function ConnectionFormBody({
     [sourceDefName]
   );
   const showCastColumn = sourceDefName ? isCastSupportedSource(sourceDefName) : false;
+  // Subscribed, not read once: the cast-skip effect below has to fire when the walkthrough
+  // ARRIVES at the cast stage, which happens while this form is already on screen.
+  const walkthroughStage = useInsightWalkthroughStore((state) => state.stage);
+
   const [activeConcept, setActiveConcept] = useState<ConnectionConceptId | null>(null);
-  const [helpPanelOpen, setHelpPanelOpen] = useState(true);
+  // Collapsed to its rail by default — open, it took a third of the modal from the table. Opens
+  // on demand: the rail, or clicking any term the form labels (see handleConceptFocus).
+  const [helpPanelOpen, setHelpPanelOpen] = useState(false);
 
   // Help-panel cards tailored to this source's capabilities. Custom sources
   // (Sheets/Kobo) only show the concepts that apply; everything else gets the
@@ -171,9 +186,14 @@ export function ConnectionFormBody({
   const [discoveredCatalog, setDiscoveredCatalog] = useState<SyncCatalog | null>(null);
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  // Inline required-field errors, surfaced on Save (matches the alerts/KPI pattern:
-  // the button stays clickable and pressing it reveals what's missing).
-  const [errors, setErrors] = useState<{ name?: string; source?: string; streams?: string }>({});
+  // Other required-field errors are surfaced on Save; pending type confirmations
+  // are explained beside the disabled action before the user tries to submit.
+  const [errors, setErrors] = useState<{
+    name?: string;
+    source?: string;
+    streams?: string;
+    columnTypes?: string;
+  }>({});
 
   const {
     streams,
@@ -190,12 +210,50 @@ export function ConnectionFormBody({
     updateStreamPrimaryKey,
     toggleColumn,
     updateCastType,
+    confirmAllColumnTypes,
     toggleStreamExpand,
     handleIncrementalAllToggle,
     filteredStreams,
     allSelected,
     hasSelectedStreams,
+    allSelectedColumnTypesConfirmed,
   } = useStreamConfig();
+
+  const confirmationHintId = useId();
+  const needsColumnTypeConfirmation =
+    showCastColumn && hasSelectedStreams && !allSelectedColumnTypesConfirmed;
+
+  // Hand the walkthrough over to this step's coachmarks. Unlike the configure step before it,
+  // this form looks the same whatever source was picked, so every run enters here — including
+  // the ones that skipped the Google-Sheets-only configure coachmarks. `advanceIfBefore` keeps
+  // that honest in both directions: a Sheets run is already past this stage, and a Postgres run
+  // is jumped forward from the picker's Next stage, which is exactly the intent.
+  //
+  // Creation only. Editing an existing connection is the user's own business, and advancing a
+  // half-finished walkthrough off the back of it would move them somewhere they never went.
+  useEffect(() => {
+    // Not on mount: on stream discovery finishing. Both coachmarks here point at parts of the
+    // table (the scroll hint, a cast dropdown), and none of that markup exists while discovery
+    // is still running. Entering early meant each stage waited out its timeout, decided its
+    // target was never coming, and hopped to the next one — so the user saw neither Got it and
+    // landed straight on "click Create".
+    if (!isCreate || isDiscovering || streams.length === 0) return;
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (!walkthrough.active || !walkthrough.path) return;
+    const entry = WIZARD_STREAMS_ENTRY_STAGE_FOR[walkthrough.path];
+    if (entry) walkthrough.advanceIfBefore(entry);
+  }, [isCreate, isDiscovering, streams.length]);
+
+  // Casting is offered for Google Sheets alone, so for any other source the "cast a numeric
+  // column" coachmark points at a column the table never renders. Step over it rather than
+  // leave the walkthrough waiting on something that cannot appear.
+  useEffect(() => {
+    if (!isCreate || showCastColumn) return;
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (!walkthrough.active || !walkthrough.stage) return;
+    const skipTo = WIZARD_CAST_SKIP_STAGE_FOR[walkthrough.stage];
+    if (skipTo) walkthrough.advanceIfBefore(skipTo);
+  }, [isCreate, showCastColumn, walkthroughStage]);
 
   // Create mode: prefill a default connection name once the source-definition
   // name resolves (it loads async via useSources). Functional update only fills
@@ -310,15 +368,31 @@ export function ConnectionFormBody({
   // Required-field check. Returns validity and sets the inline error map; nothing
   // is submitted unless every required field is satisfied.
   const validate = useCallback(() => {
-    const next: { name?: string; source?: string; streams?: string } = {};
+    const next: {
+      name?: string;
+      source?: string;
+      streams?: string;
+      columnTypes?: string;
+    } = {};
     if (!name.trim()) next.name = 'Connection name is required';
     if (isCreate && !presetSourceId && !selectedSourceId) next.source = 'Source is required';
     if (!hasSelectedStreams) {
       next.streams = 'Select at least one table';
     }
+    if (showCastColumn && hasSelectedStreams && !allSelectedColumnTypesConfirmed) {
+      next.columnTypes = COLUMN_TYPE_CONFIRMATION_MESSAGE;
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
-  }, [name, isCreate, presetSourceId, selectedSourceId, hasSelectedStreams, connectionView]);
+  }, [
+    name,
+    isCreate,
+    presetSourceId,
+    selectedSourceId,
+    hasSelectedStreams,
+    showCastColumn,
+    allSelectedColumnTypesConfirmed,
+  ]);
 
   const buildPostSyncTransform = useCallback(() => {
     const ops = streams
@@ -460,14 +534,15 @@ export function ConnectionFormBody({
   // Clear each inline error as soon as the user satisfies it.
   useEffect(() => {
     setErrors((prev) => {
-      if (!prev.name && !prev.source && !prev.streams) return prev;
+      if (!prev.name && !prev.source && !prev.streams && !prev.columnTypes) return prev;
       const next = { ...prev };
       if (name.trim()) delete next.name;
       if (selectedSourceId) delete next.source;
       if (hasSelectedStreams) delete next.streams;
+      if (!showCastColumn || allSelectedColumnTypesConfirmed) delete next.columnTypes;
       return next;
     });
-  }, [name, selectedSourceId, hasSelectedStreams]);
+  }, [name, selectedSourceId, hasSelectedStreams, showCastColumn, allSelectedColumnTypesConfirmed]);
 
   const handleConceptFocus = useCallback((concept: ConnectionConceptId | null) => {
     setActiveConcept(concept);
@@ -719,6 +794,7 @@ export function ConnectionFormBody({
                   onToggleStreamExpand={toggleStreamExpand}
                   onToggleColumn={toggleColumn}
                   onUpdateCastType={updateCastType}
+                  onConfirmAllColumnTypes={confirmAllColumnTypes}
                   showCastColumn={showCastColumn}
                   streamNoun={connectionView?.streamNoun}
                   showIncremental={connectionView ? connectionView.supportsIncremental : true}
@@ -784,27 +860,38 @@ export function ConnectionFormBody({
           </Button>
         </DialogFooter>
       ) : (
-        <DialogFooter className="flex-shrink-0 gap-2 border-t px-6 py-4">
-          <Button
-            variant="outline"
-            onClick={onCancel}
-            disabled={isSaving}
-            data-testid="connection-cancel-btn"
-          >
-            Cancel
-          </Button>
-          {/* Stays clickable so pressing it surfaces inline required-field errors
-              (handleSave validates and blocks). Only disabled while saving. */}
-          <Button
-            variant="primary"
-            className="uppercase"
-            onClick={handleSave}
-            disabled={isSaving}
-            data-testid="save-connection-btn"
-          >
-            {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-            {isCreate ? 'Create' : 'Update'}
-          </Button>
+        <DialogFooter className="flex-shrink-0 flex-col gap-2 border-t px-6 py-4 sm:flex-col">
+          {(needsColumnTypeConfirmation || errors.columnTypes) && (
+            <p
+              id={confirmationHintId}
+              role="status"
+              className="text-sm text-muted-foreground"
+              data-testid="connection-column-types-error"
+            >
+              {COLUMN_TYPE_CONFIRMATION_MESSAGE}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={onCancel}
+              disabled={isSaving}
+              data-testid="connection-cancel-btn"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              className="uppercase"
+              onClick={handleSave}
+              disabled={isSaving || needsColumnTypeConfirmation}
+              aria-describedby={needsColumnTypeConfirmation ? confirmationHintId : undefined}
+              data-testid="save-connection-btn"
+            >
+              {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              {isCreate ? 'Add data' : 'Update'}
+            </Button>
+          </div>
         </DialogFooter>
       )}
     </>

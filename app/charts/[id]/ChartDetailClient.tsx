@@ -37,6 +37,11 @@ import type { ChartDataPayload } from '@/types/charts';
 import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import type * as echarts from 'echarts';
+import {
+  getChartEditUrl,
+  getWidgetBackLabel,
+  parseWidgetNavigationSource,
+} from '@/lib/widget-navigation';
 
 interface ChartDetailClientProps {
   chartId: number;
@@ -65,7 +70,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const celebrationPending = useInsightWalkthroughStore((s) => s.pendingCelebration === 'chart');
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isFromDashboard = searchParams.get('from') === 'dashboard';
+  const navigationSource = parseWidgetNavigationSource(searchParams.get('from'));
   const { hasPermission } = useRbac();
   const canViewCharts = hasPermission(PERMISSIONS.CAN_VIEW_CHARTS);
   // Don't start the chart request without view permission; the access-denied
@@ -807,7 +812,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
       <div className="bg-white border-b px-6 py-4 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {isFromDashboard ? (
+            {navigationSource ? (
               <Button
                 data-testid="chart-detail-back-dashboard"
                 variant="ghost"
@@ -815,7 +820,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                 onClick={() => router.back()}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
+                {getWidgetBackLabel(navigationSource)}
               </Button>
             ) : (
               <Link href="/charts" data-testid="chart-detail-back-link">
@@ -836,7 +841,8 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
             {chart.access_level === 'edit' && (
               <Link
                 data-testid="chart-detail-edit-link"
-                href={`/charts/${chartId}/edit${isFromDashboard ? '?from=dashboard' : ''}`}
+                href={getChartEditUrl(chartId, navigationSource)}
+                replace={navigationSource !== null}
               >
                 <Button variant="outline">
                   <Edit className="mr-2 h-4 w-4" />

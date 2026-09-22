@@ -69,7 +69,7 @@ export function useCharts(params?: UseChartsParams) {
   };
 }
 
-export function useChart(id: number) {
+export function useChart(id: number | null) {
   const { data, error, mutate } = useSWR<Chart>(id ? `/api/charts/${id}/` : null, apiGet, {
     // Don't retry on 404 errors
     onErrorRetry: (error, key, config, revalidate, { retryCount }) => {

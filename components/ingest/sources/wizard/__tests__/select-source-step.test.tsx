@@ -6,9 +6,12 @@ import type { WalkthroughStage } from '@/components/onboarding/insight-walkthrou
 jest.mock('@/hooks/api/useSources', () => ({
   useSourceDefinitions: () => ({
     data: [
-      { sourceDefinitionId: 'gs', name: 'Google Sheets' },
+      { sourceDefinitionId: 'gs', name: 'Google Sheets', icon: '/airbyte/google-sheets.svg' },
       { sourceDefinitionId: 'kobo', name: 'KoboToolbox' },
+      { sourceDefinitionId: 'salesforce', name: 'Salesforce' },
       { sourceDefinitionId: 'cc', name: 'CommCare' },
+      { sourceDefinitionId: 'avni', name: 'Avni' },
+      { sourceDefinitionId: 'airtable', name: 'Airtable' },
       { sourceDefinitionId: 'scto', name: 'SurveyCTO' },
       { sourceDefinitionId: 'pg', name: 'Postgres' },
     ],
@@ -20,9 +23,13 @@ it('selects a card, then fires onSelect with the definition on Next', () => {
   render(<SelectSourceStep onSelect={onSelect} onClose={jest.fn()} />);
   const card = screen.getByTestId('source-card-Google Sheets');
   expect(card).toBeInTheDocument();
-  // Only the two custom-UI sources appear as cards; everything else is search-only.
+  // The seven common sources appear as quick connects; the remaining catalog is search-only.
   expect(screen.getByTestId('source-card-KoboToolbox')).toBeInTheDocument();
-  expect(screen.queryByTestId('source-card-CommCare')).not.toBeInTheDocument();
+  expect(screen.getByTestId('source-card-Salesforce')).toBeInTheDocument();
+  expect(screen.getByTestId('source-card-CommCare')).toBeInTheDocument();
+  expect(screen.getByTestId('source-card-Avni')).toBeInTheDocument();
+  expect(screen.getByTestId('source-card-Airtable')).toBeInTheDocument();
+  expect(screen.getByTestId('source-card-SurveyCTO')).toBeInTheDocument();
   expect(screen.queryByTestId('source-card-Postgres')).not.toBeInTheDocument();
 
   // Next is disabled until a source is picked; clicking a card only selects it.
@@ -38,6 +45,44 @@ it('filters the full definition list by the search box', () => {
   render(<SelectSourceStep onSelect={jest.fn()} onClose={jest.fn()} />);
   fireEvent.change(screen.getByTestId('source-search-input'), { target: { value: 'postgres' } });
   expect(screen.getByText('Postgres')).toBeInTheDocument();
+});
+
+it('keeps the catalog shut while the search box merely holds focus', () => {
+  // The dialog autofocuses its first field, so opening on focus buried the popular-source
+  // cards under the 600-connector list as soon as the step mounted.
+  render(<SelectSourceStep onSelect={jest.fn()} onClose={jest.fn()} />);
+
+  fireEvent.focus(screen.getByTestId('source-search-input'));
+
+  expect(screen.queryByTestId('source-search-results')).not.toBeInTheDocument();
+  expect(screen.getByTestId('source-card-Google Sheets')).toBeInTheDocument();
+});
+
+it('opens the full catalog on click and filters it as the user types', () => {
+  render(<SelectSourceStep onSelect={jest.fn()} onClose={jest.fn()} />);
+  const input = screen.getByTestId('source-search-input');
+
+  fireEvent.click(input);
+  expect(screen.getByTestId('source-search-result-Postgres')).toBeInTheDocument();
+  expect(screen.getByTestId('source-search-result-Airtable')).toBeInTheDocument();
+
+  fireEvent.change(input, { target: { value: 'air' } });
+  expect(screen.getByTestId('source-search-result-Airtable')).toBeInTheDocument();
+  expect(screen.queryByTestId('source-search-result-Postgres')).not.toBeInTheDocument();
+});
+
+it('uses the loaded Airbyte artwork for quick connects and catalog results', () => {
+  render(<SelectSourceStep onSelect={jest.fn()} onClose={jest.fn()} />);
+
+  expect(screen.getByTestId('source-card-Google Sheets').querySelector('img')).toHaveAttribute(
+    'src',
+    '/airbyte/google-sheets.svg'
+  );
+
+  fireEvent.click(screen.getByTestId('source-search-input'));
+  expect(
+    screen.getByTestId('source-search-result-Google Sheets').querySelector('img')
+  ).toHaveAttribute('src', '/airbyte/google-sheets.svg');
 });
 
 describe('onboarding walkthrough handoff', () => {
