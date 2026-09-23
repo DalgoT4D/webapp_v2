@@ -68,6 +68,11 @@ import type {
   ChartBuilderFormData,
   ChartDataPayload,
 } from '@/types/charts';
+import {
+  getChartViewUrl,
+  getWidgetBackLabel,
+  parseWidgetNavigationSource,
+} from '@/lib/widget-navigation';
 
 // Default customizations for each chart type
 function getDefaultCustomizations(chartType: string): Record<string, any> {
@@ -84,7 +89,8 @@ function getDefaultCustomizations(chartType: string): Record<string, any> {
         legendPosition: 'top',
         xAxisTitle: '',
         yAxisTitle: '',
-        xAxisLabelRotation: 'horizontal',
+        // Bar categories are usually long text labels — 45° keeps them readable without truncation
+        xAxisLabelRotation: '45',
         yAxisLabelRotation: 'horizontal',
       };
     case ChartTypes.PIE:
@@ -145,7 +151,8 @@ function EditChartPageContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isFromDashboard = searchParams.get('from') === 'dashboard';
+  const navigationSource = parseWidgetNavigationSource(searchParams.get('from'));
+  const hasNavigationSource = navigationSource !== null;
   const chartId = Number(params.id);
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
   // Per-resource access — a member granted edit has chart.access_level === 'edit'
@@ -396,34 +403,34 @@ function EditChartPageContent() {
     [router, formData]
   );
 
-  // Build chart URL with dashboard context preserved
+  // Preserve dashboard/report context while moving between detail and edit.
   const chartDetailUrl = useCallback(
     (id: number | string) => {
-      return isFromDashboard ? `/charts/${id}?from=dashboard` : `/charts/${id}`;
+      return getChartViewUrl(id, navigationSource);
     },
-    [isFromDashboard]
+    [navigationSource]
   );
 
-  // Navigate to chart detail after save (replace for dashboard to keep back history clean, push for charts)
+  // Replace for dashboard/report origins to keep the source as the previous history entry.
   const navigateToChartDetail = useCallback(
     (id: number | string) => {
-      if (isFromDashboard) {
+      if (hasNavigationSource) {
         navigateReplaceWithoutWarning(chartDetailUrl(id));
       } else {
         navigateWithoutWarning(chartDetailUrl(id));
       }
     },
-    [isFromDashboard, navigateReplaceWithoutWarning, navigateWithoutWarning, chartDetailUrl]
+    [hasNavigationSource, navigateReplaceWithoutWarning, navigateWithoutWarning, chartDetailUrl]
   );
 
-  // Navigate back to origin after exit-save (dashboard via back, charts via list)
+  // Navigate back to the originating dashboard/report after exit-save.
   const navigateToOrigin = useCallback(() => {
-    if (isFromDashboard) {
+    if (hasNavigationSource) {
       navigateBackWithoutWarning();
     } else {
       navigateWithoutWarning('/charts');
     }
-  }, [isFromDashboard, navigateBackWithoutWarning, navigateWithoutWarning]);
+  }, [hasNavigationSource, navigateBackWithoutWarning, navigateWithoutWarning]);
 
   // Handle browser navigation (refresh, close tab, external links)
   useEffect(() => {
@@ -1521,7 +1528,7 @@ function EditChartPageContent() {
   const handleCancel = () => {
     if (hasUnsavedChanges) {
       setShowExitDialog(true);
-    } else if (isFromDashboard) {
+    } else if (hasNavigationSource) {
       router.back();
     } else {
       router.push(chartDetailUrl(chartId));
@@ -1542,7 +1549,7 @@ function EditChartPageContent() {
 
   const handleLeaveWithoutSaving = () => {
     setShowExitDialog(false);
-    if (isFromDashboard) {
+    if (hasNavigationSource) {
       navigateBackWithoutWarning();
     } else {
       router.push(chartDetailUrl(chartId));
@@ -1628,7 +1635,7 @@ function EditChartPageContent() {
                         onConfirm: () => {},
                         onCancel: () => {},
                       });
-                      if (isFromDashboard) {
+                      if (hasNavigationSource) {
                         navigateBackWithoutWarning();
                       } else {
                         navigateWithoutWarning(chartDetailUrl(chartId));
@@ -1642,7 +1649,7 @@ function EditChartPageContent() {
                       });
                     },
                   });
-                } else if (isFromDashboard) {
+                } else if (hasNavigationSource) {
                   router.back();
                 } else {
                   router.push(chartDetailUrl(chartId));
@@ -1650,7 +1657,7 @@ function EditChartPageContent() {
               }}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              {isFromDashboard ? 'Back to Dashboard' : 'Back'}
+              {navigationSource ? getWidgetBackLabel(navigationSource) : 'Back'}
             </Button>
 
             {/* Chart Title Input */}
