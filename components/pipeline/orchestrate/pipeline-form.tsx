@@ -55,7 +55,7 @@ const GUIDED_SCHEDULE_REQUIRED_MESSAGE = 'Choose Daily or Weekly to automate thi
 // Wrapper component that handles data fetching
 export function PipelineForm({ deploymentId }: PipelineFormProps) {
   const { pipeline, isLoading: pipelineLoading } = usePipeline(deploymentId || null);
-  const { tasks, isLoading: tasksLoading } = useTransformTasks(true, true);
+  const { tasks, isLoading: tasksLoading } = useTransformTasks(true);
   const { connections, isLoading: connectionsLoading } = useConnections();
 
   const isLoading = pipelineLoading || tasksLoading || connectionsLoading;
