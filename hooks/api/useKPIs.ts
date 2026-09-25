@@ -55,6 +55,11 @@ export function useKPI(id: number | null) {
   };
 }
 
+/** Fetch a fresh snapshot before opening an editor, bypassing SWR's cached value. */
+export function fetchKPI(id: number, signal?: AbortSignal): Promise<KPI> {
+  return apiGet(`/api/kpis/${id}/`, { signal });
+}
+
 export function useKPIData(
   id: number | null,
   snapshotId?: number,

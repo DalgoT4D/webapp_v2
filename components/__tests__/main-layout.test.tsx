@@ -18,7 +18,6 @@ jest.mock('@/hooks/api/useFeatureFlags', () => ({
   })),
   FeatureFlagKeys: {
     REPORTS: 'reports',
-    DATA_QUALITY: 'data_quality',
     USAGE_DASHBOARD: 'usage_dashboard',
   },
 }));

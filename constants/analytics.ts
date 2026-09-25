@@ -64,6 +64,15 @@ export const ANALYTICS_EVENTS = {
   INSIGHT_WALKTHROUGH_COMPLETED: 'trial_onboarding:insight_walkthrough_completed',
   // Carries { stage } — the stage the user was on when they skipped.
   INSIGHT_WALKTHROUGH_SKIPPED: 'trial_onboarding:insight_walkthrough_skipped',
+  // The "Leave the walkthrough?" confirmation (leave-walkthrough-dialog.tsx), raised by the
+  // coachmark ✕ and by a click the current stage isn't asking for. All three carry
+  // { surface: 'product_tour' | 'insight_walkthrough', stage } — `stage` is the walkthrough
+  // stage, or the 1-based step number for the product tour. VIEWED minus SKIPPED is how many
+  // exits the prompt talked users out of; the legacy tour_skipped / insight_walkthrough_skipped
+  // events still fire on a confirmed skip, so drop-off numbers stay comparable.
+  WALKTHROUGH_EXIT_PROMPT_VIEWED: 'trial_onboarding:walkthrough_exit_prompt_viewed',
+  WALKTHROUGH_EXIT_PROMPT_CONTINUED: 'trial_onboarding:walkthrough_exit_prompt_continued',
+  WALKTHROUGH_EXIT_PROMPT_SKIPPED: 'trial_onboarding:walkthrough_exit_prompt_skipped',
   // Unified onboarding-path lifecycle. The tour and the walkthroughs each keep their own
   // legacy events above (existing insights depend on them); these five are the cross-path
   // set, every one carrying `path` (see ONBOARDING_PATHS) so "which walkthrough, how far,
@@ -203,6 +212,9 @@ export const ANALYTICS_EVENTS = {
   DASHBOARD_WIDGET_MOVED_BETWEEN_TABS: 'dashboard:widget_moved_between_tabs',
   DASHBOARD_RICH_TEXT_EDIT_STARTED: 'dashboard:rich_text_edit_started',
   DASHBOARD_RICH_TEXT_FORMAT_APPLIED: 'dashboard:rich_text_format_applied',
+  DASHBOARD_TEXT_IMAGE_ADDED: 'dashboard:text_image_added',
+  DASHBOARD_TEXT_IMAGE_REMOVED: 'dashboard:text_image_removed',
+  DASHBOARD_TEXT_IMAGE_UPDATED: 'dashboard:text_image_updated',
   // Reports. Mirrors the dashboard set: one create, one share act, one made-public.
   // Fired from the GENERATE REPORT button in create-snapshot-dialog, on the success path,
   // so it carries the new report_id the POST returns.
@@ -473,6 +485,9 @@ export const KPI_VIEW_SOURCES = {
   MENU: 'menu',
   // Arriving on /kpis?open={id} (e.g. from an alert or notification link)
   DEEP_LINK: 'deep_link',
+  // The onboarding walkthrough opening the KPI it just created, straight off the celebration
+  // dialog — the user never clicks a card, so it would otherwise be an untracked view.
+  WALKTHROUGH: 'walkthrough',
 } as const;
 
 export type KpiViewSource = (typeof KPI_VIEW_SOURCES)[keyof typeof KPI_VIEW_SOURCES];
@@ -687,7 +702,6 @@ export const FEATURES = {
   ORCHESTRATE: 'orchestrate',
   EXPLORE: 'explore',
   METRICS: 'metrics',
-  DATA_QUALITY: 'data_quality',
   ALERTS: 'alerts',
   CHAT_WITH_DATA: 'chat_with_data',
   NOTIFICATIONS: 'notifications',
@@ -725,7 +739,6 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/orchestrate', feature: FEATURES.ORCHESTRATE },
   { prefix: '/explore', feature: FEATURES.EXPLORE },
   { prefix: '/metrics', feature: FEATURES.METRICS },
-  { prefix: '/data-quality', feature: FEATURES.DATA_QUALITY },
   { prefix: '/alerts', feature: FEATURES.ALERTS },
   { prefix: '/chat-with-data', feature: FEATURES.CHAT_WITH_DATA },
   { prefix: '/notifications', feature: FEATURES.NOTIFICATIONS },

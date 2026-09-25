@@ -1,6 +1,8 @@
 'use client';
 
+import { Eye } from 'lucide-react';
 import { KPICard } from '@/components/kpis/kpi-card';
+import { Button } from '@/components/ui/button';
 import type { KPICardData } from '@/components/kpis/kpi-card';
 import type { RAGStatus } from '@/types/kpis';
 import type { CommentStates, CommentIconState } from '@/types/comments';
@@ -22,6 +24,7 @@ interface KPIChartElementProps {
   onCommentStateChange?: () => void;
   autoOpenCommentChartId?: string;
   canModerateComments?: boolean;
+  onView?: () => void;
 }
 
 export function KPIChartElement({
@@ -36,6 +39,7 @@ export function KPIChartElement({
   onCommentStateChange,
   autoOpenCommentChartId,
   canModerateComments = false,
+  onView,
 }: KPIChartElementProps) {
   const { chartData, echartsConfig, isError, isLoading } = useKPIData(kpiId || null, snapshotId, {
     dashboardFilters,
@@ -90,12 +94,34 @@ export function KPIChartElement({
     />
   ) : null;
 
+  const viewButton =
+    onView && !isPublicMode ? (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 w-7 p-0"
+        title="View KPI"
+        aria-label="View KPI"
+        onClick={onView}
+      >
+        <Eye className="h-3.5 w-3.5" />
+      </Button>
+    ) : null;
+
   return (
     <div className="h-full">
       <KPICard
         name={config?.title || 'KPI'}
         data={cardData}
-        headerActions={commentButton}
+        headerActions={
+          (snapshotId && viewButton) || commentButton ? (
+            <div className="flex items-center gap-1">
+              {snapshotId && viewButton}
+              {commentButton}
+            </div>
+          ) : null
+        }
+        toolbarActions={!snapshotId ? viewButton : null}
         className="h-full"
         borderless
         kpiId={kpiId}
