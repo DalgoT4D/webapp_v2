@@ -54,7 +54,7 @@ export function TimeGrainSelector({
     <div className="space-y-2">
       <Label className="text-sm font-medium text-gray-900">Time Grain</Label>
       <Select value={value || '__none__'} onValueChange={handleValueChange} disabled={disabled}>
-        <SelectTrigger className="h-8">
+        <SelectTrigger className="h-8" data-testid="chart-time-grain-select">
           <SelectValue placeholder="Select time grain" />
         </SelectTrigger>
         <SelectContent>
@@ -69,6 +69,7 @@ export function TimeGrainSelector({
                       <SelectItem
                         value={option.value}
                         disabled={true}
+                        data-testid={`chart-time-grain-option-${option.value}`}
                         className="opacity-50 cursor-not-allowed"
                       >
                         {option.label}
@@ -83,7 +84,11 @@ export function TimeGrainSelector({
             }
 
             return (
-              <SelectItem key={option.value} value={option.value}>
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                data-testid={`chart-time-grain-option-${option.value}`}
+              >
                 {option.label}
               </SelectItem>
             );

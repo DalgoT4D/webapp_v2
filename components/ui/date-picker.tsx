@@ -42,7 +42,13 @@ interface DatePickerProps {
   onEditModeChange?: (editing: boolean) => void;
   onEditTextChange?: (text: string) => void;
   onEditSubmit?: () => void;
+
+  /** Prefix for data-testid attributes (trigger, OK/Cancel/Clear buttons). Default: 'date-picker' */
+  testId?: string;
 }
+
+/** Default data-testid prefix when a caller does not pass testId */
+const DEFAULT_TEST_ID = 'date-picker';
 
 export function DatePicker({
   value,
@@ -64,6 +70,7 @@ export function DatePicker({
   onEditModeChange,
   onEditTextChange,
   onEditSubmit,
+  testId = DEFAULT_TEST_ID,
 }: DatePickerProps) {
   const [month, setMonth] = useState<Date | undefined>(selected);
 
@@ -94,6 +101,7 @@ export function DatePicker({
         <button
           type="button"
           disabled={disabled}
+          data-testid={`${testId}-trigger`}
           className={cn(
             'flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -105,7 +113,7 @@ export function DatePicker({
           <CalendarIcon className="h-4 w-4 text-muted-foreground" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0" align="start" data-testid={`${testId}-popover`}>
         <div className="flex flex-col">
           {/* Header */}
           <div className="px-4 pt-4 pb-2">
@@ -123,6 +131,7 @@ export function DatePicker({
                   }}
                   onBlur={() => onEditSubmit?.()}
                   placeholder="MM/DD/YYYY"
+                  data-testid={`${testId}-edit-input`}
                 />
               ) : (
                 <span className="text-2xl font-normal">
@@ -134,6 +143,7 @@ export function DatePicker({
                   type="button"
                   onClick={() => onEditModeChange?.(true)}
                   className="p-1 rounded-full hover:bg-muted"
+                  data-testid={`${testId}-edit-btn`}
                 >
                   <Pencil className="h-4 w-4 text-muted-foreground" />
                 </button>
@@ -165,6 +175,7 @@ export function DatePicker({
                   type="button"
                   onClick={onClear}
                   className="text-sm text-primary hover:underline"
+                  data-testid={`${testId}-clear-btn`}
                 >
                   Clear
                 </button>
@@ -173,6 +184,7 @@ export function DatePicker({
                     type="button"
                     onClick={onCancel}
                     className="text-sm font-medium uppercase text-red-500 hover:text-red-600"
+                    data-testid={`${testId}-cancel-btn`}
                   >
                     Cancel
                   </button>
@@ -180,6 +192,7 @@ export function DatePicker({
                     type="button"
                     onClick={onConfirm}
                     className="text-sm font-medium uppercase text-primary hover:text-primary/80"
+                    data-testid={`${testId}-ok-btn`}
                   >
                     OK
                   </button>

@@ -51,13 +51,15 @@ function ConfirmDatePicker({
   value,
   onChange,
   maxDate,
+  testId,
 }: {
   value: Date | undefined;
   onChange: (date: Date | undefined) => void;
   maxDate?: Date;
+  testId?: string;
 }) {
   const pickerProps = useDatePickerWithConfirm(value, onChange);
-  return <DatePicker value={value} {...pickerProps} maxDate={maxDate} />;
+  return <DatePicker value={value} {...pickerProps} maxDate={maxDate} testId={testId} />;
 }
 
 export function CreateSnapshotDialog({
@@ -215,6 +217,7 @@ export function CreateSnapshotDialog({
                   rules={{ required: 'Please select a dashboard' }}
                   render={({ field }) => (
                     <Combobox
+                      id="snapshot-dashboard-select"
                       items={dashboardItems}
                       value={field.value}
                       onValueChange={(val) => {
@@ -227,11 +230,18 @@ export function CreateSnapshotDialog({
                   )}
                 />
                 {errors.selectedDashboardId && (
-                  <p className="text-sm text-red-500">{errors.selectedDashboardId.message}</p>
+                  <p className="text-sm text-red-500" data-testid="snapshot-dashboard-error">
+                    {errors.selectedDashboardId.message}
+                  </p>
                 )}
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">{preselectedDashboardTitle}</p>
+              <p
+                className="text-sm text-muted-foreground"
+                data-testid="snapshot-preselected-dashboard"
+              >
+                {preselectedDashboardTitle}
+              </p>
             )}
           </div>
 
@@ -249,7 +259,9 @@ export function CreateSnapshotDialog({
               })}
             />
             {errors.reportName && (
-              <p className="text-sm text-red-500">{errors.reportName.message}</p>
+              <p className="text-sm text-red-500" data-testid="snapshot-report-name-error">
+                {errors.reportName.message}
+              </p>
             )}
           </div>
 
@@ -260,7 +272,10 @@ export function CreateSnapshotDialog({
                 Filter by {hasDatetimeColumns && <span className="text-red-600 ml-1">*</span>}
               </Label>
               {!hasDatetimeColumns && effectiveDashboardId && !columnsLoading && dashboardData && (
-                <p className="text-sm text-muted-foreground">
+                <p
+                  className="text-sm text-muted-foreground"
+                  data-testid="snapshot-no-datetime-hint"
+                >
                   No datetime columns found — date filtering will be skipped.
                 </p>
               )}
@@ -289,7 +304,11 @@ export function CreateSnapshotDialog({
                       {discoveredColumns.map((col) => {
                         const value = `${col.schema_name}.${col.table_name}.${col.column_name}`;
                         return (
-                          <SelectItem key={value} value={value}>
+                          <SelectItem
+                            key={value}
+                            value={value}
+                            data-testid={`snapshot-date-column-option-${value}`}
+                          >
                             {col.table_name}.{col.column_name}
                           </SelectItem>
                         );
@@ -299,7 +318,9 @@ export function CreateSnapshotDialog({
                 )}
               />
               {errors.selectedDateColumn && (
-                <p className="text-sm text-red-500">{errors.selectedDateColumn.message}</p>
+                <p className="text-sm text-red-500" data-testid="snapshot-date-column-error">
+                  {errors.selectedDateColumn.message}
+                </p>
               )}
             </div>
           </div>
@@ -321,6 +342,7 @@ export function CreateSnapshotDialog({
                         value={field.value}
                         onChange={field.onChange}
                         maxDate={startMaxDate}
+                        testId="snapshot-start-date"
                       />
                     )}
                   />
@@ -338,11 +360,14 @@ export function CreateSnapshotDialog({
                         value={field.value}
                         onChange={field.onChange}
                         maxDate={today}
+                        testId="snapshot-end-date"
                       />
                     )}
                   />
                   {errors.periodEnd && (
-                    <p className="text-sm text-red-500">{errors.periodEnd.message}</p>
+                    <p className="text-sm text-red-500" data-testid="snapshot-end-date-error">
+                      {errors.periodEnd.message}
+                    </p>
                   )}
                 </div>
               </div>

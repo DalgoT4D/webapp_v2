@@ -48,16 +48,28 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
               value={customizations.colorScheme || 'Blues'}
               onValueChange={(value) => updateCustomization('colorScheme', value)}
             >
-              <SelectTrigger>
+              <SelectTrigger data-testid="chart-styling-color-scheme">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Blues">Blues</SelectItem>
-                <SelectItem value="Reds">Reds</SelectItem>
-                <SelectItem value="Greens">Greens</SelectItem>
-                <SelectItem value="Purples">Purples</SelectItem>
-                <SelectItem value="Oranges">Oranges</SelectItem>
-                <SelectItem value="Greys">Greys</SelectItem>
+                <SelectItem value="Blues" data-testid="chart-styling-color-scheme-option-Blues">
+                  Blues
+                </SelectItem>
+                <SelectItem value="Reds" data-testid="chart-styling-color-scheme-option-Reds">
+                  Reds
+                </SelectItem>
+                <SelectItem value="Greens" data-testid="chart-styling-color-scheme-option-Greens">
+                  Greens
+                </SelectItem>
+                <SelectItem value="Purples" data-testid="chart-styling-color-scheme-option-Purples">
+                  Purples
+                </SelectItem>
+                <SelectItem value="Oranges" data-testid="chart-styling-color-scheme-option-Oranges">
+                  Oranges
+                </SelectItem>
+                <SelectItem value="Greys" data-testid="chart-styling-color-scheme-option-Greys">
+                  Greys
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -78,6 +90,7 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
             <Switch
               checked={customizations.showTooltip !== false}
               onCheckedChange={(checked) => updateCustomization('showTooltip', checked)}
+              data-testid="chart-styling-show-tooltip"
             />
           </div>
 
@@ -89,6 +102,7 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
             <Switch
               checked={customizations.showLegend !== false}
               onCheckedChange={(checked) => updateCustomization('showLegend', checked)}
+              data-testid="chart-styling-show-legend"
             />
           </div>
 
@@ -100,6 +114,7 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
             <Switch
               checked={customizations.select !== false}
               onCheckedChange={(checked) => updateCustomization('select', checked)}
+              data-testid="chart-styling-enable-selection"
             />
           </div>
         </CardContent>
@@ -131,6 +146,7 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
                   : 'No Data'
               }
               onChange={(e) => updateCustomization('nullValueLabel', e.target.value)}
+              data-testid="chart-styling-null-value-label"
               placeholder="No Data"
             />
           </div>
@@ -162,14 +178,34 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
               })()}
               onValueChange={(value) => updateCustomization('legendPosition', value)}
             >
-              <SelectTrigger>
+              <SelectTrigger data-testid="chart-styling-legend-position">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="top-left">Top Left</SelectItem>
-                <SelectItem value="top-right">Top Right</SelectItem>
-                <SelectItem value="bottom-left">Bottom Left</SelectItem>
-                <SelectItem value="bottom-right">Bottom Right</SelectItem>
+                <SelectItem
+                  value="top-left"
+                  data-testid="chart-styling-legend-position-option-top-left"
+                >
+                  Top Left
+                </SelectItem>
+                <SelectItem
+                  value="top-right"
+                  data-testid="chart-styling-legend-position-option-top-right"
+                >
+                  Top Right
+                </SelectItem>
+                <SelectItem
+                  value="bottom-left"
+                  data-testid="chart-styling-legend-position-option-bottom-left"
+                >
+                  Bottom Left
+                </SelectItem>
+                <SelectItem
+                  value="bottom-right"
+                  data-testid="chart-styling-legend-position-option-bottom-right"
+                >
+                  Bottom Right
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -182,6 +218,7 @@ export function MapCustomizations({ formData, onFormDataChange }: MapCustomizati
             <Switch
               checked={customizations.showLabels === true}
               onCheckedChange={(checked) => updateCustomization('showLabels', checked)}
+              data-testid="chart-styling-show-region-names"
             />
           </div>
         </CardContent>

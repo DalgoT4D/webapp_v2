@@ -777,7 +777,11 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
           </div>
           <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
           <p className="text-muted-foreground mb-4">You don't have permission to view charts.</p>
-          <Button variant="outline" onClick={() => router.push('/charts')}>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/charts')}
+            data-testid="chart-detail-access-denied-back-btn"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Charts
           </Button>
@@ -955,6 +959,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
                         size="sm"
                         onClick={handleTableDrillUp}
                         className="h-8"
+                        data-testid="chart-table-drill-back-btn"
                       >
                         ← Back
                       </Button>

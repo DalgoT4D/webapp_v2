@@ -878,7 +878,10 @@ export function DashboardNativeView({
               <p className="text-sm text-muted-foreground mb-4">
                 The dashboard you're looking for doesn't exist or you don't have access to it.
               </p>
-              <Button onClick={() => router.push('/dashboards')}>
+              <Button
+                onClick={() => router.push('/dashboards')}
+                data-testid="dashboard-view-not-found-back-btn"
+              >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Dashboards
               </Button>
@@ -915,6 +918,7 @@ export function DashboardNativeView({
                     size="sm"
                     onClick={() => router.push('/dashboards')}
                     className="p-1 flex-shrink-0"
+                    data-testid="dashboard-view-back-btn-mobile"
                   >
                     <ArrowLeft className="w-4 h-4" />
                   </Button>
@@ -971,6 +975,7 @@ export function DashboardNativeView({
                             'bg-blue-50 border-blue-200 text-blue-700'
                         )}
                         disabled={landingPageLoading}
+                        data-testid="dashboard-view-landing-trigger-mobile"
                       >
                         {isPersonalLanding
                           ? 'My Landing'
@@ -989,6 +994,7 @@ export function DashboardNativeView({
                         <DropdownMenuItem
                           onClick={handleRemovePersonalLanding}
                           disabled={landingPageLoading}
+                          data-testid="dashboard-view-landing-remove-mobile"
                         >
                           <StarOff className="w-4 h-4 mr-2" />
                           Remove as my landing page
@@ -997,6 +1003,7 @@ export function DashboardNativeView({
                         <DropdownMenuItem
                           onClick={handleSetPersonalLanding}
                           disabled={landingPageLoading}
+                          data-testid="dashboard-view-landing-set-mobile"
                         >
                           <Star className="w-4 h-4 mr-2" />
                           Set as my landing page
@@ -1012,6 +1019,7 @@ export function DashboardNativeView({
                           <DropdownMenuItem
                             onClick={handleSetOrgDefault}
                             disabled={landingPageLoading || isOrgDefault}
+                            data-testid="dashboard-view-landing-org-default-mobile"
                           >
                             <Settings className="w-4 h-4 mr-2" />
                             {isOrgDefault ? 'Current org default' : 'Set as org default'}
@@ -1036,6 +1044,7 @@ export function DashboardNativeView({
                   size="sm"
                   onClick={handleToggleFullscreen}
                   className="p-1.5"
+                  data-testid="dashboard-view-fullscreen-btn-mobile"
                 >
                   <Maximize2 className="w-4 h-4" />
                 </Button>
@@ -1126,7 +1135,12 @@ export function DashboardNativeView({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4 min-w-0 flex-1">
                 {!isFullscreen && !isPublicMode && (
-                  <Button variant="ghost" size="sm" onClick={() => router.push('/dashboards')}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.push('/dashboards')}
+                    data-testid="dashboard-view-back-btn"
+                  >
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Back
                   </Button>
@@ -1206,6 +1220,7 @@ export function DashboardNativeView({
                             'bg-blue-50 border-blue-200 text-blue-700'
                         )}
                         disabled={landingPageLoading}
+                        data-testid="dashboard-view-landing-trigger"
                       >
                         {isPersonalLanding
                           ? 'My Landing'
@@ -1224,6 +1239,7 @@ export function DashboardNativeView({
                         <DropdownMenuItem
                           onClick={handleRemovePersonalLanding}
                           disabled={landingPageLoading}
+                          data-testid="dashboard-view-landing-remove"
                         >
                           <StarOff className="w-4 h-4 mr-2" />
                           Remove as my landing page
@@ -1232,6 +1248,7 @@ export function DashboardNativeView({
                         <DropdownMenuItem
                           onClick={handleSetPersonalLanding}
                           disabled={landingPageLoading}
+                          data-testid="dashboard-view-landing-set"
                         >
                           <Star className="w-4 h-4 mr-2" />
                           Set as my landing page
@@ -1247,6 +1264,7 @@ export function DashboardNativeView({
                           <DropdownMenuItem
                             onClick={handleSetOrgDefault}
                             disabled={landingPageLoading || isOrgDefault}
+                            data-testid="dashboard-view-landing-org-default"
                           >
                             <Settings className="w-4 h-4 mr-2" />
                             {isOrgDefault ? 'Current org default' : 'Set as org default'}
@@ -1258,7 +1276,12 @@ export function DashboardNativeView({
                 )}
 
                 {/* Action buttons */}
-                <Button variant="outline" size="sm" onClick={handleToggleFullscreen}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleToggleFullscreen}
+                  data-testid="dashboard-view-fullscreen-btn"
+                >
                   <Maximize2 className="w-4 h-4" />
                 </Button>
 
@@ -1430,7 +1453,10 @@ export function DashboardNativeView({
                 {(() => {
                   const activeLayout = currentTab?.layout_config || [];
                   return activeLayout.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">
+                    <div
+                      className="p-8 text-center text-gray-500"
+                      data-testid="dashboard-view-empty-state"
+                    >
                       <p className="text-lg mb-2">No Dashboard Components</p>
                       <p className="text-sm">
                         This dashboard doesn't have any components configured yet.

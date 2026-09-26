@@ -2269,7 +2269,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                       }}
                     />
                   ) : (
-                    <div className="cursor-pointer min-w-0" onClick={() => setIsEditingTitle(true)}>
+                    <div
+                      className="cursor-pointer min-w-0"
+                      onClick={() => setIsEditingTitle(true)}
+                      data-testid="dashboard-title-display-mobile"
+                    >
                       <h1 className="text-sm font-semibold truncate dashboard-header-title">
                         {title}
                       </h1>
@@ -2397,6 +2401,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 onClick={() => setShowChartSelector(true)}
                 size="sm"
                 className="flex-shrink-0 h-8 text-xs"
+                data-testid="dashboard-builder-add-chart-btn-mobile"
               >
                 <Plus className="w-3 h-3 mr-1" />
                 Chart
@@ -2406,6 +2411,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 size="sm"
                 variant="outline"
                 className="flex-shrink-0 h-8 text-xs"
+                data-testid="dashboard-builder-add-kpi-btn-mobile"
               >
                 <Target className="w-3 h-3 mr-1" />
                 KPI
@@ -2415,6 +2421,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 size="sm"
                 variant="outline"
                 className="flex-shrink-0 h-8 text-xs"
+                data-testid="dashboard-builder-add-text-btn-mobile"
               >
                 <Type className="w-3 h-3 mr-1" />
                 Text
@@ -2426,6 +2433,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   size="sm"
                   variant="ghost"
                   className="p-1 h-8"
+                  data-testid="dashboard-builder-undo-btn-mobile"
                 >
                   <Undo className="w-3 h-3" />
                 </Button>
@@ -2435,6 +2443,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   size="sm"
                   variant="ghost"
                   className="p-1 h-8"
+                  data-testid="dashboard-builder-redo-btn-mobile"
                 >
                   <Redo className="w-3 h-3" />
                 </Button>
@@ -2443,21 +2452,33 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
             {/* Mobile Status Bar */}
             {saveStatus !== 'idle' && (
-              <div className="px-4 pb-2 flex items-center justify-between text-xs">
+              <div
+                className="px-4 pb-2 flex items-center justify-between text-xs"
+                data-testid="dashboard-save-status-mobile"
+              >
                 {saveStatus === 'saving' && (
-                  <div className="flex items-center gap-1 text-gray-500">
+                  <div
+                    className="flex items-center gap-1 text-gray-500"
+                    data-testid="dashboard-save-status-saving-mobile"
+                  >
                     <Loader2 className="w-3 h-3 animate-spin" />
                     <span>Saving...</span>
                   </div>
                 )}
                 {saveStatus === 'saved' && (
-                  <div className="flex items-center gap-1 text-green-600">
+                  <div
+                    className="flex items-center gap-1 text-green-600"
+                    data-testid="dashboard-save-status-saved-mobile"
+                  >
                     <Check className="w-3 h-3" />
                     <span>Saved</span>
                   </div>
                 )}
                 {saveStatus === 'error' && (
-                  <div className="flex items-center gap-1 text-red-600">
+                  <div
+                    className="flex items-center gap-1 text-red-600"
+                    data-testid="dashboard-save-status-error-mobile"
+                  >
                     <AlertCircle className="w-3 h-3" />
                     <span>Error</span>
                   </div>
@@ -2568,17 +2589,34 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   Add KPI
                 </Button>
 
-                <Button onClick={addTextComponent} size="sm" variant="outline">
+                <Button
+                  onClick={addTextComponent}
+                  size="sm"
+                  variant="outline"
+                  data-testid="dashboard-builder-add-text-btn"
+                >
                   <Type className="w-4 h-4 mr-2" />
                   Add Text
                 </Button>
 
                 <div className="ml-2 flex gap-1">
-                  <Button onClick={undo} disabled={!canUndo} size="sm" variant="ghost">
+                  <Button
+                    onClick={undo}
+                    disabled={!canUndo}
+                    size="sm"
+                    variant="ghost"
+                    data-testid="dashboard-builder-undo-btn"
+                  >
                     <Undo className="w-4 h-4" />
                   </Button>
 
-                  <Button onClick={redo} disabled={!canRedo} size="sm" variant="ghost">
+                  <Button
+                    onClick={redo}
+                    disabled={!canRedo}
+                    size="sm"
+                    variant="ghost"
+                    data-testid="dashboard-builder-redo-btn"
+                  >
                     <Redo className="w-4 h-4" />
                   </Button>
                 </div>
@@ -2588,19 +2626,28 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               <div className="flex items-center gap-2 flex-1 justify-end">
                 {/* Save Status Indicator */}
                 {saveStatus === 'saving' && (
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <div
+                    className="flex items-center gap-2 text-sm text-gray-500"
+                    data-testid="dashboard-save-status-saving"
+                  >
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span className="hidden xl:inline">Saving...</span>
                   </div>
                 )}
                 {saveStatus === 'saved' && (
-                  <div className="flex items-center gap-2 text-sm text-green-600">
+                  <div
+                    className="flex items-center gap-2 text-sm text-green-600"
+                    data-testid="dashboard-save-status-saved"
+                  >
                     <Check className="w-4 h-4" />
                     <span className="hidden xl:inline">Saved</span>
                   </div>
                 )}
                 {saveStatus === 'error' && (
-                  <div className="flex items-center gap-2 text-sm text-red-600">
+                  <div
+                    className="flex items-center gap-2 text-sm text-red-600"
+                    data-testid="dashboard-save-status-error"
+                  >
                     <AlertCircle className="w-4 h-4" />
                     <span className="hidden xl:inline">{saveError || 'Save failed'}</span>
                   </div>
@@ -2766,6 +2813,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 size="sm"
                 variant="outline"
                 className="h-8 text-xs"
+                data-testid="dashboard-builder-show-filters-btn"
               >
                 <Filter className="w-3 h-3 mr-1" />
                 Show Filters ({initialFilters.length})

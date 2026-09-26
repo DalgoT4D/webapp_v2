@@ -97,7 +97,11 @@ export function NumberFormatSection({
           </SelectTrigger>
           <SelectContent>
             {NUMBER_FORMAT_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
+              <SelectItem
+                key={opt.value}
+                value={opt.value}
+                data-testid={`${idPrefix}NumberFormat-option-${opt.value}`}
+              >
                 {opt.label}
               </SelectItem>
             ))}

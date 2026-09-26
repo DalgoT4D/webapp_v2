@@ -248,7 +248,11 @@ export default function EditDashboardPage() {
           </div>
           <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
           <p className="text-muted-foreground mb-4">You have view-only access to this dashboard.</p>
-          <Button variant="outline" onClick={() => router.push('/dashboards')}>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/dashboards')}
+            data-testid="dashboard-edit-access-denied-back-btn"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboards
           </Button>
@@ -265,7 +269,12 @@ export default function EditDashboardPage() {
       <div className="border-b px-6 py-3 bg-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={handleBackNavigation}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleBackNavigation}
+              data-testid="dashboard-locked-back-btn"
+            >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboards
             </Button>
@@ -282,7 +291,9 @@ export default function EditDashboardPage() {
             <div className="mx-auto w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
               <Lock className="w-6 h-6 text-yellow-600" />
             </div>
-            <CardTitle className="text-xl">Dashboard is Currently Locked</CardTitle>
+            <CardTitle className="text-xl" data-testid="dashboard-locked-title">
+              Dashboard is Currently Locked
+            </CardTitle>
             <CardDescription>This dashboard is being edited by another user</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -320,10 +331,19 @@ export default function EditDashboardPage() {
             </div>
 
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => mutate()}>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => mutate()}
+                data-testid="dashboard-locked-refresh-btn"
+              >
                 Refresh Now
               </Button>
-              <Button className="flex-1" onClick={handleBackNavigation}>
+              <Button
+                className="flex-1"
+                onClick={handleBackNavigation}
+                data-testid="dashboard-locked-go-back-btn"
+              >
                 Go Back
               </Button>
             </div>

@@ -41,7 +41,7 @@ export function KPISelectorModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh]">
+      <DialogContent className="max-w-6xl max-h-[90vh]" data-testid="dashboard-kpi-selector-modal">
         <DialogHeader>
           <DialogTitle>Add KPI</DialogTitle>
         </DialogHeader>
@@ -51,6 +51,7 @@ export function KPISelectorModal({
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
               placeholder="Search KPIs..."
+              data-testid="dashboard-kpi-selector-search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10"
@@ -59,6 +60,7 @@ export function KPISelectorModal({
           <Link href="/kpis">
             <Button
               variant="outline"
+              data-testid="dashboard-kpi-selector-create-new"
               className="flex items-center gap-2 whitespace-nowrap border-dashed border-2 hover:border-solid hover:bg-blue-50 hover:border-blue-300 transition-all font-medium uppercase"
             >
               <Plus className="w-4 h-4" />
@@ -81,6 +83,7 @@ export function KPISelectorModal({
                 return (
                   <div
                     key={kpi.id}
+                    data-testid={`dashboard-kpi-option-${kpi.id}`}
                     className={`border rounded-lg p-4 transition-all duration-200 ${
                       isAlreadyAdded
                         ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200'
@@ -139,6 +142,7 @@ export function KPISelectorModal({
                     <Button
                       variant="outline"
                       size="sm"
+                      data-testid="dashboard-kpi-selector-go-to-kpis"
                       className="border-dashed border-2 hover:border-solid hover:bg-blue-50 hover:border-blue-300 transition-all font-medium uppercase"
                     >
                       <Plus className="w-4 h-4 mr-2" />

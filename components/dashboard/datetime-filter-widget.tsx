@@ -68,7 +68,10 @@ export function DateTimeFilterWidget({
   const hasValue = startDate || endDate;
 
   return (
-    <div className="space-y-2 p-4 bg-white rounded-lg border">
+    <div
+      className="space-y-2 p-4 bg-white rounded-lg border"
+      data-testid={`dashboard-filter-datetime-${filter.id}`}
+    >
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium text-gray-700">{filter.name}</label>
       </div>
@@ -80,6 +83,7 @@ export function DateTimeFilterWidget({
           <DatePicker
             value={startDate}
             placeholder="Start date"
+            testId={`dashboard-filter-date-start-${filter.id}`}
             disabled={isLocked}
             open={startOpen}
             onOpenChange={setStartOpen}
@@ -95,6 +99,7 @@ export function DateTimeFilterWidget({
           <DatePicker
             value={endDate}
             placeholder="End date"
+            testId={`dashboard-filter-date-end-${filter.id}`}
             disabled={isLocked}
             open={endOpen}
             onOpenChange={setEndOpen}

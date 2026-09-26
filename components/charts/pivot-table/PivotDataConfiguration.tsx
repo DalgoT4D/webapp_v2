@@ -91,7 +91,11 @@ export default function PivotDataConfiguration({
               <Label className="text-sm font-medium">Row Dimensions</Label>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button type="button" className="text-muted-foreground hover:text-foreground">
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    data-testid="pivot-info-row-dimensions"
+                  >
                     <Info className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
@@ -118,7 +122,11 @@ export default function PivotDataConfiguration({
               <Label className="text-sm font-medium">Column Dimensions</Label>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button type="button" className="text-muted-foreground hover:text-foreground">
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    data-testid="pivot-info-column-dimensions"
+                  >
                     <Info className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
@@ -152,7 +160,11 @@ export default function PivotDataConfiguration({
                 </Label>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button type="button" className="text-muted-foreground hover:text-foreground">
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      data-testid="pivot-info-row-subtotals"
+                    >
                       <Info className="h-3.5 w-3.5" />
                     </button>
                   </TooltipTrigger>
@@ -210,7 +222,11 @@ export default function PivotDataConfiguration({
                 </Label>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button type="button" className="text-muted-foreground hover:text-foreground">
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      data-testid="pivot-info-column-subtotals"
+                    >
                       <Info className="h-3.5 w-3.5" />
                     </button>
                   </TooltipTrigger>
@@ -268,7 +284,11 @@ export default function PivotDataConfiguration({
                 </Label>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button type="button" className="text-muted-foreground hover:text-foreground">
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      data-testid="pivot-info-row-grand-total"
+                    >
                       <Info className="h-3.5 w-3.5" />
                     </button>
                   </TooltipTrigger>
@@ -327,7 +347,11 @@ export default function PivotDataConfiguration({
                 </Label>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button type="button" className="text-muted-foreground hover:text-foreground">
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      data-testid="pivot-info-column-grand-total"
+                    >
                       <Info className="h-3.5 w-3.5" />
                     </button>
                   </TooltipTrigger>
