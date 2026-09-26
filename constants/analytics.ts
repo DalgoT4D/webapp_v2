@@ -357,9 +357,6 @@ export const ANALYTICS_EVENTS = {
   ALERT_WIZARD_STEP_VIEWED: 'alert:wizard_step_viewed',
   ALERT_SLACK_WEBHOOK_TESTED: 'alert:slack_webhook_tested',
   ALERT_LOGS_VIEWED: 'alert:logs_viewed',
-  // Data quality (Elementary-based)
-  DATA_QUALITY_SETUP_COMPLETED: 'data_quality:setup_completed',
-  DATA_QUALITY_REPORT_GENERATED: 'data_quality:report_generated',
   // Settings — user management & org
   USER_INVITED: 'settings:user_invited',
   BRANDING_LOGO_SAVED: 'settings:branding_logo_saved',
@@ -712,7 +709,6 @@ export const FEATURES = {
   ORCHESTRATE: 'orchestrate',
   EXPLORE: 'explore',
   METRICS: 'metrics',
-  DATA_QUALITY: 'data_quality',
   ALERTS: 'alerts',
   NOTIFICATIONS: 'notifications',
   SETTINGS_USER_MANAGEMENT: 'settings_user_management',
@@ -748,7 +744,6 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/orchestrate', feature: FEATURES.ORCHESTRATE },
   { prefix: '/explore', feature: FEATURES.EXPLORE },
   { prefix: '/metrics', feature: FEATURES.METRICS },
-  { prefix: '/data-quality', feature: FEATURES.DATA_QUALITY },
   { prefix: '/alerts', feature: FEATURES.ALERTS },
   { prefix: '/notifications', feature: FEATURES.NOTIFICATIONS },
   { prefix: '/settings/access', feature: FEATURES.SETTINGS_USER_MANAGEMENT },

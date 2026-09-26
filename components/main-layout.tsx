@@ -28,7 +28,6 @@ import {
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
 import ExploreIcon from '@/assets/icons/explore';
-import DataQualityIcon from '@/assets/icons/data-quality';
 import PipelineOverviewIcon from '@/assets/icons/pipeline-overview';
 import OrchestrateIcon from '@/assets/icons/orchestrate';
 import { Header } from './header';
@@ -194,19 +193,6 @@ export const getNavItems = (
           href: '/metrics',
           icon: BarChart3,
           isActive: currentPath.startsWith('/metrics'),
-        },
-        {
-          title: 'Quality',
-          href: '/data-quality',
-          icon: DataQualityIcon,
-          isActive: currentPath.startsWith('/data-quality'),
-          visibleToRoles: DATA_SECTION_ROLES,
-          // Hidden for free-trial orgs: Elementary needs a full dbt setup a trial org
-          // never reaches, so the page can only ever show its not-set-up state.
-          hide:
-            !isFeatureFlagEnabled(FeatureFlagKeys.DATA_QUALITY) ||
-            transformType === TransformType.UI ||
-            isTrialOrg,
         },
       ],
     },
