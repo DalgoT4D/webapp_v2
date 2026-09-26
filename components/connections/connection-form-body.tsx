@@ -285,11 +285,18 @@ export function ConnectionFormBody({
       for (const op of connection.post_sync_transform?.ops ?? []) {
         if (op.type === 'cast') castConfigMap[op.table] = op.config;
       }
+      // Already-synced columns were accepted when the connection was saved, so
+      // they start confirmed. Any later edit resets confirmation in useStreamConfig,
+      // and newly selected streams start unconfirmed.
       const withCasts = parsed.map((s) => {
         const columnCasts = castConfigMap[s.name] ?? {};
         return {
           ...s,
-          columns: s.columns.map((c) => ({ ...c, cast_to_type: columnCasts[c.name] ?? null })),
+          columns: s.columns.map((c) => ({
+            ...c,
+            cast_to_type: columnCasts[c.name] ?? null,
+            type_confirmed: s.selected && c.selected,
+          })),
         };
       });
 

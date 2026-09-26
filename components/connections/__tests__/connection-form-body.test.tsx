@@ -40,8 +40,10 @@ jest.mock('@/hooks/api/useConnections', () => ({
 let mockStreams: unknown[] = [];
 let mockHasSelectedStreams = false;
 let mockAllSelectedColumnTypesConfirmed = true;
+const mockInitializeStreams = jest.fn();
 
 afterEach(() => {
+  mockInitializeStreams.mockClear();
   mockConnectionData = null;
   mockStreams = [];
   mockHasSelectedStreams = false;
@@ -87,7 +89,7 @@ jest.mock('../hooks/useStreamConfig', () => ({
   useStreamConfig: (): Record<string, unknown> => ({
     streams: mockStreams,
     setStreams: jest.fn(),
-    initializeStreams: jest.fn(),
+    initializeStreams: mockInitializeStreams,
     streamSearch: '',
     setStreamSearch: jest.fn(),
     incrementalAllStreams: false,
@@ -427,6 +429,60 @@ describe('ConnectionFormBody split help + custom view', () => {
       streamNoun: 'Tables',
     });
   });
+});
+
+it('loads an existing connection with its already-synced columns confirmed', () => {
+  const catalogStream = (name: string, selected: boolean) => ({
+    stream: {
+      name,
+      jsonSchema: { properties: { id: { type: 'integer' }, note: { type: 'string' } } },
+      supportedSyncModes: ['full_refresh'],
+    },
+    config: {
+      selected,
+      syncMode: 'full_refresh',
+      destinationSyncMode: 'overwrite',
+      fieldSelectionEnabled: true,
+      selectedFields: selected ? [{ fieldPath: ['id'] }] : [],
+    },
+  });
+  mockConnectionData = {
+    name: 'existing',
+    connectionId: 'c1',
+    source: { id: 'src-1', name: 'Attendance Sheet' },
+    normalize: false,
+    catalogId: 'cat-1',
+    syncCatalog: { streams: [catalogStream('synced', true), catalogStream('not_synced', false)] },
+  } as unknown as Connection;
+
+  render(
+    <ConnectionFormBody
+      mode={FormMode.EDIT}
+      connectionId="c1"
+      onSuccess={jest.fn()}
+      onCancel={jest.fn()}
+    />
+  );
+
+  const [loaded] = mockInitializeStreams.mock.calls.at(-1);
+  const columnsOf = (name: string) =>
+    loaded
+      .find((s: { name: string }) => s.name === name)
+      .columns.map((c: { name: string; selected: boolean; type_confirmed: boolean }) => [
+        c.name,
+        c.selected,
+        c.type_confirmed,
+      ]);
+  // Only columns that were already being synced start confirmed; a newly picked
+  // column or table must still be confirmed before saving.
+  expect(columnsOf('synced')).toEqual([
+    ['id', true, true],
+    ['note', false, false],
+  ]);
+  expect(columnsOf('not_synced')).toEqual([
+    ['id', false, false],
+    ['note', false, false],
+  ]);
 });
 
 it('enables submission after confirmation and disables it again when types need review', () => {

@@ -19,6 +19,7 @@ import 'driver.js/dist/driver.css';
 import './tour.css';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
+import { GOOGLE_PICKER_TESTID } from '@/components/connectors/google-picker';
 import {
   getResumeAnchorStage,
   INGEST_STAGES,
@@ -98,7 +99,7 @@ const SOURCE_NEXT_STAGE: StageConfig = {
  * These steps used to run uncoached: SOURCE_NEXT_STAGE deliberately ended the guidance and let
  * the flow go quiet until the first sync was detected. It now continues, but only as far as
  * each step can honestly go:
- *  - The CONFIGURE stages describe Google Sheets' own fields, so only a Google Sheets run
+ *  - The CONFIGURE stages describe Google Sheets' own sign-in, so only a Google Sheets run
  *    enters them (CreateSourceStep decides). Another source's configure step is left alone.
  *  - The SELECT DATA stages describe the connection form, which is the same for every source,
  *    so every run enters them. Casting is the exception — it is offered for Google Sheets only
@@ -109,51 +110,69 @@ const SOURCE_NEXT_STAGE: StageConfig = {
  */
 function wizardStageConfigs(
   stages: readonly [
-    sheetLink: WalkthroughStage,
     sheetAuth: WalkthroughStage,
+    sheetPicker: WalkthroughStage,
     configNext: WalkthroughStage,
     streamsScroll: WalkthroughStage,
     streamsCast: WalkthroughStage,
     connectionCreate: WalkthroughStage,
   ]
 ): Record<WalkthroughStage, StageConfig> {
-  const [sheetLink, sheetAuth, configNext, streamsScroll, streamsCast, connectionCreate] = stages;
+  const [sheetAuth, sheetPicker, configNext, streamsScroll, streamsCast, connectionCreate] = stages;
   return {
-    [sheetLink]: {
+    [sheetAuth]: {
       route: '/ingest',
-      selector: '[data-testid="gsheets-primary-fields"]',
-      // Advances on the pasted link rather than a click: the field starts empty and the whole
-      // point of the step is getting a URL into it, so a click on an empty box proves nothing.
-      advanceOn: 'value',
-      nextOnInteraction: sheetAuth,
-      title: 'Point us at your sheet',
+      // The authentication choice when the spec offers one, and the plain sign-in block when it
+      // doesn't — the same beat either way, so the stage takes whichever is on screen rather
+      // than assuming a deployment's configuration.
+      selector: () =>
+        document.querySelector('[data-testid="gsheets-auth-method"]')
+          ? '[data-testid="gsheets-auth-method"]'
+          : '[data-testid="google-sheets-form"]',
+      // Got it AND a click on the sign-in button, which is the real action here — the default
+      // 'click' rule plus `showNext` gives both, and `interactionSelector` moves the listener
+      // off the highlighted panel (a click anywhere in it, including on the service-account
+      // radio, would otherwise count).
+      showNext: true,
+      interactionSelector: '[data-testid="gsheets-oauth-connect-btn"]',
+      nextOnInteraction: sheetPicker,
+      title: 'Sign in with Google',
       description:
-        'Paste the link to your Google Sheet — the address from your browser’s bar with the sheet open.',
+        'Sign in and Google will ask which spreadsheet to hand over. Dalgo gets access to that one file — nothing else in your Drive.',
       // The configure step is a centred, narrow dialog, so there is always open page to its
       // right; a popover above or below would sit on the wizard's own header or footer.
       side: 'right',
       align: 'start',
     },
-    [sheetAuth]: {
+    [sheetPicker]: {
       route: '/ingest',
-      // The managed-service-account choice when the deployment offers one, and the plain
-      // sign-in block when it doesn't — the same beat either way, so the stage takes whichever
-      // is on screen rather than assuming a deployment's configuration.
-      selector: () =>
-        document.querySelector('[data-testid="gsheets-auth-choice"]')
-          ? '[data-testid="gsheets-auth-choice"]'
-          : '[data-testid="google-sheets-form"]',
-      // Got it, not a click: this stage asks the user to go off to Google Sheets and share the
-      // sheet, then come back. Advancing on a click of the panel would drop the instructions
-      // the moment they started reading them.
+      // Google's own Picker, which the sign-in above ends in. The dialog's OUTER container is
+      // ours to find (Google appends it to document.body, and google-picker.ts stamps this
+      // testid on it) — everything inside it is a cross-origin iframe, so the file rows and the
+      // Select button cannot be targeted individually. The whole dialog is the target.
+      selector: `[data-testid="${GOOGLE_PICKER_TESTID}"]`,
+      // No Got it, and no engagement listener either: the ONLY way past this stage is choosing a
+      // sheet, which CreateSourceStep reports (see SHEET_PICKED_STAGE_FOR). A Got it here let
+      // the user dismiss their way onto "Create the source" with the Picker still open and no
+      // sheet chosen — a coachmark pointing at a button behind Google's dialog, telling them to
+      // create a source that has nothing to sync. Nothing in the Picker is ours to listen on
+      // instead: its contents are a cross-origin iframe, so a click rule would never fire.
       advanceOn: 'never',
-      showNext: true,
-      nextOnInteraction: configNext,
-      title: 'Let Dalgo read it',
-      description:
-        'Share the sheet with the address shown here and give it Viewer access. Dalgo can then read that one sheet and nothing else in your Drive.',
-      side: 'right',
-      align: 'start',
+      // The sign-in button stays live while this stage waits out the consent popup, and again
+      // if the user closes the Picker without choosing — the Picker is reached through that
+      // button and no other stage coaches it. Without this, cancelling out of the Picker left
+      // the user held to a dialog that was no longer on screen.
+      alsoClickable: [
+        '[data-testid="gsheets-oauth-connect-btn"]',
+        '[data-testid="gsheets-replace-sheet-btn"]',
+      ],
+      title: 'Pick the sheet to sync',
+      description: 'Choose one Google Sheet and hit Select. You can swap it before saving.',
+      // Beside the Picker, not above or below it: Google's dialog is nearly viewport-tall, so
+      // there is no room on either of those edges and driver.js clamps a 'top' popover to the
+      // side anyway. Saying 'left' makes that placement deliberate rather than incidental.
+      side: 'left',
+      align: 'center',
     },
     [configNext]: {
       ring: true,
@@ -965,8 +984,8 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   own_data_pick_source: PICK_SOURCE_STAGE,
   own_data_source_next: SOURCE_NEXT_STAGE,
   ...wizardStageConfigs([
-    'own_data_sheet_link',
     'own_data_sheet_auth',
+    'own_data_sheet_picker',
     'own_data_config_next',
     'own_data_streams_scroll',
     'own_data_streams_cast',
@@ -1177,8 +1196,8 @@ const STAGE_CONFIG: Partial<Record<WalkthroughStage, StageConfig>> = {
   pipeline_pick_source: PICK_SOURCE_STAGE,
   pipeline_source_next: SOURCE_NEXT_STAGE,
   ...wizardStageConfigs([
-    'pipeline_sheet_link',
     'pipeline_sheet_auth',
+    'pipeline_sheet_picker',
     'pipeline_config_next',
     'pipeline_streams_scroll',
     'pipeline_streams_cast',
