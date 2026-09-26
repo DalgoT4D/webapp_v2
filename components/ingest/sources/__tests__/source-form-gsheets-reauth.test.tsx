@@ -313,6 +313,25 @@ it('sends only the Google branch when a service-account source switches over', a
   expect(payload.config.credentials).toEqual({ auth_type: 'Client' });
 });
 
+it('offers only sign-in, not a sheet swap, on a service-account source until it signs in', async () => {
+  serveServiceSource();
+  (connectGoogleSpreadsheet as jest.Mock).mockResolvedValue({
+    ref: 'ref-abc',
+    spreadsheet: SAME_SHEET_PICK,
+  });
+  const user = userEvent.setup();
+  renderDialog();
+
+  await waitFor(() => expect(screen.getByTestId('gsheets-service-option-radio')).toBeChecked());
+  await user.click(screen.getByTestId('gsheets-oauth-option-radio'));
+
+  expect(screen.getByTestId('gsheets-oauth-connect-btn')).toHaveTextContent('Sign in with Google');
+  expect(screen.queryByTestId('gsheets-replace-sheet-btn')).not.toBeInTheDocument();
+
+  await user.click(screen.getByTestId('gsheets-oauth-connect-btn'));
+  expect(await screen.findByTestId('gsheets-replace-sheet-btn')).toBeInTheDocument();
+});
+
 it('runs the same pick flow for a source switching off a service-account key', async () => {
   serveServiceSource();
   (connectGoogleSpreadsheet as jest.Mock).mockResolvedValue({

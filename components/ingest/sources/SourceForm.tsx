@@ -652,8 +652,11 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
                         onClick: handleConnectGoogle,
                         // The sheet row's own button, same as the wizard's. Changing a saved
                         // source's sheet is allowed but warned about, and this button runs
-                        // consent first whenever no ref is held yet.
-                        onReplaceSheet: handleChooseAnotherSheet,
+                        // consent first whenever no ref is held yet. A source switching off a
+                        // service-account key has no OAuth sheet to replace, so until it signs
+                        // in the only action is "Sign in with Google" — same as the wizard.
+                        onReplaceSheet:
+                          isConnected || oauthRef ? handleChooseAnotherSheet : undefined,
                         error: authError ?? undefined,
                         connectedSheet: pickedSheet ?? undefined,
                         // The card appends a link to the sheet it syncs today, so this text
