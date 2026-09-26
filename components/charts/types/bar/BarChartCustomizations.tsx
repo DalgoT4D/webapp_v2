@@ -46,11 +46,19 @@ export function BarChartCustomizations({
             disabled={disabled}
           >
             <div className="flex items-center space-x-2 mt-2">
-              <RadioGroupItem value="vertical" id="vertical" />
+              <RadioGroupItem
+                value="vertical"
+                id="vertical"
+                data-testid="chart-styling-orientation-vertical"
+              />
               <Label htmlFor="vertical">Vertical</Label>
             </div>
             <div className="flex items-center space-x-2 mt-2">
-              <RadioGroupItem value="horizontal" id="horizontal" />
+              <RadioGroupItem
+                value="horizontal"
+                id="horizontal"
+                data-testid="chart-styling-orientation-horizontal"
+              />
               <Label htmlFor="horizontal">Horizontal</Label>
             </div>
           </RadioGroup>
@@ -60,6 +68,7 @@ export function BarChartCustomizations({
           <div className="flex items-center space-x-2">
             <Switch
               id="stacked"
+              data-testid="chart-styling-stacked"
               checked={customizations.stacked || false}
               onCheckedChange={(checked) => updateCustomization('stacked', checked)}
               disabled={disabled}
@@ -71,6 +80,7 @@ export function BarChartCustomizations({
         <div className="flex items-center space-x-2">
           <Switch
             id="showTooltip"
+            data-testid="chart-styling-show-tooltip"
             checked={customizations.showTooltip !== false}
             onCheckedChange={(checked) => updateCustomization('showTooltip', checked)}
             disabled={disabled}
@@ -81,6 +91,7 @@ export function BarChartCustomizations({
         <div className="flex items-center space-x-2">
           <Switch
             id="showLegend"
+            data-testid="chart-styling-show-legend"
             checked={customizations.showLegend !== false}
             onCheckedChange={(checked) => updateCustomization('showLegend', checked)}
             disabled={disabled}
@@ -104,11 +115,19 @@ export function BarChartCustomizations({
                 disabled={disabled}
               >
                 <div className="flex items-center space-x-2 mt-2">
-                  <RadioGroupItem value="paginated" id="bar-paginated" />
+                  <RadioGroupItem
+                    value="paginated"
+                    id="bar-paginated"
+                    data-testid="chart-styling-legend-display-paginated"
+                  />
                   <Label htmlFor="bar-paginated">Paginated Legends</Label>
                 </div>
                 <div className="flex items-center space-x-2 mt-2">
-                  <RadioGroupItem value="all" id="bar-all" />
+                  <RadioGroupItem
+                    value="all"
+                    id="bar-all"
+                    data-testid="chart-styling-legend-display-all"
+                  />
                   <Label htmlFor="bar-all">Show All Legends in Chart Area</Label>
                 </div>
               </RadioGroup>
@@ -121,14 +140,28 @@ export function BarChartCustomizations({
                 onValueChange={(value) => updateCustomization('legendPosition', value)}
                 disabled={disabled}
               >
-                <SelectTrigger id="barLegendPosition">
+                <SelectTrigger id="barLegendPosition" data-testid="chart-styling-legend-position">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="top">Top</SelectItem>
-                  <SelectItem value="bottom">Bottom</SelectItem>
-                  <SelectItem value="left">Left</SelectItem>
-                  <SelectItem value="right">Right</SelectItem>
+                  <SelectItem value="top" data-testid="chart-styling-legend-position-option-top">
+                    Top
+                  </SelectItem>
+                  <SelectItem
+                    value="bottom"
+                    data-testid="chart-styling-legend-position-option-bottom"
+                  >
+                    Bottom
+                  </SelectItem>
+                  <SelectItem value="left" data-testid="chart-styling-legend-position-option-left">
+                    Left
+                  </SelectItem>
+                  <SelectItem
+                    value="right"
+                    data-testid="chart-styling-legend-position-option-right"
+                  >
+                    Right
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -143,6 +176,7 @@ export function BarChartCustomizations({
         <div className="flex items-center space-x-2">
           <Switch
             id="showDataLabels"
+            data-testid="chart-styling-show-data-labels"
             checked={customizations.showDataLabels || false}
             onCheckedChange={(checked) => updateCustomization('showDataLabels', checked)}
             disabled={disabled}
@@ -158,13 +192,25 @@ export function BarChartCustomizations({
               onValueChange={(value) => updateCustomization('dataLabelPosition', value)}
               disabled={disabled}
             >
-              <SelectTrigger id="dataLabelPosition">
+              <SelectTrigger id="dataLabelPosition" data-testid="chart-styling-data-label-position">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="top">Top</SelectItem>
-                <SelectItem value="inside">Middle</SelectItem>
-                <SelectItem value="insideBottom">Bottom</SelectItem>
+                <SelectItem value="top" data-testid="chart-styling-data-label-position-option-top">
+                  Top
+                </SelectItem>
+                <SelectItem
+                  value="inside"
+                  data-testid="chart-styling-data-label-position-option-inside"
+                >
+                  Middle
+                </SelectItem>
+                <SelectItem
+                  value="insideBottom"
+                  data-testid="chart-styling-data-label-position-option-insideBottom"
+                >
+                  Bottom
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -179,6 +225,7 @@ export function BarChartCustomizations({
           <Label htmlFor="xAxisTitle">Title</Label>
           <DebouncedInput
             id="xAxisTitle"
+            data-testid="chart-styling-x-axis-title"
             value={customizations.xAxisTitle || ''}
             onChange={(value) => updateCustomization('xAxisTitle', value)}
             placeholder="Enter X-axis title"
@@ -193,13 +240,28 @@ export function BarChartCustomizations({
             onValueChange={(value) => updateCustomization('xAxisLabelRotation', value)}
             disabled={disabled}
           >
-            <SelectTrigger id="xAxisLabelRotation">
+            <SelectTrigger
+              id="xAxisLabelRotation"
+              data-testid="chart-styling-x-axis-label-rotation"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="horizontal">Horizontal (0°)</SelectItem>
-              <SelectItem value="45">45 degrees</SelectItem>
-              <SelectItem value="vertical">Vertical (90°)</SelectItem>
+              <SelectItem
+                value="horizontal"
+                data-testid="chart-styling-x-axis-label-rotation-option-horizontal"
+              >
+                Horizontal (0°)
+              </SelectItem>
+              <SelectItem value="45" data-testid="chart-styling-x-axis-label-rotation-option-45">
+                45 degrees
+              </SelectItem>
+              <SelectItem
+                value="vertical"
+                data-testid="chart-styling-x-axis-label-rotation-option-vertical"
+              >
+                Vertical (90°)
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -235,6 +297,7 @@ export function BarChartCustomizations({
           <Label htmlFor="yAxisTitle">Title</Label>
           <DebouncedInput
             id="yAxisTitle"
+            data-testid="chart-styling-y-axis-title"
             value={customizations.yAxisTitle || ''}
             onChange={(value) => updateCustomization('yAxisTitle', value)}
             placeholder="Enter Y-axis title"
@@ -249,13 +312,28 @@ export function BarChartCustomizations({
             onValueChange={(value) => updateCustomization('yAxisLabelRotation', value)}
             disabled={disabled}
           >
-            <SelectTrigger id="yAxisLabelRotation">
+            <SelectTrigger
+              id="yAxisLabelRotation"
+              data-testid="chart-styling-y-axis-label-rotation"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="horizontal">Horizontal (0°)</SelectItem>
-              <SelectItem value="45">45 degrees</SelectItem>
-              <SelectItem value="vertical">Vertical (90°)</SelectItem>
+              <SelectItem
+                value="horizontal"
+                data-testid="chart-styling-y-axis-label-rotation-option-horizontal"
+              >
+                Horizontal (0°)
+              </SelectItem>
+              <SelectItem value="45" data-testid="chart-styling-y-axis-label-rotation-option-45">
+                45 degrees
+              </SelectItem>
+              <SelectItem
+                value="vertical"
+                data-testid="chart-styling-y-axis-label-rotation-option-vertical"
+              >
+                Vertical (90°)
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

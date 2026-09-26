@@ -529,6 +529,7 @@ export default function ChartsPage() {
       description: confirmMessage,
       confirmText: 'Delete',
       type: 'warning',
+      testIdPrefix: 'chart-bulk-delete-confirm',
       onConfirm: () => {},
     });
 
@@ -628,6 +629,7 @@ export default function ChartsPage() {
             variant="ghost"
             size="sm"
             onClick={() => setNameFilters({ text: '', showFavorites: false })}
+            data-testid="chart-list-filter-name-clear"
             className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
           >
             Clear
@@ -637,6 +639,7 @@ export default function ChartsPage() {
         <div className="space-y-2">
           <Input
             placeholder="Search chart names..."
+            data-testid="chart-list-filter-name-input"
             value={nameFilters.text}
             onChange={(e) => setNameFilters((prev) => ({ ...prev, text: e.target.value }))}
             className="h-8"
@@ -647,6 +650,7 @@ export default function ChartsPage() {
           <div className="flex items-center space-x-2">
             <Checkbox
               id="favorites"
+              data-testid="chart-list-filter-favorites-checkbox"
               checked={nameFilters.showFavorites}
               onCheckedChange={(checked) =>
                 setNameFilters((prev) => ({ ...prev, showFavorites: checked as boolean }))
@@ -679,6 +683,7 @@ export default function ChartsPage() {
               variant="ghost"
               size="sm"
               onClick={() => setDataSourceFilters([])}
+              data-testid="chart-list-filter-source-clear"
               className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
             >
               Clear
@@ -688,6 +693,7 @@ export default function ChartsPage() {
           <div className="space-y-2">
             <Input
               placeholder="Search data sources..."
+              data-testid="chart-list-filter-source-search"
               value={dataSourceSearch}
               onChange={(e) => setDataSourceSearch(e.target.value)}
               className="h-8"
@@ -699,6 +705,7 @@ export default function ChartsPage() {
               filteredDataSources.map((dataSource) => (
                 <div
                   key={dataSource}
+                  data-testid={`chart-list-filter-source-option-${dataSource}`}
                   className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
                   onClick={() => {
                     setDataSourceFilters((prev) => {
@@ -711,6 +718,7 @@ export default function ChartsPage() {
                   }}
                 >
                   <Checkbox
+                    data-testid={`chart-list-filter-source-checkbox-${dataSource}`}
                     checked={dataSourceFilters.includes(dataSource)}
                     onChange={() => {}} // Handled by parent onClick
                   />
@@ -738,6 +746,7 @@ export default function ChartsPage() {
             variant="ghost"
             size="sm"
             onClick={() => setChartTypeFilters([])}
+            data-testid="chart-list-filter-type-clear"
             className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
           >
             Clear
@@ -748,6 +757,7 @@ export default function ChartsPage() {
           {uniqueChartTypes.map((chartType) => (
             <div
               key={chartType}
+              data-testid={`chart-list-filter-type-option-${chartType}`}
               className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
               onClick={() => {
                 setChartTypeFilters((prev) => {
@@ -760,6 +770,7 @@ export default function ChartsPage() {
               }}
             >
               <Checkbox
+                data-testid={`chart-list-filter-type-checkbox-${chartType}`}
                 checked={chartTypeFilters.includes(chartType)}
                 onChange={() => {}} // Handled by parent onClick
               />
@@ -783,6 +794,7 @@ export default function ChartsPage() {
             variant="ghost"
             size="sm"
             onClick={() => setDateFilters({ range: 'all', customStart: null, customEnd: null })}
+            data-testid="chart-list-filter-date-clear"
             className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
           >
             Clear
@@ -801,6 +813,7 @@ export default function ChartsPage() {
               <input
                 type="radio"
                 id={option.value}
+                data-testid={`chart-list-filter-date-${option.value}`}
                 name="dateRange"
                 checked={dateFilters.range === option.value}
                 onChange={() => setDateFilters((prev) => ({ ...prev, range: option.value as any }))}
@@ -821,6 +834,7 @@ export default function ChartsPage() {
                 <Label className="text-xs">From</Label>
                 <Input
                   type="date"
+                  data-testid="chart-list-filter-date-from"
                   value={
                     dateFilters.customStart
                       ? dateFilters.customStart.toISOString().split('T')[0]
@@ -839,6 +853,7 @@ export default function ChartsPage() {
                 <Label className="text-xs">To</Label>
                 <Input
                   type="date"
+                  data-testid="chart-list-filter-date-to"
                   value={
                     dateFilters.customEnd ? dateFilters.customEnd.toISOString().split('T')[0] : ''
                   }
@@ -885,6 +900,7 @@ export default function ChartsPage() {
               size="icon"
               className="h-8 w-8 p-0 hover:bg-yellow-50 shrink-0"
               disabled={favoritingIds.has(chart.id)}
+              data-testid={`chart-list-favorite-${chart.id}`}
               onClick={(e) => {
                 e.preventDefault();
                 handleToggleFavorite(chart);
@@ -901,6 +917,7 @@ export default function ChartsPage() {
                 <TooltipTrigger asChild>
                   <Link
                     href={hasPermission(PERMISSIONS.CAN_VIEW_CHARTS) ? `/charts/${chart.id}` : '#'}
+                    data-testid={`chart-list-title-link-${chart.id}`}
                     className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline truncate"
                   >
                     {chart.title}
@@ -979,7 +996,12 @@ export default function ChartsPage() {
           <div className="flex items-center gap-2">
             {chart.access_level === 'edit' && (
               <Link href={`/charts/${chart.id}/edit`}>
-                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                  data-testid={`chart-list-edit-${chart.id}`}
+                >
                   <Edit className="w-4 h-4 text-gray-600" />
                 </Button>
               </Link>
@@ -990,13 +1012,19 @@ export default function ChartsPage() {
                 size="icon"
                 className="h-8 w-8 p-0 hover:bg-gray-100"
                 onClick={() => handleShareChart(chart)}
+                data-testid={`chart-list-share-${chart.id}`}
               >
                 <Share2 className="w-4 h-4 text-gray-600" />
               </Button>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                  data-testid={`chart-list-row-menu-${chart.id}`}
+                >
                   <MoreVertical className="w-4 h-4 text-gray-600" />
                 </Button>
               </DropdownMenuTrigger>
@@ -1006,6 +1034,7 @@ export default function ChartsPage() {
                     isSelectionMode ? toggleChartSelection(chart.id) : enterSelectionMode(chart.id)
                   }
                   className="cursor-pointer"
+                  data-testid={`chart-list-row-menu-select-${chart.id}`}
                 >
                   <CheckSquare className="w-4 h-4 mr-2" />
                   {isChartSelected ? 'Deselect' : 'Select'}
@@ -1017,6 +1046,7 @@ export default function ChartsPage() {
                       onClick={() => handleDuplicateChart(chart.id, chart.title)}
                       className="cursor-pointer"
                       disabled={isDuplicating === chart.id}
+                      data-testid={`chart-list-row-menu-duplicate-${chart.id}`}
                     >
                       {isDuplicating === chart.id ? (
                         <div className="w-4 h-4 mr-2 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
@@ -1046,6 +1076,7 @@ export default function ChartsPage() {
                       <DropdownMenuItem
                         className="cursor-pointer text-destructive focus:text-destructive"
                         onSelect={(e) => e.preventDefault()}
+                        data-testid={`chart-list-row-menu-delete-${chart.id}`}
                       >
                         <Trash className="w-4 h-4 mr-2" />
                         Delete
@@ -1093,7 +1124,11 @@ export default function ChartsPage() {
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <AlertCircle className="w-12 h-12 text-destructive" />
         <p className="text-muted-foreground">Failed to load charts</p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
+        <Button
+          variant="outline"
+          onClick={() => window.location.reload()}
+          data-testid="chart-list-retry-btn"
+        >
           Retry
         </Button>
       </div>
@@ -1137,6 +1172,7 @@ export default function ChartsPage() {
               <div id="charts-selection-info" className="flex items-center gap-2">
                 <button
                   id="charts-exit-selection-button"
+                  data-testid="chart-list-exit-selection-btn"
                   onClick={exitSelectionMode}
                   className="p-1 hover:bg-blue-100 rounded"
                   title="Exit selection mode"
@@ -1153,6 +1189,7 @@ export default function ChartsPage() {
                   variant="outline"
                   size="sm"
                   onClick={selectAllCharts}
+                  data-testid="chart-list-select-all-btn"
                   disabled={selectedCharts.size === filteredAndSortedCharts.length}
                 >
                   Select All
@@ -1161,6 +1198,7 @@ export default function ChartsPage() {
                   variant="outline"
                   size="sm"
                   onClick={deselectAllCharts}
+                  data-testid="chart-list-deselect-all-btn"
                   disabled={selectedCharts.size === 0}
                 >
                   Deselect All
@@ -1174,6 +1212,7 @@ export default function ChartsPage() {
                   variant="destructive"
                   size="sm"
                   onClick={handleBulkDelete}
+                  data-testid="chart-list-bulk-delete-btn"
                   disabled={selectedCharts.size === 0 || isBulkDeleting}
                 >
                   {isBulkDeleting ? (
@@ -1198,6 +1237,7 @@ export default function ChartsPage() {
               variant="ghost"
               size="sm"
               onClick={clearAllFilters}
+              data-testid="chart-list-clear-all-filters-btn"
               className="h-8 px-2 text-xs text-gray-500 hover:text-gray-700"
             >
               <X className="w-3 h-3 mr-1" />
@@ -1299,6 +1339,7 @@ export default function ChartsPage() {
                               variant="ghost"
                               className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                               onClick={() => handleSort('title')}
+                              data-testid="chart-list-sort-name"
                             >
                               <div className="flex items-center gap-2">
                                 Name
@@ -1316,6 +1357,7 @@ export default function ChartsPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6 p-0 hover:bg-gray-100"
+                                  data-testid="chart-list-filter-name-trigger"
                                 >
                                   {renderFilterIcon('name')}
                                 </Button>
@@ -1330,6 +1372,7 @@ export default function ChartsPage() {
                               variant="ghost"
                               className="h-auto p-0 font-medium text-base hover:bg-transparent"
                               onClick={() => handleSort('data_source')}
+                              data-testid="chart-list-sort-data-source"
                             >
                               <div className="flex items-center gap-2">
                                 Data Source
@@ -1347,6 +1390,7 @@ export default function ChartsPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6 p-0 hover:bg-gray-100"
+                                  data-testid="chart-list-filter-source-trigger"
                                 >
                                   {renderFilterIcon('dataSource')}
                                 </Button>
@@ -1361,6 +1405,7 @@ export default function ChartsPage() {
                               variant="ghost"
                               className="h-auto p-0 font-medium text-base hover:bg-transparent"
                               onClick={() => handleSort('chart_type')}
+                              data-testid="chart-list-sort-type"
                             >
                               <div className="flex items-center gap-2">
                                 Type
@@ -1378,6 +1423,7 @@ export default function ChartsPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6 p-0 hover:bg-gray-100"
+                                  data-testid="chart-list-filter-type-trigger"
                                 >
                                   {renderFilterIcon('chartType')}
                                 </Button>
@@ -1393,6 +1439,7 @@ export default function ChartsPage() {
                               variant="ghost"
                               className="h-auto p-0 font-medium text-base hover:bg-transparent"
                               onClick={() => handleSort('updated_at')}
+                              data-testid="chart-list-sort-updated-at"
                             >
                               <div className="flex items-center gap-2">
                                 Last Modified
@@ -1410,6 +1457,7 @@ export default function ChartsPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6 p-0 hover:bg-gray-100"
+                                  data-testid="chart-list-filter-date-trigger"
                                 >
                                   {renderFilterIcon('date')}
                                 </Button>
@@ -1484,22 +1532,39 @@ export default function ChartsPage() {
               >
                 <SelectTrigger
                   id="charts-page-size-trigger"
+                  data-testid="chart-list-page-size-trigger"
                   className="h-7 text-sm border-gray-200 bg-white"
                   style={{ width: '70px' }}
                 >
                   <SelectValue id="charts-page-size-value" />
                 </SelectTrigger>
                 <SelectContent id="charts-page-size-content">
-                  <SelectItem id="charts-page-size-10" value="10">
+                  <SelectItem
+                    id="charts-page-size-10"
+                    value="10"
+                    data-testid="chart-list-page-size-option-10"
+                  >
                     10
                   </SelectItem>
-                  <SelectItem id="charts-page-size-20" value="20">
+                  <SelectItem
+                    id="charts-page-size-20"
+                    value="20"
+                    data-testid="chart-list-page-size-option-20"
+                  >
                     20
                   </SelectItem>
-                  <SelectItem id="charts-page-size-50" value="50">
+                  <SelectItem
+                    id="charts-page-size-50"
+                    value="50"
+                    data-testid="chart-list-page-size-option-50"
+                  >
                     50
                   </SelectItem>
-                  <SelectItem id="charts-page-size-100" value="100">
+                  <SelectItem
+                    id="charts-page-size-100"
+                    value="100"
+                    data-testid="chart-list-page-size-option-100"
+                  >
                     100
                   </SelectItem>
                 </SelectContent>
@@ -1510,6 +1575,7 @@ export default function ChartsPage() {
             <div className="flex items-center gap-1">
               <Button
                 id="charts-prev-page-button"
+                data-testid="chart-list-prev-page-btn"
                 variant="ghost"
                 size="sm"
                 onClick={() => setCurrentPage(currentPage - 1)}
@@ -1525,6 +1591,7 @@ export default function ChartsPage() {
 
               <Button
                 id="charts-next-page-button"
+                data-testid="chart-list-next-page-btn"
                 variant="ghost"
                 size="sm"
                 onClick={() => setCurrentPage(currentPage + 1)}

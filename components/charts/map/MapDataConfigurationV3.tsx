@@ -55,6 +55,7 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   value,
   onChange,
   disabled,
+  idPrefix,
 }: {
   schema?: string;
   table?: string;
@@ -63,6 +64,8 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   value: any;
   onChange: (value: any) => void;
   disabled?: boolean;
+  /** Stable prefix for data-testids / Combobox ids (E2E selectors) */
+  idPrefix?: string;
 }) {
   // Get column values from preview data instead of separate API call
   const { data: previewData } = useChartDataPreview(
@@ -114,6 +117,7 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
       return (
         <div className="h-8 flex-1">
           <Combobox
+            id={idPrefix}
             mode="multi"
             items={columnValues
               .filter((val) => val !== null && val !== undefined && val.toString().trim() !== '')
@@ -135,6 +139,7 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
         <Input
           type="text"
           placeholder="value1, value2, value3"
+          data-testid={idPrefix ? `${idPrefix}-text` : undefined}
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
@@ -148,6 +153,7 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   if (columnValues && columnValues.length > 0) {
     return (
       <Combobox
+        id={idPrefix}
         items={columnValues
           .filter((val) => val !== null && val !== undefined && val.toString().trim() !== '')
           .slice(0, 100)
@@ -168,6 +174,7 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
     <Input
       type="text"
       placeholder="Enter value"
+      data-testid={idPrefix ? `${idPrefix}-text` : undefined}
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
@@ -285,6 +292,7 @@ export function MapDataConfigurationV3({
           onDatasetChange={handleDatasetChange}
           disabled={disabled}
           className="w-full"
+          id="chart-dataset-select"
         />
       </div>
 
@@ -316,6 +324,7 @@ export function MapDataConfigurationV3({
           {(formData.filters || []).map((filter, index) => (
             <div key={index} className="flex gap-2 items-center">
               <Combobox
+                id={`chart-filter-column-${index}`}
                 items={columnItems}
                 value={filter.column}
                 onValueChange={(value) => {
@@ -339,22 +348,79 @@ export function MapDataConfigurationV3({
                 }}
                 disabled={disabled}
               >
-                <SelectTrigger className="h-8 w-32">
+                <SelectTrigger className="h-8 w-32" data-testid={`chart-filter-operator-${index}`}>
                   <SelectValue placeholder="Operator" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="equals">Equals</SelectItem>
-                  <SelectItem value="not_equals">Not equals</SelectItem>
-                  <SelectItem value="greater_than">Greater than (&gt;)</SelectItem>
-                  <SelectItem value="greater_than_equal">Greater or equal (&gt;=)</SelectItem>
-                  <SelectItem value="less_than">Less than (&lt;)</SelectItem>
-                  <SelectItem value="less_than_equal">Less or equal (&lt;=)</SelectItem>
-                  <SelectItem value="like">Like</SelectItem>
-                  <SelectItem value="like_case_insensitive">Like (case insensitive)</SelectItem>
-                  <SelectItem value="in">In</SelectItem>
-                  <SelectItem value="not_in">Not in</SelectItem>
-                  <SelectItem value="is_null">Is null</SelectItem>
-                  <SelectItem value="is_not_null">Is not null</SelectItem>
+                  <SelectItem
+                    value="equals"
+                    data-testid={`chart-filter-operator-${index}-option-equals`}
+                  >
+                    Equals
+                  </SelectItem>
+                  <SelectItem
+                    value="not_equals"
+                    data-testid={`chart-filter-operator-${index}-option-not_equals`}
+                  >
+                    Not equals
+                  </SelectItem>
+                  <SelectItem
+                    value="greater_than"
+                    data-testid={`chart-filter-operator-${index}-option-greater_than`}
+                  >
+                    Greater than (&gt;)
+                  </SelectItem>
+                  <SelectItem
+                    value="greater_than_equal"
+                    data-testid={`chart-filter-operator-${index}-option-greater_than_equal`}
+                  >
+                    Greater or equal (&gt;=)
+                  </SelectItem>
+                  <SelectItem
+                    value="less_than"
+                    data-testid={`chart-filter-operator-${index}-option-less_than`}
+                  >
+                    Less than (&lt;)
+                  </SelectItem>
+                  <SelectItem
+                    value="less_than_equal"
+                    data-testid={`chart-filter-operator-${index}-option-less_than_equal`}
+                  >
+                    Less or equal (&lt;=)
+                  </SelectItem>
+                  <SelectItem
+                    value="like"
+                    data-testid={`chart-filter-operator-${index}-option-like`}
+                  >
+                    Like
+                  </SelectItem>
+                  <SelectItem
+                    value="like_case_insensitive"
+                    data-testid={`chart-filter-operator-${index}-option-like_case_insensitive`}
+                  >
+                    Like (case insensitive)
+                  </SelectItem>
+                  <SelectItem value="in" data-testid={`chart-filter-operator-${index}-option-in`}>
+                    In
+                  </SelectItem>
+                  <SelectItem
+                    value="not_in"
+                    data-testid={`chart-filter-operator-${index}-option-not_in`}
+                  >
+                    Not in
+                  </SelectItem>
+                  <SelectItem
+                    value="is_null"
+                    data-testid={`chart-filter-operator-${index}-option-is_null`}
+                  >
+                    Is null
+                  </SelectItem>
+                  <SelectItem
+                    value="is_not_null"
+                    data-testid={`chart-filter-operator-${index}-option-is_not_null`}
+                  >
+                    Is not null
+                  </SelectItem>
                 </SelectContent>
               </Select>
 
@@ -364,6 +430,7 @@ export function MapDataConfigurationV3({
                 column={filter.column}
                 operator={filter.operator}
                 value={filter.value}
+                idPrefix={`chart-filter-value-${index}`}
                 onChange={(value) => {
                   const newFilters = [...(formData.filters || [])];
                   newFilters[index] = { ...filter, value };
@@ -376,6 +443,7 @@ export function MapDataConfigurationV3({
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0"
+                data-testid={`remove-filter-${index}`}
                 onClick={() => {
                   const newFilters = (formData.filters || []).filter((_, i) => i !== index);
                   onFormDataChange({ filters: newFilters });
@@ -398,6 +466,7 @@ export function MapDataConfigurationV3({
               onFormDataChange({ filters: newFilters });
             }}
             disabled={disabled}
+            data-testid="chart-add-filter-btn"
             className="w-full bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
           >
             + Add Filter

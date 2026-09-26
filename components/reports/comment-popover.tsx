@@ -310,7 +310,10 @@ const CommentItem = memo(function CommentItem({
                 {formatCommentTime(comment.created_at)}
               </span>
             </div>
-            <p className="text-sm mt-0.5 text-muted-foreground italic flex items-center gap-1">
+            <p
+              className="text-sm mt-0.5 text-muted-foreground italic flex items-center gap-1"
+              data-testid={`comment-${comment.id}-deleted-text`}
+            >
               <Clock className="h-3 w-3" />
               This message was deleted
             </p>
@@ -339,14 +342,22 @@ const CommentItem = memo(function CommentItem({
           {!isEditing ? (
             <>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium truncate">{comment.author_email}</span>
+                <span
+                  className="text-sm font-medium truncate"
+                  data-testid={`comment-author-${comment.id}`}
+                >
+                  {comment.author_email}
+                </span>
                 <span className="text-xs text-muted-foreground flex-shrink-0">
                   {formatCommentTime(comment.created_at)}
                 </span>
                 {Math.abs(
                   new Date(comment.updated_at).getTime() - new Date(comment.created_at).getTime()
                 ) > EDITED_THRESHOLD_MS && (
-                  <span className="text-xs text-muted-foreground flex-shrink-0">
+                  <span
+                    className="text-xs text-muted-foreground flex-shrink-0"
+                    data-testid={`comment-edited-${comment.id}`}
+                  >
                     &middot; edited
                   </span>
                 )}
@@ -746,6 +757,7 @@ function CommentPopoverInner({
       <PopoverContent
         align="end"
         sideOffset={8}
+        data-testid={`comment-popover-${targetType}${chartId ? `-${chartId}` : ''}`}
         className={`${COMMENT_POPOVER_WIDTH} p-0 flex flex-col max-h-[min(450px,80vh)] rounded-lg border bg-popover shadow-none`}
         onInteractOutside={(e) => {
           // Prevent close when clicking mention dropdown

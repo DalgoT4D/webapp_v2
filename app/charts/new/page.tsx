@@ -103,7 +103,11 @@ function NewChartPageContent() {
           </div>
           <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
           <p className="text-muted-foreground mb-4">You don't have permission to create charts.</p>
-          <Button variant="outline" onClick={() => router.push('/charts')}>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/charts')}
+            data-testid="chart-new-access-denied-back-btn"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Charts
           </Button>
@@ -211,6 +215,7 @@ function NewChartPageContent() {
               table_name={selectedTable}
               onDatasetChange={handleDatasetChange}
               autoFocus={true}
+              id="chart-new-dataset-select"
             />
           </div>
         </div>
@@ -254,6 +259,7 @@ function NewChartPageContent() {
                             : {}
                         }
                         role="radio"
+                        data-testid={`chart-type-card-${chart.id}`}
                         aria-checked={isSelected}
                         tabIndex={0}
                         onClick={() => handleChartTypeSelect(chart.id)}
@@ -290,7 +296,7 @@ function NewChartPageContent() {
       {/* Bottom Actions */}
       <Separator className="my-8" />
       <div className="flex items-center gap-3">
-        <Button variant="cancel" onClick={handleCancel}>
+        <Button variant="cancel" onClick={handleCancel} data-testid="chart-new-cancel-button">
           Cancel
         </Button>
         <Button

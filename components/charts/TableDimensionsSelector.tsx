@@ -99,6 +99,7 @@ function SortableDimensionItem({
         }`}
         disabled={!canDrag || disabled}
         aria-label="Drag to reorder"
+        data-testid={`chart-table-dimension-drag-${index}`}
       >
         <GripVertical className="h-4 w-4" />
       </button>
@@ -106,6 +107,7 @@ function SortableDimensionItem({
       {/* Dimension Name - Column name and searchable dropdown */}
       <div className="flex-1 min-w-0">
         <Combobox
+          id={`chart-table-dimension-${index}`}
           items={columnItems}
           value={dimension.column || ''}
           onValueChange={(value) => onChange(index, 'column', value)}
@@ -169,6 +171,7 @@ function DimensionItemWrapper({
         onClick={() => onRemove(index)}
         disabled={!canRemove || disabled}
         title="Remove dimension"
+        data-testid={`chart-table-dimension-remove-${index}`}
       >
         <X className="h-4 w-4" />
       </Button>
@@ -304,6 +307,7 @@ export function TableDimensionsSelector({
             </Label>
             <Switch
               id="drill-down-toggle"
+              data-testid="chart-table-drill-down-switch"
               checked={isDrillDownEnabled}
               onCheckedChange={(checked) => handleDrillDownToggle(checked)}
               disabled={disabled || effectiveDimensions.length === 0}
@@ -345,6 +349,7 @@ export function TableDimensionsSelector({
         variant="default"
         size="default"
         onClick={handleAddDimension}
+        data-testid="chart-table-dimension-add-btn"
         disabled={disabled || getAvailableColumns().length === 0}
         className="w-full bg-black text-white hover:bg-gray-800"
       >
@@ -369,6 +374,7 @@ export function TableDimensionsSelector({
                 <button
                   type="button"
                   onClick={confirmRemoveDimension}
+                  data-testid="chart-table-dimension-remove-confirm-btn"
                   className="underline font-medium"
                 >
                   Remove anyway
@@ -376,6 +382,7 @@ export function TableDimensionsSelector({
                 <button
                   type="button"
                   onClick={() => setPendingRemoveIndex(null)}
+                  data-testid="chart-table-dimension-remove-cancel-btn"
                   className="underline font-medium"
                 >
                   Cancel
@@ -400,6 +407,7 @@ export function TableDimensionsSelector({
         open={drillOffConfirmOpen}
         onOpenChange={setDrillOffConfirmOpen}
         type="warning"
+        testIdPrefix="chart-table-drill-off-confirm"
         title="Review conditional formatting rules?"
         description="You have conditional formatting rules scoped to specific drill levels. They won't fire when drill-down is off. Continue anyway? You can edit or remove them in Chart Styling."
         confirmText="Turn drill-down off"

@@ -37,7 +37,7 @@ export function ChartDeleteDialog({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
-      <AlertDialogContent className="max-w-md">
+      <AlertDialogContent className="max-w-md" data-testid="chart-delete-dialog">
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Chart</AlertDialogTitle>
           <AlertDialogDescription className="space-y-3">
@@ -71,6 +71,7 @@ export function ChartDeleteDialog({
                         {dashboards.map((dashboard) => (
                           <div
                             key={dashboard.id}
+                            data-testid={`chart-delete-dashboard-${dashboard.id}`}
                             className="flex items-center justify-between text-xs p-2 bg-amber-50 rounded border"
                           >
                             <div className="flex-1 min-w-0">
@@ -81,6 +82,7 @@ export function ChartDeleteDialog({
                             </div>
                             <Link
                               href={`/dashboards/${dashboard.id}`}
+                              data-testid={`chart-delete-dashboard-link-${dashboard.id}`}
                               className="ml-2 text-blue-600 hover:text-blue-800"
                               onClick={(e) => e.stopPropagation()}
                             >
@@ -97,9 +99,10 @@ export function ChartDeleteDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>CANCEL</AlertDialogCancel>
+          <AlertDialogCancel data-testid="chart-delete-cancel-btn">CANCEL</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
+            data-testid="chart-delete-confirm-btn"
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-medium uppercase"
           >
             {isDeleting ? 'DELETING...' : 'DELETE CHART'}

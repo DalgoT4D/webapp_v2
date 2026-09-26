@@ -364,7 +364,10 @@ export function FilterConfigModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="!max-w-[900px] !w-[90vw] max-h-[90vh] flex flex-col">
+      <DialogContent
+        className="!max-w-[900px] !w-[90vw] max-h-[90vh] flex flex-col"
+        data-testid="filter-config-modal"
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Filter className="w-5 h-5" />
@@ -383,8 +386,14 @@ export function FilterConfigModal({
           <div className="flex-1 overflow-hidden">
             <Tabs defaultValue="info" className="h-full flex flex-col">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="info">Info</TabsTrigger>
-                <TabsTrigger value="preview" disabled={!columnName}>
+                <TabsTrigger value="info" data-testid="filter-config-tab-info">
+                  Info
+                </TabsTrigger>
+                <TabsTrigger
+                  value="preview"
+                  disabled={!columnName}
+                  data-testid="filter-config-tab-preview"
+                >
                   Preview
                 </TabsTrigger>
               </TabsList>
@@ -397,6 +406,7 @@ export function FilterConfigModal({
                         <Label htmlFor="filter-name">Filter Name</Label>
                         <Input
                           id="filter-name"
+                          data-testid="filter-config-name-input"
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           placeholder="e.g., Product Category"
@@ -408,6 +418,7 @@ export function FilterConfigModal({
                         <div>
                           <Label>Dataset</Label>
                           <DatasetSelector
+                            id="filter-config-dataset-select"
                             schema_name={schemaName}
                             table_name={tableName}
                             onDatasetChange={handleDatasetChange}
@@ -419,6 +430,7 @@ export function FilterConfigModal({
                         <div>
                           <Label>Column</Label>
                           <Combobox
+                            id="filter-config-column-select"
                             items={(columns || []).map((column: any) => {
                               const colName = column.column_name || column.name;
                               return {
@@ -527,6 +539,7 @@ export function FilterConfigModal({
                               <div className="flex items-center space-x-2">
                                 <Checkbox
                                   id="single-select"
+                                  data-testid="filter-config-single-select"
                                   checked={!canSelectMultiple}
                                   onCheckedChange={(checked) =>
                                     setCanSelectMultiple(checked !== true)
@@ -537,6 +550,7 @@ export function FilterConfigModal({
                               <div className="flex items-center space-x-2">
                                 <Checkbox
                                   id="multi-select"
+                                  data-testid="filter-config-multi-select"
                                   checked={canSelectMultiple}
                                   onCheckedChange={(checked) =>
                                     setCanSelectMultiple(checked === true)
@@ -569,6 +583,7 @@ export function FilterConfigModal({
                                 <div className="flex items-center space-x-2">
                                   <Checkbox
                                     id="slider-ui"
+                                    data-testid="filter-config-slider-ui"
                                     checked={numericalUIMode === NumericalFilterUIMode.SLIDER}
                                     onCheckedChange={(checked) =>
                                       setNumericalUIMode(
@@ -583,6 +598,7 @@ export function FilterConfigModal({
                                 <div className="flex items-center space-x-2">
                                   <Checkbox
                                     id="input-ui"
+                                    data-testid="filter-config-input-ui"
                                     checked={numericalUIMode === NumericalFilterUIMode.INPUT}
                                     onCheckedChange={(checked) =>
                                       setNumericalUIMode(
@@ -742,10 +758,14 @@ export function FilterConfigModal({
             {!isFormValid && 'Fill in all required fields to continue'}
           </div>
           <div className="flex gap-2">
-            <Button variant="cancel" onClick={handleClose}>
+            <Button variant="cancel" onClick={handleClose} data-testid="filter-config-cancel-btn">
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={!isFormValid}>
+            <Button
+              onClick={handleSave}
+              disabled={!isFormValid}
+              data-testid={mode === 'edit' ? 'filter-config-save-btn' : 'filter-config-create-btn'}
+            >
               {mode === 'edit' ? 'Save Changes' : 'Create Filter'}
             </Button>
           </div>

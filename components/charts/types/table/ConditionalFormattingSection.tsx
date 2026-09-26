@@ -222,7 +222,11 @@ export function ConditionalFormattingSection({
                       const dimLabel = getDimLevelLabel(col);
                       const isDim = isDimensionCol(col);
                       return (
-                        <SelectItem key={col} value={col}>
+                        <SelectItem
+                          key={col}
+                          value={col}
+                          data-testid={`rule-column-${index}-option-${col}`}
+                        >
                           <span>{col}</span>
                           {isDim && (
                             <span className="ml-1 text-xs text-muted-foreground">
@@ -254,9 +258,18 @@ export function ConditionalFormattingSection({
                       </span>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__all__">All levels</SelectItem>
+                      <SelectItem
+                        value="__all__"
+                        data-testid={`rule-level-${index}-option-__all__`}
+                      >
+                        All levels
+                      </SelectItem>
                       {orderedDimensions!.map((dimCol) => (
-                        <SelectItem key={dimCol} value={dimCol}>
+                        <SelectItem
+                          key={dimCol}
+                          value={dimCol}
+                          data-testid={`rule-level-${index}-option-${dimCol}`}
+                        >
                           {dimCol} level
                         </SelectItem>
                       ))}
@@ -288,7 +301,11 @@ export function ConditionalFormattingSection({
                   </SelectTrigger>
                   <SelectContent>
                     {operators.map((op) => (
-                      <SelectItem key={op.value} value={op.value}>
+                      <SelectItem
+                        key={op.value}
+                        value={op.value}
+                        data-testid={`rule-operator-${index}-option-${op.value}`}
+                      >
                         {op.label}
                       </SelectItem>
                     ))}

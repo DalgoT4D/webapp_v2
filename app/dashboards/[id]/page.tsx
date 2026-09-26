@@ -59,7 +59,11 @@ export default function DashboardViewPage() {
           <p className="text-muted-foreground mb-4">
             You don't have permission to view dashboards.
           </p>
-          <Button variant="outline" onClick={() => router.push('/dashboards')}>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/dashboards')}
+            data-testid="dashboard-view-access-denied-back-btn"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboards
           </Button>

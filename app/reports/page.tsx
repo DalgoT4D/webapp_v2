@@ -244,6 +244,7 @@ export default function ReportsPage() {
         description: `This will permanently delete "${snapshot.title}". This action cannot be undone.`,
         confirmText: 'Delete',
         type: 'warning',
+        testIdPrefix: 'report-delete-confirm',
       });
       if (!confirmed) return;
       try {
@@ -286,13 +287,14 @@ export default function ReportsPage() {
         {/* Filter Summary */}
         {getActiveFilterCount() > 0 && (
           <div className="flex items-center gap-2 px-6 pb-0">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-600" data-testid="report-list-active-filter-count">
               {getActiveFilterCount()} filter{getActiveFilterCount() > 1 ? 's' : ''} active
             </span>
             <Button
               variant="ghost"
               size="sm"
               onClick={clearAllFilters}
+              data-testid="report-list-clear-all-filters"
               className="h-8 px-2 text-xs text-gray-500 hover:text-gray-700"
             >
               <X className="w-3 h-3 mr-1" />
@@ -306,7 +308,7 @@ export default function ReportsPage() {
       <div className="flex-1 overflow-hidden px-6">
         <div className="h-full overflow-y-auto">
           {isLoading && !hasAnyFilter ? (
-            <div className="py-6">
+            <div className="py-6" data-testid="report-list-skeleton">
               <div className="border rounded-lg bg-white">
                 <Table>
                   <TableHeader>
@@ -370,7 +372,9 @@ export default function ReportsPage() {
           ) : snapshots.length === 0 && !hasAnyFilter ? (
             <div className="flex flex-col items-center justify-center h-full gap-4">
               <FileText className="h-12 w-12 text-muted-foreground" />
-              <p className="text-muted-foreground">No reports yet</p>
+              <p className="text-muted-foreground" data-testid="report-list-empty">
+                No reports yet
+              </p>
               {canCreate && (
                 <CreateSnapshotDialog
                   onCreated={() => mutate()}
@@ -395,6 +399,7 @@ export default function ReportsPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                             onClick={() => handleSort('title')}
+                            data-testid="report-list-sort-title"
                           >
                             <div className="flex items-center gap-2">
                               Title
@@ -412,6 +417,7 @@ export default function ReportsPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6 p-0 hover:bg-gray-100"
+                                data-testid="report-filter-title-trigger"
                               >
                                 {renderFilterIcon('title')}
                               </Button>
@@ -424,6 +430,7 @@ export default function ReportsPage() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => setTitleFilter('')}
+                                    data-testid="report-filter-title-clear"
                                     className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
                                   >
                                     Clear
@@ -449,6 +456,7 @@ export default function ReportsPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                             onClick={() => handleSort('dashboard_title')}
+                            data-testid="report-list-sort-dashboard"
                           >
                             <div className="flex items-center gap-2">
                               Dashboard Used
@@ -466,6 +474,7 @@ export default function ReportsPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6 p-0 hover:bg-gray-100"
+                                data-testid="report-filter-dashboard-trigger"
                               >
                                 {renderFilterIcon('dashboard')}
                               </Button>
@@ -478,6 +487,7 @@ export default function ReportsPage() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => setDashboardFilter('')}
+                                    data-testid="report-filter-dashboard-clear"
                                     className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
                                   >
                                     Clear
@@ -503,6 +513,7 @@ export default function ReportsPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                             onClick={() => handleSort('created_by')}
+                            data-testid="report-list-sort-created-by"
                           >
                             <div className="flex items-center gap-2">
                               Created by
@@ -520,6 +531,7 @@ export default function ReportsPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6 p-0 hover:bg-gray-100"
+                                data-testid="report-filter-creator-trigger"
                               >
                                 {renderFilterIcon('createdBy')}
                               </Button>
@@ -532,6 +544,7 @@ export default function ReportsPage() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => setCreatedByFilter('')}
+                                    data-testid="report-filter-creator-clear"
                                     className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
                                   >
                                     Clear
@@ -556,6 +569,7 @@ export default function ReportsPage() {
                           variant="ghost"
                           className="h-auto p-0 font-medium text-base hover:bg-transparent"
                           onClick={() => handleSort('created_at')}
+                          data-testid="report-list-sort-created-on"
                         >
                           <div className="flex items-center gap-2">
                             Created on
@@ -573,6 +587,7 @@ export default function ReportsPage() {
                         <TableCell
                           colSpan={5}
                           className="px-6 py-8 text-center text-sm text-muted-foreground"
+                          data-testid="report-list-no-match"
                         >
                           No reports match the current filters
                         </TableCell>
@@ -586,11 +601,17 @@ export default function ReportsPage() {
                           onClick={() => router.push(`/reports/${snapshot.id}`)}
                         >
                           <TableCell className="py-4">
-                            <span className="font-medium text-lg text-gray-900">
+                            <span
+                              className="font-medium text-lg text-gray-900"
+                              data-testid={`report-row-title-${snapshot.id}`}
+                            >
                               {snapshot.title}
                             </span>
                           </TableCell>
-                          <TableCell className="py-4 text-base text-gray-700">
+                          <TableCell
+                            className="py-4 text-base text-gray-700"
+                            data-testid={`report-row-dashboard-${snapshot.id}`}
+                          >
                             {snapshot.dashboard_title || '—'}
                           </TableCell>
                           <TableCell className="py-4">
@@ -599,13 +620,19 @@ export default function ReportsPage() {
                                 <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
                                   <User className="w-3 h-3 text-gray-600" />
                                 </div>
-                                <span className="text-base text-gray-700">
+                                <span
+                                  className="text-base text-gray-700"
+                                  data-testid={`report-row-created-by-${snapshot.id}`}
+                                >
                                   {snapshot.created_by}
                                 </span>
                               </div>
                             )}
                           </TableCell>
-                          <TableCell className="py-4 text-base text-gray-600">
+                          <TableCell
+                            className="py-4 text-base text-gray-600"
+                            data-testid={`report-row-created-on-${snapshot.id}`}
+                          >
                             {formatCreatedOn(snapshot.created_at)}
                           </TableCell>
                           <TableCell className="py-4">
@@ -686,7 +713,7 @@ export default function ReportsPage() {
       <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/30 py-3 px-6">
         <div className="flex items-center justify-between">
           {/* Left: Item Count */}
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-600" data-testid="report-list-item-count">
             {total === 0
               ? '0–0 of 0'
               : `${startIndex + 1}–${Math.min(startIndex + pageSize, total)} of ${total}`}
@@ -707,14 +734,23 @@ export default function ReportsPage() {
                 <SelectTrigger
                   className="h-7 text-sm border-gray-200 bg-white"
                   style={{ width: '70px' }}
+                  data-testid="report-list-page-size"
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="20">20</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="10" data-testid="report-list-page-size-option-10">
+                    10
+                  </SelectItem>
+                  <SelectItem value="20" data-testid="report-list-page-size-option-20">
+                    20
+                  </SelectItem>
+                  <SelectItem value="50" data-testid="report-list-page-size-option-50">
+                    50
+                  </SelectItem>
+                  <SelectItem value="100" data-testid="report-list-page-size-option-100">
+                    100
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -725,13 +761,17 @@ export default function ReportsPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setCurrentPage(currentPage - 1)}
+                data-testid="report-list-page-prev"
                 disabled={currentPage === 1}
                 className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
 
-              <span className="text-sm text-gray-600 px-3 py-1">
+              <span
+                className="text-sm text-gray-600 px-3 py-1"
+                data-testid="report-list-page-counter"
+              >
                 {currentPage} of {totalPages}
               </span>
 
@@ -739,6 +779,7 @@ export default function ReportsPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setCurrentPage(currentPage + 1)}
+                data-testid="report-list-page-next"
                 disabled={currentPage >= totalPages}
                 className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
               >

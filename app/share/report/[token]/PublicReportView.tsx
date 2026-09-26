@@ -61,7 +61,10 @@ export function PublicReportView({
   if (isLoading) {
     if (printMode) return null;
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div
+        className="flex items-center justify-center min-h-screen"
+        data-testid="public-report-loading"
+      >
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading report...</p>
@@ -73,7 +76,7 @@ export function PublicReportView({
   if (isError || !viewData?.is_valid) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md" data-testid="public-report-not-found">
           <CardContent className="p-6 text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h2 className="text-lg font-semibold mb-2">Report Not Found</h2>
@@ -83,10 +86,17 @@ export function PublicReportView({
             </p>
             <div className="flex flex-col items-center gap-2">
               <Link href="/login">
-                <Button variant="primary">Sign in to Dalgo</Button>
+                <Button variant="primary" data-testid="public-report-sign-in-btn">
+                  Sign in to Dalgo
+                </Button>
               </Link>
               <Link href="https://dalgo.org" target="_blank" className="text-sm">
-                <Button variant="link" size="sm" className="text-muted-foreground">
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="text-muted-foreground"
+                  data-testid="public-report-learn-more-btn"
+                >
                   Learn about Dalgo
                   <ExternalLink className="h-3.5 w-3.5 ml-1" />
                 </Button>
@@ -104,7 +114,7 @@ export function PublicReportView({
   // Print mode: document-flow layout for page-break-safe PDF capture
   if (printMode) {
     return (
-      <div className="bg-white w-full" data-pdf-ready="true">
+      <div className="bg-white w-full" data-pdf-ready="true" data-testid="public-report-print">
         <div className="px-6 py-4 border-b flex items-center justify-between">
           {/* Left: org logo + report title */}
           <div className="flex items-center gap-4">
@@ -160,18 +170,20 @@ export function PublicReportView({
 
   // Normal public view
   return (
-    <div className="min-h-screen bg-gray-50 w-full overflow-x-hidden">
+    <div className="min-h-screen bg-gray-50 w-full overflow-x-hidden" data-testid="public-report">
       {/* Public Header */}
-      <header className="bg-white border-b">
+      <header className="bg-white border-b" data-testid="public-report-header">
         <div className="px-6 py-4 flex items-center justify-between">
           {/* Left: Org logo + report title + status */}
           <div className="flex items-center gap-4">
             <OrgBrand logoUrl={org_logo_url} name={org_name} />
             <div>
-              <h1 className="text-lg font-bold text-gray-900">{report_metadata.title}</h1>
+              <h1 className="text-lg font-bold text-gray-900" data-testid="public-report-title">
+                {report_metadata.title}
+              </h1>
               <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5 flex-wrap">
                 <Calendar className="h-3.5 w-3.5" />
-                <span>
+                <span data-testid="public-report-period">
                   {report_metadata.period_start
                     ? formatDateShort(report_metadata.period_start)
                     : 'All'}{' '}
@@ -181,7 +193,11 @@ export function PublicReportView({
                 <Eye className="h-3.5 w-3.5" />
                 <span>Public View</span>
                 <span className="text-gray-300">|</span>
-                <Badge variant="secondary" className="text-xs">
+                <Badge
+                  variant="secondary"
+                  className="text-xs"
+                  data-testid="public-report-read-only-badge"
+                >
                   Read Only
                 </Badge>
               </div>
@@ -205,9 +221,15 @@ export function PublicReportView({
         topRightContent={
           report_metadata.summary ? (
             <div className="flex-shrink-0 px-4 sm:px-6 pt-4 pb-2">
-              <div className="border rounded-lg p-5 bg-background overflow-hidden">
+              <div
+                className="border rounded-lg p-5 bg-background overflow-hidden"
+                data-testid="public-report-summary"
+              >
                 <h2 className="text-lg font-semibold mb-2">Executive Summary</h2>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
+                <p
+                  className="text-sm text-muted-foreground whitespace-pre-wrap break-words"
+                  data-testid="public-report-summary-text"
+                >
                   {report_metadata.summary}
                 </p>
               </div>

@@ -82,6 +82,7 @@ export function SaveOptionsDialog({
             <Button
               onClick={handleSaveExisting}
               disabled={isLoading}
+              data-testid="chart-save-update-existing-btn"
               className="w-full justify-start h-auto p-4 text-left"
               variant="outline"
             >
@@ -98,6 +99,7 @@ export function SaveOptionsDialog({
             <Button
               onClick={handleSaveAsNewClick}
               disabled={isLoading}
+              data-testid="chart-save-as-new-btn"
               className="w-full justify-start h-auto p-4 text-left"
               variant="outline"
             >
@@ -120,7 +122,13 @@ export function SaveOptionsDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={handleBack} className="w-5 h-5 p-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleBack}
+              className="w-5 h-5 p-0"
+              data-testid="chart-save-new-back-arrow-btn"
+            >
               <ArrowLeft className="w-4 h-4" />
             </Button>
             Save as New Chart
@@ -133,6 +141,7 @@ export function SaveOptionsDialog({
             <Label htmlFor="new-title">Chart name</Label>
             <Input
               id="new-title"
+              data-testid="chart-save-new-title-input"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="Enter new chart name"
@@ -146,12 +155,14 @@ export function SaveOptionsDialog({
             variant="outline"
             onClick={handleBack}
             disabled={isLoading}
+            data-testid="chart-save-new-back-btn"
             className="font-medium uppercase"
           >
             BACK
           </Button>
           <Button
             onClick={handleConfirmSaveAsNew}
+            data-testid="chart-save-new-confirm-btn"
             disabled={isLoading || !newTitle.trim()}
             className="font-medium uppercase"
           >

@@ -80,12 +80,16 @@ export function DateFormatSection({
         onValueChange={(value) => onDateFormatChange(value as DateFormat)}
         disabled={disabled}
       >
-        <SelectTrigger id={`${idPrefix}DateFormat`}>
+        <SelectTrigger id={`${idPrefix}DateFormat`} data-testid={`${idPrefix}DateFormat`}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           {availableOptions.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
+            <SelectItem
+              key={opt.value}
+              value={opt.value}
+              data-testid={`${idPrefix}DateFormat-option-${opt.value}`}
+            >
               {opt.label}
             </SelectItem>
           ))}
