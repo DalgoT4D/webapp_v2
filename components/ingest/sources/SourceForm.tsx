@@ -37,7 +37,7 @@ import {
   GSHEETS_OAUTH_AUTH_TYPE,
   GSHEETS_OAUTH_BRANCH_KEYS,
 } from '@/components/ingest/sources/custom/constants';
-import { savedLinkPointsAt } from '@/components/ingest/sources/custom/utils';
+import { savedLinkPointsAt, sheetChangedWarning } from '@/components/ingest/sources/custom/utils';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
 import { useSourceConfigForm } from '@/hooks/useSourceConfigForm';
 import { trackEvent } from '@/lib/analytics';
@@ -47,22 +47,6 @@ import {
   SOURCE_AUTH_MODES,
 } from '@/constants/analytics';
 import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
-
-/**
- * The amber note under the Google card when the chosen sheet is not the one the source syncs.
- *
- * Ends without punctuation: the card closes the sentence with a link to the current sheet. Two
- * wordings because the old sheet's title is best-effort — Airbyte stores only its link, so the
- * name comes from a Drive lookup during the sign-in that may not succeed.
- */
-function mismatchWarning(mismatch: { picked: string; previous?: string } | null) {
-  if (!mismatch) return undefined;
-  const tail =
-    'Its tables come from that sheet, so saving may break them — choose another sheet to pick it back, or save to switch this source over';
-  return mismatch.previous
-    ? `You selected “${mismatch.picked}”, but this source syncs “${mismatch.previous}”. ${tail}`
-    : `You selected “${mismatch.picked}”, which is a different sheet from the one this source syncs today. ${tail}`;
-}
 
 // WebSocket endpoint for source connection check
 const SOURCE_CHECK_WS_PATH = 'airbyte/source/check_connection';
@@ -659,17 +643,18 @@ export function SourceForm({ open, onClose, onSuccess, sourceId }: SourceFormPro
                           isConnected || oauthRef ? handleChooseAnotherSheet : undefined,
                         error: authError ?? undefined,
                         connectedSheet: pickedSheet ?? undefined,
-                        // The card appends a link to the sheet it syncs today, so this text
-                        // carries no link of its own.
-                        // No trailing full stop: the card closes the sentence with a link. Names
-                        // both sheets when Drive gave up the old one's title, so the user can
-                        // tell what they are swapping without opening anything.
-                        sheetWarning: mismatchWarning(sheetMismatch),
+                        // Same text as the service-account route's warning. The card appends a
+                        // link to the sheet it syncs today, so this carries no link of its own.
+                        sheetWarning: sheetMismatch
+                          ? sheetChangedWarning(sheetMismatch.previous)
+                          : undefined,
                         // Which file to find in the Picker: until a pick happens, and again
                         // whenever one missed, which is exactly when the user needs something
                         // to navigate by. Only when the saved value is a URL — the field also
                         // accepts a bare spreadsheet id, which would make a dead relative href.
                         linkToRepick: sheetToRepick,
+                        // What a typed link on the service-account route is checked against.
+                        savedSheet: savedSheetAtLoad,
                       } satisfies CustomSourceOAuth)
                     : undefined
                 }

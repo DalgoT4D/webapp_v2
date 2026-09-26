@@ -19,10 +19,12 @@ export interface CustomSourceOAuth {
    *  ends without a pick authorizes nothing. Drives the "find this same sheet" hint. */
   picksSheet: boolean;
   onClick: () => void;
-  /** Reopen the Picker on the ref already held, swapping the chosen sheet with no second
-   *  consent. Supplied only where a swap is harmless — creating a source, before it exists.
-   *  Omitted on edit: the sheet is changed there by re-authenticating, which warns. */
+  /** Reopen the Picker to swap the chosen sheet. Supplied only once there is an OAuth sheet to
+   *  swap: after a sign-in this session, or on edit for a source already on the Google route. */
   onReplaceSheet?: () => void;
+  /** The sheet this source syncs as saved (edit only). The service-account route compares a
+   *  typed link against it and warns on a different sheet, same as a Picker repoint does. */
+  savedSheet?: string;
   /** Amber warning shown under the card: the sheet just picked is not the one this source
    *  syncs today. A warning rather than a rejection — the user may mean it — but its
    *  connections' catalogs describe the old sheet's tabs, so it has to be said. */

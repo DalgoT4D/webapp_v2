@@ -21,8 +21,9 @@ import {
   pickSpreadsheetForRef,
 } from '@/components/connectors/google-oauth-connect';
 
+const mockSendOrQueue = jest.fn();
 jest.mock('@/hooks/useBackendWebSocket', () => ({
-  useBackendWebSocket: () => ({ sendOrQueue: jest.fn(), lastMessage: null }),
+  useBackendWebSocket: () => ({ sendOrQueue: mockSendOrQueue, lastMessage: null }),
 }));
 
 jest.mock('@/hooks/api/useSources', () => ({
@@ -211,9 +212,7 @@ it('runs consent then the Picker when the sheet is swapped before any sign-in', 
     })
   );
   // A different sheet came back, so the same warning applies as when re-authenticating.
-  expect(await screen.findByTestId('gsheets-sheet-mismatch')).toHaveTextContent(
-    new RegExp(PICKED.name)
-  );
+  expect(await screen.findByTestId('gsheets-sheet-mismatch')).toHaveTextContent(/different sheet/i);
 });
 
 // Once a consent has happened this session the ref is in hand, so swapping again costs only
@@ -265,10 +264,56 @@ it('leaves the saved sheet alone when the consent flow fails', async () => {
   // The saved link is untouched underneath — the Google card still offers the old sheet.
   expect(screen.getByTestId('gsheets-sheet-link')).toHaveAttribute('href', SAVED_SHEET);
 
-  // ...but it stays out of the service-account route's input: `drive.file` granted that link to
-  // the OAuth token, so pre-filling it there promises a key access it does not have.
+  // ...and the service-account route starts from it too: moving to a key swaps credentials,
+  // not sheets, so the user only has to paste the key.
   await user.click(screen.getByTestId('gsheets-service-option-radio'));
-  expect(screen.getByLabelText(/Spreadsheet Link/i)).toHaveValue('');
+  expect(screen.getByLabelText(/Spreadsheet Link/i)).toHaveValue(SAVED_SHEET);
+});
+
+// OAuth → key on the same source: the link is already there, the key is the only input, and the
+// save updates this source (by id) with the Service branch alone.
+it('moves an OAuth source to a service-account key keeping its sheet', async () => {
+  const user = userEvent.setup();
+  renderDialog();
+
+  await waitFor(() => expect(screen.getByTestId('gsheets-oauth-option-radio')).toBeChecked());
+  await user.click(screen.getByTestId('gsheets-service-option-radio'));
+
+  expect(screen.getByLabelText(/Spreadsheet Link/i)).toHaveValue(SAVED_SHEET);
+  expect(screen.queryByTestId('gsheets-service-sheet-mismatch')).not.toBeInTheDocument();
+
+  await user.type(screen.getByLabelText(/Service Account/i), '{{"client_email":"k@x.iam"}');
+  await user.click(screen.getByTestId('source-save-btn'));
+
+  await waitFor(() => expect(mockSendOrQueue).toHaveBeenCalled());
+  const sent = mockSendOrQueue.mock.calls[0][0];
+  expect(sent.sourceId).toBe('src-1');
+  expect(sent.config.spreadsheet_id).toBe(SAVED_SHEET);
+  expect(sent.config.credentials).toEqual({
+    auth_type: 'Service',
+    service_account_info: '{"client_email":"k@x.iam"}',
+  });
+  expect(updateOAuthSource).not.toHaveBeenCalled();
+});
+
+it('warns when an OAuth source moving to a key is given a different link', async () => {
+  const user = userEvent.setup();
+  renderDialog();
+
+  await waitFor(() => expect(screen.getByTestId('gsheets-oauth-option-radio')).toBeChecked());
+  await user.click(screen.getByTestId('gsheets-service-option-radio'));
+
+  const input = screen.getByLabelText(/Spreadsheet Link/i);
+  await user.clear(input);
+  await user.type(input, 'https://docs.google.com/spreadsheets/d/another-sheet-id-000000000/edit');
+
+  expect(screen.getByTestId('gsheets-service-sheet-mismatch')).toHaveTextContent(
+    /orphaned in the warehouse/i
+  );
+  expect(screen.getByTestId('gsheets-service-saved-sheet-link')).toHaveAttribute(
+    'href',
+    SAVED_SHEET
+  );
 });
 
 /** Serve the service-account variant of the source instead of the OAuth one. */
@@ -368,10 +413,9 @@ it('warns when the pick is a different spreadsheet, and still lets it be saved',
   await user.click(screen.getByTestId('gsheets-oauth-connect-btn'));
 
   const warning = await screen.findByTestId('gsheets-sheet-mismatch');
-  // Both sheets by name, so the warning is readable without opening either link.
-  expect(warning).toHaveTextContent(new RegExp(PICKED.name));
+  // Plain instruction: keep the old sheet (named when Drive gave its title), and why.
   expect(warning).toHaveTextContent(new RegExp(PREVIOUS_SHEET_NAME));
-  expect(warning).toHaveTextContent(/may break/i);
+  expect(warning).toHaveTextContent(/orphaned in the warehouse/i);
 
   await user.click(screen.getByTestId('source-save-btn'));
 
@@ -403,9 +447,9 @@ it('warns without the old name when Drive would not give one', async () => {
   await user.click(screen.getByTestId('gsheets-oauth-connect-btn'));
 
   const warning = await screen.findByTestId('gsheets-sheet-mismatch');
-  expect(warning).toHaveTextContent(new RegExp(PICKED.name));
   expect(warning).toHaveTextContent(/different sheet/i);
-  expect(warning).toHaveTextContent(/may break/i);
+  expect(warning).toHaveTextContent(/orphaned in the warehouse/i);
+  expect(warning).not.toHaveTextContent(/“/);
 });
 
 it('drops the warning once the right spreadsheet is picked', async () => {

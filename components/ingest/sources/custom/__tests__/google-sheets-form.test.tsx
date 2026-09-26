@@ -71,7 +71,11 @@ const spec: ParsedSpec = {
 };
 
 const SAVED_KEY = '{"client_email":"theirs@x.iam.gserviceaccount.com"}';
-const SHEET_URL = 'https://docs.google.com/spreadsheets/d/abc/edit';
+// Real-length Drive ids: the id rule needs 20+ characters to find one in a link.
+const SHEET_ID = '1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcd';
+const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
+const OTHER_SHEET_URL =
+  'https://docs.google.com/spreadsheets/d/9ZyXwVuTsRqPoNmLkJiHgFeDcBa9876543210zyxw/edit';
 
 function Harness({
   connected = false,
@@ -86,6 +90,7 @@ function Harness({
   connectedSheet,
   onGetValues,
   lateLink,
+  savedSheet,
 }: {
   connected?: boolean;
   /** The user completed a Google sign-in in this render's session (drives the tick + "Selected"). */
@@ -103,6 +108,8 @@ function Harness({
   /** Simulates the edit host, which populates the form with `reset()` in an effect — a commit
    *  after the form mounts, so the saved link is absent on the first render. */
   lateLink?: string;
+  /** The sheet the edit host loaded the source with (`oauth.savedSheet`). */
+  savedSheet?: string;
 }) {
   const { control, setValue, getValues, reset } = useForm<FieldValues>({
     defaultValues: savedKey
@@ -135,6 +142,7 @@ function Harness({
         authedThisSession,
         onClick: () => {},
         connectedSheet,
+        savedSheet,
       }}
     />
   );
@@ -353,14 +361,67 @@ describe('GoogleSheetsForm', () => {
       expect(get!().spreadsheet_id).toBe(SHEET_URL);
     });
 
-    // Same rule for a source that saved on the Google route in an earlier session: its link was
-    // granted to that token too, so the service card starts empty rather than pre-filled.
-    it('empties the service route link for a source that saved on the Google route', async () => {
-      render(<Harness mode="edit" connected savedLink={SHEET_URL} />);
+    // Editing is different: moving a saved source to a key swaps credentials, not sheets, so the
+    // service card keeps the link and the user only has to paste the key.
+    it('keeps the saved link when a source saved on the Google route moves to a key', async () => {
+      render(<Harness mode="edit" connected savedLink={SHEET_URL} savedSheet={SHEET_URL} />);
 
       await userEvent.click(screen.getByTestId('gsheets-service-option-radio'));
 
-      expect(screen.getByLabelText(/Spreadsheet Link/)).toHaveValue('');
+      expect(screen.getByLabelText(/Spreadsheet Link/)).toHaveValue(SHEET_URL);
+      expect(screen.queryByTestId('gsheets-service-sheet-mismatch')).not.toBeInTheDocument();
+    });
+
+    it('warns when the link on the service route is a different sheet', async () => {
+      render(<Harness mode="edit" connected savedLink={SHEET_URL} savedSheet={SHEET_URL} />);
+      await userEvent.click(screen.getByTestId('gsheets-service-option-radio'));
+
+      const input = screen.getByLabelText(/Spreadsheet Link/);
+      await userEvent.clear(input);
+      await userEvent.type(input, OTHER_SHEET_URL);
+
+      const warning = screen.getByTestId('gsheets-service-sheet-mismatch');
+      expect(warning).toHaveTextContent(/different sheet/i);
+      expect(warning).toHaveTextContent(/orphaned in the warehouse/i);
+      expect(screen.getByTestId('gsheets-service-saved-sheet-link')).toHaveAttribute(
+        'href',
+        SHEET_URL
+      );
+    });
+
+    // Another URL form of the same file is the same sheet — only the id counts.
+    it('does not warn for another link to the same sheet', async () => {
+      render(<Harness mode="edit" connected savedLink={SHEET_URL} savedSheet={SHEET_URL} />);
+      await userEvent.click(screen.getByTestId('gsheets-service-option-radio'));
+
+      const input = screen.getByLabelText(/Spreadsheet Link/);
+      await userEvent.clear(input);
+      await userEvent.type(input, `https://docs.google.com/spreadsheets/u/0/d/${SHEET_ID}/view`);
+
+      expect(screen.queryByTestId('gsheets-service-sheet-mismatch')).not.toBeInTheDocument();
+    });
+
+    // A service-account source editing its own link is the same repoint, so it warns too.
+    it('warns when a service-account source types a different sheet', async () => {
+      render(
+        <Harness mode="edit" savedKey={SAVED_KEY} savedLink={SHEET_URL} savedSheet={SHEET_URL} />
+      );
+
+      const input = screen.getByLabelText(/Spreadsheet Link/);
+      await userEvent.clear(input);
+      await userEvent.type(input, OTHER_SHEET_URL);
+
+      expect(screen.getByTestId('gsheets-service-sheet-mismatch')).toBeInTheDocument();
+    });
+
+    // Nothing syncs before the source exists, so there is nothing to repoint away from.
+    it('never warns about a typed link while creating a source', async () => {
+      render(<Harness />);
+      await userEvent.click(screen.getByTestId('gsheets-service-option-radio'));
+
+      await userEvent.type(screen.getByLabelText(/Spreadsheet Link/), OTHER_SHEET_URL);
+
+      expect(screen.queryByTestId('gsheets-service-sheet-mismatch')).not.toBeInTheDocument();
     });
 
     // The edit host fills the form with `reset()` in an effect, so the saved link is missing on
@@ -371,13 +432,13 @@ describe('GoogleSheetsForm', () => {
       expect(await screen.findByTestId('gsheets-sheet-link')).toHaveAttribute('href', SHEET_URL);
     });
 
-    it('empties the service route link when that late-arriving link is the OAuth one', async () => {
+    it('keeps a late-arriving saved link when the source moves to a key', async () => {
       render(<Harness mode="edit" connected lateLink={SHEET_URL} />);
       await screen.findByTestId('gsheets-sheet-link');
 
       await userEvent.click(screen.getByTestId('gsheets-service-option-radio'));
 
-      expect(screen.getByLabelText(/Spreadsheet Link/)).toHaveValue('');
+      expect(screen.getByLabelText(/Spreadsheet Link/)).toHaveValue(SHEET_URL);
     });
 
     // A service-account source's link was typed, not granted — it is not an OAuth sheet, so the

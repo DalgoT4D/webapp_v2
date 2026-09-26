@@ -23,9 +23,11 @@ import {
 } from './constants';
 import { GsheetsAuthMethod } from './GsheetsAuthMethod';
 import { GsheetsOAuthCard } from './GsheetsOAuthCard';
+import { GsheetsSheetWarning } from './GsheetsSheetWarning';
 import { partitionFields } from './partition-fields';
 import type { CustomSourceFormProps } from './types';
 import { useGsheetsOAuthLink } from './useGsheetsOAuthLink';
+import { savedLinkPointsAt, sheetChangedWarning, spreadsheetIdFromSavedValue } from './utils';
 
 function keyOf(field: FieldNode): string {
   return field.path[field.path.length - 1];
@@ -147,7 +149,7 @@ export function GoogleSheetsForm({
   const pickedUrl = oauth?.connectedSheet?.url;
   const pickedName = oauth?.connectedSheet?.name;
 
-  // Which link belongs to the Google route, and keeping it out of the service card's input.
+  // Which link belongs to the Google route, and what the service card's input starts with.
   const { oauthLink } = useGsheetsOAuthLink({
     mode,
     connected,
@@ -200,10 +202,34 @@ export function GoogleSheetsForm({
     />
   ) : null;
 
+  // A typed link that is not the sheet this source syncs gets the same warning a Picker repoint
+  // does: its connections read the saved sheet's tabs. Compared by the typed link's id (see
+  // savedLinkPointsAt) so another URL form of the same sheet does not warn; a value no id can be
+  // read from yet — a half-pasted link — is not judged.
+  const savedSheet = oauth?.savedSheet?.trim();
+  const typedLink = savedLink?.trim();
+  const typedId = spreadsheetIdFromSavedValue(typedLink);
+  const serviceSheetChanged =
+    mode === 'edit' &&
+    !usingOAuth &&
+    !!savedSheet &&
+    !!typedLink &&
+    typedLink !== savedSheet &&
+    !!typedId &&
+    !savedLinkPointsAt(savedSheet, typedId);
+
   const serviceSlot = (
     <div className="space-y-4" data-testid="gsheets-service-fields">
       {/* Typed only here: a service account has no Picker to name the sheet. */}
       {spreadsheetField && renderField(spreadsheetField, control, setValue, disabled)}
+      {serviceSheetChanged && (
+        <GsheetsSheetWarning
+          message={sheetChangedWarning()}
+          currentSheetUrl={savedSheet}
+          testId="gsheets-service-sheet-mismatch"
+          linkTestId="gsheets-service-saved-sheet-link"
+        />
+      )}
       {serviceFieldForRender && renderField(serviceFieldForRender, control, setValue, disabled)}
     </div>
   );

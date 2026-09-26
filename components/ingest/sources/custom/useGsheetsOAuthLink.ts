@@ -24,12 +24,17 @@ interface UseGsheetsOAuthLinkResult {
 }
 
 /**
- * Which spreadsheet link belongs to the Google route, and keeping it off the other one.
+ * Which spreadsheet link belongs to the Google route, and what the service card starts with.
  *
- * Google's `drive.file` grant covers only files handed over through the Picker, so a link the
- * Google route owns is unreadable by a service-account key. Left sitting in the service card's
- * input it reads as "already filled in" for a sheet that key cannot open — hence the clear on
- * the way out, and the restore on the way back so the Google route still submits its sheet.
+ * Creating a source: the Picker's sheet is cleared on the way to the service card. Nothing syncs
+ * yet, and `drive.file` granted that file to the OAuth token, not to a key, so pre-filling it
+ * would read as "already set up" for a sheet the key cannot open.
+ *
+ * Editing: the link stays. Moving an existing source to a key is about swapping credentials,
+ * not sheets — its connections are built on that sheet's tabs — so the user only has to share it
+ * with the key's address and paste the key. A different link is warned about by the form.
+ *
+ * Either way, going back to the Google route restores its sheet so that route submits it.
  */
 export function useGsheetsOAuthLink({
   mode,
@@ -62,8 +67,10 @@ export function useGsheetsOAuthLink({
       if (savedLink !== oauthLink) setValue(spreadsheetPath, oauthLink, { shouldValidate: true });
       return;
     }
-    if (savedLink === oauthLink) setValue(spreadsheetPath, '', { shouldValidate: true });
-  }, [usingOAuth, oauthLink, savedLink, spreadsheetPath, hasSpreadsheetField, setValue]);
+    if (mode === 'create' && savedLink === oauthLink) {
+      setValue(spreadsheetPath, '', { shouldValidate: true });
+    }
+  }, [mode, usingOAuth, oauthLink, savedLink, spreadsheetPath, hasSpreadsheetField, setValue]);
 
   return { oauthLink };
 }

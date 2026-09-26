@@ -46,3 +46,13 @@ export function spreadsheetIdFromSavedValue(savedValue: string | null | undefine
   if (!/^https?:\/\//i.test(saved)) return saved;
   return DRIVE_ID_SEGMENT.exec(saved)?.[1] ?? null;
 }
+
+/**
+ * The warning shown when an existing source is pointed at a different sheet — on either auth
+ * route, so both say the same thing. `currentName` is the sheet it syncs today, when Drive gave
+ * its title up (typed links and failed lookups have none).
+ */
+export function sheetChangedWarning(currentName?: string): string {
+  const current = currentName ? ` (“${currentName}”)` : '';
+  return `This is a different sheet. Use the same sheet as before${current}, or the current tables will be orphaned in the warehouse and stop getting new data.`;
+}

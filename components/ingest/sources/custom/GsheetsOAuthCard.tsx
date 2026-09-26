@@ -1,7 +1,8 @@
 'use client';
 
-import { Check, Loader2, TriangleAlert } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { GoogleIcon } from './GoogleIcon';
+import { GsheetsSheetWarning } from './GsheetsSheetWarning';
 import type { CustomSourceOAuth } from './types';
 
 interface GsheetsOAuthCardProps {
@@ -52,9 +53,7 @@ export function GsheetsOAuthCard({
   // arrived with the source can be called "Syncing".
   const sheetRowLabel = authedThisSession ? 'Selected' : 'Syncing';
 
-  // The note's own link to the current sheet. Label differs by note: the hint's sentence has
-  // already said which sheet it means, while the warning sits next to a DIFFERENT sheet's name
-  // and has to say which one it is offering.
+  // The hint's own link to the current sheet (the warning renders its own).
   const currentSheetLink = (label: string) =>
     linkToRepick && (
       <a
@@ -134,19 +133,12 @@ export function GsheetsOAuthCard({
       )}
 
       {sheetWarning ? (
-        // Same amber panel the chart builder uses for "this needs your attention before you
-        // save" (see DatasetSelector, TableDimensionsSelector), so the two read as one system.
-        <div
-          className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
-          data-testid="gsheets-sheet-mismatch"
-        >
-          <TriangleAlert className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
-          <p className="min-w-0">
-            {/* `sheetWarning` ends without punctuation so the link can close the sentence. */}
-            {sheetWarning}
-            {linkToRepick ? <> ({currentSheetLink('open the sheet it syncs today')}).</> : '.'}
-          </p>
-        </div>
+        <GsheetsSheetWarning
+          message={sheetWarning}
+          currentSheetUrl={linkToRepick}
+          testId="gsheets-sheet-mismatch"
+          linkTestId="gsheets-repick-link"
+        />
       ) : (
         picksSheet &&
         linkToRepick && (
