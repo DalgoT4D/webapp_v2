@@ -18,20 +18,40 @@ interface TrialSplitCardProps {
   children: React.ReactNode;
   /** Right pane — marketing content. Omit for a form-only card. Hidden below `lg`. */
   aside?: React.ReactNode;
+  /** Show the aside above the content below `lg` (used by the provisioning video). */
+  asideOnMobile?: boolean;
   testId: string;
 }
 
-export function TrialSplitCard({ children, aside, testId }: TrialSplitCardProps) {
+export function TrialSplitCard({
+  children,
+  aside,
+  asideOnMobile = false,
+  testId,
+}: TrialSplitCardProps) {
   return (
     <div
       data-testid={testId}
       // 592px/711px left pane, 62px padding, 1179px card width, corner radius, and
       // drop shadow all mirror the Figma card (frame 2452:181). Tailwind can't read
       // TS constants, so the numbers are inlined here rather than declared elsewhere.
-      className="flex w-full max-w-[1179px] overflow-hidden rounded-[20px] bg-white shadow-[0px_20px_60px_0px_rgba(15,23,41,0.12)] lg:h-[711px]"
+      className="flex w-full max-w-[1179px] flex-col overflow-hidden rounded-[20px] bg-white shadow-[0px_20px_60px_0px_rgba(15,23,41,0.12)] lg:h-[711px] lg:flex-row"
     >
-      <div className="w-full shrink-0 p-8 sm:p-12 lg:w-[592px] lg:p-[62px]">{children}</div>
-      {aside ? <div className="hidden lg:block lg:flex-1">{aside}</div> : null}
+      <div className="order-last w-full shrink-0 p-8 sm:p-12 lg:order-first lg:w-[592px] lg:p-[62px]">
+        {children}
+      </div>
+      {aside ? (
+        <div
+          data-testid="trial-split-card-aside"
+          className={
+            asideOnMobile
+              ? 'order-first w-full lg:order-last lg:flex-1'
+              : 'hidden lg:block lg:flex-1'
+          }
+        >
+          {aside}
+        </div>
+      ) : null}
     </div>
   );
 }

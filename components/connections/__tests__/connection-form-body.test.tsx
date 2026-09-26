@@ -6,11 +6,12 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConnectionFormBody } from '../connection-form-body';
 import { FormMode } from '@/constants/connections';
 import type { Connection } from '@/types/connections';
+import { createConnection } from '@/hooks/api/useConnections';
 
 // ============ Mocks ============
 
@@ -37,10 +38,14 @@ jest.mock('@/hooks/api/useConnections', () => ({
 // Mutable so a test can simulate discovered streams (the help panel + streams
 // table only appear once discovery returns rows). Prefixed `mock` for hoisting.
 let mockStreams: unknown[] = [];
+let mockHasSelectedStreams = false;
+let mockAllSelectedColumnTypesConfirmed = true;
 
 afterEach(() => {
   mockConnectionData = null;
   mockStreams = [];
+  mockHasSelectedStreams = false;
+  mockAllSelectedColumnTypesConfirmed = true;
 });
 
 jest.mock('@/hooks/useBackendWebSocket', () => ({
@@ -95,11 +100,13 @@ jest.mock('../hooks/useStreamConfig', () => ({
     updateStreamPrimaryKey: jest.fn(),
     toggleColumn: jest.fn(),
     updateCastType: jest.fn(),
+    confirmAllColumnTypes: jest.fn(),
     toggleStreamExpand: jest.fn(),
     handleIncrementalAllToggle: jest.fn(),
     filteredStreams: mockStreams,
     allSelected: false,
-    hasSelectedStreams: false,
+    hasSelectedStreams: mockHasSelectedStreams,
+    allSelectedColumnTypesConfirmed: mockAllSelectedColumnTypesConfirmed,
   }),
 }));
 
@@ -130,6 +137,31 @@ jest.mock('@/components/ingest/sources/custom/registry', () => ({
 // ============ ConnectionFormBody Tests ============
 
 describe('ConnectionFormBody', () => {
+  it('blocks a Google Sheets connection until every selected column type is confirmed', async () => {
+    const user = userEvent.setup();
+    mockStreams = [{ name: 'responses', selected: true }];
+    mockHasSelectedStreams = true;
+    mockAllSelectedColumnTypesConfirmed = false;
+
+    render(
+      <ConnectionFormBody
+        mode={FormMode.CREATE}
+        presetSourceId="gs-1"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+
+    const button = screen.getByRole('button', { name: 'Add data' });
+    expect(button).toBeDisabled();
+    const hint = screen.getByRole('status');
+    expect(hint).toHaveTextContent('Confirm column types for each selected table');
+    expect(button).toHaveAccessibleDescription(hint.textContent!);
+    expect(within(hint.parentElement!).getByRole('button', { name: 'Add data' })).toBe(button);
+    await user.click(button);
+    expect(createConnection).not.toHaveBeenCalled();
+  });
+
   it('locks the source (no picker) when presetSourceId is given', () => {
     render(
       <ConnectionFormBody
@@ -174,7 +206,7 @@ describe('ConnectionFormBody', () => {
 });
 
 describe('ConnectionFormBody split help + custom view', () => {
-  it('hides the help panel until streams are discovered, then shows it', () => {
+  it('hides the help rail until streams are discovered, then shows it collapsed', () => {
     const { rerender } = render(
       <ConnectionFormBody
         mode={FormMode.CREATE}
@@ -183,8 +215,9 @@ describe('ConnectionFormBody split help + custom view', () => {
         onCancel={jest.fn()}
       />
     );
-    // No streams yet → no empty docs column.
+    // No streams yet → no empty docs column, not even the rail.
     expect(screen.queryByTestId('connection-help-panel')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('connection-help-expand')).not.toBeInTheDocument();
 
     // Discovery returns rows → panel appears.
     mockStreams = [{ name: 'sheet1', selected: true }];
@@ -196,7 +229,9 @@ describe('ConnectionFormBody split help + custom view', () => {
         onCancel={jest.fn()}
       />
     );
-    expect(screen.getByTestId('connection-help-panel')).toBeInTheDocument();
+    // Collapsed, not open — the docs used to take a third of the modal. The rail is the way in.
+    expect(screen.getByTestId('connection-help-expand')).toBeInTheDocument();
+    expect(screen.queryByTestId('connection-help-panel')).not.toBeInTheDocument();
   });
 
   it('shows connection-wide settings without an Advanced options toggle', () => {
@@ -266,7 +301,28 @@ describe('ConnectionFormBody split help + custom view', () => {
     expect(screen.getByTestId('destination-schema-input')).toHaveClass('w-48');
   });
 
-  it('collapses help to a visible rail and reopens it when a table header is clicked', async () => {
+  it.each([FormMode.CREATE, FormMode.EDIT, FormMode.VIEW])(
+    'starts collapsed in %s, so every surface opens on the table not the docs',
+    (mode) => {
+      // One body serves both call sites — the standalone dialog and the wizard's SELECT DATA
+      // step (the walkthrough's) — so this covers both flows in every mode.
+      mockStreams = [{ name: 'sheet1', selected: true }];
+      render(
+        <ConnectionFormBody
+          mode={mode}
+          presetSourceId="src-1"
+          connectionId={mode === FormMode.CREATE ? undefined : 'c1'}
+          onSuccess={jest.fn()}
+          onCancel={jest.fn()}
+        />
+      );
+
+      expect(screen.queryByTestId('connection-help-panel')).not.toBeInTheDocument();
+      expect(screen.getByTestId('connection-help-expand')).toBeInTheDocument();
+    }
+  );
+
+  it('opens help from the rail, and again from a table header, then collapses back', async () => {
     const user = userEvent.setup();
     mockStreams = [{ name: 'sheet1', selected: true }];
     render(
@@ -278,7 +334,7 @@ describe('ConnectionFormBody split help + custom view', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Collapse table settings help' }));
+    // Starts collapsed.
     expect(screen.queryByTestId('connection-help-panel')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open table settings help' })).toHaveTextContent(
       'What these options mean'
@@ -287,6 +343,14 @@ describe('ConnectionFormBody split help + custom view', () => {
       '[writing-mode:vertical-rl]'
     );
 
+    // The rail opens it.
+    await user.click(screen.getByRole('button', { name: 'Open table settings help' }));
+    expect(screen.getByTestId('connection-help-panel')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Collapse table settings help' }));
+    expect(screen.queryByTestId('connection-help-panel')).not.toBeInTheDocument();
+
+    // So does clicking a term in the form, which also jumps to that term's card.
     await user.click(screen.getByRole('button', { name: 'Columns header' }));
     expect(screen.getByTestId('connection-help-panel')).toBeInTheDocument();
     expect(screen.getByTestId('active-help-concept')).toHaveTextContent('columns');
@@ -363,4 +427,27 @@ describe('ConnectionFormBody split help + custom view', () => {
       streamNoun: 'Tables',
     });
   });
+});
+
+it('enables submission after confirmation and disables it again when types need review', () => {
+  mockStreams = [{ name: 'responses', selected: true }];
+  mockHasSelectedStreams = true;
+  mockAllSelectedColumnTypesConfirmed = false;
+  const props = {
+    mode: FormMode.CREATE,
+    presetSourceId: 'gs-1',
+    onSuccess: jest.fn(),
+    onCancel: jest.fn(),
+  };
+  const { rerender } = render(<ConnectionFormBody {...props} />);
+  expect(screen.getByTestId('save-connection-btn')).toBeDisabled();
+  expect(screen.getByTestId('connection-column-types-error')).toBeInTheDocument();
+  mockAllSelectedColumnTypesConfirmed = true;
+  rerender(<ConnectionFormBody {...props} />);
+  expect(screen.queryByTestId('connection-column-types-error')).not.toBeInTheDocument();
+  expect(screen.getByTestId('save-connection-btn')).toBeEnabled();
+  mockAllSelectedColumnTypesConfirmed = false;
+  rerender(<ConnectionFormBody {...props} />);
+  expect(screen.getByTestId('save-connection-btn')).toBeDisabled();
+  expect(screen.getByRole('status')).toBeInTheDocument();
 });

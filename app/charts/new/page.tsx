@@ -168,13 +168,20 @@ function NewChartPageContent() {
     <div className="px-8 py-6 ml-0">
       {/* Header with Back button */}
       <div className="flex items-center gap-3 mb-8">
+        {/* Same testid on both branches (only one renders): the walkthrough guards this by
+            selector — see CHART_BUILDER_EXITS in insight-walkthrough-coachmark.tsx. */}
         {isFromDashboard ? (
-          <Button variant="ghost" size="sm" onClick={() => router.back()}>
+          <Button
+            variant="ghost"
+            size="sm"
+            data-testid="chart-new-back-button"
+            onClick={() => router.back()}
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
         ) : (
-          <Link href="/charts">
+          <Link href="/charts" data-testid="chart-new-back-button">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back

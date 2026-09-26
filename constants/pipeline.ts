@@ -76,7 +76,6 @@ export const SYSTEM_COMMAND_ORDER: Record<string, number> = {
   'dbt-test': 6,
   'dbt-docs-generate': 8,
   'dbt-cloud-job': 20,
-  'generate-edr': 25,
 };
 
 // Custom command ordering - custom tasks sit between system dbt-run (5) and system dbt-test (6)
@@ -109,6 +108,11 @@ export const SCHEDULE_OPTIONS = [
   { id: 'daily', label: 'Daily' },
   { id: 'weekly', label: 'Weekly' },
 ] as const;
+
+// Prefilled name on a new pipeline, so the required field never blocks Create Pipeline on a
+// user who hasn't thought of a name yet. Editable — most orgs rename it once they run more
+// than one pipeline.
+export const DEFAULT_PIPELINE_NAME = 'Data pipeline';
 
 // Polling intervals
 export const POLLING_INTERVAL_WHEN_LOCKED = 3000; // 3 seconds when pipeline is running

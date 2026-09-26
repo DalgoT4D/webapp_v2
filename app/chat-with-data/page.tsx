@@ -77,7 +77,7 @@ export default function ChatWithDataPage() {
     refreshSessions();
   }, [refreshSessions]);
 
-  const { messages, sendMessage, respondToApproval, isStreaming } = useChatWithData(
+  const { messages, sendMessage, respondToApproval, piiMemory, isStreaming } = useChatWithData(
     activeSessionId,
     {
       enabled: Boolean(status?.enabled),
@@ -171,6 +171,7 @@ export default function ChatWithDataPage() {
           isStreaming={isStreaming}
           onSend={handleSend}
           onApprovalRespond={respondToApproval}
+          piiMemory={piiMemory}
           models={status.models ?? []}
           selectedModel={activeModel}
           onModelChange={setSelectedModel}
