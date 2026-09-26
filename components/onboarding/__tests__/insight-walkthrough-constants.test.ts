@@ -6,7 +6,6 @@ import {
   CONNECTION_WATCH_STAGES,
   OWN_DATA_WIZARD_STAGES,
   PIPELINE_WIZARD_STAGES,
-  isWizardCoachedStage,
   POST_SYNC_STAGE_FOR,
   CHART_ENTRY_STAGE,
   getStoredWalkthroughStage,
@@ -32,6 +31,8 @@ import {
   getResumeAnchorStage,
   flowForPath,
   SOURCE_NEXT_STAGE_FOR,
+  SHEET_PICKED_STAGE_FOR,
+  WIZARD_CONFIG_ENTRY_STAGE_FOR,
 } from '../insight-walkthrough-constants';
 import {
   setWalkthroughScope,
@@ -550,5 +551,66 @@ describe('insight-walkthrough-constants', () => {
     // it rather than waiting on a field nobody can see.
     expect(getResumeAnchorStage('kpi_thresholds')).toBe('kpi_intro');
     expect(getResumeAnchorStage('kpi_program_tags')).toBe('kpi_intro');
+  });
+
+  describe('the Google Sheets configure step', () => {
+    it('coaches sign-in, then the Picker, then the wizard’s Next button', () => {
+      expect(OWN_DATA_WIZARD_STAGES.slice(0, 3)).toEqual([
+        'own_data_sheet_auth',
+        'own_data_sheet_picker',
+        'own_data_config_next',
+      ]);
+      expect(PIPELINE_WIZARD_STAGES.slice(0, 3)).toEqual([
+        'pipeline_sheet_auth',
+        'pipeline_sheet_picker',
+        'pipeline_config_next',
+      ]);
+    });
+
+    it('enters the configure step at sign-in on both forks', () => {
+      expect(WIZARD_CONFIG_ENTRY_STAGE_FOR.own_data_source_next).toBe('own_data_sheet_auth');
+      expect(WIZARD_CONFIG_ENTRY_STAGE_FOR.pipeline_source_next).toBe('pipeline_sheet_auth');
+    });
+
+    it('sends a real pick to the wizard’s Next button, from either configure stage', () => {
+      // Keyed from the sign-in stage too: a run that never registered the button click is
+      // still a run that has just picked a sheet.
+      expect(SHEET_PICKED_STAGE_FOR.own_data_sheet_auth).toBe('own_data_config_next');
+      expect(SHEET_PICKED_STAGE_FOR.own_data_sheet_picker).toBe('own_data_config_next');
+      expect(SHEET_PICKED_STAGE_FOR.pipeline_sheet_auth).toBe('pipeline_config_next');
+      expect(SHEET_PICKED_STAGE_FOR.pipeline_sheet_picker).toBe('pipeline_config_next');
+    });
+
+    it('maps a stored "paste your sheet link" stage forward to sign-in', () => {
+      // That field belongs to the service-account route alone, so the stage is retired rather
+      // than reworded. Without the forward map a resumed run lands on a stage with no coachmark
+      // and the walkthrough reads as dead.
+      setWalkthroughScope(USER_A, ORG_A);
+      localStorage.setItem(
+        `dalgo_insight_walkthrough_stage_insights_${USER_A}_${ORG_A}`,
+        'own_data_sheet_link'
+      );
+      expect(getStoredWalkthroughStage('insights')).toBe('own_data_sheet_auth');
+
+      localStorage.setItem(
+        `dalgo_insight_walkthrough_stage_automate_pipeline_${USER_A}_${ORG_A}`,
+        'pipeline_sheet_link'
+      );
+      expect(getStoredWalkthroughStage('automate_pipeline')).toBe('pipeline_sheet_auth');
+    });
+
+    it('rewinds both new configure stages to the fork’s ingest step on a cold load', () => {
+      // Both are inside the add-source wizard dialog, which a reload closes.
+      expect(getResumeAnchorStage('own_data_sheet_auth')).toBe('own_data_ingest');
+      expect(getResumeAnchorStage('own_data_sheet_picker')).toBe('own_data_ingest');
+      expect(getResumeAnchorStage('pipeline_sheet_picker')).toBe('pipeline_ingest');
+    });
+
+    it('counts the Picker stage as part of ingest, so the sync checkpoint watches it', () => {
+      expect(INGEST_STAGES).toContain('own_data_sheet_picker');
+      expect(INGEST_STAGES).toContain('pipeline_sheet_picker');
+      expect(CONNECTION_WATCH_STAGES).toContain('own_data_sheet_picker');
+      expect(isWizardCoachedStage('own_data_sheet_picker')).toBe(true);
+    });
   });
 });

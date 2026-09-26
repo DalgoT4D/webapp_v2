@@ -68,15 +68,24 @@ export type WalkthroughStage =
   | 'own_data_source_next'
   // The rest of the add-source wizard, which used to run uncoached. Split by wizard step
   // because the two halves have different audiences:
-  //  - *_sheet_link / *_sheet_auth / *_config_next are the CONFIGURE step, whose fields are
+  //  - *_sheet_auth / *_sheet_picker / *_config_next are the CONFIGURE step, whose fields are
   //    the chosen source's own. Only a Google Sheets run enters them (see
-  //    CreateSourceStep) — a Postgres user has no spreadsheet link to be coached about.
+  //    CreateSourceStep) — a Postgres user has no spreadsheet to be coached about.
   //  - *_streams_scroll / *_streams_cast / *_connection_create are the SELECT DATA step,
   //    which looks the same whatever the source, so every run enters it. The cast stage is
   //    the one exception and is stepped over where casting isn't offered (see
   //    connection-form-body.tsx).
-  | 'own_data_sheet_link'
+  //
+  // The configure pair describes the Google SIGN-IN route, which is what a new source opens on
+  // (see GoogleSheetsForm) and the only route that can reach a sheet the user has not already
+  // shared with a service account. Its predecessor — a "paste your sheet link" stage — coached
+  // a field that route does not render at all; it is retired, not renamed (see
+  // RETIRED_WALKTHROUGH_STAGES).
   | 'own_data_sheet_auth'
+  // Google's own file Picker, which the sign-in above ends in. A separate stage because the
+  // Picker is a dialog of Google's over our own: the coachmark beside the configure form is
+  // covered by it and has nothing to say about it.
+  | 'own_data_sheet_picker'
   | 'own_data_config_next'
   | 'own_data_streams_scroll'
   | 'own_data_streams_cast'
@@ -125,8 +134,8 @@ export type WalkthroughStage =
   | 'pipeline_source_next'
   // This fork's copies of the wizard stages above — same wizard, same copy, separate ids so
   // each fork rewinds to its own ingest step.
-  | 'pipeline_sheet_link'
   | 'pipeline_sheet_auth'
+  | 'pipeline_sheet_picker'
   | 'pipeline_config_next'
   | 'pipeline_streams_scroll'
   | 'pipeline_streams_cast'
@@ -257,8 +266,8 @@ const TRANSFORM_ORCHESTRATE_STAGES: WalkthroughStage[] = [
  * map. Spelling it out at each of those was how the earlier ingest stages drifted.
  */
 export const OWN_DATA_WIZARD_STAGES: WalkthroughStage[] = [
-  'own_data_sheet_link',
   'own_data_sheet_auth',
+  'own_data_sheet_picker',
   'own_data_config_next',
   'own_data_streams_scroll',
   'own_data_streams_cast',
@@ -266,8 +275,8 @@ export const OWN_DATA_WIZARD_STAGES: WalkthroughStage[] = [
 ];
 
 export const PIPELINE_WIZARD_STAGES: WalkthroughStage[] = [
-  'pipeline_sheet_link',
   'pipeline_sheet_auth',
+  'pipeline_sheet_picker',
   'pipeline_config_next',
   'pipeline_streams_scroll',
   'pipeline_streams_cast',
@@ -513,8 +522,27 @@ export const SOURCE_NEXT_STAGE_FOR: Partial<Record<WalkthroughStage, Walkthrough
  * before these stages existed — silent through configure, rejoining at the connection step.
  */
 export const WIZARD_CONFIG_ENTRY_STAGE_FOR: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
-  own_data_source_next: 'own_data_sheet_link',
-  pipeline_source_next: 'pipeline_sheet_link',
+  own_data_source_next: 'own_data_sheet_auth',
+  pipeline_source_next: 'pipeline_sheet_auth',
+};
+
+/**
+ * Where each fork's sign-in stage hands off once the user has a sheet in hand — the stage that
+ * points at the wizard's Next button.
+ *
+ * Read by CreateSourceStep, which owns the one signal that a sheet was actually chosen (the
+ * Picker's own callback). The Picker stage can't advance itself: its target is Google's dialog,
+ * and that dialog is gone by the time the pick lands.
+ */
+export const SHEET_PICKED_STAGE_FOR: Partial<Record<WalkthroughStage, WalkthroughStage>> = {
+  // Keyed from the sign-in stage as well as the Picker one. The hand-off between those two is a
+  // click on the sign-in button, and a run that never registered it (the button clicked before
+  // the coachmark's listener attached, a second trip through the Picker via "Choose another
+  // sheet") is still a run that has just picked a sheet.
+  own_data_sheet_auth: 'own_data_config_next',
+  own_data_sheet_picker: 'own_data_config_next',
+  pipeline_sheet_auth: 'pipeline_config_next',
+  pipeline_sheet_picker: 'pipeline_config_next',
 };
 
 /**
@@ -769,6 +797,12 @@ function hasMilestone(prefix: string): boolean {
  */
 const RETIRED_WALKTHROUGH_STAGES: Record<string, WalkthroughStage> = {
   kpi_view_card: 'dashboard_nudge',
+  // "Paste the link to your Google Sheet", from before the Google sign-in route existed. That
+  // field belongs to the service-account route alone — under `drive.file` a typed link grants
+  // nothing (see google-picker.ts) — so the stage is retired rather than reworded, and a run
+  // resuming into it lands on the sign-in coachmark that replaced it.
+  own_data_sheet_link: 'own_data_sheet_auth',
+  pipeline_sheet_link: 'pipeline_sheet_auth',
 };
 
 export function getStoredWalkthroughStage(flow: WalkthroughFlow): WalkthroughStage | null {

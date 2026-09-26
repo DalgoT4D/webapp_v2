@@ -64,7 +64,7 @@ const cases: Case[] = [
     'own_data_config_next',
     'wizard-next-btn',
     'own_data_sheet_auth',
-    'gsheets-auth-choice',
+    'gsheets-auth-method',
   ],
   [
     'own_data',
@@ -104,7 +104,7 @@ const cases: Case[] = [
     'pipeline_config_next',
     'wizard-next-btn',
     'pipeline_sheet_auth',
-    'gsheets-auth-choice',
+    'gsheets-auth-method',
   ],
   [
     'automate_pipeline',
