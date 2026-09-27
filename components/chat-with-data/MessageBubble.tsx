@@ -12,12 +12,9 @@ import {
   type ApprovalRequest,
   type ChatMessage,
   type PiiColumn,
-  type PiiMemory,
   piiColumnKey,
 } from '@/types/chat-with-data';
 import { approvalSummary, groupByTable, mergeColumns } from './utils';
-
-const EMPTY_PII_MEMORY: PiiMemory = { decided: [], pii: [] };
 
 const DECIDED_LABELS: Record<string, string> = {
   approved: 'Approved — running now',
@@ -77,27 +74,24 @@ function ColumnGroups({
  * The card leads with the data — which table, which columns — because that is
  * what the user is being asked to judge. The SQL is the mechanism, so it sits
  * collapsed underneath for anyone who wants to check it.
+ *
+ * PII ticks are never remembered: every card starts clear and the user marks
+ * the personal columns afresh for each query.
  */
 function ApprovalCard({
   requests,
   status,
   onRespond,
-  piiMemory,
 }: {
   requests: ApprovalRequest[];
   status: string;
-  onRespond?: (approve: boolean, piiColumns: string[], offeredColumns: string[]) => void;
-  piiMemory: PiiMemory;
+  onRespond?: (approve: boolean, piiColumns: string[]) => void;
 }) {
   const { columns, reviewable } = mergeColumns(requests);
   const allColumns = columns || [];
-  const offered = allColumns.map(piiColumnKey);
 
   const [queryOpen, setQueryOpen] = useState(true);
-  // columns marked personal earlier in the chat come back already ticked
-  const [ticked, setTicked] = useState<string[]>(() =>
-    offered.filter((key) => piiMemory.pii.includes(key))
-  );
+  const [ticked, setTicked] = useState<string[]>([]);
 
   const unavailable = reviewable && columns === null;
   const literalTicked = allColumns.some(
@@ -176,7 +170,7 @@ function ApprovalCard({
             type="button"
             data-testid="chat-approve"
             disabled={unavailable}
-            onClick={() => onRespond?.(true, ticked, offered)}
+            onClick={() => onRespond?.(true, ticked)}
             className="rounded-md bg-primary px-[19px] py-2 text-[13px] font-medium uppercase tracking-wide text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {approveLabel}
@@ -184,7 +178,7 @@ function ApprovalCard({
           <button
             type="button"
             data-testid="chat-cancel"
-            onClick={() => onRespond?.(false, [], [])}
+            onClick={() => onRespond?.(false, [])}
             className="rounded-md border border-[#CBD5E1] bg-white px-6 py-2 text-[13px] font-medium uppercase tracking-wide text-[#1A1A2E] hover:bg-[#F8FAFB]"
           >
             Cancel
@@ -203,11 +197,9 @@ function ApprovalCard({
 export function MessageBubble({
   message,
   onApprovalRespond,
-  piiMemory = EMPTY_PII_MEMORY,
 }: {
   message: ChatMessage;
-  onApprovalRespond?: (approve: boolean, piiColumns: string[], offeredColumns: string[]) => void;
-  piiMemory?: PiiMemory;
+  onApprovalRespond?: (approve: boolean, piiColumns: string[]) => void;
 }) {
   const isUser = message.role === 'user';
   const showThinking = message.streaming && !message.content && !message.error;
@@ -241,7 +233,6 @@ export function MessageBubble({
             requests={inputRequest.requests}
             status={inputRequest.status}
             onRespond={onApprovalRespond}
-            piiMemory={piiMemory}
           />
 
           {inputRequest.status !== 'pending' && (
