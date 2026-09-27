@@ -234,6 +234,9 @@ describe('MessageBubble PII column review', () => {
     render(<MessageBubble message={piiMessage([phone])} />);
     expect(screen.getByText('Run this query on your data warehouse?')).toBeInTheDocument();
     expect(screen.getByLabelText('prod.beneficiaries.phone')).toBeInTheDocument();
+    expect(
+      screen.getByText(/We anonymise any such data before it reaches the AI model/)
+    ).toBeInTheDocument();
     // the query above already names the table — no repeated subheading
     expect(screen.queryByText('prod.beneficiaries')).not.toBeInTheDocument();
     expect(screen.getByTestId('chat-approve')).toHaveTextContent('Approve');
@@ -244,7 +247,7 @@ describe('MessageBubble PII column review', () => {
     render(<MessageBubble message={piiMessage([phone])} onApprovalRespond={respond} />);
 
     await userEvent.click(screen.getByLabelText('prod.beneficiaries.phone'));
-    expect(screen.getByTestId('chat-approve')).toHaveTextContent('hash 1');
+    expect(screen.getByTestId('chat-approve')).toHaveTextContent('Approve & anonymise 1 column');
 
     await userEvent.click(screen.getByTestId('chat-approve'));
     expect(respond).toHaveBeenCalledWith(true, ['prod.beneficiaries.phone']);
@@ -270,7 +273,7 @@ describe('MessageBubble PII column review', () => {
     expect(
       screen.getByText('This query returns no column values, so there is nothing to mask.')
     ).toBeInTheDocument();
-    expect(screen.queryByText(/Tick any column that holds personal data/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Please review your query for columns/)).not.toBeInTheDocument();
     expect(screen.getByTestId('chat-approve')).toBeEnabled();
     expect(screen.getByTestId('chat-approve')).toHaveTextContent('Approve');
   });

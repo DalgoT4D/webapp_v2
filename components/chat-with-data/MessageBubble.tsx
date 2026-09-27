@@ -106,7 +106,10 @@ function ApprovalCard({
       current.includes(key) ? current.filter((entry) => entry !== key) : [...current, key]
     );
 
-  const approveLabel = ticked.length === 0 ? 'Approve' : `Approve & hash ${ticked.length}`;
+  const approveLabel =
+    ticked.length === 0
+      ? 'Approve'
+      : `Approve & anonymise ${ticked.length} ${ticked.length === 1 ? 'column' : 'columns'}`;
 
   return (
     <div className="flex flex-col gap-3">
@@ -138,7 +141,11 @@ function ApprovalCard({
             </p>
           ) : (
             <>
-              <p className="text-sm text-[#7A7A8C]">Tick any column that holds personal data.</p>
+              <p className="text-sm text-[#7A7A8C]">
+                Please review your query for columns that may contain personally identifiable
+                information and mark them. We anonymise any such data before it reaches the AI
+                model.
+              </p>
               <ColumnGroups columns={allColumns} ticked={ticked} onToggle={toggle} />
             </>
           )}

@@ -108,7 +108,8 @@ export function ChatComposer({
 
   const piiNotice = (
     <p className="mt-2 text-xs text-[#7A7A8C]" data-testid="chat-pii-notice">
-      Don&apos;t enter PII data here — your message goes directly to the AI model.
+      Dalgo Copilot is AI and can make mistakes. Double check your responses. Do not enter PII data
+      in the prompt as that is sent to the AI model directly.
     </p>
   );
 
