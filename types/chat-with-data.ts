@@ -38,18 +38,22 @@ export interface SqlAttachment {
   rows?: string[][] | null;
 }
 
-/** One history bubble from GET /sessions/{id}/messages */
-export interface CreatedChart {
-  chart_id: number;
+/** A Dalgo object the agent created (backend: CreatedArtifact) */
+export type ArtifactType = 'chart' | 'dashboard' | 'metric' | 'kpi' | 'report';
+
+export interface CreatedArtifact {
+  type: ArtifactType;
+  object_id: number;
   title: string;
   url_path: string;
 }
 
+/** One history bubble from GET /sessions/{id}/messages */
 export interface ChatHistoryMessage {
   role: 'user' | 'assistant';
   content: string;
   sql_attachments: SqlAttachment[];
-  charts?: CreatedChart[];
+  artifacts?: CreatedArtifact[];
 }
 
 // ── WebSocket protocol (backend: ddpui/core/chat_with_data/runner.py) ──────
@@ -82,7 +86,7 @@ export interface MessageCompleteEvent {
   type: 'message_complete';
   message: string;
   result_table?: ResultTable | null;
-  charts?: CreatedChart[];
+  artifacts?: CreatedArtifact[];
   usage?: { input_tokens: number; output_tokens: number };
 }
 
@@ -180,7 +184,7 @@ export interface ChatMessage {
   streaming: boolean;
   tools: ToolActivity[];
   resultTable?: ResultTable | null;
-  charts?: CreatedChart[];
+  artifacts?: CreatedArtifact[];
   validation?: { verdict: 'ok' | 'warn'; caveat?: string | null } | null;
   error?: string | null;
   inputRequest?: MessageInputRequest | null;

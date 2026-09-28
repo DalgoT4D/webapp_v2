@@ -2,7 +2,16 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { BarChart3, ChevronDown, ChevronUp, LayoutDashboard, TriangleAlert } from 'lucide-react';
+import {
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  LayoutDashboard,
+  Sigma,
+  Target,
+  TriangleAlert,
+} from 'lucide-react';
 import { ToolProgress } from './ToolProgress';
 import { ResultTable } from './ResultTable';
 import { AssistantMarkdown } from './AssistantMarkdown';
@@ -10,11 +19,21 @@ import { SqlBlock } from './SqlBlock';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import {
   type ApprovalRequest,
+  type ArtifactType,
   type ChatMessage,
   type PiiColumn,
   piiColumnKey,
 } from '@/types/chat-with-data';
 import { approvalSummary, groupByTable, mergeColumns } from './utils';
+
+/** Icon + link label for each kind of object the agent can create */
+const ARTIFACT_CHIPS: Record<ArtifactType, { Icon: typeof BarChart3; label: string }> = {
+  chart: { Icon: BarChart3, label: 'Open in Charts' },
+  dashboard: { Icon: LayoutDashboard, label: 'Open in Dashboards' },
+  metric: { Icon: Sigma, label: 'Open in Metrics' },
+  kpi: { Icon: Target, label: 'Open in Impact' },
+  report: { Icon: FileText, label: 'Open in Reports' },
+};
 
 const DECIDED_LABELS: Record<string, string> = {
   approved: 'Approved — running now',
@@ -277,26 +296,23 @@ export function MessageBubble({
         </p>
       )}
 
-      {message.charts?.map((chart) => (
-        <Link
-          key={chart.url_path}
-          href={chart.url_path}
-          data-testid={`chat-chart-link-${chart.chart_id}`}
-          className="flex h-11 items-center justify-between rounded-md border border-[#E8ECEF] bg-[#F8FAFB] px-4 text-sm hover:border-primary/40"
-        >
-          <span className="flex min-w-0 items-center gap-2 text-[#1A1A2E]">
-            {chart.url_path.startsWith('/dashboards') ? (
-              <LayoutDashboard className="size-4 shrink-0 text-[#5C5C6D]" />
-            ) : (
-              <BarChart3 className="size-4 shrink-0 text-[#5C5C6D]" />
-            )}
-            <span className="truncate">{chart.title}</span>
-          </span>
-          <span className="shrink-0 font-semibold text-primary">
-            {chart.url_path.startsWith('/dashboards') ? 'Open in Dashboards' : 'Open in Charts'}
-          </span>
-        </Link>
-      ))}
+      {message.artifacts?.map((artifact) => {
+        const { Icon, label } = ARTIFACT_CHIPS[artifact.type];
+        return (
+          <Link
+            key={`${artifact.type}-${artifact.object_id}`}
+            href={artifact.url_path}
+            data-testid={`chat-artifact-link-${artifact.type}-${artifact.object_id}`}
+            className="flex h-11 items-center justify-between rounded-md border border-[#E8ECEF] bg-[#F8FAFB] px-4 text-sm hover:border-primary/40"
+          >
+            <span className="flex min-w-0 items-center gap-2 text-[#1A1A2E]">
+              <Icon className="size-4 shrink-0 text-[#5C5C6D]" />
+              <span className="truncate">{artifact.title}</span>
+            </span>
+            <span className="shrink-0 font-semibold text-primary">{label}</span>
+          </Link>
+        );
+      })}
     </div>
   );
 }

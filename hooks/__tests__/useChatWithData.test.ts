@@ -147,11 +147,13 @@ describe('created charts', () => {
     messages = applyChatEvent(messages, {
       type: 'message_complete',
       message: 'Done — the chart is in your Charts page.',
-      charts: [{ chart_id: 42, title: 'Surveys by district', url_path: '/charts/42' }],
+      artifacts: [
+        { type: 'chart', object_id: 42, title: 'Surveys by district', url_path: '/charts/42' },
+      ],
     });
     const assistant = messages[messages.length - 1];
-    expect(assistant.charts).toEqual([
-      { chart_id: 42, title: 'Surveys by district', url_path: '/charts/42' },
+    expect(assistant.artifacts).toEqual([
+      { type: 'chart', object_id: 42, title: 'Surveys by district', url_path: '/charts/42' },
     ]);
   });
 
@@ -161,11 +163,13 @@ describe('created charts', () => {
         role: 'assistant',
         content: 'Done.',
         sql_attachments: [],
-        charts: [{ chart_id: 42, title: 'Surveys by district', url_path: '/charts/42' }],
+        artifacts: [
+          { type: 'chart', object_id: 42, title: 'Surveys by district', url_path: '/charts/42' },
+        ],
       },
     ]);
-    expect(out[0].charts).toEqual([
-      { chart_id: 42, title: 'Surveys by district', url_path: '/charts/42' },
+    expect(out[0].artifacts).toEqual([
+      { type: 'chart', object_id: 42, title: 'Surveys by district', url_path: '/charts/42' },
     ]);
   });
 });

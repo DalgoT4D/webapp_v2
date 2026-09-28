@@ -38,11 +38,13 @@ describe('MessageBubble', () => {
       <MessageBubble
         message={message({
           content: 'Done — the chart is in your Charts page.',
-          charts: [{ chart_id: 42, title: 'Surveys by district', url_path: '/charts/42' }],
+          artifacts: [
+            { type: 'chart', object_id: 42, title: 'Surveys by district', url_path: '/charts/42' },
+          ],
         })}
       />
     );
-    const chip = screen.getByTestId('chat-chart-link-42');
+    const chip = screen.getByTestId('chat-artifact-link-chart-42');
     expect(chip).toHaveAttribute('href', '/charts/42');
     expect(chip).toHaveTextContent('Surveys by district');
   });
@@ -52,13 +54,32 @@ describe('MessageBubble', () => {
       <MessageBubble
         message={message({
           content: 'Added to your dashboard.',
-          charts: [{ chart_id: 3, title: 'Donor Overview', url_path: '/dashboards/3' }],
+          artifacts: [
+            { type: 'dashboard', object_id: 3, title: 'Donor Overview', url_path: '/dashboards/3' },
+          ],
         })}
       />
     );
-    const chip = screen.getByTestId('chat-chart-link-3');
+    const chip = screen.getByTestId('chat-artifact-link-dashboard-3');
     expect(chip).toHaveAttribute('href', '/dashboards/3');
     expect(chip.querySelector('svg.lucide-layout-dashboard')).toBeInTheDocument();
+  });
+
+  it('labels a metric chip by its type, not as a chart', () => {
+    render(
+      <MessageBubble
+        message={message({
+          content: 'Created the metric.',
+          artifacts: [
+            { type: 'metric', object_id: 5, title: 'Total surveys', url_path: '/metrics' },
+          ],
+        })}
+      />
+    );
+    const chip = screen.getByTestId('chat-artifact-link-metric-5');
+    expect(chip).toHaveAttribute('href', '/metrics');
+    expect(chip).toHaveTextContent('Open in Metrics');
+    expect(chip.querySelector('svg.lucide-sigma')).toBeInTheDocument();
   });
 
   it('shows an amber caveat strip when validation warns', () => {

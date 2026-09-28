@@ -357,6 +357,13 @@ export const ANALYTICS_EVENTS = {
   ALERT_WIZARD_STEP_VIEWED: 'alert:wizard_step_viewed',
   ALERT_SLACK_WEBHOOK_TESTED: 'alert:slack_webhook_tested',
   ALERT_LOGS_VIEWED: 'alert:logs_viewed',
+  // Chat with Data
+  CHAT_SESSION_CREATED: 'chat_with_data:session_created',
+  CHAT_SESSION_RENAMED: 'chat_with_data:session_renamed',
+  CHAT_SESSION_DELETED: 'chat_with_data:session_deleted',
+  CHAT_MESSAGE_SENT: 'chat_with_data:message_sent',
+  CHAT_SQL_VIEWED: 'chat_with_data:sql_viewed',
+  CHAT_DASHBOARD_DRAWER_OPENED: 'chat_with_data:dashboard_drawer_opened',
   // Settings — user management & org
   USER_INVITED: 'settings:user_invited',
   BRANDING_LOGO_SAVED: 'settings:branding_logo_saved',
@@ -693,6 +700,8 @@ export const VALUE_ACTION_EVENTS: ReadonlySet<AnalyticsEvent> = new Set([
   // Alerts — edit / create
   ANALYTICS_EVENTS.ALERT_CREATED,
   ANALYTICS_EVENTS.ALERT_UPDATED,
+  // Chat with Data — asking a question is consuming insight
+  ANALYTICS_EVENTS.CHAT_MESSAGE_SENT,
 ]);
 
 // Stable feature identifiers for the feature:viewed breadth event. One per
@@ -710,10 +719,12 @@ export const FEATURES = {
   EXPLORE: 'explore',
   METRICS: 'metrics',
   ALERTS: 'alerts',
+  CHAT_WITH_DATA: 'chat_with_data',
   NOTIFICATIONS: 'notifications',
   SETTINGS_USER_MANAGEMENT: 'settings_user_management',
   SETTINGS_SUPERSET_USAGE: 'settings_superset_usage',
   SETTINGS_BRANDING: 'settings_branding',
+  SETTINGS_COPILOT: 'settings_copilot',
   // The warehouse moved out of the ingest page onto its own Settings route; without an
   // entry here (and in PATHNAME_TO_FEATURE) that page fired no feature:viewed at all.
   SETTINGS_WAREHOUSE: 'settings_warehouse',
@@ -745,10 +756,12 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/explore', feature: FEATURES.EXPLORE },
   { prefix: '/metrics', feature: FEATURES.METRICS },
   { prefix: '/alerts', feature: FEATURES.ALERTS },
+  { prefix: '/chat-with-data', feature: FEATURES.CHAT_WITH_DATA },
   { prefix: '/notifications', feature: FEATURES.NOTIFICATIONS },
   { prefix: '/settings/access', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
   { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
   { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
+  { prefix: '/settings/copilot', feature: FEATURES.SETTINGS_COPILOT },
   { prefix: '/settings/warehouse', feature: FEATURES.SETTINGS_WAREHOUSE },
   { prefix: '/free-trial/activate', feature: FEATURES.FREE_TRIAL_ACTIVATE },
   { prefix: '/free-trial/consent', feature: FEATURES.FREE_TRIAL_CONSENT },

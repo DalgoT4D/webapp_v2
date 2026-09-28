@@ -93,7 +93,7 @@ export function applyChatEvent(messages: ChatMessage[], event: ChatWsEvent): Cha
         ...message,
         content: event.message || message.content,
         resultTable: event.result_table ?? null,
-        charts: event.charts || [],
+        artifacts: event.artifacts || [],
         streaming: false,
       }));
 
@@ -178,7 +178,7 @@ export function historyToChatMessages(history: ChatHistoryMessage[]): ChatMessag
             row_count: lastResult.row_count ?? (lastResult.rows?.length || 0),
           }
         : null,
-      charts: message.charts || [],
+      artifacts: message.artifacts || [],
     };
   });
 }
