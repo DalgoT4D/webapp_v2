@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useBackendWebSocket } from '@/hooks/useBackendWebSocket';
-import { createSource, getSourceOAuthConsent, createOAuthSource } from '@/hooks/api/useSources';
-import { openOAuthPopup } from '@/components/connectors/oauth-popup';
+import { createSource, createOAuthSource } from '@/hooks/api/useSources';
+import { connectGoogleSpreadsheet } from '@/components/connectors/google-oauth-connect';
+import { GSHEETS_KEY_SPREADSHEET } from '@/components/ingest/sources/custom/constants';
 import { toastError, toastSuccess } from '@/lib/toast';
 
 // WebSocket endpoint for source connection check — shared by SourceForm + the wizard
@@ -15,8 +16,7 @@ const AIRBYTE_CHECK_SUCCEEDED = 'succeeded';
 interface UseSourceSaveArgs {
   /** Selected source-definition id, or null before the user picks a source type */
   sourceDefId: string | null;
-  /** Selected source-definition NAME (e.g. "Google Sheets") — only needed for the
-   *  Google OAuth connect flow, the OAuth registry's lookup key */
+  /** Source-definition NAME (e.g. "Google Sheets") — the Google OAuth registry's lookup key */
   sourceDefName: string;
   /** Returns the cleaned connector config to send on save/connect */
   getConfig: () => Record<string, unknown>;
@@ -65,9 +65,9 @@ export function useSourceSave({
       setSetupLogs([]);
       setPendingName(name);
       setLoading(true);
-      sendOrQueue({ name, sourceDefId, sourceDefName, config: getConfig() });
+      sendOrQueue({ name, sourceDefId, config: getConfig() });
     },
-    [sourceDefId, sourceDefName, getConfig, sendOrQueue]
+    [sourceDefId, getConfig, sendOrQueue]
   );
 
   useEffect(() => {
@@ -84,7 +84,6 @@ export function useSourceSave({
           const created = await createSource({
             name: pendingName!,
             sourceDefId: sourceDefId!,
-            sourceDefName,
             config: getConfig(),
           });
           toastSuccess.created('Source');
@@ -113,14 +112,15 @@ export function useSourceSave({
       oauthConnectingRef.current = true;
       setOauthConnecting(true);
       try {
-        const config = getConfig();
-        const { authUrl } = await getSourceOAuthConsent(sourceDefId, sourceDefName);
-        const { ref } = await openOAuthPopup(authUrl);
+        const { ref, spreadsheet } = await connectGoogleSpreadsheet(sourceDefId, sourceDefName);
         const { sourceId } = await createOAuthSource({
           sourceDefId,
           sourceName: sourceDefName,
           name,
-          config,
+          // The Picker's selection overrides whatever is in the form: under `drive.file` the
+          // grant covers only the sheet the user chose there, so that link is the only one
+          // the connector can actually read.
+          config: { ...getConfig(), [GSHEETS_KEY_SPREADSHEET]: spreadsheet.url },
           refresh_token_ref: ref,
         });
         toastSuccess.generic('Source created');

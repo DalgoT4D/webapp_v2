@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSWRConfig } from 'swr';
 import {
@@ -13,6 +13,7 @@ import {
   Trash2,
   Eye,
   BellRing,
+  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   User,
@@ -36,7 +37,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DocsLink } from '@/components/ui/docs-link';
-import { useKPIs, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
+import { useKPIs, fetchKPI, useKPIData, deleteKPI, useProgramTags } from '@/hooks/api/useKPIs';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -67,6 +68,13 @@ import {
 } from '@/constants/analytics';
 import { formatDistanceToNow } from 'date-fns';
 import { computePopChanges } from '@/lib/formatters';
+import { getWidgetBackLabel, parseWidgetNavigationSource } from '@/lib/widget-navigation';
+
+function parseKpiId(value: string | null): number | null {
+  if (!value) return null;
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
 
 // A single KPI card that fetches its own data
 function KPICardWithData({
@@ -181,6 +189,12 @@ function KPICardWithData({
 export function KPIPageComponent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const openKpiId = parseKpiId(searchParams.get('open'));
+  const editKpiId = parseKpiId(searchParams.get('edit'));
+  const deepLinkedKpiId = editKpiId ?? openKpiId;
+  const navigationSource = parseWidgetNavigationSource(searchParams.get('from'));
+  const queryString = searchParams.toString();
+  const handledDeepLinkRef = useRef<string | null>(null);
   const orgUsers = useAuthStore((s) => s.orgUsers);
   const selectedOrgSlug = useAuthStore((s) => s.selectedOrgSlug);
   const orgSlug = orgUsers.find((ou) => ou.org.slug === selectedOrgSlug)?.org.slug ?? null;
@@ -192,6 +206,9 @@ export function KPIPageComponent() {
   const [formOpen, setFormOpen] = useState(searchParams.get('create') === 'true');
   // Walkthrough only — see handleFormSuccess.
   const [kpiLiveModalOpen, setKpiLiveModalOpen] = useState(false);
+  // The KPI the walkthrough just created, waiting for its drawer to be opened for the user —
+  // see the effect below.
+  const [pendingWalkthroughKpiId, setPendingWalkthroughKpiId] = useState<number | null>(null);
   const [editingKpi, setEditingKpi] = useState<KPI | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedKpi, setSelectedKpi] = useState<KPI | null>(null);
@@ -204,11 +221,14 @@ export function KPIPageComponent() {
     ['kpiId']
   );
 
+  // Subscribed rather than read through getState(): the drawer has to close when the
+  // walkthrough moves on, which is a state change nothing on this page triggers itself.
+  const walkthroughActive = useInsightWalkthroughStore((state) => state.active);
+  const walkthroughStage = useInsightWalkthroughStore((state) => state.stage);
+
   const { hasPermission } = useRbac();
-  // Create/edit/delete affordances are hidden for view-only roles (members) and
-  // shown to roles that hold the matching permission (admins + analysts).
+  // Creation is role-based; editing an existing KPI uses its effective access level.
   const canCreateKpis = hasPermission(PERMISSIONS.CAN_CREATE_KPIS);
-  const canEditKpis = hasPermission(PERMISSIONS.CAN_EDIT_KPIS);
   const canDeleteKpis = hasPermission(PERMISSIONS.CAN_DELETE_KPIS);
   const canCreateAlert = hasPermission(PERMISSIONS.CAN_CREATE_ALERTS);
 
@@ -232,31 +252,70 @@ export function KPIPageComponent() {
   const { tags: programTags } = useProgramTags();
   const { mutate: globalMutate } = useSWRConfig();
 
-  // Auto-open drawer when ?open={kpiId} is in the URL, then strip the param
-  // so a refresh doesn't reopen the drawer after the user has closed it.
+  // Dashboard/report links fetch the KPI directly by id, rather than searching the
+  // current paginated list. After consuming the action, keep `from` in the URL so
+  // the page can offer the same source-aware back action as chart detail pages.
   useEffect(() => {
-    const openId = searchParams.get('open');
-    if (openId && kpis.length > 0) {
-      const kpi = kpis.find((k) => k.id === parseInt(openId));
-      if (kpi) {
-        // This opens the same drawer as a card click, so it is a KPI view too — it was
-        // previously untracked, making every arrival from an alert/notification link
-        // invisible. Safe to fire inline: the param is stripped below, so the effect
-        // cannot run again for this id.
-        trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, {
-          kpi_id: kpi.id,
-          source: KPI_VIEW_SOURCES.DEEP_LINK,
-          metric_type_tag: kpi.metric_type_tag || null,
-        });
-        setSelectedKpi(kpi);
-        setDrawerOpen(true);
-      }
-      const next = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(queryString);
+    const hasOpenParam = params.has('open');
+    const hasEditParam = params.has('edit');
+    if (!hasOpenParam && !hasEditParam) {
+      handledDeepLinkRef.current = null;
+      return undefined;
+    }
+
+    const clearActionParams = () => {
+      const next = new URLSearchParams(queryString);
       next.delete('open');
+      next.delete('edit');
       const qs = next.toString();
       router.replace(qs ? `/kpis?${qs}` : '/kpis', { scroll: false });
+    };
+
+    if (!deepLinkedKpiId) {
+      clearActionParams();
+      return undefined;
     }
-  }, [searchParams, kpis, router]);
+
+    const mode = editKpiId ? 'edit' : 'open';
+    const deepLinkKey = `${selectedOrgSlug}:${mode}:${deepLinkedKpiId}`;
+    if (handledDeepLinkRef.current === deepLinkKey) return undefined;
+
+    const controller = new AbortController();
+    // Open once from a fresh response. Subsequent cache updates must not reset a
+    // dirty form, and an old request must not open after navigation or an org switch.
+    fetchKPI(deepLinkedKpiId, controller.signal)
+      .then((kpi) => {
+        if (controller.signal.aborted) return;
+        handledDeepLinkRef.current = deepLinkKey;
+        void globalMutate(`/api/kpis/${kpi.id}/`, kpi, { revalidate: false });
+        if (mode === 'edit' && kpi.access_level === 'edit') {
+          setDrawerOpen(false);
+          setEditingKpi(kpi);
+          setFormOpen(true);
+        } else {
+          if (mode === 'edit') {
+            toastError.api('You do not have permission to edit this KPI.');
+          }
+          trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, {
+            kpi_id: kpi.id,
+            source: KPI_VIEW_SOURCES.DEEP_LINK,
+            metric_type_tag: kpi.metric_type_tag || null,
+          });
+          setSelectedKpi(kpi);
+          setDrawerOpen(true);
+        }
+        clearActionParams();
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        handledDeepLinkRef.current = deepLinkKey;
+        toastError.load(error, 'KPI');
+        clearActionParams();
+      });
+
+    return () => controller.abort();
+  }, [deepLinkedKpiId, editKpiId, globalMutate, queryString, router, selectedOrgSlug]);
 
   // Auto-open share modal when ?openShare=true&kpiId={id} is in the URL —
   // deep link from an access-request notification.
@@ -284,32 +343,77 @@ export function KPIPageComponent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleFormSuccess = useCallback(() => {
-    setCurrentPage(1);
-    mutate();
-    globalMutate('/api/kpis/program-tags/');
-    // Resume-nudge milestone — set regardless of whether a coachmark session is active,
-    // so a returning user's progress is accurate (see flow-resume.ts).
-    markKpiCreated();
+  // The dashboard nudge rings a sidebar item the 600px drawer covers. Normally the user closes
+  // the drawer themselves (kpi_close_drawer); this is the safety net for every other route in.
+  useEffect(() => {
+    if (walkthroughActive && walkthroughStage === 'dashboard_nudge') setDrawerOpen(false);
+  }, [walkthroughActive, walkthroughStage]);
+
+  /**
+   * Open the drawer on the KPI the walkthrough just created, once the celebration dialog is out
+   * of the way.
+   *
+   * Waits on the refetched list rather than opening from the create response: the drawer needs a
+   * full KPI object, and `mutate()` is what produces it.
+   *
+   * Coachmarks stay suppressed until the drawer is up, so nothing flashes on the list behind
+   * it. If the refetch never yields the id, suppression lifts and kpi_duration waits.
+   */
+  useEffect(() => {
+    if (pendingWalkthroughKpiId === null || kpiLiveModalOpen) return;
+    const created = kpis.find((k) => k.id === pendingWalkthroughKpiId);
     const walkthrough = useInsightWalkthroughStore.getState();
-    // Whatever they skipped on the way here — an optional KPI Type, a hint they clicked past
-    // — creating the KPI is the checkpoint, so catch the walkthrough up to it.
-    if (
-      walkthrough.active &&
-      walkthrough.stage &&
-      isStageBefore(walkthrough.path, walkthrough.stage, 'dashboard_nudge')
-    ) {
-      // A full celebration dialog rather than a toast — this is where the flow hands over
-      // from KPIs to dashboards, and the handover needs a CTA, not a corner notification.
-      setKpiLiveModalOpen(true);
-      // The next stage's coachmark points at the Dashboards nav item, which is visible
-      // behind this dialog — without suppressing it, congratulations and the nudge land on
-      // screen together. Released when the dialog closes, so the nudge is what the user
-      // sees next.
-      walkthrough.setSuppressCoachmark(true);
-      walkthrough.advanceIfBefore('dashboard_nudge');
+    if (!created) {
+      if (!isLoading) {
+        setPendingWalkthroughKpiId(null);
+        walkthrough.setSuppressCoachmark(false);
+      }
+      return;
     }
-  }, [mutate, globalMutate, orgSlug]);
+    trackEvent(ANALYTICS_EVENTS.KPI_VIEWED, {
+      kpi_id: created.id,
+      source: KPI_VIEW_SOURCES.WALKTHROUGH,
+      metric_type_tag: created.metric_type_tag || null,
+    });
+    setSelectedKpi(created);
+    setDrawerOpen(true);
+    setPendingWalkthroughKpiId(null);
+    if (walkthrough.active) walkthrough.advanceIfBefore('kpi_duration');
+    walkthrough.setSuppressCoachmark(false);
+  }, [pendingWalkthroughKpiId, kpiLiveModalOpen, kpis, isLoading]);
+
+  const handleFormSuccess = useCallback(
+    (createdKpiId?: number) => {
+      setCurrentPage(1);
+      mutate();
+      globalMutate('/api/kpis/program-tags/');
+      // Resume-nudge milestone — set regardless of whether a coachmark session is active,
+      // so a returning user's progress is accurate (see flow-resume.ts).
+      markKpiCreated();
+      const walkthrough = useInsightWalkthroughStore.getState();
+      // Whatever they skipped on the way here — an optional KPI Type, a hint they clicked past
+      // — creating the KPI is the checkpoint, so catch the walkthrough up to it.
+      if (
+        walkthrough.active &&
+        walkthrough.stage &&
+        isStageBefore(walkthrough.path, walkthrough.stage, 'kpi_duration')
+      ) {
+        // A full celebration dialog rather than a toast — this is the moment the thing they came
+        // to build exists, and it needs a CTA. That CTA opens the drawer directly.
+        setKpiLiveModalOpen(true);
+        // Nothing else on screen while the congratulations are up. Released when the dialog
+        // closes, at which point the drawer this hands them into is what they see.
+        walkthrough.setSuppressCoachmark(true);
+        // Straight into the KPI — the dialog's CTA already says "View KPI". Opened once that
+        // dialog closes; see the effect above, which also advances into the drawer.
+        if (createdKpiId !== undefined) setPendingWalkthroughKpiId(createdKpiId);
+        // Advanced here too: creating the KPI is the checkpoint whether or not the drawer opens,
+        // so a create that returns no id can't strand the walkthrough on a closed dialog.
+        walkthrough.advanceIfBefore('kpi_duration');
+      }
+    },
+    [mutate, globalMutate, orgSlug]
+  );
 
   const handleCreate = () => {
     setEditingKpi(null);
@@ -330,6 +434,19 @@ export function KPIPageComponent() {
     });
     setSelectedKpi(kpi);
     setDrawerOpen(true);
+  };
+
+  /**
+   * Closing the drawer is the walkthrough's kpi_close_drawer step. Advancing here rather than
+   * from the coachmark catches every way out — the ✕, Escape, a click on the backdrop.
+   */
+  const handleDrawerOpenChange = (open: boolean) => {
+    setDrawerOpen(open);
+    if (open) return;
+    const walkthrough = useInsightWalkthroughStore.getState();
+    if (walkthrough.active && walkthrough.stage === 'kpi_close_drawer') {
+      walkthrough.advanceTo('dashboard_nudge');
+    }
   };
 
   const handleEdit = (kpi: KPI) => {
@@ -383,13 +500,27 @@ export function KPIPageComponent() {
       {/* Header */}
       <div className="flex-shrink-0 border-b bg-background">
         <div className="flex items-center justify-between mb-6 p-6 pb-0">
-          <div>
-            <DocsLink path="/kpis">
-              <h1 className="text-3xl font-bold">Key Performance Indicators</h1>
-            </DocsLink>
-            <p className="text-muted-foreground mt-1">
-              Track business objectives with measurable KPIs linked to your metrics
-            </p>
+          <div className="flex items-start gap-3">
+            {navigationSource && (
+              <Button
+                data-testid="kpi-back-to-source"
+                variant="ghost"
+                size="sm"
+                onClick={() => router.back()}
+                className="mt-0.5"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                {getWidgetBackLabel(navigationSource)}
+              </Button>
+            )}
+            <div>
+              <DocsLink path="/kpis">
+                <h1 className="text-3xl font-bold">Key Performance Indicators</h1>
+              </DocsLink>
+              <p className="text-muted-foreground mt-1">
+                Track business objectives with measurable KPIs linked to your metrics
+              </p>
+            </div>
           </div>
           {canCreateKpis && (
             <Button variant="primary" onClick={handleCreate} data-testid="create-kpi-btn">
@@ -504,7 +635,13 @@ export function KPIPageComponent() {
               </div>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto">
+          {/* p-1.5 is a clip allowance, not spacing. `overflow-y: auto` forces overflow-x to
+              compute to `auto` as well, so this scroller clips on all four sides — and the grid
+              inside sat flush against every one of them. Anything a card paints outside its own
+              box was cut off: the cards' hover shadow, and the onboarding walkthrough's ring
+              (2px at a 4px offset = 6px), which lost whichever edges were flush and rendered as
+              a half-drawn box. 6px of room is enough for both. */}
+          <div className="flex-1 overflow-y-auto p-1.5">
             {isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[...Array(6)].map((_, i) => (
@@ -565,12 +702,16 @@ export function KPIPageComponent() {
         open={kpiLiveModalOpen}
         onOpenChange={(open) => {
           setKpiLiveModalOpen(open);
-          // Whichever way it closes, the dashboard nudge is the next thing to see.
-          if (!open) useInsightWalkthroughStore.getState().setSuppressCoachmark(false);
+          // Whichever way it closes — the CTA or the ✕ — the KPI itself is the next thing to
+          // see, and the effect above opens its drawer and lifts the suppression with it. Only
+          // released here when there is no KPI to open, so the walkthrough is never left silent.
+          if (!open && pendingWalkthroughKpiId === null) {
+            useInsightWalkthroughStore.getState().setSuppressCoachmark(false);
+          }
         }}
         title="Congratulations, your KPI is live!"
-        description="Your insight is built, and you can now add it to a dashboard!"
-        ctaLabel="Add to Dashboard"
+        description="Take a look at what you just built — its value, its trend, and how it is doing against your target."
+        ctaLabel="View KPI"
         dismissEvent={ANALYTICS_EVENTS.KPI_LIVE_MODAL_DISMISSED}
         testId="kpi-live-modal"
       />
@@ -578,7 +719,7 @@ export function KPIPageComponent() {
       <KPIDetailDrawer
         kpi={selectedKpi}
         open={drawerOpen}
-        onOpenChange={setDrawerOpen}
+        onOpenChange={handleDrawerOpenChange}
         onEdit={() => selectedKpi && handleEdit(selectedKpi)}
         onDelete={() => {
           if (selectedKpi) {

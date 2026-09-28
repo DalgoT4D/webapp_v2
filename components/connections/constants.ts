@@ -20,6 +20,9 @@ export interface ConnectionConcept {
 // non-engineer reading the panel, rather than abstract ("large dataset").
 const EXAMPLE_ROW_COUNT = '10,000';
 
+export const COLUMN_TYPE_CONFIRMATION_MESSAGE =
+  'Review the column types and click Confirm column types for each selected table before continuing.';
+
 interface HelpOptions {
   // Source offers incremental sync (adds the cursor + full/incremental concepts).
   supportsIncremental?: boolean;
@@ -63,7 +66,7 @@ export function getConnectionHelp(opts: HelpOptions = {}): ConnectionConcept[] {
     id: 'columns',
     title: 'Columns',
     body: supportsColumnCasting
-      ? 'Use the chevron at the right of a sheet row to expand its columns and detected types. Cast to lets you convert a selected column to a more useful warehouse type after each sync. You can use these column settings without turning on Advanced per-table settings.'
+      ? 'Use the chevron at the right of a sheet row to expand its columns. Each Column type starts with the detected source type; change it when needed, then choose Confirm column types for that table before continuing. The badge beside the table name shows whether its types are confirmed, even when collapsed. You can use these column settings without turning on Advanced per-table settings.'
       : 'Turn on Advanced per-table settings, then use the chevron at the right of a table row to expand it and see its columns — the individual fields inside it, like "district" or "submission_date". Every selected column comes across when the table is synced.',
     impact: supportsColumnCasting
       ? 'Confirm the fields you expect and correct their warehouse types before building transformations or dashboards.'

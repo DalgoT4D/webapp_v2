@@ -1,6 +1,12 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CreateSourceStep } from '../CreateSourceStep';
+import { createOAuthSource } from '@/hooks/api/useSources';
+import {
+  connectGoogleSpreadsheet,
+  pickSpreadsheetForRef,
+} from '@/components/connectors/google-oauth-connect';
+import { PickerCancelledError } from '@/components/connectors/google-picker';
 
 // A realistic Google Sheets spec: `spreadsheet_id` (title "Spreadsheet Link"), the
 // `credentials` oneOf (OAuth Client + Service branches), and the SQL-conversion toggle.
@@ -68,9 +74,6 @@ jest.mock('@/hooks/api/useSources', () => ({
   useSourceSpec: () => ({ data: mockSourceSpec, isLoading: false }),
   getSourceOAuthConsent: jest.fn(),
   createOAuthSource: jest.fn(),
-  // MANAGED-SA bridge off: no deployment-managed key, so the form keeps the OAuth UI these
-  // tests assert on. Coverage of the managed path lives in google-sheets-form.test.tsx.
-  useManagedServiceAccount: () => ({ managed: null, isLoading: false }),
 }));
 const mockSave = jest.fn();
 jest.mock('@/hooks/useSourceSave', () => ({
@@ -80,29 +83,145 @@ jest.mock('@/hooks/useSourceSave', () => ({
     setupLogs: [],
   }),
 }));
+// consent + popup + Google Picker as one flow (see google-oauth-connect)
+jest.mock('@/components/connectors/google-oauth-connect', () => ({
+  connectGoogleSpreadsheet: jest.fn(),
+  pickSpreadsheetForRef: jest.fn(),
+}));
+
+const PICKED = {
+  id: 'sheet-id',
+  name: 'Q3 enrolments',
+  url: 'https://docs.google.com/spreadsheets/d/sheet-id/edit',
+};
+
+/** What the user swaps to via "Replace Google Sheet", before anything is saved. */
+const REPICKED = {
+  id: 'other-sheet-id',
+  name: 'Q4 enrolments',
+  url: 'https://docs.google.com/spreadsheets/d/other-sheet-id/edit',
+};
 
 beforeEach(() => {
   mockSourceSpec = { properties: {} };
   mockSave.mockClear();
+  (connectGoogleSpreadsheet as jest.Mock).mockReset();
+  (connectGoogleSpreadsheet as jest.Mock).mockResolvedValue({
+    ref: 'ref-abc',
+    spreadsheet: PICKED,
+  });
+  (pickSpreadsheetForRef as jest.Mock).mockReset();
+  (pickSpreadsheetForRef as jest.Mock).mockResolvedValue(REPICKED);
+  (createOAuthSource as jest.Mock).mockReset();
+  (createOAuthSource as jest.Mock).mockResolvedValue({ sourceId: 'src-oauth' });
 });
 
-it('shows the in-form Google authorize button plus a Next disabled until authorized', () => {
+/** Render the Google Sheets step and authorize, leaving PICKED as the chosen sheet. */
+async function authorizeGoogleSheets(onCreated = jest.fn()) {
   mockSourceSpec = GSHEETS_SPEC;
   render(
     <CreateSourceStep
       def={{ sourceDefinitionId: 'gs', name: 'Google Sheets' }}
-      onCreated={jest.fn()}
+      onCreated={onCreated}
       onBack={jest.fn()}
     />
   );
-  expect(screen.getByTestId('google-sheets-form')).toBeInTheDocument();
-  expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument();
-  expect(screen.getByLabelText(/Spreadsheet Link/i)).toBeInTheDocument();
-  // No auth-mode dropdown anymore.
-  expect(screen.queryByTestId('gsheets-auth-mode')).not.toBeInTheDocument();
+  await userEvent.click(screen.getByTestId('gsheets-oauth-connect-btn'));
+  await waitFor(() => expect(screen.getByText(new RegExp(PICKED.name))).toBeInTheDocument());
+}
+
+// Under `drive.file` the user names the sheet inside Google's Picker, so the flow has to
+// bring that choice back into the form — and save exactly it.
+it('fills the spreadsheet link from the Google Picker and saves that link', async () => {
+  mockSourceSpec = GSHEETS_SPEC;
+  const onCreated = jest.fn();
+  render(
+    <CreateSourceStep
+      def={{ sourceDefinitionId: 'gs', name: 'Google Sheets' }}
+      onCreated={onCreated}
+      onBack={jest.fn()}
+    />
+  );
+
+  await userEvent.click(screen.getByTestId('gsheets-oauth-connect-btn'));
+
+  // The Google route renders no link input — the Picker's answer is confirmed by name, and
+  // the link itself is asserted on the create payload below.
+  await waitFor(() => expect(screen.getByText(new RegExp(PICKED.name))).toBeInTheDocument());
+  expect(connectGoogleSpreadsheet).toHaveBeenCalledWith('gs', 'Google Sheets');
+
+  await userEvent.click(screen.getByTestId('wizard-next-btn'));
+
+  await waitFor(() =>
+    expect(createOAuthSource).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceDefId: 'gs',
+        sourceName: 'Google Sheets',
+        refresh_token_ref: 'ref-abc',
+        config: expect.objectContaining({ spreadsheet_id: PICKED.url }),
+      })
+    )
+  );
+  await waitFor(() => expect(onCreated).toHaveBeenCalledWith('src-oauth'));
 });
 
-it('keeps the service-account field behind Advanced and never renders raw OAuth creds', async () => {
+// Picking the wrong file in the Picker is easy, and before the source exists there is nothing
+// to protect — so the chosen sheet stays swappable without another consent round-trip.
+it('swaps the chosen sheet through Replace Google Sheet, and creates the source on the new one', async () => {
+  await authorizeGoogleSheets();
+
+  await userEvent.click(screen.getByTestId('gsheets-replace-sheet-btn'));
+
+  await waitFor(() => expect(screen.getByText(new RegExp(REPICKED.name))).toBeInTheDocument());
+  expect(pickSpreadsheetForRef).toHaveBeenCalledWith('Google Sheets', 'ref-abc');
+  // The ref survives the swap, so Google never asks for consent a second time.
+  expect(connectGoogleSpreadsheet).toHaveBeenCalledTimes(1);
+
+  await userEvent.click(screen.getByTestId('wizard-next-btn'));
+
+  await waitFor(() =>
+    expect(createOAuthSource).toHaveBeenCalledWith(
+      expect.objectContaining({
+        refresh_token_ref: 'ref-abc',
+        config: expect.objectContaining({ spreadsheet_id: REPICKED.url }),
+      })
+    )
+  );
+});
+
+it('keeps the sheet already chosen when the replace Picker is closed without choosing', async () => {
+  await authorizeGoogleSheets();
+  (pickSpreadsheetForRef as jest.Mock).mockRejectedValue(new PickerCancelledError());
+
+  await userEvent.click(screen.getByTestId('gsheets-replace-sheet-btn'));
+
+  // Changing their mind about changing their mind is not an error: the first pick still stands.
+  await waitFor(() => expect(screen.getByText(new RegExp(PICKED.name))).toBeInTheDocument());
+  expect(screen.getByTestId('gsheets-replace-sheet-btn')).toBeInTheDocument();
+});
+
+it('re-runs consent when the ref behind Replace Google Sheet has expired', async () => {
+  await authorizeGoogleSheets();
+  (pickSpreadsheetForRef as jest.Mock).mockRejectedValue(
+    new Error('invalid or expired oauth session')
+  );
+  (connectGoogleSpreadsheet as jest.Mock).mockResolvedValue({
+    ref: 'ref-fresh',
+    spreadsheet: REPICKED,
+  });
+
+  await userEvent.click(screen.getByTestId('gsheets-replace-sheet-btn'));
+
+  // A ref only lives minutes; an expired one is recoverable by consenting again, so the user
+  // lands back in the Picker rather than on an error they can do nothing with.
+  await waitFor(() => expect(connectGoogleSpreadsheet).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.getByText(new RegExp(REPICKED.name))).toBeInTheDocument());
+});
+
+// The hint tells an existing source which sheet to pick back. A source being created syncs
+// nothing yet, so there is no such sheet — and a link typed on the service-account route is
+// not one either.
+it('never asks the wizard to pick back a sheet, even after a link is typed on the other route', async () => {
   const user = userEvent.setup();
   mockSourceSpec = GSHEETS_SPEC;
   render(
@@ -113,13 +232,71 @@ it('keeps the service-account field behind Advanced and never renders raw OAuth 
     />
   );
 
-  // Collapsed: service field absent (Radix unmounts collapsed content).
+  await user.click(screen.getByTestId('gsheets-service-option-radio'));
+  await user.type(screen.getByLabelText(/Spreadsheet Link/i), PICKED.url);
+  await user.click(screen.getByTestId('gsheets-oauth-option-radio'));
+
+  expect(screen.queryByTestId('gsheets-repick-hint')).not.toBeInTheDocument();
+});
+
+it('keeps the wizard on the service-account path when the Google flow fails', async () => {
+  mockSourceSpec = GSHEETS_SPEC;
+  (connectGoogleSpreadsheet as jest.Mock).mockRejectedValue(
+    new Error('No spreadsheet selected — choose one to finish connecting Google')
+  );
+  render(
+    <CreateSourceStep
+      def={{ sourceDefinitionId: 'gs', name: 'Google Sheets' }}
+      onCreated={jest.fn()}
+      onBack={jest.fn()}
+    />
+  );
+
+  await userEvent.click(screen.getByTestId('gsheets-oauth-connect-btn'));
+
+  // no ref was stashed, so the sign-in button is still on offer and nothing was created
+  await waitFor(() => expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument());
+  expect(createOAuthSource).not.toHaveBeenCalled();
+});
+
+it('opens on the Google route, with nothing for the user to fill in but the name', () => {
+  mockSourceSpec = GSHEETS_SPEC;
+  render(
+    <CreateSourceStep
+      def={{ sourceDefinitionId: 'gs', name: 'Google Sheets' }}
+      onCreated={jest.fn()}
+      onBack={jest.fn()}
+    />
+  );
+  expect(screen.getByTestId('google-sheets-form')).toBeInTheDocument();
+  expect(screen.getByTestId('gsheets-oauth-option-radio')).toBeChecked();
+  expect(screen.getByTestId('gsheets-oauth-connect-btn')).toBeInTheDocument();
+  // Both belong to the service-account route, which is not the selected one.
+  expect(screen.queryByLabelText(/Spreadsheet Link/i)).not.toBeInTheDocument();
   expect(screen.queryByLabelText(/Service Account Information/i)).not.toBeInTheDocument();
+});
 
-  await user.click(screen.getByTestId('gsheets-advanced-trigger'));
+it('keeps the service-account fields on their own route and never renders raw OAuth creds', async () => {
+  const user = userEvent.setup();
+  mockSourceSpec = GSHEETS_SPEC;
+  render(
+    <CreateSourceStep
+      def={{ sourceDefinitionId: 'gs', name: 'Google Sheets' }}
+      onCreated={jest.fn()}
+      onBack={jest.fn()}
+    />
+  );
 
-  // Now the service-account field + SQL toggle show; the raw client fields never do.
+  await user.click(screen.getByTestId('gsheets-service-option-radio'));
+
+  // This route owns both inputs: no Picker exists for a service account, so the sheet is named
+  // by link here.
   expect(screen.getByLabelText(/Service Account Information/i)).toBeInTheDocument();
+  expect(screen.getByLabelText(/Spreadsheet Link/i)).toBeInTheDocument();
+  expect(screen.queryByTestId('gsheets-oauth-connect-btn')).not.toBeInTheDocument();
+
+  // Advanced keeps only genuine connector extras; the raw client fields never render at all.
+  await user.click(screen.getByTestId('gsheets-advanced-trigger'));
   expect(screen.getByText('Convert Column Names to SQL-Compliant Format')).toBeInTheDocument();
   expect(screen.queryByLabelText(/Client ID/i)).not.toBeInTheDocument();
   expect(screen.queryByLabelText(/Client Secret/i)).not.toBeInTheDocument();

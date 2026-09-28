@@ -1,7 +1,14 @@
 'use client';
 
 import React from 'react';
-import { ChevronDown, ChevronsDown, SlidersHorizontal } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronsDown,
+  CircleAlert,
+  SlidersHorizontal,
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -57,7 +64,8 @@ interface StreamConfigTableProps {
   onToggleStreamExpand: (streamName: string) => void;
   onToggleColumn: (streamName: string, columnName: string) => void;
   onUpdateCastType: (streamName: string, columnName: string, castType: string | null) => void;
-  // Show the "Cast to" column in the expanded column view. Enabled only for
+  onConfirmAllColumnTypes: (streamName: string) => void;
+  // Show the editable, confirmable column type in the expanded column view. Enabled only for
   // sources in CAST_SUPPORTED_SOURCES (currently Google Sheets only).
   showCastColumn?: boolean;
   // Label used for the stream noun in headings/columns. Defaults to "Tables".
@@ -93,6 +101,7 @@ export function StreamConfigTable({
   onToggleStreamExpand,
   onToggleColumn,
   onUpdateCastType,
+  onConfirmAllColumnTypes,
   showCastColumn = false,
   streamNoun = 'Tables',
   showIncremental = true,
@@ -208,6 +217,7 @@ export function StreamConfigTable({
         <table
           className={`w-full table-fixed text-sm ${tableWidthClass}`}
           data-testid="streams-table"
+          data-cast-supported={showCastColumn}
         >
           <colgroup>
             <col style={{ width: colWidths.stream }} />
@@ -320,6 +330,10 @@ export function StreamConfigTable({
               });
 
               const isSelected = stream.selected;
+              const selectedColumns = stream.columns.filter((column) => column.selected);
+              const allColumnTypesConfirmed =
+                selectedColumns.length > 0 &&
+                selectedColumns.every((column) => column.type_confirmed);
               const isIncrementalChecked =
                 stream.supportsIncremental && isIncremental && isSelected;
 
@@ -370,18 +384,37 @@ export function StreamConfigTable({
                   >
                     {/* Stream name */}
                     <td className="px-3 py-3">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="inline-block max-w-full truncate align-middle text-sm font-medium text-foreground">
-                              {stream.name}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-xs break-all">
-                            <p className="text-xs">{stream.name}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="min-w-0 max-w-full truncate text-sm font-medium text-foreground">
+                                {stream.name}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs break-all">
+                              <p className="text-xs">{stream.name}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        {showCastColumn && isSelected && (
+                          <Badge
+                            variant="outline"
+                            className={
+                              allColumnTypesConfirmed
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                            }
+                          >
+                            {allColumnTypesConfirmed ? (
+                              <CheckCircle2 aria-hidden="true" />
+                            ) : (
+                              <CircleAlert aria-hidden="true" />
+                            )}
+                            {allColumnTypesConfirmed ? 'Types confirmed' : 'Needs confirmation'}
+                          </Badge>
+                        )}
+                      </div>
                     </td>
                     {/* Sync toggle */}
                     <td className="px-3 py-3 text-center">
@@ -535,13 +568,33 @@ export function StreamConfigTable({
                     stream.columns.length > 0 && (
                       <tr key={`cols-${stream.name}`} className="bg-muted/30">
                         <td colSpan={colCount} className="px-4 py-2">
+                          {showCastColumn && (
+                            <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                              <p className="text-xs text-muted-foreground">
+                                Review the detected type for each selected column.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => onConfirmAllColumnTypes(stream.name)}
+                                disabled={
+                                  disabled ||
+                                  isSaving ||
+                                  !isSelected ||
+                                  selectedColumns.length === 0 ||
+                                  allColumnTypesConfirmed
+                                }
+                                className="rounded border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                                data-testid={`confirm-all-column-types-${stream.name}`}
+                              >
+                                {allColumnTypesConfirmed
+                                  ? 'Column types confirmed'
+                                  : 'Confirm column types'}
+                              </button>
+                            </div>
+                          )}
                           <table
                             data-testid={`columns-detail-table-${stream.name}`}
-                            className={
-                              showCastColumn
-                                ? 'w-[42rem] max-w-full table-fixed'
-                                : 'w-[32rem] max-w-full table-fixed'
-                            }
+                            className="w-[32rem] max-w-full table-fixed"
                           >
                             <thead>
                               <tr className="border-b border-muted">
@@ -549,14 +602,9 @@ export function StreamConfigTable({
                                 <th className="py-1 px-2 text-left text-xs font-medium text-muted-foreground">
                                   Column
                                 </th>
-                                <th className="w-28 py-1 px-2 text-left text-xs font-medium text-muted-foreground">
-                                  Type
+                                <th className="w-40 py-1 px-2 text-left text-xs font-medium text-muted-foreground">
+                                  {showCastColumn ? 'Column type' : 'Type'}
                                 </th>
-                                {showCastColumn && (
-                                  <th className="w-36 py-1 px-2 text-left text-xs font-medium text-muted-foreground">
-                                    Cast to
-                                  </th>
-                                )}
                               </tr>
                             </thead>
                             <tbody>
@@ -592,20 +640,15 @@ export function StreamConfigTable({
                                         {col.name}
                                       </span>
                                     </td>
-                                    <td className="w-28 py-1.5 px-2 text-left">
-                                      <span className="text-xs text-muted-foreground">
-                                        {col.data_type}
-                                      </span>
-                                    </td>
-                                    {showCastColumn && (
-                                      <td className="w-36 py-1.5 px-2 text-left">
+                                    <td className="w-40 py-1.5 px-2 text-left">
+                                      {showCastColumn ? (
                                         <Select
-                                          value={col.cast_to_type ?? undefined}
+                                          value={col.cast_to_type ?? '__incoming__'}
                                           onValueChange={(v) =>
                                             onUpdateCastType(
                                               stream.name,
                                               col.name,
-                                              v === '__none__' ? null : v
+                                              v === '__incoming__' ? null : v
                                             )
                                           }
                                           disabled={
@@ -619,10 +662,12 @@ export function StreamConfigTable({
                                             className="h-6 text-xs w-full"
                                             data-testid={`cast-type-${stream.name}-${col.name}`}
                                           >
-                                            <SelectValue placeholder="—" />
+                                            <SelectValue />
                                           </SelectTrigger>
                                           <SelectContent>
-                                            <SelectItem value="__none__">—</SelectItem>
+                                            <SelectItem value="__incoming__">
+                                              {col.data_type}
+                                            </SelectItem>
                                             {CAST_TYPE_OPTIONS.map((opt) => (
                                               <SelectItem key={opt.value} value={opt.value}>
                                                 {opt.label}
@@ -630,8 +675,12 @@ export function StreamConfigTable({
                                             ))}
                                           </SelectContent>
                                         </Select>
-                                      </td>
-                                    )}
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">
+                                          {col.data_type}
+                                        </span>
+                                      )}
+                                    </td>
                                   </tr>
                                 );
                               })}

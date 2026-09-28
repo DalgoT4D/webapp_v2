@@ -4,6 +4,7 @@
  */
 
 import { computePopChanges } from '@/lib/formatters';
+import { targetGapLabel } from '@/lib/kpi-rag';
 
 function computePopChange(periods: { value: number | null }[]): number | null {
   const values = periods.map((p) => p.value);
@@ -96,5 +97,24 @@ describe('Direction-aware change classification', () => {
   it('null change is neither', () => {
     expect(isChangePositive(null, 'increase')).toBe(false);
     expect(isChangeNegative(null, 'increase')).toBe(false);
+  });
+});
+
+describe('KPI target gap explanation', () => {
+  it('describes a current value below its target', () => {
+    expect(targetGapLabel(80, 100)).toBe('20% below target');
+  });
+
+  it('describes a current value above its target', () => {
+    expect(targetGapLabel(112.5, 100)).toBe('12.5% above target');
+  });
+
+  it('handles a value exactly at target', () => {
+    expect(targetGapLabel(100, 100)).toBe('at target');
+  });
+
+  it('omits the explanation when the comparison cannot be calculated', () => {
+    expect(targetGapLabel(null, 100)).toBeNull();
+    expect(targetGapLabel(20, 0)).toBeNull();
   });
 });

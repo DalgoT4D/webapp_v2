@@ -1,8 +1,14 @@
-import { render, screen } from '@testing-library/react';
+import React from 'react';
+import { act, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StreamConfigTable } from '../stream-config-table';
+import { useStreamConfig } from '../hooks/useStreamConfig';
 import { SyncMode, DestinationSyncMode } from '@/constants/connections';
 import type { SourceStream } from '@/types/connections';
+import { InsightWalkthroughCoachmark } from '@/components/onboarding/insight-walkthrough-coachmark';
+import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+
+jest.mock('next/navigation', () => ({ usePathname: () => window.location.pathname }));
 
 const stream = (name: string, supportsIncremental: boolean): SourceStream => ({
   name,
@@ -12,7 +18,15 @@ const stream = (name: string, supportsIncremental: boolean): SourceStream => ({
   destinationSyncMode: DestinationSyncMode.OVERWRITE,
   cursorField: '',
   primaryKey: [],
-  columns: [{ name: 'col_a', data_type: 'string', selected: true, cast_to_type: null }],
+  columns: [
+    {
+      name: 'col_a',
+      data_type: 'String',
+      selected: true,
+      cast_to_type: null,
+      type_confirmed: false,
+    },
+  ],
   cursorFieldConfig: { sourceDefinedCursor: false, selected: [], all: [] },
   primaryKeyConfig: { sourceDefinedPrimaryKey: false, selected: [], all: [] },
 });
@@ -42,9 +56,74 @@ const baseProps = {
   onToggleStreamExpand: jest.fn(),
   onToggleColumn: jest.fn(),
   onUpdateCastType: jest.fn(),
+  onConfirmAllColumnTypes: jest.fn(),
 };
 
+function ConfirmationTable() {
+  const config = useStreamConfig();
+  const { initializeStreams } = config;
+  React.useEffect(() => {
+    initializeStreams([stream('form_one', false)], true);
+  }, [initializeStreams]);
+  return (
+    <StreamConfigTable
+      {...baseProps}
+      streams={config.streams}
+      filteredStreams={config.filteredStreams}
+      expandedStreams={config.expandedStreams}
+      onToggleStreamExpand={config.toggleStreamExpand}
+      onToggleColumn={config.toggleColumn}
+      onUpdateCastType={config.updateCastType}
+      onConfirmAllColumnTypes={config.confirmAllColumnTypes}
+      advancedOpen={false}
+      showCastColumn
+      showIncremental={false}
+      onToggleAdvanced={jest.fn()}
+    />
+  );
+}
+
 describe('StreamConfigTable progressive disclosure', () => {
+  it('retains column confirmation and selection when the walkthrough goes Back and Next', async () => {
+    window.history.replaceState({}, '', '/ingest');
+    const user = userEvent.setup();
+    render(
+      <>
+        <ConfirmationTable />
+        <button data-testid="save-connection-btn">Create connection</button>
+        <InsightWalkthroughCoachmark />
+      </>
+    );
+    await user.click(screen.getByTestId('confirm-all-column-types-form_one'));
+    const table = screen.getByTestId('streams-table');
+    act(() =>
+      useInsightWalkthroughStore.setState({
+        active: true,
+        orgSlug: 'org-a',
+        flow: 'insights',
+        path: 'own_data',
+        stage: 'own_data_connection_create',
+        reviewReturnStage: null,
+        suppressCoachmark: false,
+        trackedConnectionId: null,
+      })
+    );
+    await user.click(await screen.findByRole('button', { name: 'Back' }));
+    await waitFor(() =>
+      expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_streams_cast')
+    );
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
+    expect(useInsightWalkthroughStore.getState().stage).toBe('own_data_connection_create');
+    expect(screen.getByTestId('streams-table')).toBe(table);
+    expect(screen.getByTestId('stream-toggle-form_one')).toBeChecked();
+    expect(screen.getByTestId('confirm-all-column-types-form_one')).toHaveTextContent(
+      'Column types confirmed'
+    );
+    expect(screen.getByTestId('cast-type-form_one-col_a')).toHaveTextContent('String');
+    act(() =>
+      useInsightWalkthroughStore.setState({ active: false, stage: null, reviewReturnStage: null })
+    );
+  });
   it('hides advanced columns when advancedOpen is false', () => {
     render(<StreamConfigTable {...baseProps} advancedOpen={false} onToggleAdvanced={jest.fn()} />);
     expect(screen.getByTestId('stream-toggle-form_one')).toBeInTheDocument();
@@ -52,6 +131,7 @@ describe('StreamConfigTable progressive disclosure', () => {
     expect(screen.queryByText('Columns')).not.toBeInTheDocument();
     expect(screen.queryByTestId('expand-columns-form_one')).not.toBeInTheDocument();
     expect(screen.getByTestId('advanced-streams-toggle')).toBeInTheDocument();
+    expect(screen.queryByText('Needs confirmation')).not.toBeInTheDocument();
   });
 
   it('keeps Google Sheets columns accessible while advanced settings are closed', async () => {
@@ -74,12 +154,15 @@ describe('StreamConfigTable progressive disclosure', () => {
     expect(screen.queryByText('Incremental?')).not.toBeInTheDocument();
     expect(screen.queryByText('Cursor Field')).not.toBeInTheDocument();
     expect(screen.queryByText('Primary Key')).not.toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('stream-row-form_one')).getByText('Needs confirmation')
+    ).toBeVisible();
 
     await user.click(screen.getByTestId('concept-header-columns'));
     expect(onConceptFocus).toHaveBeenCalledWith('columns');
   });
 
-  it('shows Google Sheets column names, detected types, and casts while advanced is closed', () => {
+  it('shows a preselected Column type dropdown with only a table-level confirmation', () => {
     render(
       <StreamConfigTable
         {...baseProps}
@@ -92,18 +175,72 @@ describe('StreamConfigTable progressive disclosure', () => {
     );
 
     expect(screen.getByRole('columnheader', { name: 'Column' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Type' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Cast to' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Column type' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /Confirm type/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Cast to' })).not.toBeInTheDocument();
     expect(screen.getByText('col_a')).toBeInTheDocument();
-    expect(screen.getByText('string')).toBeInTheDocument();
-    expect(screen.getByTestId('cast-type-form_one-col_a')).toBeInTheDocument();
+    expect(screen.getByTestId('cast-type-form_one-col_a')).toHaveTextContent('String');
+    expect(screen.queryByRole('checkbox', { name: /Confirm column type/ })).not.toBeInTheDocument();
+    expect(screen.getByTestId('confirm-all-column-types-form_one')).toHaveTextContent(
+      'Confirm column types'
+    );
     expect(screen.getByTestId('columns-detail-table-form_one')).toHaveClass(
-      'w-[42rem]',
+      'w-[32rem]',
       'table-fixed'
     );
-    expect(screen.getByRole('columnheader', { name: 'Type' })).toHaveClass('text-left');
+    expect(screen.getByRole('columnheader', { name: 'Column type' })).toHaveClass('text-left');
+  });
+});
+
+describe('StreamConfigTable confirmation', () => {
+  it('keeps table confirmation visible when collapsed and resets it for a reselected column', async () => {
+    const user = userEvent.setup();
+    render(<ConfirmationTable />);
+
+    await user.click(screen.getByRole('button', { name: 'Confirm column types' }));
+    expect(screen.getByText('Types confirmed')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Column types confirmed' })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Hide columns for form_one' }));
+    expect(screen.queryByText('col_a')).not.toBeInTheDocument();
+    expect(screen.getByText('Types confirmed')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Show columns for form_one' }));
+    await user.click(screen.getByTestId('col-toggle-form_one-col_a'));
+    await user.click(screen.getByTestId('col-toggle-form_one-col_a'));
+    expect(screen.getByText('Needs confirmation')).toBeVisible();
+    expect(screen.queryByText('Types confirmed')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirm column types' })).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: 'Confirm column types' }));
+    expect(screen.getByText('Types confirmed')).toBeVisible();
   });
 
+  it('shows a completed state once every selected type in a stream is confirmed', () => {
+    const confirmed = stream('form_one', false);
+    confirmed.columns[0].type_confirmed = true;
+
+    render(
+      <StreamConfigTable
+        {...baseProps}
+        streams={[confirmed]}
+        filteredStreams={[confirmed]}
+        advancedOpen={false}
+        showCastColumn
+        showIncremental={false}
+        expandedStreams={new Set(['form_one'])}
+        onToggleAdvanced={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('confirm-all-column-types-form_one')).toHaveTextContent(
+      'Column types confirmed'
+    );
+    expect(screen.getByTestId('confirm-all-column-types-form_one')).toBeDisabled();
+  });
+});
+
+describe('StreamConfigTable table controls', () => {
   it('shows an auto-expanded first table before it is selected, with mutations disabled', () => {
     const first = unselectedStream('form_one');
     render(
@@ -113,6 +250,7 @@ describe('StreamConfigTable progressive disclosure', () => {
         filteredStreams={[first]}
         allSelected={false}
         advancedOpen
+        showCastColumn
         expandedStreams={new Set(['form_one'])}
         onToggleAdvanced={jest.fn()}
       />
@@ -122,6 +260,7 @@ describe('StreamConfigTable progressive disclosure', () => {
     expect(screen.getByText('col_a')).toBeInTheDocument();
     expect(screen.getByTestId('col-toggle-form_one-col_a')).toBeDisabled();
     expect(screen.getByTestId('columns-detail-table-form_one')).toHaveClass('w-[32rem]');
+    expect(screen.queryByText('Needs confirmation')).not.toBeInTheDocument();
   });
 
   it('shows advanced columns when advancedOpen is true', () => {

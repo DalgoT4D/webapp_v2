@@ -5,40 +5,47 @@
  * The "Get Started" pill is always rendered; the full panel additionally shows above it
  * unless minimized.
  *
- * Open/closed is derived from where you are, not persisted: arriving on the landing page
- * (`defaultOpen`) always opens it — minimizing is a within-visit action, so coming back
- * re-opens it — and every other page starts minimized. A running walkthrough
- * (`walkthroughActive`) overrides both and keeps it out of the way until the flow ends,
- * though the pill stays available to reopen it manually.
+ * The panel starts minimized and opens ONLY when its owner says something has earned that
+ * (`openSignal` — see the prop). It used to open on every arrival at /impact, which meant
+ * leaving anything at all — skipping a walkthrough, closing a dialog, walking back to the
+ * landing page — put it on screen unasked (DALGO-1763). Navigating collapses it again, a
+ * running walkthrough keeps it collapsed, and the pill is always there to open it by hand.
  */
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Check, ChevronRight, Circle, Minus, Rocket } from 'lucide-react';
+import { ArrowUpRight, Check, ChevronRight, Circle, Compass, Minus, Rocket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { BOOK_A_CALL_URL, DALGO_DOCS_URL, PRODUCT_VIDEO_ID } from '@/constants/trial';
-import { YouTubeVideoPlayer } from './youtube-video-player';
+import {
+  BOOK_A_CALL_URL,
+  DALGO_DOCS_URL,
+  PRODUCT_VIDEO_POSTER_SRC,
+  PRODUCT_VIDEO_SRC,
+} from '@/constants/trial';
+import { ProductVideoPlayer } from './product-video-player';
 
 /** Kept in sync with .checklist-item-complete's animation duration in globals.css. */
 const COMPLETION_ANIMATION_MS = 1400;
 
 interface GettingStartedWidgetProps {
-  /**
-   * Whether landing here opens the panel. True on /impact (where the checklist is the point)
-   * and false elsewhere, where the pill alone is enough and an auto-opening panel would cover
-   * the page's own content.
-   */
-  defaultOpen: boolean;
   /** A guided walkthrough is mid-flow — keep the panel out of the way until it finishes. */
   walkthroughActive: boolean;
   /**
-   * Bumped by the owner (see tour-gate) the moment a checklist item is ticked off in this
-   * session. Both flows END somewhere that isn't /impact — a saved dashboard, the pipeline
-   * list — so `defaultOpen` is false there and the item the user just finished would tick
-   * behind a collapsed pill, where nobody sees it. Any change to this value opens the panel
-   * once, wherever the user happens to be.
+   * Bumped by the owner (see tour-gate) whenever something has EARNED an auto-open: the
+   * landing-page intent modal was dismissed without picking a journey, a checklist item was
+   * ticked off, or the product tour was finished with no journey chooser left to offer. Any
+   * change to this value opens the panel once, wherever the user happens to be.
+   *
+   * The ONLY auto-open input, deliberately — every other rule the panel used to open on was
+   * a side effect of where the user was standing rather than of anything they had done.
    */
-  revealSignal?: number;
+  openSignal?: number;
+  /**
+   * The product tour is running: render nothing at all, so neither the panel nor the pill
+   * floats over the spotlighted content. Hidden rather than unmounted by the owner so the
+   * panel's open/closed state survives the tour.
+   */
+  suppressed?: boolean;
   hasBuiltFirstInsight: boolean;
   hasAutomatedPipeline: boolean;
   onStartTour: () => void;
@@ -59,9 +66,9 @@ interface ChecklistItem {
 }
 
 export function GettingStartedWidget({
-  defaultOpen,
   walkthroughActive,
-  revealSignal = 0,
+  openSignal = 0,
+  suppressed = false,
   hasBuiltFirstInsight,
   hasAutomatedPipeline,
   onStartTour,
@@ -73,28 +80,35 @@ export function GettingStartedWidget({
   const [minimized, setMinimized] = useState(true);
   const [videoSession, setVideoSession] = useState(0);
 
-  // Last `revealSignal` acted on. A ref rather than a dep-diff because the effect below has
-  // to tell "this render is a fresh completion" from "this render is any other change".
-  const lastRevealRef = useRef(revealSignal);
+  // Last values acted on. Refs rather than a dep-diff because the effect below has to tell
+  // "this render is a fresh auto-open" from "this render is any other change".
+  //
+  // Seeded with 0 rather than the incoming signal, so an open earned just before a remount
+  // still lands. The owner only ever counts up from 0, so a nonzero value on the first render
+  // means exactly that.
+  const lastOpenRef = useRef(0);
 
   useEffect(() => {
-    // An item ticked off just now outranks the route-derived rule below — the whole point of
-    // the panel opening here is to show that tick. Checked first, and returns, so the
-    // walkthrough-just-ended pass (`walkthroughActive` flipping false in the same beat) can't
-    // minimize it straight back.
-    if (revealSignal !== lastRevealRef.current) {
-      lastRevealRef.current = revealSignal;
+    // An auto-open earned just now outranks the rule below — showing the panel IS the point of
+    // the bump. Checked first, and returns, so a walkthrough ending in the same beat
+    // (`walkthroughActive` flipping false, which a completion always does) can't collapse it
+    // straight back.
+    if (openSignal !== lastOpenRef.current) {
+      lastOpenRef.current = openSignal;
       setMinimized(false);
       setVideoSession((session) => session + 1);
       return;
     }
-    // Re-derived on arrival (and whenever a walkthrough starts or ends) rather than
-    // persisted: returning to /impact re-opens the panel even if it was minimized last
-    // visit, and a running flow keeps it minimized wherever the user goes.
-    const shouldMinimize = walkthroughActive || !defaultOpen;
-    setMinimized(shouldMinimize);
-    if (shouldMinimize) setVideoSession((session) => session + 1);
-  }, [defaultOpen, walkthroughActive, revealSignal]);
+    // A running flow owns the screen; the pill stays available to reopen the panel by hand.
+    //
+    // Deliberately NOT also collapsing on navigation: the pipeline walkthrough finishes by
+    // pushing /orchestrate (pipeline-form.tsx), so a route-derived collapse would swallow the
+    // completion reveal a tick after it opened.
+    if (walkthroughActive) {
+      setMinimized(true);
+      setVideoSession((session) => session + 1);
+    }
+  }, [openSignal, walkthroughActive]);
 
   /**
    * The task whose tick appeared just now, animated for one beat (see .checklist-item-complete
@@ -119,9 +133,24 @@ export function GettingStartedWidget({
     return () => clearTimeout(timer);
   }, [hasBuiltFirstInsight, hasAutomatedPipeline]);
 
+  // After every hook, never before: the panel's open/closed state has to survive the tour so
+  // it comes back exactly as the user left it.
+  if (suppressed) return null;
+
   const minimizeWidget = () => {
+    // An explicit user close wins over an auto-open arriving in the same render. Otherwise
+    // the effect above can immediately reopen a panel the user just toggled off.
+    lastOpenRef.current = openSignal;
     setMinimized(true);
     setVideoSession((session) => session + 1);
+  };
+
+  const toggleWidget = () => {
+    if (minimized) {
+      setMinimized(false);
+      return;
+    }
+    minimizeWidget();
   };
 
   const handlePlayVideo = () => {
@@ -130,6 +159,7 @@ export function GettingStartedWidget({
 
   const handleStartTour = () => {
     trackEvent(ANALYTICS_EVENTS.GETTING_STARTED_TOUR_LINK_CLICKED);
+    minimizeWidget();
     onStartTour();
   };
 
@@ -167,12 +197,14 @@ export function GettingStartedWidget({
 
   return (
     <>
-      {/* Always visible, in both states — opens the panel when minimized, no-op if
-          already open. Panel (below) sits just above it with a gap when expanded. */}
+      {/* Always visible, in both states — toggles the panel open and closed. Panel
+          (below) sits just above it with a gap when expanded. */}
       <button
         type="button"
         data-testid="getting-started-widget-pill"
-        onClick={() => setMinimized(false)}
+        aria-expanded={!minimized}
+        aria-controls="getting-started-widget-panel"
+        onClick={toggleWidget}
         className="fixed right-6 bottom-6 z-40 flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-white shadow-xl hover:opacity-90"
       >
         <Rocket className="h-4 w-4" />
@@ -181,15 +213,14 @@ export function GettingStartedWidget({
 
       {!minimized && (
         <div
+          id="getting-started-widget-panel"
           data-testid="getting-started-widget"
           className={cn(
             'fixed right-6 bottom-24 z-40 rounded-2xl border bg-card p-6 shadow-xl',
-            // 499x629 per the Figma frame. Fixed rather than content-sized so the panel is the
-            // same card in all three heading states, instead of growing and shrinking as items
-            // get ticked off. The max-* pair keeps it on screen on a small or short viewport
-            // (bottom-24 = the 96px the pill below it occupies), and the scroll is the safety
-            // valve for the states that do run past 629 — never a clipped, unreachable CTA.
-            'min-h-[629px] w-[499px] max-h-[calc(100vh-8rem)] max-w-[calc(100vw-3rem)] overflow-y-auto'
+            // 499x629 per the Figma frame. `h`, rather than `min-h`, lets the dynamic viewport
+            // cap win on short screens; min-height used to override max-height and push the
+            // header/minimize control above the viewport. The whole card then scrolls internally.
+            'h-[629px] w-[499px] max-h-[calc(100dvh-8rem)] max-w-[calc(100vw-3rem)] overflow-y-auto overscroll-contain'
           )}
         >
           <div className="flex items-start justify-between">
@@ -223,14 +254,15 @@ export function GettingStartedWidget({
             className="mt-4 aspect-video overflow-hidden rounded-xl bg-primary/10"
           >
             {/* Remounted on `videoSession` so minimizing (or a checklist reveal) drops the
-                iframe and returns to the thumbnail, rather than leaving audio playing
+                player and returns to the poster, rather than leaving audio playing
                 behind a collapsed pill. */}
-            <YouTubeVideoPlayer
+            <ProductVideoPlayer
               key={videoSession}
-              videoId={PRODUCT_VIDEO_ID}
+              videoSrc={PRODUCT_VIDEO_SRC}
+              posterSrc={PRODUCT_VIDEO_POSTER_SRC}
               title="Dalgo product overview video"
               testIdPrefix="getting-started-widget-video"
-              onPlay={handlePlayVideo}
+              onFirstPlay={handlePlayVideo}
               playButtonSize="compact"
             />
           </div>
@@ -255,17 +287,31 @@ export function GettingStartedWidget({
             </p>
           )}
 
-          <button
-            type="button"
-            data-testid="getting-started-widget-tour-link"
-            onClick={handleStartTour}
-            className={cn('block text-sm text-muted-foreground', allComplete ? 'mt-2' : 'mt-4')}
-          >
-            New to dalgo?{' '}
-            <span className="font-medium text-primary hover:underline">Take a 2 min tour</span>
-          </button>
-
           <ul className="mt-4 divide-y">
+            <li>
+              <button
+                type="button"
+                data-testid="getting-started-widget-tour-link"
+                onClick={handleStartTour}
+                className="-mx-2 flex w-full items-start gap-3 rounded-md px-2 py-3 text-left hover:bg-muted/50"
+              >
+                <span
+                  aria-hidden="true"
+                  className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
+                >
+                  <Compass className="h-4 w-4" />
+                </span>
+                <span className="flex-1">
+                  <span className="block text-base font-semibold text-foreground">
+                    Take a 2 min product tour
+                  </span>
+                  <span className="block text-sm text-muted-foreground">
+                    Explore Dalgo’s key features and navigation
+                  </span>
+                </span>
+                <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+              </button>
+            </li>
             {items.map((item) => {
               const testId = `getting-started-widget-item-${item.key}`;
               const justCompleted = justCompletedKey === item.key;
