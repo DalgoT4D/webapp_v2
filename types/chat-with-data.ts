@@ -172,7 +172,9 @@ export interface MessageInputRequest {
   kind: 'approval' | 'question';
   requests: ApprovalRequest[];
   question?: string;
-  status: 'pending' | 'approved' | 'cancelled' | 'answered';
+  /** redirected: the user typed a new message instead of deciding, which
+   *  cancels the step and hands the agent that message */
+  status: 'pending' | 'approved' | 'cancelled' | 'answered' | 'redirected';
 }
 
 export interface ChatMessage {

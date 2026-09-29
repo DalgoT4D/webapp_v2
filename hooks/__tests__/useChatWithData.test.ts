@@ -14,8 +14,10 @@ jest.mock('@/hooks/useBackendWebSocket', () => ({
 import {
   applyChatEvent,
   historyToChatMessages,
+  mergeHistoryKeepingPendingCard,
   newAssistantPlaceholder,
   resolvePendingInput,
+  resolvePendingOnSend,
   newUserMessage,
   useChatWithData,
 } from '../useChatWithData';
@@ -286,6 +288,76 @@ describe('resolvePendingInput', () => {
     const resolved = resolvePendingInput([pending, decided], 'approved');
     expect(resolved[0].inputRequest?.status).toBe('approved');
     expect(resolved[1].inputRequest?.status).toBe('cancelled');
+  });
+});
+
+describe('typing while a card is open', () => {
+  const card = (kind: 'approval' | 'question'): ChatMessage => ({
+    ...newAssistantPlaceholder(),
+    streaming: false,
+    inputRequest: { kind, requests: [], status: 'pending' },
+  });
+
+  it('cancels a pending approval as redirected, and answers a question', () => {
+    const resolved = resolvePendingOnSend([card('approval'), card('question')]);
+    expect(resolved[0].inputRequest?.status).toBe('redirected');
+    expect(resolved[1].inputRequest?.status).toBe('answered');
+  });
+
+  it('sends the message to the backend instead of leaving the card stuck', () => {
+    sendOrQueue.mockClear();
+    // one array for every render — a fresh one would re-run the history merge forever
+    const initialMessages = [card('approval')];
+    const { result } = renderHook(() => useChatWithData(7, { enabled: true, initialMessages }));
+    act(() => result.current.sendMessage('no no, this instead'));
+
+    expect(sendOrQueue).toHaveBeenCalledWith({
+      action: 'send_message',
+      message: 'no no, this instead',
+    });
+    expect(result.current.messages[0].inputRequest?.status).toBe('redirected');
+  });
+});
+
+describe('coming back to a paused thread', () => {
+  const replayed = (): ChatMessage[] =>
+    applyChatEvent([], {
+      type: 'input_required',
+      kind: 'approval',
+      requests: [{ tool: 'execute_sql', args: {}, description: '', sql: 'SELECT 1' }],
+    });
+
+  it('keeps the re-sent card when history loads after it', () => {
+    const history: ChatMessage[] = [newUserMessage('earlier question')];
+    const merged = mergeHistoryKeepingPendingCard(replayed(), history);
+
+    expect(merged).toHaveLength(2);
+    expect(merged[0].content).toBe('earlier question');
+    expect(merged[1].inputRequest?.status).toBe('pending');
+  });
+
+  it('does not duplicate the card when history is fetched again', () => {
+    const history: ChatMessage[] = [newUserMessage('earlier question')];
+    const once = mergeHistoryKeepingPendingCard(replayed(), history);
+    const twice = mergeHistoryKeepingPendingCard(once, history);
+    expect(twice.filter((message) => message.inputRequest)).toHaveLength(1);
+  });
+
+  it('gives a card re-sent after history its own bubble, not the old answer', () => {
+    const answered: ChatMessage = {
+      ...newAssistantPlaceholder(),
+      streaming: false,
+      content: 'Done.',
+    };
+    const messages = applyChatEvent([newUserMessage('q'), answered], {
+      type: 'input_required',
+      kind: 'approval',
+      requests: [{ tool: 'execute_sql', args: {}, description: '', sql: 'SELECT 1' }],
+    });
+
+    expect(messages).toHaveLength(3);
+    expect(messages[1].inputRequest).toBeUndefined();
+    expect(messages[2].inputRequest?.status).toBe('pending');
   });
 });
 

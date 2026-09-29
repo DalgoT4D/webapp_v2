@@ -24,7 +24,7 @@ import {
   type PiiColumn,
   piiColumnKey,
 } from '@/types/chat-with-data';
-import { approvalSummary, groupByTable, mergeColumns } from './utils';
+import { approvalSteps, approvalSummary, groupByTable, mergeColumns } from './utils';
 
 /** Icon + link label for each kind of object the agent can create */
 const ARTIFACT_CHIPS: Record<ArtifactType, { Icon: typeof BarChart3; label: string }> = {
@@ -38,6 +38,7 @@ const ARTIFACT_CHIPS: Record<ArtifactType, { Icon: typeof BarChart3; label: stri
 const DECIDED_LABELS: Record<string, string> = {
   approved: 'Approved — running now',
   cancelled: 'Cancelled — nothing was run',
+  redirected: 'Cancelled — you asked for something else',
 };
 
 /**
@@ -118,6 +119,7 @@ function ApprovalCard({
   );
 
   const sqlRequests = requests.filter((request) => request.sql);
+  const steps = approvalSteps(requests);
   const QueryChevron = queryOpen ? ChevronUp : ChevronDown;
 
   const toggle = (key: string) =>
@@ -133,6 +135,18 @@ function ApprovalCard({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[15px] leading-[22px] text-[#1A1A2E]">{approvalSummary(requests)}</p>
+      {steps.length > 0 && (
+        <ol
+          data-testid="chat-approval-steps"
+          className="flex list-decimal flex-col gap-1 pl-5 text-sm text-[#5C5C6D]"
+        >
+          {steps.map((step, index) => (
+            // requests are fixed for the life of the card; index is stable
+            // eslint-disable-next-line react/no-array-index-key
+            <li key={`step-${index}`}>{step}</li>
+          ))}
+        </ol>
+      )}
       {sqlRequests.length > 0 && (
         <>
           <button

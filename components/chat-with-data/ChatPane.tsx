@@ -39,6 +39,11 @@ export function ChatPane({
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const approvalPending = messages.some(
+    (message) =>
+      message.inputRequest?.kind === 'approval' && message.inputRequest.status === 'pending'
+  );
+
   const send = () => {
     const question = draft.trim();
     if (!question || isStreaming) return;
@@ -52,6 +57,9 @@ export function ChatPane({
       onDraftChange={setDraft}
       onSend={send}
       disabled={isStreaming}
+      placeholder={
+        approvalPending ? 'Approve above, or type to cancel and ask for something else…' : undefined
+      }
       variant={messages.length === 0 ? 'hero' : 'docked'}
       models={models}
       selectedModel={selectedModel}

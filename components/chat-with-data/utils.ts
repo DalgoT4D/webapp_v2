@@ -15,6 +15,12 @@ export function requestSummary(request: ApprovalRequest): string {
       return `Create the dashboard “${args.title}” with ${chartCount} chart${chartCount === 1 ? '' : 's'}?`;
     case 'add_charts_to_dashboard':
       return `Add ${chartCount} chart${chartCount === 1 ? '' : 's'} to your dashboard?`;
+    case 'create_metric':
+      return `Create the metric “${args.name}” from ${args.schema_name}.${args.table_name}?`;
+    case 'create_kpi':
+      return args.name ? `Create the KPI “${args.name}”?` : 'Create a KPI from this metric?';
+    case 'create_report':
+      return `Create the report “${args.title}” from your dashboard?`;
     default:
       return request.description || `Run ${request.tool}?`;
   }
@@ -25,6 +31,16 @@ export function tableKey(column: PiiColumn): string {
   return `${column.schema}.${column.table}`;
 }
 
+/** Tools whose several calls collapse into one counted headline */
+const GROUPABLE_TOOLS = new Set(['profile_column', 'execute_sql']);
+
+/** Several calls that share no wording — the headline can only count them */
+function isMixedPause(requests: ApprovalRequest[]): boolean {
+  if (requests.length < 2) return false;
+  const tools = new Set(requests.map((request) => request.tool));
+  return tools.size > 1 || !GROUPABLE_TOOLS.has(requests[0].tool);
+}
+
 /**
  * The headline for a pause. The backend resumes every pending request with one
  * decision, so the card is one block — a single call keeps its own wording, and
@@ -33,19 +49,27 @@ export function tableKey(column: PiiColumn): string {
 export function approvalSummary(requests: ApprovalRequest[]): string {
   if (requests.length === 0) return 'Approve this step?';
   if (requests.length === 1) return requestSummary(requests[0]);
+  if (isMixedPause(requests)) return `Approve ${requests.length} steps?`;
 
-  const tools = new Set(requests.map((request) => request.tool));
-  if (tools.size === 1 && requests[0].tool === 'profile_column') {
+  if (requests[0].tool === 'profile_column') {
     const tables = new Set(
       requests.map((request) => `${request.args?.schema_name}.${request.args?.table_name}`)
     );
     const where = tables.size === 1 ? ` in ${[...tables][0]}` : '';
     return `Profile ${requests.length} columns${where}?`;
   }
-  if (tools.size === 1 && requests[0].tool === 'execute_sql') {
-    return `Run ${requests.length} queries on your data warehouse?`;
-  }
-  return `Approve ${requests.length} steps?`;
+  return `Run ${requests.length} queries on your data warehouse?`;
+}
+
+/**
+ * One line per call when the headline is only a count ("Approve 2 steps?"), so
+ * the user can see what each step does. Empty when the headline says it all.
+ */
+export function approvalSteps(requests: ApprovalRequest[]): string[] {
+  // Each line is a statement under the question headline, so drop its own "?"
+  return isMixedPause(requests)
+    ? requests.map((request) => requestSummary(request).replace(/\?$/, ''))
+    : [];
 }
 
 /**

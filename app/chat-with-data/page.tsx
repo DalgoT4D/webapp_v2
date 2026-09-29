@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock, Database, MessageSquareOff } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toastError } from '@/lib/toast';
@@ -59,10 +60,49 @@ function BlockedState({ reason }: { reason: ChatStatusReason }) {
   );
 }
 
+const CHAT_PATH = '/chat-with-data';
+/** Query param holding the open thread, so a reload or shared link lands in it */
+const SESSION_PARAM = 'session';
+
+function parseSessionId(value: string | null): number | null {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+// useSearchParams needs a Suspense boundary in a client page
 export default function ChatWithDataPage() {
+  return (
+    <Suspense fallback={null}>
+      <ChatWithDataContent />
+    </Suspense>
+  );
+}
+
+function ChatWithDataContent() {
   const { status, isLoading: statusLoading, isError: statusError } = useChatWithDataStatus();
-  const { sessions, mutate: refreshSessions } = useChatSessions();
-  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const { sessions, isLoading: sessionsLoading, mutate: refreshSessions } = useChatSessions();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeSessionId = parseSessionId(searchParams.get(SESSION_PARAM));
+  const setActiveSessionId = useCallback(
+    (sessionId: number | null) => {
+      const href = sessionId ? `${CHAT_PATH}?${SESSION_PARAM}=${sessionId}` : CHAT_PATH;
+      router.replace(href, { scroll: false });
+    },
+    [router]
+  );
+
+  // A thread id from the URL that isn't one of the user's (deleted, or another
+  // org's link) falls back to a new chat. Checked once, on the first session
+  // list — a thread created later is not in that list yet.
+  const urlCheckedRef = useRef(false);
+  useEffect(() => {
+    if (urlCheckedRef.current || sessionsLoading) return;
+    urlCheckedRef.current = true;
+    if (activeSessionId && !sessions.some((session) => session.id === activeSessionId)) {
+      setActiveSessionId(null);
+    }
+  }, [sessionsLoading, sessions, activeSessionId, setActiveSessionId]);
   const [dockOpen, setDockOpen] = useState(true);
   // question typed before any session existed; sent once the new session's socket is up
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);

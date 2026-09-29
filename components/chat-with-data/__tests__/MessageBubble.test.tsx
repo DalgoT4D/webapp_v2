@@ -324,6 +324,45 @@ describe('MessageBubble merged approval card', () => {
     },
   });
 
+  it('lists what each step does when a pause mixes several creations', () => {
+    render(
+      <MessageBubble
+        message={message({
+          inputRequest: {
+            kind: 'approval',
+            status: 'pending',
+            requests: [
+              {
+                tool: 'create_chart',
+                args: {
+                  title: 'Max by district',
+                  chart_type: 'bar',
+                  schema_name: 'staging',
+                  table_name: 'visits',
+                },
+                description: 'Waiting for your go-ahead',
+              },
+              {
+                tool: 'create_dashboard',
+                args: { title: 'District overview', chart_ids: [7] },
+                description: 'Waiting for your go-ahead',
+              },
+            ],
+          },
+        })}
+      />
+    );
+    expect(screen.getByText('Approve 2 steps?')).toBeInTheDocument();
+    const steps = screen.getByTestId('chat-approval-steps');
+    expect(steps).toHaveTextContent('Create the chart “Max by district” (bar) from staging.visits');
+    expect(steps).toHaveTextContent('Create the dashboard “District overview” with 1 chart');
+  });
+
+  it('shows no step list when the headline already covers the pause', () => {
+    render(<MessageBubble message={parallelProfiles} />);
+    expect(screen.queryByTestId('chat-approval-steps')).not.toBeInTheDocument();
+  });
+
   it('renders one button pair for a pause with several tool calls', () => {
     render(<MessageBubble message={parallelProfiles} />);
     expect(screen.getAllByTestId('chat-approve')).toHaveLength(1);

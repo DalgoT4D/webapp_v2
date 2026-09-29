@@ -49,6 +49,39 @@ export function resolvePendingInput(
   );
 }
 
+/** A typed message settles the open card: it answers a question, and it
+ *  cancels a pending approval (the backend hands the agent the message instead) */
+export function resolvePendingOnSend(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map((message) =>
+    message.inputRequest?.status === 'pending'
+      ? {
+          ...message,
+          inputRequest: {
+            ...message.inputRequest,
+            status: message.inputRequest.kind === 'approval' ? 'redirected' : 'answered',
+          },
+        }
+      : message
+  );
+}
+
+/**
+ * History replaced the list, but a card the socket re-sent on connect is not in
+ * history (the paused turn has no finished answer yet) — keep it, as its own
+ * bubble at the end, or the user comes back to a thread with no way to decide.
+ */
+export function mergeHistoryKeepingPendingCard(
+  current: ChatMessage[],
+  history: ChatMessage[]
+): ChatMessage[] {
+  const pending = current.find((message) => message.inputRequest?.status === 'pending');
+  if (!pending?.inputRequest) return history;
+  return [
+    ...history,
+    { ...newAssistantPlaceholder(), streaming: false, inputRequest: pending.inputRequest },
+  ];
+}
+
 /**
  * Pure reducer: one WebSocket event applied to the message list.
  * Events always target the trailing assistant placeholder (one turn in flight
@@ -128,8 +161,9 @@ export function applyChatEvent(messages: ChatMessage[], event: ChatWsEvent): Cha
         },
       });
       const last = messages[messages.length - 1];
-      if (!last || last.role !== 'assistant') {
-        // reconnect replay: the card is re-sent on connect with no live turn
+      if (!last || last.role !== 'assistant' || !last.streaming) {
+        // reconnect replay: the card is re-sent on connect with no live turn —
+        // give it its own bubble rather than pinning it to an old answer
         return [...messages, attach(newAssistantPlaceholder())];
       }
       return updateLastAssistant(messages, attach);
@@ -219,7 +253,7 @@ export function useChatWithData(sessionId: number | null, options: UseChatWithDa
   const liveTurnStartedRef = useRef(false);
   useEffect(() => {
     if (initialMessages && initialMessages.length > 0 && !liveTurnStartedRef.current) {
-      setMessages(initialMessages);
+      setMessages((current) => mergeHistoryKeepingPendingCard(current, initialMessages));
     }
   }, [initialMessages]);
 
@@ -251,9 +285,9 @@ export function useChatWithData(sessionId: number | null, options: UseChatWithDa
       const trimmed = question.trim();
       if (!trimmed || isStreaming) return;
       liveTurnStartedRef.current = true;
-      // an open ask_user question is answered by this message — settle its card
+      // this message answers an open question, or cancels a pending approval
       setMessages((current) => [
-        ...resolvePendingInput(current, 'answered'),
+        ...resolvePendingOnSend(current),
         newUserMessage(trimmed),
         newAssistantPlaceholder(),
       ]);

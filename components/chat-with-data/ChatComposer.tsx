@@ -17,6 +17,7 @@ interface ChatComposerProps {
   onDraftChange: (draft: string) => void;
   onSend: () => void;
   disabled: boolean;
+  placeholder?: string;
   /** "hero" wraps the box in the gradient border + glow of the empty state */
   variant?: 'hero' | 'docked';
   models?: ModelOption[];
@@ -33,6 +34,7 @@ export function ChatComposer({
   onDraftChange,
   onSend,
   disabled,
+  placeholder = 'Ask about your program data…',
   variant = 'docked',
   models = [],
   selectedModel,
@@ -52,7 +54,7 @@ export function ChatComposer({
         id="chat-composer-input"
         data-testid="chat-composer-input"
         value={draft}
-        placeholder="Ask about your program data…"
+        placeholder={placeholder}
         rows={isHero ? 2 : 1}
         className={cn(
           'flex-1 resize-none border-0 bg-transparent px-3.5 pt-3 text-[15px] shadow-none',

@@ -1,4 +1,4 @@
-import { approvalSummary, groupByTable, mergeColumns, tableKey } from '../utils';
+import { approvalSteps, approvalSummary, groupByTable, mergeColumns, tableKey } from '../utils';
 import type { ApprovalRequest, PiiColumn } from '@/types/chat-with-data';
 
 const column = (table: string, name: string, hasLiteral = false): PiiColumn => ({
@@ -52,6 +52,57 @@ describe('approvalSummary', () => {
 
   it('describes an empty pause without crashing', () => {
     expect(approvalSummary([])).toBe('Approve this step?');
+  });
+
+  it('counts two creations of the same kind as separate steps', () => {
+    const chart: ApprovalRequest = { tool: 'create_chart', args: {}, description: '' };
+    expect(approvalSummary([chart, chart])).toBe('Approve 2 steps?');
+  });
+
+  it('names metric, KPI and report creations instead of the backend fallback', () => {
+    const request = (tool: string, args: Record<string, unknown>): ApprovalRequest => ({
+      tool,
+      args,
+      description: 'Waiting for your go-ahead',
+    });
+    expect(
+      approvalSummary([
+        request('create_metric', {
+          name: 'Total surveys',
+          schema_name: 'staging',
+          table_name: 'visits',
+        }),
+      ])
+    ).toBe('Create the metric “Total surveys” from staging.visits?');
+    expect(approvalSummary([request('create_kpi', { name: 'Coverage' })])).toBe(
+      'Create the KPI “Coverage”?'
+    );
+    expect(approvalSummary([request('create_kpi', { metric_id: 4 })])).toBe(
+      'Create a KPI from this metric?'
+    );
+    expect(approvalSummary([request('create_report', { title: 'Q3 review' })])).toBe(
+      'Create the report “Q3 review” from your dashboard?'
+    );
+  });
+});
+
+describe('approvalSteps', () => {
+  const chart = (title: string): ApprovalRequest => ({
+    tool: 'create_chart',
+    args: { title, chart_type: 'bar', schema_name: 'staging', table_name: 'visits' },
+    description: '',
+  });
+
+  it('spells out each step when the headline is only a count', () => {
+    expect(approvalSteps([chart('Visits by district'), chart('Visits by month')])).toEqual([
+      'Create the chart “Visits by district” (bar) from staging.visits',
+      'Create the chart “Visits by month” (bar) from staging.visits',
+    ]);
+  });
+
+  it('adds nothing when the headline already describes the pause', () => {
+    expect(approvalSteps([chart('Visits by district')])).toEqual([]);
+    expect(approvalSteps([profile('district'), profile('gender')])).toEqual([]);
   });
 });
 
