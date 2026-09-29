@@ -4,6 +4,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useReactFlow } from 'reactflow';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { useCanvasOperations } from '@/hooks/api/useCanvasOperations';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
@@ -61,6 +62,7 @@ export function useOperationForm<T extends OperationSlug>({
       : outputCols;
   });
 
+  const { getEdges } = useReactFlow();
   const { createOperation, editOperation, isCreating, isEditing } = useCanvasOperations();
 
   const submitOperation = useCallback(
@@ -83,9 +85,19 @@ export function useOperationForm<T extends OperationSlug>({
         if (finalAction === OperationFormAction.EDIT) {
           await editOperation(node.id, fullPayload);
         } else {
-          const response = await createOperation(node.id, {
+          // For dummy nodes, resolve the real upstream parent node UUID
+          // from the canvas edges instead of using the dummy node's own ID.
+          let inputNodeUuid = node.id;
+          if (node.data?.isDummy) {
+            const incomingEdge = getEdges().find((e) => e.target === node.id);
+            if (incomingEdge) {
+              inputNodeUuid = incomingEdge.source;
+            }
+          }
+
+          const response = await createOperation(inputNodeUuid, {
             ...fullPayload,
-            input_node_uuid: node.id,
+            input_node_uuid: inputNodeUuid,
           });
           createdNodeUuid = response?.uuid;
         }
@@ -114,6 +126,7 @@ export function useOperationForm<T extends OperationSlug>({
       setLoading,
       createOperation,
       editOperation,
+      getEdges,
     ]
   );
 

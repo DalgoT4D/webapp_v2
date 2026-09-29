@@ -64,7 +64,7 @@ export function JoinOpForm({
   const [table2Columns, setTable2Columns] = useState<string[]>([]);
   const [selectedTable2, setSelectedTable2] = useState<{ uuid: string } | null>(null);
 
-  const { addNodes, addEdges, deleteElements, getNodes } = useReactFlow();
+  const { addNodes, addEdges, deleteElements, getNodes, getEdges } = useReactFlow();
   const dummyNodeIdsRef = useRef<string[]>([]);
 
   const { sourcesModels } = useCanvasSources();
@@ -294,9 +294,19 @@ export function JoinOpForm({
       if (finalAction === OperationFormAction.EDIT) {
         await editOperation(stableNode.id, payload);
       } else {
-        const response = await createOperation(stableNode.id, {
+        // For dummy nodes, resolve the real upstream parent node UUID
+        // from the canvas edges instead of using the dummy node's own ID.
+        let inputNodeUuid = stableNode.id;
+        if (stableNode.data?.isDummy) {
+          const incomingEdge = getEdges().find((e) => e.target === stableNode.id);
+          if (incomingEdge) {
+            inputNodeUuid = incomingEdge.source;
+          }
+        }
+
+        const response = await createOperation(inputNodeUuid, {
           ...payload,
-          input_node_uuid: stableNode.id,
+          input_node_uuid: inputNodeUuid,
         });
         createdNodeUuid = response?.uuid;
       }

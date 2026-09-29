@@ -59,7 +59,7 @@ export function UnionTablesOpForm({
     return [];
   });
 
-  const { addNodes, addEdges, deleteElements, getNodes } = useReactFlow();
+  const { addNodes, addEdges, deleteElements, getNodes, getEdges } = useReactFlow();
   // Map index -> dummy node id for cleanup
   const dummyNodeMapRef = useRef<Map<number, string>>(new Map());
 
@@ -314,9 +314,19 @@ export function UnionTablesOpForm({
       if (finalAction === 'edit') {
         await editOperation(stableNode.id, payload);
       } else {
-        const response = await createOperation(stableNode.id, {
+        // For dummy nodes, resolve the real upstream parent node UUID
+        // from the canvas edges instead of using the dummy node's own ID.
+        let inputNodeUuid = stableNode.id;
+        if (stableNode.data?.isDummy) {
+          const incomingEdge = getEdges().find((e) => e.target === stableNode.id);
+          if (incomingEdge) {
+            inputNodeUuid = incomingEdge.source;
+          }
+        }
+
+        const response = await createOperation(inputNodeUuid, {
           ...payload,
-          input_node_uuid: stableNode.id,
+          input_node_uuid: inputNodeUuid,
         });
         createdNodeUuid = response?.uuid;
       }
