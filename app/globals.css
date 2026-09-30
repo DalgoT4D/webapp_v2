@@ -607,6 +607,10 @@
   font-family: var(--font-anek-latin), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
 }
 
+.font-roboto-mono {
+  font-family: var(--font-roboto-mono), 'Roboto Mono', monospace !important;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

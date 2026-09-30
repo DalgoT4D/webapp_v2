@@ -41,8 +41,8 @@ export function ConversationDock({
   };
 
   return (
-    <aside className="flex h-full w-[236px] shrink-0 flex-col border-r border-[#E8ECEF] bg-[#F8FAFB]">
-      <div className="p-3">
+    <aside className="flex h-full w-[236px] shrink-0 flex-col overflow-hidden border-r border-[#E8ECEF] bg-[#F8FAFB]">
+      <div className="shrink-0 p-3">
         <Button
           onClick={onNewChat}
           className="w-full justify-center gap-2 border-[#E2E8F0] bg-white text-sm font-medium text-[#0F172A]"
@@ -55,7 +55,7 @@ export function ConversationDock({
       </div>
       {sessions.length > 0 ? (
         <>
-          <p className="px-4 pb-2 pt-1 text-[11px] font-semibold tracking-wide text-[#7A7A8C]">
+          <p className="shrink-0 px-4 pb-2 pt-1 text-[11px] font-semibold tracking-wide text-[#7A7A8C]">
             HISTORY
           </p>
           <nav className="flex-1 overflow-y-auto px-3 pb-3">

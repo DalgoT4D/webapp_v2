@@ -204,7 +204,7 @@ function ChatWithDataContent() {
           />
         </div>
       )}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <ChatHeadbar dockOpen={dockOpen} onToggleDock={() => setDockOpen((open) => !open)} />
         <ChatPane
           messages={messages}

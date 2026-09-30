@@ -8,7 +8,7 @@ export function requestSummary(request: ApprovalRequest): string {
     case 'execute_sql':
       return 'Run this query on your data warehouse?';
     case 'profile_column':
-      return `Profile ${args.schema_name}.${args.table_name}.${args.column_name}?`;
+      return `Check \`${args.column_name}\` for personal data?`;
     case 'create_chart':
       return `Create the chart “${args.title}” (${args.chart_type}) from ${args.schema_name}.${args.table_name}?`;
     case 'create_dashboard':
@@ -52,11 +52,7 @@ export function approvalSummary(requests: ApprovalRequest[]): string {
   if (isMixedPause(requests)) return `Approve ${requests.length} steps?`;
 
   if (requests[0].tool === 'profile_column') {
-    const tables = new Set(
-      requests.map((request) => `${request.args?.schema_name}.${request.args?.table_name}`)
-    );
-    const where = tables.size === 1 ? ` in ${[...tables][0]}` : '';
-    return `Profile ${requests.length} columns${where}?`;
+    return `Check ${requests.length} columns for personal data?`;
   }
   return `Run ${requests.length} queries on your data warehouse?`;
 }

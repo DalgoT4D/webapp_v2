@@ -12,6 +12,8 @@ import {
   Target,
   TriangleAlert,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ToolProgress } from './ToolProgress';
 import { ResultTable } from './ResultTable';
 import { AssistantMarkdown } from './AssistantMarkdown';
@@ -61,7 +63,7 @@ function ColumnGroups({
       {groups.map((group) => (
         <div key={group.table} className="flex flex-col gap-1">
           {groups.length > 1 && <p className="font-mono text-xs text-[#A3A3B0]">{group.table}</p>}
-          <div className="flex flex-wrap gap-x-5 gap-y-1.5">
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
             {group.columns.map((column) => {
               const key = piiColumnKey(column);
               return (
@@ -69,13 +71,12 @@ function ColumnGroups({
                   key={key}
                   className="flex cursor-pointer items-center gap-2 text-sm text-[#1A1A2E]"
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     aria-label={key}
                     checked={ticked.includes(key)}
-                    onChange={() => onToggle(key)}
+                    onCheckedChange={() => onToggle(key)}
                   />
-                  <span className="font-mono">{column.column}</span>
+                  <span className="font-mono text-[13px]">{column.column}</span>
                 </label>
               );
             })}
@@ -111,6 +112,7 @@ function ApprovalCard({
   const allColumns = columns || [];
 
   const [queryOpen, setQueryOpen] = useState(true);
+  const [piiOpen, setPiiOpen] = useState(true);
   const [ticked, setTicked] = useState<string[]>([]);
 
   const unavailable = reviewable && columns === null;
@@ -127,14 +129,13 @@ function ApprovalCard({
       current.includes(key) ? current.filter((entry) => entry !== key) : [...current, key]
     );
 
-  const approveLabel =
-    ticked.length === 0
-      ? 'Approve'
-      : `Approve & anonymise ${ticked.length} ${ticked.length === 1 ? 'column' : 'columns'}`;
+  const approveLabel = 'Approve';
 
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-[15px] leading-[22px] text-[#1A1A2E]">{approvalSummary(requests)}</p>
+    <div className="flex w-full flex-col gap-3">
+      <p className="text-[14px] font-medium leading-[22px] text-foreground">
+        {approvalSummary(requests)}
+      </p>
       {steps.length > 0 && (
         <ol
           data-testid="chat-approval-steps"
@@ -148,7 +149,7 @@ function ApprovalCard({
         </ol>
       )}
       {sqlRequests.length > 0 && (
-        <>
+        <div className="flex flex-col gap-2">
           <button
             type="button"
             data-testid="chat-approval-query-toggle"
@@ -158,28 +159,44 @@ function ApprovalCard({
             <QueryChevron className="size-4" />
             {sqlRequests.length === 1 ? 'View query' : `View ${sqlRequests.length} queries`}
           </button>
-          {queryOpen &&
-            sqlRequests.map((request, index) => (
-              // requests are fixed for the life of the card; index is stable
-              // eslint-disable-next-line react/no-array-index-key
-              <SqlBlock key={`query-${index}`} sql={request.sql as string} />
-            ))}
-        </>
+          {queryOpen && (
+            <div className="flex flex-col gap-2">
+              {sqlRequests.map((request, index) => (
+                // eslint-disable-next-line react/no-array-index-key
+                <SqlBlock key={`query-${index}`} sql={request.sql as string} />
+              ))}
+            </div>
+          )}
+        </div>
       )}
       {reviewable && !unavailable && (
         <div className="flex flex-col gap-2" data-testid="chat-pii-columns">
           {allColumns.length === 0 ? (
-            <p className="text-sm text-[#7A7A8C]">
-              This query returns no column values, so there is nothing to mask.
+            <p className="text-sm text-muted-foreground">
+              No column values returned — nothing to mask.
             </p>
           ) : (
             <>
-              <p className="text-sm text-[#7A7A8C]">
-                Please review your query for columns that may contain personally identifiable
-                information and mark them. We anonymise any such data before it reaches the AI
-                model.
-              </p>
-              <ColumnGroups columns={allColumns} ticked={ticked} onToggle={toggle} />
+              <button
+                type="button"
+                onClick={() => setPiiOpen((o) => !o)}
+                className="flex items-center gap-1 self-start text-sm text-primary"
+              >
+                {piiOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                Personally Identifiable Information (PII)
+                <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+                  {ticked.length} marked
+                </span>
+              </button>
+              {piiOpen && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    Tick any columns containing personal data — we&apos;ll mask them before sending
+                    it to the AI provider.
+                  </p>
+                  <ColumnGroups columns={allColumns} ticked={ticked} onToggle={toggle} />
+                </div>
+              )}
             </>
           )}
         </div>
@@ -205,24 +222,25 @@ function ApprovalCard({
         </p>
       )}
       {status === 'pending' && (
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
+        <div className="mt-2 flex gap-2">
+          <Button
+            size="sm"
             data-testid="chat-approve"
             disabled={unavailable}
+            className="text-xs"
             onClick={() => onRespond?.(true, ticked)}
-            className="rounded-md bg-primary px-[19px] py-2 text-[13px] font-medium uppercase tracking-wide text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {approveLabel}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             data-testid="chat-cancel"
+            className="text-xs"
             onClick={() => onRespond?.(false, [])}
-            className="rounded-md border border-[#CBD5E1] bg-white px-6 py-2 text-[13px] font-medium uppercase tracking-wide text-[#1A1A2E] hover:bg-[#F8FAFB]"
           >
             Cancel
-          </button>
+          </Button>
         </div>
       )}
     </div>
