@@ -2,10 +2,22 @@ import { render, screen } from '@testing-library/react';
 import { ChatComposer } from '../ChatComposer';
 
 describe('ChatComposer', () => {
-  it('warns against typing PII into the composer', () => {
-    render(<ChatComposer draft="" onDraftChange={jest.fn()} onSend={jest.fn()} disabled={false} />);
-    expect(screen.getByTestId('chat-pii-notice')).toHaveTextContent(
-      'Do not enter PII data in the prompt as that is sent to the AI model directly.'
-    );
-  });
+  it.each(['docked', 'hero'] as const)(
+    'warns against typing PII via the default placeholder (%s)',
+    (variant) => {
+      render(
+        <ChatComposer
+          draft=""
+          onDraftChange={jest.fn()}
+          onSend={jest.fn()}
+          disabled={false}
+          variant={variant}
+        />
+      );
+      expect(screen.getByTestId('chat-composer-input')).toHaveAttribute(
+        'placeholder',
+        'Ask about your program data. Avoid writing PII info...'
+      );
+    }
+  );
 });
