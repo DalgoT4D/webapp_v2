@@ -256,7 +256,7 @@ describe('MessageBubble PII column review', () => {
     expect(screen.getByText('Run this query on your data warehouse?')).toBeInTheDocument();
     expect(screen.getByLabelText('prod.beneficiaries.phone')).toBeInTheDocument();
     expect(
-      screen.getByText(/We anonymise any such data before it reaches the AI model/)
+      screen.getByText(/we'll mask them before sending it to the AI provider/)
     ).toBeInTheDocument();
     // the query above already names the table — no repeated subheading
     expect(screen.queryByText('prod.beneficiaries')).not.toBeInTheDocument();
@@ -268,7 +268,7 @@ describe('MessageBubble PII column review', () => {
     render(<MessageBubble message={piiMessage([phone])} onApprovalRespond={respond} />);
 
     await userEvent.click(screen.getByLabelText('prod.beneficiaries.phone'));
-    expect(screen.getByTestId('chat-approve')).toHaveTextContent('Approve & anonymise 1 column');
+    expect(screen.getByTestId('chat-approve')).toHaveTextContent('Approve');
 
     await userEvent.click(screen.getByTestId('chat-approve'));
     expect(respond).toHaveBeenCalledWith(true, ['prod.beneficiaries.phone']);
@@ -291,9 +291,7 @@ describe('MessageBubble PII column review', () => {
 
   it('shows a reassuring message instead of an empty checkbox list for a no-column query', () => {
     render(<MessageBubble message={piiMessage([])} />);
-    expect(
-      screen.getByText('This query returns no column values, so there is nothing to mask.')
-    ).toBeInTheDocument();
+    expect(screen.getByText('No column values returned — nothing to mask.')).toBeInTheDocument();
     expect(screen.queryByText(/Please review your query for columns/)).not.toBeInTheDocument();
     expect(screen.getByTestId('chat-approve')).toBeEnabled();
     expect(screen.getByTestId('chat-approve')).toHaveTextContent('Approve');
@@ -308,7 +306,7 @@ describe('MessageBubble PII column review', () => {
 
 describe('MessageBubble merged approval card', () => {
   const profileRequest = (column: string, hasLiteral = false) => ({
-    tool: 'profile_column',
+    tool: 'lookup_column_values',
     args: { schema_name: 'staging', table_name: 'visits', column_name: column },
     description: 'Waiting for your go-ahead',
     columns: [
@@ -371,7 +369,7 @@ describe('MessageBubble merged approval card', () => {
 
   it('summarizes the parallel calls as one line', () => {
     render(<MessageBubble message={parallelProfiles} />);
-    expect(screen.getByText('Profile 3 columns in staging.visits?')).toBeInTheDocument();
+    expect(screen.getByText('Look up values in 3 columns?')).toBeInTheDocument();
     expect(screen.queryByText(/Waiting for your go-ahead/)).not.toBeInTheDocument();
   });
 

@@ -8,30 +8,37 @@ const column = (table: string, name: string, hasLiteral = false): PiiColumn => (
   has_literal: hasLiteral,
 });
 
-const profile = (name: string, columns?: PiiColumn[] | null): ApprovalRequest => ({
-  tool: 'profile_column',
-  args: { schema_name: 'staging', table_name: 'visits', column_name: name },
+const profile = (
+  name: string,
+  searchValue?: string,
+  columns?: PiiColumn[] | null
+): ApprovalRequest => ({
+  tool: 'lookup_column_values',
+  args: {
+    schema_name: 'staging',
+    table_name: 'visits',
+    column_name: name,
+    ...(searchValue ? { search_value: searchValue } : {}),
+  },
   description: 'Waiting for your go-ahead',
   columns: columns === undefined ? [column('visits', name)] : columns,
 });
 
 describe('approvalSummary', () => {
-  it('keeps the specific wording for a lone call', () => {
-    expect(approvalSummary([profile('district')])).toBe('Profile staging.visits.district?');
-  });
-
-  it('names the table once when several calls profile the same one', () => {
-    expect(approvalSummary([profile('district'), profile('gender')])).toBe(
-      'Profile 2 columns in staging.visits?'
+  it('shows the search value and column for a lone call', () => {
+    expect(approvalSummary([profile('district', 'Maharashtra')])).toBe(
+      'Look up how "Maharashtra" is stored in `district`?'
     );
   });
 
-  it('drops the table when the calls span more than one', () => {
-    const other: ApprovalRequest = {
-      ...profile('name'),
-      args: { schema_name: 'staging', table_name: 'workers', column_name: 'name' },
-    };
-    expect(approvalSummary([profile('district'), other])).toBe('Profile 2 columns?');
+  it('falls back to just the column name when no search value', () => {
+    expect(approvalSummary([profile('district')])).toBe('Look up values in `district`?');
+  });
+
+  it('counts several profile calls rather than repeating one line', () => {
+    expect(approvalSummary([profile('district', 'MH'), profile('gender', 'F')])).toBe(
+      'Look up values in 2 columns?'
+    );
   });
 
   it('counts several queries rather than repeating one line', () => {
@@ -102,31 +109,31 @@ describe('approvalSteps', () => {
 
   it('adds nothing when the headline already describes the pause', () => {
     expect(approvalSteps([chart('Visits by district')])).toEqual([]);
-    expect(approvalSteps([profile('district'), profile('gender')])).toEqual([]);
+    expect(approvalSteps([profile('district', 'MH'), profile('gender', 'F')])).toEqual([]);
   });
 });
 
 describe('mergeColumns', () => {
   it('unions the columns of every pending call', () => {
-    const { columns } = mergeColumns([profile('district'), profile('gender')]);
+    const { columns } = mergeColumns([profile('district', 'MH'), profile('gender', 'F')]);
     expect(columns?.map((entry) => entry.column)).toEqual(['district', 'gender']);
   });
 
   it('lists a column both calls touch only once', () => {
-    const { columns } = mergeColumns([profile('district'), profile('district')]);
+    const { columns } = mergeColumns([profile('district', 'MH'), profile('district', 'MH')]);
     expect(columns).toHaveLength(1);
   });
 
   it('keeps has_literal when any one call compares against a literal', () => {
     const { columns } = mergeColumns([
-      profile('district', [column('visits', 'district')]),
-      profile('district', [column('visits', 'district', true)]),
+      profile('district', 'MH', [column('visits', 'district')]),
+      profile('district', 'MH', [column('visits', 'district', true)]),
     ]);
     expect(columns?.[0].has_literal).toBe(true);
   });
 
   it('fails closed when one call could not be resolved', () => {
-    expect(mergeColumns([profile('district'), profile('gender', null)])).toEqual({
+    expect(mergeColumns([profile('district', 'MH'), profile('gender', 'F', null)])).toEqual({
       columns: null,
       reviewable: true,
     });

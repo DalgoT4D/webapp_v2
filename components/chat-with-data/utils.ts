@@ -7,8 +7,10 @@ export function requestSummary(request: ApprovalRequest): string {
   switch (request.tool) {
     case 'execute_sql':
       return 'Run this query on your data warehouse?';
-    case 'profile_column':
-      return `Check \`${args.column_name}\` for personal data?`;
+    case 'lookup_column_values':
+      return args.search_value
+        ? `Look up how "${args.search_value}" is stored in \`${args.column_name}\`?`
+        : `Look up values in \`${args.column_name}\`?`;
     case 'create_chart':
       return `Create the chart “${args.title}” (${args.chart_type}) from ${args.schema_name}.${args.table_name}?`;
     case 'create_dashboard':
@@ -32,7 +34,7 @@ export function tableKey(column: PiiColumn): string {
 }
 
 /** Tools whose several calls collapse into one counted headline */
-const GROUPABLE_TOOLS = new Set(['profile_column', 'execute_sql']);
+const GROUPABLE_TOOLS = new Set(['lookup_column_values', 'execute_sql']);
 
 /** Several calls that share no wording — the headline can only count them */
 function isMixedPause(requests: ApprovalRequest[]): boolean {
@@ -51,8 +53,8 @@ export function approvalSummary(requests: ApprovalRequest[]): string {
   if (requests.length === 1) return requestSummary(requests[0]);
   if (isMixedPause(requests)) return `Approve ${requests.length} steps?`;
 
-  if (requests[0].tool === 'profile_column') {
-    return `Check ${requests.length} columns for personal data?`;
+  if (requests[0].tool === 'lookup_column_values') {
+    return `Look up values in ${requests.length} columns?`;
   }
   return `Run ${requests.length} queries on your data warehouse?`;
 }
