@@ -1,3 +1,7 @@
+// Delay before a table chart's search box re-fetches server-side, so typing
+// doesn't trigger a request per keystroke.
+export const TABLE_SEARCH_DEBOUNCE_MS = 800;
+
 export const CHART_TYPE_COLORS = {
   bar: {
     color: '#3B82F6',
