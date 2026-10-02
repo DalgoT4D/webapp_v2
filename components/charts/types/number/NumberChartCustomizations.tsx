@@ -31,15 +31,27 @@ export function NumberChartCustomizations({
             disabled={disabled}
           >
             <div className="flex items-center space-x-2 mt-2">
-              <RadioGroupItem value="small" id="small" />
+              <RadioGroupItem
+                value="small"
+                id="small"
+                data-testid="chart-styling-number-size-small"
+              />
               <Label htmlFor="small">Small</Label>
             </div>
             <div className="flex items-center space-x-2 mt-2">
-              <RadioGroupItem value="medium" id="medium" />
+              <RadioGroupItem
+                value="medium"
+                id="medium"
+                data-testid="chart-styling-number-size-medium"
+              />
               <Label htmlFor="medium">Medium</Label>
             </div>
             <div className="flex items-center space-x-2 mt-2">
-              <RadioGroupItem value="large" id="large" />
+              <RadioGroupItem
+                value="large"
+                id="large"
+                data-testid="chart-styling-number-size-large"
+              />
               <Label htmlFor="large">Large</Label>
             </div>
           </RadioGroup>
@@ -49,6 +61,7 @@ export function NumberChartCustomizations({
           <Label htmlFor="subtitle">Subtitle</Label>
           <DebouncedInput
             id="subtitle"
+            data-testid="chart-styling-subtitle"
             value={customizations.subtitle || ''}
             onChange={(value) => updateCustomization('subtitle', value)}
             placeholder="Enter subtitle text (appears below the number)"
@@ -82,6 +95,7 @@ export function NumberChartCustomizations({
           <Label htmlFor="numberPrefix">Prefix</Label>
           <DebouncedInput
             id="numberPrefix"
+            data-testid="chart-styling-number-prefix"
             value={customizations.numberPrefix || ''}
             onChange={(value) => updateCustomization('numberPrefix', value)}
             placeholder="Text before number (e.g., $, +, -)"
@@ -94,6 +108,7 @@ export function NumberChartCustomizations({
           <Label htmlFor="numberSuffix">Suffix</Label>
           <DebouncedInput
             id="numberSuffix"
+            data-testid="chart-styling-number-suffix"
             value={customizations.numberSuffix || ''}
             onChange={(value) => updateCustomization('numberSuffix', value)}
             placeholder="Text after number (e.g., %, K, M, units)"

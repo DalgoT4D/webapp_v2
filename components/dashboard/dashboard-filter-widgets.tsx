@@ -184,6 +184,7 @@ function ValueFilterWidget({
           </div>
         ) : valueFilter.settings?.can_select_multiple ? (
           <Combobox
+            id={`dashboard-filter-value-${filter.id}`}
             mode="multi"
             items={availableOptions.map((opt: FilterOption) => ({
               value: opt.value,
@@ -201,6 +202,7 @@ function ValueFilterWidget({
           />
         ) : (
           <Combobox
+            id={`dashboard-filter-value-${filter.id}`}
             items={availableOptions.map((opt: FilterOption) => ({
               value: opt.value,
               label: opt.label,
@@ -400,6 +402,7 @@ function NumericalFilterWidget({
               max={maxValue}
               step={step}
               className="w-full"
+              data-testid={`dashboard-filter-slider-${filter.id}`}
             />
             <div className="flex justify-between text-xs text-muted-foreground mt-1">
               <span>{minValue}</span>
@@ -423,6 +426,7 @@ function NumericalFilterWidget({
                   step={step}
                   className="text-center h-7 text-xs"
                   placeholder="Min"
+                  data-testid={`dashboard-filter-min-input-${filter.id}`}
                 />
               </div>
               <div>
@@ -438,6 +442,7 @@ function NumericalFilterWidget({
                   step={step}
                   className="text-center h-7 text-xs"
                   placeholder="Max"
+                  data-testid={`dashboard-filter-max-input-${filter.id}`}
                 />
               </div>
             </div>

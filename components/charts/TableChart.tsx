@@ -455,6 +455,7 @@ export function TableChart({
                         size="sm"
                         className="h-auto p-0 font-semibold hover:bg-transparent"
                         onClick={() => handleSort(column)}
+                        data-testid={`chart-table-sort-${column}`}
                       >
                         <span className="mr-1">{column}</span>
                         {sortDirection === 'asc' ? (
@@ -518,6 +519,7 @@ export function TableChart({
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:text-blue-800 hover:underline"
                             onClick={(e) => e.stopPropagation()}
+                            data-testid={`chart-table-link-${index}-${column}`}
                           >
                             Link
                           </a>
@@ -548,6 +550,11 @@ export function TableChart({
                       <TableCell
                         key={column}
                         data-search-cell={`${index}-${colIdx}`}
+                        data-testid={
+                          isDrillDownClickable
+                            ? `chart-table-drill-cell-${index}-${column}`
+                            : undefined
+                        }
                         className={`py-1.5 px-2 ${alignClass} ${
                           isDrillDownClickable
                             ? 'text-blue-600 hover:text-blue-800 hover:underline cursor-pointer'
@@ -612,15 +619,25 @@ export function TableChart({
                     }
                   }}
                 >
-                  <SelectTrigger className="h-8 w-[70px]">
+                  <SelectTrigger className="h-8 w-[70px]" data-testid="chart-table-page-size">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                    <SelectItem value="200">200</SelectItem>
+                    <SelectItem value="10" data-testid="chart-table-page-size-option-10">
+                      10
+                    </SelectItem>
+                    <SelectItem value="20" data-testid="chart-table-page-size-option-20">
+                      20
+                    </SelectItem>
+                    <SelectItem value="50" data-testid="chart-table-page-size-option-50">
+                      50
+                    </SelectItem>
+                    <SelectItem value="100" data-testid="chart-table-page-size-option-100">
+                      100
+                    </SelectItem>
+                    <SelectItem value="200" data-testid="chart-table-page-size-option-200">
+                      200
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -641,6 +658,7 @@ export function TableChart({
                   }
                 }}
                 disabled={isServerSidePagination ? pagination!.page === 1 : currentPage === 1}
+                data-testid="chart-table-first-page-btn"
               >
                 <ChevronFirst className="h-4 w-4" />
                 <span className="sr-only">First page</span>
@@ -657,6 +675,7 @@ export function TableChart({
                   }
                 }}
                 disabled={isServerSidePagination ? pagination!.page === 1 : currentPage === 1}
+                data-testid="chart-table-prev-page-btn"
               >
                 <ChevronLeft className="h-4 w-4" />
                 <span className="sr-only">Previous page</span>
@@ -664,7 +683,7 @@ export function TableChart({
             </div>
 
             <div className="flex items-center gap-1">
-              <span className="text-sm font-medium">
+              <span className="text-sm font-medium" data-testid="chart-table-page-info">
                 Page {isServerSidePagination ? pagination!.page : currentPage} of {totalPages}
               </span>
             </div>
@@ -686,6 +705,7 @@ export function TableChart({
                     ? pagination!.page * pagination!.pageSize >= pagination!.total
                     : currentPage === totalPages
                 }
+                data-testid="chart-table-next-page-btn"
               >
                 <ChevronRight className="h-4 w-4" />
                 <span className="sr-only">Next page</span>
@@ -706,6 +726,7 @@ export function TableChart({
                     ? pagination!.page * pagination!.pageSize >= pagination!.total
                     : currentPage === totalPages
                 }
+                data-testid="chart-table-last-page-btn"
               >
                 <ChevronLast className="h-4 w-4" />
                 <span className="sr-only">Last page</span>

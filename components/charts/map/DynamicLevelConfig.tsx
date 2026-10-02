@@ -336,11 +336,13 @@ export function DynamicLevelConfig({
         <Label className="text-sm font-medium">Country</Label>
         <p className="text-xs text-gray-600 mb-2">Select the country for your map</p>
         <Select value="IND" disabled>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full" data-testid="chart-map-country-select">
             <SelectValue placeholder="India" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="IND">India</SelectItem>
+            <SelectItem value="IND" data-testid="chart-map-country-option-IND">
+              India
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -359,6 +361,7 @@ export function DynamicLevelConfig({
                 variant="outline"
                 size="sm"
                 onClick={() => handleDownloadRegionNames('state')}
+                data-testid="chart-map-download-states-btn"
                 disabled={disabled || downloadingStates}
                 className="h-8 px-3 text-xs gap-1.5"
               >
@@ -382,6 +385,7 @@ export function DynamicLevelConfig({
           </Tooltip>
         </div>
         <Combobox
+          id="chart-map-state-column-select"
           items={columnItems}
           value={formData.geographic_column || ''}
           onValueChange={handleGeographicColumnChange}
@@ -414,6 +418,7 @@ export function DynamicLevelConfig({
                   variant="outline"
                   size="sm"
                   onClick={() => handleDownloadRegionNames('district')}
+                  data-testid="chart-map-download-districts-btn"
                   disabled={disabled || downloadingDistricts}
                   className="h-8 px-3 text-xs gap-1.5"
                 >
@@ -437,6 +442,7 @@ export function DynamicLevelConfig({
             </Tooltip>
           </div>
           <Combobox
+            id="chart-map-district-column-select"
             items={[
               { value: '__none__', label: 'No drill-down' },
               ...getAvailableColumns(usedColumns).map((col: any) => {

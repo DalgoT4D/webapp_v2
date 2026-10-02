@@ -80,6 +80,7 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   onChange,
   disabled,
   dataType,
+  idPrefix,
 }: {
   schema?: string;
   table?: string;
@@ -89,6 +90,8 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   onChange: (value: any) => void;
   disabled?: boolean;
   dataType?: string;
+  /** Stable prefix for data-testids / Combobox ids (E2E selectors) */
+  idPrefix?: string;
 }) {
   const [datePickerOpen, setDatePickerOpen] = React.useState(false);
 
@@ -122,6 +125,7 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
       return (
         <div className="h-8 flex-1">
           <Combobox
+            id={idPrefix}
             mode="multi"
             items={comboboxItems}
             values={selectedValues}
@@ -139,6 +143,7 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
       return (
         <DebouncedInput
           placeholder="value1, value2, value3"
+          data-testid={idPrefix ? `${idPrefix}-text` : undefined}
           value={value || ''}
           onChange={onChange}
           disabled={disabled}
@@ -156,8 +161,9 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
         ? new Date(value)
         : new Date(value + 'T00:00:00');
     return (
-      <div className="flex-1">
+      <div className="flex-1" data-testid={idPrefix ? `${idPrefix}-date` : undefined}>
         <DatePicker
+          testId={idPrefix ? `${idPrefix}-date-picker` : undefined}
           value={selectedDate}
           placeholder="Pick a date"
           disabled={disabled}
@@ -177,6 +183,7 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   if (columnValues && columnValues.length > 0) {
     return (
       <Combobox
+        id={idPrefix}
         items={comboboxItems}
         value={value || ''}
         onValueChange={(val) => onChange(val)}
@@ -193,6 +200,7 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   return (
     <DebouncedInput
       placeholder="Enter value"
+      data-testid={idPrefix ? `${idPrefix}-text` : undefined}
       value={value || ''}
       onChange={onChange}
       disabled={disabled}
@@ -534,6 +542,7 @@ export function ChartDataConfigurationV3({
           onDatasetChange={handleDatasetChange}
           disabled={disabled}
           className="w-full"
+          id="chart-dataset-select"
         />
       </div>
 
@@ -547,6 +556,7 @@ export function ChartDataConfigurationV3({
               {formData.chart_type === 'pie' ? 'Dimension' : 'X Axis'}
             </Label>
             <Combobox
+              id="chart-x-axis-select"
               items={columnItems}
               value={formData.dimension_column || formData.x_axis_column}
               onValueChange={(value) => onChange({ dimension_column: value })}
@@ -632,6 +642,7 @@ export function ChartDataConfigurationV3({
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-900">Y Axis</Label>
             <Combobox
+              id="chart-y-axis-select"
               items={allColumns
                 .filter(
                   (col) =>
@@ -723,6 +734,7 @@ export function ChartDataConfigurationV3({
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-900">Extra Dimension</Label>
           <Combobox
+            id="chart-extra-dimension-select"
             items={[
               { value: 'none', label: 'None' },
               ...allColumns
@@ -766,6 +778,7 @@ export function ChartDataConfigurationV3({
               return (
                 <div key={filterId} className="flex gap-2 items-center">
                   <Combobox
+                    id={`chart-filter-column-${index}`}
                     items={columnItems}
                     value={filter.column}
                     onValueChange={(value) => {
@@ -805,22 +818,85 @@ export function ChartDataConfigurationV3({
                     }}
                     disabled={disabled}
                   >
-                    <SelectTrigger className="h-8 w-32">
+                    <SelectTrigger
+                      className="h-8 w-32"
+                      data-testid={`chart-filter-operator-${index}`}
+                    >
                       <SelectValue placeholder="Operator" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="equals">Equals</SelectItem>
-                      <SelectItem value="not_equals">Not equals</SelectItem>
-                      <SelectItem value="greater_than">Greater than (&gt;)</SelectItem>
-                      <SelectItem value="greater_than_equal">Greater or equal (&gt;=)</SelectItem>
-                      <SelectItem value="less_than">Less than (&lt;)</SelectItem>
-                      <SelectItem value="less_than_equal">Less or equal (&lt;=)</SelectItem>
-                      <SelectItem value="like">Like</SelectItem>
-                      <SelectItem value="like_case_insensitive">Like (case insensitive)</SelectItem>
-                      <SelectItem value="in">In</SelectItem>
-                      <SelectItem value="not_in">Not in</SelectItem>
-                      <SelectItem value="is_null">Is null</SelectItem>
-                      <SelectItem value="is_not_null">Is not null</SelectItem>
+                      <SelectItem
+                        value="equals"
+                        data-testid={`chart-filter-operator-${index}-option-equals`}
+                      >
+                        Equals
+                      </SelectItem>
+                      <SelectItem
+                        value="not_equals"
+                        data-testid={`chart-filter-operator-${index}-option-not_equals`}
+                      >
+                        Not equals
+                      </SelectItem>
+                      <SelectItem
+                        value="greater_than"
+                        data-testid={`chart-filter-operator-${index}-option-greater_than`}
+                      >
+                        Greater than (&gt;)
+                      </SelectItem>
+                      <SelectItem
+                        value="greater_than_equal"
+                        data-testid={`chart-filter-operator-${index}-option-greater_than_equal`}
+                      >
+                        Greater or equal (&gt;=)
+                      </SelectItem>
+                      <SelectItem
+                        value="less_than"
+                        data-testid={`chart-filter-operator-${index}-option-less_than`}
+                      >
+                        Less than (&lt;)
+                      </SelectItem>
+                      <SelectItem
+                        value="less_than_equal"
+                        data-testid={`chart-filter-operator-${index}-option-less_than_equal`}
+                      >
+                        Less or equal (&lt;=)
+                      </SelectItem>
+                      <SelectItem
+                        value="like"
+                        data-testid={`chart-filter-operator-${index}-option-like`}
+                      >
+                        Like
+                      </SelectItem>
+                      <SelectItem
+                        value="like_case_insensitive"
+                        data-testid={`chart-filter-operator-${index}-option-like_case_insensitive`}
+                      >
+                        Like (case insensitive)
+                      </SelectItem>
+                      <SelectItem
+                        value="in"
+                        data-testid={`chart-filter-operator-${index}-option-in`}
+                      >
+                        In
+                      </SelectItem>
+                      <SelectItem
+                        value="not_in"
+                        data-testid={`chart-filter-operator-${index}-option-not_in`}
+                      >
+                        Not in
+                      </SelectItem>
+                      <SelectItem
+                        value="is_null"
+                        data-testid={`chart-filter-operator-${index}-option-is_null`}
+                      >
+                        Is null
+                      </SelectItem>
+                      <SelectItem
+                        value="is_not_null"
+                        data-testid={`chart-filter-operator-${index}-option-is_not_null`}
+                      >
+                        Is not null
+                      </SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -831,6 +907,7 @@ export function ChartDataConfigurationV3({
                     operator={filter.operator}
                     value={filter.value}
                     dataType={filterColumnDataType}
+                    idPrefix={`chart-filter-value-${index}`}
                     onChange={(value) => {
                       const newFilters = [...(formData.filters || [])];
                       newFilters[index] = { ...filter, value };
@@ -870,6 +947,7 @@ export function ChartDataConfigurationV3({
                 onChange({ filters: newFilters });
               }}
               disabled={disabled}
+              data-testid="chart-add-filter-btn"
               className="w-full border-dashed bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
             >
               + Add Filter
@@ -915,15 +993,25 @@ export function ChartDataConfigurationV3({
               }}
               disabled={disabled}
             >
-              <SelectTrigger className="h-8 w-full">
+              <SelectTrigger className="h-8 w-full" data-testid="chart-pagination-select">
                 <SelectValue placeholder="Select pagination" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">No pagination</SelectItem>
-                <SelectItem value="20">20 items</SelectItem>
-                <SelectItem value="50">50 items</SelectItem>
-                <SelectItem value="100">100 items</SelectItem>
-                <SelectItem value="200">200 items</SelectItem>
+                <SelectItem value="__none__" data-testid="chart-pagination-option-__none__">
+                  No pagination
+                </SelectItem>
+                <SelectItem value="20" data-testid="chart-pagination-option-20">
+                  20 items
+                </SelectItem>
+                <SelectItem value="50" data-testid="chart-pagination-option-50">
+                  50 items
+                </SelectItem>
+                <SelectItem value="100" data-testid="chart-pagination-option-100">
+                  100 items
+                </SelectItem>
+                <SelectItem value="200" data-testid="chart-pagination-option-200">
+                  200 items
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -993,6 +1081,7 @@ export function ChartDataConfigurationV3({
                   <div className="grid grid-cols-2 gap-2">
                     {/* Column/Metric Selection */}
                     <Combobox
+                      id="chart-sort-column-select"
                       items={[
                         { value: '__none__', label: 'None', type: '' },
                         ...sortableOptions.map((option) => ({
@@ -1057,12 +1146,19 @@ export function ChartDataConfigurationV3({
                       }}
                       disabled={disabled || !currentSort || currentColumn === '__none__'}
                     >
-                      <SelectTrigger className="h-8 w-full">
+                      <SelectTrigger
+                        className="h-8 w-full"
+                        data-testid="chart-sort-direction-select"
+                      >
                         <SelectValue placeholder="Sort direction" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="asc">Ascending</SelectItem>
-                        <SelectItem value="desc">Descending</SelectItem>
+                        <SelectItem value="asc" data-testid="chart-sort-direction-option-asc">
+                          Ascending
+                        </SelectItem>
+                        <SelectItem value="desc" data-testid="chart-sort-direction-option-desc">
+                          Descending
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

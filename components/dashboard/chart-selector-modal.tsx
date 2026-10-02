@@ -42,7 +42,10 @@ export function ChartSelectorModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh]">
+      <DialogContent
+        className="max-w-6xl max-h-[90vh]"
+        data-testid="dashboard-chart-selector-modal"
+      >
         <DialogHeader>
           <DialogTitle>Add Chart</DialogTitle>
         </DialogHeader>
@@ -52,6 +55,7 @@ export function ChartSelectorModal({
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
               placeholder="Search charts..."
+              data-testid="dashboard-chart-selector-search"
               value={chartSearch}
               onChange={(e) => setChartSearch(e.target.value)}
               className="w-full pl-10"
@@ -60,6 +64,7 @@ export function ChartSelectorModal({
           <Link href="/charts/new?from=dashboard">
             <Button
               variant="outline"
+              data-testid="dashboard-chart-selector-create-new"
               className="flex items-center gap-2 whitespace-nowrap border-dashed border-2 hover:border-solid hover:bg-blue-50 hover:border-blue-300 transition-all font-medium uppercase"
             >
               <Plus className="w-4 h-4" />
@@ -81,6 +86,7 @@ export function ChartSelectorModal({
                 return (
                   <div
                     key={chart.id}
+                    data-testid={`dashboard-chart-option-${chart.id}`}
                     className={`border rounded-lg p-4 transition-all duration-200 ${
                       isAlreadyAdded
                         ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200'
@@ -118,6 +124,7 @@ export function ChartSelectorModal({
                     <Button
                       variant="outline"
                       size="sm"
+                      data-testid="dashboard-chart-selector-create-first"
                       className="border-dashed border-2 hover:border-solid hover:bg-blue-50 hover:border-blue-300 transition-all font-medium uppercase"
                     >
                       <Plus className="w-4 h-4 mr-2" />

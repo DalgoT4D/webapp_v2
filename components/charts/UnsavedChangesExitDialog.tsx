@@ -42,6 +42,7 @@ export function UnsavedChangesExitDialog({
           <Button
             onClick={onSave}
             disabled={isSaving}
+            data-testid="chart-unsaved-save-and-leave-btn"
             className="w-full justify-start h-auto p-4 text-left bg-white border border-gray-200 text-gray-900 hover:bg-gray-50"
             variant="outline"
           >
@@ -60,6 +61,7 @@ export function UnsavedChangesExitDialog({
           <Button
             onClick={onLeave}
             disabled={isSaving}
+            data-testid="chart-unsaved-leave-btn"
             className="w-full justify-start h-auto p-4 text-left bg-red-50 border border-red-200 text-red-900 hover:bg-red-100"
             variant="outline"
           >
@@ -76,6 +78,7 @@ export function UnsavedChangesExitDialog({
           <Button
             onClick={onStay}
             disabled={isSaving}
+            data-testid="chart-unsaved-stay-btn"
             className="w-full justify-start h-auto p-4 text-left bg-white border border-gray-200 text-gray-900 hover:bg-gray-50"
             variant="outline"
           >

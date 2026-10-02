@@ -44,11 +44,19 @@ export function LineChartCustomizations({
             disabled={disabled}
           >
             <div className="flex items-center space-x-2 mt-2">
-              <RadioGroupItem value="smooth" id="smooth" />
+              <RadioGroupItem
+                value="smooth"
+                id="smooth"
+                data-testid="chart-styling-line-style-smooth"
+              />
               <Label htmlFor="smooth">Smooth Curves</Label>
             </div>
             <div className="flex items-center space-x-2 mt-2">
-              <RadioGroupItem value="straight" id="straight" />
+              <RadioGroupItem
+                value="straight"
+                id="straight"
+                data-testid="chart-styling-line-style-straight"
+              />
               <Label htmlFor="straight">Straight Lines</Label>
             </div>
           </RadioGroup>
@@ -57,6 +65,7 @@ export function LineChartCustomizations({
         <div className="flex items-center space-x-2">
           <Switch
             id="showTooltip"
+            data-testid="chart-styling-show-tooltip"
             checked={customizations.showTooltip !== false}
             onCheckedChange={(checked) => updateCustomization('showTooltip', checked)}
             disabled={disabled}
@@ -67,6 +76,7 @@ export function LineChartCustomizations({
         <div className="flex items-center space-x-2">
           <Switch
             id="showDataPoints"
+            data-testid="chart-styling-show-data-points"
             checked={customizations.showDataPoints !== false}
             onCheckedChange={(checked) => updateCustomization('showDataPoints', checked)}
             disabled={disabled}
@@ -77,6 +87,7 @@ export function LineChartCustomizations({
         <div className="flex items-center space-x-2">
           <Switch
             id="showLegend"
+            data-testid="chart-styling-show-legend"
             checked={customizations.showLegend !== false}
             onCheckedChange={(checked) => updateCustomization('showLegend', checked)}
             disabled={disabled}
@@ -100,11 +111,19 @@ export function LineChartCustomizations({
                 disabled={disabled}
               >
                 <div className="flex items-center space-x-2 mt-2">
-                  <RadioGroupItem value="paginated" id="line-paginated" />
+                  <RadioGroupItem
+                    value="paginated"
+                    id="line-paginated"
+                    data-testid="chart-styling-legend-display-paginated"
+                  />
                   <Label htmlFor="line-paginated">Paginated Legends</Label>
                 </div>
                 <div className="flex items-center space-x-2 mt-2">
-                  <RadioGroupItem value="all" id="line-all" />
+                  <RadioGroupItem
+                    value="all"
+                    id="line-all"
+                    data-testid="chart-styling-legend-display-all"
+                  />
                   <Label htmlFor="line-all">Show All Legends in Chart Area</Label>
                 </div>
               </RadioGroup>
@@ -117,14 +136,28 @@ export function LineChartCustomizations({
                 onValueChange={(value) => updateCustomization('legendPosition', value)}
                 disabled={disabled}
               >
-                <SelectTrigger id="lineLegendPosition">
+                <SelectTrigger id="lineLegendPosition" data-testid="chart-styling-legend-position">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="top">Top</SelectItem>
-                  <SelectItem value="bottom">Bottom</SelectItem>
-                  <SelectItem value="left">Left</SelectItem>
-                  <SelectItem value="right">Right</SelectItem>
+                  <SelectItem value="top" data-testid="chart-styling-legend-position-option-top">
+                    Top
+                  </SelectItem>
+                  <SelectItem
+                    value="bottom"
+                    data-testid="chart-styling-legend-position-option-bottom"
+                  >
+                    Bottom
+                  </SelectItem>
+                  <SelectItem value="left" data-testid="chart-styling-legend-position-option-left">
+                    Left
+                  </SelectItem>
+                  <SelectItem
+                    value="right"
+                    data-testid="chart-styling-legend-position-option-right"
+                  >
+                    Right
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -139,6 +172,7 @@ export function LineChartCustomizations({
         <div className="flex items-center space-x-2">
           <Switch
             id="showDataLabels"
+            data-testid="chart-styling-show-data-labels"
             checked={customizations.showDataLabels || false}
             onCheckedChange={(checked) => updateCustomization('showDataLabels', checked)}
             disabled={disabled}
@@ -154,14 +188,31 @@ export function LineChartCustomizations({
               onValueChange={(value) => updateCustomization('dataLabelPosition', value)}
               disabled={disabled}
             >
-              <SelectTrigger id="dataLabelPosition">
+              <SelectTrigger id="dataLabelPosition" data-testid="chart-styling-data-label-position">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="top">Above Point</SelectItem>
-                <SelectItem value="bottom">Below Point</SelectItem>
-                <SelectItem value="left">Left of Point</SelectItem>
-                <SelectItem value="right">Right of Point</SelectItem>
+                <SelectItem value="top" data-testid="chart-styling-data-label-position-option-top">
+                  Above Point
+                </SelectItem>
+                <SelectItem
+                  value="bottom"
+                  data-testid="chart-styling-data-label-position-option-bottom"
+                >
+                  Below Point
+                </SelectItem>
+                <SelectItem
+                  value="left"
+                  data-testid="chart-styling-data-label-position-option-left"
+                >
+                  Left of Point
+                </SelectItem>
+                <SelectItem
+                  value="right"
+                  data-testid="chart-styling-data-label-position-option-right"
+                >
+                  Right of Point
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -176,6 +227,7 @@ export function LineChartCustomizations({
           <Label htmlFor="xAxisTitle">Title</Label>
           <DebouncedInput
             id="xAxisTitle"
+            data-testid="chart-styling-x-axis-title"
             value={customizations.xAxisTitle || ''}
             onChange={(value) => updateCustomization('xAxisTitle', value)}
             placeholder="Enter X-axis title"
@@ -190,13 +242,28 @@ export function LineChartCustomizations({
             onValueChange={(value) => updateCustomization('xAxisLabelRotation', value)}
             disabled={disabled}
           >
-            <SelectTrigger id="xAxisLabelRotation">
+            <SelectTrigger
+              id="xAxisLabelRotation"
+              data-testid="chart-styling-x-axis-label-rotation"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="horizontal">Horizontal (0°)</SelectItem>
-              <SelectItem value="45">45 degrees</SelectItem>
-              <SelectItem value="vertical">Vertical (90°)</SelectItem>
+              <SelectItem
+                value="horizontal"
+                data-testid="chart-styling-x-axis-label-rotation-option-horizontal"
+              >
+                Horizontal (0°)
+              </SelectItem>
+              <SelectItem value="45" data-testid="chart-styling-x-axis-label-rotation-option-45">
+                45 degrees
+              </SelectItem>
+              <SelectItem
+                value="vertical"
+                data-testid="chart-styling-x-axis-label-rotation-option-vertical"
+              >
+                Vertical (90°)
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -232,6 +299,7 @@ export function LineChartCustomizations({
           <Label htmlFor="yAxisTitle">Title</Label>
           <DebouncedInput
             id="yAxisTitle"
+            data-testid="chart-styling-y-axis-title"
             value={customizations.yAxisTitle || ''}
             onChange={(value) => updateCustomization('yAxisTitle', value)}
             placeholder="Enter Y-axis title"
@@ -246,13 +314,28 @@ export function LineChartCustomizations({
             onValueChange={(value) => updateCustomization('yAxisLabelRotation', value)}
             disabled={disabled}
           >
-            <SelectTrigger id="yAxisLabelRotation">
+            <SelectTrigger
+              id="yAxisLabelRotation"
+              data-testid="chart-styling-y-axis-label-rotation"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="horizontal">Horizontal (0°)</SelectItem>
-              <SelectItem value="45">45 degrees</SelectItem>
-              <SelectItem value="vertical">Vertical (90°)</SelectItem>
+              <SelectItem
+                value="horizontal"
+                data-testid="chart-styling-y-axis-label-rotation-option-horizontal"
+              >
+                Horizontal (0°)
+              </SelectItem>
+              <SelectItem value="45" data-testid="chart-styling-y-axis-label-rotation-option-45">
+                45 degrees
+              </SelectItem>
+              <SelectItem
+                value="vertical"
+                data-testid="chart-styling-y-axis-label-rotation-option-vertical"
+              >
+                Vertical (90°)
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

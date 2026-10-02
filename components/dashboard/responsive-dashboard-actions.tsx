@@ -80,7 +80,11 @@ export function ResponsiveDashboardActions({
         )}
         {canEdit && (
           <>
-            <Button onClick={onEdit} size="sm">
+            <Button
+              onClick={onEdit}
+              size="sm"
+              data-testid={suppressShareTestId ? 'dashboard-edit-btn-mobile' : 'dashboard-edit-btn'}
+            >
               <Edit className="w-4 h-4 mr-2" />
               Edit Dashboard
             </Button>
@@ -136,14 +140,30 @@ export function ResponsiveDashboardActions({
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="p-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="p-2"
+            data-testid={
+              suppressShareTestId
+                ? 'dashboard-actions-menu-trigger-mobile'
+                : 'dashboard-actions-menu-trigger'
+            }
+          >
             <MoreVertical className="w-4 h-4" />
             <span className="sr-only">Dashboard actions</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
           {canShare && (
-            <DropdownMenuItem onClick={onShare}>
+            <DropdownMenuItem
+              onClick={onShare}
+              data-testid={
+                suppressShareTestId
+                  ? 'dashboard-actions-share-item-mobile'
+                  : 'dashboard-actions-share-item'
+              }
+            >
               <Share2 className="w-4 h-4 mr-2" />
               Share Dashboard
             </DropdownMenuItem>
@@ -152,7 +172,14 @@ export function ResponsiveDashboardActions({
           {canEdit && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onEdit}>
+              <DropdownMenuItem
+                onClick={onEdit}
+                data-testid={
+                  suppressShareTestId
+                    ? 'dashboard-actions-edit-item-mobile'
+                    : 'dashboard-actions-edit-item'
+                }
+              >
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Dashboard
               </DropdownMenuItem>

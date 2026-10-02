@@ -1265,6 +1265,7 @@ export function ChartElementV2({
                   onClick={handleDrillHome}
                   className="h-6 px-2 text-xs"
                   title="Go to top level"
+                  data-testid={`dashboard-chart-map-home-${chartId}`}
                 >
                   <Home className="h-3 w-3 mr-1" />
                   Home
@@ -1277,6 +1278,7 @@ export function ChartElementV2({
                       size="sm"
                       onClick={() => handleDrillUp(index - 1)}
                       className="h-6 px-2 text-xs text-blue-600 hover:text-blue-800"
+                      data-testid={`dashboard-chart-map-crumb-${chartId}-${index}`}
                     >
                       {level.name}
                     </Button>
@@ -1337,7 +1339,13 @@ export function ChartElementV2({
                 {/* Breadcrumb navigation for drill-down */}
                 {tableDrillDownState && (
                   <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-2 flex-shrink-0">
-                    <Button variant="ghost" size="sm" onClick={handleTableDrillUp} className="h-8">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleTableDrillUp}
+                      className="h-8"
+                      data-testid={`dashboard-chart-table-back-${chartId}`}
+                    >
                       ← Back
                     </Button>
                     <span className="text-sm text-muted-foreground">

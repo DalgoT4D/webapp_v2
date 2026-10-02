@@ -77,6 +77,7 @@ function SortablePivotDimension({
           }`}
           disabled={!canDrag || disabled}
           aria-label="Drag to reorder"
+          data-testid={`drag-${idPrefix}-dim-${idx}`}
         >
           <GripVertical className="h-4 w-4" />
         </button>

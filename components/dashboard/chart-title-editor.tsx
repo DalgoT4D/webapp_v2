@@ -118,6 +118,7 @@ export function ChartTitleEditor({
             onBlur={handleSaveEdit}
             onKeyDown={handleKeyDown}
             placeholder="Enter chart title (leave empty to hide)"
+            data-testid={`dashboard-chart-title-input-${chartData?.id}`}
             className="text-lg font-semibold"
           />
           <Button
@@ -126,6 +127,7 @@ export function ChartTitleEditor({
             onClick={handleCancelEdit}
             className="p-1"
             title="Cancel (Esc)"
+            data-testid={`dashboard-chart-title-cancel-${chartData?.id}`}
           >
             <X className="w-4 h-4" />
           </Button>
@@ -142,6 +144,7 @@ export function ChartTitleEditor({
                 )}
                 onClick={handleStartEdit}
                 title="Click to edit title"
+                data-testid={`dashboard-chart-title-display-${chartData?.id}`}
               >
                 <span className="text-lg font-semibold text-gray-900">{resolvedTitle}</span>
               </div>
@@ -152,6 +155,7 @@ export function ChartTitleEditor({
                 onClick={handleHideTitle}
                 className="h-5 w-5 p-0 opacity-0 group-hover/title:opacity-100 transition-opacity ml-2"
                 title="Hide title"
+                data-testid={`dashboard-chart-title-hide-${chartData?.id}`}
               >
                 <EyeOff className="w-3 h-3 text-gray-500" />
               </Button>
@@ -164,6 +168,7 @@ export function ChartTitleEditor({
               )}
               onClick={handleStartEdit}
               title="Click to add title"
+              data-testid={`dashboard-chart-title-add-${chartData?.id}`}
             >
               <span className="text-lg font-medium">Click to add title</span>
             </div>
@@ -176,6 +181,7 @@ export function ChartTitleEditor({
                 onClick={handleShowTitle}
                 className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity"
                 title="Show title"
+                data-testid={`dashboard-chart-title-show-${chartData?.id}`}
               >
                 <Type className="w-3 h-3 mr-1" />
                 Show title

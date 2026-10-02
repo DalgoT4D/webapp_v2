@@ -16,7 +16,12 @@
     "test:ci": "jest --ci --coverage --watchAll=false",
     "prepare": "husky",
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx}\"",
-    "format:write": "prettier --write \"**/*.{js,jsx,ts,tsx}\" && git add ."
+    "format:write": "prettier --write \"**/*.{js,jsx,ts,tsx}\" && git add .",
+    "e2e:inventory:record": "node e2e/scripts/test-inventory.mjs record",
+    "e2e:inventory:verify": "node e2e/scripts/test-inventory.mjs verify",
+    "e2e": "bash e2e/scripts/run-all.sh",
+    "e2e:interactions:record": "rm -rf test-results/interactions && E2E_RECORD_INTERACTIONS=on bash e2e/scripts/run-all.sh",
+    "e2e:interactions:report": "node e2e/scripts/interaction-report.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

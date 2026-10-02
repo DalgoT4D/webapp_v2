@@ -1212,6 +1212,7 @@ function ConfigureChartPageContent() {
               </Label>
               <Input
                 id="chart-name"
+                data-testid="chart-name-input"
                 aria-describedby="chart-name-guidance"
                 value={formData.title}
                 onChange={(e) => handleFormChange({ title: e.target.value })}
@@ -1322,11 +1323,19 @@ function ConfigureChartPageContent() {
             <Tabs value={activeTab} onValueChange={handlePreviewTabChange} className="h-full">
               <div className="px-4">
                 <TabsList className="grid grid-cols-2">
-                  <TabsTrigger value="chart" className="flex items-center gap-2">
+                  <TabsTrigger
+                    value="chart"
+                    className="flex items-center gap-2"
+                    data-testid="chart-preview-tab-chart"
+                  >
                     <BarChart3 className="h-4 w-4" />
                     CHART
                   </TabsTrigger>
-                  <TabsTrigger value="data" className="flex items-center gap-2">
+                  <TabsTrigger
+                    value="data"
+                    className="flex items-center gap-2"
+                    data-testid="chart-preview-tab-data"
+                  >
                     <Database className="h-4 w-4" />
                     DATA
                   </TabsTrigger>
@@ -1364,6 +1373,7 @@ function ConfigureChartPageContent() {
                             size="sm"
                             onClick={handleTableDrillUp}
                             className="h-8"
+                            data-testid="chart-table-drill-back-btn"
                           >
                             ← Back
                           </Button>
@@ -1465,11 +1475,19 @@ function ConfigureChartPageContent() {
                     className="h-full flex flex-col"
                   >
                     <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="chart-data" className="flex items-center gap-2">
+                      <TabsTrigger
+                        value="chart-data"
+                        className="flex items-center gap-2"
+                        data-testid="chart-data-tab-chart-data"
+                      >
                         <BarChart3 className="h-4 w-4" />
                         Chart Data
                       </TabsTrigger>
-                      <TabsTrigger value="raw-data" className="flex items-center gap-2">
+                      <TabsTrigger
+                        value="raw-data"
+                        className="flex items-center gap-2"
+                        data-testid="chart-data-tab-raw-data"
+                      >
                         <Database className="h-4 w-4" />
                         Raw Data
                       </TabsTrigger>

@@ -166,15 +166,25 @@ export function DataPreview({
                     value={pagination.pageSize.toString()}
                     onValueChange={(value) => pagination.onPageSizeChange?.(parseInt(value))}
                   >
-                    <SelectTrigger className="w-20 h-8">
+                    <SelectTrigger className="w-20 h-8" data-testid="chart-data-preview-page-size">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="20">20</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                      <SelectItem value="100">100</SelectItem>
-                      <SelectItem value="200">200</SelectItem>
+                      <SelectItem value="10" data-testid="chart-data-preview-page-size-option-10">
+                        10
+                      </SelectItem>
+                      <SelectItem value="20" data-testid="chart-data-preview-page-size-option-20">
+                        20
+                      </SelectItem>
+                      <SelectItem value="50" data-testid="chart-data-preview-page-size-option-50">
+                        50
+                      </SelectItem>
+                      <SelectItem value="100" data-testid="chart-data-preview-page-size-option-100">
+                        100
+                      </SelectItem>
+                      <SelectItem value="200" data-testid="chart-data-preview-page-size-option-200">
+                        200
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -188,6 +198,7 @@ export function DataPreview({
                   className="h-8 w-8"
                   onClick={() => pagination.onPageChange(1)}
                   disabled={pagination.page === 1}
+                  data-testid="chart-data-preview-first-page-btn"
                 >
                   <ChevronFirst className="h-4 w-4" />
                   <span className="sr-only">First page</span>
@@ -198,6 +209,7 @@ export function DataPreview({
                   className="h-8 w-8"
                   onClick={() => pagination.onPageChange(pagination.page - 1)}
                   disabled={pagination.page === 1}
+                  data-testid="chart-data-preview-prev-page-btn"
                 >
                   <ChevronLeft className="h-4 w-4" />
                   <span className="sr-only">Previous page</span>
@@ -205,7 +217,7 @@ export function DataPreview({
               </div>
 
               <div className="flex items-center gap-1">
-                <span className="text-sm font-medium">
+                <span className="text-sm font-medium" data-testid="chart-data-preview-page-info">
                   Page {pagination.page} of {Math.ceil(pagination.total / pagination.pageSize)}
                 </span>
               </div>
@@ -217,6 +229,7 @@ export function DataPreview({
                   className="h-8 w-8"
                   onClick={() => pagination.onPageChange(pagination.page + 1)}
                   disabled={pagination.page * pagination.pageSize >= pagination.total}
+                  data-testid="chart-data-preview-next-page-btn"
                 >
                   <ChevronRight className="h-4 w-4" />
                   <span className="sr-only">Next page</span>
@@ -229,6 +242,7 @@ export function DataPreview({
                     pagination.onPageChange(Math.ceil(pagination.total / pagination.pageSize))
                   }
                   disabled={pagination.page * pagination.pageSize >= pagination.total}
+                  data-testid="chart-data-preview-last-page-btn"
                 >
                   <ChevronLast className="h-4 w-4" />
                   <span className="sr-only">Last page</span>

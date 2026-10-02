@@ -62,7 +62,7 @@ export function RequestAccessDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-sm" data-testid="request-access-dialog">
         <DialogHeader>
           <DialogTitle>Request Access</DialogTitle>
         </DialogHeader>
@@ -74,12 +74,16 @@ export function RequestAccessDialog({
               onValueChange={(v) => setLevel(v as 'view' | 'edit')}
               disabled={lockLevel}
             >
-              <SelectTrigger id="request-level">
+              <SelectTrigger id="request-level" data-testid="request-access-level">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="view">View</SelectItem>
-                <SelectItem value="edit">Edit</SelectItem>
+                <SelectItem value="view" data-testid="request-access-level-option-view">
+                  View
+                </SelectItem>
+                <SelectItem value="edit" data-testid="request-access-level-option-edit">
+                  Edit
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -87,6 +91,7 @@ export function RequestAccessDialog({
             <Label htmlFor="request-note">Note (optional)</Label>
             <Textarea
               id="request-note"
+              data-testid="request-access-note"
               placeholder="Why do you need access?"
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -95,10 +100,15 @@ export function RequestAccessDialog({
             />
           </div>
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={onClose} data-testid="request-access-cancel-btn">
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleSubmit} disabled={isSending}>
+            <Button
+              variant="primary"
+              onClick={handleSubmit}
+              disabled={isSending}
+              data-testid="request-access-send-btn"
+            >
               {isSending ? 'Sending…' : 'Send Request'}
             </Button>
           </div>

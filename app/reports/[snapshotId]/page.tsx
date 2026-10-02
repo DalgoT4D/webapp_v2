@@ -124,7 +124,9 @@ export default function SnapshotViewerPage() {
   if (!isValidId) {
     return (
       <div className="p-6">
-        <p className="text-red-500">Invalid report ID.</p>
+        <p className="text-red-500" data-testid="report-invalid-id">
+          Invalid report ID.
+        </p>
         <Button data-testid="report-go-back-btn" variant="outline" onClick={() => router.back()}>
           Go Back
         </Button>
@@ -134,7 +136,7 @@ export default function SnapshotViewerPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-4">
+      <div className="p-6 space-y-4" data-testid="report-view-skeleton">
         <Skeleton className="h-10 w-80" />
         <Skeleton className="h-5 w-96" />
         <Skeleton className="h-[600px] w-full" />
@@ -145,7 +147,9 @@ export default function SnapshotViewerPage() {
   if (isError || !viewData) {
     return (
       <div className="p-6">
-        <p className="text-red-500">Failed to load report.</p>
+        <p className="text-red-500" data-testid="report-load-error">
+          Failed to load report.
+        </p>
         <Button data-testid="report-go-back-btn" variant="outline" onClick={() => router.back()}>
           Go Back
         </Button>
@@ -171,10 +175,12 @@ export default function SnapshotViewerPage() {
               Back
             </Button>
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl font-bold text-foreground">{report_metadata.title}</h1>
+              <h1 className="text-2xl font-bold text-foreground" data-testid="report-title">
+                {report_metadata.title}
+              </h1>
               {/* Metadata below title */}
               <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1" data-testid="report-period">
                   <Calendar className="w-3 h-3" />
                   {report_metadata.period_start
                     ? formatDateShort(report_metadata.period_start)
@@ -182,7 +188,7 @@ export default function SnapshotViewerPage() {
                   - {formatDateShort(report_metadata.period_end)}
                 </span>
                 {report_metadata.created_by && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1" data-testid="report-created-by">
                     <User className="w-3 h-3" />
                     Created by: {report_metadata.created_by}
                   </span>
@@ -198,7 +204,7 @@ export default function SnapshotViewerPage() {
                       {report_metadata.dashboard_title}
                     </Link>
                   ) : (
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1" data-testid="report-dashboard-title">
                       <LayoutGrid className="w-3 h-3" />
                       {report_metadata.dashboard_title}
                     </span>
@@ -317,7 +323,10 @@ export default function SnapshotViewerPage() {
                 <div className="flex items-baseline gap-2 mb-2">
                   <h2 className="text-lg font-semibold">Executive Summary</h2>
                   {report_metadata.last_modified_by && (
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <span
+                      className="text-xs text-muted-foreground flex items-center gap-1"
+                      data-testid="report-last-modified-by"
+                    >
                       <User className="w-3 h-3" />
                       Last updated by: {report_metadata.last_modified_by}
                     </span>

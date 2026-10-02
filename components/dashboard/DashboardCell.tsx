@@ -82,6 +82,7 @@ function DashboardCellInner({
   return (
     <div
       data-component-id={item.i}
+      data-testid={`dashboard-cell-${item.i}`}
       className={`dashboard-item bg-transparent relative group transition-all duration-200 ${
         isAnimating ? 'animating' : ''
       } ${isBeingPushed ? 'being-pushed' : ''} ${
@@ -99,6 +100,7 @@ function DashboardCellInner({
             }}
             className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-blue-600"
             title="View Chart"
+            data-testid={`dashboard-cell-view-${item.i}`}
           >
             <Eye className="w-3.5 h-3.5 text-gray-600" />
           </button>
@@ -110,6 +112,7 @@ function DashboardCellInner({
               }}
               className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-green-600"
               title="Edit Chart"
+              data-testid={`dashboard-cell-edit-${item.i}`}
             >
               <Edit className="w-3.5 h-3.5 text-gray-600" />
             </button>
@@ -121,6 +124,7 @@ function DashboardCellInner({
             }}
             className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-red-600"
             title="Remove Chart From Dashboard"
+            data-testid={`dashboard-cell-remove-${item.i}`}
           >
             <X className="w-3.5 h-3.5 text-gray-600" />
           </button>
@@ -137,6 +141,7 @@ function DashboardCellInner({
             }}
             className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-red-600"
             title="Remove Text From Dashboard"
+            data-testid={`dashboard-cell-remove-${item.i}`}
           >
             <X className="w-3.5 h-3.5 text-gray-600" />
           </button>
@@ -153,6 +158,7 @@ function DashboardCellInner({
             }}
             className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-blue-600"
             title="View KPI"
+            data-testid={`dashboard-cell-view-${item.i}`}
           >
             <Eye className="w-3.5 h-3.5 text-gray-600" />
           </button>
@@ -164,6 +170,7 @@ function DashboardCellInner({
               }}
               className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-green-600"
               title="Edit KPI"
+              data-testid={`dashboard-cell-edit-${item.i}`}
             >
               <Edit className="w-3.5 h-3.5 text-gray-600" />
             </button>
@@ -175,6 +182,7 @@ function DashboardCellInner({
             }}
             className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-red-600"
             title="Remove KPI From Dashboard"
+            data-testid={`dashboard-cell-remove-${item.i}`}
           >
             <X className="w-3.5 h-3.5 text-gray-600" />
           </button>
@@ -182,7 +190,10 @@ function DashboardCellInner({
       )}
 
       {/* Drag Handle Area - Top section for dragging */}
-      <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-blue-50/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-move flex items-center justify-center z-20">
+      <div
+        className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-blue-50/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-move flex items-center justify-center z-20"
+        data-testid={`dashboard-cell-drag-${item.i}`}
+      >
         <div className="text-xs text-gray-400 font-medium">Drag to move</div>
       </div>
 

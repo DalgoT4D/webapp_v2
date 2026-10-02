@@ -262,7 +262,10 @@ export function ChartExportDropdownForList({
 
   return (
     <DropdownMenuSub>
-      <DropdownMenuSubTrigger className="cursor-pointer">
+      <DropdownMenuSubTrigger
+        className="cursor-pointer"
+        data-testid={`chart-list-export-trigger-${chartId}`}
+      >
         {isExporting ? (
           <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
         ) : (
@@ -276,6 +279,7 @@ export function ChartExportDropdownForList({
           <DropdownMenuItem
             onClick={() => handleExport('csv')}
             className="cursor-pointer"
+            data-testid={`chart-list-export-csv-${chartId}`}
             disabled={isExporting}
           >
             <Table className="w-4 h-4 mr-2" />
@@ -287,6 +291,7 @@ export function ChartExportDropdownForList({
             <DropdownMenuItem
               onClick={() => handleExport('png')}
               className="cursor-pointer"
+              data-testid={`chart-list-export-png-${chartId}`}
               disabled={isExporting}
             >
               <FileImage className="w-4 h-4 mr-2" />
@@ -296,6 +301,7 @@ export function ChartExportDropdownForList({
             <DropdownMenuItem
               onClick={() => handleExport('pdf')}
               className="cursor-pointer"
+              data-testid={`chart-list-export-pdf-${chartId}`}
               disabled={isExporting}
             >
               <FileText className="w-4 h-4 mr-2" />
