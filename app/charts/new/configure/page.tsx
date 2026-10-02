@@ -296,36 +296,24 @@ function ConfigureChartPageContent() {
     }
 
     if (formData.chart_type === 'number') {
+      // New charts always use the metrics array; no legacy fallback needed.
       const metric = formData.metrics?.[0];
-      if (metric) {
-        return !!(
-          metric.column_expression ||
-          (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
-        );
-      }
-      // Legacy charts saved before the metrics array existed
+      if (!metric) return false;
       return !!(
-        formData.aggregate_function &&
-        (formData.aggregate_function === 'count' || formData.aggregate_column)
+        metric.column_expression ||
+        (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
       );
     }
 
     if (formData.chart_type === 'map') {
+      // New charts always use the metrics array; no legacy fallback needed.
       const metric = formData.metrics?.[0];
-      if (metric) {
-        return !!(
-          formData.geographic_column &&
-          formData.selected_geojson_id &&
-          (metric.column_expression ||
-            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
-        );
-      }
-      // Legacy charts saved before the metrics array existed
+      if (!metric) return false;
       return !!(
         formData.geographic_column &&
-        formData.value_column &&
-        formData.aggregate_function &&
-        formData.selected_geojson_id
+        formData.selected_geojson_id &&
+        (metric.column_expression ||
+          (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
       );
     }
 
@@ -366,28 +354,15 @@ function ConfigureChartPageContent() {
     }
 
     {
-      // For bar/line charts with multiple metrics
-      if (
-        ['bar', 'line', 'pie'].includes(formData.chart_type || '') &&
-        formData.metrics &&
-        formData.metrics.length > 0
-      ) {
-        return !!(
-          formData.dimension_column &&
-          formData.metrics.every(
-            (metric) =>
-              metric.column_expression ||
-              (metric.aggregation &&
-                (metric.aggregation.toLowerCase() === 'count' || metric.column))
-          )
-        );
+      // New charts always use the metrics array; no legacy fallback needed.
+      if (!formData.metrics || formData.metrics.length === 0 || !formData.dimension_column) {
+        return false;
       }
 
-      // For single metric charts
-      return !!(
-        formData.dimension_column &&
-        formData.aggregate_function &&
-        (formData.aggregate_function === 'count' || formData.aggregate_column)
+      return formData.metrics.every(
+        (metric) =>
+          metric.column_expression ||
+          (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
       );
     }
   };
