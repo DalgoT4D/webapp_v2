@@ -1,43 +1,24 @@
 'use client';
 
-import React, { useRef } from 'react';
-import { format } from 'date-fns';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { DebouncedInput } from '@/components/charts/debounced-input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { BarChart3, PieChart, LineChart, Hash, MapPin, Check } from 'lucide-react';
-import { useColumns, useColumnValues } from '@/hooks/api/useChart';
-import {
-  ColumnTypeIcon,
-  isDateOnlyColumn,
-  isTimestampColumn,
-  isDateAndTimestampColumn,
-} from '@/lib/columnTypeIcons';
-import { DatePicker } from '@/components/ui/date-picker';
-import { Combobox, highlightText } from '@/components/ui/combobox';
-import { TooltipLabel } from '@/components/charts/styling/TooltipLabel';
+import React from 'react';
+import { useColumns } from '@/hooks/api/useChart';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
-import { MetricsSelector } from '@/components/charts/MetricsSelector';
-import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import PivotDataConfiguration from '@/components/charts/pivot-table/PivotDataConfiguration';
-import { TableDimensionsSelector } from '@/components/charts/TableDimensionsSelector';
 import { TimeGrainSelector } from '@/components/charts/TimeGrainSelector';
 import { applyChartTypeChange } from '@/components/charts/logic/type-switch';
 import { buildDatasetChangePatch } from '@/components/charts/logic/dataset-change';
 import { hasExistingChartConfig } from '@/components/charts/logic/auto-prefill';
-import type {
-  ChartBuilderFormData,
-  ChartMetric,
-  ChartDimension,
-  ChartFilter,
-} from '@/types/charts';
+import { getSortableColumns } from '@/components/charts/logic/sort-options';
+import { findTimeGrainColumn } from '@/components/charts/logic/time-grain';
+import { DataSourceSection } from '@/components/charts/builder/data-config/DataSourceSection';
+import { AxisDimensionSection } from '@/components/charts/builder/data-config/AxisDimensionSection';
+import { TableDimensionsSection } from '@/components/charts/builder/data-config/TableDimensionsSection';
+import { MetricsSection } from '@/components/charts/builder/data-config/MetricsSection';
+import { ExtraDimensionSection } from '@/components/charts/builder/data-config/ExtraDimensionSection';
+import { FiltersSection } from '@/components/charts/builder/data-config/FiltersSection';
+import { PaginationSection } from '@/components/charts/builder/data-config/PaginationSection';
+import { SortSection } from '@/components/charts/builder/data-config/SortSection';
+import type { ChartBuilderFormData } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 
 interface ChartDataConfigurationV3Props {
@@ -54,161 +35,12 @@ interface ChartDataConfigurationV3Props {
   isNewChart?: boolean;
 }
 
-const AGGREGATE_FUNCTIONS = [
-  { value: 'count', label: 'Count' },
-  { value: 'sum', label: 'Sum' },
-  { value: 'avg', label: 'Average' },
-  { value: 'min', label: 'Minimum' },
-  { value: 'max', label: 'Maximum' },
-  { value: 'count_distinct', label: 'Count Distinct' },
-];
-
-const chartIcons = {
-  bar: BarChart3,
-  line: LineChart,
-  pie: PieChart,
-  number: Hash,
-  map: MapPin,
-};
-
-// Component for searchable value input
-const SearchableValueInput = React.memo(function SearchableValueInput({
-  schema,
-  table,
-  column,
-  operator,
-  value,
-  onChange,
-  disabled,
-  dataType,
-  idPrefix,
-}: {
-  schema?: string;
-  table?: string;
-  column: string;
-  operator: string;
-  value: any;
-  onChange: (value: any) => void;
-  disabled?: boolean;
-  dataType?: string;
-  /** Stable prefix for data-testids / Combobox ids (E2E selectors) */
-  idPrefix?: string;
-}) {
-  const [datePickerOpen, setDatePickerOpen] = React.useState(false);
-
-  // Get column values using the warehouse API
-  const { data: columnValues } = useColumnValues(schema || null, table || null, column || null);
-
-  // Memoize combobox items unconditionally (before any early returns)
-  const comboboxItems = React.useMemo(
-    () =>
-      (columnValues || [])
-        .filter((val) => val !== null && val !== undefined && val.toString().trim() !== '')
-        .slice(0, 100)
-        .map((val) => ({ value: val.toString(), label: val.toString() })),
-    [columnValues]
-  );
-
-  // For null checks, no value input needed
-  if (operator === 'is_null' || operator === 'is_not_null') {
-    return null;
-  }
-
-  // For 'in' and 'not_in' operators, show multiselect dropdown if we have column values
-  if (operator === 'in' || operator === 'not_in') {
-    if (columnValues && columnValues.length > 0) {
-      const selectedValues = Array.isArray(value)
-        ? value
-        : value
-          ? value.split(',').map((v: string) => v.trim())
-          : [];
-
-      return (
-        <div className="h-8 flex-1">
-          <Combobox
-            id={idPrefix}
-            mode="multi"
-            items={comboboxItems}
-            values={selectedValues}
-            onValuesChange={(vals) => onChange(vals.join(', '))}
-            disabled={disabled}
-            placeholder={
-              selectedValues.length > 0 ? `${selectedValues.length} selected` : 'Select values'
-            }
-            compact
-          />
-        </div>
-      );
-    } else {
-      // Fallback to text input for in/not_in when no column values
-      return (
-        <DebouncedInput
-          placeholder="value1, value2, value3"
-          data-testid={idPrefix ? `${idPrefix}-text` : undefined}
-          value={value || ''}
-          onChange={onChange}
-          disabled={disabled}
-          className="h-8 flex-1"
-        />
-      );
-    }
-  }
-
-  // Date/timestamp columns get a calendar picker
-  if (dataType && isDateAndTimestampColumn(dataType)) {
-    const selectedDate = !value
-      ? undefined
-      : value.includes('T')
-        ? new Date(value)
-        : new Date(value + 'T00:00:00');
-    return (
-      <div className="flex-1" data-testid={idPrefix ? `${idPrefix}-date` : undefined}>
-        <DatePicker
-          testId={idPrefix ? `${idPrefix}-date-picker` : undefined}
-          value={selectedDate}
-          placeholder="Pick a date"
-          disabled={disabled}
-          open={datePickerOpen}
-          onOpenChange={setDatePickerOpen}
-          selected={selectedDate}
-          onSelect={(date) => {
-            onChange(date ? format(date, 'yyyy-MM-dd') : '');
-            setDatePickerOpen(false);
-          }}
-        />
-      </div>
-    );
-  }
-
-  // If we have column values, show searchable dropdown
-  if (columnValues && columnValues.length > 0) {
-    return (
-      <Combobox
-        id={idPrefix}
-        items={comboboxItems}
-        value={value || ''}
-        onValueChange={(val) => onChange(val)}
-        disabled={disabled}
-        searchPlaceholder="Search values..."
-        placeholder="Select value"
-        compact
-        className="flex-1"
-      />
-    );
-  }
-
-  // Fallback to regular input
-  return (
-    <DebouncedInput
-      placeholder="Enter value"
-      data-testid={idPrefix ? `${idPrefix}-text` : undefined}
-      value={value || ''}
-      onChange={onChange}
-      disabled={disabled}
-      className="h-8 flex-1"
-    />
-  );
-});
+/** Chart types without an X axis / single dimension picker. */
+const NO_AXIS_CHART_TYPES = ['number', 'map', 'table', 'pivot_table'];
+/** Chart types with an extra (stack / series) dimension. */
+const EXTRA_DIMENSION_CHART_TYPES = ['bar', 'line', 'pie'];
+/** Chart types without pagination and sort (pivot: v1 has no pivot sort). */
+const NO_PAGINATION_SORT_CHART_TYPES = ['map', 'number', 'pivot_table'];
 
 export function ChartDataConfigurationV3({
   formData,
@@ -219,21 +51,8 @@ export function ChartDataConfigurationV3({
   scopedRuleCountByLevel,
   isNewChart,
 }: ChartDataConfigurationV3Props) {
-  const filterIds = useRef<string[]>([]);
-  const nextFilterId = useRef(0);
-
-  // Keep filter IDs in sync with formData.filters length
-  const filters = formData.filters || [];
-  while (filterIds.current.length < filters.length) {
-    filterIds.current.push(`filter-${nextFilterId.current++}`);
-  }
-  if (filterIds.current.length > filters.length) {
-    filterIds.current.length = filters.length;
-  }
-
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
-  // Filter columns by type
   // Memoize normalized columns to prevent unnecessary re-renders
   const normalizedColumns = React.useMemo(
     () =>
@@ -293,19 +112,8 @@ export function ChartDataConfigurationV3({
 
   // Reset sort if current column is no longer available (avoid render-time side effects)
   React.useEffect(() => {
-    const sortable = new Set<string>();
-    if (formData.dimension_column) sortable.add(formData.dimension_column);
-    if (formData.metrics?.length) {
-      formData.metrics.forEach((m) => {
-        const alias = m.alias || `${m.aggregation}(${m.column})`;
-        sortable.add(alias);
-      });
-    } else if (formData.aggregate_column && formData.aggregate_function) {
-      sortable.add(`${formData.aggregate_function}(${formData.aggregate_column})`);
-    }
-
     const current = formData.sort?.[0]?.column;
-    if (current && !sortable.has(current)) {
+    if (current && !getSortableColumns(formData).has(current)) {
       onChange({ sort: [] });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -321,15 +129,7 @@ export function ChartDataConfigurationV3({
     // Only run this effect if columns are loaded to avoid clearing time_grain during initial load
     if (!columns || columns.length === 0) return;
 
-    const shouldHaveTimeGrain =
-      ['bar', 'line'].includes(formData.chart_type || '') &&
-      formData.dimension_column &&
-      allColumns.find(
-        (col) =>
-          col.column_name === formData.dimension_column && isDateAndTimestampColumn(col.data_type)
-      );
-
-    if (!shouldHaveTimeGrain && formData.time_grain) {
+    if (!findTimeGrainColumn(formData, allColumns) && formData.time_grain) {
       onChange({ time_grain: null });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -340,6 +140,9 @@ export function ChartDataConfigurationV3({
     onChange(applyChartTypeChange(formData, newChartType, normalizedColumns));
   };
 
+  const chartType = formData.chart_type || '';
+  const timeGrainColumn = findTimeGrainColumn(formData, allColumns);
+
   return (
     <div className="space-y-4">
       {/* Chart Type Selector - Interactive */}
@@ -349,72 +152,28 @@ export function ChartDataConfigurationV3({
         disabled={disabled}
       />
 
-      {/* Data Source - Simple Search Dropdown */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-900">Data Source</Label>
-        <DatasetSelector
-          schema_name={formData.schema_name}
-          table_name={formData.table_name}
-          onDatasetChange={handleDatasetChange}
+      <DataSourceSection
+        schemaName={formData.schema_name}
+        tableName={formData.table_name}
+        onDatasetChange={handleDatasetChange}
+        disabled={disabled}
+      />
+
+      {!NO_AXIS_CHART_TYPES.includes(chartType) && (
+        <AxisDimensionSection
+          formData={formData}
+          onChange={onChange}
           disabled={disabled}
-          className="w-full"
-          id="chart-dataset-select"
+          columnItems={columnItems}
         />
-      </div>
+      )}
 
-      {/* X Axis / Dimension */}
-      {formData.chart_type !== 'number' &&
-        formData.chart_type !== 'map' &&
-        formData.chart_type !== 'table' &&
-        formData.chart_type !== 'pivot_table' && (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-900">
-              {formData.chart_type === 'pie' ? 'Dimension' : 'X Axis'}
-            </Label>
-            <Combobox
-              id="chart-x-axis-select"
-              items={columnItems}
-              value={formData.dimension_column || formData.x_axis_column}
-              onValueChange={(value) => onChange({ dimension_column: value })}
-              disabled={disabled}
-              searchPlaceholder="Search columns..."
-              placeholder="Select X axis column"
-              renderItem={(item, _isSelected, searchQuery) => (
-                <div className="flex items-center gap-2 min-w-0">
-                  <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
-                  <TooltipLabel label={item.label}>
-                    {highlightText(item.label, searchQuery)}
-                  </TooltipLabel>
-                </div>
-              )}
-            />
-          </div>
-        )}
-
-      {/* Table Dimensions Selector - Multiple dimensions with drill-down support */}
-      {formData.chart_type === 'table' && (
-        <TableDimensionsSelector
-          dimensions={
-            formData.dimensions && formData.dimensions.length > 0
-              ? formData.dimensions
-              : formData.dimension_column
-                ? [{ column: formData.dimension_column, enable_drill_down: false }]
-                : []
-          }
-          availableColumns={normalizedColumns}
-          onChange={(dimensions) => {
-            // Convert dimensions array to formData format
-            const dimensionColumns = dimensions.map((d) => d.column).filter(Boolean);
-            onChange({
-              dimensions,
-              dimension_columns: dimensionColumns,
-              // Keep dimension_column for backward compatibility (use first dimension)
-              dimension_column: dimensionColumns[0] || undefined,
-              // Clear extra_dimension_column when using dimensions array
-              extra_dimension_column: undefined,
-            });
-          }}
+      {chartType === 'table' && (
+        <TableDimensionsSection
+          formData={formData}
+          onChange={onChange}
           disabled={disabled}
+          normalizedColumns={normalizedColumns}
           hasLevelScopedRules={hasLevelScopedRules}
           onReorderWithScopedRules={onReorderWithScopedRules}
           scopedRuleCountByLevel={scopedRuleCountByLevel}
@@ -422,7 +181,7 @@ export function ChartDataConfigurationV3({
       )}
 
       {/* Pivot Table Data Configuration — dimensions only; totals render after metrics/filters */}
-      {formData.chart_type === 'pivot_table' && (
+      {chartType === 'pivot_table' && (
         <PivotDataConfiguration
           formData={formData}
           availableColumns={normalizedColumns}
@@ -433,303 +192,44 @@ export function ChartDataConfigurationV3({
       )}
 
       {/* Time Grain - For Bar and Line Charts with DateTime X-axis */}
-      {['bar', 'line'].includes(formData.chart_type || '') &&
-        formData.dimension_column &&
-        allColumns.find(
-          (col) =>
-            col.column_name === formData.dimension_column && isDateAndTimestampColumn(col.data_type)
-        ) && (
-          <TimeGrainSelector
-            value={formData.time_grain || null}
-            onChange={(value) => onChange({ time_grain: value })}
-            disabled={disabled}
-            columnDataType={
-              allColumns.find((col) => col.column_name === formData.dimension_column)?.data_type
-            }
-          />
-        )}
-
-      {/* Multiple Metrics for Bar, Line, Table, and Pivot Table Charts */}
-      {['bar', 'line', 'table', 'pivot_table'].includes(formData.chart_type || '') && (
-        <MetricsSelector
-          metrics={formData.metrics || []}
-          onChange={(metrics: ChartMetric[]) => onChange({ metrics })}
-          columns={normalizedColumns}
+      {timeGrainColumn && (
+        <TimeGrainSelector
+          value={formData.time_grain || null}
+          onChange={(value) => onChange({ time_grain: value })}
           disabled={disabled}
-          chartType={formData.chart_type}
-          schemaName={formData.schema_name}
-          tableName={formData.table_name}
-          isNewChart={isNewChart}
+          columnDataType={timeGrainColumn.data_type}
         />
       )}
 
-      {/* Single Metric for Pie Charts */}
-      {formData.chart_type === 'pie' && (
-        <MetricsSelector
-          metrics={formData.metrics || []}
-          onChange={(metrics: ChartMetric[]) => onChange({ metrics })}
-          columns={normalizedColumns}
+      <MetricsSection
+        formData={formData}
+        onChange={onChange}
+        disabled={disabled}
+        normalizedColumns={normalizedColumns}
+        isNewChart={isNewChart}
+      />
+
+      {EXTRA_DIMENSION_CHART_TYPES.includes(chartType) && (
+        <ExtraDimensionSection
+          formData={formData}
+          onChange={onChange}
           disabled={disabled}
-          chartType="pie"
-          maxMetrics={1}
-          schemaName={formData.schema_name}
-          tableName={formData.table_name}
-          isNewChart={isNewChart}
+          allColumns={allColumns}
         />
       )}
 
-      {/* For number charts - use MetricsSelector with single metric */}
-      {formData.chart_type === 'number' && (
-        <MetricsSelector
-          metrics={formData.metrics || []}
-          onChange={(metrics: ChartMetric[]) => {
-            // Map metrics to legacy fields for compatibility
-            const metric = metrics[0];
-            onChange({
-              metrics,
-              aggregate_column: metric?.column,
-              aggregate_function: metric?.aggregation,
-            });
-          }}
-          columns={normalizedColumns}
+      {chartType !== 'map' && (
+        <FiltersSection
+          formData={formData}
+          onChange={onChange}
           disabled={disabled}
-          chartType="number"
-          maxMetrics={1}
-          schemaName={formData.schema_name}
-          tableName={formData.table_name}
-          isNewChart={isNewChart}
+          normalizedColumns={normalizedColumns}
+          columnItems={columnItems}
         />
-      )}
-
-      {/* Extra Dimension - for stacked/grouped charts (NOT tables - tables use dimensions array) */}
-      {['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Extra Dimension</Label>
-          <Combobox
-            id="chart-extra-dimension-select"
-            items={[
-              { value: 'none', label: 'None' },
-              ...allColumns
-                .filter((col) => col.column_name !== formData.dimension_column)
-                .map((col) => ({
-                  value: col.column_name,
-                  label: col.column_name,
-                  data_type: col.data_type,
-                })),
-            ]}
-            value={formData.extra_dimension_column || 'none'}
-            onValueChange={(value) =>
-              onChange({ extra_dimension_column: value === 'none' ? undefined : value })
-            }
-            disabled={disabled}
-            searchPlaceholder="Search columns..."
-            placeholder={`Select dimension (for ${formData.chart_type === 'bar' ? 'stacked bar' : 'multi-line chart'})`}
-            renderItem={(item, _isSelected, searchQuery) => (
-              <div className="flex items-center gap-2 min-w-0">
-                {item.data_type && <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />}
-                <TooltipLabel label={item.label}>
-                  {highlightText(item.label, searchQuery)}
-                </TooltipLabel>
-              </div>
-            )}
-          />
-        </div>
-      )}
-
-      {/* Filters Section */}
-      {formData.chart_type !== 'map' && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Data Filters</Label>
-          <div className="space-y-2">
-            {filters.map((filter, index) => {
-              const filterId = filterIds.current[index];
-              const filterColumnDataType = normalizedColumns.find(
-                (col) => col.column_name === filter.column
-              )?.data_type;
-
-              return (
-                <div key={filterId} className="flex gap-2 items-center">
-                  <Combobox
-                    id={`chart-filter-column-${index}`}
-                    items={columnItems}
-                    value={filter.column}
-                    onValueChange={(value) => {
-                      const newColDataType = normalizedColumns.find(
-                        (col) => col.column_name === value
-                      )?.data_type;
-                      const newFilters = [...(formData.filters || [])];
-                      newFilters[index] = {
-                        ...filter,
-                        column: value,
-                        value: '',
-                        ...(newColDataType && { data_type: newColDataType }),
-                      };
-                      onChange({ filters: newFilters });
-                    }}
-                    disabled={disabled}
-                    searchPlaceholder="Search columns..."
-                    placeholder="Column"
-                    compact
-                    className="flex-1"
-                    renderItem={(item, _isSelected, searchQuery) => (
-                      <div className="flex items-center gap-2 min-w-0">
-                        <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
-                        <TooltipLabel label={item.label}>
-                          {highlightText(item.label, searchQuery)}
-                        </TooltipLabel>
-                      </div>
-                    )}
-                  />
-
-                  <Select
-                    value={filter.operator}
-                    onValueChange={(value) => {
-                      const newFilters = [...(formData.filters || [])];
-                      newFilters[index] = { ...filter, operator: value as ChartFilter['operator'] };
-                      onChange({ filters: newFilters });
-                    }}
-                    disabled={disabled}
-                  >
-                    <SelectTrigger
-                      className="h-8 w-32"
-                      data-testid={`chart-filter-operator-${index}`}
-                    >
-                      <SelectValue placeholder="Operator" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem
-                        value="equals"
-                        data-testid={`chart-filter-operator-${index}-option-equals`}
-                      >
-                        Equals
-                      </SelectItem>
-                      <SelectItem
-                        value="not_equals"
-                        data-testid={`chart-filter-operator-${index}-option-not_equals`}
-                      >
-                        Not equals
-                      </SelectItem>
-                      <SelectItem
-                        value="greater_than"
-                        data-testid={`chart-filter-operator-${index}-option-greater_than`}
-                      >
-                        Greater than (&gt;)
-                      </SelectItem>
-                      <SelectItem
-                        value="greater_than_equal"
-                        data-testid={`chart-filter-operator-${index}-option-greater_than_equal`}
-                      >
-                        Greater or equal (&gt;=)
-                      </SelectItem>
-                      <SelectItem
-                        value="less_than"
-                        data-testid={`chart-filter-operator-${index}-option-less_than`}
-                      >
-                        Less than (&lt;)
-                      </SelectItem>
-                      <SelectItem
-                        value="less_than_equal"
-                        data-testid={`chart-filter-operator-${index}-option-less_than_equal`}
-                      >
-                        Less or equal (&lt;=)
-                      </SelectItem>
-                      <SelectItem
-                        value="like"
-                        data-testid={`chart-filter-operator-${index}-option-like`}
-                      >
-                        Like
-                      </SelectItem>
-                      <SelectItem
-                        value="like_case_insensitive"
-                        data-testid={`chart-filter-operator-${index}-option-like_case_insensitive`}
-                      >
-                        Like (case insensitive)
-                      </SelectItem>
-                      <SelectItem
-                        value="in"
-                        data-testid={`chart-filter-operator-${index}-option-in`}
-                      >
-                        In
-                      </SelectItem>
-                      <SelectItem
-                        value="not_in"
-                        data-testid={`chart-filter-operator-${index}-option-not_in`}
-                      >
-                        Not in
-                      </SelectItem>
-                      <SelectItem
-                        value="is_null"
-                        data-testid={`chart-filter-operator-${index}-option-is_null`}
-                      >
-                        Is null
-                      </SelectItem>
-                      <SelectItem
-                        value="is_not_null"
-                        data-testid={`chart-filter-operator-${index}-option-is_not_null`}
-                      >
-                        Is not null
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <SearchableValueInput
-                    schema={formData.schema_name}
-                    table={formData.table_name}
-                    column={filter.column}
-                    operator={filter.operator}
-                    value={filter.value}
-                    dataType={filterColumnDataType}
-                    idPrefix={`chart-filter-value-${index}`}
-                    onChange={(value) => {
-                      const newFilters = [...(formData.filters || [])];
-                      newFilters[index] = { ...filter, value };
-                      onChange({ filters: newFilters });
-                    }}
-                    disabled={disabled}
-                  />
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    aria-label="Remove filter"
-                    data-testid={`remove-filter-${index}`}
-                    onClick={() => {
-                      filterIds.current.splice(index, 1);
-                      const newFilters = filters.filter((_, i) => i !== index);
-                      onChange({ filters: newFilters });
-                    }}
-                    disabled={disabled}
-                  >
-                    ✕
-                  </Button>
-                </div>
-              );
-            })}
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                filterIds.current.push(`filter-${nextFilterId.current++}`);
-                const newFilters = [
-                  ...filters,
-                  { column: '', operator: 'equals' as ChartFilter['operator'], value: '' },
-                ];
-                onChange({ filters: newFilters });
-              }}
-              disabled={disabled}
-              data-testid="chart-add-filter-btn"
-              className="w-full border-dashed bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
-            >
-              + Add Filter
-            </Button>
-          </div>
-        </div>
       )}
 
       {/* Pivot Table subtotals & grand totals — placed after metrics/filters */}
-      {formData.chart_type === 'pivot_table' && (
+      {chartType === 'pivot_table' && (
         <PivotDataConfiguration
           formData={formData}
           availableColumns={normalizedColumns}
@@ -739,212 +239,13 @@ export function ChartDataConfigurationV3({
         />
       )}
 
-      {/* Pagination Section — not applicable to map, number, or pivot table charts */}
-      {formData.chart_type !== 'map' &&
-        formData.chart_type !== 'number' &&
-        formData.chart_type !== 'pivot_table' && (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-900">Pagination</Label>
-            <Select
-              value={
-                formData.pagination?.enabled
-                  ? (formData.pagination?.page_size || 50).toString()
-                  : '__none__'
-              }
-              onValueChange={(value) => {
-                if (value === '__none__') {
-                  onChange({ pagination: { enabled: false, page_size: 50 } });
-                } else {
-                  onChange({
-                    pagination: {
-                      enabled: true,
-                      page_size: parseInt(value),
-                    },
-                  });
-                }
-              }}
-              disabled={disabled}
-            >
-              <SelectTrigger className="h-8 w-full" data-testid="chart-pagination-select">
-                <SelectValue placeholder="Select pagination" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__" data-testid="chart-pagination-option-__none__">
-                  No pagination
-                </SelectItem>
-                <SelectItem value="20" data-testid="chart-pagination-option-20">
-                  20 items
-                </SelectItem>
-                <SelectItem value="50" data-testid="chart-pagination-option-50">
-                  50 items
-                </SelectItem>
-                <SelectItem value="100" data-testid="chart-pagination-option-100">
-                  100 items
-                </SelectItem>
-                <SelectItem value="200" data-testid="chart-pagination-option-200">
-                  200 items
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+      {!NO_PAGINATION_SORT_CHART_TYPES.includes(chartType) && (
+        <PaginationSection formData={formData} onChange={onChange} disabled={disabled} />
+      )}
 
-      {/* Sort Section — not shown for pivot tables (v1 has no pivot sort) */}
-      {formData.chart_type !== 'map' &&
-        formData.chart_type !== 'number' &&
-        formData.chart_type !== 'pivot_table' && (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-900">Sort Configuration</Label>
-
-            {(() => {
-              // Build sortable options list
-              const sortableOptions: Array<{
-                value: string;
-                label: string;
-                type: 'column' | 'metric';
-                _uniqueId?: string;
-              }> = [];
-
-              // Add dimension column if available
-              if (formData.dimension_column) {
-                sortableOptions.push({
-                  value: formData.dimension_column,
-                  label: formData.dimension_column,
-                  type: 'column',
-                });
-              }
-
-              // Add configured metrics using their aliases
-              if (formData.metrics && formData.metrics.length > 0) {
-                formData.metrics.forEach((metric, metricIndex) => {
-                  if (metric.alias) {
-                    sortableOptions.push({
-                      value: metric.alias,
-                      label: metric.alias,
-                      type: 'metric',
-                      // Add unique identifier to prevent key conflicts
-                      _uniqueId: `metric-${metricIndex}-${metric.alias}`,
-                    });
-                  }
-                });
-              } else if (formData.aggregate_column && formData.aggregate_function) {
-                // Legacy single metric - create an alias for it
-                const defaultAlias = `${formData.aggregate_function}(${formData.aggregate_column})`;
-                sortableOptions.push({
-                  value: defaultAlias,
-                  label: defaultAlias,
-                  type: 'metric',
-                });
-              }
-
-              // Get current sort values
-              const currentSort =
-                formData.sort && formData.sort.length > 0 ? formData.sort[0] : null;
-              const currentColumn = currentSort?.column || '__none__';
-              const currentDirection = currentSort?.direction || 'asc';
-
-              // Check if current sort column is still available
-              const isCurrentColumnAvailable =
-                currentColumn === '__none__' ||
-                sortableOptions.some((opt) => opt.value === currentColumn);
-
-              if (sortableOptions.length > 0) {
-                return (
-                  <div className="grid grid-cols-2 gap-2">
-                    {/* Column/Metric Selection */}
-                    <Combobox
-                      id="chart-sort-column-select"
-                      items={[
-                        { value: '__none__', label: 'None', type: '' },
-                        ...sortableOptions.map((option) => ({
-                          value: option.value,
-                          label: option.label,
-                          type: option.type,
-                        })),
-                      ]}
-                      value={isCurrentColumnAvailable ? currentColumn : '__none__'}
-                      onValueChange={(value) => {
-                        if (value === '__none__') {
-                          onChange({ sort: [] });
-                        } else {
-                          onChange({
-                            sort: [
-                              {
-                                column: value,
-                                direction: currentDirection,
-                              },
-                            ],
-                          });
-                        }
-                      }}
-                      disabled={disabled}
-                      searchPlaceholder="Search..."
-                      placeholder="Select column to sort"
-                      compact
-                      renderItem={(item, _isSelected, searchQuery) => (
-                        <div className="flex items-center gap-2 min-w-0">
-                          {item.type && (
-                            <span
-                              className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium shrink-0 ${
-                                item.type === 'column'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-green-100 text-green-800'
-                              }`}
-                            >
-                              {item.type === 'column' ? 'COL' : 'METRIC'}
-                            </span>
-                          )}
-                          <TooltipLabel label={item.label} className="flex-1">
-                            {highlightText(item.label, searchQuery)}
-                          </TooltipLabel>
-                        </div>
-                      )}
-                    />
-
-                    {/* Direction Selection */}
-                    <Select
-                      value={currentSort ? currentDirection : 'asc'}
-                      onValueChange={(value) => {
-                        if (currentSort && currentColumn !== '__none__') {
-                          onChange({
-                            sort: [
-                              {
-                                column: currentColumn,
-                                direction: value as 'asc' | 'desc',
-                              },
-                            ],
-                          });
-                        }
-                      }}
-                      disabled={disabled || !currentSort || currentColumn === '__none__'}
-                    >
-                      <SelectTrigger
-                        className="h-8 w-full"
-                        data-testid="chart-sort-direction-select"
-                      >
-                        <SelectValue placeholder="Sort direction" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="asc" data-testid="chart-sort-direction-option-asc">
-                          Ascending
-                        </SelectItem>
-                        <SelectItem value="desc" data-testid="chart-sort-direction-option-desc">
-                          Descending
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                );
-              } else {
-                return (
-                  <div className="text-sm text-gray-500">
-                    Configure metrics first to enable sorting
-                  </div>
-                );
-              }
-            })()}
-          </div>
-        )}
+      {!NO_PAGINATION_SORT_CHART_TYPES.includes(chartType) && (
+        <SortSection formData={formData} onChange={onChange} disabled={disabled} />
+      )}
     </div>
   );
 }

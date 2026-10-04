@@ -1,13 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -16,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { MapPin, Plus, Eye, ChevronDown, ChevronUp, Trash2, Filter, Check, X } from 'lucide-react';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
-import { DatasetSelector } from '@/components/charts/DatasetSelector';
+import { DataSourceSection } from '@/components/charts/builder/data-config/DataSourceSection';
+import { FilterOperatorSelect } from '@/components/charts/builder/data-config/FilterOperatorSelect';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { DynamicLevelConfig } from './DynamicLevelConfig';
 import { useColumns, useChartDataPreview } from '@/hooks/api/useChart';
@@ -245,18 +239,12 @@ export function MapDataConfigurationV3({
         disabled={disabled}
       />
 
-      {/* Data Source - Simple Search Dropdown */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-900">Data Source</Label>
-        <DatasetSelector
-          schema_name={formData.schema_name}
-          table_name={formData.table_name}
-          onDatasetChange={handleDatasetChange}
-          disabled={disabled}
-          className="w-full"
-          id="chart-dataset-select"
-        />
-      </div>
+      <DataSourceSection
+        schemaName={formData.schema_name}
+        tableName={formData.table_name}
+        onDatasetChange={handleDatasetChange}
+        disabled={disabled}
+      />
 
       {/* Metrics - use MetricsSelector with single metric */}
       <MetricsSelector
@@ -301,90 +289,16 @@ export function MapDataConfigurationV3({
                 className="flex-1"
               />
 
-              <Select
+              <FilterOperatorSelect
+                index={index}
                 value={filter.operator}
-                onValueChange={(value) => {
+                onChange={(operator) => {
                   const newFilters = [...(formData.filters || [])];
-                  newFilters[index] = { ...filter, operator: value as any };
+                  newFilters[index] = { ...filter, operator };
                   onFormDataChange({ filters: newFilters });
                 }}
                 disabled={disabled}
-              >
-                <SelectTrigger className="h-8 w-32" data-testid={`chart-filter-operator-${index}`}>
-                  <SelectValue placeholder="Operator" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem
-                    value="equals"
-                    data-testid={`chart-filter-operator-${index}-option-equals`}
-                  >
-                    Equals
-                  </SelectItem>
-                  <SelectItem
-                    value="not_equals"
-                    data-testid={`chart-filter-operator-${index}-option-not_equals`}
-                  >
-                    Not equals
-                  </SelectItem>
-                  <SelectItem
-                    value="greater_than"
-                    data-testid={`chart-filter-operator-${index}-option-greater_than`}
-                  >
-                    Greater than (&gt;)
-                  </SelectItem>
-                  <SelectItem
-                    value="greater_than_equal"
-                    data-testid={`chart-filter-operator-${index}-option-greater_than_equal`}
-                  >
-                    Greater or equal (&gt;=)
-                  </SelectItem>
-                  <SelectItem
-                    value="less_than"
-                    data-testid={`chart-filter-operator-${index}-option-less_than`}
-                  >
-                    Less than (&lt;)
-                  </SelectItem>
-                  <SelectItem
-                    value="less_than_equal"
-                    data-testid={`chart-filter-operator-${index}-option-less_than_equal`}
-                  >
-                    Less or equal (&lt;=)
-                  </SelectItem>
-                  <SelectItem
-                    value="like"
-                    data-testid={`chart-filter-operator-${index}-option-like`}
-                  >
-                    Like
-                  </SelectItem>
-                  <SelectItem
-                    value="like_case_insensitive"
-                    data-testid={`chart-filter-operator-${index}-option-like_case_insensitive`}
-                  >
-                    Like (case insensitive)
-                  </SelectItem>
-                  <SelectItem value="in" data-testid={`chart-filter-operator-${index}-option-in`}>
-                    In
-                  </SelectItem>
-                  <SelectItem
-                    value="not_in"
-                    data-testid={`chart-filter-operator-${index}-option-not_in`}
-                  >
-                    Not in
-                  </SelectItem>
-                  <SelectItem
-                    value="is_null"
-                    data-testid={`chart-filter-operator-${index}-option-is_null`}
-                  >
-                    Is null
-                  </SelectItem>
-                  <SelectItem
-                    value="is_not_null"
-                    data-testid={`chart-filter-operator-${index}-option-is_not_null`}
-                  >
-                    Is not null
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              />
 
               <SearchableValueInput
                 schema={formData.schema_name}
