@@ -10,11 +10,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, METRIC_CREATE_SOURCES } from '@/constants/analytics';
 import { MetricAccordionItem } from './MetricAccordionItem';
-
-// Default Display Name for the auto-added count-all metric. Matches the auto-prefill label in
-// lib/chartAutoPrefill and MetricAccordionItem's autoLabel(), so an unedited default is recognised
-// as auto-generated (not a user customization).
-export const DEFAULT_METRIC_ALIAS = 'Total Count';
+import { DEFAULT_METRIC_ALIAS } from './logic/metric-labels';
 
 interface MetricsSelectorProps {
   metrics: ChartMetric[];
