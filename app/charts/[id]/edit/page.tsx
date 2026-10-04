@@ -72,79 +72,7 @@ import {
   getWidgetBackLabel,
   parseWidgetNavigationSource,
 } from '@/lib/widget-navigation';
-
-// Default customizations for each chart type
-function getDefaultCustomizations(chartType: string): Record<string, any> {
-  switch (chartType) {
-    case ChartTypes.BAR:
-      return {
-        orientation: 'vertical',
-        showDataLabels: false,
-        dataLabelPosition: 'top',
-        stacked: false,
-        showTooltip: true,
-        showLegend: true,
-        legendDisplay: 'paginated',
-        legendPosition: 'top',
-        xAxisTitle: '',
-        yAxisTitle: '',
-        // Bar categories are usually long text labels — 45° keeps them readable without truncation
-        xAxisLabelRotation: '45',
-        yAxisLabelRotation: 'horizontal',
-      };
-    case ChartTypes.PIE:
-      return {
-        chartStyle: 'donut',
-        labelFormat: 'percentage',
-        showDataLabels: true,
-        dataLabelPosition: 'outside',
-        showTooltip: true,
-        showLegend: true,
-        legendDisplay: 'paginated',
-        legendPosition: 'top',
-      };
-    case ChartTypes.LINE:
-      return {
-        lineStyle: 'smooth',
-        showDataPoints: true,
-        showTooltip: true,
-        showLegend: true,
-        legendDisplay: 'paginated',
-        legendPosition: 'top',
-        showDataLabels: false,
-        dataLabelPosition: 'top',
-        xAxisTitle: '',
-        yAxisTitle: '',
-        xAxisLabelRotation: 'horizontal',
-        yAxisLabelRotation: 'horizontal',
-      };
-    case ChartTypes.NUMBER:
-      return {
-        numberSize: 'medium',
-        subtitle: '',
-        numberFormat: 'default',
-        decimalPlaces: 0,
-        numberPrefix: '',
-        numberSuffix: '',
-      };
-    case ChartTypes.MAP:
-      return {
-        colorScheme: 'Blues',
-        showTooltip: true,
-        showLegend: true,
-        nullValueLabel: 'No Data',
-        title: '',
-        showLabels: false,
-      };
-    case ChartTypes.PIVOT_TABLE:
-      return {
-        numberFormat: 'default',
-        decimalPlaces: 0,
-      };
-    default:
-      return {};
-  }
-}
+import { getDefaultCustomizations } from '@/components/charts/chart-types/default-customizations';
 
 function EditChartPageContent() {
   const params = useParams();
@@ -165,7 +93,7 @@ function EditChartPageContent() {
     title: '',
     chart_type: ChartTypes.BAR,
     computation_type: 'aggregated',
-    customizations: getDefaultCustomizations(ChartTypes.BAR),
+    customizations: getDefaultCustomizations(ChartTypes.BAR, 'edit'),
     aggregate_function: 'sum',
   };
 
@@ -308,7 +236,7 @@ function EditChartPageContent() {
               ]
             : undefined),
         customizations:
-          chart.extra_config?.customizations || getDefaultCustomizations(chart.chart_type),
+          chart.extra_config?.customizations || getDefaultCustomizations(chart.chart_type, 'edit'),
         filters: chart.extra_config?.filters || [],
         pagination: chart.extra_config?.pagination || { enabled: false, page_size: 50 },
         sort: chart.extra_config?.sort || [],
@@ -1057,7 +985,7 @@ function EditChartPageContent() {
 
         // Merge customizations intelligently
         const existingCustomizations = prev.customizations || {};
-        const newDefaults = getDefaultCustomizations(newChartType);
+        const newDefaults = getDefaultCustomizations(newChartType, 'edit');
 
         const preservedFields: Record<string, any> = {};
         ['showTooltip', 'showLegend', 'showDataLabels'].forEach((field) => {

@@ -65,94 +65,8 @@ import {
   isStageBefore,
   markChartCreated,
 } from '@/components/onboarding/insight-walkthrough-constants';
-
-// Default customizations for each chart type
-function getDefaultCustomizations(chartType: string): Record<string, any> {
-  switch (chartType) {
-    case ChartTypes.BAR:
-      return {
-        orientation: 'vertical',
-        showDataLabels: false,
-        dataLabelPosition: 'top',
-        stacked: false,
-        showTooltip: true,
-        showLegend: true,
-        xAxisTitle: '',
-        yAxisTitle: '',
-        // Bar categories are usually long text labels — 45° keeps them readable without truncation
-        xAxisLabelRotation: '45',
-        yAxisLabelRotation: 'horizontal',
-      };
-    case ChartTypes.PIE:
-      return {
-        chartStyle: 'donut',
-        labelFormat: 'percentage',
-        showDataLabels: true,
-        dataLabelPosition: 'outside',
-        showTooltip: true,
-        showLegend: true,
-        legendPosition: 'right',
-      };
-    case ChartTypes.LINE:
-      return {
-        lineStyle: 'smooth',
-        showDataPoints: true,
-        showTooltip: true,
-        showLegend: true,
-        showDataLabels: false,
-        dataLabelPosition: 'top',
-        xAxisTitle: '',
-        yAxisTitle: '',
-        xAxisLabelRotation: 'horizontal',
-        yAxisLabelRotation: 'horizontal',
-      };
-    case ChartTypes.NUMBER:
-      return {
-        numberSize: 'medium',
-        subtitle: '',
-        numberFormat: 'default',
-        decimalPlaces: 0,
-        numberPrefix: '',
-        numberSuffix: '',
-      };
-    case ChartTypes.MAP:
-      return {
-        colorScheme: 'Blues',
-        showTooltip: true,
-        showLegend: true,
-        nullValueLabel: 'No Data',
-        title: '',
-      };
-    case ChartTypes.PIVOT_TABLE:
-      return {
-        numberFormat: 'default',
-        decimalPlaces: 0,
-      };
-    default:
-      return {};
-  }
-}
-
-// Generate default chart name
-function generateDefaultChartName(chartType: string, table: string): string {
-  const timestamp = new Date().toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-
-  const typeNames = {
-    bar: 'Bar chart',
-    line: 'Line chart',
-    pie: 'Pie chart',
-    number: 'Number card',
-    map: 'Map chart',
-  };
-
-  return `${typeNames[chartType as keyof typeof typeNames] || 'Chart'} - ${table} ${timestamp}`;
-}
+import { getDefaultCustomizations } from '@/components/charts/chart-types/default-customizations';
+import { generateDefaultChartName } from '@/components/charts/logic/default-name';
 
 function ConfigureChartPageContent() {
   const router = useRouter();
@@ -185,7 +99,7 @@ function ConfigureChartPageContent() {
     schema_name: schema,
     table_name: table,
     computation_type: 'aggregated',
-    customizations: getDefaultCustomizations(chartType),
+    customizations: getDefaultCustomizations(chartType, 'create'),
     // Set default aggregate function to prevent API errors
     aggregate_function: 'count',
   });
