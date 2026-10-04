@@ -22,7 +22,7 @@ Sources: [charts.md](charts.md), [dashboards.md](dashboards.md), [reports.md](re
 
 
 
-Functions & logic: **87** entries. **42** have a Jest test, **43** are only covered indirectly through E2E (⚠️ E2E only, no Jest test), and **2** have no test at all.
+Functions & logic: **87** entries. **53** have a Jest test, **32** are only covered indirectly through E2E (⚠️ E2E only, no Jest test), and **2** have no test at all.
 
 ---
 
@@ -1464,17 +1464,17 @@ Pure or logic-heavy functions from the inventories (charts.md §16, dashboards.m
 
 ### Charts
 
-- [ ] `getDefaultCustomizations`, create copy (`app/charts/new/configure/page.tsx`) — covered by: E2E charts/builder-*.spec.ts › "styling panel defaults in create", charts/edit.spec.ts › [pinned] C-E7 create / Jest ❌ none (⚠️ E2E only)
-- [ ] `getDefaultCustomizations`, edit copy (`app/charts/[id]/edit/page.tsx`) — covered by: E2E charts/edit.spec.ts › [pinned] C-E7 edit / Jest ❌ none (⚠️ E2E only)
-- [ ] `isFormValid`, create copy (`configure/page.tsx`) — covered by: E2E charts/builder-shared.spec.ts › C-B2, [pinned] removing the only bar metric; charts/builder-pivot.spec.ts › C-B2; charts/builder-number.spec.ts › removing the metric / Jest ❌ none (⚠️ E2E only)
-- [ ] `isFormValid`, edit copy (`edit/page.tsx`) — covered by: E2E charts/edit.spec.ts › C-E5 / Jest ❌ none (⚠️ E2E only)
-- [ ] `isChartDataReady`, create and edit copies (table differs) — covered by: E2E charts/builder-table.spec.ts › [pinned] C-B3 dataset + title only / Jest ❌ none (⚠️ E2E only)
-- [ ] `generateDefaultChartName` (`configure/page.tsx`) — covered by: E2E charts/builder-shared.spec.ts › C-B1 (bar, line, pie, number only) / Jest ❌ none (⚠️ E2E only, table/pivot/map titles unchecked)
-- [ ] Chart-data payload memo, create (`configure/page.tsx`) — covered by: E2E every `expectChartDataPayload` snapshot in charts/builder-*.spec.ts / Jest ❌ none (⚠️ E2E only)
-- [ ] Chart-data payload builder, edit (`edit/page.tsx`) — covered by: E2E charts/edit.spec.ts › C-E7 edit, the C-E2 update snapshots / Jest ❌ none (⚠️ E2E only)
-- [ ] `convertLayersToSimplified` (`edit/page.tsx`) — covered by: E2E charts/builder-map.spec.ts › C-E2 map edit round trip, C-E2 picking a district / Jest ❌ none (⚠️ E2E only)
-- [ ] `convertSimplifiedToLayers` (`edit/page.tsx`) — covered by: E2E charts/builder-map.spec.ts › C-E2 (both) / Jest ❌ none (⚠️ E2E only)
-- [ ] `buildChartData` (`edit/page.tsx`) — covered by: E2E charts/edit.spec.ts › C-E1 per type / Jest ❌ none (⚠️ E2E only)
+- [ ] `getDefaultCustomizations`, create copy — now `getDefaultCustomizations(type, 'create')` in `components/charts/chart-types/default-customizations.ts` — covered by: E2E charts/builder-*.spec.ts › "styling panel defaults in create", charts/edit.spec.ts › [pinned] C-E7 create / Jest `components/charts/chart-types/__tests__/default-customizations.test.ts`
+- [ ] `getDefaultCustomizations`, edit copy — now `getDefaultCustomizations(type, 'edit')` in `components/charts/chart-types/default-customizations.ts` — covered by: E2E charts/edit.spec.ts › [pinned] C-E7 edit / Jest `components/charts/chart-types/__tests__/default-customizations.test.ts`
+- [ ] `isFormValid`, create copy — now `canSaveChart` in `components/charts/logic/validation.ts` — covered by: E2E charts/builder-shared.spec.ts › C-B2, [pinned] removing the only bar metric; charts/builder-pivot.spec.ts › C-B2; charts/builder-number.spec.ts › removing the metric / Jest `components/charts/logic/__tests__/validation.test.ts`
+- [ ] `isFormValid`, edit copy — now `canSaveChart` in `components/charts/logic/validation.ts` — covered by: E2E charts/edit.spec.ts › C-E5 / Jest `components/charts/logic/__tests__/validation.test.ts`
+- [ ] `isChartDataReady`, create and edit copies (table differs) — now `isChartReady(config, builder)` in `components/charts/logic/validation.ts` — covered by: E2E charts/builder-table.spec.ts › [pinned] C-B3 dataset + title only / Jest `components/charts/logic/__tests__/validation.test.ts`
+- [ ] `generateDefaultChartName` — now `components/charts/logic/default-name.ts` — covered by: E2E charts/builder-shared.spec.ts › C-B1 (bar, line, pie, number only) / Jest `components/charts/logic/__tests__/default-name.test.ts` (table/pivot/map titles still only checked via E2E)
+- [ ] Chart-data payload memo, create — now `buildChartDataPayload` in `components/charts/logic/payload.ts` — covered by: E2E every `expectChartDataPayload` snapshot in charts/builder-*.spec.ts / Jest `components/charts/logic/__tests__/payload.test.ts`
+- [ ] Chart-data payload builder, edit — now `buildChartDataPayload` in `components/charts/logic/payload.ts` — covered by: E2E charts/edit.spec.ts › C-E7 edit, the C-E2 update snapshots / Jest `components/charts/logic/__tests__/payload.test.ts`
+- [ ] `convertLayersToSimplified` — now `toSimplifiedMapFields` in `components/charts/logic/map-layers.ts` — covered by: E2E charts/builder-map.spec.ts › C-E2 map edit round trip, C-E2 picking a district / Jest `components/charts/logic/__tests__/map-layers.test.ts`
+- [ ] `convertSimplifiedToLayers` — now `toMapLayers` in `components/charts/logic/map-layers.ts` — covered by: E2E charts/builder-map.spec.ts › C-E2 (both) / Jest `components/charts/logic/__tests__/map-layers.test.ts`
+- [ ] `buildChartData` — now `buildCreateChartPayload` / `buildEditChartPayload` in `components/charts/logic/payload.ts` — covered by: E2E charts/edit.spec.ts › C-E1 per type / Jest `components/charts/logic/__tests__/payload.test.ts`
 - [ ] Edit-page chart-type switch in `handleFormChange` (`edit/page.tsx`) — covered by: ⚠️ E2E only — type-switch-matrix-edit.spec.ts (all 42 transitions) · Jest ❌ none
 - [ ] `handleChartTypeChange` keep/trim rules (`ChartDataConfigurationV3.tsx`) — covered by: E2E charts/type-switch.spec.ts (all) / Jest `components/charts/__tests__/ChartDataConfigurationV3.test.tsx`
 - [ ] `handleDatasetChange` (`ChartDataConfigurationV3.tsx`) — covered by: Jest `ChartDataConfigurationV3.test.tsx` / E2E ❌ none
@@ -1578,17 +1578,6 @@ Every ❌ and ⚠️ line still open above, with the reason. Items moved to 🧑
 
 ### Functions & logic (code-level)
 
-- **Charts** · `getDefaultCustomizations`, create copy (`app/charts/new/configure/page.tsx`) → E2E only → add Jest characterization test before changing it
-- **Charts** · `getDefaultCustomizations`, edit copy (`app/charts/[id]/edit/page.tsx`) → E2E only → add Jest characterization test before changing it
-- **Charts** · `isFormValid`, create copy (`configure/page.tsx`) → E2E only → add Jest characterization test before changing it
-- **Charts** · `isFormValid`, edit copy (`edit/page.tsx`) → E2E only → add Jest characterization test before changing it
-- **Charts** · `isChartDataReady`, create and edit copies (table differs) → E2E only → add Jest characterization test before changing it
-- **Charts** · `generateDefaultChartName` (`configure/page.tsx`) → E2E only → add Jest characterization test before changing it
-- **Charts** · Chart-data payload memo, create (`configure/page.tsx`) → E2E only → add Jest characterization test before changing it
-- **Charts** · Chart-data payload builder, edit (`edit/page.tsx`) → E2E only → add Jest characterization test before changing it
-- **Charts** · `convertLayersToSimplified` (`edit/page.tsx`) → E2E only → add Jest characterization test before changing it
-- **Charts** · `convertSimplifiedToLayers` (`edit/page.tsx`) → E2E only → add Jest characterization test before changing it
-- **Charts** · `buildChartData` (`edit/page.tsx`) → E2E only → add Jest characterization test before changing it
 - **Charts** · Edit-page chart-type switch in `handleFormChange` (`edit/page.tsx`) → E2E only (type-switch-matrix-edit) → add Jest characterization test
 - **Charts** · `getLegendConfig`, `getPieSeriesPosition`, `applyLegendPosition`, `extractLegendPosition`, `isLegendPaginated` (`lib/chart-legend-utils.ts`) → E2E only → add Jest characterization test before changing it
 - **Charts** · `transformMapDataOverlayPayload` + simple/calculated helpers (`hooks/api/useChart.ts`) → E2E only → add Jest characterization test before changing it

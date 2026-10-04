@@ -8,9 +8,10 @@ import type {
 import { ChartTypes } from '@/types/charts';
 import { getApiCustomizations } from '@/lib/chart-payload-utils';
 import { buildPivotDataFields, buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
-import type { ChartBuilderKind } from '@/components/charts/chart-types/default-customizations';
+import type { ChartBuilderKind } from '@/components/charts/logic/builder-kind';
 import { isChartReady } from '@/components/charts/logic/validation';
 import { toMapLayers } from '@/components/charts/logic/map-layers';
+import type { MapLayerToSave } from '@/components/charts/logic/map-layers';
 
 /** Where a table chart's drill-down currently is (null = top level, not drilled). */
 export interface TableDrillDownState {
@@ -36,7 +37,7 @@ export function resolveTableDimensions(
   return [drillDownColumns[nextIndex]];
 }
 
-/** PINNED-BUGS: create sends `metrics` whenever the array exists (even empty); edit only when non-empty. */
+/** BUILDER-DRIFT: create sends `metrics` whenever the array exists (even empty); edit only when non-empty. */
 function metricsField(config: ChartBuilderFormData, builder: ChartBuilderKind) {
   if (builder === 'create') return config.metrics ? { metrics: config.metrics } : {};
   return config.metrics && config.metrics.length > 0 ? { metrics: config.metrics } : {};
@@ -56,7 +57,7 @@ function tableDimensionsField(
   }
   return {
     dimensions: resolveTableDimensions(config.dimensions, tableDrillDown),
-    // PINNED-BUGS: only the edit page sends table_columns here
+    // BUILDER-DRIFT: only the edit page sends table_columns here
     ...(builder === 'edit' && { table_columns: config.table_columns }),
   };
 }
@@ -127,12 +128,12 @@ export function buildChartDataPayload(
       pagination: config.pagination,
       sort: config.sort,
       time_grain: config.time_grain,
-      ...(builder === 'edit' && { table_columns: config.table_columns }), // PINNED-BUGS: edit only
+      ...(builder === 'edit' && { table_columns: config.table_columns }), // BUILDER-DRIFT: edit only
     },
   };
 }
 
-/** Table dimensions as both builders save them. PINNED-BUGS: dimension_columns keeps blank names. */
+/** Table dimensions as both builders save them. BUILDER-DRIFT: dimension_columns keeps blank names. */
 function tableDimensionSaveFields(config: ChartBuilderFormData) {
   const dimensions = config.dimensions || [];
   return {
@@ -166,7 +167,15 @@ function savedChartBase(config: ChartBuilderFormData) {
   };
 }
 
-/** POST /api/charts/ body from the create page. */
+/**
+ * POST /api/charts/ body from the create page.
+ *
+ * BUILDER-DRIFT: differs from buildEditChartPayload in three ways — it never
+ * converts district_column/ward_column/subward_column into `layers` (nor sends
+ * those flat drill fields or `drill_down_enabled`; `layers` is sent as-is from
+ * config), it only sends `geographic_hierarchy` when set, and it only sends
+ * `table_columns` for table charts (edit always sends it).
+ */
 export function buildCreateChartPayload(config: ChartBuilderFormData): ChartCreate {
   const firstLayerGeojsonId =
     config.chart_type === ChartTypes.MAP ? config.layers?.[0]?.geojson_id : undefined;
@@ -202,7 +211,7 @@ export function buildCreateChartPayload(config: ChartBuilderFormData): ChartCrea
 
 /** PUT body (and "save as new") from the edit page. Converts flat drill columns into layers. */
 export function buildEditChartPayload(config: ChartBuilderFormData): ChartCreate {
-  let layers: ChartBuilderFormData['layers'] | ReturnType<typeof toMapLayers> = config.layers;
+  let layers: ChartBuilderFormData['layers'] | MapLayerToSave[] = config.layers;
   let selectedGeojsonId = config.selected_geojson_id;
 
   if (config.chart_type === ChartTypes.MAP) {
@@ -210,8 +219,9 @@ export function buildEditChartPayload(config: ChartBuilderFormData): ChartCreate
       config.geographic_column &&
       (config.district_column || config.ward_column || config.subward_column);
     if (hasDrillColumns) layers = toMapLayers(config);
-    if (layers && layers.length > 0 && layers[0].geojson_id)
+    if (layers && layers.length > 0 && layers[0].geojson_id) {
       selectedGeojsonId = layers[0].geojson_id;
+    }
   }
 
   return {

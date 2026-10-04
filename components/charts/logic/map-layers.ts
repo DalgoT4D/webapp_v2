@@ -53,7 +53,7 @@ export function toSimplifiedMapFields(layers: SavedMapLayer[] | undefined): Simp
 /**
  * The builder's flat fields → layers to save (edit page).
  *
- * PINNED-BUGS: drill-down layers are assigned a running index as their `level`
+ * BUILDER-DRIFT: drill-down layers are assigned a running index as their `level`
  * rather than their intended level (1/2/3). If `geographic_column` is blank,
  * the first non-blank drill column becomes level 0 instead of level 1. This
  * matches the original `convertSimplifiedToLayers` in the edit page.

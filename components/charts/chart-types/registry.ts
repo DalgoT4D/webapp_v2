@@ -94,6 +94,8 @@ export const CHART_TYPE_INFO: Record<ChartType, ChartTypeInfo> = {
       className: 'text-[#8B5CF6]',
       bgClassName: 'bg-[#8B5CF6]/10',
     },
+    // BUILDER-DRIFT: switcher and /charts/new intentionally use different copy today
+    // ("Big Number" vs "Number", different descriptions).
     selector: { label: 'Big Number', description: 'Display a single key metric prominently' },
     newChartCard: {
       label: 'Number',

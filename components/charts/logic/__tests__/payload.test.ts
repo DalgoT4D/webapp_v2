@@ -4,6 +4,7 @@ import {
   buildCreateChartPayload,
   buildEditChartPayload,
 } from '@/components/charts/logic/payload';
+import { toMapLayers } from '@/components/charts/logic/map-layers';
 import { getApiCustomizations } from '@/lib/chart-payload-utils';
 import { buildPivotDataFields, buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
@@ -226,6 +227,27 @@ describe('save payloads', () => {
     expect(payload.extra_config.selected_geojson_id).toBe(3);
     expect(payload.extra_config.district_column).toBe('district');
     expect(payload.extra_config.geographic_hierarchy).toBeNull();
+  });
+
+  it('map drill columns: edit converts them to layers and sends them, create does not (differs between builders)', () => {
+    const config: ChartBuilderFormData = {
+      ...saved,
+      chart_type: 'map',
+      geographic_column: 'state',
+      selected_geojson_id: 5,
+      district_column: 'district',
+      layers: [{ id: '0', level: 0, geojson_id: 5 }],
+      metrics: [SUM_STUDENTS],
+    } as ChartBuilderFormData;
+
+    const create = wire(buildCreateChartPayload(config));
+    expect(create.extra_config.layers).toEqual(config.layers);
+    expect(create.extra_config).not.toHaveProperty('district_column');
+    expect(create.extra_config).not.toHaveProperty('drill_down_enabled');
+
+    const edit = wire(buildEditChartPayload(config));
+    expect(edit.extra_config.district_column).toBe('district');
+    expect(edit.extra_config.layers).toEqual(wire(toMapLayers(config)));
   });
 
   it('table: dimensions trimmed for the new shape, raw for dimension_columns (both builders)', () => {

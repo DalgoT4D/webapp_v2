@@ -1,7 +1,5 @@
 import { ChartTypes } from '@/types/charts';
-
-/** Which chart builder page is asking. The two pages differ in a few pinned ways. */
-export type ChartBuilderKind = 'create' | 'edit';
+import type { ChartBuilderKind } from '@/components/charts/logic/builder-kind';
 
 type Customizations = Record<string, unknown>;
 
