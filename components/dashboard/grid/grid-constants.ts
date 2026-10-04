@@ -3,6 +3,9 @@
  * Superset-style: always 12 columns; columns scale with the container width.
  */
 
+/** Columns in the dashboard grid (Superset-style: the same at every width). */
+export const GRID_COLUMN_COUNT = 12;
+
 /** Height of one grid row in px. */
 export const GRID_ROW_HEIGHT = 20;
 

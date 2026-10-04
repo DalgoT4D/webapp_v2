@@ -1,5 +1,7 @@
+import { GRID_ROW_HEIGHT } from '@/components/dashboard/grid/grid-constants';
+
 // Height of one dashboard grid row in the print capture.
-export const PRINT_ROW_HEIGHT_PX = 20;
+export const PRINT_ROW_HEIGHT_PX = GRID_ROW_HEIGHT;
 export const MIN_PRINT_CHART_HEIGHT_PX = 300;
 // Without a floor, a short text/image widget (small `h`) can compute to a
 // near-zero height, letting its content overflow rather than render at all.

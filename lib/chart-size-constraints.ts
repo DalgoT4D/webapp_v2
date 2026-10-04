@@ -3,6 +3,8 @@
  * Defines minimum dimensions for proper chart rendering
  */
 
+import { GRID_COLUMN_COUNT, GRID_ROW_HEIGHT } from '@/components/dashboard/grid/grid-constants';
+
 export interface ChartSizeConstraint {
   minWidth: number;
   minHeight: number;
@@ -15,10 +17,11 @@ export interface GridDimensions {
   h: number; // Grid units height
 }
 
-// Grid configuration - must match dashboard-builder-v2.tsx rowHeight
+// Grid configuration for size estimates — same columns and row height as the dashboard grid.
+// The margin is NOT the grid's (GRID_GAP_PX = 8): estimates have always used 10px; kept as is.
 export const GRID_CONFIG = {
-  cols: 12,
-  rowHeight: 20, // Height of one grid row in pixels (matches dashboard builder)
+  cols: GRID_COLUMN_COUNT,
+  rowHeight: GRID_ROW_HEIGHT, // Height of one grid row in pixels (matches dashboard builder)
   margin: [10, 10] as [number, number],
 } as const;
 

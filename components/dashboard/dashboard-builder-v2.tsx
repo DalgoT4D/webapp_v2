@@ -83,6 +83,7 @@ import {
   markKpiAddedToDashboard,
 } from '@/components/onboarding/insight-walkthrough-constants';
 import {
+  GRID_COLUMN_COUNT,
   GRID_CONTAINER_PADDING,
   GRID_GAP_PX,
   GRID_MARGIN,
@@ -91,13 +92,6 @@ import {
   SCREEN_SIZES,
   type ScreenSizeKey,
 } from '@/components/dashboard/grid/grid-constants';
-
-// Grid layout constants
-// Grid is fixed at 12 columns regardless of viewport (Superset-style). The grid model
-// gives each widget its own (x, y, w, h); RGL's vertical compaction (gravity-up) is the
-// only automatic behavior. New widgets land full-width at the bottom of the canvas.
-const FLUID_GRID_COLS = 12;
-const FULL_WIDTH_COLS = 12;
 
 // Autoscroll while dragging near a canvas edge (DALGO-1219: drag bottom→top must reach the top).
 // Distance from the edge (px) at which autoscroll engages.
@@ -340,7 +334,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             h: item.h || baseMinDimensions.h,
             minW: baseMinDimensions.w,
             minH: baseMinDimensions.h,
-            maxW: FULL_WIDTH_COLS,
+            maxW: GRID_COLUMN_COUNT,
           };
         }
       );
@@ -883,7 +877,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           h: Math.max(item.h, minDimensions.h),
           minW: minDimensions.w,
           minH: minDimensions.h,
-          maxW: FULL_WIDTH_COLS,
+          maxW: GRID_COLUMN_COUNT,
         };
       });
     }, []);
@@ -1329,10 +1323,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           i: newComponent.id,
           x: 0,
           y: bottomY(activeLayout),
-          w: FULL_WIDTH_COLS,
+          w: GRID_COLUMN_COUNT,
           h: defaultDimensions.h,
           minW: minDimensions.w,
-          maxW: FULL_WIDTH_COLS,
+          maxW: GRID_COLUMN_COUNT,
           minH: minDimensions.h,
         };
 
@@ -1394,10 +1388,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         i: newComponent.id,
         x: 0,
         y: bottomY(activeLayout),
-        w: FULL_WIDTH_COLS,
+        w: GRID_COLUMN_COUNT,
         h: defaultDimensions.h,
         minW: minDimensions.w,
-        maxW: FULL_WIDTH_COLS,
+        maxW: GRID_COLUMN_COUNT,
         minH: minDimensions.h,
       };
 
@@ -1467,10 +1461,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         i: newComponent.id,
         x: 0,
         y: bottomY(activeLayout),
-        w: FULL_WIDTH_COLS,
+        w: GRID_COLUMN_COUNT,
         h: textDimensions.h,
         minW: textMinDimensions.w,
-        maxW: FULL_WIDTH_COLS,
+        maxW: GRID_COLUMN_COUNT,
         minH: textMinDimensions.h,
       };
 
@@ -1502,7 +1496,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
       const newLayout = compactVertical(
         activeLayout.filter((item) => item.i !== componentId),
-        FLUID_GRID_COLS
+        GRID_COLUMN_COUNT
       );
 
       setState((prev) =>

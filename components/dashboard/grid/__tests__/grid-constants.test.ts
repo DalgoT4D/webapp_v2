@@ -1,6 +1,7 @@
 import {
   GRID_BREAKPOINTS,
   GRID_COLS,
+  GRID_COLUMN_COUNT,
   GRID_CONTAINER_PADDING,
   GRID_GAP_PX,
   GRID_MARGIN,
@@ -8,6 +9,8 @@ import {
   GRID_ROW_HEIGHT,
   SCREEN_SIZES,
 } from '@/components/dashboard/grid/grid-constants';
+import { GRID_CONFIG } from '@/lib/chart-size-constraints';
+import { PRINT_ROW_HEIGHT_PX } from '@/components/reports/logic/print-rows';
 
 describe('dashboard grid constants', () => {
   it('keeps the 12-column Superset-style grid at every breakpoint', () => {
@@ -29,5 +32,18 @@ describe('dashboard grid constants', () => {
       tablet: { name: 'Tablet', width: 768, height: 1024, cols: 12, breakpoint: 'sm' },
       mobile: { name: 'Mobile', width: 375, height: 667, cols: 12, breakpoint: 'xxs' },
     });
+  });
+});
+
+describe('one column count and row height across grid, size estimates and print', () => {
+  it('12 columns everywhere', () => {
+    expect(GRID_COLUMN_COUNT).toBe(12);
+    expect(GRID_CONFIG.cols).toBe(GRID_COLUMN_COUNT);
+  });
+
+  it('size estimates keep their own [10, 10] margin; row height is the grid row height', () => {
+    expect(GRID_CONFIG).toEqual({ cols: 12, rowHeight: 20, margin: [10, 10] });
+    expect(GRID_CONFIG.rowHeight).toBe(GRID_ROW_HEIGHT);
+    expect(PRINT_ROW_HEIGHT_PX).toBe(GRID_ROW_HEIGHT);
   });
 });
