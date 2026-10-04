@@ -65,9 +65,6 @@ import {
   DashboardFilterType,
   type CreateFilterPayload,
   type DashboardFilterConfig,
-  type ValueFilterSettings,
-  type NumericalFilterSettings,
-  type DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
 import { DashboardComponentType, type DashboardTab } from '@/types/dashboard';
 import { initializeTabsData } from './tabs/tab-utils';
@@ -1861,7 +1858,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       if (!dashboardId) return;
       try {
         // Create filter in database first using typed API
-        const newFilterFromAPI = await createDashboardFilter(dashboardId, {
+        await createDashboardFilter(dashboardId, {
           name: filterPayload.name,
           filter_type: filterPayload.filter_type,
           schema_name: filterPayload.schema_name,

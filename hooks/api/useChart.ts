@@ -250,15 +250,6 @@ export type { ChartDataPayload, ChartCreate as ChartCreatePayload } from '@/type
 
 // Map-specific hooks
 
-export interface GeoJSONListItem {
-  id: number;
-  name: string;
-  display_name: string;
-  is_default: boolean;
-  layer_name: string;
-  properties_key: string;
-}
-
 export interface GeoJSONDetail {
   id: number;
   name: string;

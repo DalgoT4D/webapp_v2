@@ -59,8 +59,8 @@ export function getMetricAnalyticsProps(metrics?: ChartMetric[] | null) {
 // Both drillable chart types are covered, they just store the config differently:
 //   map   → the existing `drill_down_enabled` config field (simplified/legacy system)
 //           OR geographic_hierarchy.drill_down_levels (dynamic system). This is the
-//           same expression the payload builder uses in ChartBuilder.tsx — kept
-//           identical on purpose so the event can never disagree with what was saved.
+//           same expression the chart payload builder uses — kept identical on
+//           purpose so the event can never disagree with what was saved.
 //   table → extra_config.dimensions[].enable_drill_down (per-dimension toggle, and
 //           tables have no `drill_down_enabled` field of their own).
 // Non-drillable types (bar/line/pie/number/pivot) always report false.

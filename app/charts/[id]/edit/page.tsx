@@ -952,7 +952,7 @@ function EditChartPageContent() {
 
   const handleFormChange = useCallback((updates: Partial<ChartBuilderFormData>) => {
     setFormData((prev) => {
-      // Smart chart type switching logic (same as ChartBuilder)
+      // Smart chart type switching logic (same as the chart creation form)
       if (updates.chart_type && updates.chart_type !== prev.chart_type) {
         const newChartType = updates.chart_type;
         const oldChartType = prev.chart_type;

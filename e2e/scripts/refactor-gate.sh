@@ -16,13 +16,15 @@ npx jest --silent || failed=1
 
 echo "▶ 3/4 TypeScript error count"
 baseline=$(cat e2e/scripts/tsc-baseline.txt)
-current=$(npx tsc --noEmit -p . 2>/dev/null | grep -c "error TS" || true)
+current=$(npx tsc --noEmit -p . 2>/dev/null | grep "error TS" | grep -vcE "^\.next/" || true)
 echo "  baseline=$baseline current=$current"
 if [ "$current" -gt "$baseline" ]; then
   echo "  ✗ more TypeScript errors than the baseline"
   failed=1
 fi
 
+# Blind spot: only the first line of each trackEvent( call is diffed/compared below —
+# multi-line call props (e.g. an object spread over several lines) aren't checked.
 echo "▶ 4/4 analytics calls preserved"
 normalize() { sed -E 's/^[-+][[:space:]]*//; s/[[:space:]]+$//' | sed '/^$/d' | sort; }
 diff_lines() { git diff "$BASE"...HEAD -U0 -- app components hooks lib stores; }
