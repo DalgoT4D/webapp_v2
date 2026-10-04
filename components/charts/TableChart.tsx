@@ -22,10 +22,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatNumber, formatDate, type NumberFormat, type DateFormat } from '@/lib/formatters';
-import { getTableTheme } from './types/table/constants';
+import { getTableTheme } from '@/components/charts/chart-types/table/constants';
 import { useTableSearch } from './hooks/useTableSearch';
 import { TableSearchBar } from './TableSearchBar';
-import type { ConditionalFormattingRule } from './types/table/types';
+import type { ConditionalFormattingRule } from '@/components/charts/chart-types/table/types';
 
 // URL detection pattern - matches http://, https://, and www. prefixed URLs
 const URL_PATTERN = /^(https?:\/\/|www\.)/i;

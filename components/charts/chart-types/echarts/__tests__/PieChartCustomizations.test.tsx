@@ -5,7 +5,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { PieChartCustomizations } from '../pie/PieChartCustomizations';
+import { PieChartCustomizations } from '@/components/charts/chart-types/echarts/PieChartCustomizations';
 
 describe('PieChartCustomizations', () => {
   const mockUpdateCustomization = jest.fn();

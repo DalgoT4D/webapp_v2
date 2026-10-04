@@ -12,7 +12,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { NumberFormat } from '@/lib/formatters';
-import { NumberFormatSection } from '../types/shared/NumberFormatSection';
+import { NumberFormatSection } from '@/components/charts/styling/NumberFormatSection';
 
 interface MapCustomizationsProps {
   formData: any;

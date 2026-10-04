@@ -6,8 +6,14 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Trash2, ChevronRight, ChevronDown } from 'lucide-react';
 import { type NumberFormat, type DateFormat } from '@/lib/formatters';
-import { NumberFormatSection, NUMBER_FORMAT_OPTIONS } from '../shared/NumberFormatSection';
-import { DateFormatSection, DATE_FORMAT_OPTIONS } from '../shared/DateFormatSection';
+import {
+  NumberFormatSection,
+  NUMBER_FORMAT_OPTIONS,
+} from '@/components/charts/styling/NumberFormatSection';
+import {
+  DateFormatSection,
+  DATE_FORMAT_OPTIONS,
+} from '@/components/charts/styling/DateFormatSection';
 import { ConditionalFormattingSection } from './ConditionalFormattingSection';
 import { ColumnSettingsSection } from './ColumnSettingsSection';
 import { AppearanceSection } from './AppearanceSection';

@@ -1,78 +1,78 @@
 /**
- * BarChartCustomizations Component Tests
+ * LineChartCustomizations Component Tests
  */
 
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { BarChartCustomizations } from '../bar/BarChartCustomizations';
+import { LineChartCustomizations } from '@/components/charts/chart-types/echarts/LineChartCustomizations';
 
-describe('BarChartCustomizations', () => {
+describe('LineChartCustomizations', () => {
   const mockUpdateCustomization = jest.fn();
   const defaultProps = {
     customizations: {},
     updateCustomization: mockUpdateCustomization,
     disabled: false,
-    hasExtraDimension: false,
   };
 
   beforeEach(() => jest.clearAllMocks());
 
   it('should render all sections and default options', () => {
-    render(<BarChartCustomizations {...defaultProps} />);
+    render(<LineChartCustomizations {...defaultProps} />);
 
     // Sections
     expect(screen.getByText('Display Options')).toBeInTheDocument();
     expect(screen.getByText('Data Labels')).toBeInTheDocument();
     expect(screen.getByText('X-Axis')).toBeInTheDocument();
     expect(screen.getByText('Y-Axis')).toBeInTheDocument();
+    // X-Axis Number Format is only shown when hasNumericXAxis is true
+    expect(screen.getAllByLabelText('Number Format').length).toBe(1);
 
     // Default values
-    expect(screen.getByLabelText('Vertical')).toBeChecked();
+    expect(screen.getByLabelText('Smooth Curves')).toBeChecked();
     expect(screen.getByRole('switch', { name: 'Show Tooltip on Hover' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Show Data Points' })).toBeChecked();
     expect(screen.getByRole('switch', { name: 'Show Legend' })).toBeChecked();
-
-    // Stacked should not show without extra dimension
-    expect(screen.queryByLabelText('Stacked Bars')).not.toBeInTheDocument();
   });
 
-  it('should handle orientation and stacked options', async () => {
+  it('should handle line style and display options', async () => {
     const user = userEvent.setup();
-    const { rerender } = render(<BarChartCustomizations {...defaultProps} />);
+    render(<LineChartCustomizations {...defaultProps} />);
 
-    await user.click(screen.getByLabelText('Horizontal'));
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('orientation', 'horizontal');
-
-    // Show stacked with extra dimension
-    rerender(<BarChartCustomizations {...defaultProps} hasExtraDimension={true} />);
-    expect(screen.getByLabelText('Stacked Bars')).toBeInTheDocument();
+    await user.click(screen.getByLabelText('Straight Lines'));
+    expect(mockUpdateCustomization).toHaveBeenCalledWith('lineStyle', 'straight');
 
     mockUpdateCustomization.mockClear();
-    await user.click(screen.getByLabelText('Stacked Bars'));
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('stacked', true);
+    await user.click(screen.getByLabelText('Show Data Points'));
+    expect(mockUpdateCustomization).toHaveBeenCalledWith('showDataPoints', false);
   });
 
   it('should handle legend options and show conditional fields', async () => {
     const user = userEvent.setup();
-    render(<BarChartCustomizations {...defaultProps} customizations={{ showLegend: true }} />);
+    const { rerender } = render(
+      <LineChartCustomizations {...defaultProps} customizations={{ showLegend: true }} />
+    );
 
     expect(screen.getByText('Legend Display')).toBeInTheDocument();
     expect(screen.getByText('Legend Position')).toBeInTheDocument();
 
     await user.click(screen.getByLabelText('Show All Legends in Chart Area'));
-    expect(mockUpdateCustomization).toHaveBeenCalledWith('legendPosition', 'right');
     expect(mockUpdateCustomization).toHaveBeenCalledWith('legendDisplay', 'all');
+
+    // Hide legend options when disabled
+    rerender(<LineChartCustomizations {...defaultProps} customizations={{ showLegend: false }} />);
+    expect(screen.queryByText('Legend Display')).not.toBeInTheDocument();
   });
 
   it('should handle data labels options', async () => {
     const user = userEvent.setup();
-    const { rerender } = render(<BarChartCustomizations {...defaultProps} />);
+    const { rerender } = render(<LineChartCustomizations {...defaultProps} />);
 
     await user.click(screen.getByLabelText('Show Data Labels'));
     expect(mockUpdateCustomization).toHaveBeenCalledWith('showDataLabels', true);
 
     rerender(
-      <BarChartCustomizations {...defaultProps} customizations={{ showDataLabels: true }} />
+      <LineChartCustomizations {...defaultProps} customizations={{ showDataLabels: true }} />
     );
     expect(screen.getByText('Data Label Position')).toBeInTheDocument();
   });
@@ -82,48 +82,31 @@ describe('BarChartCustomizations', () => {
     try {
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
       render(
-        <BarChartCustomizations
+        <LineChartCustomizations
           {...defaultProps}
-          customizations={{ xAxisTitle: 'Time', yAxisTitle: 'Value' }}
+          customizations={{ xAxisTitle: 'Months', yAxisTitle: 'Sales' }}
         />
       );
 
-      expect(screen.getByDisplayValue('Time')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('Value')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Months')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Sales')).toBeInTheDocument();
       // Label Rotation fields are now just called "Label Rotation" within each section
       expect(screen.getAllByLabelText('Label Rotation').length).toBe(2);
 
       // X-axis title input (first Title field)
       const titleInputs = screen.getAllByLabelText('Title');
-      await user.type(titleInputs[0], 'M');
+      await user.type(titleInputs[0], 'D');
       act(() => {
         jest.runAllTimers();
       });
-      expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisTitle', 'TimeM');
-
-      // Y-axis title input (second Title field)
-      await user.type(titleInputs[1], 's');
-      act(() => {
-        jest.runAllTimers();
-      });
-      expect(mockUpdateCustomization).toHaveBeenCalledWith('yAxisTitle', 'Values');
-
-      // Label rotation selects
-      const rotationSelects = screen.getAllByLabelText('Label Rotation');
-      await user.click(rotationSelects[0]);
-      await user.click(screen.getByRole('option', { name: '45 degrees' }));
-      expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisLabelRotation', '45');
-
-      await user.click(rotationSelects[1]);
-      await user.click(screen.getByRole('option', { name: 'Vertical (90°)' }));
-      expect(mockUpdateCustomization).toHaveBeenCalledWith('yAxisLabelRotation', 'vertical');
+      expect(mockUpdateCustomization).toHaveBeenCalledWith('xAxisTitle', 'MonthsD');
     } finally {
       jest.useRealTimers();
     }
   });
 
   it('should disable all controls when disabled is true', () => {
-    render(<BarChartCustomizations {...defaultProps} disabled={true} hasExtraDimension={true} />);
+    render(<LineChartCustomizations {...defaultProps} disabled={true} />);
 
     screen.getAllByRole('switch').forEach((s) => {
       expect(s).toBeDisabled();
@@ -141,7 +124,7 @@ describe('BarChartCustomizations', () => {
     // is tested in NumberFormatSection.test.tsx. These tests verify integration only.
 
     it('should render NumberFormatSection in Y-Axis section with description', () => {
-      render(<BarChartCustomizations {...defaultProps} />);
+      render(<LineChartCustomizations {...defaultProps} />);
 
       expect(screen.getByText('Y-Axis')).toBeInTheDocument();
       expect(screen.getByLabelText('Number Format')).toBeInTheDocument();
@@ -152,19 +135,19 @@ describe('BarChartCustomizations', () => {
     });
 
     it('should render X-axis NumberFormatSection only when hasNumericXAxis is true', () => {
-      const { rerender } = render(<BarChartCustomizations {...defaultProps} />);
+      const { rerender } = render(<LineChartCustomizations {...defaultProps} />);
 
       // Only Y-Axis number format by default
       expect(screen.getAllByLabelText('Number Format').length).toBe(1);
 
       // Both X-Axis and Y-Axis when hasNumericXAxis is true
-      rerender(<BarChartCustomizations {...defaultProps} hasNumericXAxis={true} />);
+      rerender(<LineChartCustomizations {...defaultProps} hasNumericXAxis={true} />);
       expect(screen.getAllByLabelText('Number Format').length).toBe(2);
     });
 
     it('should pass customization values to NumberFormatSection correctly', () => {
       render(
-        <BarChartCustomizations
+        <LineChartCustomizations
           {...defaultProps}
           customizations={{ yAxisNumberFormat: 'indian', yAxisDecimalPlaces: 2 }}
         />
@@ -176,20 +159,20 @@ describe('BarChartCustomizations', () => {
 
   describe('Date Formatting', () => {
     it('should not show Date Format when hasDateXAxis is false', () => {
-      render(<BarChartCustomizations {...defaultProps} hasDateXAxis={false} />);
+      render(<LineChartCustomizations {...defaultProps} hasDateXAxis={false} />);
 
       expect(screen.queryByLabelText('Date Format')).not.toBeInTheDocument();
     });
 
     it('should show Date Format in X-Axis section when hasDateXAxis is true', () => {
-      render(<BarChartCustomizations {...defaultProps} hasDateXAxis={true} />);
+      render(<LineChartCustomizations {...defaultProps} hasDateXAxis={true} />);
 
       expect(screen.getByLabelText('Date Format')).toBeInTheDocument();
     });
 
     it('should call updateCustomization when date format changes', async () => {
       const user = userEvent.setup();
-      render(<BarChartCustomizations {...defaultProps} hasDateXAxis={true} />);
+      render(<LineChartCustomizations {...defaultProps} hasDateXAxis={true} />);
 
       const formatSelect = screen.getByLabelText('Date Format');
       await user.click(formatSelect);
@@ -201,14 +184,14 @@ describe('BarChartCustomizations', () => {
     it('should not show both number and date format simultaneously', () => {
       // When X-axis is numeric, show number format
       const { rerender } = render(
-        <BarChartCustomizations {...defaultProps} hasNumericXAxis={true} hasDateXAxis={false} />
+        <LineChartCustomizations {...defaultProps} hasNumericXAxis={true} hasDateXAxis={false} />
       );
       expect(screen.getAllByLabelText('Number Format').length).toBe(2);
       expect(screen.queryByLabelText('Date Format')).not.toBeInTheDocument();
 
       // When X-axis is date, show date format
       rerender(
-        <BarChartCustomizations {...defaultProps} hasNumericXAxis={false} hasDateXAxis={true} />
+        <LineChartCustomizations {...defaultProps} hasNumericXAxis={false} hasDateXAxis={true} />
       );
       expect(screen.getAllByLabelText('Number Format').length).toBe(1); // Only Y-axis
       expect(screen.getByLabelText('Date Format')).toBeInTheDocument();

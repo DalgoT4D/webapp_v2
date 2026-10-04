@@ -6,11 +6,14 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Trash2, ChevronRight, ChevronDown } from 'lucide-react';
 import { type NumberFormat, type DateFormat } from '@/lib/formatters';
-import { NumberFormatSection, NUMBER_FORMAT_OPTIONS } from '../types/shared/NumberFormatSection';
-import { DateFormatSection } from '../types/shared/DateFormatSection';
-import { ConditionalFormattingSection } from '../types/table/ConditionalFormattingSection';
-import { AppearanceSection } from '../types/table/AppearanceSection';
-import type { ConditionalFormattingRule } from '../types/table/types';
+import {
+  NumberFormatSection,
+  NUMBER_FORMAT_OPTIONS,
+} from '@/components/charts/styling/NumberFormatSection';
+import { DateFormatSection } from '@/components/charts/styling/DateFormatSection';
+import { ConditionalFormattingSection } from '@/components/charts/chart-types/table/ConditionalFormattingSection';
+import { AppearanceSection } from '@/components/charts/chart-types/table/AppearanceSection';
+import type { ConditionalFormattingRule } from '@/components/charts/chart-types/table/types';
 
 // Compact label lookup derived from shared options (strips the " (example)" suffix),
 // mirroring the table chart so both stay in sync with NUMBER_FORMAT_OPTIONS.

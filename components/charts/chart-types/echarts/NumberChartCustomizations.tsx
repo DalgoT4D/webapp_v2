@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { DebouncedInput } from '@/components/charts/debounced-input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { NumberFormat } from '@/lib/formatters';
-import { NumberFormatSection } from '../shared/NumberFormatSection';
+import { NumberFormatSection } from '@/components/charts/styling/NumberFormatSection';
 
 interface NumberChartCustomizationsProps {
   customizations: Record<string, any>;

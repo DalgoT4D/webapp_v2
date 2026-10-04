@@ -22,7 +22,7 @@ import {
 } from '@/lib/columnTypeIcons';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Combobox, highlightText } from '@/components/ui/combobox';
-import { TooltipLabel } from '@/components/charts/types/shared/TooltipLabel';
+import { TooltipLabel } from '@/components/charts/styling/TooltipLabel';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';

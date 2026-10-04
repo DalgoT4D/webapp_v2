@@ -12,55 +12,70 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { NumberFormat, DateFormat } from '@/lib/formatters';
-import { NumberFormatSection } from '../shared/NumberFormatSection';
-import { DateFormatSection } from '../shared/DateFormatSection';
+import { NumberFormatSection } from '@/components/charts/styling/NumberFormatSection';
+import { DateFormatSection } from '@/components/charts/styling/DateFormatSection';
 
-interface LineChartCustomizationsProps {
+interface BarChartCustomizationsProps {
   customizations: Record<string, any>;
   updateCustomization: (key: string, value: any) => void;
   disabled?: boolean;
+  hasExtraDimension?: boolean;
   hasNumericXAxis?: boolean;
   hasDateXAxis?: boolean;
 }
 
-export function LineChartCustomizations({
+export function BarChartCustomizations({
   customizations,
   updateCustomization,
   disabled,
+  hasExtraDimension,
   hasNumericXAxis = false,
   hasDateXAxis = false,
-}: LineChartCustomizationsProps) {
+}: BarChartCustomizationsProps) {
   return (
     <div className="space-y-6">
-      {/* Display Options */}
+      {/* Basic Display Options */}
       <div className="space-y-4 pb-4 border-b">
         <h4 className="text-sm font-medium">Display Options</h4>
 
         <div className="space-y-2">
-          <Label>Line Style</Label>
+          <Label>Orientation</Label>
           <RadioGroup
-            value={customizations.lineStyle || 'smooth'}
-            onValueChange={(value) => updateCustomization('lineStyle', value)}
+            value={customizations.orientation || 'vertical'}
+            onValueChange={(value) => updateCustomization('orientation', value)}
             disabled={disabled}
           >
             <div className="flex items-center space-x-2 mt-2">
               <RadioGroupItem
-                value="smooth"
-                id="smooth"
-                data-testid="chart-styling-line-style-smooth"
+                value="vertical"
+                id="vertical"
+                data-testid="chart-styling-orientation-vertical"
               />
-              <Label htmlFor="smooth">Smooth Curves</Label>
+              <Label htmlFor="vertical">Vertical</Label>
             </div>
             <div className="flex items-center space-x-2 mt-2">
               <RadioGroupItem
-                value="straight"
-                id="straight"
-                data-testid="chart-styling-line-style-straight"
+                value="horizontal"
+                id="horizontal"
+                data-testid="chart-styling-orientation-horizontal"
               />
-              <Label htmlFor="straight">Straight Lines</Label>
+              <Label htmlFor="horizontal">Horizontal</Label>
             </div>
           </RadioGroup>
         </div>
+
+        {hasExtraDimension && (
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="stacked"
+              data-testid="chart-styling-stacked"
+              checked={customizations.stacked || false}
+              onCheckedChange={(checked) => updateCustomization('stacked', checked)}
+              disabled={disabled}
+            />
+            <Label htmlFor="stacked">Stacked Bars</Label>
+          </div>
+        )}
 
         <div className="flex items-center space-x-2">
           <Switch
@@ -71,17 +86,6 @@ export function LineChartCustomizations({
             disabled={disabled}
           />
           <Label htmlFor="showTooltip">Show Tooltip on Hover</Label>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="showDataPoints"
-            data-testid="chart-styling-show-data-points"
-            checked={customizations.showDataPoints !== false}
-            onCheckedChange={(checked) => updateCustomization('showDataPoints', checked)}
-            disabled={disabled}
-          />
-          <Label htmlFor="showDataPoints">Show Data Points</Label>
         </div>
 
         <div className="flex items-center space-x-2">
@@ -113,30 +117,30 @@ export function LineChartCustomizations({
                 <div className="flex items-center space-x-2 mt-2">
                   <RadioGroupItem
                     value="paginated"
-                    id="line-paginated"
+                    id="bar-paginated"
                     data-testid="chart-styling-legend-display-paginated"
                   />
-                  <Label htmlFor="line-paginated">Paginated Legends</Label>
+                  <Label htmlFor="bar-paginated">Paginated Legends</Label>
                 </div>
                 <div className="flex items-center space-x-2 mt-2">
                   <RadioGroupItem
                     value="all"
-                    id="line-all"
+                    id="bar-all"
                     data-testid="chart-styling-legend-display-all"
                   />
-                  <Label htmlFor="line-all">Show All Legends in Chart Area</Label>
+                  <Label htmlFor="bar-all">Show All Legends in Chart Area</Label>
                 </div>
               </RadioGroup>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="lineLegendPosition">Legend Position</Label>
+              <Label htmlFor="barLegendPosition">Legend Position</Label>
               <Select
                 value={customizations.legendPosition || 'right'}
                 onValueChange={(value) => updateCustomization('legendPosition', value)}
                 disabled={disabled}
               >
-                <SelectTrigger id="lineLegendPosition" data-testid="chart-styling-legend-position">
+                <SelectTrigger id="barLegendPosition" data-testid="chart-styling-legend-position">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -193,25 +197,19 @@ export function LineChartCustomizations({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="top" data-testid="chart-styling-data-label-position-option-top">
-                  Above Point
+                  Top
                 </SelectItem>
                 <SelectItem
-                  value="bottom"
-                  data-testid="chart-styling-data-label-position-option-bottom"
+                  value="inside"
+                  data-testid="chart-styling-data-label-position-option-inside"
                 >
-                  Below Point
+                  Middle
                 </SelectItem>
                 <SelectItem
-                  value="left"
-                  data-testid="chart-styling-data-label-position-option-left"
+                  value="insideBottom"
+                  data-testid="chart-styling-data-label-position-option-insideBottom"
                 >
-                  Left of Point
-                </SelectItem>
-                <SelectItem
-                  value="right"
-                  data-testid="chart-styling-data-label-position-option-right"
-                >
-                  Right of Point
+                  Bottom
                 </SelectItem>
               </SelectContent>
             </Select>

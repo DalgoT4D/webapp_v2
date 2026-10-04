@@ -5,7 +5,10 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { DateFormatSection, DATE_FORMAT_OPTIONS } from '../shared/DateFormatSection';
+import {
+  DateFormatSection,
+  DATE_FORMAT_OPTIONS,
+} from '@/components/charts/styling/DateFormatSection';
 
 describe('DateFormatSection', () => {
   const mockOnDateFormatChange = jest.fn();

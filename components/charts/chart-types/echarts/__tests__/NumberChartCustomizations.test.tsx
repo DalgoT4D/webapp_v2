@@ -5,7 +5,7 @@
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { NumberChartCustomizations } from '../number/NumberChartCustomizations';
+import { NumberChartCustomizations } from '@/components/charts/chart-types/echarts/NumberChartCustomizations';
 
 describe('NumberChartCustomizations', () => {
   const mockUpdateCustomization = jest.fn();

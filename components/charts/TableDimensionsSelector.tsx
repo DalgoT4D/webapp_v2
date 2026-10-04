@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { Combobox, highlightText } from '@/components/ui/combobox';
-import { TooltipLabel } from '@/components/charts/types/shared/TooltipLabel';
+import { TooltipLabel } from '@/components/charts/styling/TooltipLabel';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import type { ChartDimension } from '@/types/charts';
 import {

@@ -11,8 +11,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { NumberFormat, DateFormat } from '@/lib/formatters';
-import { NumberFormatSection } from '../shared/NumberFormatSection';
-import { DateFormatSection } from '../shared/DateFormatSection';
+import { NumberFormatSection } from '@/components/charts/styling/NumberFormatSection';
+import { DateFormatSection } from '@/components/charts/styling/DateFormatSection';
 
 interface PieChartCustomizationsProps {
   customizations: Record<string, any>;

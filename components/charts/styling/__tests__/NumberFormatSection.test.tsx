@@ -5,7 +5,10 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { NumberFormatSection, NUMBER_FORMAT_OPTIONS } from '../shared/NumberFormatSection';
+import {
+  NumberFormatSection,
+  NUMBER_FORMAT_OPTIONS,
+} from '@/components/charts/styling/NumberFormatSection';
 
 describe('NumberFormatSection', () => {
   const mockOnNumberFormatChange = jest.fn();

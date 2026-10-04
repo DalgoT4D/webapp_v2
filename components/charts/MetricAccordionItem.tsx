@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Combobox, highlightText } from '@/components/ui/combobox';
-import { TooltipLabel } from '@/components/charts/types/shared/TooltipLabel';
+import { TooltipLabel } from '@/components/charts/styling/TooltipLabel';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import { X, Loader2, Library, Save, ChevronDown } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';

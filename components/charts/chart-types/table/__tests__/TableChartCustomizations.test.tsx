@@ -5,7 +5,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { TableChartCustomizations } from '../table/TableChartCustomizations';
+import { TableChartCustomizations } from '@/components/charts/chart-types/table/TableChartCustomizations';
 
 // Mock @dnd-kit to avoid drag-and-drop complexity in tests
 jest.mock('@dnd-kit/core', () => ({
