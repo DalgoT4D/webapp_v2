@@ -26,7 +26,6 @@ import { TooltipLabel } from '@/components/charts/types/shared/TooltipLabel';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
 import { MetricsSelector } from '@/components/charts/MetricsSelector';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
-import { SimpleTableConfiguration } from '@/components/charts/SimpleTableConfiguration';
 import PivotDataConfiguration from '@/components/charts/pivot-table/PivotDataConfiguration';
 import { TableDimensionsSelector } from '@/components/charts/TableDimensionsSelector';
 import { TimeGrainSelector } from '@/components/charts/TimeGrainSelector';
