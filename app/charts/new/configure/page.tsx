@@ -48,11 +48,9 @@ import { useChartBuilderState } from '@/components/charts/hooks/useChartBuilderS
 import { usePreviewPagination } from '@/components/charts/hooks/usePreviewPagination';
 import { useChartPreviewData } from '@/components/charts/hooks/useChartPreviewData';
 import { useBuilderMapPreview } from '@/components/charts/hooks/useBuilderMapPreview';
-import {
-  buildChartDataPayload,
-  buildCreateChartPayload,
-  type TableDrillDownState,
-} from '@/components/charts/logic/payload';
+import { useTableDrillDown } from '@/components/charts/hooks/useTableDrillDown';
+import { getDrillDownColumns } from '@/components/charts/logic/table-drilldown';
+import { buildChartDataPayload, buildCreateChartPayload } from '@/components/charts/logic/payload';
 
 function ConfigureChartPageContent() {
   const router = useRouter();
@@ -134,7 +132,12 @@ function ConfigureChartPageContent() {
   >([]);
 
   // ✅ ADD: Drill-down state management for table charts
-  const [tableDrillDownState, setTableDrillDownState] = useState<TableDrillDownState | null>(null);
+  const tableDrill = useTableDrillDown({
+    dimensions: formData.dimensions,
+    isTable: formData.chart_type === 'table',
+    drillUpColumns: 'all',
+    onLevelChange: pages.resetTableChartPage,
+  });
 
   // ✅ ADD: Fetch regions for drill-down functionality (match edit mode exactly)
   const { data: states } = useRegions('IND', 'state');
@@ -162,8 +165,8 @@ function ConfigureChartPageContent() {
 
   // Build payload for chart data - memoized to prevent infinite re-render loops
   const chartDataPayload: ChartDataPayload | null = useMemo(
-    () => buildChartDataPayload(formData, tableDrillDownState, 'create'),
-    [formData, tableDrillDownState]
+    () => buildChartDataPayload(formData, tableDrill.tableDrillDownState, 'create'),
+    [formData, tableDrill.tableDrillDownState]
   );
 
   const preview = useChartPreviewData({
@@ -199,93 +202,6 @@ function ConfigureChartPageContent() {
     drillDownPath,
     patchConfig,
   });
-
-  // Handle table row click for drill-down
-  const handleTableRowClick = useCallback(
-    (rowData: Record<string, any>, columnName: string) => {
-      if (formData.chart_type !== 'table') return;
-
-      // Check if drill-down is enabled
-      const isDrillDownEnabled = formData.dimensions?.some((dim) => dim.enable_drill_down === true);
-
-      if (!isDrillDownEnabled) return;
-
-      // Get all dimensions in order (only those with drill-down enabled)
-      const allDimensions = formData.dimensions
-        .filter((dim) => dim.enable_drill_down)
-        .map((d) => d.column)
-        .filter(Boolean);
-
-      if (allDimensions.length === 0) return;
-
-      // Get the current dimension index
-      const currentDimensionIndex = tableDrillDownState ? tableDrillDownState.currentLevel : -1;
-
-      // Determine which dimension column is currently displayed
-      const currentDisplayedDimension =
-        currentDimensionIndex === -1 ? allDimensions[0] : allDimensions[currentDimensionIndex + 1];
-
-      // Only allow clicking on the currently displayed dimension column
-      if (columnName !== currentDisplayedDimension) {
-        return;
-      }
-
-      // Get the value from the clicked row
-      const clickedValue = rowData[columnName];
-      if (!clickedValue) return;
-
-      // Update drill-down state
-      const newLevel = currentDimensionIndex + 1;
-      const newAppliedFilters = {
-        ...(tableDrillDownState?.appliedFilters || {}),
-        [currentDisplayedDimension]: String(clickedValue),
-      };
-
-      // If we've reached the last dimension, don't allow further drill-down
-      if (newLevel >= allDimensions.length - 1) {
-        return;
-      }
-
-      setTableDrillDownState({
-        currentLevel: newLevel,
-        appliedFilters: newAppliedFilters,
-      });
-
-      // Reset to first page when drilling down
-      pages.resetTableChartPage();
-    },
-    [formData.chart_type, formData.dimensions, tableDrillDownState]
-  );
-
-  // Handle table drill-up (going back)
-  const handleTableDrillUp = useCallback(() => {
-    if (!tableDrillDownState) return;
-
-    const newLevel = tableDrillDownState.currentLevel - 1;
-    const allDimensions = formData.dimensions?.map((d) => d.column).filter(Boolean) || [];
-
-    if (newLevel < 0) {
-      // Reset to top level
-      setTableDrillDownState(null);
-    } else {
-      // Go back one level
-      const newAppliedFilters: Record<string, string> = {};
-      for (let i = 0; i <= newLevel; i++) {
-        const dimColumn = allDimensions[i];
-        if (tableDrillDownState.appliedFilters[dimColumn]) {
-          newAppliedFilters[dimColumn] = tableDrillDownState.appliedFilters[dimColumn];
-        }
-      }
-
-      setTableDrillDownState({
-        currentLevel: newLevel,
-        appliedFilters: newAppliedFilters,
-      });
-    }
-
-    // Reset to first page when drilling up
-    pages.resetTableChartPage();
-  }, [tableDrillDownState, formData.dimensions]);
 
   // FIX #3: Handle map region click for drill-down in create mode
   // Handle map region click for drill-down in create mode
@@ -588,9 +504,7 @@ function ConfigureChartPageContent() {
                       formData={formData}
                       onChange={handleFormChange}
                       columns={columns}
-                      currentDrillLevel={
-                        tableDrillDownState ? tableDrillDownState.currentLevel + 1 : 0
-                      }
+                      currentDrillLevel={tableDrill.currentDrillLevel}
                     />
                   )}
                 </div>
@@ -646,19 +560,19 @@ function ConfigureChartPageContent() {
                   ) : formData.chart_type === 'table' ? (
                     <div className="w-full h-full flex flex-col">
                       {/* Breadcrumb navigation for drill-down */}
-                      {tableDrillDownState && (
+                      {tableDrill.tableDrillDownState && (
                         <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={handleTableDrillUp}
+                            onClick={tableDrill.handleTableDrillUp}
                             className="h-8"
                             data-testid="chart-table-drill-back-btn"
                           >
                             ← Back
                           </Button>
                           <span className="text-sm text-muted-foreground">
-                            {Object.entries(tableDrillDownState.appliedFilters)
+                            {Object.entries(tableDrill.tableDrillDownState.appliedFilters)
                               .map(([col, val]) => `${col}: ${val}`)
                               .join(' → ')}
                           </span>
@@ -672,24 +586,12 @@ function ConfigureChartPageContent() {
                               : []
                           }
                           config={{
-                            table_columns: (() => {
-                              const cols =
-                                preview.tableChartData?.columns || formData.table_columns || [];
-                              const drillDownDimensions =
-                                formData.dimensions
-                                  ?.filter((d) => d.enable_drill_down)
-                                  .map((d) => d.column)
-                                  .filter(Boolean) || [];
-                              const currentDim = tableDrillDownState
-                                ? drillDownDimensions[tableDrillDownState.currentLevel + 1]
-                                : drillDownDimensions[0];
-                              return resolveTableColumnOrder({
-                                cols,
-                                savedOrder: formData.customizations?.columnOrder,
-                                drillDownDimensions,
-                                currentDimensionColumn: currentDim,
-                              });
-                            })(),
+                            table_columns: resolveTableColumnOrder({
+                              cols: preview.tableChartData?.columns || formData.table_columns || [],
+                              savedOrder: formData.customizations?.columnOrder,
+                              drillDownDimensions: getDrillDownColumns(formData.dimensions),
+                              currentDimensionColumn: tableDrill.currentDimensionColumn,
+                            }),
                             column_formatting: mergeTableColumnFormatting(formData.customizations),
                             sort: formData.sort || [],
                             pagination: formData.pagination || { enabled: true, page_size: 20 },
@@ -709,21 +611,9 @@ function ConfigureChartPageContent() {
                             onPageChange: pages.tableChart.setPage,
                             onPageSizeChange: pages.tableChart.changePageSize,
                           }}
-                          onRowClick={handleTableRowClick}
-                          drillDownEnabled={formData.dimensions?.some(
-                            (dim) => dim.enable_drill_down === true
-                          )}
-                          currentDimensionColumn={
-                            tableDrillDownState
-                              ? formData.dimensions
-                                  ?.filter((dim) => dim.enable_drill_down)
-                                  .map((d) => d.column)
-                                  .filter(Boolean)[tableDrillDownState.currentLevel + 1]
-                              : formData.dimensions
-                                  ?.filter((dim) => dim.enable_drill_down)
-                                  .map((d) => d.column)
-                                  .filter(Boolean)[0]
-                          }
+                          onRowClick={tableDrill.handleTableRowClick}
+                          drillDownEnabled={tableDrill.isDrillDownEnabled}
+                          currentDimensionColumn={tableDrill.currentDimensionColumn}
                         />
                       </div>
                     </div>
