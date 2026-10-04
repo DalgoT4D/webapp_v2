@@ -38,7 +38,7 @@ import {
   extractLegendPosition,
   isLegendPaginated,
   type LegendPosition,
-} from '@/lib/chart-legend-utils';
+} from '@/components/charts/chart-types/echarts/legend';
 import {
   applyResponsiveLegend,
   getResponsiveGridMargins,
@@ -50,11 +50,13 @@ import {
   createTooltipFormatter,
   applyNumberChartFormatting,
   applyPieChartFormatting,
-  applyPieDateFormatting,
   applyLineBarChartFormatting,
+} from '@/components/charts/chart-types/echarts/formatting';
+import {
+  applyPieDateFormatting,
   applyLineBarDateFormatting,
-} from '@/lib/chart-formatting-utils';
-import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
+} from '@/components/charts/chart-types/echarts/date-formatting';
+import { applyStackedBarLabels } from '@/components/charts/chart-types/echarts/stacked-bar';
 import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ChartTypes, type ChartDataPayload, type ChartDimension } from '@/types/charts';
 import * as echarts from 'echarts/core';

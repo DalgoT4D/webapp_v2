@@ -1,6 +1,6 @@
 import { ChartTypes, type ChartBuilderFormData, type ChartType } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
-import { sanitizeCustomizationsForChartType } from '@/lib/chart-formatting-utils';
+import { sanitizeCustomizationsForChartType } from '@/components/charts/chart-types/echarts/data-labels';
 import { getDefaultCustomizations } from '@/components/charts/chart-types/default-customizations';
 
 /** A partial chart config to merge over the current one. */

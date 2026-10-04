@@ -2,7 +2,7 @@
  * Utility for handling stacked bar chart data labels
  */
 
-import { formatNumber, NumberFormats, type NumberFormat } from './formatters';
+import { formatNumber, NumberFormats, type NumberFormat } from '@/lib/formatters';
 
 /**
  * Extract numeric value from various ECharts data formats

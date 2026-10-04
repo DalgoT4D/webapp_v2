@@ -13,17 +13,19 @@ import {
   extractLegendPosition,
   isLegendPaginated,
   type LegendPosition,
-} from '@/lib/chart-legend-utils';
-import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
+} from '@/components/charts/chart-types/echarts/legend';
+import { applyStackedBarLabels } from '@/components/charts/chart-types/echarts/stacked-bar';
 
 import {
   createTooltipFormatter,
   applyNumberChartFormatting,
   applyPieChartFormatting,
-  applyPieDateFormatting,
   applyLineBarChartFormatting,
+} from '@/components/charts/chart-types/echarts/formatting';
+import {
+  applyPieDateFormatting,
   applyLineBarDateFormatting,
-} from '@/lib/chart-formatting-utils';
+} from '@/components/charts/chart-types/echarts/date-formatting';
 import { ChartTypes } from '@/types/charts';
 import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 

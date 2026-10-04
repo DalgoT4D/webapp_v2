@@ -1,4 +1,4 @@
-import { applyStackedBarLabels, createStackedTotalFormatter } from '../stacked-bar-utils';
+import { applyStackedBarLabels, createStackedTotalFormatter } from '../stacked-bar';
 
 describe('stacked-bar-utils', () => {
   describe('createStackedTotalFormatter', () => {
