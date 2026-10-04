@@ -27,11 +27,11 @@ import {
   useChartDataPreview,
   useChartDataPreviewTotalRows,
   useMapDataOverlay,
-  transformMapDataOverlayPayload,
   useGeoJSONData,
   useRegions,
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
+import { transformMapDataOverlayPayload } from '@/components/charts/logic/map-overlay';
 import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/TableChart';
