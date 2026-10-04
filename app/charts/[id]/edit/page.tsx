@@ -34,12 +34,8 @@ import {
 } from '@/hooks/api/useChart';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { ChartTypes, type ChartType } from '@/types/charts';
-import { buildPivotDataFields, buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
-import {
-  getApiCustomizations,
-  mergeTableColumnFormatting,
-  resolveTableColumnOrder,
-} from '@/lib/chart-payload-utils';
+import { buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
+import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
@@ -79,6 +75,7 @@ import {
   toSimplifiedMapFields,
   type MapLayerToSave,
 } from '@/components/charts/logic/map-layers';
+import { buildChartDataPayload, type TableDrillDownState } from '@/components/charts/logic/payload';
 
 function EditChartPageContent() {
   const params = useParams();
@@ -127,10 +124,7 @@ function EditChartPageContent() {
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
 
   // ✅ ADD: Drill-down state management for table charts
-  const [tableDrillDownState, setTableDrillDownState] = useState<{
-    currentLevel: number; // 0 = first dimension, 1 = second dimension, etc.
-    appliedFilters: Record<string, string>; // { dimension_column: value }
-  } | null>(null);
+  const [tableDrillDownState, setTableDrillDownState] = useState<TableDrillDownState | null>(null);
 
   const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -351,100 +345,7 @@ function EditChartPageContent() {
 
   // Build payload for chart data - use useMemo to update when drill-down state changes
   const chartDataPayload: ChartDataPayload | null = useMemo(
-    () =>
-      isChartDataReady()
-        ? {
-            chart_type: formData.chart_type!,
-            computation_type: formData.computation_type!,
-            schema_name: formData.schema_name!,
-            table_name: formData.table_name!,
-            ...(formData.x_axis_column && { x_axis: formData.x_axis_column }),
-            ...(formData.y_axis_column && { y_axis: formData.y_axis_column }),
-            ...(formData.dimension_column && { dimension_col: formData.dimension_column }),
-            ...(formData.aggregate_column && { aggregate_col: formData.aggregate_column }),
-            ...(formData.aggregate_function && { aggregate_func: formData.aggregate_function }),
-            ...(formData.extra_dimension_column && {
-              extra_dimension: formData.extra_dimension_column,
-            }),
-            ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
-            ...(formData.value_column && { value_column: formData.value_column }),
-            ...(formData.selected_geojson_id && {
-              selected_geojson_id: formData.selected_geojson_id,
-            }),
-            ...(formData.chart_type === ChartTypes.MAP &&
-              formData.layers?.[0]?.geojson_id && {
-                selected_geojson_id: formData.layers[0].geojson_id,
-              }),
-            ...(formData.chart_type === ChartTypes.MAP && {
-              ...(formData.geographic_column && { dimension_col: formData.geographic_column }),
-              ...((formData.aggregate_column || formData.value_column) && {
-                aggregate_col: formData.aggregate_column || formData.value_column,
-              }),
-            }),
-            // For table charts, include dimensions array with drill-down support
-            ...(formData.chart_type === ChartTypes.TABLE &&
-              formData.dimensions &&
-              formData.dimensions.length > 0 && {
-                dimensions: (() => {
-                  const isDrillDownEnabled = formData.dimensions.some(
-                    (dim) => dim.enable_drill_down === true
-                  );
-
-                  if (!isDrillDownEnabled) {
-                    // Show all dimensions if drill-down disabled
-                    return formData.dimensions.map((d) => d.column).filter(Boolean);
-                  }
-
-                  // When drill-down is enabled, only use dimensions with enable_drill_down
-                  const drillDownDimensions = formData.dimensions
-                    .filter((dim) => dim.enable_drill_down)
-                    .map((d) => d.column)
-                    .filter(Boolean);
-
-                  // When drill-down is enabled and active, use only the current level dimension
-                  if (tableDrillDownState) {
-                    const nextIndex = Math.min(
-                      tableDrillDownState.currentLevel + 1,
-                      drillDownDimensions.length - 1
-                    );
-                    return [drillDownDimensions[nextIndex]]; // Only current level
-                  }
-
-                  // Drill-down enabled but not yet started: use top-level dimension only
-                  return [drillDownDimensions[0]]; // Only first dimension
-                })(),
-                table_columns: formData.table_columns,
-              }),
-            // Include metrics for multiple metrics support
-            ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-            // Pivot table top-level fields — the /chart-data/ pipeline reads these off
-            // the payload root (not extra_config).
-            ...(formData.chart_type === 'pivot_table' &&
-              buildPivotDataFields(formData.extra_config)),
-            // Number formatting is frontend-only - exclude from API payload
-            ...(formData.chart_type !== ChartTypes.TABLE &&
-              formData.chart_type !== ChartTypes.PIVOT_TABLE && {
-                customizations: getApiCustomizations(formData.chart_type, formData.customizations),
-              }),
-            extra_config: {
-              filters: [
-                ...(formData.filters || []),
-                // Add drill-down filters from tableDrillDownState
-                ...(formData.chart_type === ChartTypes.TABLE && tableDrillDownState?.appliedFilters
-                  ? Object.entries(tableDrillDownState.appliedFilters).map(([column, value]) => ({
-                      column,
-                      operator: 'equals',
-                      value,
-                    }))
-                  : []),
-              ],
-              pagination: formData.pagination,
-              sort: formData.sort,
-              time_grain: formData.time_grain,
-              table_columns: formData.table_columns,
-            },
-          }
-        : null,
+    () => buildChartDataPayload(formData, tableDrillDownState, 'edit'),
     [
       formData.chart_type,
       formData.computation_type,
