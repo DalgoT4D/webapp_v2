@@ -30,10 +30,9 @@ import { useDashboardAnimation } from '@/hooks/useDashboardAnimation';
 import {
   getDefaultGridDimensions,
   getMinGridDimensions,
-  getChartTypeFromConfig,
   calculateTextDimensions,
 } from '@/lib/chart-size-constraints';
-import { compactVertical, bottomY } from '@/lib/dashboard-animation-utils';
+import { bottomY } from '@/lib/dashboard-animation-utils';
 import {
   Plus,
   Save,
@@ -66,7 +65,6 @@ import {
   type DashboardFilterConfig,
 } from '@/types/dashboard-filters';
 import { DashboardComponentType, type DashboardTab } from '@/types/dashboard';
-import { initializeTabsData } from './tabs/tab-utils';
 import { moveWidgetBetweenTabs, pointerToGridPosition } from './tabs/cross-tab-drag';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
@@ -92,6 +90,23 @@ import {
   SCREEN_SIZES,
   type ScreenSizeKey,
 } from '@/components/dashboard/grid/grid-constants';
+import {
+  addTab,
+  applyRichTextUpdates,
+  buildDashboardSavePayload,
+  constrainLayoutItems,
+  getActiveEditorTab,
+  getPlacedChartIds,
+  getPlacedKpiIds,
+  moveTab,
+  normalizeEditorTabs,
+  removeTab,
+  removeWidgetFromLayout,
+  renameTab,
+  updateActiveEditorTab,
+  type DashboardEditorState,
+  type DashboardSavePayloadOverrides,
+} from '@/components/dashboard/logic/editor-state';
 
 // Autoscroll while dragging near a canvas edge (DALGO-1219: drag bottom→top must reach the top).
 // Distance from the edge (px) at which autoscroll engages.
@@ -209,15 +224,6 @@ interface DashboardComponent {
   config: any;
 }
 
-interface DashboardEditorState {
-  tabs: DashboardTab[];
-  activeTabId: string;
-}
-
-interface DashboardSavePayloadOverrides {
-  filter_layout?: 'vertical' | 'horizontal';
-}
-
 interface CrossTabDragSession {
   componentId: string;
   componentType: DashboardComponentType;
@@ -229,20 +235,6 @@ interface CrossTabDragSession {
   clientY: number;
   targetPosition: { x: number; y: number } | null;
   phase: 'grid' | 'handoff';
-}
-
-function getActiveEditorTab(state: DashboardEditorState): DashboardTab {
-  return state.tabs.find((tab) => tab.id === state.activeTabId) || state.tabs[0];
-}
-
-function updateActiveEditorTab(
-  state: DashboardEditorState,
-  update: Partial<Pick<DashboardTab, 'layout_config' | 'components'>>
-): DashboardEditorState {
-  return {
-    ...state,
-    tabs: state.tabs.map((tab) => (tab.id === state.activeTabId ? { ...tab, ...update } : tab)),
-  };
 }
 
 interface DashboardBuilderV2Props {
@@ -272,74 +264,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
   ) {
     const router = useRouter();
 
-    // Helper function to ensure text components have content constraints
-    const ensureTextContentConstraints = (components: any) => {
-      const updatedComponents = { ...components };
-      Object.keys(updatedComponents).forEach((componentId) => {
-        const component = updatedComponents[componentId];
-        if (component.type === DashboardComponentType.TEXT && component.config) {
-          // Calculate content constraints if they don't exist (for both empty and filled content)
-          if (!component.config.contentConstraints) {
-            const textDimensions = calculateTextDimensions({
-              content: component.config.content || '', // Handle empty content
-              fontSize: component.config.fontSize || 16,
-              fontWeight: component.config.fontWeight || 'normal',
-              type: component.config.type || 'paragraph',
-              textAlign: component.config.textAlign || 'left',
-            });
-
-            updatedComponents[componentId] = {
-              ...component,
-              config: {
-                ...component.config,
-                contentConstraints: {
-                  minWidth: textDimensions.width,
-                  minHeight: textDimensions.height,
-                },
-              },
-            };
-
-            console.log(`📐 Added missing content constraints for text component ${componentId}:`, {
-              content: component.config.content,
-              constraints: {
-                minWidth: textDimensions.width,
-                minHeight: textDimensions.height,
-              },
-            });
-          }
-        }
-      });
-      return updatedComponents;
-    };
-
-    const rawInitialTabs = initializeTabsData(
-      initialData?.tabs,
-      Array.isArray(initialData?.layout_config) ? initialData.layout_config : [],
-      initialData?.components || {}
-    ).tabs;
-
-    // Normalize every tab up front. Tabs are the single source of truth for the canvas,
-    // so inactive tabs must receive the same constraints as the initially visible tab.
-    const initialTabs = rawInitialTabs.map((tab) => {
-      const components = ensureTextContentConstraints(tab.components || {});
-      const layout = (Array.isArray(tab.layout_config) ? tab.layout_config : []).map(
-        (item: DashboardLayout) => {
-          const component = components[item.i];
-          if (!component) return item;
-          const chartType = getChartTypeFromConfig(component.config);
-          const baseMinDimensions = getMinGridDimensions(chartType);
-          return {
-            ...item,
-            w: item.w || baseMinDimensions.w,
-            h: item.h || baseMinDimensions.h,
-            minW: baseMinDimensions.w,
-            minH: baseMinDimensions.h,
-            maxW: GRID_COLUMN_COUNT,
-          };
-        }
-      );
-      return { ...tab, layout_config: layout, components };
-    });
+    // Normalize every tab up front (computed each render as before; only the first render's
+    // value seeds the editor state).
+    const initialTabs = normalizeEditorTabs(initialData);
 
     // Fetch live dashboard data to get updated filters
     const {
@@ -469,26 +396,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       document.dispatchEvent(new CustomEvent(DASHBOARD_RICH_TEXT_FLUSH_EVENT, { detail }));
       if (!detail.updates.length) return stateRef.current;
 
-      const nextState = detail.updates.reduce<DashboardEditorState>(
-        (currentState, update) => ({
-          ...currentState,
-          tabs: currentState.tabs.map((tab) =>
-            tab.components[update.componentId]
-              ? {
-                  ...tab,
-                  components: {
-                    ...tab.components,
-                    [update.componentId]: {
-                      ...tab.components[update.componentId],
-                      config: update.config,
-                    },
-                  },
-                }
-              : tab
-          ),
-        }),
-        stateRef.current
-      );
+      const nextState = applyRichTextUpdates(stateRef.current, detail.updates);
       stateRef.current = nextState;
       setState(nextState);
       return nextState;
@@ -634,20 +542,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       try {
         // Filters are no longer included in dashboard PUT payload - managed via separate endpoints
 
-        // Ensure title is not empty, use default if needed
-        const finalTitle = title.trim() || 'Untitled Dashboard';
-
-        // Create safe serializable payload (filters removed - managed independently)
-        const payload = {
-          title: finalTitle,
+        const payload = buildDashboardSavePayload({
+          title,
           description,
-          grid_columns: SCREEN_SIZES[targetScreenSize].cols,
-          target_screen_size: targetScreenSize,
-          filter_layout: filterLayout,
-          tabs: JSON.parse(JSON.stringify(editorState.tabs)),
-          // filters removed - managed via separate API endpoints
-          ...overrides, // Apply any overrides passed to the function
-        };
+          targetScreenSize,
+          filterLayout,
+          tabs: editorState.tabs,
+          overrides,
+        });
 
         await apiPut(`/api/dashboards/${dashboardId}/`, payload);
 
@@ -779,10 +681,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // here, so this is also the one place that can't be bypassed by a new button.
     const handleTabAdd = useCallback(
       (newTab: DashboardTab) => {
-        setState((prev) => ({
-          tabs: [...prev.tabs, newTab],
-          activeTabId: newTab.id,
-        }));
+        setState((prev) => addTab(prev, newTab));
         trackEvent(ANALYTICS_EVENTS.DASHBOARD_TAB_CREATED, { dashboard_id: dashboardId });
       },
       [setState]
@@ -793,16 +692,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       (tabId: string) => {
         let removed = false;
         setState((prev) => {
-          if (prev.tabs.length <= 1) return prev;
-          const tabIndex = prev.tabs.findIndex((tab) => tab.id === tabId);
-          if (tabIndex < 0) return prev;
-          const tabs = prev.tabs.filter((tab) => tab.id !== tabId);
-          const activeTabId =
-            prev.activeTabId === tabId
-              ? tabs[Math.max(0, tabIndex - 1)]?.id || tabs[0].id
-              : prev.activeTabId;
-          removed = true;
-          return { tabs, activeTabId };
+          const next = removeTab(prev, tabId);
+          if (next !== prev) removed = true;
+          return next;
         });
         // Only on a real removal — the last tab can't be deleted, and an unknown id is a
         // no-op, so tracking before this guard would count deletions that never happened.
@@ -816,10 +708,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Handle renaming a tab
     const handleTabRename = useCallback(
       (tabId: string, newTitle: string) => {
-        setState((prev) => ({
-          ...prev,
-          tabs: prev.tabs.map((tab) => (tab.id === tabId ? { ...tab, title: newTitle } : tab)),
-        }));
+        setState((prev) => renameTab(prev, tabId, newTitle));
         trackEvent(ANALYTICS_EVENTS.DASHBOARD_TAB_RENAMED, { dashboard_id: dashboardId });
       },
       [setState]
@@ -832,15 +721,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         const destinationIndex = Math.max(0, Math.min(currentTabs.length - 1, toIndex));
         if (fromIndex < 0 || destinationIndex === fromIndex) return;
 
-        setState((prev) => {
-          const nextFromIndex = prev.tabs.findIndex((tab) => tab.id === tabId);
-          if (nextFromIndex < 0) return prev;
-          const nextDestinationIndex = Math.max(0, Math.min(prev.tabs.length - 1, toIndex));
-          const tabs = [...prev.tabs];
-          const [movedTab] = tabs.splice(nextFromIndex, 1);
-          tabs.splice(nextDestinationIndex, 0, movedTab);
-          return { ...prev, tabs };
-        });
+        setState((prev) => moveTab(prev, tabId, toIndex));
         trackEvent(ANALYTICS_EVENTS.DASHBOARD_TAB_REORDERED, {
           dashboard_id: dashboardId,
           from_index: fromIndex,
@@ -859,28 +740,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // Reapply per-component min-size constraints to a layout returned by RGL. Positions are
     // owned by RGL's grid model; this only clamps w/h and stamps minW/minH/maxW so subsequent
     // drags/resizes enforce them natively. Text widgets use content-aware minimums.
-    const applyItemConstraints = useCallback((items: DashboardLayout[]): DashboardLayout[] => {
-      const components = getActiveEditorTab(stateRef.current).components;
-      return items.map((item) => {
-        const component = components[item.i];
-        if (!component) return item;
-        const chartType = getChartTypeFromConfig(component.config);
-        // Always use base chart-type constraints for resize limits so every
-        // component (including text) stays freely resizable. This matches the
-        // initial-load and creation paths. Previously text used the stored
-        // contentConstraints here, which ratcheted minW/minH up after the first
-        // resize/drag and blocked any further shrinking.
-        const minDimensions = getMinGridDimensions(chartType);
-        return {
-          ...item,
-          w: Math.max(item.w, minDimensions.w),
-          h: Math.max(item.h, minDimensions.h),
-          minW: minDimensions.w,
-          minH: minDimensions.h,
-          maxW: GRID_COLUMN_COUNT,
-        };
-      });
-    }, []);
+    const applyItemConstraints = useCallback(
+      (items: DashboardLayout[]): DashboardLayout[] =>
+        constrainLayoutItems(items, getActiveEditorTab(stateRef.current).components),
+      []
+    );
 
     // onLayoutChange is a no-op for state. In the grid model each widget owns its (x, y, w, h);
     // RGL owns positions during a gesture and reports the final, gravity-up-compacted layout via
@@ -1491,17 +1355,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       const removedComponent = activeComponents[componentId];
       const removedType = removedComponent?.type;
 
-      const newComponents = { ...activeComponents };
-      delete newComponents[componentId];
+      const nextTab = removeWidgetFromLayout(activeLayout, activeComponents, componentId);
 
-      const newLayout = compactVertical(
-        activeLayout.filter((item) => item.i !== componentId),
-        GRID_COLUMN_COUNT
-      );
-
-      setState((prev) =>
-        updateActiveEditorTab(prev, { layout_config: newLayout, components: newComponents })
-      );
+      setState((prev) => updateActiveEditorTab(prev, nextTab));
       trackEvent(ANALYTICS_EVENTS.DASHBOARD_ELEMENT_REMOVED, {
         dashboard_id: dashboardId,
         element_type: removedType,
@@ -1621,34 +1477,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setShowFilterModal(true);
     };
 
-    // Get chart IDs that are already added to the dashboard
-    const getExcludedChartIds = (): number[] => {
-      const chartIds: number[] = [];
-
-      if (activeComponents) {
-        Object.values(activeComponents).forEach((component) => {
-          const chartId = component.config.chartId;
-          if (component.type === DashboardComponentType.CHART && typeof chartId === 'number') {
-            chartIds.push(chartId);
-          }
-        });
-      }
-
-      return chartIds;
-    };
-
-    const getExcludedKPIIds = (): number[] => {
-      const kpiIds: number[] = [];
-      if (activeComponents) {
-        Object.values(activeComponents).forEach((component) => {
-          const kpiId = component.config.kpiId;
-          if (component.type === DashboardComponentType.KPI && typeof kpiId === 'number') {
-            kpiIds.push(kpiId);
-          }
-        });
-      }
-      return kpiIds;
-    };
+    // Chart and KPI ids already on this tab (the pickers mark them "Already added")
+    const getExcludedChartIds = (): number[] => getPlacedChartIds(activeComponents);
+    const getExcludedKPIIds = (): number[] => getPlacedKpiIds(activeComponents);
 
     // Update component config
     const updateComponent = (componentId: string, newConfig: any) => {
