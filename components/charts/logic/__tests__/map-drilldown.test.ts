@@ -206,6 +206,14 @@ describe('resolveDetailRegionClick — legacy layers strategy', () => {
         position: 'top-right',
       },
     ]);
+    expect(resolveDetailRegionClick(ctx(savedMap({}), { canEditCharts: true })).toasts).toEqual([
+      {
+        variant: 'info',
+        message: '🗺️ No further drill-down levels configured',
+        description: 'Configure additional layers in edit mode to enable deeper drill-down',
+        position: 'top-right',
+      },
+    ]);
   });
 
   it('single-select next layer drills with its geojson', () => {
@@ -249,6 +257,21 @@ describe('resolveDetailRegionClick — legacy layers strategy', () => {
       ],
       nextLevel: null,
     });
+    expect(
+      resolveDetailRegionClick(ctx(chart, { regionName: 'Kerala', canEditCharts: false }))
+    ).toEqual({
+      toasts: [
+        {
+          variant: 'info',
+          message: '🗺️ Kerala not configured for drill-down',
+          description: 'This region is not configured for drill-down',
+          position: 'top-right',
+          duration: 4000,
+          withEditAction: false,
+        },
+      ],
+      nextLevel: null,
+    });
   });
 
   it('"excluded by filter" only for != / "not equals" (pinned: builder writes not_equals)', () => {
@@ -274,6 +297,29 @@ describe('resolveDetailRegionClick — legacy layers strategy', () => {
       resolveDetailRegionClick(ctx(builderFilter, { regionName: 'Kerala' })).toasts[0]
     ).toMatchObject({
       variant: 'info',
+    });
+  });
+
+  it('excluded-by-filter toast: full shape', () => {
+    const layers = [
+      {},
+      { geographic_column: 'district', selected_regions: [{ region_id: 1, region_name: 'X' }] },
+    ];
+    const excluded = savedMap({
+      layers,
+      filters: [{ column: 'state', operator: '!=', value: 'Kerala' }],
+    });
+    expect(resolveDetailRegionClick(ctx(excluded, { regionName: 'Kerala' }))).toEqual({
+      toasts: [
+        {
+          variant: 'warning',
+          message: '🚫 Kerala excluded by filter',
+          description: 'This region is filtered out and not available for drill-down',
+          position: 'top-right',
+          duration: 4000,
+        },
+      ],
+      nextLevel: null,
     });
   });
 });

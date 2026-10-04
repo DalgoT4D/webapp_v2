@@ -313,6 +313,7 @@ export function applyLineBarChartFormatting(
   const xAxisNumberFormat = customizations.xAxisNumberFormat;
   const xAxisDecimalPlaces = customizations.xAxisDecimalPlaces;
 
+  // PINNED-BUGS: "Bar/line detail page rounds fractional Y-axis labels to integers"
   const hasYAxisFormatting =
     (yAxisNumberFormat && yAxisNumberFormat !== NumberFormats.DEFAULT) ||
     yAxisDecimalPlaces !== undefined;

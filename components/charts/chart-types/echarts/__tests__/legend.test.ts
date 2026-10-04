@@ -55,7 +55,7 @@ describe('getPieSeriesPosition', () => {
 
 describe('applyLegendPosition', () => {
   it('no legend → same config', () => {
-    const config = { series: [] };
+    const config: Record<string, any> = { series: [] };
     expect(applyLegendPosition(config, 'top')).toBe(config);
   });
 

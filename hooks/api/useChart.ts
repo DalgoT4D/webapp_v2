@@ -13,6 +13,7 @@ import type {
 } from '@/types/charts';
 import { DashboardFilter } from './useDashboards';
 import { ResolvedDashboardFilter } from '@/lib/dashboard-filter-utils';
+// This API layer reaches into a feature folder for a pure function; to be moved in R6.
 import {
   transformMapDataOverlayPayload,
   type MapDataOverlayRawPayload,

@@ -11,7 +11,7 @@ import {
 import { useChildRegions, useRegions } from '@/hooks/api/useChart';
 import { toastError, toastInfo, toastSuccess } from '@/lib/toast';
 
-/** The builders only know Indian states today (was a TODO constant in the edit page). */
+// TODO: make this dynamic based on selected geojson
 const MAP_COUNTRY_CODE = 'IND';
 
 /** PINNED-BUGS: "Map region click in create builder without drill level → info toast; edit builder → nothing". */

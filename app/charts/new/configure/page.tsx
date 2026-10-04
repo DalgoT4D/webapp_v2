@@ -175,6 +175,7 @@ function ConfigureChartPageContent() {
           isSaving={isMutating}
         />
       }
+      // BUILDER-DRIFT: create's config tab is controlled (configTabValue); edit's is uncontrolled.
       configTabValue={configurationTab}
       onConfigTabChange={(value) => {
         setConfigurationTab(value);
@@ -188,6 +189,7 @@ function ConfigureChartPageContent() {
             formData={config}
             onChange={patchConfig}
             disabled={false}
+            // BUILDER-DRIFT: isNewChart is only ever passed on the create page.
             isNewChart
           />
         )

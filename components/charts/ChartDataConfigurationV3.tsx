@@ -64,8 +64,6 @@ export function ChartDataConfigurationV3({
     [columns]
   );
 
-  const allColumns = normalizedColumns;
-
   // Memoize column items for Combobox to prevent unnecessary re-renders
   const columnItems = React.useMemo(
     () =>
@@ -129,11 +127,11 @@ export function ChartDataConfigurationV3({
     // Only run this effect if columns are loaded to avoid clearing time_grain during initial load
     if (!columns || columns.length === 0) return;
 
-    if (!findTimeGrainColumn(formData, allColumns) && formData.time_grain) {
+    if (!findTimeGrainColumn(formData, normalizedColumns) && formData.time_grain) {
       onChange({ time_grain: null });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.chart_type, formData.dimension_column, allColumns, columns]);
+  }, [formData.chart_type, formData.dimension_column, normalizedColumns, columns]);
 
   // Handle chart type changes with field cleanup and auto-prefill
   const handleChartTypeChange = (newChartType: string) => {
@@ -141,7 +139,7 @@ export function ChartDataConfigurationV3({
   };
 
   const chartType = formData.chart_type || '';
-  const timeGrainColumn = findTimeGrainColumn(formData, allColumns);
+  const timeGrainColumn = findTimeGrainColumn(formData, normalizedColumns);
 
   return (
     <div className="space-y-4">
@@ -214,7 +212,7 @@ export function ChartDataConfigurationV3({
           formData={formData}
           onChange={onChange}
           disabled={disabled}
-          allColumns={allColumns}
+          allColumns={normalizedColumns}
         />
       )}
 

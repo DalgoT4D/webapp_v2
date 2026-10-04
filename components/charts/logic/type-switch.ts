@@ -17,7 +17,8 @@ type ConfigRecord = Record<string, unknown>;
 
 // ---------------------------------------------------------------------------
 // Pass 1 — the data-config panel's switch (both builders, non-map sources)
-// Moved verbatim from ChartDataConfigurationV3.handleChartTypeChange.
+// Adapted from ChartDataConfigurationV3.handleChartTypeChange (logic unchanged; the dev-only
+// console.log was dropped and a couple of array literals were given explicit types).
 // ---------------------------------------------------------------------------
 
 const PIVOT_RESET_EXTRA_CONFIG = {
@@ -39,7 +40,7 @@ function numberFields(prev: ChartBuilderFormData): ChartConfigPatch {
     aggregate_function: prev.aggregate_function,
     x_axis_column: null,
     y_axis_column: null,
-    dimension_column: null, // PINNED-BUGS: "Number/pivot → bar/line/pie … X empty"
+    dimension_column: null,
     extra_dimension_column: null,
     metrics: prev.metrics && prev.metrics.length > 0 ? [prev.metrics[0]] : [],
   } as ChartConfigPatch;
@@ -49,6 +50,7 @@ function pieFields(prev: ChartBuilderFormData): ChartConfigPatch {
   return {
     x_axis_column: prev.x_axis_column,
     y_axis_column: null,
+    // PINNED-BUGS: "Number/pivot → bar/line/pie … X empty" (prev.dimension_column is already unset)
     dimension_column: prev.dimension_column,
     aggregate_column: prev.aggregate_column,
     aggregate_function: prev.aggregate_function,
@@ -62,6 +64,7 @@ function barLineFields(prev: ChartBuilderFormData): ChartConfigPatch {
   return {
     x_axis_column: prev.x_axis_column,
     y_axis_column: prev.y_axis_column,
+    // PINNED-BUGS: "Number/pivot → bar/line/pie … X empty" (prev.dimension_column is already unset)
     dimension_column: prev.dimension_column,
     aggregate_column: prev.aggregate_column,
     aggregate_function: prev.aggregate_function,
@@ -150,7 +153,7 @@ export function applyChartTypeChange(
 
 // ---------------------------------------------------------------------------
 // Pass 2 — the edit page's own switch, applied on top of pass 1
-// Moved verbatim from the edit page's handleFormChange (copied from the deleted ChartBuilder).
+// Adapted from the edit page's handleFormChange (logic unchanged).
 // ---------------------------------------------------------------------------
 
 const AGGREGATED_CHART_TYPES: string[] = [

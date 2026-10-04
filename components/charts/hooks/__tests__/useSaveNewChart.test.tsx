@@ -50,7 +50,6 @@ function renderSave(isFromDashboard: boolean, cfg: ChartBuilderFormData = config
 describe('useSaveNewChart', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(console, 'error').mockImplementation(() => undefined);
     mockCreateChart.mockResolvedValue({ id: 42 });
   });
 

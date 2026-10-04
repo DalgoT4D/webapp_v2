@@ -7,6 +7,7 @@ import { formatNumber, NumberFormats, type NumberFormat } from '@/lib/formatters
 /**
  * Extract numeric value from various ECharts data formats
  */
+// PINNED-BUGS: "Stacked bar total labels render blank"
 function extractValue(value: any): number {
   if (Array.isArray(value)) value = value[1];
   if (value !== null && typeof value === 'object' && 'value' in value) value = value.value;

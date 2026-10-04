@@ -1,5 +1,4 @@
-import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
-import { ChartTypes } from '@/types/charts';
+import { ChartTypes, type ChartBuilderFormData, type ChartMetric } from '@/types/charts';
 
 // ---------------------------------------------------------------------------
 // Request transform (moved verbatim from hooks/api/useChart.ts)
@@ -115,81 +114,6 @@ export function getMapDrillColumn(config: ChartBuilderFormData): string | undefi
 }
 
 type CreateOverlayPayload = NonNullable<ChartBuilderFormData['dataOverlayPayload']>;
-
-/** The create page's map preview (formerly written into the config by an effect). */
-export interface CreateMapPreview {
-  geojson?: { geojsonId: number };
-  overlay?: CreateOverlayPayload;
-}
-
-function hasValidMapMetric(config: ChartBuilderFormData): boolean {
-  const metric = config.metrics?.[0];
-  return metric
-    ? !!(metric.column_expression || metric.aggregation)
-    : !!(config.aggregate_column && config.aggregate_function);
-}
-
-function isCreateMapPreviewReady(config: ChartBuilderFormData): boolean {
-  return !!(
-    config.chart_type === ChartTypes.MAP &&
-    config.geographic_column &&
-    config.selected_geojson_id &&
-    hasValidMapMetric(config) &&
-    config.schema_name &&
-    config.table_name
-  );
-}
-
-function buildCreateOverlay(config: ChartBuilderFormData): CreateOverlayPayload {
-  return {
-    schema_name: config.schema_name!,
-    table_name: config.table_name!,
-    geographic_column: config.geographic_column!,
-    metric: config.metrics?.[0],
-    value_column: config.aggregate_column || config.value_column || config.geographic_column,
-    aggregate_function: config.aggregate_function!,
-    selected_geojson_id: config.selected_geojson_id!,
-    filters: {},
-    chart_filters: config.filters || [],
-  };
-}
-
-/**
- * Rebuild when anything the request depends on changed. Includes the fields DynamicLevelConfig used
- * to force a rebuild with (value column, aggregate, filters), so the result matches the old effect pair.
- */
-function isCreatePreviewStale(prev: CreateMapPreview, next: CreateOverlayPayload): boolean {
-  const old = prev.overlay;
-  return (
-    !prev.geojson ||
-    !old ||
-    prev.geojson.geojsonId !== next.selected_geojson_id ||
-    old.geographic_column !== next.geographic_column ||
-    JSON.stringify(old.metric || {}) !== JSON.stringify(next.metric || {}) ||
-    old.value_column !== next.value_column ||
-    old.aggregate_function !== next.aggregate_function ||
-    JSON.stringify(old.chart_filters || []) !== JSON.stringify(next.chart_filters || [])
-  );
-}
-
-/**
- * Next create-page map preview. Sticky like the effect it replaces: an incomplete config keeps the
- * last preview, except that an invalid metric drops the overlay (the geojson stays).
- */
-export function nextCreateMapPreview(
-  prev: CreateMapPreview,
-  config: ChartBuilderFormData
-): CreateMapPreview {
-  if (isCreateMapPreviewReady(config)) {
-    const overlay = buildCreateOverlay(config);
-    if (!isCreatePreviewStale(prev, overlay)) return prev;
-    return { geojson: { geojsonId: config.selected_geojson_id! }, overlay };
-  }
-  if (config.chart_type === ChartTypes.MAP && !hasValidMapMetric(config) && prev.overlay) {
-    return { ...prev, overlay: undefined };
-  }
-  return prev;
-}
 
 /** Create page: point the overlay at the drill level (column + parent filters). */
 export function applyMapDrillToOverlay(

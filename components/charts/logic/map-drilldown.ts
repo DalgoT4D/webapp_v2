@@ -174,10 +174,30 @@ function noLayersToast(canEditCharts: boolean): DetailDrillToast {
   };
 }
 
+/** One entry in a legacy map layer's `selected_regions` (multi-select mode). */
+interface SelectedRegion {
+  region_id: number;
+  region_name: string;
+  geojson_id?: number;
+}
+
+/** A legacy `extra_config.layers` entry (shape is `any` upstream — `Chart.extra_config` is untyped). */
+interface MapLayer {
+  id?: string;
+  level?: number;
+  name?: string;
+  geojson_id?: number;
+  geographic_column?: string;
+  region_id?: number;
+  selected_regions?: SelectedRegion[];
+}
+
 /** Is the clicked region set up in the next layer? Returns its geojson when it is. */
-function findConfiguredLayerRegion(nextLayer: any, regionName: string) {
+function findConfiguredLayerRegion(nextLayer: MapLayer, regionName: string) {
   if (nextLayer.selected_regions && nextLayer.selected_regions.length > 0) {
-    const match = nextLayer.selected_regions.find((r: any) => r.region_name === regionName);
+    const match = nextLayer.selected_regions.find(
+      (r: SelectedRegion) => r.region_name === regionName
+    );
     return match && match.geojson_id
       ? { isConfigured: true, geojsonId: match.geojson_id }
       : { isConfigured: false, geojsonId: nextLayer.geojson_id };

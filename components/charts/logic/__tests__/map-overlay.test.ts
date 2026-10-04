@@ -3,7 +3,6 @@ import {
   buildEditMapOverlayPayload,
   collectDrillFilters,
   getMapDrillColumn,
-  nextCreateMapPreview,
   transformMapDataOverlayPayload,
   type MapDrillLevel,
 } from '@/components/charts/logic/map-overlay';
@@ -117,72 +116,19 @@ const READY_MAP: ChartBuilderFormData = {
   filters: [],
 };
 
-describe('nextCreateMapPreview', () => {
-  it('builds the preview once the map is configured', () => {
-    expect(nextCreateMapPreview({}, READY_MAP)).toEqual({
-      geojson: { geojsonId: 35 },
-      overlay: {
-        schema_name: 's',
-        table_name: 't',
-        geographic_column: 'state',
-        metric: SUM_STUDENTS,
-        value_column: 'students',
-        aggregate_function: 'sum',
-        selected_geojson_id: 35,
-        filters: {},
-        chart_filters: [],
-      },
-    });
-  });
-
-  it('keeps the same object while nothing relevant changed', () => {
-    const first = nextCreateMapPreview({}, READY_MAP);
-    expect(nextCreateMapPreview(first, { ...READY_MAP, title: 'renamed' })).toBe(first);
-  });
-
-  it('rebuilds on a new geojson, column, metric, value column, aggregate or filters', () => {
-    const first = nextCreateMapPreview({}, READY_MAP);
-    expect(nextCreateMapPreview(first, { ...READY_MAP, selected_geojson_id: 36 }).geojson).toEqual({
-      geojsonId: 36,
-    });
-    expect(
-      nextCreateMapPreview(first, { ...READY_MAP, aggregate_column: 'score' }).overlay!.value_column
-    ).toBe('score');
-    const filters = [{ column: 'year', operator: 'equals' as const, value: 2024 }];
-    expect(nextCreateMapPreview(first, { ...READY_MAP, filters }).overlay!.chart_filters).toEqual(
-      filters
-    );
-  });
-
-  it('value column falls back to value_column, then the geographic column', () => {
-    const preview = nextCreateMapPreview(
-      {},
-      { ...READY_MAP, aggregate_column: undefined, value_column: undefined }
-    );
-    expect(preview.overlay!.value_column).toBe('state');
-  });
-
-  it('an invalid metric drops the overlay but keeps the geojson (sticky)', () => {
-    const first = nextCreateMapPreview({}, READY_MAP);
-    const next = nextCreateMapPreview(first, { ...READY_MAP, metrics: [{ alias: 'x' }] });
-    expect(next).toEqual({ geojson: { geojsonId: 35 } });
-  });
-
-  it('an incomplete config keeps the last preview; non-map types never build one', () => {
-    const first = nextCreateMapPreview({}, READY_MAP);
-    expect(nextCreateMapPreview(first, { ...READY_MAP, geographic_column: undefined })).toBe(first);
-    expect(nextCreateMapPreview({}, { ...READY_MAP, chart_type: 'bar' })).toEqual({});
-  });
-
-  it('legacy config without metrics needs aggregate column and function', () => {
-    const legacy: ChartBuilderFormData = { ...READY_MAP, metrics: undefined };
-    expect(nextCreateMapPreview({}, legacy).overlay).toBeDefined();
-    expect(nextCreateMapPreview({}, { ...legacy, aggregate_column: undefined })).toEqual({});
-  });
-});
-
 describe('applyMapDrillToOverlay (create)', () => {
-  const base = nextCreateMapPreview({}, READY_MAP).overlay!;
+  // Same overlay shape READY_MAP would have produced via the (now-deleted) create preview builder.
+  const base: NonNullable<ChartBuilderFormData['dataOverlayPayload']> = {
+    schema_name: 's',
+    table_name: 't',
+    geographic_column: 'state',
+    metric: SUM_STUDENTS,
+    value_column: 'students',
+    aggregate_function: 'sum',
+    selected_geojson_id: 35,
+    filters: {},
+    chart_filters: [],
+  };
   it('no drill → the base payload; drilled → drill column + parent filters', () => {
     expect(applyMapDrillToOverlay(null, [KA], READY_MAP)).toBeNull();
     expect(applyMapDrillToOverlay(base, [], READY_MAP)).toBe(base);

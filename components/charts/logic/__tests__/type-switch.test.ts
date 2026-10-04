@@ -61,6 +61,48 @@ describe('applyChartTypeChange', () => {
     });
   });
 
+  it('pivot_table: full patch resets the pivot extra_config fields (toStrictEqual)', () => {
+    const patch = applyChartTypeChange(createSource('bar'), 'pivot_table', COLUMNS);
+    expect(patch).toStrictEqual({
+      title: 'T',
+      schema_name: 'production',
+      table_name: 'mart_education_program',
+      chart_type: 'pivot_table',
+      computation_type: 'aggregated',
+      filters: undefined,
+      sort: undefined,
+      pagination: undefined,
+      extra_config: {
+        row_dimensions: [],
+        column_dimensions: [],
+        show_row_subtotals: false,
+        show_column_subtotals: false,
+        show_row_grand_total: false,
+        show_column_grand_total: false,
+        row_subtotal_label: 'Subtotal',
+        column_subtotal_label: 'Subtotal',
+        row_grand_total_label: 'Grand Total',
+        column_grand_total_label: 'Grand Total',
+      },
+      metrics: [
+        { aggregation: 'sum', alias: 'SUM(students)', column: 'students' },
+        { aggregation: 'avg', alias: 'AVG(male_score)', column: 'male_score' },
+      ],
+      customizations: {
+        legendPosition: 'bottom',
+        orientation: 'vertical',
+        showDataLabels: true,
+        showLegend: true,
+        showTooltip: true,
+        stacked: false,
+        xAxisLabelRotation: '45',
+        xAxisTitle: '',
+        yAxisLabelRotation: 'horizontal',
+        yAxisTitle: '',
+      },
+    });
+  });
+
   it('an unknown target keeps only the shared fields and the prefill (none for unknown types)', () => {
     const patch = applyChartTypeChange(createSource('bar'), 'sankey', COLUMNS);
     expect(Object.keys(patch).sort()).toEqual(
@@ -87,6 +129,40 @@ describe('legacyEditPageTypeSwitch', () => {
       ...prev,
       chart_type: 'bar',
       dimension_column: 'id',
+    });
+  });
+
+  it('→ table without a dimension_column: x_axis_column fallback feeds table_columns (toStrictEqual)', () => {
+    const prev: ChartBuilderFormData = {
+      ...editSource('bar'),
+      dimension_column: undefined,
+      x_axis_column: 'statename',
+    };
+    const patch = applyChartTypeChange(prev, 'table', COLUMNS);
+    const after = legacyEditPageTypeSwitch(prev, patch as Partial<ChartBuilderFormData>);
+    expect(after).toStrictEqual({
+      filters: [],
+      pagination: { enabled: false, page_size: 50 },
+      sort: [],
+      table_columns: ['statename', 'students', 'male_score'],
+      title: 'T',
+      schema_name: 'production',
+      table_name: 'mart_education_program',
+      computation_type: 'aggregated',
+      chart_type: 'table',
+      aggregate_column: undefined,
+      aggregate_function: 'count',
+      dimension_column: undefined,
+      extra_dimension_column: 'climate_event',
+      metrics: [
+        { aggregation: 'sum', alias: 'SUM(students)', column: 'students' },
+        { aggregation: 'avg', alias: 'AVG(male_score)', column: 'male_score' },
+      ],
+      customizations: {},
+      x_axis_column: 'statename',
+      dimensions: [{ column: 'id', enable_drill_down: false }],
+      dimension_columns: ['id'],
+      y_axis_column: null,
     });
   });
 

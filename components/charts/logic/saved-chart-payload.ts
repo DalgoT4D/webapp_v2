@@ -84,7 +84,7 @@ export function resolveSavedMapSource(
   chart: Chart | undefined,
   drillDownPath: DetailDrillLevel[],
   drillGeojsonId: number | null
-): { geojsonId: number | null; geographicColumn: string | null } {
+): { geojsonId: number | null | undefined; geographicColumn: string | null | undefined } {
   if (chart?.chart_type !== 'map') return { geojsonId: null, geographicColumn: null };
   const activeLevel = drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1] : null;
   if (activeLevel)

@@ -5,9 +5,8 @@
  * Split out of formatting.ts — see that file for the shared number formatting.
  */
 
-import { formatDate, type DateFormat } from '@/lib/formatters';
+import { formatDate, type DateFormat, type NumberFormat } from '@/lib/formatters';
 import { createPieDimensionFormatter, type ChartCustomizations } from './formatting';
-import type { NumberFormat } from '@/lib/formatters';
 
 /**
  * Creates a formatter for pie chart date dimensions that handles:
