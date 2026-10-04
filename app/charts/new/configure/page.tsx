@@ -15,7 +15,6 @@ import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigura
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExitDialog';
-import { buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
 import {
   useChartData,
   useChartDataPreview,
@@ -64,7 +63,11 @@ import {
 import { getDefaultCustomizations } from '@/components/charts/chart-types/default-customizations';
 import { canSaveChart } from '@/components/charts/logic/validation';
 import { generateDefaultChartName } from '@/components/charts/logic/default-name';
-import { buildChartDataPayload, type TableDrillDownState } from '@/components/charts/logic/payload';
+import {
+  buildChartDataPayload,
+  buildCreateChartPayload,
+  type TableDrillDownState,
+} from '@/components/charts/logic/payload';
 
 function ConfigureChartPageContent() {
   const router = useRouter();
@@ -641,66 +644,7 @@ function ConfigureChartPageContent() {
       return;
     }
 
-    let selectedGeojsonId = formData.selected_geojson_id;
-    if (formData.chart_type === 'map' && formData.layers && formData.layers.length > 0) {
-      const firstLayer = formData.layers[0];
-      if (firstLayer.geojson_id) {
-        selectedGeojsonId = firstLayer.geojson_id;
-      }
-    }
-
-    const chartData: ChartCreate = {
-      title: formData.title!,
-      chart_type: formData.chart_type!,
-      computation_type: formData.computation_type!,
-      schema_name: formData.schema_name!,
-      table_name: formData.table_name!,
-      extra_config: {
-        x_axis_column: formData.x_axis_column,
-        y_axis_column: formData.y_axis_column,
-        dimension_column: formData.dimension_column,
-        aggregate_column: formData.aggregate_column,
-        aggregate_function: formData.aggregate_function,
-        extra_dimension_column: formData.extra_dimension_column,
-        geographic_column: formData.geographic_column,
-        value_column: formData.value_column,
-        selected_geojson_id: selectedGeojsonId,
-        layers: formData.layers,
-        customizations: formData.customizations,
-        filters: formData.filters,
-        pagination: formData.pagination,
-        sort: formData.sort,
-        time_grain: formData.time_grain,
-        // Include metrics for multiple metrics support
-        ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-        // ✅ FIX: Include geographic_hierarchy for drill-down functionality
-        ...(formData.geographic_hierarchy && {
-          geographic_hierarchy: formData.geographic_hierarchy,
-        }),
-        // ✅ FIX: Include dimensions and dimension_columns for table charts
-        ...(formData.chart_type === 'table' && {
-          // Always include dimensions array (even if empty) to ensure structure is consistent
-          dimensions:
-            formData.dimensions && formData.dimensions.length > 0
-              ? formData.dimensions
-                  .filter((dim) => dim.column && dim.column.trim() !== '')
-                  .map((dim) => ({
-                    column: dim.column,
-                    enable_drill_down: Boolean(dim.enable_drill_down === true),
-                  }))
-              : [],
-          // Always include dimension_columns array for backward compatibility
-          dimension_columns:
-            formData.dimensions && formData.dimensions.length > 0
-              ? formData.dimensions.map((d) => d.column).filter(Boolean)
-              : [],
-          // Keep table_columns for backward compatibility
-          table_columns: formData.table_columns,
-        }),
-        // Pivot table extra_config fields (source of truth persisted on the chart)
-        ...(formData.chart_type === 'pivot_table' && buildPivotExtraConfig(formData.extra_config)),
-      },
-    };
+    const chartData: ChartCreate = buildCreateChartPayload(formData);
 
     try {
       const result = await createChart(chartData);

@@ -1,6 +1,11 @@
-import { buildChartDataPayload, resolveTableDimensions } from '@/components/charts/logic/payload';
+import {
+  buildChartDataPayload,
+  resolveTableDimensions,
+  buildCreateChartPayload,
+  buildEditChartPayload,
+} from '@/components/charts/logic/payload';
 import { getApiCustomizations } from '@/lib/chart-payload-utils';
-import { buildPivotDataFields } from '@/components/charts/pivot-table/utils';
+import { buildPivotDataFields, buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
 
 /** Compare what goes over the wire (undefined keys dropped), like the E2E payload snapshots. */
@@ -158,5 +163,110 @@ describe('resolveTableDimensions', () => {
     expect(resolveTableDimensions(dims, { currentLevel: 5, appliedFilters: {} })).toEqual([
       'district',
     ]);
+  });
+});
+
+describe('save payloads', () => {
+  const saved: ChartBuilderFormData = { ...common, title: 'T', customizations: { a: 1 } };
+
+  it('map (create): first layer geojson wins; geographic_hierarchy only when set', () => {
+    const payload = wire(
+      buildCreateChartPayload({
+        ...saved,
+        chart_type: 'map',
+        geographic_column: 'state',
+        selected_geojson_id: 1,
+        layers: [{ id: '0', level: 0, geojson_id: 9 }],
+        metrics: [SUM_STUDENTS],
+        geographic_hierarchy: null,
+      } as ChartBuilderFormData)
+    );
+    expect(payload).toEqual({
+      title: 'T',
+      chart_type: 'map',
+      computation_type: 'aggregated',
+      schema_name: 's',
+      table_name: 't',
+      extra_config: {
+        geographic_column: 'state',
+        selected_geojson_id: 9,
+        layers: [{ id: '0', level: 0, geojson_id: 9 }],
+        customizations: { a: 1 },
+        filters: [],
+        pagination: { enabled: false, page_size: 50 },
+        sort: [],
+        time_grain: null,
+        metrics: [SUM_STUDENTS],
+      },
+    });
+  });
+
+  it('map (edit): drill columns become layers; geographic_hierarchy null is sent (differs between builders)', () => {
+    const payload = wire(
+      buildEditChartPayload({
+        ...saved,
+        chart_type: 'map',
+        geographic_column: 'state',
+        selected_geojson_id: 3,
+        district_column: 'district',
+        metrics: [SUM_STUDENTS],
+        geographic_hierarchy: null,
+      } as ChartBuilderFormData)
+    );
+    expect(payload.extra_config.layers).toEqual([
+      { id: '0', level: 0, geographic_column: 'state', geojson_id: 3, selected_regions: [] },
+      {
+        id: '1',
+        level: 1,
+        geographic_column: 'district',
+        selected_regions: [],
+        parent_selections: [],
+      },
+    ]);
+    expect(payload.extra_config.selected_geojson_id).toBe(3);
+    expect(payload.extra_config.district_column).toBe('district');
+    expect(payload.extra_config.geographic_hierarchy).toBeNull();
+  });
+
+  it('table: dimensions trimmed for the new shape, raw for dimension_columns (both builders)', () => {
+    const table: ChartBuilderFormData = {
+      ...saved,
+      chart_type: 'table',
+      dimensions: [{ column: 'a', enable_drill_down: true }, { column: ' ' }, { column: 'b' }],
+      table_columns: ['a', 'b'],
+    };
+    for (const payload of [
+      wire(buildCreateChartPayload(table)),
+      wire(buildEditChartPayload(table)),
+    ]) {
+      expect(payload.extra_config.dimensions).toEqual([
+        { column: 'a', enable_drill_down: true },
+        { column: 'b', enable_drill_down: false },
+      ]);
+      expect(payload.extra_config.dimension_columns).toEqual(['a', ' ', 'b']);
+      expect(payload.extra_config.table_columns).toEqual(['a', 'b']);
+    }
+  });
+
+  it('empty metrics are omitted; pivot adds its full extra_config', () => {
+    const pivot: ChartBuilderFormData = {
+      ...saved,
+      chart_type: 'pivot_table',
+      metrics: [],
+      extra_config: { row_dimensions: ['r'] },
+    };
+    for (const payload of [
+      wire(buildCreateChartPayload(pivot)),
+      wire(buildEditChartPayload(pivot)),
+    ]) {
+      expect(payload.extra_config).not.toHaveProperty('metrics');
+      expect(payload.extra_config).toMatchObject(wire(buildPivotExtraConfig(pivot.extra_config)));
+    }
+  });
+
+  it('table_columns: edit always sends it, create only for tables (differs between builders)', () => {
+    const bar: ChartBuilderFormData = { ...saved, chart_type: 'bar', table_columns: ['x'] };
+    expect(wire(buildCreateChartPayload(bar)).extra_config).not.toHaveProperty('table_columns');
+    expect(wire(buildEditChartPayload(bar)).extra_config.table_columns).toEqual(['x']);
   });
 });

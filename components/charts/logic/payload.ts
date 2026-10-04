@@ -1,14 +1,16 @@
 import type {
   ChartBuilderFormData,
+  ChartCreate,
   ChartDataPayload,
   ChartDimension,
   ChartFilter,
 } from '@/types/charts';
 import { ChartTypes } from '@/types/charts';
 import { getApiCustomizations } from '@/lib/chart-payload-utils';
-import { buildPivotDataFields } from '@/components/charts/pivot-table/utils';
+import { buildPivotDataFields, buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
 import type { ChartBuilderKind } from '@/components/charts/chart-types/default-customizations';
 import { isChartReady } from '@/components/charts/logic/validation';
+import { toMapLayers } from '@/components/charts/logic/map-layers';
 
 /** Where a table chart's drill-down currently is (null = top level, not drilled). */
 export interface TableDrillDownState {
@@ -126,6 +128,119 @@ export function buildChartDataPayload(
       sort: config.sort,
       time_grain: config.time_grain,
       ...(builder === 'edit' && { table_columns: config.table_columns }), // PINNED-BUGS: edit only
+    },
+  };
+}
+
+/** Table dimensions as both builders save them. PINNED-BUGS: dimension_columns keeps blank names. */
+function tableDimensionSaveFields(config: ChartBuilderFormData) {
+  const dimensions = config.dimensions || [];
+  return {
+    dimensions: dimensions
+      .filter((dim) => dim.column && dim.column.trim() !== '')
+      .map((dim) => ({
+        column: dim.column,
+        enable_drill_down: Boolean(dim.enable_drill_down === true),
+      })),
+    dimension_columns: dimensions.map((d) => d.column).filter(Boolean),
+  };
+}
+
+function nonEmptyMetricsField(config: ChartBuilderFormData) {
+  return config.metrics && config.metrics.length > 0 ? { metrics: config.metrics } : {};
+}
+
+function pivotSaveFields(config: ChartBuilderFormData) {
+  return config.chart_type === ChartTypes.PIVOT_TABLE
+    ? buildPivotExtraConfig(config.extra_config)
+    : {};
+}
+
+function savedChartBase(config: ChartBuilderFormData) {
+  return {
+    title: config.title!,
+    chart_type: config.chart_type!,
+    computation_type: config.computation_type!,
+    schema_name: config.schema_name!,
+    table_name: config.table_name!,
+  };
+}
+
+/** POST /api/charts/ body from the create page. */
+export function buildCreateChartPayload(config: ChartBuilderFormData): ChartCreate {
+  const firstLayerGeojsonId =
+    config.chart_type === ChartTypes.MAP ? config.layers?.[0]?.geojson_id : undefined;
+
+  return {
+    ...savedChartBase(config),
+    extra_config: {
+      x_axis_column: config.x_axis_column,
+      y_axis_column: config.y_axis_column,
+      dimension_column: config.dimension_column,
+      aggregate_column: config.aggregate_column,
+      aggregate_function: config.aggregate_function,
+      extra_dimension_column: config.extra_dimension_column,
+      geographic_column: config.geographic_column,
+      value_column: config.value_column,
+      selected_geojson_id: firstLayerGeojsonId || config.selected_geojson_id,
+      layers: config.layers,
+      customizations: config.customizations,
+      filters: config.filters,
+      pagination: config.pagination,
+      sort: config.sort,
+      time_grain: config.time_grain,
+      ...nonEmptyMetricsField(config),
+      ...(config.geographic_hierarchy && { geographic_hierarchy: config.geographic_hierarchy }),
+      ...(config.chart_type === ChartTypes.TABLE && {
+        ...tableDimensionSaveFields(config),
+        table_columns: config.table_columns,
+      }),
+      ...pivotSaveFields(config),
+    },
+  };
+}
+
+/** PUT body (and "save as new") from the edit page. Converts flat drill columns into layers. */
+export function buildEditChartPayload(config: ChartBuilderFormData): ChartCreate {
+  let layers: ChartBuilderFormData['layers'] | ReturnType<typeof toMapLayers> = config.layers;
+  let selectedGeojsonId = config.selected_geojson_id;
+
+  if (config.chart_type === ChartTypes.MAP) {
+    const hasDrillColumns =
+      config.geographic_column &&
+      (config.district_column || config.ward_column || config.subward_column);
+    if (hasDrillColumns) layers = toMapLayers(config);
+    if (layers && layers.length > 0 && layers[0].geojson_id)
+      selectedGeojsonId = layers[0].geojson_id;
+  }
+
+  return {
+    ...savedChartBase(config),
+    extra_config: {
+      x_axis_column: config.x_axis_column,
+      y_axis_column: config.y_axis_column,
+      dimension_column: config.dimension_column,
+      aggregate_column: config.aggregate_column,
+      aggregate_function: config.aggregate_function,
+      extra_dimension_column: config.extra_dimension_column,
+      geographic_column: config.geographic_column,
+      value_column: config.value_column,
+      selected_geojson_id: selectedGeojsonId,
+      layers,
+      district_column: config.district_column,
+      ward_column: config.ward_column,
+      subward_column: config.subward_column,
+      drill_down_enabled: config.drill_down_enabled,
+      geographic_hierarchy: config.geographic_hierarchy,
+      customizations: config.customizations,
+      filters: config.filters,
+      pagination: config.pagination,
+      sort: config.sort,
+      time_grain: config.time_grain,
+      table_columns: config.table_columns,
+      ...nonEmptyMetricsField(config),
+      ...(config.chart_type === ChartTypes.TABLE && tableDimensionSaveFields(config)),
+      ...pivotSaveFields(config),
     },
   };
 }

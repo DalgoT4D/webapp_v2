@@ -70,12 +70,12 @@ import {
 } from '@/lib/widget-navigation';
 import { getDefaultCustomizations } from '@/components/charts/chart-types/default-customizations';
 import { canSaveChart, isChartReady } from '@/components/charts/logic/validation';
+import { toSimplifiedMapFields } from '@/components/charts/logic/map-layers';
 import {
-  toMapLayers,
-  toSimplifiedMapFields,
-  type MapLayerToSave,
-} from '@/components/charts/logic/map-layers';
-import { buildChartDataPayload, type TableDrillDownState } from '@/components/charts/logic/payload';
+  buildChartDataPayload,
+  buildEditChartPayload,
+  type TableDrillDownState,
+} from '@/components/charts/logic/payload';
 
 function EditChartPageContent() {
   const params = useParams();
@@ -912,86 +912,7 @@ function EditChartPageContent() {
   const isFormValid = () => canSaveChart(formData);
 
   // Helper to build chart data from form
-  const buildChartData = (): ChartCreate => {
-    // For map charts, process layers and simplified drill-down
-    let selectedGeojsonId = formData.selected_geojson_id;
-    let layersToSave: ChartBuilderFormData['layers'] | MapLayerToSave[] = formData.layers;
-
-    if (formData.chart_type === ChartTypes.MAP) {
-      // Check if we have simplified drill-down fields to convert
-      const hasSimplifiedFields =
-        formData.geographic_column &&
-        (formData.district_column || formData.ward_column || formData.subward_column);
-
-      if (hasSimplifiedFields) {
-        layersToSave = toMapLayers(formData);
-      }
-
-      // Backward compatibility: set selectedGeojsonId from first layer
-      if (layersToSave && layersToSave.length > 0) {
-        const firstLayer = layersToSave[0];
-        if (firstLayer.geojson_id) {
-          selectedGeojsonId = firstLayer.geojson_id;
-        }
-      }
-    }
-
-    return {
-      title: formData.title!,
-      chart_type: formData.chart_type!,
-      computation_type: formData.computation_type!,
-      schema_name: formData.schema_name!,
-      table_name: formData.table_name!,
-      extra_config: {
-        x_axis_column: formData.x_axis_column,
-        y_axis_column: formData.y_axis_column,
-        dimension_column: formData.dimension_column,
-        aggregate_column: formData.aggregate_column,
-        aggregate_function: formData.aggregate_function,
-        extra_dimension_column: formData.extra_dimension_column,
-        geographic_column: formData.geographic_column,
-        value_column: formData.value_column,
-        selected_geojson_id: selectedGeojsonId,
-        layers: layersToSave,
-        // Simplified drill-down fields
-        district_column: formData.district_column,
-        ward_column: formData.ward_column,
-        subward_column: formData.subward_column,
-        drill_down_enabled: formData.drill_down_enabled,
-        // Include geographic_hierarchy to preserve drill-down configuration
-        geographic_hierarchy: formData.geographic_hierarchy,
-        customizations: formData.customizations,
-        filters: formData.filters,
-        pagination: formData.pagination,
-        sort: formData.sort,
-        time_grain: formData.time_grain,
-        // Include table_columns for table charts
-        table_columns: formData.table_columns,
-        // Include metrics for multiple metrics support
-        ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-        // ✅ FIX: Include dimensions and dimension_columns for table charts
-        ...(formData.chart_type === ChartTypes.TABLE && {
-          // Always include dimensions array (even if empty) to ensure structure is consistent
-          dimensions:
-            formData.dimensions && formData.dimensions.length > 0
-              ? formData.dimensions
-                  .filter((dim) => dim.column && dim.column.trim() !== '')
-                  .map((dim) => ({
-                    column: dim.column,
-                    enable_drill_down: Boolean(dim.enable_drill_down === true),
-                  }))
-              : [],
-          // Always include dimension_columns array for backward compatibility
-          dimension_columns:
-            formData.dimensions && formData.dimensions.length > 0
-              ? formData.dimensions.map((d) => d.column).filter(Boolean)
-              : [],
-        }),
-        // Pivot table extra_config fields (source of truth persisted on the chart)
-        ...(formData.chart_type === 'pivot_table' && buildPivotExtraConfig(formData.extra_config)),
-      },
-    };
-  };
+  const buildChartData = (): ChartCreate => buildEditChartPayload(formData);
 
   // Handle updating existing chart
   const handleUpdateExisting = async () => {
