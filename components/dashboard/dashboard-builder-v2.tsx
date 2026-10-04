@@ -17,12 +17,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { apiGet, apiPut } from '@/lib/api';
-import {
-  updateDashboardFilter,
-  createDashboardFilter,
-  useDashboard,
-  type DashboardFilter,
-} from '@/hooks/api/useDashboards';
+import { useDashboard } from '@/hooks/api/useDashboards';
+import { normalizeBuilderFilters } from '@/components/dashboard/logic/builder-filters';
+import { useBuilderFilters } from '@/components/dashboard/hooks/useBuilderFilters';
 import { useDashboardLock } from '@/components/dashboard/hooks/useDashboardLock';
 import { useDashboardAutosave } from '@/components/dashboard/hooks/useDashboardAutosave';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -59,11 +56,7 @@ import {
   type RichTextFlushEventDetail,
   type UnifiedTextConfig,
 } from './text-element-unified';
-import {
-  DashboardFilterType,
-  type CreateFilterPayload,
-  type DashboardFilterConfig,
-} from '@/types/dashboard-filters';
+import { DashboardFilterType } from '@/types/dashboard-filters';
 import { DashboardComponentType, type DashboardTab } from '@/types/dashboard';
 import { moveWidgetBetweenTabs, pointerToGridPosition } from './tabs/cross-tab-drag';
 import { trackEvent } from '@/lib/analytics';
@@ -291,34 +284,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       ? initialData?.filters // Stable: don't switch sources while loading
       : liveDashboardData?.filters || initialData?.filters; // Live data once loaded
 
-    // Load filters from backend with proper error handling
-    const initialFilters = Array.isArray(dashboardFilters)
-      ? dashboardFilters
-          .map((filter: any) => {
-            // Validate filter data before processing
-            if (
-              !filter ||
-              !filter.id ||
-              !filter.schema_name ||
-              !filter.table_name ||
-              !filter.column_name
-            ) {
-              console.warn('Skipping invalid filter:', filter);
-              return null;
-            }
-
-            return {
-              id: filter.id,
-              name: filter.name || filter.column_name || 'Unnamed Filter',
-              schema_name: filter.schema_name,
-              table_name: filter.table_name,
-              column_name: filter.column_name,
-              filter_type: filter.filter_type || 'value', // Default to 'value' if missing
-              settings: filter.settings || {},
-            };
-          })
-          .filter(Boolean) // Remove null entries
-      : [];
+    // Filters for the panel. Rebuilt every render on purpose (see normalizeBuilderFilters).
+    const initialFilters = normalizeBuilderFilters(dashboardFilters);
 
     // All tab content participates in one history so a cross-tab move is atomic.
     const {
@@ -362,10 +329,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const { data: chartsData, isLoading: chartsLoading } = useCharts
       ? useCharts()
       : { data: [], isLoading: false };
-    const [showFilterModal, setShowFilterModal] = useState(false);
-    const [selectedFilterForEdit, setSelectedFilterForEdit] = useState<DashboardFilter | null>(
-      null
-    );
+    const {
+      showFilterModal,
+      selectedFilterForEdit,
+      openFilterModal,
+      closeFilterModal,
+      handleFilterSave,
+      handleEditFilter,
+    } = useBuilderFilters(dashboardId);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -1378,105 +1349,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setAppliedFilters({});
     };
 
-    // Add filter
-    const handleFilterSave = async (
-      filterPayload: CreateFilterPayload | any,
-      filterId?: number
-    ) => {
-      if (!dashboardId) return;
-
-      // Check if this is an update or create
-      if (filterId && selectedFilterForEdit) {
-        // Update existing filter
-        try {
-          const updateData = {
-            name: filterPayload.name,
-            schema_name: filterPayload.schema_name,
-            table_name: filterPayload.table_name,
-            column_name: filterPayload.column_name,
-            filter_type: filterPayload.filter_type || selectedFilterForEdit.filter_type,
-            settings: filterPayload.settings,
-          };
-
-          // Use the new typed API function that returns complete filter data
-          await updateDashboardFilter(dashboardId, filterId, updateData);
-          trackEvent(ANALYTICS_EVENTS.DASHBOARD_FILTER_UPDATED, {
-            dashboard_id: dashboardId,
-            filter_type: updateData.filter_type,
-          });
-
-          // Note: Filter components will handle their own state updates
-
-          setSelectedFilterForEdit(null);
-          setShowFilterModal(false);
-
-          // Refresh dashboard data to update filter list
-          if (dashboardId) {
-            const { mutate } = await import('swr');
-            mutate(`/api/dashboards/${dashboardId}/`);
-          }
-        } catch (error) {
-          console.error('Error updating filter:', error);
-        }
-      } else {
-        // Create new filter (existing logic)
-        handleFilterCreate(filterPayload as CreateFilterPayload);
-      }
-    };
-
-    const handleFilterCreate = async (filterPayload: CreateFilterPayload) => {
-      if (!dashboardId) return;
-      try {
-        // Create filter in database first using typed API
-        await createDashboardFilter(dashboardId, {
-          name: filterPayload.name,
-          filter_type: filterPayload.filter_type,
-          schema_name: filterPayload.schema_name,
-          table_name: filterPayload.table_name,
-          column_name: filterPayload.column_name,
-          settings: filterPayload.settings,
-        });
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_FILTER_CREATED, {
-          dashboard_id: dashboardId,
-          filter_type: filterPayload.filter_type,
-        });
-
-        // Note: Filter components will handle their own state updates
-
-        setShowFilterModal(false);
-
-        // Refresh dashboard data to update filter list
-        if (dashboardId) {
-          const { mutate } = await import('swr');
-          mutate(`/api/dashboards/${dashboardId}/`);
-        }
-      } catch (error: any) {
-        console.error('Failed to create filter:', error.message || 'Please try again');
-        // Could add error handling/notification here
-      }
-    };
-
-    // Edit filter
-    const handleEditFilter = (filter: DashboardFilterConfig) => {
-      // Convert DashboardFilterConfig back to DashboardFilter format for editing
-      const filterForEdit: DashboardFilter = {
-        id: parseInt(filter.id),
-        dashboard_id: dashboardId!,
-        name: filter.name,
-        filter_type: filter.filter_type,
-        schema_name: filter.schema_name,
-        table_name: filter.table_name,
-        column_name: filter.column_name,
-        settings: filter.settings,
-        order: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      setSelectedFilterForEdit(filterForEdit);
-      setShowFilterModal(true);
-    };
-
     // Chart and KPI ids already on this tab (the pickers mark them "Already added")
     const getExcludedChartIds = (): number[] => getPlacedChartIds(activeComponents);
     const getExcludedKPIIds = (): number[] => getPlacedKpiIds(activeComponents);
@@ -1984,7 +1856,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             dashboardId={dashboardId!}
             isEditMode={true}
             layout="horizontal"
-            onAddFilter={() => setShowFilterModal(true)}
+            onAddFilter={openFilterModal}
             onEditFilter={handleEditFilter}
             onFiltersApplied={handleFiltersApplied}
             onFiltersCleared={handleFiltersCleared}
@@ -2022,7 +1894,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
               dashboardId={dashboardId!}
               isEditMode={true}
               layout="vertical"
-              onAddFilter={() => setShowFilterModal(true)}
+              onAddFilter={openFilterModal}
               onEditFilter={handleEditFilter}
               onFiltersApplied={handleFiltersApplied}
               onFiltersCleared={handleFiltersCleared}
@@ -2164,10 +2036,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         {/* Filter Config Modal */}
         <FilterConfigModal
           open={showFilterModal}
-          onClose={() => {
-            setShowFilterModal(false);
-            setSelectedFilterForEdit(null);
-          }}
+          onClose={closeFilterModal}
           onSave={handleFilterSave}
           mode={selectedFilterForEdit ? 'edit' : 'create'}
           filterId={selectedFilterForEdit?.id ? Number(selectedFilterForEdit.id) : undefined}
