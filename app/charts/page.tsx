@@ -4,19 +4,14 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Plus,
   BarChart2,
-  PieChart,
-  LineChart,
   MoreVertical,
   Trash,
   Copy,
   AlertCircle,
-  MapPin,
-  Hash,
   CheckSquare,
   X,
   ChevronLeft,
   ChevronRight,
-  Table,
   Edit,
   ChevronUp,
   ChevronDown as ChevronDownSort,
@@ -78,16 +73,7 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, CHART_CREATE_SOURCES } from '@/constants/analytics';
 import { getMetricAnalyticsProps, isDrillDownEnabled } from '@/components/charts/utils';
 import { cn } from '@/lib/utils';
-import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
-
-const chartIcons = {
-  bar: BarChart2,
-  pie: PieChart,
-  line: LineChart,
-  map: MapPin,
-  number: Hash,
-  table: Table,
-};
+import { getChartListIcon, getChartTypeColors } from '@/components/charts/chart-types/registry';
 
 export default function ChartsPage() {
   const [sortBy, setSortBy] = useState<'title' | 'updated_at' | 'chart_type' | 'data_source'>(
@@ -875,8 +861,8 @@ export default function ChartsPage() {
 
   // Render chart table row
   const renderChartTableRow = (chart: Chart) => {
-    const IconComponent = chartIcons[chart.chart_type as keyof typeof chartIcons] || BarChart2;
-    const typeColors = getChartTypeColor(chart.chart_type as ChartType);
+    const IconComponent = getChartListIcon(chart.chart_type);
+    const typeColors = getChartTypeColors(chart.chart_type);
     const isFavorited = chart.is_favorite ?? false;
     const dataSource = `${chart.schema_name}.${chart.table_name}`;
     const isChartSelected = selectedCharts.has(chart.id);

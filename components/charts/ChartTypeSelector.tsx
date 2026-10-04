@@ -1,8 +1,11 @@
 'use client';
 
-import { BarChart2, LineChart, Table, PieChart, Hash, MapPin, Grid3X3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getChartTypeColor, type ChartType } from '@/constants/chart-types';
+import {
+  BUILDER_SELECTOR_ORDER,
+  CHART_TYPE_INFO,
+  getChartTypeColors,
+} from '@/components/charts/chart-types/registry';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 
@@ -12,50 +15,12 @@ interface ChartTypeSelectorProps {
   disabled?: boolean;
 }
 
-const chartTypes = [
-  {
-    id: 'bar',
-    name: 'Bar Chart',
-    description: 'Compare values across categories',
-    icon: BarChart2,
-  },
-  {
-    id: 'line',
-    name: 'Line Chart',
-    description: 'Display trends over time',
-    icon: LineChart,
-  },
-  {
-    id: 'pie',
-    name: 'Pie Chart',
-    description: 'Show proportions of a whole',
-    icon: PieChart,
-  },
-  {
-    id: 'number',
-    name: 'Big Number',
-    description: 'Display a single key metric prominently',
-    icon: Hash,
-  },
-  {
-    id: 'map',
-    name: 'Map',
-    description: 'Visualize geographic data',
-    icon: MapPin,
-  },
-  {
-    id: 'table',
-    name: 'Table',
-    description: 'Display data in rows and columns',
-    icon: Table,
-  },
-  {
-    id: 'pivot_table',
-    name: 'Pivot Table',
-    description: 'Cross-tabulate data across two dimensions',
-    icon: Grid3X3,
-  },
-];
+const chartTypes = BUILDER_SELECTOR_ORDER.map((type) => ({
+  id: type,
+  name: CHART_TYPE_INFO[type].selector.label,
+  description: CHART_TYPE_INFO[type].selector.description,
+  icon: CHART_TYPE_INFO[type].icon,
+}));
 
 export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTypeSelectorProps) {
   const selectedType = value || 'bar';
@@ -70,7 +35,7 @@ export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTy
         {chartTypes.map((type) => {
           const Icon = type.icon;
           const isSelected = selectedType === type.id;
-          const typeColors = getChartTypeColor(type.id as ChartType);
+          const typeColors = getChartTypeColors(type.id);
 
           return (
             <Button

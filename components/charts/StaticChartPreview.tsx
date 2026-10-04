@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { BarChart3, LineChart, PieChart, Table, Map, Activity, TrendingUp } from 'lucide-react';
-import { CHART_TYPE_COLORS, type ChartType } from '@/constants/chart-types';
+import { CHART_TYPE_INFO, getChartTypeColors } from '@/components/charts/chart-types/registry';
 
 interface StaticChartPreviewProps {
   chartType: string;
@@ -14,8 +14,7 @@ export function StaticChartPreview({
   className = 'w-full h-full',
 }: StaticChartPreviewProps) {
   const getChartPreview = () => {
-    const chartTypeKey = chartType?.toLowerCase() as ChartType;
-    const typeColors = CHART_TYPE_COLORS[chartTypeKey] || CHART_TYPE_COLORS.bar;
+    const typeColors = getChartTypeColors(chartType?.toLowerCase());
 
     switch (chartType?.toLowerCase()) {
       case 'bar':
@@ -42,7 +41,7 @@ export function StaticChartPreview({
         );
 
       case 'line':
-        const lineColors = CHART_TYPE_COLORS.line;
+        const lineColors = CHART_TYPE_INFO.line.colors;
         return (
           <div
             className={`${className} flex items-center justify-center p-4 rounded-lg relative`}
@@ -67,7 +66,7 @@ export function StaticChartPreview({
         );
 
       case 'pie':
-        const pieColors = CHART_TYPE_COLORS.pie;
+        const pieColors = CHART_TYPE_INFO.pie.colors;
         return (
           <div
             className={`${className} flex items-center justify-center p-4 rounded-lg`}
@@ -83,7 +82,7 @@ export function StaticChartPreview({
         );
 
       case 'table':
-        const tableColors = CHART_TYPE_COLORS.table;
+        const tableColors = CHART_TYPE_INFO.table.colors;
         return (
           <div
             className={`${className} flex items-center justify-center p-4 rounded-lg`}
@@ -141,7 +140,7 @@ export function StaticChartPreview({
         );
 
       case 'pivot_table': {
-        const pivotColors = CHART_TYPE_COLORS.pivot_table || CHART_TYPE_COLORS.table;
+        const pivotColors = CHART_TYPE_INFO.pivot_table.colors;
         return (
           <div
             className={`${className} flex items-center justify-center p-4 rounded-lg relative`}
@@ -197,7 +196,7 @@ export function StaticChartPreview({
       }
 
       case 'map':
-        const mapColors = CHART_TYPE_COLORS.map;
+        const mapColors = CHART_TYPE_INFO.map.colors;
         return (
           <div
             className={`${className} flex items-center justify-center p-4 rounded-lg`}
@@ -222,7 +221,7 @@ export function StaticChartPreview({
       case 'number':
       case 'metric':
       case 'kpi':
-        const numberColors = CHART_TYPE_COLORS.number;
+        const numberColors = CHART_TYPE_INFO.number.colors;
         return (
           <div
             className={`${className} flex items-center justify-center p-4 rounded-lg`}
