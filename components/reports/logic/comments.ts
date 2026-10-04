@@ -18,7 +18,7 @@ type ChartIdStateEntry = { chart_id?: number; state: CommentIconState };
 
 /**
  * Comment icon state for a chart widget.
- * PINNED-BUGS (Reports): "Chart comment icon never shows state — looks up chart_id, state has target_id".
+ * PINNED-BUGS: R-M2 "Chart comment icon never shows state — looks up chart_id, state has target_id"
  */
 export function findChartCommentState(
   states: CommentStates | undefined,

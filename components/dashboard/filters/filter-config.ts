@@ -7,12 +7,7 @@ import {
   type ValueFilterSettings,
 } from '@/types/dashboard-filters';
 
-export interface FilterPosition {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
+export type FilterPosition = DashboardFilterConfig['position'];
 
 /** Filters render in the filter panel, not the grid, so every caller uses this placeholder position. */
 export const DEFAULT_FILTER_POSITION: FilterPosition = { x: 0, y: 0, w: 4, h: 3 };
