@@ -7,7 +7,6 @@ import type {
   SnapshotViewData,
   DiscoveredDatetimeColumn,
   CreateSnapshotPayload,
-  ShareStatus,
 } from '@/types/reports';
 
 // Re-export types for consumers
