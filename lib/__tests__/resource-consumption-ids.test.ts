@@ -31,13 +31,13 @@ interface Edge {
 const EDGES: Edge[] = [
   {
     label: 'a chart placed on a dashboard',
-    file: 'components/dashboard/dashboard-builder-v2.tsx',
+    file: 'components/dashboard/widgets/add-widget-handlers.ts',
     event: 'DASHBOARD_CHART_ADDED',
     ids: ['chart_id', 'dashboard_id'],
   },
   {
     label: 'a KPI placed on a dashboard',
-    file: 'components/dashboard/dashboard-builder-v2.tsx',
+    file: 'components/dashboard/widgets/add-widget-handlers.ts',
     event: 'DASHBOARD_KPI_ADDED',
     ids: ['kpi_id', 'dashboard_id'],
   },

@@ -16,20 +16,15 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { apiGet, apiPut } from '@/lib/api';
+import { apiPut } from '@/lib/api';
 import { useDashboard } from '@/hooks/api/useDashboards';
 import { normalizeBuilderFilters } from '@/components/dashboard/logic/builder-filters';
 import { useBuilderFilters } from '@/components/dashboard/hooks/useBuilderFilters';
 import { useDashboardLock } from '@/components/dashboard/hooks/useDashboardLock';
 import { useDashboardAutosave } from '@/components/dashboard/hooks/useDashboardAutosave';
+import { buildAddWidgetHandlers } from '@/components/dashboard/widgets/add-widget-handlers';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { useDashboardAnimation } from '@/hooks/useDashboardAnimation';
-import {
-  getDefaultGridDimensions,
-  getMinGridDimensions,
-  calculateTextDimensions,
-} from '@/lib/chart-size-constraints';
-import { bottomY } from '@/lib/dashboard-animation-utils';
 import {
   Plus,
   Save,
@@ -54,10 +49,9 @@ import {
   DASHBOARD_RICH_TEXT_FLUSH_EVENT,
   DASHBOARD_WIDGET_DRAG_START_EVENT,
   type RichTextFlushEventDetail,
-  type UnifiedTextConfig,
 } from './text-element-unified';
 import { DashboardFilterType } from '@/types/dashboard-filters';
-import { DashboardComponentType, type DashboardTab } from '@/types/dashboard';
+import type { DashboardComponentType, DashboardTab } from '@/types/dashboard';
 import { moveWidgetBetweenTabs, pointerToGridPosition } from './tabs/cross-tab-drag';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
@@ -70,11 +64,6 @@ import {
   WIDGET_NAVIGATION_SOURCES,
 } from '@/lib/widget-navigation';
 import {
-  markChartAddedToDashboard,
-  markKpiAddedToDashboard,
-} from '@/components/onboarding/insight-walkthrough-constants';
-import {
-  GRID_COLUMN_COUNT,
   GRID_CONTAINER_PADDING,
   GRID_GAP_PX,
   GRID_MARGIN,
@@ -209,12 +198,6 @@ interface DashboardLayout {
   maxW?: number;
   minH?: number;
   maxH?: number;
-}
-
-interface DashboardComponent {
-  id: string;
-  type: DashboardComponentType;
-  config: any;
 }
 
 interface CrossTabDragSession {
@@ -1117,208 +1100,13 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       [setState, applyItemConstraints]
     );
 
-    // Add chart component - optimized for speed
-    const handleChartSelected = async (chartId: number) => {
-      try {
-        // Only fetch chart metadata (fast ~50ms) - skip data fetch (slow ~2.5s)
-        // The chart component will fetch its own data when it renders
-        let chartDetails;
-        try {
-          chartDetails = await apiGet(`/api/charts/${chartId}/`);
-        } catch (error) {
-          chartDetails = {
-            id: chartId,
-            title: `Chart #${chartId}`,
-            chart_type: 'bar',
-            computation_type: 'aggregated',
-          };
-        }
-
-        // Use default sizing based on chart type (no slow data fetch needed)
-        const chartType = chartDetails.chart_type || 'default';
-        const defaultDimensions = getDefaultGridDimensions(chartType);
-        const minDimensions = getMinGridDimensions(chartType);
-
-        const newComponent: DashboardComponent = {
-          id: `chart-${Date.now()}`,
-          type: DashboardComponentType.CHART,
-          config: {
-            chartId,
-            title: chartDetails.title,
-            chartType: chartDetails.chart_type,
-            computation_type: chartDetails.computation_type,
-            description: chartDetails.description,
-            contentConstraints: null,
-          },
-        };
-
-        // Grid model: new widget lands full-width at the bottom of the canvas. The user
-        // drags & resizes it from there. Nothing else on the canvas reorganizes.
-        const newLayoutItem: DashboardLayout = {
-          i: newComponent.id,
-          x: 0,
-          y: bottomY(activeLayout),
-          w: GRID_COLUMN_COUNT,
-          h: defaultDimensions.h,
-          minW: minDimensions.w,
-          maxW: GRID_COLUMN_COUNT,
-          minH: minDimensions.h,
-        };
-
-        setState((prev) => {
-          const tab = getActiveEditorTab(prev);
-          return updateActiveEditorTab(prev, {
-            layout_config: [...tab.layout_config, newLayoutItem],
-            components: { ...tab.components, [newComponent.id]: newComponent },
-          });
-        });
-
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_CHART_ADDED, {
-          // Both ids: chart_type says what KIND was added, chart_id says WHICH chart — only
-          // the id answers "which charts get reused across dashboards" and "built but never
-          // placed anywhere".
-          chart_id: chartId,
-          chart_type: chartType,
-          dashboard_id: dashboardId,
-        });
-
-        // Resume-nudge milestone — set regardless of an active coachmark session.
-        markChartAddedToDashboard();
-
-        // Animate component entrance
-        dashboardAnimation.animateComponent(newComponent.id, 500);
-
-        // Smart scroll to show the newly added component if needed
-        scrollToComponentIfNeeded(newComponent.id);
-
-        const walkthrough = useInsightWalkthroughStore.getState();
-        if (walkthrough.active && walkthrough.stage === 'builder_add_chart') {
-          walkthrough.advanceTo('builder_resize');
-        } else if (walkthrough.active && walkthrough.stage === 'builder_add_chart_first') {
-          // Own-data path adds chart-then-KPI (opposite of the sample path) — next is
-          // the KPI-add stage, not resize.
-          walkthrough.advanceTo('builder_add_kpi_second');
-        }
-      } catch (error) {
-        console.error('Failed to add chart');
-      }
-    };
-
-    // Add KPI component
-    const handleKPISelected = (kpiId: number, kpiName: string) => {
-      const newComponent: DashboardComponent = {
-        id: `kpi-${Date.now()}`,
-        type: DashboardComponentType.KPI,
-        config: {
-          kpiId,
-          title: kpiName,
-        },
-      };
-
-      const defaultDimensions = getDefaultGridDimensions('kpi');
-      const minDimensions = getMinGridDimensions('kpi');
-
-      // Grid model: new KPI lands full-width at the bottom (same as charts/text).
-      const newLayoutItem: DashboardLayout = {
-        i: newComponent.id,
-        x: 0,
-        y: bottomY(activeLayout),
-        w: GRID_COLUMN_COUNT,
-        h: defaultDimensions.h,
-        minW: minDimensions.w,
-        maxW: GRID_COLUMN_COUNT,
-        minH: minDimensions.h,
-      };
-
-      setState((prev) => {
-        const tab = getActiveEditorTab(prev);
-        return updateActiveEditorTab(prev, {
-          layout_config: [...tab.layout_config, newLayoutItem],
-          components: { ...tab.components, [newComponent.id]: newComponent },
-        });
-      });
-
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_KPI_ADDED, {
-        kpi_id: kpiId,
-        dashboard_id: dashboardId,
-      });
-      // Resume-nudge milestone — set regardless of an active coachmark session.
-      markKpiAddedToDashboard();
-      dashboardAnimation.animateComponent(newComponent.id, 500);
-      scrollToComponentIfNeeded(newComponent.id);
-
-      const walkthrough = useInsightWalkthroughStore.getState();
-      if (walkthrough.active && walkthrough.stage === 'builder_add_kpi') {
-        walkthrough.advanceTo('builder_add_chart');
-      } else if (walkthrough.active && walkthrough.stage === 'builder_add_kpi_second') {
-        // Own-data path already added its chart first — next is resize, converging
-        // back into the shared tail (resize → save → preview → share).
-        walkthrough.advanceTo('builder_resize');
-      }
-    };
-
-    // Add text component
-    const addTextComponent = () => {
-      // Calculate minimum dimensions for empty text component
-      const defaultTextDimensions = calculateTextDimensions({
-        content: '', // Empty content
-        fontSize: 16,
-        fontWeight: 'normal',
-        type: 'paragraph',
-        textAlign: 'left',
-      });
-
-      const newComponent: DashboardComponent = {
-        id: `text-${Date.now()}`,
-        type: DashboardComponentType.TEXT,
-        config: {
-          content: '',
-          type: 'paragraph',
-          fontSize: 16,
-          fontWeight: 'normal',
-          fontStyle: 'normal',
-          textDecoration: 'none',
-          textAlign: 'left',
-          color: '#000000',
-          contentConstraints: {
-            minWidth: defaultTextDimensions.width,
-            minHeight: defaultTextDimensions.height,
-          },
-        } as UnifiedTextConfig,
-      };
-
-      // Get appropriate dimensions for text component
-      const textDimensions = getDefaultGridDimensions('text');
-      const textMinDimensions = getMinGridDimensions('text');
-
-      // Grid model: new text widget lands full-width at the bottom of the canvas.
-      const newLayoutItem: DashboardLayout = {
-        i: newComponent.id,
-        x: 0,
-        y: bottomY(activeLayout),
-        w: GRID_COLUMN_COUNT,
-        h: textDimensions.h,
-        minW: textMinDimensions.w,
-        maxW: GRID_COLUMN_COUNT,
-        minH: textMinDimensions.h,
-      };
-
-      setState((prev) => {
-        const tab = getActiveEditorTab(prev);
-        return updateActiveEditorTab(prev, {
-          layout_config: [...tab.layout_config, newLayoutItem],
-          components: { ...tab.components, [newComponent.id]: newComponent },
-        });
-      });
-
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_TEXT_ELEMENT_ADDED, { dashboard_id: dashboardId });
-
-      // Animate component entrance
-      dashboardAnimation.animateComponent(newComponent.id, 500);
-
-      // Smart scroll to show the newly added component if needed
-      scrollToComponentIfNeeded(newComponent.id);
-    };
+    const { handleChartSelected, handleKPISelected, addTextComponent } = buildAddWidgetHandlers({
+      dashboardId,
+      activeLayout,
+      setState,
+      animateComponent: dashboardAnimation.animateComponent,
+      scrollToComponentIfNeeded,
+    });
 
     // Remove component. Anything below the removed widget slides up (gravity-up);
     // side neighbours stay where they are. One history entry.
