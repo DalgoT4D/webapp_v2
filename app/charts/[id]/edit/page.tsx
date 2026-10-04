@@ -16,14 +16,7 @@ import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { SaveOptionsDialog } from '@/components/charts/SaveOptionsDialog';
 import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExitDialog';
-import {
-  useChart,
-  useUpdateChart,
-  useCreateChart,
-  useColumns,
-  useRegions,
-  useChildRegions,
-} from '@/hooks/api/useChart';
+import { useChart, useUpdateChart, useCreateChart, useColumns } from '@/hooks/api/useChart';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { ChartTypes } from '@/types/charts';
 import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
@@ -58,6 +51,7 @@ import { useChartBuilderState } from '@/components/charts/hooks/useChartBuilderS
 import { usePreviewPagination } from '@/components/charts/hooks/usePreviewPagination';
 import { useChartPreviewData } from '@/components/charts/hooks/useChartPreviewData';
 import { useBuilderMapPreview } from '@/components/charts/hooks/useBuilderMapPreview';
+import { useMapDrillDown } from '@/components/charts/hooks/useMapDrillDown';
 import { useTableDrillDown } from '@/components/charts/hooks/useTableDrillDown';
 import { getDrillDownColumns } from '@/components/charts/logic/table-drilldown';
 import { buildChartDataPayload, buildEditChartPayload } from '@/components/charts/logic/payload';
@@ -121,20 +115,6 @@ function EditChartPageContent() {
   });
   const [errorToastVisible, setErrorToastVisible] = useState(false);
   const [errorToastDismissed, setErrorToastDismissed] = useState(false);
-
-  // Drill-down state for map preview
-  const [drillDownPath, setDrillDownPath] = useState<
-    Array<{
-      level: number;
-      name: string;
-      geographic_column: string;
-      parent_selections: Array<{
-        column: string;
-        value: string;
-      }>;
-      region_id?: number; // Additional field for our use
-    }>
-  >([]);
 
   // Update form data when chart loads
   useEffect(() => {
@@ -275,84 +255,14 @@ function EditChartPageContent() {
     setErrorToastDismissed(true);
   };
 
-  // Drill-down functionality for maps - fetch regions
-  const countryCode = 'IND'; // TODO: make this dynamic based on selected geojson
-  const { data: states } = useRegions(countryCode, 'state');
-  const { data: districts } = useChildRegions(
-    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null,
-    drillDownPath.length > 0
-  );
+  // Map drill-down (regions requests, region click, breadcrumbs); same hook position as the old region fetches.
+  const mapDrill = useMapDrillDown(formData, 'edit');
   const mapPreview = useBuilderMapPreview({
     config: formData,
     builder: 'edit',
-    drillDownPath,
+    drillDownPath: mapDrill.drillDownPath,
     chartId,
   });
-
-  // Handle drill-down region click
-  const handleRegionClick = useCallback(
-    (regionName: string, regionData: any) => {
-      // Check if drill-down is available - support both dynamic and legacy systems
-      const hasDynamicDrillDown = formData.geographic_hierarchy?.drill_down_levels.length > 0;
-      const hasLegacyDrillDown = formData.district_column;
-
-      if (!hasDynamicDrillDown && !hasLegacyDrillDown) {
-        return;
-      }
-
-      // Determine drill-down column based on system type
-      const drillDownColumn = hasDynamicDrillDown
-        ? formData.geographic_hierarchy.drill_down_levels[0]?.column
-        : formData.district_column;
-
-      if (!drillDownColumn) {
-        return;
-      }
-
-      // Find the region that was clicked
-      const clickedRegion = states?.find(
-        (state: any) => state.name === regionName || state.display_name === regionName
-      );
-
-      if (clickedRegion) {
-        const newDrillDownLevel = {
-          level: 1,
-          name: regionName,
-          geographic_column: drillDownColumn,
-          parent_selections: [
-            {
-              column: formData.geographic_column || '',
-              value: regionName,
-            },
-          ],
-          region_id: clickedRegion.id,
-        };
-
-        setDrillDownPath([newDrillDownLevel]);
-      }
-    },
-    [
-      formData.geographic_hierarchy,
-      formData.district_column,
-      formData.geographic_column,
-      states,
-      drillDownPath,
-    ]
-  );
-
-  // Handle drill-up to a specific level (consistent with view mode)
-  const handleDrillUp = useCallback((targetLevel: number) => {
-    if (targetLevel < 0) {
-      setDrillDownPath([]);
-    } else {
-      setDrillDownPath((prev) => prev.slice(0, targetLevel + 1));
-    }
-  }, []);
-
-  // Handle drill to home (going back to country level)
-  const handleDrillHome = useCallback(() => {
-    setDrillDownPath([]);
-  }, []);
 
   // Get all columns for raw data
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
@@ -776,10 +686,10 @@ function EditChartPageContent() {
                         mapDataError={mapPreview.mapDataError}
                         valueColumn={formData.metrics?.[0]?.alias || formData.aggregate_column}
                         customizations={formData.customizations}
-                        onRegionClick={handleRegionClick}
-                        drillDownPath={drillDownPath}
-                        onDrillUp={handleDrillUp}
-                        onDrillHome={handleDrillHome}
+                        onRegionClick={mapDrill.handleRegionClick}
+                        drillDownPath={mapDrill.drillDownPath}
+                        onDrillUp={mapDrill.handleDrillUp}
+                        onDrillHome={mapDrill.handleDrillHome}
                       />
                     </div>
                   ) : formData.chart_type === ChartTypes.TABLE ? (

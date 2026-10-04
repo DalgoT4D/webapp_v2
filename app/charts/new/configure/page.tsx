@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,8 +15,8 @@ import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigura
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExitDialog';
-import { useCreateChart, useColumns, useRegions, useChildRegions } from '@/hooks/api/useChart';
-import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
+import { useCreateChart, useColumns } from '@/hooks/api/useChart';
+import { toastSuccess, toastError } from '@/lib/toast';
 import { type ChartCreate, type ChartDataPayload, type ChartBuilderFormData } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
@@ -48,6 +48,7 @@ import { useChartBuilderState } from '@/components/charts/hooks/useChartBuilderS
 import { usePreviewPagination } from '@/components/charts/hooks/usePreviewPagination';
 import { useChartPreviewData } from '@/components/charts/hooks/useChartPreviewData';
 import { useBuilderMapPreview } from '@/components/charts/hooks/useBuilderMapPreview';
+import { useMapDrillDown } from '@/components/charts/hooks/useMapDrillDown';
 import { useTableDrillDown } from '@/components/charts/hooks/useTableDrillDown';
 import { getDrillDownColumns } from '@/components/charts/logic/table-drilldown';
 import { buildChartDataPayload, buildCreateChartPayload } from '@/components/charts/logic/payload';
@@ -56,19 +57,6 @@ function ConfigureChartPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { trigger: createChart, isMutating } = useCreateChart();
-
-  // ✅ ADD: Drill-up and drill-home handlers for create mode
-  const handleDrillUp = useCallback((targetLevel: number) => {
-    if (targetLevel < 0) {
-      setDrillDownPath([]);
-    } else {
-      setDrillDownPath((prev) => prev.slice(0, targetLevel + 1));
-    }
-  }, []);
-
-  const handleDrillHome = useCallback(() => {
-    setDrillDownPath([]);
-  }, []);
 
   // Get parameters from URL
   const schema = searchParams.get('schema') || '';
@@ -117,20 +105,6 @@ function ConfigureChartPageContent() {
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string>('/charts');
 
-  // ✅ ADD: Drill-down state management for create mode (map charts)
-  const [drillDownPath, setDrillDownPath] = useState<
-    Array<{
-      level: number;
-      name: string;
-      geographic_column: string;
-      parent_selections: Array<{
-        column: string;
-        value: string;
-      }>;
-      region_id: number;
-    }>
-  >([]);
-
   // ✅ ADD: Drill-down state management for table charts
   const tableDrill = useTableDrillDown({
     dimensions: formData.dimensions,
@@ -139,12 +113,8 @@ function ConfigureChartPageContent() {
     onLevelChange: pages.resetTableChartPage,
   });
 
-  // ✅ ADD: Fetch regions for drill-down functionality (match edit mode exactly)
-  const { data: states } = useRegions('IND', 'state');
-  const { data: districts } = useChildRegions(
-    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null,
-    drillDownPath.length > 0
-  );
+  // Map drill-down (regions requests, region click, breadcrumbs); same hook position as the old region fetches.
+  const mapDrill = useMapDrillDown(formData, 'create');
 
   // Handle browser navigation (refresh, close tab, external links)
   useEffect(() => {
@@ -199,65 +169,9 @@ function ConfigureChartPageContent() {
   const mapPreview = useBuilderMapPreview({
     config: formData,
     builder: 'create',
-    drillDownPath,
+    drillDownPath: mapDrill.drillDownPath,
     patchConfig,
   });
-
-  // FIX #3: Handle map region click for drill-down in create mode
-  // Handle map region click for drill-down in create mode
-  const handleMapRegionClick = useCallback(
-    (regionName: string, regionData: any) => {
-      // Check if drill-down is available - support both dynamic and legacy systems
-      const hasDynamicDrillDown = formData.geographic_hierarchy?.drill_down_levels?.length > 0;
-      const hasLegacyDrillDown = formData.district_column;
-
-      if (!hasDynamicDrillDown && !hasLegacyDrillDown) {
-        toastInfo.generic('Configure drill-down levels to enable region drilling');
-        return;
-      }
-
-      // Determine drill-down column based on system type
-      const drillDownColumn = hasDynamicDrillDown
-        ? formData.geographic_hierarchy.drill_down_levels[0]?.column
-        : formData.district_column;
-
-      if (!drillDownColumn) {
-        return;
-      }
-
-      // Find the region that was clicked
-      const clickedRegion = states?.find(
-        (state: any) => state.name === regionName || state.display_name === regionName
-      );
-
-      if (clickedRegion) {
-        const newDrillDownLevel = {
-          level: 1,
-          name: regionName,
-          geographic_column: drillDownColumn,
-          parent_selections: [
-            {
-              column: formData.geographic_column || '',
-              value: regionName,
-            },
-          ],
-          region_id: clickedRegion.id,
-        };
-
-        setDrillDownPath([newDrillDownLevel]);
-        toastSuccess.generic(`✨ Drilling down to ${regionName} districts!`);
-      } else {
-        toastError.api(`Region "${regionName}" not found for drill-down`);
-      }
-    },
-    [
-      formData.geographic_hierarchy,
-      formData.district_column,
-      formData.geographic_column,
-      states,
-      drillDownPath,
-    ]
-  );
 
   const isFormValid = () => canSaveChart(formData);
 
@@ -550,10 +464,10 @@ function ConfigureChartPageContent() {
                         valueColumn={formData.metrics?.[0]?.alias || formData.aggregate_column}
                         customizations={formData.customizations}
                         // ✅ UPDATE: Complete drill-down support in create mode
-                        onRegionClick={handleMapRegionClick}
-                        drillDownPath={drillDownPath}
-                        onDrillUp={handleDrillUp}
-                        onDrillHome={handleDrillHome}
+                        onRegionClick={mapDrill.handleRegionClick}
+                        drillDownPath={mapDrill.drillDownPath}
+                        onDrillUp={mapDrill.handleDrillUp}
+                        onDrillHome={mapDrill.handleDrillHome}
                         showBreadcrumbs={true}
                       />
                     </div>
