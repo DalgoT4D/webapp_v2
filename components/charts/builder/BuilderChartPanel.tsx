@@ -1,7 +1,7 @@
 'use client';
 
 import { ChartPreview } from '@/components/charts/ChartPreview';
-import { MapPreview } from '@/components/charts/map/MapPreview';
+import { MapPreview } from '@/components/charts/chart-types/map/MapPreview';
 import {
   BuilderTableView,
   type BuilderTableViewProps,

@@ -8,7 +8,7 @@ import { ChartPreview } from '@/components/charts/ChartPreview';
 import { TableChart } from '@/components/charts/chart-types/table/TableChart';
 import PivotTableChart from '@/components/charts/chart-types/pivot-table/PivotTableChart';
 import { getPivotRenderProps } from '@/components/charts/chart-types/pivot-table/utils';
-import { MapPreview } from '@/components/charts/map/MapPreview';
+import { MapPreview } from '@/components/charts/chart-types/map/MapPreview';
 import { TableDrillBreadcrumb } from '@/components/charts/builder/TableDrillBreadcrumb';
 import type { useSavedMapDrillDown } from '@/components/charts/hooks/useSavedMapDrillDown';
 import type { useTableDrillDown } from '@/components/charts/hooks/useTableDrillDown';

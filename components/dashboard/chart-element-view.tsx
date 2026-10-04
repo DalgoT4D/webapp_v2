@@ -35,7 +35,7 @@ import { transformMapDataOverlayPayload } from '@/components/charts/logic/map-ov
 import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/chart-types/table/TableChart';
-import { MapPreview } from '@/components/charts/map/MapPreview';
+import { MapPreview } from '@/components/charts/chart-types/map/MapPreview';
 import { type ChartTitleConfig } from '@/lib/chart-title-utils';
 import { resolveDashboardFilters } from '@/lib/dashboard-filter-utils';
 import {
