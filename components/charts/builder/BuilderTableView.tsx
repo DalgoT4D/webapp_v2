@@ -1,6 +1,6 @@
 'use client';
 
-import { TableChart } from '@/components/charts/TableChart';
+import { TableChart } from '@/components/charts/chart-types/table/TableChart';
 import { TableDrillBreadcrumb } from '@/components/charts/builder/TableDrillBreadcrumb';
 import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
 import { getDrillDownColumns } from '@/components/charts/logic/table-drilldown';

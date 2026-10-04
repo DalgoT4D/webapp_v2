@@ -4,12 +4,12 @@ import { useMemo, useCallback } from 'react';
 import { PivotTableResponse } from '@/types/pivot-table';
 import { cellsToGrid } from './cellsToGrid';
 import { formatNumber, NumberFormats, type NumberFormat } from '@/lib/formatters';
-import type { ConditionalFormattingRule } from '@/components/charts/chart-types/table/types';
-import { getTableTheme } from '@/components/charts/chart-types/table/constants';
+import type { ConditionalFormattingRule } from '@/components/charts/styling/conditional-formatting';
+import { getTableTheme } from '@/components/charts/styling/table-themes';
 import { calculateRowSpans, applyPivotDateFormat } from './utils';
 import type { DateFormat } from '@/lib/formatters';
 import { useTableSearch } from '../hooks/useTableSearch';
-import { TableSearchBar } from '../TableSearchBar';
+import { TableSearchBar } from '../styling/TableSearchBar';
 
 interface ColumnFormatConfig {
   numberFormat?: NumberFormat;

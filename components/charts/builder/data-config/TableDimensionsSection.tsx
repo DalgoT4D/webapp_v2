@@ -1,6 +1,6 @@
 'use client';
 
-import { TableDimensionsSelector } from '@/components/charts/TableDimensionsSelector';
+import { TableDimensionsSelector } from '@/components/charts/chart-types/table/TableDimensionsSelector';
 import type { ChartConfigPatch } from '@/components/charts/logic/type-switch';
 import type { ChartBuilderFormData } from '@/types/charts';
 import type { NormalizedColumn } from './column-types';

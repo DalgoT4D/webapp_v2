@@ -14,10 +14,11 @@ import {
   DateFormatSection,
   DATE_FORMAT_OPTIONS,
 } from '@/components/charts/styling/DateFormatSection';
-import { ConditionalFormattingSection } from './ConditionalFormattingSection';
+import { ConditionalFormattingSection } from '@/components/charts/styling/ConditionalFormattingSection';
 import { ColumnSettingsSection } from './ColumnSettingsSection';
-import { AppearanceSection } from './AppearanceSection';
-import type { ConditionalFormattingRule, ColumnAlignment } from './types';
+import { AppearanceSection } from '@/components/charts/styling/AppearanceSection';
+import type { ConditionalFormattingRule } from '@/components/charts/styling/conditional-formatting';
+import type { ColumnAlignment } from './types';
 
 // Compact label lookup derived from shared options (strips the " (example)" suffix)
 const DATE_FORMAT_LABELS: Record<string, string> = Object.fromEntries(

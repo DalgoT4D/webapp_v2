@@ -5,7 +5,7 @@ import type * as echarts from 'echarts';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChartPreview } from '@/components/charts/ChartPreview';
-import { TableChart } from '@/components/charts/TableChart';
+import { TableChart } from '@/components/charts/chart-types/table/TableChart';
 import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
 import { getPivotRenderProps } from '@/components/charts/pivot-table/utils';
 import { MapPreview } from '@/components/charts/map/MapPreview';

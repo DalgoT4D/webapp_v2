@@ -13,12 +13,14 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ColorPicker } from './ColorPicker';
-import { CONDITIONAL_OPERATORS, TEXT_CONDITIONAL_OPERATORS, PRESET_COLORS } from './constants';
-import type {
-  ConditionalFormattingRule,
-  ConditionalOperator,
-  TextConditionalOperator,
-} from './types';
+import {
+  CONDITIONAL_OPERATORS,
+  TEXT_CONDITIONAL_OPERATORS,
+  PRESET_COLORS,
+  type ConditionalFormattingRule,
+  type ConditionalOperator,
+  type TextConditionalOperator,
+} from './conditional-formatting';
 
 interface ConditionalFormattingSectionProps {
   rules: ConditionalFormattingRule[];

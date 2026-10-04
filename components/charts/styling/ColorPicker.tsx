@@ -1,6 +1,6 @@
 'use client';
 
-import { PRESET_COLORS } from './constants';
+import { PRESET_COLORS } from './conditional-formatting';
 
 interface ColorPickerProps {
   value: string;

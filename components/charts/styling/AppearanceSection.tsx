@@ -2,7 +2,7 @@
 
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { TABLE_THEMES, DEFAULT_THEME_ID } from './constants';
+import { TABLE_THEMES, DEFAULT_THEME_ID } from './table-themes';
 
 interface AppearanceSectionProps {
   zebraRows: boolean;

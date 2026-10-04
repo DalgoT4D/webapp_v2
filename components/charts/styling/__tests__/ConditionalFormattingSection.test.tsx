@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ConditionalFormattingSection } from '../ConditionalFormattingSection';
-import type { ConditionalFormattingRule } from '../types';
+import type { ConditionalFormattingRule } from '../conditional-formatting';
 
 describe('ConditionalFormattingSection', () => {
   const defaultProps = {

@@ -4,7 +4,7 @@ import { useRef, useEffect, useCallback } from 'react';
 import * as echarts from 'echarts';
 import { Loader2, AlertCircle, BarChart2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { TableChart } from './TableChart';
+import { TableChart } from './chart-types/table/TableChart';
 import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
 import { getPivotRenderProps } from '@/components/charts/pivot-table/utils';
 import { PivotTableResponse } from '@/types/pivot-table';

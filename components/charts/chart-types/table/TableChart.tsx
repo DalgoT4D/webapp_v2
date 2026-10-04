@@ -21,36 +21,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatNumber, formatDate, type NumberFormat, type DateFormat } from '@/lib/formatters';
-import { getTableTheme } from '@/components/charts/chart-types/table/constants';
-import { useTableSearch } from './hooks/useTableSearch';
-import { TableSearchBar } from './TableSearchBar';
-import type { ConditionalFormattingRule } from '@/components/charts/chart-types/table/types';
-
-// URL detection pattern - matches http://, https://, and www. prefixed URLs
-const URL_PATTERN = /^(https?:\/\/|www\.)/i;
-
-/**
- * Check if a value is a valid URL that should be rendered as a clickable link
- */
-function isValidUrl(value: any): boolean {
-  if (value == null || typeof value !== 'string') {
-    return false;
-  }
-  return URL_PATTERN.test(value.trim());
-}
-
-/**
- * Normalize a URL for use in href attribute
- * Adds https:// prefix to www. URLs if missing
- */
-function normalizeUrl(url: string): string {
-  const trimmed = url.trim();
-  if (trimmed.toLowerCase().startsWith('www.')) {
-    return `https://${trimmed}`;
-  }
-  return trimmed;
-}
+import { type NumberFormat, type DateFormat } from '@/lib/formatters';
+import { getTableTheme } from '@/components/charts/styling/table-themes';
+import { useTableSearch } from '../../hooks/useTableSearch';
+import { TableSearchBar } from '@/components/charts/styling/TableSearchBar';
+import type { ConditionalFormattingRule } from '@/components/charts/styling/conditional-formatting';
+import {
+  formatTableCell,
+  getConditionalCellColor,
+  getAlignmentClass,
+  isValidUrl,
+  normalizeUrl,
+} from './table-cells';
 
 interface TableChartProps {
   data?: Record<string, any>[];
@@ -168,160 +150,6 @@ export function TableChart({
     }
   }, [data, isServerSidePagination]);
 
-  // Format cell value based on column formatting config
-  const formatCellValue = (value: any, column: string) => {
-    const formatting = column_formatting[column];
-
-    if (!formatting || value == null) {
-      return value?.toString() || '';
-    }
-
-    const { type, numberFormat, dateFormat, prefix = '', suffix = '' } = formatting;
-    // Support both decimalPlaces (new) and precision (old) for backwards compatibility
-    const decimalPlaces = formatting.decimalPlaces ?? formatting.precision;
-
-    // Use formatDate path when dateFormat is explicitly specified
-    if (dateFormat && dateFormat !== 'default') {
-      try {
-        const formatted = formatDate(value, { format: dateFormat });
-        return `${prefix}${formatted}${suffix}`;
-      } catch {
-        return value?.toString() || '';
-      }
-    }
-
-    // Use formatNumber path when:
-    // - numberFormat is explicitly specified, OR
-    // - decimalPlaces is specified AND no type is specified (for pure decimal formatting)
-    // Also handles numeric strings from aggregated metric columns (e.g. backend returns "6500000")
-    if (numberFormat || (decimalPlaces !== undefined && !type)) {
-      const numericValue = Number(value);
-      if (!isNaN(numericValue)) {
-        const formatted = formatNumber(numericValue, {
-          format: numberFormat || 'default',
-          decimalPlaces: decimalPlaces,
-        });
-        return `${prefix}${formatted}${suffix}`;
-      }
-      return value?.toString() || '';
-    }
-
-    // For type-based formatting, only format actual numeric values (typeof === 'number')
-    switch (type) {
-      case 'currency':
-        if (typeof value !== 'number') return value?.toString() || '';
-        return `${prefix}$${value.toFixed(decimalPlaces ?? 2)}${suffix}`;
-
-      case 'percentage':
-        if (typeof value !== 'number') return value?.toString() || '';
-        return `${prefix}${(value * 100).toFixed(decimalPlaces ?? 2)}%${suffix}`;
-
-      case 'number':
-        if (typeof value !== 'number') return value?.toString() || '';
-        return `${prefix}${value.toFixed(decimalPlaces ?? 0)}${suffix}`;
-
-      case 'date':
-        try {
-          const dateValue = new Date(value);
-          return `${prefix}${dateValue.toLocaleDateString()}${suffix}`;
-        } catch {
-          return value?.toString() || '';
-        }
-
-      case 'text':
-      default:
-        return `${prefix}${value?.toString() || ''}${suffix}`;
-    }
-  };
-
-  // Evaluate conditional formatting rules for a cell
-  const getConditionalColor = (value: any, column: string): string | undefined => {
-    const rules = config.conditionalFormatting;
-    if (!rules || rules.length === 0) return undefined;
-
-    // Last matching rule wins
-    let matchedColor: string | undefined;
-    for (const rule of rules) {
-      if (rule.column !== column) continue;
-      // Skip rules scoped to a different drill level (level stores dimension column name)
-      if (rule.level !== undefined && rule.level !== currentDimensionColumn) continue;
-
-      // Treat legacy rules saved without a `type` field as numeric
-      const ruleType = (rule as { type?: 'numeric' | 'text' }).type ?? 'numeric';
-      let matches = false;
-
-      if (ruleType === 'text') {
-        // String comparison (case-sensitive exact match)
-        const cellStr = String(value ?? '');
-        const ruleStr = String(rule.value);
-        matches = rule.operator === '==' ? cellStr === ruleStr : cellStr !== ruleStr;
-      } else {
-        // Numeric comparison — skip this rule if cell value is not numeric
-        const numValue = Number(value);
-        if (isNaN(numValue)) continue;
-
-        switch (rule.operator) {
-          case '>':
-            matches = numValue > (rule.value as number);
-            break;
-          case '<':
-            matches = numValue < (rule.value as number);
-            break;
-          case '>=':
-            matches = numValue >= (rule.value as number);
-            break;
-          case '<=':
-            matches = numValue <= (rule.value as number);
-            break;
-          case '==':
-            // rule.value is a number — use numeric comparison to preserve float equality
-            matches = numValue === (rule.value as number);
-            break;
-          case '!=':
-            matches = numValue !== (rule.value as number);
-            break;
-        }
-      }
-
-      if (matches) {
-        matchedColor = rule.color;
-      }
-    }
-    return matchedColor;
-  };
-
-  // Get alignment class for a column.
-  // Auto is position-aware for multi-column tables to keep the layout balanced
-  // regardless of column order:
-  //   - First column → always left (row-identifier convention)
-  //   - Last column → always right (totals convention)
-  //   - Middle (and single-column) → type-based: numeric right, text left
-  // Users can always override per column via the alignment dropdown.
-  const getAlignmentClass = (column: string, sampleValue: any): string => {
-    const explicitAlignment = config.columnAlignment?.[column];
-    if (explicitAlignment) {
-      switch (explicitAlignment) {
-        case 'left':
-          return 'text-left';
-        case 'center':
-          return 'text-center';
-        case 'right':
-          return 'text-right';
-      }
-    }
-    if (columns.length > 1) {
-      const colIdx = columns.indexOf(column);
-      if (colIdx === 0) return 'text-left';
-      if (colIdx === columns.length - 1) return 'text-right';
-    }
-    // Type-based fallback for middle columns and single-column tables
-    if (sampleValue != null) {
-      const isNumeric = typeof sampleValue === 'number' || !isNaN(Number(sampleValue));
-      return isNumeric ? 'text-right' : 'text-left';
-    }
-    return 'text-left';
-  };
-
   // --- Search integration ---
 
   // Build flat cell list from visible (paginated) data for search
@@ -330,7 +158,7 @@ export function TableChart({
     paginatedData.forEach((row, rowIdx) => {
       columns.forEach((column, colIdx) => {
         const rawValue = row[column];
-        const displayValue = formatCellValue(rawValue, column);
+        const displayValue = formatTableCell(rawValue, column_formatting[column]);
         cells.push({ rowIndex: rowIdx, colIndex: colIdx, displayValue: String(displayValue) });
       });
     });
@@ -438,7 +266,7 @@ export function TableChart({
                 return (
                   <TableHead
                     key={column}
-                    className={`font-semibold py-2 px-2 ${getAlignmentClass(column, data[0]?.[column])} ${
+                    className={`font-semibold py-2 px-2 ${getAlignmentClass(config.columnAlignment?.[column], columns, column, data[0]?.[column])} ${
                       config.freezeFirstColumn && columns.indexOf(column) === 0
                         ? 'sticky left-0 z-10 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
                         : ''
@@ -494,7 +322,12 @@ export function TableChart({
                     // Render as clickable link if value is a URL (and not a drill-down cell)
                     if (isLink) {
                       const href = normalizeUrl(rawValue);
-                      const linkAlignClass = getAlignmentClass(column, rawValue);
+                      const linkAlignClass = getAlignmentClass(
+                        config.columnAlignment?.[column],
+                        columns,
+                        column,
+                        rawValue
+                      );
                       const isLinkFrozen =
                         config.freezeFirstColumn && columns.indexOf(column) === 0;
                       const linkColIdx = columns.indexOf(column);
@@ -528,9 +361,19 @@ export function TableChart({
                     }
 
                     // Existing logic for non-link cells
-                    const cellValue = formatCellValue(rawValue, column);
-                    const conditionalColor = getConditionalColor(rawValue, column);
-                    const alignClass = getAlignmentClass(column, rawValue);
+                    const cellValue = formatTableCell(rawValue, column_formatting[column]);
+                    const conditionalColor = getConditionalCellColor(
+                      config.conditionalFormatting,
+                      rawValue,
+                      column,
+                      currentDimensionColumn
+                    );
+                    const alignClass = getAlignmentClass(
+                      config.columnAlignment?.[column],
+                      columns,
+                      column,
+                      rawValue
+                    );
                     const isFrozen = config.freezeFirstColumn && columns.indexOf(column) === 0;
                     const colIdx = columns.indexOf(column);
                     const matchHighlight = isSearchMatch(index, colIdx);

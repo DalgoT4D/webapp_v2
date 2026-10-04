@@ -11,9 +11,9 @@ import {
   NUMBER_FORMAT_OPTIONS,
 } from '@/components/charts/styling/NumberFormatSection';
 import { DateFormatSection } from '@/components/charts/styling/DateFormatSection';
-import { ConditionalFormattingSection } from '@/components/charts/chart-types/table/ConditionalFormattingSection';
-import { AppearanceSection } from '@/components/charts/chart-types/table/AppearanceSection';
-import type { ConditionalFormattingRule } from '@/components/charts/chart-types/table/types';
+import { ConditionalFormattingSection } from '@/components/charts/styling/ConditionalFormattingSection';
+import { AppearanceSection } from '@/components/charts/styling/AppearanceSection';
+import type { ConditionalFormattingRule } from '@/components/charts/styling/conditional-formatting';
 
 // Compact label lookup derived from shared options (strips the " (example)" suffix),
 // mirroring the table chart so both stay in sync with NUMBER_FORMAT_OPTIONS.

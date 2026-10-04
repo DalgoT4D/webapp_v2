@@ -1,4 +1,4 @@
-import { PRESET_COLORS, CONDITIONAL_OPERATORS, HEX_COLOR_REGEX } from '../constants';
+import { PRESET_COLORS, CONDITIONAL_OPERATORS, HEX_COLOR_REGEX } from '../conditional-formatting';
 
 describe('Table chart constants', () => {
   it('has exactly 7 preset colors', () => {
