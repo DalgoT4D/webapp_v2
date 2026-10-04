@@ -16,15 +16,15 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
+import { apiGet, apiPut } from '@/lib/api';
 import {
-  refreshDashboardLock,
   updateDashboardFilter,
   createDashboardFilter,
   useDashboard,
   type DashboardFilter,
 } from '@/hooks/api/useDashboards';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useDashboardLock } from '@/components/dashboard/hooks/useDashboardLock';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { useDashboardAnimation } from '@/hooks/useDashboardAnimation';
 import {
@@ -467,21 +467,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [saveError, setSaveError] = useState<string | null>(null);
-    const [lockToken, setLockToken] = useState<string | null>(null);
-    const [lockRefreshInterval, setLockRefreshInterval] = useState<NodeJS.Timeout | null>(null);
-    const lockRequestInFlightRef = useRef(false);
-    const hasDashboardLockRef = useRef(false);
+    const { lockToken, unlockDashboard } = useDashboardLock(dashboardId);
 
     // Filters panel collapse state
     const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
 
-    // Refs to store current values for event handlers without causing re-renders
-    const lockStateRef = useRef({ dashboardId, lockToken, lockRefreshInterval });
-
-    // Update refs when values change
-    useEffect(() => {
-      lockStateRef.current = { dashboardId, lockToken, lockRefreshInterval };
-    }, [dashboardId, lockToken, lockRefreshInterval]);
     const [title, setTitle] = useState(initialData?.title || 'Untitled Dashboard');
     const [description, setDescription] = useState(initialData?.description || '');
     const [isEditingTitle, setIsEditingTitle] = useState(isNewDashboard || false);
@@ -656,74 +646,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       };
     }, [containerWidth, currentScreenConfig.height]);
 
-    // Initial lock acquisition - only run once when dashboard changes
-    useEffect(() => {
-      if (dashboardId) {
-        lockDashboard();
-      }
-
-      // Cleanup only on dashboard change or unmount
-      return () => {
-        if (dashboardId) {
-          unlockDashboard();
-        }
-      };
-    }, [dashboardId]); // Only depend on dashboardId
-
-    // Set up cleanup event listeners once (use refs to access latest values)
-    useEffect(() => {
-      // Handle page unload/navigation
-      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-        // Use current values from ref
-        const { dashboardId: currentDashboardId, lockToken: currentLockToken } =
-          lockStateRef.current;
-        if (currentDashboardId && currentLockToken) {
-          navigator.sendBeacon(
-            `/api/dashboards/${currentDashboardId}/lock/`,
-            JSON.stringify({ method: 'DELETE' })
-          );
-        }
-      };
-
-      // Handle visibility change (tab switching, minimizing)
-      const handleVisibilityChange = () => {
-        // Only unlock if user switches away, not when returning
-        if (document.hidden) {
-          const { dashboardId: currentDashboardId, lockToken: currentLockToken } =
-            lockStateRef.current;
-          if (currentDashboardId && currentLockToken) {
-            // Use fetch with keepalive for more reliable cleanup
-            fetch(`/api/dashboards/${currentDashboardId}/lock/`, {
-              method: 'DELETE',
-              keepalive: true,
-              headers: {
-                Authorization: `Bearer ${localStorage.getItem('token')}`,
-                'x-dalgo-org': localStorage.getItem('selectedOrg') || '',
-              },
-            }).catch(console.error);
-          }
-        }
-      };
-
-      // Add event listeners only once
-      window.addEventListener('beforeunload', handleBeforeUnload);
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-
-      return () => {
-        window.removeEventListener('beforeunload', handleBeforeUnload);
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-      };
-    }, []); // No dependencies - set up once
-
-    // Cleanup interval when component unmounts or lock changes
-    useEffect(() => {
-      return () => {
-        if (lockRefreshInterval) {
-          clearInterval(lockRefreshInterval);
-        }
-      };
-    }, [lockRefreshInterval]);
-
     // Auto-save (but not during undo/redo operations).
     // Deliberately NOT tracked in analytics: autosave is time-triggered, not user
     // intent, and useDebounce seeds with its initial value so this effect also runs
@@ -734,20 +656,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         saveDashboard({}, false);
       }
     }, [debouncedState, isUndoRedoOperation]);
-
-    // Component unmount cleanup
-    useEffect(() => {
-      return () => {
-        // Clean up on component unmount
-        if (lockRefreshInterval) {
-          clearInterval(lockRefreshInterval);
-        }
-        if (dashboardId && lockToken) {
-          // Note: This won't work reliably on page refresh, but handles component unmount
-          unlockDashboard();
-        }
-      };
-    }, []); // Empty dependencies - cleanup on unmount only
 
     // Keyboard shortcuts for undo/redo
     useEffect(() => {
@@ -768,80 +676,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }, [undo, redo, canUndo, canRedo]);
-
-    // Lock dashboard for editing with auto-refresh setup
-    const lockDashboard = async () => {
-      if (!dashboardId || lockRequestInFlightRef.current || hasDashboardLockRef.current) return;
-
-      lockRequestInFlightRef.current = true;
-
-      // Clear any existing interval first
-      if (lockRefreshInterval) {
-        clearInterval(lockRefreshInterval);
-        setLockRefreshInterval(null);
-      }
-
-      try {
-        const response = await apiPost(`/api/dashboards/${dashboardId}/lock/`, {});
-        hasDashboardLockRef.current = true;
-        setLockToken(response.lock_token);
-
-        // Set up auto-refresh every 60 seconds (half of 2-minute lock duration)
-        const interval = setInterval(async () => {
-          try {
-            await refreshDashboardLock(dashboardId!);
-          } catch (error) {
-            console.error('Failed to refresh lock:', error);
-            // If refresh fails, clear interval and update UI
-            clearInterval(interval);
-            setLockRefreshInterval(null);
-            setLockToken(null);
-          }
-        }, 60000); // 60 seconds
-
-        setLockRefreshInterval(interval);
-      } catch (error: any) {
-        console.error('Failed to lock dashboard:', error.message);
-
-        // If dashboard is locked by another user (423 error), redirect to dashboard list
-        if (error.status === 423 || error.message?.includes('locked by')) {
-          alert(`This dashboard is currently being edited by another user: ${error.message}`);
-          // Redirect back to dashboard list
-          if (typeof window !== 'undefined') {
-            window.location.href = '/dashboards';
-          }
-          return;
-        }
-
-        // For other errors, just log them
-        console.error('Lock acquisition failed:', error.message || 'Unknown error');
-      } finally {
-        lockRequestInFlightRef.current = false;
-      }
-    };
-
-    // Unlock dashboard with cleanup
-    const unlockDashboard = async () => {
-      if (!dashboardId) return;
-
-      try {
-        // Clear refresh interval first
-        if (lockRefreshInterval) {
-          clearInterval(lockRefreshInterval);
-          setLockRefreshInterval(null);
-        }
-
-        // Only make API call if we have a lock token
-        if (lockToken) {
-          await apiDelete(`/api/dashboards/${dashboardId}/lock/`);
-        }
-
-        setLockToken(null);
-        hasDashboardLockRef.current = false;
-      } catch (error) {
-        console.error('Failed to unlock dashboard:', error);
-      }
-    };
 
     // Save dashboard.
     // Resolves to whether the PUT succeeded. Errors are handled here (save status + inline

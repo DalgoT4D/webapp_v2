@@ -154,6 +154,15 @@ export async function refreshDashboardLock(id: number) {
   return apiPut(`/api/dashboards/${id}/lock/refresh/`, {});
 }
 
+/** Takes the edit lock. Rejects with status 423 when another user holds it. */
+export async function acquireDashboardLock(id: number): Promise<{ lock_token: string }> {
+  return apiPost(`/api/dashboards/${id}/lock/`, {});
+}
+
+export async function releaseDashboardLock(id: number) {
+  return apiDelete(`/api/dashboards/${id}/lock/`);
+}
+
 export async function favoriteDashboard(id: number) {
   return apiPost(`/api/dashboards/${id}/favorite/`, {});
 }
