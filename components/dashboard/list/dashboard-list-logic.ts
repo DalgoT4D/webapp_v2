@@ -60,7 +60,7 @@ export function filterDashboards(
     }
     if (nameFilters.showFavorites && !dashboard.is_favorite) return false;
     if (nameFilters.showLocked && !dashboard.is_locked) return false;
-    // PINNED-BUGS: ""Show only shared" list filter always empty — list API lacks `is_public`"
+    // PINNED-BUGS: "Show only shared" list filter always empty — list API lacks `is_public`
     if (nameFilters.showShared && !dashboard.is_public) return false;
     if (ownerFilters.length > 0 && !ownerFilters.includes(getDashboardOwner(dashboard)))
       return false;

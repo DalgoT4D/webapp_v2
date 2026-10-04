@@ -2,294 +2,112 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { DocsLink } from '@/components/ui/docs-link';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { Calendar } from '@/components/ui/calendar';
-// import {
-//   Command,
-//   CommandEmpty,
-//   CommandGroup,
-//   CommandInput,
-//   CommandItem,
-//   CommandList,
-// } from '@/components/ui/command';
-import {
-  Search,
-  Grid,
-  List,
-  BarChart3,
-  Plus,
-  ChevronLeft,
-  ChevronRight,
-  AlertCircle,
-  Layout,
-  User,
-  Lock,
-  Trash2,
-  MoreVertical,
-  Copy,
-  Share2,
-  Star,
-  StarOff,
-  Settings,
-  Edit,
-  ChevronUp,
-  ChevronDown as ChevronDownSort,
-  ArrowUpDown,
-  Filter,
-  X,
-  Calendar as CalendarIcon,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Table, TableBody } from '@/components/ui/table';
+import { AlertCircle, Layout, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { format, formatDistanceToNow } from 'date-fns';
 import {
   useDashboards,
   deleteDashboard,
   duplicateDashboard,
   favoriteDashboard,
   unfavoriteDashboard,
-  type Dashboard,
 } from '@/hooks/api/useDashboards';
 import { ShareModal } from '@/components/ui/share-modal';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { toggleFavorite } from '@/lib/favorite-utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { markDashboardShared } from '@/components/onboarding/insight-walkthrough-constants';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { DEFAULT_LIST_PAGE_SIZE, sortRows } from '@/components/list-page/list-logic';
+import { useListSort } from '@/components/list-page/useListSort';
+import { ListPagination } from '@/components/list-page/ListPagination';
+import { ActiveFiltersSummary } from '@/components/list-page/ActiveFiltersSummary';
 import { useCurrentOrgUser } from '@/components/dashboard/hooks/useCurrentOrgUser';
 import { useLandingPageActions } from '@/components/dashboard/hooks/useLandingPageActions';
-import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
+import {
+  filterDashboards,
+  getDashboardSortValue,
+  getUniqueOwners,
+  paginateDashboardRows,
+  splitPinnedDashboards,
+  type DashboardListItem,
+  type DashboardSortColumn,
+} from '@/components/dashboard/list/dashboard-list-logic';
+import { useDashboardListFilters } from '@/components/dashboard/list/useDashboardListFilters';
+import { DashboardListTableHeader } from '@/components/dashboard/list/DashboardListTableHeader';
+import { DashboardListRow } from '@/components/dashboard/list/DashboardListRow';
+import { DashboardListSkeleton } from '@/components/dashboard/list/DashboardListSkeleton';
 
 export function DashboardListV2() {
-  const [sortBy, setSortBy] = useState<'name' | 'updated_at' | 'created_by'>('updated_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-
-  // Column filter states
-  const [nameFilters, setNameFilters] = useState({
-    text: '',
-    showFavorites: false,
-    showLocked: false,
-    showShared: false,
-  });
-  const [ownerFilters, setOwnerFilters] = useState<string[]>([]);
-  const [dateFilters, setDateFilters] = useState({
-    range: 'all' as 'all' | 'today' | 'week' | 'month' | 'custom',
-    customStart: null as Date | null,
-    customEnd: null as Date | null,
-  });
-
-  // Filter dropdown states
-  const [openFilters, setOpenFilters] = useState({
-    name: false,
-    owner: false,
-    date: false,
-  });
-
-  // Owner search state
-  const [ownerSearch, setOwnerSearch] = useState('');
+  const { sortBy, sortOrder, handleSort } = useListSort<DashboardSortColumn>('updated_at');
+  const filters = useDashboardListFilters();
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [selectedDashboard, setSelectedDashboard] = useState<any>(null);
+  const [selectedDashboard, setSelectedDashboard] = useState<DashboardListItem | null>(null);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(DEFAULT_LIST_PAGE_SIZE);
 
   const router = useRouter();
 
-  // Current user (fresh landing-page ids)
+  // Current user, with fresh landing-page settings
   const currentUser = useCurrentOrgUser();
 
   // Get user permissions
   const { hasPermission } = useRbac();
 
-  // Build params for API call - removed search param
-  const params = {
-    page: currentPage,
-    pageSize,
-  };
-
   // Fetch dashboards
   const {
     data: allDashboards,
     total: apiTotal,
-    page: apiPage,
-    pageSize: apiPageSize,
     totalPages: apiTotalPages,
     isLoading,
     isError,
     mutate,
-  } = useDashboards(params);
+  } = useDashboards({ page: currentPage, pageSize });
 
   // Landing page actions refresh the list too, so the badges and pinned rows update
   const refreshList = useCallback(() => {
     mutate(); // Refresh the dashboard list to update indicators
   }, [mutate]);
+  const { setMyLanding, removeMyLanding, makeOrgDefault, isLandingPageLoading } =
+    useLandingPageActions(refreshList);
+
+  const dashboards = (allDashboards || []) as DashboardListItem[];
+
+  const filteredAndSortedDashboards = useMemo(
+    () =>
+      sortRows(
+        filterDashboards(dashboards, filters.values),
+        (dashboard) => getDashboardSortValue(dashboard, sortBy),
+        sortOrder
+      ),
+    [dashboards, filters.values, sortBy, sortOrder]
+  );
+  const uniqueOwners = useMemo(() => getUniqueOwners(dashboards), [dashboards]);
+
+  // Org default + personal landing are pinned on top of every page
+  const { pinned: pinnedDashboards, regular: regularDashboards } = splitPinnedDashboards(
+    filteredAndSortedDashboards,
+    currentUser
+  );
   const {
-    setMyLanding: handleSetPersonalLanding,
-    removeMyLanding: handleRemovePersonalLanding,
-    makeOrgDefault: handleSetOrgDefault,
-    isLandingPageLoading: landingPageLoading,
-  } = useLandingPageActions(refreshList);
+    paginatedRegular: paginatedRegularDashboards,
+    total,
+    totalPages,
+  } = paginateDashboardRows({
+    regular: regularDashboards,
+    currentPage,
+    pageSize,
+    apiTotal,
+    apiTotalPages,
+  });
 
-  // If API doesn't support pagination, implement client-side pagination and sorting
-  const dashboards = allDashboards || [];
-
-  // Handle sorting
-  const handleSort = (column: 'name' | 'updated_at' | 'created_by') => {
-    if (sortBy === column) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(column);
-      setSortOrder('desc');
-    }
-  };
-
-  // Apply filters and sort dashboards with memoization for performance
-  const filteredAndSortedDashboards = useMemo(() => {
-    // Apply column filters
-    const filtered = dashboards.filter((dashboard) => {
-      // Name filters
-      if (nameFilters.text) {
-        const title = (dashboard.title || dashboard.dashboard_title || '').toLowerCase();
-        if (!title.includes(nameFilters.text.toLowerCase())) {
-          return false;
-        }
-      }
-
-      if (nameFilters.showFavorites && !dashboard.is_favorite) {
-        return false;
-      }
-
-      if (nameFilters.showLocked && !dashboard.is_locked) {
-        return false;
-      }
-
-      if (nameFilters.showShared && !dashboard.is_public) {
-        return false;
-      }
-
-      // Owner filters
-      if (ownerFilters.length > 0) {
-        const owner = dashboard.created_by || dashboard.changed_by_name || 'Unknown';
-        if (!ownerFilters.includes(owner)) {
-          return false;
-        }
-      }
-
-      // Date filters
-      if (dateFilters.range !== 'all' && dashboard.updated_at) {
-        const updatedDate = new Date(dashboard.updated_at);
-        const now = new Date();
-
-        switch (dateFilters.range) {
-          case 'today': {
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            if (updatedDate < today) return false;
-            break;
-          }
-          case 'week': {
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            if (updatedDate < weekAgo) return false;
-            break;
-          }
-          case 'month': {
-            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-            if (updatedDate < monthAgo) return false;
-            break;
-          }
-          case 'custom': {
-            if (dateFilters.customStart && updatedDate < dateFilters.customStart) return false;
-            if (dateFilters.customEnd && updatedDate > dateFilters.customEnd) return false;
-            break;
-          }
-        }
-      }
-
-      return true;
-    });
-
-    // Sort the filtered results
-    return [...filtered].sort((a, b) => {
-      let aValue: string | number;
-      let bValue: string | number;
-
-      switch (sortBy) {
-        case 'name':
-          aValue = (a.title || a.dashboard_title || '').toLowerCase();
-          bValue = (b.title || b.dashboard_title || '').toLowerCase();
-          break;
-        case 'updated_at':
-          aValue = new Date(a.updated_at || 0).getTime();
-          bValue = new Date(b.updated_at || 0).getTime();
-          break;
-        case 'created_by':
-          aValue = (a.created_by || '').toLowerCase();
-          bValue = (b.created_by || '').toLowerCase();
-          break;
-        default:
-          return 0;
-      }
-
-      if (sortOrder === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-      }
-    });
-  }, [dashboards, nameFilters, ownerFilters, dateFilters, sortBy, sortOrder]);
-
-  const handleToggleFavorite = (dashboard: Dashboard) =>
+  const handleToggleFavorite = (dashboard: DashboardListItem) =>
     toggleFavorite(
       dashboard.is_favorite ?? false,
       dashboard.id,
@@ -297,66 +115,6 @@ export function DashboardListV2() {
       unfavoriteDashboard,
       mutate
     );
-
-  // Get unique owners for filter options
-  const uniqueOwners = useMemo(() => {
-    const owners = new Set<string>();
-    dashboards.forEach((dashboard) => {
-      const owner = dashboard.created_by || dashboard.changed_by_name || 'Unknown';
-      if (owner && owner !== 'Unknown') {
-        owners.add(owner);
-      }
-    });
-    return Array.from(owners).sort();
-  }, [dashboards]);
-
-  // This filtering logic is now integrated into the useMemo above
-
-  // Get active filter count
-  const getActiveFilterCount = () => {
-    let count = 0;
-    if (
-      nameFilters.text ||
-      nameFilters.showFavorites ||
-      nameFilters.showLocked ||
-      nameFilters.showShared
-    )
-      count++;
-    if (ownerFilters.length > 0) count++;
-    if (dateFilters.range !== 'all') count++;
-    return count;
-  };
-
-  // Clear all filters
-  const clearAllFilters = () => {
-    setNameFilters({ text: '', showFavorites: false, showLocked: false, showShared: false });
-    setOwnerFilters([]);
-    setDateFilters({ range: 'all', customStart: null, customEnd: null });
-  };
-
-  // Separate pinned dashboards (org default and personal landing page)
-  const pinnedDashboards = filteredAndSortedDashboards.filter((dashboard) => {
-    const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
-    const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
-    return isPersonalLanding || isOrgDefault;
-  });
-
-  // Regular dashboards excluding pinned ones
-  const regularDashboards = filteredAndSortedDashboards.filter((dashboard) => {
-    const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
-    const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
-    return !(isPersonalLanding || isOrgDefault);
-  });
-
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedRegularDashboards =
-    apiTotalPages > 1 ? regularDashboards : regularDashboards.slice(startIndex, endIndex);
-
-  // Calculate pagination values (use API values if available, otherwise client-side for regular dashboards only)
-  const total = apiTotal || regularDashboards.length;
-  const totalPages =
-    apiTotalPages > 1 ? apiTotalPages : Math.ceil(regularDashboards.length / pageSize);
 
   // Handle dashboard deletion
   const handleDeleteDashboard = useCallback(
@@ -399,8 +157,9 @@ export function DashboardListV2() {
         // Refresh the dashboard list
         await mutate();
 
+        // PINNED-BUGS: "Duplicate dashboard toast says `Chart "X" duplicated`"
         toastSuccess.duplicated(dashboardTitle, newDashboard.title);
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error duplicating dashboard:', error);
         toastError.duplicate(error, dashboardTitle);
       } finally {
@@ -411,7 +170,7 @@ export function DashboardListV2() {
   );
 
   // Handle share dashboard
-  const handleShareDashboard = useCallback((dashboard: any) => {
+  const handleShareDashboard = useCallback((dashboard: DashboardListItem) => {
     setSelectedDashboard(dashboard);
     setShareModalOpen(true);
   }, []);
@@ -441,562 +200,24 @@ export function DashboardListV2() {
     markDashboardShared();
   }, []);
 
-  // Render sort icon for table headers
-  const renderSortIcon = (column: 'name' | 'updated_at' | 'created_by') => {
-    if (sortBy !== column) {
-      return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
-    }
-    return sortOrder === 'asc' ? (
-      <ChevronUp className="w-4 h-4 text-gray-600" />
-    ) : (
-      <ChevronDownSort className="w-4 h-4 text-gray-600" />
-    );
-  };
-
-  // Check if column has active filters
-  const hasActiveFilter = (column: 'name' | 'owner' | 'date') => {
-    switch (column) {
-      case 'name':
-        return (
-          nameFilters.text ||
-          nameFilters.showFavorites ||
-          nameFilters.showLocked ||
-          nameFilters.showShared
-        );
-      case 'owner':
-        return ownerFilters.length > 0;
-      case 'date':
-        return dateFilters.range !== 'all';
-      default:
-        return false;
-    }
-  };
-
-  // Render filter icon for table headers
-  const renderFilterIcon = (column: 'name' | 'owner' | 'date') => {
-    const isActive = hasActiveFilter(column);
-    return (
-      <div className="relative">
-        <Filter
-          className={cn(
-            'w-4 h-4 transition-colors',
-            isActive ? 'text-teal-600' : 'text-gray-400 hover:text-gray-600'
-          )}
-        />
-        {isActive && <div className="absolute -top-1 -right-1 w-2 h-2 bg-teal-600 rounded-full" />}
-      </div>
-    );
-  };
-
-  // Render Name column filter
-  const renderNameFilter = () => (
-    <PopoverContent className="w-80" align="start">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h4 className="font-medium text-sm">Filter by Name</h4>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() =>
-              setNameFilters({
-                text: '',
-                showFavorites: false,
-                showLocked: false,
-                showShared: false,
-              })
-            }
-            className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
-            data-testid="dashboard-list-name-filter-clear"
-          >
-            Clear
-          </Button>
-        </div>
-
-        <div className="space-y-2">
-          <Input
-            placeholder="Search dashboard names..."
-            data-testid="dashboard-list-name-filter-search"
-            value={nameFilters.text}
-            onChange={(e) => setNameFilters((prev) => ({ ...prev, text: e.target.value }))}
-            className="h-8"
-          />
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="favorites"
-              data-testid="dashboard-list-name-filter-favorites"
-              checked={nameFilters.showFavorites}
-              onCheckedChange={(checked) =>
-                setNameFilters((prev) => ({ ...prev, showFavorites: checked as boolean }))
-              }
-            />
-            <Label htmlFor="favorites" className="text-sm cursor-pointer">
-              Show only favorites
-            </Label>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="locked"
-              data-testid="dashboard-list-name-filter-locked"
-              checked={nameFilters.showLocked}
-              onCheckedChange={(checked) =>
-                setNameFilters((prev) => ({ ...prev, showLocked: checked as boolean }))
-              }
-            />
-            <Label htmlFor="locked" className="text-sm cursor-pointer">
-              Show only locked
-            </Label>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="shared"
-              data-testid="dashboard-list-name-filter-shared"
-              checked={nameFilters.showShared}
-              onCheckedChange={(checked) =>
-                setNameFilters((prev) => ({ ...prev, showShared: checked as boolean }))
-              }
-            />
-            <Label htmlFor="shared" className="text-sm cursor-pointer">
-              Show only shared
-            </Label>
-          </div>
-        </div>
-      </div>
-    </PopoverContent>
+  const renderRow = (dashboard: DashboardListItem) => (
+    <DashboardListRow
+      key={dashboard.id}
+      dashboard={dashboard}
+      currentUser={currentUser}
+      hasPermission={hasPermission}
+      isLandingPageLoading={isLandingPageLoading}
+      isDuplicating={isDuplicating === dashboard.id}
+      isDeleting={isDeleting === dashboard.id}
+      onToggleFavorite={handleToggleFavorite}
+      onShare={handleShareDashboard}
+      onSetMyLanding={setMyLanding}
+      onRemoveMyLanding={removeMyLanding}
+      onMakeOrgDefault={makeOrgDefault}
+      onDuplicate={handleDuplicateDashboard}
+      onDelete={handleDeleteDashboard}
+    />
   );
-
-  // Filter owners based on search with memoization
-  const filteredOwners = useMemo(() => {
-    return uniqueOwners.filter((owner) => owner.toLowerCase().includes(ownerSearch.toLowerCase()));
-  }, [uniqueOwners, ownerSearch]);
-
-  // Render Owner column filter
-  const renderOwnerFilter = () => {
-    return (
-      <PopoverContent className="w-64" align="start">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="font-medium text-sm">Filter by Owner</h4>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setOwnerFilters([])}
-              className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
-              data-testid="dashboard-list-owner-filter-clear"
-            >
-              Clear
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            <Input
-              placeholder="Search owners..."
-              data-testid="dashboard-list-owner-filter-search"
-              value={ownerSearch}
-              onChange={(e) => setOwnerSearch(e.target.value)}
-              className="h-8"
-            />
-          </div>
-
-          <div className="max-h-48 overflow-y-auto space-y-2">
-            {filteredOwners.length > 0 ? (
-              filteredOwners.map((owner) => (
-                <div
-                  key={owner}
-                  data-testid={`dashboard-list-owner-filter-option-${owner}`}
-                  className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                  onClick={() => {
-                    setOwnerFilters((prev) => {
-                      if (prev.includes(owner)) {
-                        return prev.filter((o) => o !== owner);
-                      } else {
-                        return [...prev, owner];
-                      }
-                    });
-                  }}
-                >
-                  <Checkbox
-                    checked={ownerFilters.includes(owner)}
-                    onChange={() => {}} // Handled by parent onClick
-                  />
-                  <Label className="text-sm cursor-pointer flex-1 text-gray-900">{owner}</Label>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-gray-500 text-center py-2">No owners found</p>
-            )}
-          </div>
-        </div>
-      </PopoverContent>
-    );
-  };
-
-  // Render Date column filter
-  const renderDateFilter = () => (
-    <PopoverContent className="w-72" align="start">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h4 className="font-medium text-sm">Filter by Date Modified</h4>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setDateFilters({ range: 'all', customStart: null, customEnd: null })}
-            className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
-            data-testid="dashboard-list-date-filter-clear"
-          >
-            Clear
-          </Button>
-        </div>
-
-        <div className="space-y-2">
-          {[
-            { value: 'all', label: 'All time' },
-            { value: 'today', label: 'Today' },
-            { value: 'week', label: 'Last 7 days' },
-            { value: 'month', label: 'Last 30 days' },
-            { value: 'custom', label: 'Custom range' },
-          ].map((option) => (
-            <div key={option.value} className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id={option.value}
-                data-testid={`dashboard-list-date-filter-${option.value}`}
-                name="dateRange"
-                checked={dateFilters.range === option.value}
-                onChange={() => setDateFilters((prev) => ({ ...prev, range: option.value as any }))}
-                className="w-4 h-4 text-teal-600"
-              />
-              <Label htmlFor={option.value} className="text-sm cursor-pointer">
-                {option.label}
-              </Label>
-            </div>
-          ))}
-        </div>
-
-        {dateFilters.range === 'custom' && (
-          <div className="space-y-2 pt-2 border-t">
-            <Label className="text-xs text-gray-600">Custom Date Range</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">From</Label>
-                <Input
-                  type="date"
-                  data-testid="dashboard-list-date-filter-start"
-                  value={
-                    dateFilters.customStart ? format(dateFilters.customStart, 'yyyy-MM-dd') : ''
-                  }
-                  onChange={(e) =>
-                    setDateFilters((prev) => ({
-                      ...prev,
-                      customStart: e.target.value ? new Date(e.target.value + 'T00:00:00') : null,
-                    }))
-                  }
-                  className="h-8"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">To</Label>
-                <Input
-                  type="date"
-                  data-testid="dashboard-list-date-filter-end"
-                  value={dateFilters.customEnd ? format(dateFilters.customEnd, 'yyyy-MM-dd') : ''}
-                  onChange={(e) =>
-                    setDateFilters((prev) => ({
-                      ...prev,
-                      customEnd: e.target.value ? new Date(e.target.value + 'T00:00:00') : null,
-                    }))
-                  }
-                  className="h-8"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </PopoverContent>
-  );
-
-  // Render dashboard table row
-  const renderDashboardTableRow = (dashboard: any) => {
-    const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
-    const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
-    const canManageOrgDefault = hasPermission(PERMISSIONS.CAN_MANAGE_ORG_DEFAULT_DASHBOARD);
-    const isLocked = dashboard.is_locked;
-    const isLockedByOther =
-      isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
-    const isFavorited = dashboard.is_favorite ?? false;
-
-    const getNavigationUrl = () => {
-      return hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? `/dashboards/${dashboard.id}` : '#';
-    };
-
-    return (
-      <TableRow
-        key={dashboard.id}
-        className="hover:bg-gray-50"
-        data-testid={`dashboard-list-row-${dashboard.id}`}
-      >
-        {/* Name Column with Star */}
-        <TableCell className="py-4">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 p-0 hover:bg-yellow-50"
-              onClick={(e) => {
-                e.preventDefault();
-                handleToggleFavorite(dashboard);
-              }}
-              data-testid={`dashboard-list-favorite-${dashboard.id}`}
-            >
-              {isFavorited ? (
-                <Star className="w-4 h-4 text-yellow-500 fill-current" />
-              ) : (
-                <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400" />
-              )}
-            </Button>
-            <div className="flex flex-col">
-              <Link
-                href={getNavigationUrl()}
-                data-testid={`dashboard-list-title-link-${dashboard.id}`}
-                className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
-              >
-                {dashboard.title || dashboard.dashboard_title}
-              </Link>
-              {(isPersonalLanding || isOrgDefault || isLocked) && (
-                <div className="flex items-center gap-2 mt-1">
-                  {isPersonalLanding && (
-                    <Badge
-                      variant="default"
-                      className="text-sm bg-blue-100 text-blue-700 border-blue-200"
-                    >
-                      My Landing
-                    </Badge>
-                  )}
-                  {isOrgDefault && (
-                    <Badge
-                      variant="outline"
-                      className="text-sm bg-emerald-50 text-emerald-700 border-emerald-200"
-                    >
-                      Org Default
-                    </Badge>
-                  )}
-                  {isLocked && (
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        'text-sm',
-                        isLockedByOther
-                          ? 'bg-red-50 text-red-700 border-red-200'
-                          : 'bg-blue-50 text-blue-700 border-blue-200'
-                      )}
-                    >
-                      <Lock className="w-3 h-3 mr-1" />
-                      {isLockedByOther ? 'Locked' : 'By You'}
-                    </Badge>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </TableCell>
-
-        {/* Commenting Type Column as all dashboards are Native for now */}
-        {/* <TableCell className="py-4">
-          <Badge variant="secondary" className="text-xs">
-            {dashboard.dashboard_type === 'native' ? 'Native' : 'Superset'}
-          </Badge>
-        </TableCell> */}
-
-        {/* Owner Column */}
-        <TableCell className="py-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-              <User className="w-3 h-3 text-gray-600" />
-            </div>
-            <span className="text-base text-gray-700">
-              {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
-            </span>
-          </div>
-        </TableCell>
-
-        {/* Last Modified Column */}
-        <TableCell className="py-4 text-base text-gray-600">
-          {dashboard.updated_at
-            ? formatDistanceToNow(new Date(dashboard.updated_at), { addSuffix: true })
-            : 'Unknown'}
-        </TableCell>
-
-        {/* Actions Column */}
-        <TableCell className="py-4">
-          <div className="flex items-center gap-2">
-            {dashboard.access_level === 'edit' && (
-              <Link href={`/dashboards/${dashboard.id}/edit`}>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 p-0 hover:bg-gray-100"
-                  data-testid={`dashboard-list-edit-${dashboard.id}`}
-                >
-                  <Edit className="w-4 h-4 text-gray-600" />
-                </Button>
-              </Link>
-            )}
-            {dashboard.access_level === 'edit' && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-                onClick={() => handleShareDashboard(dashboard)}
-                aria-label={`Share dashboard: ${dashboard.title || dashboard.id}`}
-                data-testid={`dashboard-share-table-${dashboard.id}`}
-              >
-                <Share2 className="w-4 h-4 text-gray-600" />
-              </Button>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 p-0 hover:bg-gray-100"
-                  data-testid={`dashboard-list-menu-${dashboard.id}`}
-                >
-                  <MoreVertical className="w-4 h-4 text-gray-600" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                {/* Landing page controls */}
-                {(hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) || canManageOrgDefault) && (
-                  <>
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground font-medium">
-                      Landing Page
-                    </div>
-                    {hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) && (
-                      <>
-                        {isPersonalLanding ? (
-                          <DropdownMenuItem
-                            onClick={() => handleRemovePersonalLanding()}
-                            disabled={landingPageLoading}
-                            data-testid={`dashboard-list-remove-landing-${dashboard.id}`}
-                            className="cursor-pointer"
-                          >
-                            <StarOff className="w-4 h-4 mr-2" />
-                            Remove as my landing page
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem
-                            onClick={() => handleSetPersonalLanding(dashboard.id)}
-                            disabled={landingPageLoading}
-                            data-testid={`dashboard-list-set-landing-${dashboard.id}`}
-                            className="cursor-pointer"
-                          >
-                            <Star className="w-4 h-4 mr-2" />
-                            Set as my landing page
-                          </DropdownMenuItem>
-                        )}
-                      </>
-                    )}
-                    {canManageOrgDefault && (
-                      <DropdownMenuItem
-                        onClick={() => handleSetOrgDefault(dashboard.id)}
-                        disabled={landingPageLoading || isOrgDefault}
-                        data-testid={`dashboard-list-set-org-default-${dashboard.id}`}
-                        className="cursor-pointer"
-                      >
-                        <Settings className="w-4 h-4 mr-2" />
-                        {isOrgDefault ? 'Current org default' : 'Set as org default'}
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-                {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
-                  <DropdownMenuItem
-                    onClick={() =>
-                      handleDuplicateDashboard(
-                        dashboard.id,
-                        dashboard.title || dashboard.dashboard_title
-                      )
-                    }
-                    className="cursor-pointer"
-                    disabled={isDuplicating === dashboard.id}
-                    data-testid={`dashboard-list-duplicate-${dashboard.id}`}
-                  >
-                    {isDuplicating === dashboard.id ? (
-                      <>
-                        <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                        Duplicating...
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4 mr-2" />
-                        Duplicate
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                )}
-                {hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <DropdownMenuItem
-                          className="cursor-pointer text-destructive focus:text-destructive"
-                          onSelect={(e) => e.preventDefault()}
-                          data-testid={`dashboard-list-delete-${dashboard.id}`}
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent
-                        data-testid={`dashboard-list-delete-dialog-${dashboard.id}`}
-                      >
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to delete "
-                            {dashboard.title || dashboard.dashboard_title}"? This action cannot be
-                            undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel
-                            data-testid={`dashboard-list-delete-cancel-${dashboard.id}`}
-                          >
-                            Cancel
-                          </AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() =>
-                              handleDeleteDashboard(
-                                dashboard.id,
-                                dashboard.title || dashboard.dashboard_title
-                              )
-                            }
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            data-testid={`dashboard-list-delete-confirm-${dashboard.id}`}
-                          >
-                            {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </TableCell>
-      </TableRow>
-    );
-  };
-
-  // Remove mock data - use real data from API
 
   if (isError) {
     return (
@@ -1051,212 +272,34 @@ export function DashboardListV2() {
         </div>
 
         {/* Filter Summary - Only shows when filters are active to save space */}
-        {getActiveFilterCount() > 0 && (
-          <div id="dashboard-filters-section" className="flex items-center gap-2 px-6 pb-0">
-            <span className="text-sm text-gray-600">
-              {getActiveFilterCount()} filter{getActiveFilterCount() > 1 ? 's' : ''} active
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearAllFilters}
-              className="h-8 px-2 text-xs text-gray-500 hover:text-gray-700"
-              data-testid="dashboard-list-clear-all-filters"
-            >
-              <X className="w-3 h-3 mr-1" />
-              Clear all
-            </Button>
-          </div>
-        )}
+        <ActiveFiltersSummary
+          id="dashboard-filters-section"
+          count={filters.activeFilterCount}
+          onClearAll={filters.clearAllFilters}
+          clearTestId="dashboard-list-clear-all-filters"
+        />
       </div>
 
       {/* Scrollable Content - Only the dashboard list scrolls */}
       <div className="flex-1 overflow-hidden px-6">
         <div className="h-full overflow-y-auto">
           {isLoading ? (
-            <div className="py-6">
-              <div className="border rounded-lg bg-white">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead className="w-[40%]">
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="h-4 w-20" />
-                          <Skeleton className="h-4 w-4" />
-                        </div>
-                      </TableHead>
-                      {/* Commenting Type column skeleton */}
-                      {/* <TableHead className="w-[15%]">
-                          <Skeleton className="h-4 w-16" />
-                        </TableHead> */}
-                      <TableHead className="w-[35%]">
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="h-4 w-16" />
-                          <Skeleton className="h-4 w-4" />
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[15%]">
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="h-4 w-20" />
-                          <Skeleton className="h-4 w-4" />
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[10%]">
-                        <Skeleton className="h-4 w-16" />
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {[...Array(8)].map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="py-4">
-                          <div className="flex items-center gap-3">
-                            <Skeleton className="h-8 w-8 rounded" />
-                            <div className="flex flex-col gap-1">
-                              <Skeleton className="h-4 w-32" />
-                              <Skeleton className="h-3 w-20" />
-                            </div>
-                          </div>
-                        </TableCell>
-                        {/* Commenting Type column skeleton */}
-                        {/* <TableCell><Skeleton className="h-6 w-16" /></TableCell> */}
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Skeleton className="h-6 w-6 rounded-full" />
-                            <Skeleton className="h-4 w-20" />
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-24" />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Skeleton className="h-8 w-8" />
-                            <Skeleton className="h-8 w-8" />
-                            <Skeleton className="h-8 w-8" />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
+            <DashboardListSkeleton />
           ) : pinnedDashboards.length > 0 || paginatedRegularDashboards.length > 0 ? (
+            // PINNED-BUGS: "Empty filtered dashboard list hides header" — header lives in this branch only.
             <div className="py-6">
               <div className="border rounded-lg bg-white">
                 <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead className="w-[40%]">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
-                            onClick={() => handleSort('name')}
-                            data-testid="dashboard-list-sort-name"
-                          >
-                            <div className="flex items-center gap-2">
-                              Name
-                              {renderSortIcon('name')}
-                            </div>
-                          </Button>
-                          <Popover
-                            open={openFilters.name}
-                            onOpenChange={(open) =>
-                              setOpenFilters((prev) => ({ ...prev, name: open }))
-                            }
-                          >
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 p-0 hover:bg-gray-100"
-                                data-testid="dashboard-list-filter-name-trigger"
-                              >
-                                {renderFilterIcon('name')}
-                              </Button>
-                            </PopoverTrigger>
-                            {renderNameFilter()}
-                          </Popover>
-                        </div>
-                      </TableHead>
-                      {/* Commenting Type column as all dashboards are Native for now */}
-                      {/* <TableHead className="w-[15%] font-medium">Type</TableHead> */}
-                      <TableHead className="w-[35%]">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
-                            onClick={() => handleSort('created_by')}
-                            data-testid="dashboard-list-sort-owner"
-                          >
-                            <div className="flex items-center gap-2">
-                              Owner
-                              {renderSortIcon('created_by')}
-                            </div>
-                          </Button>
-                          <Popover
-                            open={openFilters.owner}
-                            onOpenChange={(open) =>
-                              setOpenFilters((prev) => ({ ...prev, owner: open }))
-                            }
-                          >
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 p-0 hover:bg-gray-100"
-                                data-testid="dashboard-list-filter-owner-trigger"
-                              >
-                                {renderFilterIcon('owner')}
-                              </Button>
-                            </PopoverTrigger>
-                            {renderOwnerFilter()}
-                          </Popover>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[15%]">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
-                            onClick={() => handleSort('updated_at')}
-                            data-testid="dashboard-list-sort-modified"
-                          >
-                            <div className="flex items-center gap-2">
-                              Last Modified
-                              {renderSortIcon('updated_at')}
-                            </div>
-                          </Button>
-                          <Popover
-                            open={openFilters.date}
-                            onOpenChange={(open) =>
-                              setOpenFilters((prev) => ({ ...prev, date: open }))
-                            }
-                          >
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 p-0 hover:bg-gray-100"
-                                data-testid="dashboard-list-filter-date-trigger"
-                              >
-                                {renderFilterIcon('date')}
-                              </Button>
-                            </PopoverTrigger>
-                            {renderDateFilter()}
-                          </Popover>
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[10%] font-medium text-base">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                  <DashboardListTableHeader
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSort={handleSort}
+                    filters={filters}
+                    uniqueOwners={uniqueOwners}
+                  />
                   <TableBody>
-                    {pinnedDashboards.map((dashboard) => renderDashboardTableRow(dashboard))}
-                    {paginatedRegularDashboards.map((dashboard) =>
-                      renderDashboardTableRow(dashboard)
-                    )}
+                    {pinnedDashboards.map(renderRow)}
+                    {paginatedRegularDashboards.map(renderRow)}
                   </TableBody>
                 </Table>
               </div>
@@ -1268,7 +311,7 @@ export function DashboardListV2() {
             >
               <Layout id="dashboard-empty-icon" className="w-12 h-12 text-muted-foreground" />
               <p id="dashboard-empty-text" className="text-muted-foreground">
-                {getActiveFilterCount() > 0 ? 'No dashboards found' : 'No dashboards yet'}
+                {filters.activeFilterCount > 0 ? 'No dashboards found' : 'No dashboards yet'}
               </p>
               {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
                 <Link id="dashboard-empty-create-link" href="/dashboards/create">
@@ -1287,108 +330,21 @@ export function DashboardListV2() {
         </div>
       </div>
 
-      {/* Lightweight Modern Pagination */}
-      <div
-        id="dashboard-pagination-footer"
-        className="flex-shrink-0 border-t border-gray-100 bg-gray-50/30 py-3 px-6"
-      >
-        <div id="dashboard-pagination-wrapper" className="flex items-center justify-between">
-          {/* Left: Compact Item Count */}
-          <div id="dashboard-pagination-info" className="text-sm text-gray-600">
-            {total === 0
-              ? '0–0 of 0'
-              : `${startIndex + 1}–${Math.min(startIndex + pageSize, total)} of ${total}`}
-          </div>
-
-          {/* Right: Streamlined Controls */}
-          <div id="dashboard-pagination-controls" className="flex items-center gap-4">
-            {/* Compact Page Size Selector */}
-            <div id="dashboard-page-size-wrapper" className="flex items-center gap-2">
-              <span id="dashboard-page-size-label" className="text-sm text-gray-500">
-                Show
-              </span>
-              <Select
-                id="dashboard-page-size-select"
-                value={pageSize.toString()}
-                onValueChange={(value) => {
-                  setPageSize(parseInt(value));
-                  setCurrentPage(1); // Reset to first page when page size changes
-                }}
-              >
-                <SelectTrigger
-                  id="dashboard-page-size-trigger"
-                  data-testid="dashboard-page-size-trigger"
-                  className="h-7 text-sm border-gray-200 bg-white"
-                  style={{ width: '70px' }}
-                >
-                  <SelectValue id="dashboard-page-size-value" />
-                </SelectTrigger>
-                <SelectContent id="dashboard-page-size-content">
-                  <SelectItem
-                    id="dashboard-page-size-10"
-                    value="10"
-                    data-testid="dashboard-page-size-option-10"
-                  >
-                    10
-                  </SelectItem>
-                  <SelectItem
-                    id="dashboard-page-size-20"
-                    value="20"
-                    data-testid="dashboard-page-size-option-20"
-                  >
-                    20
-                  </SelectItem>
-                  <SelectItem
-                    id="dashboard-page-size-50"
-                    value="50"
-                    data-testid="dashboard-page-size-option-50"
-                  >
-                    50
-                  </SelectItem>
-                  <SelectItem
-                    id="dashboard-page-size-100"
-                    value="100"
-                    data-testid="dashboard-page-size-option-100"
-                  >
-                    100
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Simplified Navigation */}
-            <div className="flex items-center gap-1">
-              <Button
-                id="dashboard-prev-page-button"
-                data-testid="dashboard-prev-page-button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
-              >
-                <ChevronLeft id="dashboard-prev-icon" className="h-4 w-4" />
-              </Button>
-
-              <span id="dashboard-page-info" className="text-sm text-gray-600 px-3 py-1">
-                {currentPage} of {totalPages}
-              </span>
-
-              <Button
-                id="dashboard-next-page-button"
-                data-testid="dashboard-next-page-button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage >= totalPages}
-                className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
-              >
-                <ChevronRight id="dashboard-next-icon" className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ListPagination
+        idPrefix="dashboard"
+        currentPage={currentPage}
+        pageSize={pageSize}
+        total={total}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+        testIds={{
+          pageSizeTrigger: 'dashboard-page-size-trigger',
+          pageSizeOptionPrefix: 'dashboard-page-size-option',
+          prev: 'dashboard-prev-page-button',
+          next: 'dashboard-next-page-button',
+        }}
+      />
 
       {/* Share Modal */}
       {selectedDashboard && (
