@@ -27,6 +27,7 @@ import { ShareModal } from '@/components/ui/share-modal';
 import { ShareViaEmailDialog } from '@/components/reports/share-via-email-dialog';
 import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { CommentPopover } from '@/components/reports/comment-popover';
+import { findSummaryCommentState } from '@/components/reports/logic/comments';
 import { formatDateShort } from '@/components/reports/utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -292,9 +293,7 @@ export default function SnapshotViewerPage() {
                     <CommentPopover
                       snapshotId={parsedId}
                       targetType="summary"
-                      state={
-                        commentStates?.find((s) => s.target_type === 'summary')?.state ?? 'none'
-                      }
+                      state={findSummaryCommentState(commentStates)}
                       triggerClassName="h-8 w-8"
                       onStateChange={handleCommentStateChange}
                       autoOpen={commentTarget === 'summary'}

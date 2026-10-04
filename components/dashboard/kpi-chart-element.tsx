@@ -5,8 +5,9 @@ import { KPICard } from '@/components/kpis/kpi-card';
 import { Button } from '@/components/ui/button';
 import type { KPICardData } from '@/components/kpis/kpi-card';
 import type { RAGStatus } from '@/types/kpis';
-import type { CommentStates, CommentIconState } from '@/types/comments';
+import type { CommentStates } from '@/types/comments';
 import { CommentPopover } from '@/components/reports/comment-popover';
+import { findKpiCommentState } from '@/components/reports/logic/comments';
 import { computePopChanges } from '@/lib/formatters';
 import { useKPIData } from '@/hooks/api/useKPIs';
 import { KPI_EXPORT_SOURCES } from '@/constants/analytics';
@@ -84,9 +85,7 @@ export function KPIChartElement({
       snapshotId={snapshotId}
       targetType="kpi"
       chartId={kpiId}
-      state={
-        (commentStates?.find((s) => s.target_id === kpiId)?.state as CommentIconState) ?? 'none'
-      }
+      state={findKpiCommentState(commentStates, kpiId)}
       triggerClassName="h-7 w-7 p-0"
       onStateChange={onCommentStateChange}
       autoOpen={autoOpenCommentChartId === String(kpiId)}

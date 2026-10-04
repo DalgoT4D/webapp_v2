@@ -45,6 +45,7 @@ import {
 } from '@/hooks/api/useComments';
 import type { Comment, CommentIconState, MentionableUser } from '@/types/comments';
 import { useMentionInput } from '@/hooks/useMentionInput';
+import { filterMentionableUsers } from '@/components/reports/logic/comments';
 
 // Width of comment popover panel — matches Figma spec for comment thread panels
 const COMMENT_POPOVER_WIDTH = 'w-[383px]';
@@ -216,13 +217,10 @@ const CommentItem = memo(function CommentItem({
   const editListboxId = `edit-mention-listbox-${comment.id}`;
 
   // Compute filtered users for edit mention dropdown
-  const editFilteredUsers = useMemo(() => {
-    if (!editMentionQuery) return mentionableUsers.slice(0, MENTION_DROPDOWN_LIMIT);
-    const lowerFilter = editMentionQuery.toLowerCase();
-    return mentionableUsers
-      .filter((u) => u.email.toLowerCase().includes(lowerFilter))
-      .slice(0, MENTION_DROPDOWN_LIMIT);
-  }, [mentionableUsers, editMentionQuery]);
+  const editFilteredUsers = useMemo(
+    () => filterMentionableUsers(mentionableUsers, editMentionQuery, MENTION_DROPDOWN_LIMIT),
+    [mentionableUsers, editMentionQuery]
+  );
 
   // Keyboard handler for edit textarea mention navigation
   const handleEditKeyDown = useCallback(
@@ -535,13 +533,10 @@ function CommentPopoverInner({
   const { users: mentionableUsers } = useMentionableUsers(open);
 
   // Compute filtered users for mention dropdown (lifted from MentionDropdown for keyboard nav access)
-  const filteredMentionUsers = useMemo(() => {
-    if (!mentionQuery) return mentionableUsers.slice(0, MENTION_DROPDOWN_LIMIT);
-    const lowerFilter = mentionQuery.toLowerCase();
-    return mentionableUsers
-      .filter((u) => u.email.toLowerCase().includes(lowerFilter))
-      .slice(0, MENTION_DROPDOWN_LIMIT);
-  }, [mentionableUsers, mentionQuery]);
+  const filteredMentionUsers = useMemo(
+    () => filterMentionableUsers(mentionableUsers, mentionQuery, MENTION_DROPDOWN_LIMIT),
+    [mentionableUsers, mentionQuery]
+  );
 
   // Get current user email from auth store
   const currentUserEmail = useAuthStore((s) => s.getCurrentOrgUser()?.email ?? '');

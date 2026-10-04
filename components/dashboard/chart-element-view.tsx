@@ -97,7 +97,8 @@ import {
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import { CommentPopover } from '@/components/reports/comment-popover';
-import type { CommentIconState, CommentStates } from '@/types/comments';
+import { findChartCommentState } from '@/components/reports/logic/comments';
+import type { CommentStates } from '@/types/comments';
 
 // Register necessary ECharts components
 echarts.use([
@@ -1920,10 +1921,7 @@ export function ChartElementView({
               snapshotId={snapshotId}
               targetType="chart"
               chartId={chartId}
-              state={
-                (commentStates?.find((s) => s.chart_id === chartId)?.state as CommentIconState) ??
-                'none'
-              }
+              state={findChartCommentState(commentStates, chartId)}
               triggerClassName="h-7 w-7 p-0"
               onStateChange={onCommentStateChange}
               autoOpen={autoOpenCommentChartId === String(chartId)}
