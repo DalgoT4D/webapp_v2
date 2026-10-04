@@ -64,9 +64,8 @@ import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { FrozenChartConfig } from '@/types/reports';
 import type { CommentStates } from '@/types/comments';
-import { useLandingPage } from '@/hooks/api/useLandingPage';
-import useSWR, { mutate as swrMutate } from 'swr';
-import { apiGet } from '@/lib/api';
+import { useCurrentOrgUser } from '@/components/dashboard/hooks/useCurrentOrgUser';
+import { useLandingPageActions } from '@/components/dashboard/hooks/useLandingPageActions';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -247,29 +246,16 @@ export function DashboardNativeView({
 
   const { toast } = useToast();
 
-  // Get current user info for permission checks (skip in public mode)
-  const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
-  const authCurrentUser = isPublicMode ? null : getCurrentOrgUser();
+  // Current user (fresh landing-page ids; null in public mode)
+  const currentUser = useCurrentOrgUser(isPublicMode);
 
-  // Fetch fresh user data to get updated landing page settings
-  const { data: orgUsersData } = useSWR(!isPublicMode ? '/api/currentuserv2' : null, apiGet, {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: true,
-  });
-
-  // Use fresh user data if available, fall back to auth store data
-  const selectedOrgSlug = useAuthStore((state) => state.selectedOrgSlug);
-  const currentUser = isPublicMode
-    ? null
-    : orgUsersData?.find((ou: any) => ou.org.slug === selectedOrgSlug) || authCurrentUser;
-
-  // Landing page functionality
+  // Landing page functionality (shared with the dashboard list)
   const {
-    setPersonalLanding,
-    removePersonalLanding,
-    setOrgDefault,
-    isLoading: landingPageLoading,
-  } = useLandingPage();
+    setMyLanding,
+    removeMyLanding,
+    makeOrgDefault,
+    isLandingPageLoading: landingPageLoading,
+  } = useLandingPageActions();
 
   // Fetch dashboard data (skip API call if we have pre-fetched data for public mode)
   const {
@@ -576,23 +562,9 @@ export function DashboardNativeView({
   };
 
   // Landing page handlers
-  const handleSetPersonalLanding = async () => {
-    await setPersonalLanding(dashboardId);
-    // Refresh user data to update landing page status
-    await swrMutate('/api/currentuserv2');
-  };
-
-  const handleRemovePersonalLanding = async () => {
-    await removePersonalLanding();
-    // Refresh user data to update landing page status
-    await swrMutate('/api/currentuserv2');
-  };
-
-  const handleSetOrgDefault = async () => {
-    await setOrgDefault(dashboardId);
-    // Refresh user data to update landing page status
-    await swrMutate('/api/currentuserv2');
-  };
+  const handleSetPersonalLanding = () => setMyLanding(dashboardId);
+  const handleRemovePersonalLanding = () => removeMyLanding();
+  const handleSetOrgDefault = () => makeOrgDefault(dashboardId);
 
   // Render dashboard components (from active tab)
   const renderComponent = (componentId: string) => {

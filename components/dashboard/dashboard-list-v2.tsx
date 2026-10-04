@@ -104,12 +104,10 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { toggleFavorite } from '@/lib/favorite-utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { useAuthStore } from '@/stores/authStore';
 import { markDashboardShared } from '@/components/onboarding/insight-walkthrough-constants';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
-import { useLandingPage } from '@/hooks/api/useLandingPage';
-import useSWR, { mutate as swrMutate } from 'swr';
-import { apiGet } from '@/lib/api';
+import { useCurrentOrgUser } from '@/components/dashboard/hooks/useCurrentOrgUser';
+import { useLandingPageActions } from '@/components/dashboard/hooks/useLandingPageActions';
 import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 
 export function DashboardListV2() {
@@ -149,31 +147,11 @@ export function DashboardListV2() {
 
   const router = useRouter();
 
-  // Get current user info for permission checks
-  const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
-  const authCurrentUser = getCurrentOrgUser();
-
-  // Fetch fresh user data to get updated landing page settings
-  const { data: orgUsersData } = useSWR('/api/currentuserv2', apiGet, {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: true,
-  });
-
-  // Use fresh user data if available, fall back to auth store data
-  const selectedOrgSlug = useAuthStore((state) => state.selectedOrgSlug);
-  const currentUser =
-    orgUsersData?.find((ou: any) => ou.org.slug === selectedOrgSlug) || authCurrentUser;
+  // Current user (fresh landing-page ids)
+  const currentUser = useCurrentOrgUser();
 
   // Get user permissions
   const { hasPermission } = useRbac();
-
-  // Landing page functionality
-  const {
-    setPersonalLanding,
-    removePersonalLanding,
-    setOrgDefault,
-    isLoading: landingPageLoading,
-  } = useLandingPage();
 
   // Build params for API call - removed search param
   const params = {
@@ -192,6 +170,17 @@ export function DashboardListV2() {
     isError,
     mutate,
   } = useDashboards(params);
+
+  // Landing page actions refresh the list too, so the badges and pinned rows update
+  const refreshList = useCallback(() => {
+    mutate(); // Refresh the dashboard list to update indicators
+  }, [mutate]);
+  const {
+    setMyLanding: handleSetPersonalLanding,
+    removeMyLanding: handleRemovePersonalLanding,
+    makeOrgDefault: handleSetOrgDefault,
+    isLandingPageLoading: landingPageLoading,
+  } = useLandingPageActions(refreshList);
 
   // If API doesn't support pagination, implement client-side pagination and sorting
   const dashboards = allDashboards || [];
@@ -451,37 +440,6 @@ export function DashboardListV2() {
   const handleMadePublic = useCallback(() => {
     markDashboardShared();
   }, []);
-
-  // Landing page handlers
-  const handleSetPersonalLanding = useCallback(
-    async (dashboardId: number) => {
-      await setPersonalLanding(dashboardId);
-      // The landing page hook already mutates '/api/currentuserv2'
-      // Also mutate '/api/currentuserv2' to refresh our local data
-      await swrMutate('/api/currentuserv2');
-      mutate(); // Refresh the dashboard list to update indicators
-    },
-    [setPersonalLanding, mutate]
-  );
-
-  const handleRemovePersonalLanding = useCallback(async () => {
-    await removePersonalLanding();
-    // The landing page hook already mutates '/api/currentuserv2'
-    // Also mutate '/api/currentuserv2' to refresh our local data
-    await swrMutate('/api/currentuserv2');
-    mutate(); // Refresh the dashboard list to update indicators
-  }, [removePersonalLanding, mutate]);
-
-  const handleSetOrgDefault = useCallback(
-    async (dashboardId: number) => {
-      await setOrgDefault(dashboardId);
-      // The landing page hook already mutates '/api/currentuserv2'
-      // Also mutate '/api/currentuserv2' to refresh our local data
-      await swrMutate('/api/currentuserv2');
-      mutate(); // Refresh the dashboard list to update indicators
-    },
-    [setOrgDefault, mutate]
-  );
 
   // Render sort icon for table headers
   const renderSortIcon = (column: 'name' | 'updated_at' | 'created_by') => {
