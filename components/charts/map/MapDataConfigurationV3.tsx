@@ -22,6 +22,8 @@ import { DynamicLevelConfig } from './DynamicLevelConfig';
 import { useColumns, useChartDataPreview } from '@/hooks/api/useChart';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
+import { buildDatasetChangePatch } from '@/components/charts/logic/dataset-change';
+import { hasExistingMapConfig } from '@/components/charts/logic/auto-prefill';
 import { Combobox } from '@/components/ui/combobox';
 
 // Column data type
@@ -215,55 +217,15 @@ export function MapDataConfigurationV3({
 
   // Handle dataset changes with complete form reset for maps
   const handleDatasetChange = (schema_name: string, table_name: string) => {
-    // Prevent unnecessary resets if dataset hasn't actually changed
-    if (formData.schema_name === schema_name && formData.table_name === table_name) {
-      return;
-    }
-
-    // Preserve only essential chart identity fields
-    const preservedFields = {
-      title: formData.title,
-      chart_type: formData.chart_type,
-      customizations: formData.customizations || {}, // Keep styling preferences
-    };
-
-    // Reset all map-specific fields to ensure compatibility with new dataset
-    onFormDataChange({
-      ...preservedFields,
-      schema_name,
-      table_name,
-      // Reset all column selections
-      geographic_column: undefined,
-      value_column: undefined,
-      aggregate_function: 'sum', // Default aggregate function
-      selected_geojson_id: undefined,
-      // Reset data configuration
-      metrics: [],
-      filters: [],
-      computation_type: 'aggregated',
-      // Reset simplified map fields
-      district_column: undefined,
-      ward_column: undefined,
-      subward_column: undefined,
-      drill_down_enabled: false,
-      geojsonPreviewPayload: undefined,
-      dataOverlayPayload: undefined,
-      country_code: 'IND', // Reset to default country
-    });
+    const patch = buildDatasetChangePatch(formData, schema_name, table_name, 'map');
+    if (patch) onFormDataChange(patch);
   };
 
   // Auto-prefill map configuration when columns are loaded
   React.useEffect(() => {
     if (columns && formData.schema_name && formData.table_name && formData.chart_type === 'map') {
       // Check if we should auto-prefill (no existing configuration)
-      const hasExistingConfig = !!(
-        formData.geographic_column ||
-        formData.value_column ||
-        formData.aggregate_column ||
-        (formData.metrics && formData.metrics.length > 0)
-      );
-
-      if (!hasExistingConfig) {
+      if (!hasExistingMapConfig(formData)) {
         const autoConfig = generateAutoPrefilledConfig('map', normalizedColumns);
         if (Object.keys(autoConfig).length > 0) {
           onFormDataChange(autoConfig);

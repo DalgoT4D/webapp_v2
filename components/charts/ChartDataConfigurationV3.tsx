@@ -30,6 +30,8 @@ import PivotDataConfiguration from '@/components/charts/pivot-table/PivotDataCon
 import { TableDimensionsSelector } from '@/components/charts/TableDimensionsSelector';
 import { TimeGrainSelector } from '@/components/charts/TimeGrainSelector';
 import { applyChartTypeChange } from '@/components/charts/logic/type-switch';
+import { buildDatasetChangePatch } from '@/components/charts/logic/dataset-change';
+import { hasExistingChartConfig } from '@/components/charts/logic/auto-prefill';
 import type {
   ChartBuilderFormData,
   ChartMetric,
@@ -258,49 +260,13 @@ export function ChartDataConfigurationV3({
 
   // Handle dataset changes with complete form reset
   const handleDatasetChange = (schema_name: string, table_name: string) => {
-    // Prevent unnecessary resets if dataset hasn't actually changed
-    if (formData.schema_name === schema_name && formData.table_name === table_name) {
-      return;
-    }
-
-    // Preserve only essential chart identity fields
-    const preservedFields = {
-      title: formData.title,
-      chart_type: formData.chart_type,
-      customizations: formData.customizations || {}, // Keep styling preferences
-    };
-
-    // Reset all data-related fields to ensure compatibility with new dataset
-    onChange({
-      ...preservedFields,
-      schema_name,
-      table_name,
-      // Reset all column selections
-      x_axis_column: undefined,
-      y_axis_column: undefined,
-      dimension_column: undefined,
-      aggregate_column: undefined,
-      aggregate_function: 'count', // Default aggregate function
-      extra_dimension_column: undefined,
-      geographic_column: undefined,
-      value_column: undefined,
-      selected_geojson_id: undefined,
-      // Reset data configuration
-      metrics: [],
-      filters: [],
-      sort: [],
-      pagination: { enabled: false, page_size: 50 },
-      computation_type: 'aggregated',
-      // Reset map-specific fields
-      layers: undefined,
-      geojsonPreviewPayload: undefined,
-      dataOverlayPayload: undefined,
-    });
+    const patch = buildDatasetChangePatch(formData, schema_name, table_name, 'chart');
+    if (patch) onChange(patch);
   };
 
   // Auto-prefill when columns load — only once per (chart_type, schema, table).
   // Without the key guard, removing the last metric on a number chart re-triggers prefill
-  // because nothing else in `hasExistingConfig` stays truthy for number charts.
+  // because nothing else in `hasExistingChartConfig` stays truthy for number charts.
   const autoPrefillKeyRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     if (!columns || !formData.schema_name || !formData.table_name || !formData.chart_type) return;
@@ -309,17 +275,7 @@ export function ChartDataConfigurationV3({
     if (autoPrefillKeyRef.current === key) return;
     autoPrefillKeyRef.current = key;
 
-    const hasExistingConfig = !!(
-      formData.dimension_column ||
-      formData.aggregate_column ||
-      formData.geographic_column ||
-      formData.x_axis_column ||
-      formData.y_axis_column ||
-      formData.table_columns?.length ||
-      (formData.metrics && formData.metrics.length > 0)
-    );
-
-    if (!hasExistingConfig) {
+    if (!hasExistingChartConfig(formData)) {
       const autoConfig = generateAutoPrefilledConfig(formData.chart_type, normalizedColumns);
       if (Object.keys(autoConfig).length > 0) {
         console.log('🤖 [CHART-DATA-CONFIG-V3] Auto-prefilling configuration:', autoConfig);

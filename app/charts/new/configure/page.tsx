@@ -37,7 +37,6 @@ import {
   type ChartBuilderFormData,
 } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
-import { deepEqual } from '@/lib/form-utils';
 import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
 import { trackEvent, trackFeatureView } from '@/lib/analytics';
@@ -63,6 +62,8 @@ import {
 import { getDefaultCustomizations } from '@/components/charts/chart-types/default-customizations';
 import { canSaveChart } from '@/components/charts/logic/validation';
 import { generateDefaultChartName } from '@/components/charts/logic/default-name';
+import { hasExistingChartConfig } from '@/components/charts/logic/auto-prefill';
+import { useChartBuilderState } from '@/components/charts/hooks/useChartBuilderState';
 import {
   buildChartDataPayload,
   buildCreateChartPayload,
@@ -93,17 +94,20 @@ function ConfigureChartPageContent() {
   const chartType = searchParams.get('type') || 'bar';
   const isFromDashboard = searchParams.get('from') === 'dashboard';
 
-  // Initialize form data
-  const [formData, setFormData] = useState<ChartBuilderFormData>({
-    title: generateDefaultChartName(chartType, table),
-    chart_type: chartType as ChartBuilderFormData['chart_type'],
-    schema_name: schema,
-    table_name: table,
-    computation_type: 'aggregated',
-    customizations: getDefaultCustomizations(chartType, 'create'),
-    // Set default aggregate function to prevent API errors
-    aggregate_function: 'count',
-  });
+  const { config, hasUnsavedChanges, patchConfig, markSaved } = useChartBuilderState(
+    'create',
+    () => ({
+      title: generateDefaultChartName(chartType, table),
+      chart_type: chartType as ChartBuilderFormData['chart_type'],
+      schema_name: schema,
+      table_name: table,
+      computation_type: 'aggregated',
+      customizations: getDefaultCustomizations(chartType, 'create'),
+      // Set default aggregate function to prevent API errors. PINNED-BUGS C-E7: edit starts with 'sum'.
+      aggregate_function: 'count',
+    })
+  );
+  const formData = config; // renamed in Task 9
 
   const [activeTab, setActiveTab] = useState('chart');
   const [configurationTab, setConfigurationTab] = useState('configuration');
@@ -133,7 +137,6 @@ function ConfigureChartPageContent() {
   const [tableChartPageSize, setTableChartPageSize] = useState(20);
 
   // Unsaved changes detection state
-  const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string>('/charts');
 
@@ -168,22 +171,6 @@ function ConfigureChartPageContent() {
     isLoading: regionGeojsonsLoading,
   } = useRegionGeoJSONs(currentDrillDownRegionId);
 
-  // Initialize original form data for unsaved changes detection
-  useEffect(() => {
-    if (!originalFormData) {
-      setOriginalFormData({ ...formData });
-    }
-  }, [formData.schema_name, formData.table_name, formData.chart_type, originalFormData]);
-
-  // Check for unsaved changes
-  const hasUnsavedChanges = useMemo(() => {
-    if (!originalFormData) return false;
-
-    const hasChanges = !deepEqual(formData, originalFormData);
-
-    return hasChanges;
-  }, [formData, originalFormData]);
-
   // Handle browser navigation (refresh, close tab, external links)
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -204,32 +191,7 @@ function ConfigureChartPageContent() {
   // Build payload for chart data - memoized to prevent infinite re-render loops
   const chartDataPayload: ChartDataPayload | null = useMemo(
     () => buildChartDataPayload(formData, tableDrillDownState, 'create'),
-    [
-      formData.chart_type,
-      formData.computation_type,
-      formData.schema_name,
-      formData.table_name,
-      formData.x_axis_column,
-      formData.y_axis_column,
-      formData.dimension_column,
-      formData.aggregate_column,
-      formData.aggregate_function,
-      formData.extra_dimension_column,
-      formData.metrics,
-      formData.geographic_column,
-      formData.value_column,
-      formData.selected_geojson_id,
-      formData.layers,
-      formData.dimensions,
-      formData.table_columns,
-      formData.customizations,
-      formData.filters,
-      formData.pagination,
-      formData.sort,
-      formData.time_grain,
-      formData.extra_config,
-      tableDrillDownState,
-    ]
+    [formData, tableDrillDownState]
   );
 
   // Fetch chart data
@@ -379,25 +341,14 @@ function ConfigureChartPageContent() {
   // Get all columns for raw data
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
-  const handleFormChange = useCallback((updates: Partial<ChartBuilderFormData>) => {
-    setFormData((prev) => ({ ...prev, ...updates }));
-  }, []);
+  const handleFormChange = patchConfig;
 
+  // BUILDER-DRIFT: the create page prefills here AND in ChartDataConfigurationV3 (raw vs normalized columns).
   // Auto-prefill when columns are loaded
   useEffect(() => {
     if (columns && formData.schema_name && formData.table_name && formData.chart_type) {
       // Check if we should auto-prefill (no existing configuration)
-      const hasExistingConfig = !!(
-        formData.dimension_column ||
-        formData.aggregate_column ||
-        formData.geographic_column ||
-        formData.x_axis_column ||
-        formData.y_axis_column ||
-        formData.table_columns?.length ||
-        (formData.metrics && formData.metrics.length > 0)
-      );
-
-      if (!hasExistingConfig) {
+      if (!hasExistingChartConfig(formData)) {
         const autoConfig = generateAutoPrefilledConfig(formData.chart_type, columns);
         if (Object.keys(autoConfig).length > 0) {
           handleFormChange(autoConfig);
@@ -447,18 +398,11 @@ function ConfigureChartPageContent() {
           chart_filters: formData.filters || [],
         };
 
-        setFormData((prev) => ({
-          ...prev,
-          geojsonPreviewPayload: geojsonPayload,
-          dataOverlayPayload: dataOverlayPayload,
-        }));
+        patchConfig({ geojsonPreviewPayload: geojsonPayload, dataOverlayPayload });
       }
     } else if (formData.chart_type === 'map' && !hasValidMetric && formData.dataOverlayPayload) {
       // Metric removed/invalid — clear the stale payload so the map stops showing old data.
-      setFormData((prev) => ({
-        ...prev,
-        dataOverlayPayload: undefined,
-      }));
+      patchConfig({ dataOverlayPayload: undefined });
     }
   }, [
     formData.chart_type,
@@ -670,7 +614,7 @@ function ConfigureChartPageContent() {
         });
       });
       // Reset unsaved changes state after successful save
-      setOriginalFormData({ ...formData });
+      markSaved();
       toastSuccess.created('Chart');
 
       // Resume-nudge milestone — set regardless of an active coachmark session.

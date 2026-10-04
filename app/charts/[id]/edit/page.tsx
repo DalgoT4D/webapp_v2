@@ -33,14 +33,12 @@ import {
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
 import { toastSuccess, toastError } from '@/lib/toast';
-import { ChartTypes, type ChartType } from '@/types/charts';
-import { buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
+import { ChartTypes } from '@/types/charts';
 import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
-import { deepEqual } from '@/lib/form-utils';
 import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { trackEvent, trackFeatureView } from '@/lib/analytics';
@@ -57,21 +55,15 @@ import {
   getUsedSavedMetricIds,
   isDrillDownEnabled,
 } from '@/components/charts/utils';
-import type {
-  ChartCreate,
-  ChartUpdate,
-  ChartBuilderFormData,
-  ChartDataPayload,
-} from '@/types/charts';
+import type { ChartCreate, ChartUpdate, ChartDataPayload } from '@/types/charts';
 import {
   getChartViewUrl,
   getWidgetBackLabel,
   parseWidgetNavigationSource,
 } from '@/lib/widget-navigation';
-import { getDefaultCustomizations } from '@/components/charts/chart-types/default-customizations';
 import { canSaveChart, isChartReady } from '@/components/charts/logic/validation';
-import { toSimplifiedMapFields } from '@/components/charts/logic/map-layers';
-import { legacyEditPageTypeSwitch } from '@/components/charts/logic/type-switch';
+import { createEmptyEditConfig, toBuilderConfig } from '@/components/charts/logic/saved-chart';
+import { useChartBuilderState } from '@/components/charts/hooks/useChartBuilderState';
 import {
   buildChartDataPayload,
   buildEditChartPayload,
@@ -92,16 +84,16 @@ function EditChartPageContent() {
   const { trigger: updateChart, isMutating } = useUpdateChart();
   const { trigger: createChart, isMutating: isCreating } = useCreateChart();
 
-  // Initialize form data with chart data when loaded
-  const initialFormData: ChartBuilderFormData = {
-    title: '',
-    chart_type: ChartTypes.BAR,
-    computation_type: 'aggregated',
-    customizations: getDefaultCustomizations(ChartTypes.BAR, 'edit'),
-    aggregate_function: 'sum',
-  };
-
-  const [formData, setFormData] = useState<ChartBuilderFormData>(initialFormData);
+  const {
+    config,
+    savedConfig,
+    hasUnsavedChanges,
+    patchConfig,
+    loadSavedChart,
+    setSavedBaseline,
+    markSaved,
+  } = useChartBuilderState('edit', createEmptyEditConfig);
+  const formData = config; // renamed in Task 9
 
   const [activeTab, setActiveTab] = useState('chart');
 
@@ -127,7 +119,6 @@ function EditChartPageContent() {
   // ✅ ADD: Drill-down state management for table charts
   const [tableDrillDownState, setTableDrillDownState] = useState<TableDrillDownState | null>(null);
 
-  const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [isExitingAfterSave, setIsExitingAfterSave] = useState(false);
@@ -156,142 +147,33 @@ function EditChartPageContent() {
 
   // Update form data when chart loads
   useEffect(() => {
-    if (chart) {
-      // Convert layers to simplified fields if they exist
-      const simplifiedFromLayers = chart.extra_config?.layers
-        ? toSimplifiedMapFields(chart.extra_config.layers)
-        : {};
+    if (chart) loadSavedChart(toBuilderConfig(chart));
+  }, [chart, loadSavedChart]);
 
-      const initialData: ChartBuilderFormData = {
-        title: chart.title,
-        chart_type: chart.chart_type as ChartType,
-        computation_type: chart.computation_type as 'raw' | 'aggregated',
-        schema_name: chart.schema_name,
-        table_name: chart.table_name,
-        x_axis_column: chart.extra_config?.x_axis_column,
-        y_axis_column: chart.extra_config?.y_axis_column,
-        dimension_column: chart.extra_config?.dimension_column,
-        aggregate_column: chart.extra_config?.aggregate_column,
-        aggregate_function: chart.extra_config?.aggregate_function,
-        extra_dimension_column: chart.extra_config?.extra_dimension_column,
-        metrics: chart.extra_config?.metrics,
-        time_grain: chart.extra_config?.time_grain,
-        // Use converted simplified fields, fallback to direct extra_config values
-        geographic_column:
-          simplifiedFromLayers.geographic_column || chart.extra_config?.geographic_column,
-        value_column: chart.extra_config?.value_column,
-        selected_geojson_id:
-          simplifiedFromLayers.selected_geojson_id || chart.extra_config?.selected_geojson_id,
-        // Simplified map drill-down fields
-        district_column:
-          simplifiedFromLayers.district_column || chart.extra_config?.district_column,
-        ward_column: simplifiedFromLayers.ward_column || chart.extra_config?.ward_column,
-        subward_column: simplifiedFromLayers.subward_column || chart.extra_config?.subward_column,
-        drill_down_enabled:
-          simplifiedFromLayers.drill_down_enabled || chart.extra_config?.drill_down_enabled,
-        country_code: chart.extra_config?.country_code || 'IND',
-        layers:
-          chart.extra_config?.layers ||
-          (chart.chart_type === ChartTypes.MAP
-            ? [
-                {
-                  id: '0',
-                  level: 0,
-                  geographic_column: chart.extra_config?.geographic_column,
-                  geojson_id: chart.extra_config?.selected_geojson_id,
-                },
-              ]
-            : undefined),
-        customizations:
-          chart.extra_config?.customizations || getDefaultCustomizations(chart.chart_type, 'edit'),
-        filters: chart.extra_config?.filters || [],
-        pagination: chart.extra_config?.pagination || { enabled: false, page_size: 50 },
-        sort: chart.extra_config?.sort || [],
-        // ✅ FIX: Include geographic_hierarchy so DynamicLevelConfig can auto-fill
-        geographic_hierarchy: chart.extra_config?.geographic_hierarchy,
-        // Include table_columns for table charts
-        table_columns: chart.extra_config?.table_columns || [],
-        // ✅ FIX: Include dimensions and dimension_columns for table charts
-        ...(chart.chart_type === ChartTypes.TABLE && {
-          dimensions:
-            chart.extra_config?.dimensions && chart.extra_config.dimensions.length > 0
-              ? chart.extra_config.dimensions.map((d: any) => ({
-                  column: d.column || d,
-                  enable_drill_down: d.enable_drill_down === true,
-                }))
-              : chart.extra_config?.dimension_columns &&
-                  chart.extra_config.dimension_columns.length > 0
-                ? chart.extra_config.dimension_columns.map((col: string) => ({
-                    column: col,
-                    enable_drill_down: false,
-                  }))
-                : chart.extra_config?.dimension_column
-                  ? [
-                      {
-                        column: chart.extra_config.dimension_column,
-                        enable_drill_down: false,
-                      },
-                    ]
-                  : [],
-          dimension_columns:
-            chart.extra_config?.dimension_columns ||
-            (chart.extra_config?.dimensions
-              ? chart.extra_config.dimensions.map((d: any) => d.column || d).filter(Boolean)
-              : chart.extra_config?.dimension_column
-                ? [chart.extra_config.dimension_column]
-                : []),
-        }),
-        // Include pivot table fields from extra_config when loading a pivot_table chart
-        ...(chart.chart_type === ChartTypes.PIVOT_TABLE && {
-          extra_config: buildPivotExtraConfig(chart.extra_config),
-        }),
-      };
-      setFormData(initialData);
-      setOriginalFormData(initialData);
-    }
-  }, [chart]);
-
-  // For new charts or charts that couldn't be loaded, set originalFormData to initial state
-  // This enables unsaved changes detection even for new charts
+  // Chart missing and not loading: the empty config is the baseline (enables the unsaved check).
   useEffect(() => {
-    console.log('🔍 [UNSAVED-CHANGES] Checking conditions:', {
-      hasChart: !!chart,
-      chartLoading,
-      hasOriginalFormData: !!originalFormData,
-      chartId,
-    });
-
-    if (!chart && !chartLoading && !originalFormData) {
-      console.log('✅ [UNSAVED-CHANGES] Setting originalFormData for new/unloaded chart');
-      setOriginalFormData({ ...initialFormData });
-    }
-  }, [chart, chartLoading, originalFormData, initialFormData, chartId]);
-
-  // Check for unsaved changes
-  const hasUnsavedChanges = useMemo(() => {
-    const hasChanges = originalFormData ? !deepEqual(formData, originalFormData) : false;
-    return hasChanges;
-  }, [formData, originalFormData]);
+    if (!chart && !chartLoading && !savedConfig) setSavedBaseline(createEmptyEditConfig());
+  }, [chart, chartLoading, savedConfig, setSavedBaseline]);
 
   const navigateWithoutWarning = useCallback(
     (url: string) => {
-      setOriginalFormData({ ...formData }); // Mark as saved
+      markSaved(); // Mark as saved
       router.push(url);
     },
-    [router, formData]
+    [router, markSaved]
   );
 
   const navigateBackWithoutWarning = useCallback(() => {
-    setOriginalFormData({ ...formData }); // Mark as saved
+    markSaved(); // Mark as saved
     router.back();
-  }, [router, formData]);
+  }, [router, markSaved]);
 
   const navigateReplaceWithoutWarning = useCallback(
     (url: string) => {
-      setOriginalFormData({ ...formData }); // Mark as saved
+      markSaved(); // Mark as saved
       router.replace(url);
     },
-    [router, formData]
+    [router, markSaved]
   );
 
   // Preserve dashboard/report context while moving between detail and edit.
@@ -347,32 +229,7 @@ function EditChartPageContent() {
   // Build payload for chart data - use useMemo to update when drill-down state changes
   const chartDataPayload: ChartDataPayload | null = useMemo(
     () => buildChartDataPayload(formData, tableDrillDownState, 'edit'),
-    [
-      formData.chart_type,
-      formData.computation_type,
-      formData.schema_name,
-      formData.table_name,
-      formData.x_axis_column,
-      formData.y_axis_column,
-      formData.dimension_column,
-      formData.aggregate_column,
-      formData.aggregate_function,
-      formData.extra_dimension_column,
-      formData.geographic_column,
-      formData.value_column,
-      formData.selected_geojson_id,
-      formData.layers,
-      formData.dimensions,
-      formData.table_columns,
-      formData.metrics,
-      formData.customizations,
-      formData.filters,
-      formData.pagination,
-      formData.sort,
-      formData.time_grain,
-      formData.extra_config,
-      tableDrillDownState,
-    ]
+    [formData, tableDrillDownState]
   );
 
   // Fetch chart data (including tables)
@@ -666,11 +523,9 @@ function EditChartPageContent() {
   // Get all columns for raw data
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
-  // Every patch goes through the edit page's legacy second pass; a patch that keeps the
-  // chart type is a plain merge. BUILDER-DRIFT: the create page merges type switches as is.
-  const handleFormChange = useCallback((updates: Partial<ChartBuilderFormData>) => {
-    setFormData((prev) => legacyEditPageTypeSwitch(prev, updates));
-  }, []);
+  // Every patch goes through the edit page's legacy second pass (applied by the reducer); a patch
+  // that keeps the chart type is a plain merge. BUILDER-DRIFT: the create page merges type switches as is.
+  const handleFormChange = patchConfig;
 
   const handleDataPreviewPageSizeChange = (newPageSize: number) => {
     setDataPreviewPageSize(newPageSize);
@@ -813,18 +668,16 @@ function EditChartPageContent() {
       });
       // Only metrics this edit newly attached — otherwise every re-save of an
       // unchanged chart would re-report the same metrics as freshly used.
-      getNewlyUsedSavedMetricIds(formData.metrics, originalFormData?.metrics).forEach(
-        (metricId) => {
-          trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
-            metric_id: metricId,
-            chart_id: chartId,
-            source: METRIC_USE_SOURCES.CHART,
-          });
-        }
-      );
+      getNewlyUsedSavedMetricIds(formData.metrics, savedConfig?.metrics).forEach((metricId) => {
+        trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
+          metric_id: metricId,
+          chart_id: chartId,
+          source: METRIC_USE_SOURCES.CHART,
+        });
+      });
 
       // Update original data to reflect saved state
-      setOriginalFormData({ ...formData });
+      markSaved();
 
       toastSuccess.updated('Chart');
 
