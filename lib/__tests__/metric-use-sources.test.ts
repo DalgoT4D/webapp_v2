@@ -15,8 +15,8 @@ const REPO = path.resolve(__dirname, '../..');
 // tests — see components/alerts/__tests__/alert-consumption.test.ts. The guard follows the
 // call, so this list names the file that actually builds the event.
 const CONSUMER_FILES = [
-  'app/charts/new/configure/page.tsx',
-  'app/charts/[id]/edit/page.tsx',
+  'components/charts/hooks/useSaveNewChart.ts', // chart create page's save
+  'components/charts/hooks/useSaveExistingChart.ts', // chart edit page's update / save-as-new
   'components/kpis/kpi-form.tsx',
   'components/alerts/utils.ts',
 ];

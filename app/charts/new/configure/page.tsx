@@ -2,38 +2,18 @@
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ArrowLeft } from 'lucide-react';
 import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
 import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigurationV3';
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExitDialog';
-import { useCreateChart, useColumns } from '@/hooks/api/useChart';
-import { toastSuccess, toastError } from '@/lib/toast';
-import { type ChartCreate, type ChartDataPayload, type ChartBuilderFormData } from '@/types/charts';
+import { useColumns } from '@/hooks/api/useChart';
+import { type ChartDataPayload, type ChartBuilderFormData } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
-import { trackEvent, trackFeatureView } from '@/lib/analytics';
-import {
-  ANALYTICS_EVENTS,
-  CHART_CREATE_SOURCES,
-  FEATURES,
-  METRIC_USE_SOURCES,
-} from '@/constants/analytics';
-import {
-  CHART_BUILDER_TAB_ANALYTICS,
-  getMetricAnalyticsProps,
-  getUsedSavedMetricIds,
-  isDrillDownEnabled,
-} from '@/components/charts/utils';
+import { trackFeatureView } from '@/lib/analytics';
+import { FEATURES } from '@/constants/analytics';
+import { CHART_BUILDER_TAB_ANALYTICS } from '@/components/charts/utils';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
-import { DashboardNameHint } from '@/components/onboarding/dashboard-name-hint';
-import { Label } from '@/components/ui/label';
-import {
-  isStageBefore,
-  markChartCreated,
-} from '@/components/onboarding/insight-walkthrough-constants';
 import { getDefaultCustomizations } from '@/components/charts/chart-types/default-customizations';
 import { canSaveChart } from '@/components/charts/logic/validation';
 import { generateDefaultChartName } from '@/components/charts/logic/default-name';
@@ -44,16 +24,17 @@ import { useChartPreviewData } from '@/components/charts/hooks/useChartPreviewDa
 import { useBuilderMapPreview } from '@/components/charts/hooks/useBuilderMapPreview';
 import { useMapDrillDown } from '@/components/charts/hooks/useMapDrillDown';
 import { useTableDrillDown } from '@/components/charts/hooks/useTableDrillDown';
-import { buildChartDataPayload, buildCreateChartPayload } from '@/components/charts/logic/payload';
+import { useSaveNewChart } from '@/components/charts/hooks/useSaveNewChart';
+import { buildChartDataPayload } from '@/components/charts/logic/payload';
 import { useUnsavedChangesGuard } from '@/components/charts/hooks/useUnsavedChangesGuard';
 import { ChartBuilderLayout } from '@/components/charts/builder/ChartBuilderLayout';
 import { BuilderChartPanel } from '@/components/charts/builder/BuilderChartPanel';
 import { BuilderDataPanel } from '@/components/charts/builder/BuilderDataPanel';
+import { CreateChartHeader } from '@/components/charts/builder/CreateChartHeader';
 
 function ConfigureChartPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { trigger: createChart, isMutating } = useCreateChart();
 
   // Get parameters from URL
   const schema = searchParams.get('schema') || '';
@@ -74,7 +55,6 @@ function ConfigureChartPageContent() {
       aggregate_function: 'count',
     })
   );
-  const formData = config; // renamed in Task 9
 
   const [activeTab, setActiveTab] = useState('chart');
   const [configurationTab, setConfigurationTab] = useState('configuration');
@@ -96,155 +76,69 @@ function ConfigureChartPageContent() {
     handleTabView(tabValue);
   };
 
-  const pages = usePreviewPagination('create', formData.pagination);
+  const pages = usePreviewPagination('create', config.pagination);
 
   // ✅ ADD: Drill-down state management for table charts
   const tableDrill = useTableDrillDown({
-    dimensions: formData.dimensions,
-    isTable: formData.chart_type === 'table',
+    dimensions: config.dimensions,
+    isTable: config.chart_type === 'table',
     drillUpColumns: 'all',
     onLevelChange: pages.resetTableChartPage,
   });
 
   // Map drill-down (regions requests, region click, breadcrumbs); same hook position as the old region fetches.
-  const mapDrill = useMapDrillDown(formData, 'create');
+  const mapDrill = useMapDrillDown(config, 'create');
 
   // Browser leave warning (refresh, close tab, external links) + the Back/Cancel leave dialog.
   const guard = useUnsavedChangesGuard(hasUnsavedChanges);
 
   // Build payload for chart data - memoized to prevent infinite re-render loops
   const chartDataPayload: ChartDataPayload | null = useMemo(
-    () => buildChartDataPayload(formData, tableDrill.tableDrillDownState, 'create'),
-    [formData, tableDrill.tableDrillDownState]
+    () => buildChartDataPayload(config, tableDrill.tableDrillDownState, 'create'),
+    [config, tableDrill.tableDrillDownState]
   );
 
   const preview = useChartPreviewData({
-    config: formData,
+    config,
     payload: chartDataPayload,
     builder: 'create',
     pages,
   });
 
   // Get all columns for raw data
-  const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
-
-  const handleFormChange = patchConfig;
+  const { data: columns } = useColumns(config.schema_name || null, config.table_name || null);
 
   // BUILDER-DRIFT: the create page prefills here AND in ChartDataConfigurationV3 (raw vs normalized columns).
   // Auto-prefill when columns are loaded
   useEffect(() => {
-    if (columns && formData.schema_name && formData.table_name && formData.chart_type) {
+    if (columns && config.schema_name && config.table_name && config.chart_type) {
       // Check if we should auto-prefill (no existing configuration)
-      if (!hasExistingChartConfig(formData)) {
-        const autoConfig = generateAutoPrefilledConfig(formData.chart_type, columns);
+      if (!hasExistingChartConfig(config)) {
+        const autoConfig = generateAutoPrefilledConfig(config.chart_type, columns);
         if (Object.keys(autoConfig).length > 0) {
-          handleFormChange(autoConfig);
+          patchConfig(autoConfig);
         }
       }
     }
-  }, [columns, formData.schema_name, formData.table_name, formData.chart_type]);
+  }, [columns, config.schema_name, config.table_name, config.chart_type]);
 
   // Writes the map preview payloads into the config (the old page effect, same position/order).
   const mapPreview = useBuilderMapPreview({
-    config: formData,
+    config,
     builder: 'create',
     drillDownPath: mapDrill.drillDownPath,
     patchConfig,
   });
 
-  const isFormValid = () => canSaveChart(formData);
+  const { handleSave, isMutating } = useSaveNewChart({ config, isFromDashboard, markSaved });
 
-  const handleSave = async () => {
-    if (!isFormValid()) {
-      return;
-    }
-
-    const chartData: ChartCreate = buildCreateChartPayload(formData);
-
-    try {
-      const result = await createChart(chartData);
-      trackEvent(ANALYTICS_EVENTS.CHART_CREATED, {
-        chart_type: chartData.chart_type,
-        chart_id: result.id,
-        // Entered from the dashboard builder vs the charts list — same page, very
-        // different intent, so they get distinct sources rather than one 'new'.
-        source: isFromDashboard
-          ? CHART_CREATE_SOURCES.NEW_FROM_DASHBOARD
-          : CHART_CREATE_SOURCES.NEW,
-        ...getMetricAnalyticsProps(formData.metrics),
-        drill_down_enabled: isDrillDownEnabled(formData),
-      });
-      // Charts are the main consumer of the metrics library — one METRIC_USED per
-      // distinct saved metric, same as the KPI form does on its create path.
-      getUsedSavedMetricIds(formData.metrics).forEach((metricId) => {
-        // chart_id too — answers "which chart consumed this metric", not just how often.
-        trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
-          metric_id: metricId,
-          chart_id: result.id,
-          source: METRIC_USE_SOURCES.CHART,
-        });
-      });
-      // Reset unsaved changes state after successful save
-      markSaved();
-      toastSuccess.created('Chart');
-
-      // Resume-nudge milestone — set regardless of an active coachmark session.
-      markChartCreated();
-
-      const walkthrough = useInsightWalkthroughStore.getState();
-      // Saving the chart is the checkpoint, whatever hints were clicked past on the way here
-      // (the two tab stages are read-this hints a user can skip straight over).
-      if (
-        walkthrough.active &&
-        walkthrough.stage &&
-        !isFromDashboard &&
-        isStageBefore(walkthrough.path, walkthrough.stage, 'chart_dashboard_nudge')
-      ) {
-        // Hand the celebration to the chart's own page rather than showing it here: the user
-        // should see the chart they just built behind the dialog, not the builder they're
-        // leaving. The normal redirect below carries them there.
-        walkthrough.setPendingCelebration('chart');
-        // The next stage's coachmark points at the Dashboards nav item, which would otherwise
-        // appear on the chart page underneath the dialog. Released when it closes, so the
-        // nudge is what the user sees next.
-        walkthrough.setSuppressCoachmark(true);
-        walkthrough.advanceIfBefore('chart_dashboard_nudge');
-      }
-
-      if (isFromDashboard) {
-        // Use replace so back button from chart detail goes to dashboard
-        router.replace(`/charts/${result.id}?from=dashboard`);
-      } else {
-        router.push(`/charts/${result.id}`);
-      }
-    } catch (error: any) {
-      console.error('❌ [CREATE-MODE] Error saving chart:', error);
-      console.error('❌ [CREATE-MODE] Error details:', {
-        message: error?.message,
-        response: error?.response,
-        data: error?.data,
-        stack: error?.stack,
-        // Log what was being sent
-        attempted_payload: {
-          chart_type: chartData.chart_type,
-          dimensions: chartData.extra_config.dimensions,
-          dimension_columns: chartData.extra_config.dimension_columns,
-        },
-      });
-
-      // Show more detailed error message
-      toastError.api(error, 'save chart');
-    }
-  };
-
-  const handleCancel = () => {
-    console.log('🔙 [CREATE-MODE] Cancel button clicked. hasUnsavedChanges:', hasUnsavedChanges);
+  const handleBack = () => {
     if (hasUnsavedChanges) {
-      guard.askToLeave(isFromDashboard ? 'back' : '/charts');
+      guard.askToLeave(isFromDashboard ? 'back' : '/charts/new');
     } else if (isFromDashboard) {
       router.back();
     } else {
-      router.push('/charts');
+      router.push('/charts/new');
     }
   };
 
@@ -271,57 +165,15 @@ function ConfigureChartPageContent() {
     <ChartBuilderLayout
       builder="create"
       header={
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Back Button */}
-            <Button
-              data-testid="chart-create-back-button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                if (hasUnsavedChanges) {
-                  guard.askToLeave(isFromDashboard ? 'back' : '/charts/new');
-                } else if (isFromDashboard) {
-                  router.back();
-                } else {
-                  router.push('/charts/new');
-                }
-              }}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              {isFromDashboard ? 'Back to Dashboard' : 'Back'}
-            </Button>
-
-            {/* Chart Title Input */}
-            <div className="space-y-1">
-              <Label htmlFor="chart-name" className="flex items-center gap-2">
-                Chart name
-                <DashboardNameHint id="chart-name-guidance" />
-              </Label>
-              <Input
-                id="chart-name"
-                data-testid="chart-name-input"
-                aria-describedby="chart-name-guidance"
-                value={formData.title}
-                onChange={(e) => handleFormChange({ title: e.target.value })}
-                className="h-11 min-w-[300px] border border-gray-200 bg-white px-4 py-2 text-lg font-semibold shadow-sm"
-                placeholder="Untitled Chart"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Button
-              data-testid="chart-edit-save-button"
-              onClick={handleSave}
-              variant="primary"
-              disabled={!isFormValid() || isMutating}
-              className="px-8 h-11"
-            >
-              {isMutating ? 'Saving...' : 'Save Chart'}
-            </Button>
-          </div>
-        </div>
+        <CreateChartHeader
+          isFromDashboard={isFromDashboard}
+          title={config.title}
+          onTitleChange={(title) => patchConfig({ title })}
+          onBack={handleBack}
+          onSave={handleSave}
+          canSave={canSaveChart(config)}
+          isSaving={isMutating}
+        />
       }
       configTabValue={configurationTab}
       onConfigTabChange={(value) => {
@@ -329,25 +181,25 @@ function ConfigureChartPageContent() {
         handleTabView(value);
       }}
       dataConfigPanel={
-        formData.chart_type === 'map' ? (
-          <MapDataConfigurationV3 formData={formData} onFormDataChange={handleFormChange} />
+        config.chart_type === 'map' ? (
+          <MapDataConfigurationV3 formData={config} onFormDataChange={patchConfig} />
         ) : (
           <ChartDataConfigurationV3
-            formData={formData}
-            onChange={handleFormChange}
+            formData={config}
+            onChange={patchConfig}
             disabled={false}
             isNewChart
           />
         )
       }
       stylingPanel={
-        formData.chart_type === 'map' ? (
-          <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
+        config.chart_type === 'map' ? (
+          <MapCustomizations formData={config} onFormDataChange={patchConfig} />
         ) : (
           <ChartCustomizations
-            chartType={formData.chart_type || 'bar'}
-            formData={formData}
-            onChange={handleFormChange}
+            chartType={config.chart_type || 'bar'}
+            formData={config}
+            onChange={patchConfig}
             columns={columns}
             currentDrillLevel={tableDrill.currentDrillLevel}
           />
@@ -358,7 +210,7 @@ function ConfigureChartPageContent() {
       chartPanel={
         <BuilderChartPanel
           builder="create"
-          config={formData}
+          config={config}
           map={{ ...mapPreview, ...mapDrill }}
           table={{
             drill: tableDrill,
@@ -378,7 +230,7 @@ function ConfigureChartPageContent() {
         />
       }
       dataPanel={
-        <BuilderDataPanel builder="create" config={formData} preview={preview} pages={pages} />
+        <BuilderDataPanel builder="create" config={config} preview={preview} pages={pages} />
       }
       dialogs={
         /* Unsaved Changes Dialog */
