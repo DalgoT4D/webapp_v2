@@ -120,9 +120,8 @@ function EditChartPageContent() {
     chartData: preview.chartData,
   });
 
-  // Map drill-down (regions requests, region click, breadcrumbs). These hooks now run after the
-  // preview-data hook above, so request order differs from the old region fetches; the requests
-  // are independent of each other so this doesn't change what's fetched.
+  // Map drill-down (regions requests, region click, breadcrumbs). Runs after the preview-data
+  // hook above; the requests are independent of each other.
   const mapDrill = useMapDrillDown(config, 'edit');
   const mapPreview = useBuilderMapPreview({
     config,
