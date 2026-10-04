@@ -5,6 +5,8 @@ import { ShareModal } from '@/components/ui/share-modal';
 import * as access from '@/hooks/api/useAccess';
 import { copyUrlToClipboard } from '@/lib/clipboard';
 import type { ShareRow } from '@/types/access';
+import type { PersonRow } from '@/types/user-management';
+import type { GroupListRow } from '@/types/user-groups';
 
 jest.mock('@/hooks/api/useAccess');
 jest.mock('@/hooks/api/useUserManagement', () => ({
@@ -245,5 +247,208 @@ describe('ShareModal (characterization)', () => {
     expect(screen.getByText("2 emails aren't on Dalgo yet.")).toBeInTheDocument();
     expect(screen.getByText('Choose a role for new invites before sharing.')).toBeInTheDocument();
     expect(screen.getByTestId('share-invite-role')).toBeInTheDocument();
+  });
+
+  describe('wiring through the component', () => {
+    const person = (email: string, orguserId: number, roleName = 'Member'): PersonRow => ({
+      email,
+      role_slug: 'member',
+      role_name: roleName,
+      status: 'active',
+      created_by_email: null,
+      orguser_id: orguserId,
+      invitation_id: null,
+      created_at: null,
+    });
+    const group = (id: number, name: string): GroupListRow => ({
+      id,
+      name,
+      member_count: 1,
+      created_by_email: null,
+      created_at: '2026-01-01',
+    });
+
+    function seedPeopleAndGroups() {
+      mockedAccess.useActiveMembers.mockReturnValue({
+        people: [
+          person('owner@ngo.org', 1, 'Admin'),
+          person('shared@ngo.org', 2),
+          person('free@ngo.org', 4),
+        ],
+      } as never);
+      mockedAccess.useUserGroups.mockReturnValue({
+        groups: [group(9, 'NGO staff'), group(8, 'NGO donors')],
+      } as never);
+    }
+
+    function stubGrantActions() {
+      const actions = { addGrants, updateGrant: jest.fn(), removeGrant: jest.fn() };
+      mockedAccess.useResourceGrantActions.mockReturnValue(actions as never);
+      return actions;
+    }
+
+    // Suggestion buttons are named "<label><badge>"; anchoring on the label avoids the
+    // "Remove …" / "Take ownership from …" buttons that also mention the email.
+    const suggestion = (label: string) =>
+      screen.getByRole('button', { name: new RegExp(`^${label.replace(/[.]/g, '\\.')}`) });
+
+    it('typeahead: users before groups; owner and already-shared principals disabled with reasons', async () => {
+      setup({
+        shares: [
+          makeShare({
+            share_id: 3,
+            principal_id: 2,
+            email: 'shared@ngo.org',
+            label: 'shared@ngo.org',
+          }),
+          makeShare({
+            share_id: 4,
+            principal_type: 'group',
+            principal_id: 8,
+            email: null,
+            label: 'NGO donors',
+            role_or_group: 'Group',
+          }),
+        ],
+      });
+      seedPeopleAndGroups();
+      renderModal();
+      await userEvent.setup().type(screen.getByTestId('share-chip-input'), 'ngo');
+
+      const owner = suggestion('owner@ngo.org');
+      const shared = suggestion('shared@ngo.org');
+      const free = suggestion('free@ngo.org');
+      const staff = suggestion('NGO staff');
+      const donors = suggestion('NGO donors');
+
+      expect(owner).toHaveTextContent('Owner');
+      expect(owner).toBeDisabled();
+      expect(owner).toHaveAttribute('title', 'Already the owner — has full access');
+      expect(shared).toBeDisabled();
+      expect(shared).toHaveAttribute('title', 'Already has access');
+      expect(donors).toBeDisabled();
+      expect(donors).toHaveAttribute('title', 'Already has access');
+      expect(free).toBeEnabled();
+      expect(free).not.toHaveAttribute('title');
+      expect(free).toHaveTextContent('Member');
+      expect(staff).toBeEnabled();
+      expect(staff).toHaveTextContent('Group');
+
+      const order = [owner, shared, free, staff, donors];
+      order.slice(1).forEach((el, i) => {
+        expect(
+          order[i].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING
+        ).toBeTruthy();
+      });
+    });
+
+    it('selecting a user and a group stages chips and SHARE sends them as principals', async () => {
+      seedPeopleAndGroups();
+      const user = userEvent.setup();
+      const { onClose } = renderModal();
+
+      await user.type(screen.getByTestId('share-chip-input'), 'free');
+      await user.click(suggestion('free@ngo.org'));
+      expect(screen.getByTestId('share-chip-input')).toHaveValue('');
+      expect(screen.getByTestId('share-chip-remove-user:4')).toBeInTheDocument();
+
+      await user.type(screen.getByTestId('share-chip-input'), 'staff');
+      await user.click(suggestion('NGO staff'));
+      expect(screen.getByTestId('share-chip-remove-group:9')).toBeInTheDocument();
+
+      expect(screen.getByTestId('share-submit-btn')).toBeEnabled();
+      await user.click(screen.getByTestId('share-submit-btn'));
+      expect(addGrants).toHaveBeenCalledWith({
+        principals: [
+          { principal_type: 'user', principal_id: 4, access_level: 'view' },
+          { principal_type: 'group', principal_id: 9, access_level: 'view' },
+        ],
+        pending_grants: [],
+        invite_role_uuid: null,
+      });
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+    });
+
+    it('cascade-only View row: View option disabled; picking Edit adds a direct Edit grant', async () => {
+      setup({
+        shares: [
+          makeShare({
+            share_id: null,
+            principal_id: 12,
+            email: 'ravi@ngo.org',
+            label: 'ravi@ngo.org',
+            access_level: 'view',
+            cascade_sources: [{ dashboard_id: 1, dashboard_title: 'Board' }],
+          }),
+        ],
+      });
+      const actions = stubGrantActions();
+      const user = userEvent.setup();
+      renderModal();
+
+      await user.click(screen.getByTestId('share-grant-level-inherited-user-12'));
+      expect(screen.getByTestId('share-grant-level-inherited-user-12-option-view')).toHaveAttribute(
+        'aria-disabled',
+        'true'
+      );
+      expect(
+        screen.getByTestId('share-grant-level-inherited-user-12-option-edit')
+      ).not.toHaveAttribute('aria-disabled');
+
+      await user.click(screen.getByTestId('share-grant-level-inherited-user-12-option-edit'));
+      await waitFor(() =>
+        expect(addGrants).toHaveBeenCalledWith({
+          principals: [{ principal_type: 'user', principal_id: 12, access_level: 'edit' }],
+        })
+      );
+      expect(actions.updateGrant).not.toHaveBeenCalled();
+    });
+
+    it('dashboards confirm a row level change before updating it', async () => {
+      setup({ shares: [makeShare({ share_id: 3, access_level: 'view' })] });
+      const actions = stubGrantActions();
+      actions.updateGrant.mockResolvedValue(undefined);
+      const user = userEvent.setup();
+      renderModal({ rtype: 'dashboard' });
+
+      await user.click(screen.getByTestId('share-grant-level-3'));
+      await user.click(screen.getByTestId('share-grant-level-3-option-edit'));
+      expect(screen.getByTestId('share-cascade-dialog')).toHaveTextContent(
+        'Update dashboard permissions?'
+      );
+      expect(actions.updateGrant).not.toHaveBeenCalled();
+
+      await user.click(screen.getByTestId('share-cascade-continue-btn'));
+      await waitFor(() => expect(actions.updateGrant).toHaveBeenCalledWith(3, 'edit'));
+    });
+
+    it('direct rows can be removed; Transfer ownership is offered only on an Edit user row', async () => {
+      setup({
+        shares: [
+          makeShare({ share_id: 3, access_level: 'view' }),
+          makeShare({
+            share_id: 5,
+            principal_id: 15,
+            email: 'ed@ngo.org',
+            label: 'ed@ngo.org',
+            access_level: 'edit',
+          }),
+        ],
+      });
+      const user = userEvent.setup();
+      renderModal();
+
+      expect(screen.getByTestId('share-grant-remove-3')).toBeEnabled();
+      expect(screen.getByTestId('share-grant-remove-5')).toBeEnabled();
+
+      await user.click(screen.getByTestId('share-grant-level-5'));
+      expect(screen.getByTestId('share-grant-level-5-option-transfer')).toHaveTextContent(
+        'Transfer ownership'
+      );
+      await user.keyboard('{Escape}');
+
+      await user.click(screen.getByTestId('share-grant-level-3'));
+      expect(screen.queryByTestId('share-grant-level-3-option-transfer')).not.toBeInTheDocument();
+    });
   });
 });
