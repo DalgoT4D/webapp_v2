@@ -71,6 +71,7 @@ import {
 import { getDefaultCustomizations } from '@/components/charts/chart-types/default-customizations';
 import { canSaveChart, isChartReady } from '@/components/charts/logic/validation';
 import { toSimplifiedMapFields } from '@/components/charts/logic/map-layers';
+import { legacyEditPageTypeSwitch } from '@/components/charts/logic/type-switch';
 import {
   buildChartDataPayload,
   buildEditChartPayload,
@@ -665,141 +666,10 @@ function EditChartPageContent() {
   // Get all columns for raw data
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
+  // Every patch goes through the edit page's legacy second pass; a patch that keeps the
+  // chart type is a plain merge. BUILDER-DRIFT: the create page merges type switches as is.
   const handleFormChange = useCallback((updates: Partial<ChartBuilderFormData>) => {
-    setFormData((prev) => {
-      // Smart chart type switching logic (same as the chart creation form)
-      if (updates.chart_type && updates.chart_type !== prev.chart_type) {
-        const newChartType = updates.chart_type;
-        const oldChartType = prev.chart_type;
-
-        // Smart column mapping based on chart type compatibility
-        const smartUpdates = { ...updates };
-
-        // Set computation_type based on chart type
-        if (newChartType === ChartTypes.NUMBER) {
-          smartUpdates.computation_type = 'aggregated';
-        } else if (newChartType === ChartTypes.MAP) {
-          smartUpdates.computation_type = 'aggregated';
-        } else if (newChartType === ChartTypes.TABLE) {
-          smartUpdates.computation_type = 'aggregated';
-        } else {
-          smartUpdates.computation_type = prev.computation_type || 'aggregated';
-        }
-
-        // Smart column mapping between chart types
-        if (oldChartType && oldChartType !== newChartType) {
-          // For aggregated chart types (bar, line, pie, number)
-          if (
-            (
-              [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.NUMBER] as ChartType[]
-            ).includes(newChartType as ChartType)
-          ) {
-            if (oldChartType === ChartTypes.MAP) {
-              if (prev.geographic_column) smartUpdates.dimension_column = prev.geographic_column;
-              if (prev.value_column) smartUpdates.aggregate_column = prev.value_column;
-              if (prev.aggregate_function)
-                smartUpdates.aggregate_function = prev.aggregate_function;
-            } else if (oldChartType === ChartTypes.TABLE && prev.table_columns?.length > 0) {
-              if (prev.table_columns[0]) smartUpdates.dimension_column = prev.table_columns[0];
-              if (prev.table_columns[1]) smartUpdates.aggregate_column = prev.table_columns[1];
-              smartUpdates.aggregate_function = prev.aggregate_function || 'sum';
-            }
-          }
-          // For map charts
-          else if (newChartType === ChartTypes.MAP) {
-            if (
-              (
-                [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.NUMBER] as ChartType[]
-              ).includes(oldChartType as ChartType)
-            ) {
-              if (prev.dimension_column) smartUpdates.geographic_column = prev.dimension_column;
-              if (prev.aggregate_column) smartUpdates.value_column = prev.aggregate_column;
-              if (prev.aggregate_function)
-                smartUpdates.aggregate_function = prev.aggregate_function;
-              if (prev.metrics) smartUpdates.metrics = prev.metrics;
-            } else if (oldChartType === ChartTypes.TABLE && prev.table_columns?.length > 0) {
-              if (prev.table_columns[0]) smartUpdates.geographic_column = prev.table_columns[0];
-              if (prev.table_columns[1]) smartUpdates.value_column = prev.table_columns[1];
-              smartUpdates.aggregate_function = prev.aggregate_function || 'sum';
-            }
-          }
-
-          // For table charts
-          else if (newChartType === ChartTypes.TABLE) {
-            const tableColumns: string[] = [];
-
-            if (
-              (
-                [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.NUMBER] as ChartType[]
-              ).includes(oldChartType as ChartType)
-            ) {
-              let dimensionForTable = null;
-              if (prev.dimension_column && prev.dimension_column !== 'undefined') {
-                dimensionForTable = prev.dimension_column;
-              } else if (prev.x_axis_column && prev.x_axis_column !== 'undefined') {
-                dimensionForTable = prev.x_axis_column;
-              }
-
-              if (dimensionForTable) {
-                tableColumns.push(dimensionForTable);
-                smartUpdates.x_axis_column = dimensionForTable;
-              }
-              if (prev.aggregate_column && prev.aggregate_column !== prev.dimension_column) {
-                tableColumns.push(prev.aggregate_column);
-              }
-              if (prev.metrics) {
-                prev.metrics.forEach((metric) => {
-                  if (metric.column && !tableColumns.includes(metric.column)) {
-                    tableColumns.push(metric.column);
-                  }
-                });
-              }
-            } else if (oldChartType === ChartTypes.MAP) {
-              if (prev.geographic_column) {
-                tableColumns.push(prev.geographic_column);
-                smartUpdates.x_axis_column = prev.geographic_column;
-              }
-              if (prev.value_column && prev.value_column !== prev.geographic_column) {
-                tableColumns.push(prev.value_column);
-              }
-            }
-
-            if (tableColumns.length > 0) {
-              smartUpdates.table_columns = tableColumns;
-            }
-          }
-        }
-
-        // Merge customizations intelligently
-        const existingCustomizations = prev.customizations || {};
-        const newDefaults = getDefaultCustomizations(newChartType, 'edit');
-
-        const preservedFields: Record<string, any> = {};
-        ['showTooltip', 'showLegend', 'showDataLabels'].forEach((field) => {
-          if (field in existingCustomizations && field in newDefaults) {
-            preservedFields[field] = existingCustomizations[field];
-          }
-        });
-        ['xAxisTitle', 'yAxisTitle', 'subtitle'].forEach((field) => {
-          if (existingCustomizations[field]?.trim()) {
-            preservedFields[field] = existingCustomizations[field];
-          }
-        });
-        if (existingCustomizations.dataLabelPosition && newDefaults.dataLabelPosition) {
-          preservedFields.dataLabelPosition = existingCustomizations.dataLabelPosition;
-        }
-
-        smartUpdates.customizations = {
-          ...newDefaults,
-          ...preservedFields,
-        };
-
-        return { ...prev, ...smartUpdates };
-      }
-
-      // Regular form update without chart type change
-      return { ...prev, ...updates };
-    });
+    setFormData((prev) => legacyEditPageTypeSwitch(prev, updates));
   }, []);
 
   const handleDataPreviewPageSizeChange = (newPageSize: number) => {

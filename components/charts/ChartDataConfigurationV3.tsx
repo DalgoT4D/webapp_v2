@@ -29,7 +29,7 @@ import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import PivotDataConfiguration from '@/components/charts/pivot-table/PivotDataConfiguration';
 import { TableDimensionsSelector } from '@/components/charts/TableDimensionsSelector';
 import { TimeGrainSelector } from '@/components/charts/TimeGrainSelector';
-import { sanitizeCustomizationsForChartType } from '@/lib/chart-formatting-utils';
+import { applyChartTypeChange } from '@/components/charts/logic/type-switch';
 import type {
   ChartBuilderFormData,
   ChartMetric,
@@ -381,146 +381,7 @@ export function ChartDataConfigurationV3({
 
   // Handle chart type changes with field cleanup and auto-prefill
   const handleChartTypeChange = (newChartType: string) => {
-    // Fields to preserve across all chart types
-    const preservedFields = {
-      title: formData.title,
-      schema_name: formData.schema_name,
-      table_name: formData.table_name,
-      chart_type: newChartType as 'bar' | 'line' | 'pie' | 'number' | 'map',
-    };
-
-    // Auto-prefill for new chart type if we have columns
-    let autoPrefilledFields = {};
-    if (columns && columns.length > 0) {
-      autoPrefilledFields = generateAutoPrefilledConfig(newChartType as any, normalizedColumns);
-      console.log('🤖 [CHART-TYPE-CHANGE] Auto-prefilling for', newChartType, autoPrefilledFields);
-    }
-
-    // Chart type specific field handling
-    let specificFields = {};
-
-    switch (newChartType) {
-      case 'number':
-        // Big number only needs aggregate column and function
-        // Limit metrics to only the first one (single metric)
-        specificFields = {
-          aggregate_column: formData.aggregate_column,
-          aggregate_function: formData.aggregate_function,
-          // Clear fields not needed for number charts
-          x_axis_column: null,
-          y_axis_column: null,
-          dimension_column: null,
-          extra_dimension_column: null,
-          metrics: formData.metrics && formData.metrics.length > 0 ? [formData.metrics[0]] : [],
-        };
-        break;
-
-      case 'pie':
-        // Pie charts can use dimension, metrics, and extra dimension like bar/line charts
-        // But limit metrics to only the first one (single metric)
-        specificFields = {
-          x_axis_column: formData.x_axis_column,
-          y_axis_column: null, // No Y-axis for pie charts
-          dimension_column: formData.dimension_column,
-          aggregate_column: formData.aggregate_column,
-          aggregate_function: formData.aggregate_function,
-          extra_dimension_column: formData.extra_dimension_column,
-          metrics:
-            formData.metrics && formData.metrics.length > 0
-              ? [formData.metrics[0]]
-              : formData.metrics,
-          computation_type: formData.computation_type || 'aggregated',
-        };
-        break;
-
-      case 'bar':
-      case 'line':
-        // Bar and line charts can use most fields and metrics, default to aggregated
-        specificFields = {
-          x_axis_column: formData.x_axis_column,
-          y_axis_column: formData.y_axis_column,
-          dimension_column: formData.dimension_column,
-          aggregate_column: formData.aggregate_column,
-          aggregate_function: formData.aggregate_function,
-          extra_dimension_column: formData.extra_dimension_column,
-          metrics: formData.metrics,
-          computation_type: formData.computation_type || 'aggregated',
-        };
-        break;
-
-      case 'pivot_table': {
-        specificFields = {
-          computation_type: 'aggregated' as const,
-          // Pivot supports multiple metrics — preserve them so switching to pivot
-          // (from any chart type) keeps the selected/calculated/saved metrics intact.
-          metrics: formData.metrics,
-          extra_config: {
-            ...(formData.extra_config || {}),
-            row_dimensions: [],
-            column_dimensions: [],
-            show_row_subtotals: false,
-            show_column_subtotals: false,
-            show_row_grand_total: false,
-            show_column_grand_total: false,
-            row_subtotal_label: 'Subtotal',
-            column_subtotal_label: 'Subtotal',
-            row_grand_total_label: 'Grand Total',
-            column_grand_total_label: 'Grand Total',
-          },
-        };
-        break;
-      }
-
-      case 'table':
-        // Tables default to aggregated data like other charts
-        specificFields = {
-          computation_type: formData.computation_type || 'aggregated',
-          x_axis_column: formData.x_axis_column,
-          y_axis_column: null, // Tables don't need Y axis
-          dimension_column: formData.dimension_column,
-          aggregate_column: formData.aggregate_column,
-          aggregate_function: formData.aggregate_function,
-          extra_dimension_column: formData.extra_dimension_column,
-          metrics: formData.metrics, // Preserve all metrics
-        };
-        break;
-
-      case 'map':
-        // Maps use a single metric (like pie/number). Preserve the selected metric so switching to
-        // map doesn't reset it to the auto-prefilled default count.
-        specificFields = {
-          computation_type: formData.computation_type || 'aggregated',
-          // Preserve the selected metric; when there is none, leave metrics unset so the
-          // auto-prefilled default (Total Count) stands instead of an empty Metrics section.
-          ...(formData.metrics &&
-            formData.metrics.length > 0 && { metrics: [formData.metrics[0]] }),
-          // Keep existing geometry/value fields; otherwise auto-prefill's detected values stand.
-          ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
-          ...(formData.value_column && { value_column: formData.value_column }),
-          ...(formData.aggregate_column && { aggregate_column: formData.aggregate_column }),
-          ...(formData.aggregate_function && { aggregate_function: formData.aggregate_function }),
-          // Clear axis/dimension fields not used by maps.
-          x_axis_column: null,
-          y_axis_column: null,
-          dimension_column: null,
-          extra_dimension_column: null,
-        };
-        break;
-    }
-
-    // Apply the changes with auto-prefill
-    onChange({
-      ...preservedFields,
-      ...autoPrefilledFields,
-      ...specificFields,
-      // Preserve other settings like filters, customizations, etc.
-      filters: formData.filters,
-      // Coerce type-specific customizations (e.g. dataLabelPosition) to values valid for the new
-      // chart type so switching bar→pie doesn't carry over an invalid value and fail on save.
-      customizations: sanitizeCustomizationsForChartType(formData.customizations, newChartType),
-      sort: formData.sort,
-      pagination: formData.pagination,
-    });
+    onChange(applyChartTypeChange(formData, newChartType, normalizedColumns));
   };
 
   return (
