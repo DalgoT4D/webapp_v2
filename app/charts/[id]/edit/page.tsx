@@ -73,6 +73,7 @@ import {
   parseWidgetNavigationSource,
 } from '@/lib/widget-navigation';
 import { getDefaultCustomizations } from '@/components/charts/chart-types/default-customizations';
+import { canSaveChart, isChartReady } from '@/components/charts/logic/validation';
 
 function EditChartPageContent() {
   const params = useParams();
@@ -375,93 +376,7 @@ function EditChartPageContent() {
   }, [hasUnsavedChanges]);
 
   // Check if form data is complete enough to generate chart data
-  const isChartDataReady = () => {
-    if (!formData.schema_name || !formData.table_name || !formData.chart_type) {
-      return false;
-    }
-
-    if (formData.chart_type === ChartTypes.NUMBER) {
-      const metric = formData.metrics?.[0];
-      if (metric) {
-        return !!(
-          metric.column_expression ||
-          (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
-        );
-      }
-      // Legacy charts saved before the metrics array existed
-      return !!(
-        formData.aggregate_function &&
-        (formData.aggregate_function === 'count' || formData.aggregate_column)
-      );
-    }
-
-    if (formData.chart_type === ChartTypes.MAP) {
-      const metric = formData.metrics?.[0];
-      if (metric) {
-        return !!(
-          formData.geographic_column &&
-          formData.selected_geojson_id &&
-          (metric.column_expression ||
-            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
-        );
-      }
-      // Legacy charts saved before the metrics array existed
-      // Count(*) doesn't need a value_column, similar to other chart types
-      const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
-      return !!(
-        formData.geographic_column &&
-        (!needsValueColumn || formData.value_column) &&
-        formData.aggregate_function &&
-        formData.selected_geojson_id
-      );
-    }
-
-    if (formData.chart_type === ChartTypes.TABLE) {
-      return true; // Table charts just need basic schema/table selection
-    }
-
-    if (formData.chart_type === 'pivot_table') {
-      // Presence alone isn't enough — each metric must be a valid definition
-      // (mirrors the create-flow pivot predicate).
-      const hasRowDimensions = (formData.extra_config?.row_dimensions || []).length > 0;
-      const hasValidMetrics =
-        (formData.metrics || []).length > 0 &&
-        formData.metrics!.every(
-          (metric) =>
-            metric.column_expression ||
-            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
-        );
-      return hasRowDimensions && hasValidMetrics;
-    }
-
-    {
-      // For bar/line/table charts with multiple metrics
-      if (
-        (
-          [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.TABLE] as ChartType[]
-        ).includes(formData.chart_type as ChartType) &&
-        formData.metrics &&
-        formData.metrics.length > 0
-      ) {
-        return !!(
-          formData.dimension_column &&
-          formData.metrics.every(
-            (metric) =>
-              metric.column_expression ||
-              (metric.aggregation &&
-                (metric.aggregation.toLowerCase() === 'count' || metric.column))
-          )
-        );
-      }
-
-      // Legacy single metric approach
-      return !!(
-        formData.dimension_column &&
-        formData.aggregate_function &&
-        (formData.aggregate_function === 'count' || formData.aggregate_column)
-      );
-    }
-  };
+  const isChartDataReady = () => isChartReady(formData, 'edit');
 
   // Build payload for chart data - use useMemo to update when drill-down state changes
   const chartDataPayload: ChartDataPayload | null = useMemo(
@@ -1122,95 +1037,7 @@ function EditChartPageContent() {
     setRawDataPage(1); // Reset to first page when page size changes
   };
 
-  const isFormValid = () => {
-    if (!formData.title || !formData.chart_type || !formData.schema_name || !formData.table_name) {
-      return false;
-    }
-
-    if (formData.chart_type === ChartTypes.NUMBER) {
-      const metric = formData.metrics?.[0];
-      if (metric) {
-        return !!(
-          metric.column_expression ||
-          (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
-        );
-      }
-      // Legacy charts saved before the metrics array existed
-      const needsAggregateColumn = formData.aggregate_function !== 'count';
-      return !!(
-        formData.aggregate_function &&
-        (!needsAggregateColumn || formData.aggregate_column)
-      );
-    }
-
-    if (formData.chart_type === ChartTypes.MAP) {
-      const metric = formData.metrics?.[0];
-      if (metric) {
-        return !!(
-          formData.geographic_column &&
-          formData.selected_geojson_id &&
-          (metric.column_expression ||
-            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
-        );
-      }
-      // Legacy charts saved before the metrics array existed
-      // Count(*) doesn't need a value_column, similar to other chart types
-      const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
-      return !!(
-        formData.geographic_column &&
-        (!needsValueColumn || formData.value_column) &&
-        formData.aggregate_function &&
-        formData.selected_geojson_id
-      );
-    }
-
-    if (formData.chart_type === ChartTypes.TABLE) {
-      return true; // Table charts only need basic fields (title, chart_type, schema, table)
-    }
-
-    if (formData.chart_type === 'pivot_table') {
-      // Presence alone isn't enough — each metric must be a valid definition
-      // (mirrors the create-flow pivot predicate).
-      const hasRowDimensions = (formData.extra_config?.row_dimensions || []).length > 0;
-      const hasValidMetrics =
-        (formData.metrics || []).length > 0 &&
-        formData.metrics!.every(
-          (metric) =>
-            metric.column_expression ||
-            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
-        );
-      return hasRowDimensions && hasValidMetrics;
-    }
-
-    {
-      // For bar/line/table charts with multiple metrics
-      if (
-        (
-          [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.TABLE] as ChartType[]
-        ).includes(formData.chart_type as ChartType) &&
-        formData.metrics &&
-        formData.metrics.length > 0
-      ) {
-        return !!(
-          formData.dimension_column &&
-          formData.metrics.every(
-            (metric) =>
-              metric.column_expression ||
-              (metric.aggregation &&
-                (metric.aggregation.toLowerCase() === 'count' || metric.column))
-          )
-        );
-      }
-
-      // Legacy single metric approach
-      const needsAggregateColumn = formData.aggregate_function !== 'count';
-      return !!(
-        formData.dimension_column &&
-        formData.aggregate_function &&
-        (!needsAggregateColumn || formData.aggregate_column)
-      );
-    }
-  };
+  const isFormValid = () => canSaveChart(formData);
 
   // Helper to convert simplified drill-down selections to layers structure (same as ChartBuilder)
   const convertSimplifiedToLayers = (formData: ChartBuilderFormData) => {
