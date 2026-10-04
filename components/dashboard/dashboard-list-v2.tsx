@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DocsLink } from '@/components/ui/docs-link';
@@ -53,7 +53,6 @@ import { Calendar } from '@/components/ui/calendar';
 //   CommandItem,
 //   CommandList,
 // } from '@/components/ui/command';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Search,
   Grid,
@@ -63,20 +62,16 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertCircle,
-  ExternalLink,
   Layout,
-  Clock,
   User,
   Lock,
   Trash2,
   MoreVertical,
   Copy,
-  Download,
   Share2,
   Star,
   StarOff,
   Settings,
-  LayoutDashboard,
   Edit,
   ChevronUp,
   ChevronDown as ChevronDownSort,
@@ -117,28 +112,7 @@ import useSWR, { mutate as swrMutate } from 'swr';
 import { apiGet } from '@/lib/api';
 import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 
-// Simple debounce implementation
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null;
-  return (...args: Parameters<T>) => {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-}
-
 export function DashboardListV2() {
-  // COMMENTED OUT: Global search - replaced with column-specific filters
-  // const [searchQuery, setSearchQuery] = useState('');
-  // const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  // COMMENTED OUT: Dashboard type filtering (Native/Superset) - not needed anymore
-  // const [dashboardType, setDashboardType] = useState<'all' | 'native' | 'superset'>('all');
-  // COMMENTED OUT: Draft/publish filtering - not applicable for dashboards
-  // const [publishFilter, setPublishFilter] = useState<'all' | 'published' | 'draft'>('all');
-  // View mode is now fixed to 'table' - grid and list views are hidden
-  const viewMode = 'table';
   const [sortBy, setSortBy] = useState<'name' | 'updated_at' | 'created_by'>('updated_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
@@ -201,33 +175,8 @@ export function DashboardListV2() {
     isLoading: landingPageLoading,
   } = useLandingPage();
 
-  // COMMENTED OUT: Global search functionality - replaced with column filters
-  // const debouncedSearch = useMemo(
-  //   () =>
-  //     debounce((value: string) => {
-  //       setDebouncedSearchQuery(value);
-  //     }, 500),
-  //   []
-  // );
-
-  // const handleSearchChange = useCallback(
-  //   (e: React.ChangeEvent<HTMLInputElement>) => {
-  //     const value = e.target.value;
-  //     setSearchQuery(value);
-  //     setCurrentPage(1); // Reset to first page when searching
-  //     debouncedSearch(value);
-  //   },
-  //   [debouncedSearch]
-  // );
-
   // Build params for API call - removed search param
   const params = {
-    // COMMENTED OUT: Global search - using column filters instead
-    // search: debouncedSearchQuery,
-    // COMMENTED OUT: Dashboard type filtering - not needed anymore
-    // dashboard_type: dashboardType === 'all' ? undefined : dashboardType,
-    // COMMENTED OUT: Draft/publish filtering - not applicable for dashboards
-    // is_published: publishFilter === 'all' ? undefined : publishFilter === 'published',
     page: currentPage,
     pageSize,
   };
@@ -471,11 +420,6 @@ export function DashboardListV2() {
     },
     [mutate, router]
   );
-
-  // COMMENTED OUT: Handle dashboard download - not needed
-  // const handleDownloadDashboard = useCallback((dashboardId: number, dashboardTitle: string) => {
-  //   toastSuccess.generic('Dashboard download will be available soon');
-  // }, []);
 
   // Handle share dashboard
   const handleShareDashboard = useCallback((dashboard: any) => {
@@ -1096,572 +1040,6 @@ export function DashboardListV2() {
 
   // Remove mock data - use real data from API
 
-  const renderDashboardCard = (dashboard: any) => {
-    // COMMENTED OUT: Dashboard type checking - not needed anymore
-    // const isNative = dashboard.dashboard_type === 'native';
-    const isLocked = dashboard.is_locked;
-    const isLockedByOther =
-      isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
-
-    // Landing page status for this dashboard
-    const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
-    const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
-    const canManageOrgDefault = hasPermission(PERMISSIONS.CAN_MANAGE_ORG_DEFAULT_DASHBOARD);
-
-    // By default, all dashboards go to view mode first
-    const getNavigationUrl = () => {
-      return hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? `/dashboards/${dashboard.id}` : '#';
-    };
-
-    return (
-      <Card
-        id={`dashboard-card-${dashboard.id}`}
-        key={dashboard.id}
-        className={cn(
-          'transition-all duration-300 hover:shadow-lg hover:shadow-black/10 hover:-translate-y-1 h-full relative group',
-          'bg-white border border-gray-200 rounded-lg overflow-hidden'
-          // COMMENTED OUT: Draft opacity styling - not applicable for dashboards
-          // !dashboard.is_published && 'opacity-75'
-        )}
-      >
-        {/* Modern Card Header with Integrated Actions */}
-        <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/20 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 [.force-hover_&]:opacity-100">
-          <div className="flex justify-end gap-2">
-            {/* Profile Icon */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7 bg-white/90 backdrop-blur-sm border-white/20 hover:bg-white text-gray-700 hover:text-gray-900 shadow-sm"
-                    onClick={(e) => e.preventDefault()}
-                  >
-                    <User className="w-3 h-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="bg-gray-900 text-white border-gray-700">
-                  <p className="text-sm">
-                    Updated by {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            {/* Edit Button */}
-            {dashboard.access_level === 'edit' && (
-              <Link href={`/dashboards/${dashboard.id}/edit`}>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-7 w-7 bg-white/90 backdrop-blur-sm border-white/20 hover:bg-white text-gray-700 hover:text-gray-900 shadow-sm"
-                >
-                  <Edit className="w-3 h-3" />
-                </Button>
-              </Link>
-            )}
-
-            {/* Share Button */}
-            {dashboard.access_level === 'edit' && (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-7 w-7 bg-white/90 backdrop-blur-sm border-white/20 hover:bg-white text-gray-700 hover:text-gray-900 shadow-sm"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleShareDashboard(dashboard);
-                }}
-                aria-label={`Share dashboard: ${dashboard.title || dashboard.id}`}
-                data-testid={`dashboard-share-card-${dashboard.id}`}
-              >
-                <Share2 className="w-3 h-3" />
-              </Button>
-            )}
-
-            {/* More Actions Menu */}
-            {(hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) ||
-              hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) ||
-              hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS)) && (
-              <DropdownMenu
-                onOpenChange={(open) => {
-                  // Prevent the card hover state from being lost when dropdown opens
-                  if (open) {
-                    const cardElement = document.getElementById(`dashboard-card-${dashboard.id}`);
-                    if (cardElement) {
-                      cardElement.classList.add('force-hover');
-                    }
-                  } else {
-                    const cardElement = document.getElementById(`dashboard-card-${dashboard.id}`);
-                    if (cardElement) {
-                      cardElement.classList.remove('force-hover');
-                    }
-                  }
-                }}
-              >
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7 bg-white/90 backdrop-blur-sm border-white/20 hover:bg-white shadow-sm"
-                  >
-                    <MoreVertical className="w-3 h-3 text-gray-700" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
-                    <DropdownMenuItem
-                      onClick={() =>
-                        handleDuplicateDashboard(
-                          dashboard.id,
-                          dashboard.title || dashboard.dashboard_title
-                        )
-                      }
-                      className="cursor-pointer"
-                      disabled={isDuplicating === dashboard.id}
-                    >
-                      {isDuplicating === dashboard.id ? (
-                        <>
-                          <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                          Duplicating...
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-4 h-4 mr-2" />
-                          Duplicate
-                        </>
-                      )}
-                    </DropdownMenuItem>
-                  )}
-                  {hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <DropdownMenuItem
-                            className="cursor-pointer text-destructive focus:text-destructive"
-                            onSelect={(e) => e.preventDefault()}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "
-                              {dashboard.title || dashboard.dashboard_title}"? This action cannot be
-                              undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() =>
-                                handleDeleteDashboard(
-                                  dashboard.id,
-                                  dashboard.title || dashboard.dashboard_title
-                                )
-                              }
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
-        </div>
-
-        {/* Clickable content area */}
-        <Link href={getNavigationUrl()}>
-          <div className="cursor-pointer">
-            {/* Dashboard Icon Preview */}
-            <div className="relative h-52 bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden rounded-t-lg">
-              <div className="flex items-center justify-center h-full p-6">
-                <div className="rounded-xl flex items-center justify-center w-32 h-32 shadow-sm border border-white/50 bg-gray-200/60">
-                  <LayoutDashboard className="w-20 h-20 text-gray-600" />
-                </div>
-              </div>
-
-              {/* Lock indicator */}
-              {isLocked && (
-                <div
-                  className={cn(
-                    'absolute bottom-2 right-2 text-white p-1 rounded text-xs flex items-center gap-1',
-                    isLockedByOther ? 'bg-red-500' : 'bg-blue-500'
-                  )}
-                >
-                  <Lock className="w-3 h-3" />
-                  {isLockedByOther ? 'Locked' : 'By you'}
-                </div>
-              )}
-            </div>
-
-            {/* Enhanced Card Content with Better Hierarchy */}
-            <div className="p-4">
-              {/* Left-aligned Title and Metadata Stack */}
-              <div className="space-y-2">
-                {/* Title */}
-                <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 leading-tight text-left">
-                  {dashboard.title || dashboard.dashboard_title}
-                </h3>
-
-                {/* Modified Time - Left aligned below title */}
-                <div className="flex items-center gap-1.5 text-sm text-gray-500">
-                  <Clock className="w-4 h-4 text-gray-400" />
-                  <span>
-                    Modified{' '}
-                    {dashboard.updated_at
-                      ? formatDistanceToNow(new Date(dashboard.updated_at), { addSuffix: true })
-                      : 'unknown time ago'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Status Badges with Better Visual Design */}
-              {(isPersonalLanding || isOrgDefault || isLocked) && (
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  {isPersonalLanding && (
-                    <Badge
-                      variant="default"
-                      className="text-xs bg-blue-500 text-white border-blue-600 font-medium px-2 py-1"
-                    >
-                      <Star className="w-3 h-3 mr-1 fill-current" />
-                      My Landing Page
-                    </Badge>
-                  )}
-
-                  {isOrgDefault && (
-                    <Badge
-                      variant="outline"
-                      className="text-xs bg-emerald-50 text-emerald-700 border-emerald-300 font-medium px-2 py-1"
-                    >
-                      <Settings className="w-3 h-3 mr-1" />
-                      Organization Default
-                    </Badge>
-                  )}
-
-                  {isLocked && (
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        'text-xs font-medium px-2 py-1',
-                        isLockedByOther
-                          ? 'bg-red-50 text-red-700 border-red-300'
-                          : 'bg-blue-50 text-blue-700 border-blue-300'
-                      )}
-                    >
-                      <Lock className="w-3 h-3 mr-1" />
-                      {isLockedByOther ? 'Locked' : 'By you'}
-                    </Badge>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </Link>
-      </Card>
-    );
-  };
-
-  const renderDashboardList = (dashboard: any) => {
-    // COMMENTED OUT: Dashboard type checking - not needed anymore
-    // const isNative = dashboard.dashboard_type === 'native';
-    const isLocked = dashboard.is_locked;
-    const isLockedByOther =
-      isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
-
-    const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
-    const canManageOrgDefault = hasPermission(PERMISSIONS.CAN_MANAGE_ORG_DEFAULT_DASHBOARD);
-    const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
-    // By default, all dashboards go to view mode first
-    const getNavigationUrl = () => {
-      return hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? `/dashboards/${dashboard.id}` : '#';
-    };
-
-    return (
-      <Card
-        key={dashboard.id}
-        className="transition-all duration-200 hover:shadow-sm hover:bg-[#0066FF]/3"
-      >
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            {/* Clickable main content */}
-            <Link
-              href={getNavigationUrl()}
-              className={cn(
-                'flex items-center gap-4 flex-1',
-                hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ? 'cursor-pointer' : 'cursor-default'
-              )}
-            >
-              <div className="w-16 h-16 bg-gray-200/60 rounded-lg flex items-center justify-center flex-shrink-0 border border-gray-200">
-                <LayoutDashboard className="w-8 h-8 text-gray-600" />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <OverflowTooltip
-                    text={dashboard.title || dashboard.dashboard_title || ''}
-                    className="font-medium"
-                  />
-                  {/* COMMENTED OUT: Type badge - not needed anymore */}
-                  {/* <Badge variant={isNative ? 'default' : 'secondary'} className="text-xs">
-                    {isNative ? 'Native' : 'Superset'}
-                  </Badge> */}
-
-                  {/* Landing page badges in list view */}
-                  {isPersonalLanding && (
-                    <Badge
-                      variant="default"
-                      className="text-xs bg-blue-500 text-white border-blue-600 font-semibold"
-                    >
-                      <Star className="w-3 h-3 mr-1 fill-current" />
-                      My Landing Page
-                    </Badge>
-                  )}
-
-                  {isOrgDefault && (
-                    <Badge
-                      variant="outline"
-                      className="text-xs bg-emerald-50 text-emerald-700 border-emerald-300 font-semibold"
-                    >
-                      <Settings className="w-3 h-3 mr-1" />
-                      Organization Default
-                    </Badge>
-                  )}
-
-                  {isLocked && (
-                    <Lock
-                      className={cn('w-4 h-4', isLockedByOther ? 'text-red-500' : 'text-blue-500')}
-                    />
-                  )}
-                </div>
-
-                <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center">
-                          <User className="w-3 h-3 text-gray-600" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="bg-gray-900 text-white border-gray-700">
-                        <p className="text-sm">
-                          {dashboard.created_by || dashboard.changed_by_name || 'Unknown'}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <span className="flex items-center gap-1" title="Last Updated">
-                    <Clock className="w-3 h-3" />
-                    Modified{' '}
-                    {dashboard.updated_at
-                      ? formatDistanceToNow(new Date(dashboard.updated_at), { addSuffix: true })
-                      : 'unknown time ago'}
-                  </span>
-                  {/* COMMENTED OUT: Draft/Published status - not applicable for dashboards */}
-                  {/* {dashboard.is_published ? (
-                    <Badge variant="outline" className="text-xs">
-                      Published
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary" className="text-xs">
-                      Draft
-                    </Badge>
-                  )} */}
-                </div>
-              </div>
-
-              {/* COMMENTED OUT: External link icon for Superset dashboards - not needed anymore */}
-              {/* {!isNative && (
-                <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2" />
-              )} */}
-            </Link>
-
-            {/* Action Buttons - Edit and Share as icon-only buttons */}
-            <div className="flex items-center gap-2 ml-4">
-              {dashboard.access_level === 'edit' && (
-                <Link href={`/dashboards/${dashboard.id}/edit`}>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
-                  >
-                    <Edit className="w-4 h-4 text-gray-700" />
-                  </Button>
-                </Link>
-              )}
-              {dashboard.access_level === 'edit' && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
-                  onClick={() => handleShareDashboard(dashboard)}
-                  aria-label={`Share dashboard: ${dashboard.title || dashboard.id}`}
-                  data-testid={`dashboard-share-mobile-${dashboard.id}`}
-                >
-                  <Share2 className="w-4 h-4 text-gray-700" />
-                </Button>
-              )}
-
-              {/* More actions menu for remaining actions */}
-              {(hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) ||
-                hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) ||
-                hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) ||
-                canManageOrgDefault) && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
-                    >
-                      <MoreVertical className="w-3 h-3 text-gray-700" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    {/* Landing page controls */}
-                    {(hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) || canManageOrgDefault) && (
-                      <>
-                        <div className="px-2 py-1.5 text-xs text-muted-foreground font-medium">
-                          Landing Page
-                        </div>
-
-                        {/* Personal landing page controls */}
-                        {hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) && (
-                          <>
-                            {isPersonalLanding ? (
-                              <DropdownMenuItem
-                                onClick={() => handleRemovePersonalLanding()}
-                                disabled={landingPageLoading}
-                                className="cursor-pointer"
-                              >
-                                <StarOff className="w-4 h-4 mr-2" />
-                                Remove as my landing page
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem
-                                onClick={() => handleSetPersonalLanding(dashboard.id)}
-                                disabled={landingPageLoading}
-                                className="cursor-pointer"
-                              >
-                                <Star className="w-4 h-4 mr-2" />
-                                Set as my landing page
-                              </DropdownMenuItem>
-                            )}
-                          </>
-                        )}
-
-                        {/* Org default controls for admins */}
-                        {canManageOrgDefault && (
-                          <DropdownMenuItem
-                            onClick={() => handleSetOrgDefault(dashboard.id)}
-                            disabled={landingPageLoading || isOrgDefault}
-                            className="cursor-pointer"
-                          >
-                            <Settings className="w-4 h-4 mr-2" />
-                            {isOrgDefault ? 'Current org default' : 'Set as org default'}
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                      </>
-                    )}
-
-                    {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
-                      <DropdownMenuItem
-                        onClick={() =>
-                          handleDuplicateDashboard(
-                            dashboard.id,
-                            dashboard.title || dashboard.dashboard_title
-                          )
-                        }
-                        className="cursor-pointer"
-                        disabled={isDuplicating === dashboard.id}
-                      >
-                        {isDuplicating === dashboard.id ? (
-                          <>
-                            <div className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                            Duplicating...
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-4 h-4 mr-2" />
-                            Duplicate
-                          </>
-                        )}
-                      </DropdownMenuItem>
-                    )}
-                    {/* COMMENTED OUT: Download functionality - not needed */}
-                    {/* {hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) && (
-                      <DropdownMenuItem
-                        onClick={() =>
-                          handleDownloadDashboard(
-                            dashboard.id,
-                            dashboard.title || dashboard.dashboard_title
-                          )
-                        }
-                        className="cursor-pointer"
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
-                      </DropdownMenuItem>
-                    )} */}
-                    {hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <DropdownMenuItem
-                              className="cursor-pointer text-destructive focus:text-destructive"
-                              onSelect={(e) => e.preventDefault()}
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete "
-                                {dashboard.title || dashboard.dashboard_title}"? This action cannot
-                                be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() =>
-                                  handleDeleteDashboard(
-                                    dashboard.id,
-                                    dashboard.title || dashboard.dashboard_title
-                                  )
-                                }
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
   if (isError) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
@@ -1738,268 +1116,193 @@ export function DashboardListV2() {
       <div className="flex-1 overflow-hidden px-6">
         <div className="h-full overflow-y-auto">
           {isLoading ? (
-            viewMode === 'table' ? (
-              <div className="py-6">
-                <div className="border rounded-lg bg-white">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-gray-50">
-                        <TableHead className="w-[40%]">
-                          <div className="flex items-center gap-2">
-                            <Skeleton className="h-4 w-20" />
-                            <Skeleton className="h-4 w-4" />
-                          </div>
-                        </TableHead>
-                        {/* Commenting Type column skeleton */}
-                        {/* <TableHead className="w-[15%]">
+            <div className="py-6">
+              <div className="border rounded-lg bg-white">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50">
+                      <TableHead className="w-[40%]">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-4 w-20" />
+                          <Skeleton className="h-4 w-4" />
+                        </div>
+                      </TableHead>
+                      {/* Commenting Type column skeleton */}
+                      {/* <TableHead className="w-[15%]">
                           <Skeleton className="h-4 w-16" />
                         </TableHead> */}
-                        <TableHead className="w-[35%]">
-                          <div className="flex items-center gap-2">
-                            <Skeleton className="h-4 w-16" />
-                            <Skeleton className="h-4 w-4" />
-                          </div>
-                        </TableHead>
-                        <TableHead className="w-[15%]">
-                          <div className="flex items-center gap-2">
-                            <Skeleton className="h-4 w-20" />
-                            <Skeleton className="h-4 w-4" />
-                          </div>
-                        </TableHead>
-                        <TableHead className="w-[10%]">
+                      <TableHead className="w-[35%]">
+                        <div className="flex items-center gap-2">
                           <Skeleton className="h-4 w-16" />
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {[...Array(8)].map((_, i) => (
-                        <TableRow key={i}>
-                          <TableCell className="py-4">
-                            <div className="flex items-center gap-3">
-                              <Skeleton className="h-8 w-8 rounded" />
-                              <div className="flex flex-col gap-1">
-                                <Skeleton className="h-4 w-32" />
-                                <Skeleton className="h-3 w-20" />
-                              </div>
-                            </div>
-                          </TableCell>
-                          {/* Commenting Type column skeleton */}
-                          {/* <TableCell><Skeleton className="h-6 w-16" /></TableCell> */}
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Skeleton className="h-6 w-6 rounded-full" />
-                              <Skeleton className="h-4 w-20" />
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-24" />
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Skeleton className="h-8 w-8" />
-                              <Skeleton className="h-8 w-8" />
-                              <Skeleton className="h-8 w-8" />
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            ) : (
-              <div
-                className={cn(
-                  'py-6',
-                  viewMode === 'grid'
-                    ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-                    : 'space-y-2'
-                )}
-              >
-                {[...Array(8)].map((_, i) => (
-                  <Card key={i} className="h-full overflow-hidden">
-                    <div className="h-52 bg-gray-100 animate-pulse rounded-t-lg" />
-                    <div className="p-4">
-                      <div className="mb-3">
-                        <Skeleton className="h-6 w-3/4 mb-1" />
-                        <Skeleton className="h-6 w-1/2" />
-                      </div>
-                      <div className="space-y-3">
-                        <div className="flex justify-between">
-                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-4 w-4" />
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[15%]">
+                        <div className="flex items-center gap-2">
                           <Skeleton className="h-4 w-20" />
+                          <Skeleton className="h-4 w-4" />
                         </div>
-                        <div className="flex gap-2">
-                          <Skeleton className="h-6 w-16" />
-                          <Skeleton className="h-6 w-20" />
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )
-          ) : pinnedDashboards.length > 0 || paginatedRegularDashboards.length > 0 ? (
-            viewMode === 'table' ? (
-              <div className="py-6">
-                <div className="border rounded-lg bg-white">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-gray-50">
-                        <TableHead className="w-[40%]">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
-                              onClick={() => handleSort('name')}
-                              data-testid="dashboard-list-sort-name"
-                            >
-                              <div className="flex items-center gap-2">
-                                Name
-                                {renderSortIcon('name')}
-                              </div>
-                            </Button>
-                            <Popover
-                              open={openFilters.name}
-                              onOpenChange={(open) =>
-                                setOpenFilters((prev) => ({ ...prev, name: open }))
-                              }
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 p-0 hover:bg-gray-100"
-                                  data-testid="dashboard-list-filter-name-trigger"
-                                >
-                                  {renderFilterIcon('name')}
-                                </Button>
-                              </PopoverTrigger>
-                              {renderNameFilter()}
-                            </Popover>
+                      </TableHead>
+                      <TableHead className="w-[10%]">
+                        <Skeleton className="h-4 w-16" />
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[...Array(8)].map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="py-4">
+                          <div className="flex items-center gap-3">
+                            <Skeleton className="h-8 w-8 rounded" />
+                            <div className="flex flex-col gap-1">
+                              <Skeleton className="h-4 w-32" />
+                              <Skeleton className="h-3 w-20" />
+                            </div>
                           </div>
-                        </TableHead>
-                        {/* Commenting Type column as all dashboards are Native for now */}
-                        {/* <TableHead className="w-[15%] font-medium">Type</TableHead> */}
-                        <TableHead className="w-[35%]">
+                        </TableCell>
+                        {/* Commenting Type column skeleton */}
+                        {/* <TableCell><Skeleton className="h-6 w-16" /></TableCell> */}
+                        <TableCell>
                           <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
-                              onClick={() => handleSort('created_by')}
-                              data-testid="dashboard-list-sort-owner"
-                            >
-                              <div className="flex items-center gap-2">
-                                Owner
-                                {renderSortIcon('created_by')}
-                              </div>
-                            </Button>
-                            <Popover
-                              open={openFilters.owner}
-                              onOpenChange={(open) =>
-                                setOpenFilters((prev) => ({ ...prev, owner: open }))
-                              }
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 p-0 hover:bg-gray-100"
-                                  data-testid="dashboard-list-filter-owner-trigger"
-                                >
-                                  {renderFilterIcon('owner')}
-                                </Button>
-                              </PopoverTrigger>
-                              {renderOwnerFilter()}
-                            </Popover>
+                            <Skeleton className="h-6 w-6 rounded-full" />
+                            <Skeleton className="h-4 w-20" />
                           </div>
-                        </TableHead>
-                        <TableHead className="w-[15%]">
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-24" />
+                        </TableCell>
+                        <TableCell>
                           <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
-                              onClick={() => handleSort('updated_at')}
-                              data-testid="dashboard-list-sort-modified"
-                            >
-                              <div className="flex items-center gap-2">
-                                Last Modified
-                                {renderSortIcon('updated_at')}
-                              </div>
-                            </Button>
-                            <Popover
-                              open={openFilters.date}
-                              onOpenChange={(open) =>
-                                setOpenFilters((prev) => ({ ...prev, date: open }))
-                              }
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 p-0 hover:bg-gray-100"
-                                  data-testid="dashboard-list-filter-date-trigger"
-                                >
-                                  {renderFilterIcon('date')}
-                                </Button>
-                              </PopoverTrigger>
-                              {renderDateFilter()}
-                            </Popover>
+                            <Skeleton className="h-8 w-8" />
+                            <Skeleton className="h-8 w-8" />
+                            <Skeleton className="h-8 w-8" />
                           </div>
-                        </TableHead>
-                        <TableHead className="w-[10%] font-medium text-base">Actions</TableHead>
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {pinnedDashboards.map((dashboard) => renderDashboardTableRow(dashboard))}
-                      {paginatedRegularDashboards.map((dashboard) =>
-                        renderDashboardTableRow(dashboard)
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-            ) : (
-              <div className="py-6 space-y-8">
-                {/* Pinned Dashboards Section */}
-                {pinnedDashboards.length > 0 && (
-                  <div>
-                    <div
-                      className={cn(
-                        viewMode === 'grid'
-                          ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-                          : 'space-y-2'
-                      )}
-                    >
-                      {pinnedDashboards.map((dashboard) =>
-                        viewMode === 'grid'
-                          ? renderDashboardCard(dashboard)
-                          : renderDashboardList(dashboard)
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Regular Dashboards Section */}
-                {paginatedRegularDashboards.length > 0 && (
-                  <div>
-                    <div
-                      className={cn(
-                        viewMode === 'grid'
-                          ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-                          : 'space-y-2'
-                      )}
-                    >
-                      {paginatedRegularDashboards.map((dashboard) =>
-                        viewMode === 'grid'
-                          ? renderDashboardCard(dashboard)
-                          : renderDashboardList(dashboard)
-                      )}
-                    </div>
-                  </div>
-                )}
+            </div>
+          ) : pinnedDashboards.length > 0 || paginatedRegularDashboards.length > 0 ? (
+            <div className="py-6">
+              <div className="border rounded-lg bg-white">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50">
+                      <TableHead className="w-[40%]">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
+                            onClick={() => handleSort('name')}
+                            data-testid="dashboard-list-sort-name"
+                          >
+                            <div className="flex items-center gap-2">
+                              Name
+                              {renderSortIcon('name')}
+                            </div>
+                          </Button>
+                          <Popover
+                            open={openFilters.name}
+                            onOpenChange={(open) =>
+                              setOpenFilters((prev) => ({ ...prev, name: open }))
+                            }
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                                data-testid="dashboard-list-filter-name-trigger"
+                              >
+                                {renderFilterIcon('name')}
+                              </Button>
+                            </PopoverTrigger>
+                            {renderNameFilter()}
+                          </Popover>
+                        </div>
+                      </TableHead>
+                      {/* Commenting Type column as all dashboards are Native for now */}
+                      {/* <TableHead className="w-[15%] font-medium">Type</TableHead> */}
+                      <TableHead className="w-[35%]">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
+                            onClick={() => handleSort('created_by')}
+                            data-testid="dashboard-list-sort-owner"
+                          >
+                            <div className="flex items-center gap-2">
+                              Owner
+                              {renderSortIcon('created_by')}
+                            </div>
+                          </Button>
+                          <Popover
+                            open={openFilters.owner}
+                            onOpenChange={(open) =>
+                              setOpenFilters((prev) => ({ ...prev, owner: open }))
+                            }
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                                data-testid="dashboard-list-filter-owner-trigger"
+                              >
+                                {renderFilterIcon('owner')}
+                              </Button>
+                            </PopoverTrigger>
+                            {renderOwnerFilter()}
+                          </Popover>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[15%]">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
+                            onClick={() => handleSort('updated_at')}
+                            data-testid="dashboard-list-sort-modified"
+                          >
+                            <div className="flex items-center gap-2">
+                              Last Modified
+                              {renderSortIcon('updated_at')}
+                            </div>
+                          </Button>
+                          <Popover
+                            open={openFilters.date}
+                            onOpenChange={(open) =>
+                              setOpenFilters((prev) => ({ ...prev, date: open }))
+                            }
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                                data-testid="dashboard-list-filter-date-trigger"
+                              >
+                                {renderFilterIcon('date')}
+                              </Button>
+                            </PopoverTrigger>
+                            {renderDateFilter()}
+                          </Popover>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-[10%] font-medium text-base">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pinnedDashboards.map((dashboard) => renderDashboardTableRow(dashboard))}
+                    {paginatedRegularDashboards.map((dashboard) =>
+                      renderDashboardTableRow(dashboard)
+                    )}
+                  </TableBody>
+                </Table>
               </div>
-            )
+            </div>
           ) : (
             <div
               id="dashboard-empty-state"

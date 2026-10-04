@@ -30,27 +30,16 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   ArrowLeft,
   Edit,
   Share2,
   Download,
   Maximize2,
   Filter,
-  RefreshCw,
   Lock,
   Clock,
   User,
   Trash2,
-  Monitor,
-  Tablet,
-  Phone,
   FileText,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -1029,16 +1018,6 @@ export function DashboardNativeView({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-                {/* COMMENTED OUT: Refresh button - not needed in view mode */}
-                {/* <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="p-1.5"
-              >
-                <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
-              </Button> */}
                 <Button
                   variant="outline"
                   size="sm"
@@ -1058,38 +1037,6 @@ export function DashboardNativeView({
                 )}
               </div>
             </div>
-
-            {/* COMMENTED OUT: Mobile Device Preview Selector - not needed in view mode */}
-            {/* <div className="px-4 pb-2 border-t pt-2">
-            <Select
-              value={effectiveScreenSize}
-              onValueChange={(value) => setPreviewScreenSize(value as ScreenSizeKey)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="desktop">
-                  <div className="flex items-center">
-                    <Monitor className="w-4 h-4 mr-2" />
-                    Desktop (1200px)
-                  </div>
-                </SelectItem>
-                <SelectItem value="tablet">
-                  <div className="flex items-center">
-                    <Tablet className="w-4 h-4 mr-2" />
-                    Tablet (768px)
-                  </div>
-                </SelectItem>
-                <SelectItem value="mobile">
-                  <div className="flex items-center">
-                    <Phone className="w-4 h-4 mr-2" />
-                    Mobile (375px)
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div> */}
 
             {/* Responsive Action Row */}
             {!isPublicMode && (
@@ -1292,36 +1239,6 @@ export function DashboardNativeView({
                     dashboardId={dashboard?.id}
                   />
                 )}
-
-                {/* COMMENTED OUT: Device Size Preview Selector - not needed in view mode */}
-                {/* <Select
-                value={effectiveScreenSize}
-                onValueChange={(value) => setPreviewScreenSize(value as ScreenSizeKey)}
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="desktop">
-                    <div className="flex items-center">
-                      <Monitor className="w-4 h-4 mr-2" />
-                      Desktop
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="tablet">
-                    <div className="flex items-center">
-                      <Tablet className="w-4 h-4 mr-2" />
-                      Tablet
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="mobile">
-                    <div className="flex items-center">
-                      <Phone className="w-4 h-4 mr-2" />
-                      Mobile
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select> */}
 
                 {!isPublicMode && (
                   <ResponsiveDashboardActions

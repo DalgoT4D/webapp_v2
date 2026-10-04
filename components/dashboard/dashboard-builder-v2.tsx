@@ -21,7 +21,6 @@ import {
   refreshDashboardLock,
   updateDashboardFilter,
   createDashboardFilter,
-  deleteDashboardFilter,
   useDashboard,
   type DashboardFilter,
 } from '@/hooks/api/useDashboards';
@@ -194,70 +193,6 @@ function DashboardDescriptionEditor({
   );
 }
 
-// Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
-function convertFilterToConfig(
-  filter: DashboardFilter,
-  position: { x: number; y: number; w: number; h: number }
-): DashboardFilterConfig | null {
-  // Validate required filter properties
-  if (!filter || !filter.id || !filter.schema_name || !filter.table_name || !filter.column_name) {
-    console.error('Invalid filter data:', filter);
-    return null;
-  }
-
-  const baseConfig = {
-    id: filter.id.toString(),
-    name: filter.name || filter.column_name || 'Unnamed Filter',
-    schema_name: filter.schema_name,
-    table_name: filter.table_name,
-    column_name: filter.column_name,
-    filter_type: filter.filter_type as DashboardFilterType,
-    position,
-  };
-
-  // Ensure settings object exists
-  const settings = filter.settings || {};
-
-  if (filter.filter_type === 'value') {
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.VALUE,
-      settings: {
-        has_default_value: false,
-        can_select_multiple: false,
-        ...settings,
-      } as ValueFilterSettings,
-    };
-  } else if (filter.filter_type === 'numerical') {
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.NUMERICAL,
-      settings: {
-        ...settings,
-      } as NumericalFilterSettings,
-    };
-  } else if (filter.filter_type === 'datetime') {
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.DATETIME,
-      settings: {
-        ...settings,
-      } as DateTimeFilterSettings,
-    };
-  } else {
-    // Fallback to VALUE type for unknown types
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.VALUE,
-      settings: {
-        has_default_value: false,
-        can_select_multiple: false,
-        ...settings,
-      } as ValueFilterSettings,
-    };
-  }
-}
-
 // Types
 // DashboardComponentType is imported from '@/types/dashboard' (single source, includes KPI).
 
@@ -281,15 +216,6 @@ const BREAKPOINTS = {
   sm: 768,
   xs: 480,
   xxs: 0,
-};
-
-// Fixed 12 columns at all breakpoints - columns scale with container width
-const COLS = {
-  lg: 12,
-  md: 12,
-  sm: 12,
-  xs: 12,
-  xxs: 12,
 };
 
 // Screen size configurations for targeted design
@@ -319,11 +245,6 @@ const SCREEN_SIZES = {
 };
 
 type ScreenSizeKey = keyof typeof SCREEN_SIZES;
-
-// Type for responsive layouts
-type ResponsiveLayouts = {
-  [key: string]: DashboardLayout[];
-};
 
 interface DashboardComponent {
   id: string;
@@ -385,30 +306,6 @@ interface DashboardBuilderV2Ref {
   /** Saves pending changes, unlocks, refreshes caches. Resolves to whether the save
    *  succeeded — callers must not report an update the PUT never completed. */
   cleanup: () => Promise<boolean>;
-}
-
-// Helper function to generate responsive layouts from base layout
-// With fixed 12 columns (Superset-style), all breakpoints use the same layout
-function generateResponsiveLayouts(layout: DashboardLayout[]): ResponsiveLayouts {
-  const layouts: ResponsiveLayouts = {};
-
-  // Since all breakpoints use 12 columns (Superset-style),
-  // the same layout works for all screen sizes - columns just scale in width
-  Object.keys(COLS).forEach((breakpoint) => {
-    // Use the same layout for all breakpoints - the grid columns scale with container width
-    layouts[breakpoint] = layout.map((item) => ({
-      ...item,
-      // Ensure valid constraints
-      w: Math.max(1, Math.min(item.w, 12)),
-      x: Math.max(0, Math.min(item.x, 12 - Math.max(1, item.w))),
-      y: Math.max(0, item.y),
-      minW: Math.max(1, Math.min(item.minW || 1, 12)),
-      minH: item.minH || 1,
-      maxW: 12,
-    }));
-  });
-
-  return layouts;
 }
 
 export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBuilderV2Props>(
@@ -1977,14 +1874,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           filter_type: filterPayload.filter_type,
         });
 
-        // Convert API response to frontend config format (no position needed)
-        const filterConfig = convertFilterToConfig(newFilterFromAPI, {
-          x: 0,
-          y: 0,
-          w: 4,
-          h: 3,
-        });
-
         // Note: Filter components will handle their own state updates
 
         setShowFilterModal(false);
@@ -1996,24 +1885,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         }
       } catch (error: any) {
         console.error('Failed to create filter:', error.message || 'Please try again');
-        // Could add error handling/notification here
-      }
-    };
-
-    // Remove filter - note: filter state is now managed by filter components
-    const removeFilter = async (filterId: string) => {
-      if (!dashboardId) return;
-
-      try {
-        // Call backend API to delete the filter
-        await deleteDashboardFilter(dashboardId, parseInt(filterId));
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_FILTER_DELETED, { dashboard_id: dashboardId });
-
-        // Refresh dashboard data to update filter list
-        const { mutate } = await import('swr');
-        mutate(`/api/dashboards/${dashboardId}/`);
-      } catch (error: any) {
-        console.error('Failed to delete filter:', error.message || 'Please try again');
         // Could add error handling/notification here
       }
     };
@@ -2142,57 +2013,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       [router]
     );
 
-    // Find next available position for new component
-    const findAvailablePosition = (width: number, height: number): { x: number; y: number } => {
-      const layout = activeLayout;
-      const maxCols = currentScreenConfig.cols;
-
-      // Create a grid to track occupied spaces
-      const occupiedGrid: boolean[][] = [];
-
-      // Initialize grid - find max Y coordinate to determine grid height
-      const maxY = layout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
-      const gridHeight = Math.max(maxY + height + 5, 20); // Add some buffer
-
-      for (let y = 0; y < gridHeight; y++) {
-        occupiedGrid[y] = new Array(maxCols).fill(false);
-      }
-
-      // Mark occupied positions
-      layout.forEach((item) => {
-        for (let y = item.y; y < item.y + item.h; y++) {
-          for (let x = item.x; x < item.x + item.w; x++) {
-            if (y < gridHeight && x < maxCols) {
-              occupiedGrid[y][x] = true;
-            }
-          }
-        }
-      });
-
-      // Find first available position that fits the component
-      for (let y = 0; y <= gridHeight - height; y++) {
-        for (let x = 0; x <= maxCols - width; x++) {
-          let canPlace = true;
-
-          // Check if this position and size is available
-          for (let dy = 0; dy < height && canPlace; dy++) {
-            for (let dx = 0; dx < width && canPlace; dx++) {
-              if (y + dy < gridHeight && x + dx < maxCols && occupiedGrid[y + dy][x + dx]) {
-                canPlace = false;
-              }
-            }
-          }
-
-          if (canPlace) {
-            return { x, y };
-          }
-        }
-      }
-
-      // If no position found, place at the end
-      return { x: 0, y: maxY + 1 };
-    };
-
     const handoffPlaceholderStyle = (() => {
       if (crossTabDrag?.phase !== 'handoff' || !crossTabDrag.targetPosition) return null;
       const usableWidth =
@@ -2311,87 +2131,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     )}
                   </Button>
                 )}
-                {/* COMMENTED OUT: Dashboard Settings - not needed anymore */}
-                {/* <Popover>
-                  <PopoverTrigger asChild>
-                    <Button size="sm" variant="ghost" className="p-1.5">
-                      <Settings className="w-4 h-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80">
-                    <div className="grid gap-4">
-                      <div className="space-y-2">
-                        <h4 className="font-medium leading-none">Dashboard Settings</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Choose the target screen size for your dashboard design
-                        </p>
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-medium">
-                          Filter Layout
-                          <span className="ml-2 text-xs text-blue-600 font-normal">
-                            (Auto: {responsive.currentBreakpoint})
-                          </span>
-                        </Label>
-                        <ToggleGroup
-                          type="single"
-                          value={filterLayout}
-                          onValueChange={(value) =>
-                            value && handleFilterLayoutChange(value as 'vertical' | 'horizontal')
-                          }
-                          className="grid grid-cols-2 gap-2"
-                          disabled={true}
-                        >
-                          <ToggleGroupItem value="vertical" className="text-xs">
-                            <PanelLeft className="w-3 h-3 mr-1" />
-                            Vertical
-                          </ToggleGroupItem>
-                          <ToggleGroupItem value="horizontal" className="text-xs">
-                            <PanelTop className="w-3 h-3 mr-1" />
-                            Horizontal
-                          </ToggleGroupItem>
-                        </ToggleGroup>
-                        <div className="text-xs text-muted-foreground">
-                          <span className="text-blue-600">
-                            Layout automatically set to '{filterLayout}' for{' '}
-                            {responsive.currentBreakpoint} screens to optimize space usage. Desktop
-                            uses sidebar, mobile/tablet use top bar.
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid gap-2">
-                        <div className="grid grid-cols-3 items-center gap-4">
-                          <Label htmlFor="target-screen-mobile">Screen Size</Label>
-                          <select
-                            id="target-screen-mobile"
-                            value={targetScreenSize}
-                            onChange={(e) => {
-                              const newScreenSize = e.target.value as ScreenSizeKey;
-                              setTargetScreenSize(newScreenSize);
-                            }}
-                            className="col-span-2 px-3 py-2 border rounded-md text-sm"
-                          >
-                            <option value="desktop">
-                              {SCREEN_SIZES.desktop.name} ({SCREEN_SIZES.desktop.width}px)
-                            </option>
-                            <option value="tablet">
-                              {SCREEN_SIZES.tablet.name} ({SCREEN_SIZES.tablet.width}px)
-                            </option>
-                            <option value="mobile">
-                              {SCREEN_SIZES.mobile.name} ({SCREEN_SIZES.mobile.width}px)
-                            </option>
-                          </select>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Canvas: {SCREEN_SIZES[targetScreenSize].width} ×{' '}
-                          {SCREEN_SIZES[targetScreenSize].height}px
-                        </div>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover> */}
               </div>
             </div>
 
@@ -2652,88 +2391,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                     <span className="hidden xl:inline">{saveError || 'Save failed'}</span>
                   </div>
                 )}
-
-                {/* COMMENTED OUT: Dashboard Settings - not needed anymore */}
-                {/* <Popover>
-                  <PopoverTrigger asChild>
-                    <Button size="sm" variant="outline">
-                      <Settings className="w-4 h-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80">
-                    <div className="grid gap-4">
-                      <div className="space-y-2">
-                        <h4 className="font-medium leading-none">Dashboard Settings</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Choose the target screen size for your dashboard design
-                        </p>
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label className="text-sm font-medium">
-                          Filter Layout
-                          <span className="ml-2 text-xs text-blue-600 font-normal">
-                            (Auto: {responsive.currentBreakpoint})
-                          </span>
-                        </Label>
-                        <ToggleGroup
-                          type="single"
-                          value={filterLayout}
-                          onValueChange={(value) =>
-                            value && handleFilterLayoutChange(value as 'vertical' | 'horizontal')
-                          }
-                          className="grid grid-cols-2 gap-2"
-                          disabled={true}
-                        >
-                          <ToggleGroupItem value="vertical" className="text-xs">
-                            <PanelLeft className="w-4 h-4 mr-2" />
-                            Vertical
-                          </ToggleGroupItem>
-                          <ToggleGroupItem value="horizontal" className="text-xs">
-                            <PanelTop className="w-4 h-4 mr-2" />
-                            Horizontal
-                          </ToggleGroupItem>
-                        </ToggleGroup>
-                        <div className="text-xs text-muted-foreground">
-                          <span className="text-blue-600">
-                            Layout automatically set to '{filterLayout}' for{' '}
-                            {responsive.currentBreakpoint} screens to optimize space usage. Desktop
-                            uses sidebar, mobile/tablet use top bar.
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid gap-2">
-                        <div className="grid grid-cols-3 items-center gap-4">
-                          <Label htmlFor="target-screen-desktop">Screen Size</Label>
-                          <select
-                            id="target-screen-desktop"
-                            value={targetScreenSize}
-                            onChange={(e) => {
-                              const newScreenSize = e.target.value as ScreenSizeKey;
-                              setTargetScreenSize(newScreenSize);
-                            }}
-                            className="col-span-2 px-3 py-2 border rounded-md text-sm"
-                          >
-                            <option value="desktop">
-                              {SCREEN_SIZES.desktop.name} ({SCREEN_SIZES.desktop.width}px)
-                            </option>
-                            <option value="tablet">
-                              {SCREEN_SIZES.tablet.name} ({SCREEN_SIZES.tablet.width}px)
-                            </option>
-                            <option value="mobile">
-                              {SCREEN_SIZES.mobile.name} ({SCREEN_SIZES.mobile.width}px)
-                            </option>
-                          </select>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Canvas will resize to {SCREEN_SIZES[targetScreenSize].width} ×{' '}
-                          {SCREEN_SIZES[targetScreenSize].height}px
-                        </div>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover> */}
 
                 <Button
                   onClick={async () => {

@@ -1,7 +1,5 @@
 import useSWR from 'swr';
 import { apiGet, apiPost, apiPut, apiDelete, apiPublicGet } from '@/lib/api';
-import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import type { DashboardTab } from '@/types/dashboard';
 
 // API response shape for a tab (same as DashboardTab from types)
@@ -152,16 +150,8 @@ export async function deleteDashboard(id: number) {
   return apiDelete(`/api/dashboards/${id}/`);
 }
 
-export async function lockDashboard(id: number) {
-  return apiPost(`/api/dashboards/${id}/lock/`, {});
-}
-
 export async function refreshDashboardLock(id: number) {
   return apiPut(`/api/dashboards/${id}/lock/refresh/`, {});
-}
-
-export async function unlockDashboard(id: number) {
-  return apiDelete(`/api/dashboards/${id}/lock/`);
 }
 
 export async function favoriteDashboard(id: number) {
@@ -170,22 +160,6 @@ export async function favoriteDashboard(id: number) {
 
 export async function unfavoriteDashboard(id: number) {
   return apiDelete(`/api/dashboards/${id}/favorite/`);
-}
-
-export async function getFilterOptions(params: {
-  schema_name: string;
-  table_name: string;
-  column_name: string;
-  limit?: number;
-}) {
-  const queryParams = new URLSearchParams({
-    schema_name: params.schema_name,
-    table_name: params.table_name,
-    column_name: params.column_name,
-    ...(params.limit && { limit: params.limit.toString() }),
-  });
-
-  return apiGet(`/api/dashboards/filter-options/?${queryParams}`);
 }
 
 export async function updateDashboardFilter(
@@ -245,23 +219,6 @@ export async function deleteDashboardFilter(
 export async function duplicateDashboard(dashboardId: number): Promise<Dashboard> {
   // Use the backend duplicate endpoint that handles all the copying server-side
   return await apiPost(`/api/dashboards/${dashboardId}/duplicate/`, {});
-}
-
-// Dashboard sharing functions
-// Tracked here rather than at the call sites because two of them exist (the dashboard
-// view and the list row menu) and ShareModal itself lives in components/ui/, which we
-// keep free of analytics. Only going public fires: turning sharing OFF is not an
-// outcome we measure, and one event for both directions made the count meaningless.
-export async function updateDashboardSharing(dashboardId: number, data: { is_public: boolean }) {
-  const result = await apiPut(`/api/dashboards/${dashboardId}/share/`, data);
-  if (data.is_public) {
-    trackEvent(ANALYTICS_EVENTS.DASHBOARD_MADE_PUBLIC, { dashboard_id: dashboardId });
-  }
-  return result;
-}
-
-export async function getDashboardSharingStatus(dashboardId: number) {
-  return apiGet(`/api/dashboards/${dashboardId}/share/`);
 }
 
 export function usePublicDashboard(token: string) {

@@ -60,12 +60,6 @@ export const MAGNETIC_ZONES = {
   CENTER_LINES: 12, // Snap to center alignment
 };
 
-export const INTERACTION_ZONES = {
-  ANTICIPATION: 3, // Start subtle preparation movement
-  ACTIVE_PUSH: 1.5, // Active displacement
-  OVERLAP: 0.5, // Direct collision handling
-};
-
 export const DEFAULT_SPACE_MAKING_CONFIG: SpaceMakingConfig = {
   anticipationRadius: 3,
   pushForce: 2,

@@ -35,15 +35,12 @@ import useSWR from 'swr';
 import { useColumns } from '@/hooks/api/useChart';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { Combobox } from '@/components/ui/combobox';
-import type { DashboardFilter } from '@/hooks/api/useDashboards';
 import { useDashboardFilter } from '@/hooks/api/useDashboards';
 import type {
-  DashboardFilterConfig,
   CreateFilterPayload,
   UpdateFilterPayload,
   ValueFilterSettings,
   NumericalFilterSettings,
-  DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
 import {
   DashboardFilterType,
@@ -51,49 +48,6 @@ import {
   FilterOption,
   NumericalFilterStats,
 } from '@/types/dashboard-filters';
-
-// Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
-function convertFilterToConfig(
-  filter: DashboardFilter,
-  position?: { x: number; y: number; w: number; h: number }
-): DashboardFilterConfig {
-  const baseConfig = {
-    id: filter.id.toString(),
-    name: filter.name,
-    schema_name: filter.schema_name,
-    table_name: filter.table_name,
-    column_name: filter.column_name,
-    filter_type: filter.filter_type as DashboardFilterType,
-    position: position || { x: 0, y: 0, w: 4, h: 3 }, // Default position if not provided
-  };
-
-  if (filter.filter_type === 'value') {
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.VALUE,
-      settings: filter.settings as ValueFilterSettings,
-    };
-  } else if (filter.filter_type === 'numerical') {
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.NUMERICAL,
-      settings: filter.settings as NumericalFilterSettings,
-    };
-  } else if (filter.filter_type === 'datetime') {
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.DATETIME,
-      settings: filter.settings as DateTimeFilterSettings,
-    };
-  } else {
-    // Fallback to VALUE type for unknown types
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.VALUE,
-      settings: filter.settings as ValueFilterSettings,
-    };
-  }
-}
 
 interface FilterConfigModalProps {
   open: boolean;

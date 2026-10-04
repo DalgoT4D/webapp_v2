@@ -110,32 +110,6 @@ function ValueFilterWidget({
   // Use dynamically fetched options
   const availableOptions = filterOptions?.options || [];
 
-  const handleSelectionChange = (optionValue: string, isChecked: boolean) => {
-    if (!optionValue) return; // Guard against invalid option values
-
-    let newSelection: string[];
-
-    if (valueFilter.settings?.can_select_multiple) {
-      if (isChecked) {
-        newSelection = [...(selectedValues || []), optionValue];
-      } else {
-        newSelection = (selectedValues || []).filter((v) => v !== optionValue);
-      }
-    } else {
-      newSelection = isChecked ? [optionValue] : [];
-    }
-
-    const finalValue =
-      newSelection.length === 0
-        ? null
-        : valueFilter.settings.can_select_multiple
-          ? newSelection
-          : newSelection[0];
-
-    setSelectedValues(newSelection);
-    onChange(filter.id, finalValue);
-  };
-
   return (
     <div
       className={cn(
@@ -338,16 +312,6 @@ function NumericalFilterWidget({
     if (e.key === 'Enter') {
       e.currentTarget.blur(); // This will trigger onBlur which calls handleInputCommit
     }
-  };
-
-  const handleReset = () => {
-    const defaultValue = {
-      min: numericalFilter.settings.default_min || minValue,
-      max: numericalFilter.settings.default_max || maxValue,
-    };
-
-    setLocalValue(defaultValue);
-    onChange(filter.id, defaultValue);
   };
 
   const getSliderValue = (): number[] => {
