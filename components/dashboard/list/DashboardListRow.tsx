@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { getDashboardOwner, type DashboardListItem } from './dashboard-list-logic';
+import { getRolePermissions, hasEditAccess } from '@/components/access/logic/resource-permissions';
 import { DashboardRowMenu } from './DashboardRowMenu';
 
 interface DashboardListRowProps {
@@ -47,13 +48,12 @@ export function DashboardListRow({
   const isPersonalLanding = currentUser?.landing_dashboard_id === dashboard.id;
   const isOrgDefault = currentUser?.org_default_dashboard_id === dashboard.id;
   const canManageOrgDefault = hasPermission(PERMISSIONS.CAN_MANAGE_ORG_DEFAULT_DASHBOARD);
+  const dashboardRole = getRolePermissions('dashboard', hasPermission);
   const isLocked = dashboard.is_locked;
   const isLockedByOther =
     isLocked && dashboard.locked_by && dashboard.locked_by !== currentUser?.email;
   const isFavorited = dashboard.is_favorite ?? false;
-  const navigationUrl = hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS)
-    ? `/dashboards/${dashboard.id}`
-    : '#';
+  const navigationUrl = dashboardRole.canView ? `/dashboards/${dashboard.id}` : '#';
 
   return (
     <TableRow className="hover:bg-gray-50" data-testid={`dashboard-list-row-${dashboard.id}`}>
@@ -142,7 +142,7 @@ export function DashboardListRow({
       {/* Actions Column */}
       <TableCell className="py-4">
         <div className="flex items-center gap-2">
-          {dashboard.access_level === 'edit' && (
+          {hasEditAccess(dashboard.access_level) && (
             <Link href={`/dashboards/${dashboard.id}/edit`}>
               <Button
                 variant="ghost"
@@ -154,7 +154,7 @@ export function DashboardListRow({
               </Button>
             </Link>
           )}
-          {dashboard.access_level === 'edit' && (
+          {hasEditAccess(dashboard.access_level) && (
             <Button
               variant="ghost"
               size="icon"

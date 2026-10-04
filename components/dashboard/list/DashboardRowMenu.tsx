@@ -20,7 +20,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { PERMISSIONS, type useRbac } from '@/lib/rbac';
+import type { useRbac } from '@/lib/rbac';
+import {
+  canDeleteListRow,
+  getRolePermissions,
+} from '@/components/access/logic/resource-permissions';
 import type { DashboardListItem } from './dashboard-list-logic';
 
 interface DashboardRowMenuProps {
@@ -55,6 +59,7 @@ export function DashboardRowMenu({
   onDuplicate,
   onDelete,
 }: DashboardRowMenuProps) {
+  const dashboardRole = getRolePermissions('dashboard', hasPermission);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -69,12 +74,12 @@ export function DashboardRowMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         {/* Landing page controls */}
-        {(hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) || canManageOrgDefault) && (
+        {(dashboardRole.canView || canManageOrgDefault) && (
           <>
             <div className="px-2 py-1.5 text-xs text-muted-foreground font-medium">
               Landing Page
             </div>
-            {hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS) && (
+            {dashboardRole.canView && (
               <>
                 {isPersonalLanding ? (
                   <DropdownMenuItem
@@ -113,7 +118,7 @@ export function DashboardRowMenu({
             <DropdownMenuSeparator />
           </>
         )}
-        {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
+        {dashboardRole.canCreate && (
           <DropdownMenuItem
             onClick={() => onDuplicate(dashboard.id, dashboard.title || dashboard.dashboard_title)}
             className="cursor-pointer"
@@ -133,7 +138,7 @@ export function DashboardRowMenu({
             )}
           </DropdownMenuItem>
         )}
-        {hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS) && (
+        {canDeleteListRow('dashboard', dashboardRole.canDelete, dashboard.access_level) && (
           <>
             <DropdownMenuSeparator />
             {/* PINNED-BUGS: "After Cancel in delete dialog, row menu stays open and blocks clicks" — AlertDialog nested in the menu item (onSelect preventDefault) */}

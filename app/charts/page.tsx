@@ -7,7 +7,8 @@ import { useCharts, type Chart } from '@/hooks/api/useCharts';
 import { useDeleteChart } from '@/hooks/api/useChart';
 import { ShareModal } from '@/components/share/ShareModal';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useRbac } from '@/lib/rbac';
+import { getRolePermissions } from '@/components/access/logic/resource-permissions';
 import { Button } from '@/components/ui/button';
 import { DocsLink } from '@/components/ui/docs-link';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -57,6 +58,7 @@ export default function ChartsPage() {
   const { trigger: deleteChart } = useDeleteChart();
   const { confirm, DialogComponent } = useConfirmationDialog();
   const { hasPermission } = useRbac();
+  const chartRole = getRolePermissions('chart', hasPermission);
 
   const charts = allCharts || [];
 
@@ -178,7 +180,7 @@ export default function ChartsPage() {
             </p>
           </div>
 
-          {hasPermission(PERMISSIONS.CAN_CREATE_CHARTS) && (
+          {chartRole.canCreate && (
             <Link id="charts-create-link" href="/charts/new">
               <Button id="charts-create-button" variant="primary" data-testid="charts-create-btn">
                 <Plus id="charts-create-icon" className="w-4 h-4 mr-2" />
@@ -192,7 +194,7 @@ export default function ChartsPage() {
           <ChartSelectionBar
             selectedCount={selection.selectedCharts.size}
             visibleCount={filteredAndSortedCharts.length}
-            canDelete={hasPermission(PERMISSIONS.CAN_DELETE_CHARTS)}
+            canDelete={chartRole.canDelete}
             isBulkDeleting={selection.isBulkDeleting}
             onExit={selection.exitSelectionMode}
             onSelectAll={selection.selectAllCharts}
@@ -262,7 +264,7 @@ export default function ChartsPage() {
               <p id="charts-empty-text" className="text-muted-foreground">
                 {filters.activeFilterCount > 0 ? 'No charts found' : 'No charts yet'}
               </p>
-              {hasPermission(PERMISSIONS.CAN_CREATE_CHARTS) && (
+              {chartRole.canCreate && (
                 <Link id="charts-empty-create-link" href="/charts/new">
                   <Button
                     id="charts-empty-create-button"

@@ -14,7 +14,7 @@ import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useSnapshots, deleteSnapshot } from '@/hooks/api/useReports';
 import type { ReportSnapshot } from '@/types/reports';
 import { CreateSnapshotDialog } from '@/components/reports/create-snapshot-dialog';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useResourcePermissions } from '@/components/access/hooks/useResourcePermissions';
 import { DEFAULT_LIST_PAGE_SIZE, paginateRows, sortRows } from '@/components/list-page/list-logic';
 import { useListSort } from '@/components/list-page/useListSort';
 import { ListPagination } from '@/components/list-page/ListPagination';
@@ -31,9 +31,8 @@ import { ReportListSkeleton } from '@/components/reports/list/ReportListSkeleton
 export default function ReportsPage() {
   const router = useRouter();
   const { confirm, DialogComponent: DeleteDialog } = useConfirmationDialog();
-  const { hasPermission } = useRbac();
-  const canCreate = hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS);
-  const canDelete = hasPermission(PERMISSIONS.CAN_DELETE_DASHBOARDS);
+  // Reports reuse the dashboard create/delete slugs.
+  const { canCreate, canDelete } = useResourcePermissions('report');
 
   const [shareSnapshot, setShareSnapshot] = useState<ReportSnapshot | null>(null);
   const [emailSnapshot, setEmailSnapshot] = useState<ReportSnapshot | null>(null);

@@ -20,7 +20,8 @@ import { toggleFavorite } from '@/lib/favorite-utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { markDashboardShared } from '@/components/onboarding/insight-walkthrough-constants';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useRbac } from '@/lib/rbac';
+import { getRolePermissions } from '@/components/access/logic/resource-permissions';
 import { DEFAULT_LIST_PAGE_SIZE, sortRows } from '@/components/list-page/list-logic';
 import { useListSort } from '@/components/list-page/useListSort';
 import { ListPagination } from '@/components/list-page/ListPagination';
@@ -59,6 +60,7 @@ export function DashboardListV2() {
 
   // Get user permissions
   const { hasPermission } = useRbac();
+  const dashboardRole = getRolePermissions('dashboard', hasPermission);
 
   // Fetch dashboards
   const {
@@ -256,7 +258,7 @@ export function DashboardListV2() {
           </div>
 
           <div className="flex items-center gap-2">
-            {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
+            {dashboardRole.canCreate && (
               <Link id="dashboard-create-link" href="/dashboards/create">
                 <Button
                   id="dashboard-create-button"
@@ -313,7 +315,7 @@ export function DashboardListV2() {
               <p id="dashboard-empty-text" className="text-muted-foreground">
                 {filters.activeFilterCount > 0 ? 'No dashboards found' : 'No dashboards yet'}
               </p>
-              {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
+              {dashboardRole.canCreate && (
                 <Link id="dashboard-empty-create-link" href="/dashboards/create">
                   <Button
                     id="dashboard-empty-create-button"

@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { ReportSnapshot } from '@/types/reports';
 import { formatCreatedOn } from '@/components/reports/utils';
+import { canDeleteListRow, hasEditAccess } from '@/components/access/logic/resource-permissions';
 
 interface ReportListRowProps {
   snapshot: ReportSnapshot;
@@ -74,7 +75,7 @@ export function ReportListRow({
       </TableCell>
       <TableCell className="py-4">
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          {snapshot.access_level === 'edit' && (
+          {hasEditAccess(snapshot.access_level) && (
             <Button
               data-testid={`report-share-${snapshot.id}`}
               variant="ghost"
@@ -106,7 +107,7 @@ export function ReportListRow({
                 <FileText className="h-4 w-4 mr-2" />
                 View Report
               </DropdownMenuItem>
-              {snapshot.access_level === 'edit' && (
+              {hasEditAccess(snapshot.access_level) && (
                 <DropdownMenuItem
                   data-testid={`report-email-pdf-${snapshot.id}`}
                   onClick={() => onEmail(snapshot)}
@@ -115,7 +116,7 @@ export function ReportListRow({
                   Email PDF
                 </DropdownMenuItem>
               )}
-              {canDelete && snapshot.access_level === 'edit' && (
+              {canDeleteListRow('report', canDelete, snapshot.access_level) && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem

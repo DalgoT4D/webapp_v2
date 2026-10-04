@@ -4,7 +4,12 @@ import Link from 'next/link';
 import { CheckSquare, Copy, Edit, MoreVertical, Share2, Star, Trash, User } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Chart } from '@/hooks/api/useCharts';
-import { PERMISSIONS, type useRbac } from '@/lib/rbac';
+import type { useRbac } from '@/lib/rbac';
+import {
+  canDeleteListRow,
+  getRolePermissions,
+  hasEditAccess,
+} from '@/components/access/logic/resource-permissions';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TableCell, TableRow } from '@/components/ui/table';
@@ -58,6 +63,7 @@ export function ChartListRow({
   const typeColors = getChartTypeColors(chart.chart_type);
   const isFavorited = chart.is_favorite ?? false;
   const dataSource = getChartDataSource(chart);
+  const chartRole = getRolePermissions('chart', hasPermission);
 
   return (
     <TableRow className="hover:bg-gray-50">
@@ -94,7 +100,7 @@ export function ChartListRow({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Link
-                  href={hasPermission(PERMISSIONS.CAN_VIEW_CHARTS) ? `/charts/${chart.id}` : '#'}
+                  href={chartRole.canView ? `/charts/${chart.id}` : '#'}
                   data-testid={`chart-list-title-link-${chart.id}`}
                   className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline truncate"
                 >
@@ -172,7 +178,7 @@ export function ChartListRow({
       {/* Actions Column */}
       <TableCell className="py-4">
         <div className="flex items-center gap-2">
-          {chart.access_level === 'edit' && (
+          {hasEditAccess(chart.access_level) && (
             <Link href={`/charts/${chart.id}/edit`}>
               <Button
                 variant="ghost"
@@ -184,7 +190,7 @@ export function ChartListRow({
               </Button>
             </Link>
           )}
-          {chart.access_level === 'edit' && (
+          {hasEditAccess(chart.access_level) && (
             <Button
               variant="ghost"
               size="icon"
@@ -217,7 +223,7 @@ export function ChartListRow({
                 <CheckSquare className="w-4 h-4 mr-2" />
                 {isSelected ? 'Deselect' : 'Select'}
               </DropdownMenuItem>
-              {hasPermission(PERMISSIONS.CAN_CREATE_CHARTS) && (
+              {chartRole.canCreate && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -235,7 +241,7 @@ export function ChartListRow({
                   </DropdownMenuItem>
                 </>
               )}
-              {hasPermission(PERMISSIONS.CAN_VIEW_CHARTS) && (
+              {chartRole.canView && (
                 // PINNED-BUGS: "List-page CSV export of table charts always fails" (inside ChartExportDropdownForList)
                 <ChartExportDropdownForList
                   chartId={chart.id}
@@ -243,7 +249,7 @@ export function ChartListRow({
                   chartType={chart.chart_type}
                 />
               )}
-              {hasPermission(PERMISSIONS.CAN_DELETE_CHARTS) && (
+              {canDeleteListRow('chart', chartRole.canDelete, chart.access_level) && (
                 <>
                   <DropdownMenuSeparator />
                   <ChartDeleteDialog

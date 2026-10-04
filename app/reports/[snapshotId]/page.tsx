@@ -18,6 +18,7 @@ import { SummaryEditor } from '@/components/reports/viewer/SummaryEditor';
 import { useSummaryEditor } from '@/components/reports/viewer/useSummaryEditor';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { useResourcePermissions } from '@/components/access/hooks/useResourcePermissions';
 
 export default function SnapshotViewerPage() {
   const params = useParams();
@@ -38,7 +39,10 @@ export default function SnapshotViewerPage() {
   // (auto), owner, direct/group Edit grants, and Internal-mode edit-defaults.
   // Every role in the seed today has can_edit_dashboards, so effective Edit is the
   // sole gate — same rule the dashboard/chart/KPI detail pages use.
-  const hasEffectiveEdit = viewData?.access_level === 'edit';
+  const { hasEditAccess: hasEffectiveEdit } = useResourcePermissions(
+    'report',
+    viewData?.access_level
+  );
   const canEdit = hasEffectiveEdit;
   // Share/email-PDF gate: mirrors the list view + every other resource — the
   // per-resource `access_level === 'edit'` is the source of truth. The RBAC
