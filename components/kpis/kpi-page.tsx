@@ -47,7 +47,7 @@ import {
 } from '@/components/onboarding/insight-walkthrough-constants';
 import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
-import { ShareModal } from '@/components/ui/share-modal';
+import { ShareModal } from '@/components/share/ShareModal';
 import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 import { KPIForm } from './kpi-form';
 import { KPIDetailDrawer } from './kpi-detail-drawer';

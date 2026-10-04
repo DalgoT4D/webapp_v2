@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ShareModal } from '@/components/ui/share-modal';
+import { ShareModal } from '@/components/share/ShareModal';
 import * as access from '@/hooks/api/useAccess';
 import { copyUrlToClipboard } from '@/lib/clipboard';
 import type { ShareRow } from '@/types/access';

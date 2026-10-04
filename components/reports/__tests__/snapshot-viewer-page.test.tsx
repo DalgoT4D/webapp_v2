@@ -90,7 +90,7 @@ jest.mock('@/lib/rbac', () => {
 });
 
 // Mock ShareModal and ShareViaEmailDialog so we can check open/close without rendering internals
-jest.mock('@/components/ui/share-modal', () => ({
+jest.mock('@/components/share/ShareModal', () => ({
   ShareModal: ({ isOpen }: { isOpen: boolean }) =>
     isOpen ? <div data-testid="share-modal" /> : null,
 }));

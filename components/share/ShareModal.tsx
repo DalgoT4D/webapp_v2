@@ -71,7 +71,7 @@ interface ShareModalProps {
   onClose: () => void;
   onUpdate?: () => void;
   /** Called only when the public link actually reached the user's clipboard.
-   * This component lives in components/ui/ and stays analytics-free, so callers
+   * This component stays analytics-free (it lives in components/share/), so callers
    * hang the "shared" event (and the onboarding walkthrough's final step) here. */
   onCopyLink?: () => void;
   /** Called after General access successfully flips to Public. Same reason as

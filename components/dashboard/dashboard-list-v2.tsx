@@ -14,7 +14,7 @@ import {
   favoriteDashboard,
   unfavoriteDashboard,
 } from '@/hooks/api/useDashboards';
-import { ShareModal } from '@/components/ui/share-modal';
+import { ShareModal } from '@/components/share/ShareModal';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { toggleFavorite } from '@/lib/favorite-utils';
 import { trackEvent } from '@/lib/analytics';
@@ -193,7 +193,7 @@ export function DashboardListV2() {
     trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { dashboard_id: selectedDashboard?.id });
   }, [selectedDashboard?.id]);
 
-  // ShareModal (a components/ui/ component we keep free of onboarding logic) reports when
+  // ShareModal (components/share/, kept free of onboarding logic) reports when
   // General access flips to Public, so the resume-nudge "shared" milestone is set on that
   // action rather than inside the shared modal.
   const handleMadePublic = useCallback(() => {

@@ -5,7 +5,7 @@ import { Plus, BarChart2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
 import { useDeleteChart } from '@/hooks/api/useChart';
-import { ShareModal } from '@/components/ui/share-modal';
+import { ShareModal } from '@/components/share/ShareModal';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { Button } from '@/components/ui/button';

@@ -58,7 +58,7 @@ import { toFilterConfig } from '@/components/dashboard/filters/filter-config';
 import { useToast } from '@/components/ui/use-toast';
 import { toastSuccess } from '@/lib/toast';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
-import { ShareModal } from '@/components/ui/share-modal';
+import { ShareModal } from '@/components/share/ShareModal';
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';

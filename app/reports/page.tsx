@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ShareModal } from '@/components/ui/share-modal';
+import { ShareModal } from '@/components/share/ShareModal';
 import { ShareViaEmailDialog } from '@/components/reports/share-via-email-dialog';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { DocsLink } from '@/components/ui/docs-link';

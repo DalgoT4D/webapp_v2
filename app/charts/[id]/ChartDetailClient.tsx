@@ -24,7 +24,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChartExportDropdown } from '@/components/charts/ChartExportDropdown';
-import { ShareModal } from '@/components/ui/share-modal';
+import { ShareModal } from '@/components/share/ShareModal';
 import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';

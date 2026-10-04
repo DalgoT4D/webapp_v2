@@ -9,7 +9,7 @@ import { useCommentStates } from '@/hooks/api/useComments';
 import { usePdfDownload } from '@/hooks/usePdfDownload';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
 import type { AppliedFilters } from '@/types/dashboard-filters';
-import { ShareModal } from '@/components/ui/share-modal';
+import { ShareModal } from '@/components/share/ShareModal';
 import { ShareViaEmailDialog } from '@/components/reports/share-via-email-dialog';
 import { findSummaryCommentState } from '@/components/reports/logic/comments';
 import { parseCommentDeepLink } from '@/components/reports/logic/comment-deep-link';

@@ -69,7 +69,7 @@ jest.mock('@/components/onboarding/celebration-modal', () => ({
   CelebrationModal: (): null => null,
 }));
 jest.mock('@/components/alerts/AlertWizardModal', () => ({ AlertWizardModal: (): null => null }));
-jest.mock('@/components/ui/share-modal', () => ({ ShareModal: (): null => null }));
+jest.mock('@/components/share/ShareModal', () => ({ ShareModal: (): null => null }));
 
 function deferredKpi() {
   let resolve!: (kpi: KPI) => void;

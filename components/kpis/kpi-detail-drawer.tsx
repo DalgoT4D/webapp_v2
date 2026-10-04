@@ -43,7 +43,7 @@ import { ALERT_CREATE_SOURCES, ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { RequestEditPill } from '@/components/access/request-edit-pill';
-import { ShareModal } from '@/components/ui/share-modal';
+import { ShareModal } from '@/components/share/ShareModal';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { targetGapLabel } from '@/lib/kpi-rag';
 
