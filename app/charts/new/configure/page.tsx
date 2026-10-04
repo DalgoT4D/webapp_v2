@@ -15,29 +15,10 @@ import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigura
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExitDialog';
-import {
-  useChartData,
-  useChartDataPreview,
-  useChartDataPreviewTotalRows,
-  useCreateChart,
-  useGeoJSONData,
-  useMapDataOverlay,
-  useRawTableData,
-  useTableCount,
-  useColumns,
-  useRegions,
-  useChildRegions,
-  useRegionGeoJSONs,
-} from '@/hooks/api/useChart';
+import { useCreateChart, useColumns, useRegions, useChildRegions } from '@/hooks/api/useChart';
 import { toastSuccess, toastError, toastInfo } from '@/lib/toast';
-import {
-  ChartTypes,
-  type ChartCreate,
-  type ChartDataPayload,
-  type ChartBuilderFormData,
-} from '@/types/charts';
+import { type ChartCreate, type ChartDataPayload, type ChartBuilderFormData } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
-import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
 import { trackEvent, trackFeatureView } from '@/lib/analytics';
 import {
@@ -64,6 +45,9 @@ import { canSaveChart } from '@/components/charts/logic/validation';
 import { generateDefaultChartName } from '@/components/charts/logic/default-name';
 import { hasExistingChartConfig } from '@/components/charts/logic/auto-prefill';
 import { useChartBuilderState } from '@/components/charts/hooks/useChartBuilderState';
+import { usePreviewPagination } from '@/components/charts/hooks/usePreviewPagination';
+import { useChartPreviewData } from '@/components/charts/hooks/useChartPreviewData';
+import { useBuilderMapPreview } from '@/components/charts/hooks/useBuilderMapPreview';
 import {
   buildChartDataPayload,
   buildCreateChartPayload,
@@ -129,12 +113,7 @@ function ConfigureChartPageContent() {
     handleTabView(tabValue);
   };
 
-  const [dataPreviewPage, setDataPreviewPage] = useState(1);
-  const [dataPreviewPageSize, setDataPreviewPageSize] = useState(20);
-  const [rawDataPage, setRawDataPage] = useState(1);
-  const [rawDataPageSize, setRawDataPageSize] = useState(20);
-  const [tableChartPage, setTableChartPage] = useState(1);
-  const [tableChartPageSize, setTableChartPageSize] = useState(20);
+  const pages = usePreviewPagination('create', formData.pagination);
 
   // Unsaved changes detection state
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
@@ -163,13 +142,6 @@ function ConfigureChartPageContent() {
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null,
     drillDownPath.length > 0
   );
-  const currentDrillDownRegionId =
-    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
-  const {
-    data: regionGeojsons,
-    error: regionGeojsonsError,
-    isLoading: regionGeojsonsLoading,
-  } = useRegionGeoJSONs(currentDrillDownRegionId);
 
   // Handle browser navigation (refresh, close tab, external links)
   useEffect(() => {
@@ -194,149 +166,12 @@ function ConfigureChartPageContent() {
     [formData, tableDrillDownState]
   );
 
-  // Fetch chart data
-  const {
-    data: chartData,
-    error: chartError,
-    isLoading: chartLoading,
-  } = useChartData(
-    formData.chart_type !== 'map' && formData.chart_type !== 'table' ? chartDataPayload : null
-  );
-
-  // Fetch GeoJSON data for maps
-  // Make geojsonId drill-down aware
-  const drillDownGeojsonResolution = useMemo(
-    () =>
-      resolveDrillDownGeoJSON({
-        isDrillDownActive: drillDownPath.length > 0,
-        regionId: currentDrillDownRegionId,
-        regionGeojsons,
-        regionGeojsonsLoading,
-        regionGeojsonsError,
-        fallbackGeojsonId:
-          drillDownPath.length > 0 ? null : formData.geojsonPreviewPayload?.geojsonId,
-      }),
-    [
-      currentDrillDownRegionId,
-      drillDownPath.length,
-      formData.geojsonPreviewPayload?.geojsonId,
-      regionGeojsons,
-      regionGeojsonsError,
-      regionGeojsonsLoading,
-    ]
-  );
-  const geojsonId =
-    formData.chart_type === ChartTypes.MAP ? drillDownGeojsonResolution.geojsonId : null;
-
-  const {
-    data: geojsonData,
-    error: geojsonDataError,
-    isLoading: geojsonDataLoading,
-  } = useGeoJSONData(geojsonId);
-  const geojsonError = regionGeojsonsError || geojsonDataError;
-  const geojsonLoading = drillDownGeojsonResolution.isResolving || geojsonDataLoading;
-
-  // Fetch map data overlay
-  // ✅ FIXED: Keep original data overlay logic, just make it drill-down aware
-  const baseDataOverlayPayload =
-    formData.chart_type === 'map' && formData.dataOverlayPayload
-      ? formData.dataOverlayPayload
-      : null;
-
-  const dataOverlayPayload = useMemo(() => {
-    if (!baseDataOverlayPayload) return null;
-
-    // If no drill-down, use original payload
-    if (drillDownPath.length === 0) {
-      return baseDataOverlayPayload;
-    }
-
-    // If drill-down active, modify payload for drill-down level
-    const drillDownFilters: Record<string, string> = {};
-    drillDownPath.forEach((level) => {
-      level.parent_selections.forEach((selection) => {
-        drillDownFilters[selection.column] = selection.value;
-      });
-    });
-
-    // Determine active geographic column for drill-down
-    const hasDynamicDrillDown = formData.geographic_hierarchy?.drill_down_levels?.length > 0;
-    const drillDownColumn = hasDynamicDrillDown
-      ? formData.geographic_hierarchy.drill_down_levels[0]?.column
-      : formData.district_column;
-
-    const drillDownPayload = {
-      ...baseDataOverlayPayload,
-      geographic_column: drillDownColumn || baseDataOverlayPayload.geographic_column,
-      filters: {
-        ...baseDataOverlayPayload.filters,
-        ...drillDownFilters,
-      },
-    };
-
-    return drillDownPayload;
-  }, [
-    baseDataOverlayPayload,
-    drillDownPath,
-    formData.geographic_hierarchy,
-    formData.district_column,
-  ]);
-
-  const {
-    data: mapDataOverlay,
-    error: mapDataError,
-    isLoading: mapDataLoading,
-  } = useMapDataOverlay(dataOverlayPayload);
-
-  // Fetch data preview
-  const {
-    data: dataPreview,
-    error: previewError,
-    isLoading: previewLoading,
-  } = useChartDataPreview(
-    formData.chart_type !== 'pivot_table' ? chartDataPayload : null,
-    dataPreviewPage,
-    dataPreviewPageSize
-  );
-
-  // Fetch total rows for chart data preview pagination
-  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(
-    formData.chart_type !== 'pivot_table' ? chartDataPayload : null
-  );
-
-  // Fetch table chart data for table charts with server-side pagination
-  const {
-    data: tableChartData,
-    error: tableChartError,
-    isLoading: tableChartLoading,
-  } = useChartDataPreview(
-    formData.chart_type === 'table' ? chartDataPayload : null,
-    tableChartPage,
-    tableChartPageSize
-  );
-
-  // Fetch total rows for table chart pagination
-  const { data: tableChartDataTotalRows } = useChartDataPreviewTotalRows(
-    formData.chart_type === 'table' ? chartDataPayload : null
-  );
-
-  // Fetch raw table data
-  const {
-    data: rawTableData,
-    error: rawDataError,
-    isLoading: rawDataLoading,
-  } = useRawTableData(
-    formData.schema_name || null,
-    formData.table_name || null,
-    rawDataPage,
-    rawDataPageSize
-  );
-
-  // Get table count for raw data pagination
-  const { data: tableCount } = useTableCount(
-    formData.schema_name || null,
-    formData.table_name || null
-  );
+  const preview = useChartPreviewData({
+    config: formData,
+    payload: chartDataPayload,
+    builder: 'create',
+    pages,
+  });
 
   // Get all columns for raw data
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
@@ -357,86 +192,13 @@ function ConfigureChartPageContent() {
     }
   }, [columns, formData.schema_name, formData.table_name, formData.chart_type]);
 
-  // Generate map preview payloads in create mode
-  useEffect(() => {
-    const metric = formData.metrics?.[0];
-    const hasValidMetric = metric
-      ? !!(metric.column_expression || metric.aggregation)
-      : !!(formData.aggregate_column && formData.aggregate_function);
-
-    if (
-      formData.chart_type === 'map' &&
-      formData.geographic_column &&
-      formData.selected_geojson_id &&
-      hasValidMetric &&
-      formData.schema_name &&
-      formData.table_name
-    ) {
-      // Check if payloads need updating
-      const needsUpdate =
-        !formData.geojsonPreviewPayload ||
-        !formData.dataOverlayPayload ||
-        formData.geojsonPreviewPayload.geojsonId !== formData.selected_geojson_id ||
-        formData.dataOverlayPayload.geographic_column !== formData.geographic_column ||
-        JSON.stringify(formData.dataOverlayPayload.metric || {}) !== JSON.stringify(metric || {});
-
-      if (needsUpdate) {
-        const geojsonPayload = {
-          geojsonId: formData.selected_geojson_id,
-        };
-
-        const dataOverlayPayload = {
-          schema_name: formData.schema_name,
-          table_name: formData.table_name,
-          geographic_column: formData.geographic_column,
-          metric,
-          value_column:
-            formData.aggregate_column || formData.value_column || formData.geographic_column,
-          aggregate_function: formData.aggregate_function,
-          selected_geojson_id: formData.selected_geojson_id,
-          filters: {},
-          chart_filters: formData.filters || [],
-        };
-
-        patchConfig({ geojsonPreviewPayload: geojsonPayload, dataOverlayPayload });
-      }
-    } else if (formData.chart_type === 'map' && !hasValidMetric && formData.dataOverlayPayload) {
-      // Metric removed/invalid — clear the stale payload so the map stops showing old data.
-      patchConfig({ dataOverlayPayload: undefined });
-    }
-  }, [
-    formData.chart_type,
-    formData.geographic_column,
-    formData.selected_geojson_id,
-    formData.aggregate_column,
-    formData.aggregate_function,
-    formData.value_column,
-    formData.schema_name,
-    formData.table_name,
-    formData.filters,
-    // ✅ FIX: Include geographic_hierarchy to regenerate payloads when drill-down config changes
-    JSON.stringify(formData.geographic_hierarchy || {}),
-    // Stringify payloads to prevent infinite loops
-    JSON.stringify(formData.geojsonPreviewPayload || {}),
-    JSON.stringify(formData.dataOverlayPayload || {}),
-    JSON.stringify(formData.metrics?.[0] || {}),
-  ]);
-
-  const handleDataPreviewPageSizeChange = (newPageSize: number) => {
-    setDataPreviewPageSize(newPageSize);
-    setDataPreviewPage(1); // Reset to first page when page size changes
-  };
-
-  const handleRawDataPageSizeChange = (newPageSize: number) => {
-    setRawDataPageSize(newPageSize);
-    setRawDataPage(1); // Reset to first page when page size changes
-  };
-
-  // Handle table chart pagination page size change
-  const handleTableChartPageSizeChange = (newPageSize: number) => {
-    setTableChartPageSize(newPageSize);
-    setTableChartPage(1); // Reset to first page when page size changes
-  };
+  // Writes the map preview payloads into the config (the old page effect, same position/order).
+  const mapPreview = useBuilderMapPreview({
+    config: formData,
+    builder: 'create',
+    drillDownPath,
+    patchConfig,
+  });
 
   // Handle table row click for drill-down
   const handleTableRowClick = useCallback(
@@ -490,7 +252,7 @@ function ConfigureChartPageContent() {
       });
 
       // Reset to first page when drilling down
-      setTableChartPage(1);
+      pages.resetTableChartPage();
     },
     [formData.chart_type, formData.dimensions, tableDrillDownState]
   );
@@ -522,7 +284,7 @@ function ConfigureChartPageContent() {
     }
 
     // Reset to first page when drilling up
-    setTableChartPage(1);
+    pages.resetTableChartPage();
   }, [tableDrillDownState, formData.dimensions]);
 
   // FIX #3: Handle map region click for drill-down in create mode
@@ -865,12 +627,12 @@ function ConfigureChartPageContent() {
                   {formData.chart_type === 'map' ? (
                     <div className="w-full h-full">
                       <MapPreview
-                        geojsonData={geojsonData?.geojson_data}
-                        geojsonLoading={geojsonLoading}
-                        geojsonError={geojsonError}
-                        mapData={mapDataOverlay?.data}
-                        mapDataLoading={mapDataLoading}
-                        mapDataError={mapDataError}
+                        geojsonData={mapPreview.geojsonData?.geojson_data}
+                        geojsonLoading={mapPreview.geojsonLoading}
+                        geojsonError={mapPreview.geojsonError}
+                        mapData={mapPreview.mapDataOverlay?.data}
+                        mapDataLoading={mapPreview.mapDataLoading}
+                        mapDataError={mapPreview.mapDataError}
                         valueColumn={formData.metrics?.[0]?.alias || formData.aggregate_column}
                         customizations={formData.customizations}
                         // ✅ UPDATE: Complete drill-down support in create mode
@@ -904,10 +666,15 @@ function ConfigureChartPageContent() {
                       )}
                       <div className="flex-1 overflow-hidden">
                         <TableChart
-                          data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
+                          data={
+                            Array.isArray(preview.tableChartData?.data)
+                              ? preview.tableChartData.data
+                              : []
+                          }
                           config={{
                             table_columns: (() => {
-                              const cols = tableChartData?.columns || formData.table_columns || [];
+                              const cols =
+                                preview.tableChartData?.columns || formData.table_columns || [];
                               const drillDownDimensions =
                                 formData.dimensions
                                   ?.filter((d) => d.enable_drill_down)
@@ -933,14 +700,14 @@ function ConfigureChartPageContent() {
                             freezeFirstColumn: formData.customizations?.freezeFirstColumn || false,
                             theme: formData.customizations?.theme,
                           }}
-                          isLoading={tableChartLoading}
-                          error={tableChartError}
+                          isLoading={preview.tableChartLoading}
+                          error={preview.tableChartError}
                           pagination={{
-                            page: tableChartPage,
-                            pageSize: tableChartPageSize,
-                            total: tableChartDataTotalRows || 0,
-                            onPageChange: setTableChartPage,
-                            onPageSizeChange: handleTableChartPageSizeChange,
+                            page: pages.tableChart.page,
+                            pageSize: pages.tableChart.pageSize,
+                            total: preview.tableChartTotalRows || 0,
+                            onPageChange: pages.tableChart.setPage,
+                            onPageSizeChange: pages.tableChart.changePageSize,
                           }}
                           onRowClick={handleTableRowClick}
                           drillDownEnabled={formData.dimensions?.some(
@@ -967,13 +734,15 @@ function ConfigureChartPageContent() {
                         config={
                           formData.chart_type === 'pivot_table'
                             ? { extra_config: formData.extra_config }
-                            : chartData?.echarts_config
+                            : preview.chartData?.echarts_config
                         }
                         tableData={
-                          formData.chart_type === 'pivot_table' ? chartData?.data : undefined
+                          formData.chart_type === 'pivot_table'
+                            ? preview.chartData?.data
+                            : undefined
                         }
-                        isLoading={chartLoading}
-                        error={chartError}
+                        isLoading={preview.chartDataLoading}
+                        error={preview.chartDataError}
                         chartType={formData.chart_type}
                         customizations={formData.customizations}
                       />
@@ -1015,25 +784,27 @@ function ConfigureChartPageContent() {
                       {formData.chart_type === 'pivot_table' ? (
                         <ChartPreview
                           config={{ extra_config: formData.extra_config }}
-                          tableData={chartData?.data}
-                          isLoading={chartLoading}
-                          error={chartError}
+                          tableData={preview.chartData?.data}
+                          isLoading={preview.chartDataLoading}
+                          error={preview.chartDataError}
                           chartType={formData.chart_type}
                           customizations={formData.customizations}
                         />
                       ) : (
                         <DataPreview
-                          data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
-                          columns={dataPreview?.columns || []}
-                          columnTypes={dataPreview?.column_types || {}}
-                          isLoading={previewLoading}
-                          error={previewError}
+                          data={
+                            Array.isArray(preview.dataPreview?.data) ? preview.dataPreview.data : []
+                          }
+                          columns={preview.dataPreview?.columns || []}
+                          columnTypes={preview.dataPreview?.column_types || {}}
+                          isLoading={preview.previewLoading}
+                          error={preview.previewError}
                           pagination={{
-                            page: dataPreviewPage,
-                            pageSize: dataPreviewPageSize,
-                            total: chartDataTotalRows || 0,
-                            onPageChange: setDataPreviewPage,
-                            onPageSizeChange: handleDataPreviewPageSizeChange,
+                            page: pages.dataPreview.page,
+                            pageSize: pages.dataPreview.pageSize,
+                            total: preview.chartDataTotalRows || 0,
+                            onPageChange: pages.dataPreview.setPage,
+                            onPageSizeChange: pages.dataPreview.changePageSize,
                           }}
                         />
                       )}
@@ -1041,23 +812,23 @@ function ConfigureChartPageContent() {
 
                     <TabsContent value="raw-data" className="flex-1">
                       <DataPreview
-                        data={Array.isArray(rawTableData) ? rawTableData : []}
+                        data={Array.isArray(preview.rawTableData) ? preview.rawTableData : []}
                         columns={
-                          rawTableData && rawTableData.length > 0
-                            ? Object.keys(rawTableData[0])
+                          preview.rawTableData && preview.rawTableData.length > 0
+                            ? Object.keys(preview.rawTableData[0])
                             : []
                         }
                         columnTypes={{}}
-                        isLoading={rawDataLoading}
-                        error={rawDataError}
+                        isLoading={preview.rawDataLoading}
+                        error={preview.rawDataError}
                         pagination={
-                          tableCount
+                          preview.tableCount
                             ? {
-                                page: rawDataPage,
-                                pageSize: rawDataPageSize,
-                                total: tableCount.total_rows || 0,
-                                onPageChange: setRawDataPage,
-                                onPageSizeChange: handleRawDataPageSizeChange,
+                                page: pages.rawData.page,
+                                pageSize: pages.rawData.pageSize,
+                                total: preview.tableCount.total_rows || 0,
+                                onPageChange: pages.rawData.setPage,
+                                onPageSizeChange: pages.rawData.changePageSize,
                               }
                             : undefined
                         }
