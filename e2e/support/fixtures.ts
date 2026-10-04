@@ -1,6 +1,6 @@
 import { type Page, test as base, expect } from '@playwright/test';
 import { type Resource, ApiClient } from './api-client';
-import { type RoleName, e2eTitle, hasRole, ROLE_USERS, SEED } from './env';
+import { type RoleName, e2eTitle, hasRole, ORG_SLUG, ROLE_USERS, SEED } from './env';
 import { flushJournal } from './journal';
 import { EmailGuardError, installEmailGuard } from './email-guard';
 import { flushInteractions, installInteractionRecorder, type Touched } from './interactions';
@@ -25,11 +25,25 @@ const HIDE_ONBOARDING_CSS = `
   [data-testid="getting-started-widget"] { visibility: hidden !important; pointer-events: none !important; }
 `;
 
+// Trial lifecycle modal ("N days left") opens on days 7, 2 and 1 of the trial and covers the page.
+// The app suppresses it for the rest of a session once closed — keys mirror constants/trial.ts.
+const TRIAL_NUDGE_DAYS = [7, 2, 1];
+const TRIAL_DAY_NUDGE_DISMISSED_PREFIX = 'dalgo_trial_day_nudge_dismissed_';
+
 /**
  * Trial orgs show driver.js "feature nudge" popovers that intercept clicks at random moments,
- * plus a floating onboarding widget. Neutralize both so specs don't have to.
+ * a floating onboarding widget, and (late in the trial) a full-screen "days left" modal.
+ * Neutralize all three so specs don't have to — and so runs match baselines recorded earlier
+ * in the trial.
  */
 export async function installUiGuards(page: Page) {
+  await page.addInitScript(
+    ({ prefix, days, orgSlug }) => {
+      for (const day of days) sessionStorage.setItem(`${prefix}${day}_${orgSlug}`, '1');
+    },
+    { prefix: TRIAL_DAY_NUDGE_DISMISSED_PREFIX, days: TRIAL_NUDGE_DAYS, orgSlug: ORG_SLUG }
+  );
+
   await page.addInitScript((css) => {
     const inject = () => {
       const style = document.createElement('style');
