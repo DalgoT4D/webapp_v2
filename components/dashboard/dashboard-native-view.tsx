@@ -53,14 +53,8 @@ import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
 import { UnifiedTextElement } from './text-element-unified';
 import { KPIChartElement } from './kpi-chart-element';
-import {
-  DashboardFilterType,
-  type ValueFilterSettings,
-  type NumericalFilterSettings,
-  type DateTimeFilterSettings,
-  type AppliedFilters,
-  type DashboardFilterConfig,
-} from '@/types/dashboard-filters';
+import { type AppliedFilters, type DashboardFilterConfig } from '@/types/dashboard-filters';
+import { toFilterConfig } from '@/components/dashboard/filters/filter-config';
 import { useToast } from '@/components/ui/use-toast';
 import { toastSuccess } from '@/lib/toast';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
@@ -198,49 +192,6 @@ function generateResponsiveLayoutsForPreview(
   return layouts;
 }
 
-// Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
-function convertFilterToConfig(
-  filter: any,
-  position: { x: number; y: number; w: number; h: number }
-): DashboardFilterConfig {
-  const baseConfig = {
-    id: filter.id.toString(),
-    name: filter.name,
-    schema_name: filter.schema_name,
-    table_name: filter.table_name,
-    column_name: filter.column_name,
-    filter_type: filter.filter_type as DashboardFilterType,
-    position,
-  };
-
-  if (filter.filter_type === 'value') {
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.VALUE,
-      settings: filter.settings as ValueFilterSettings,
-    };
-  } else if (filter.filter_type === 'numerical') {
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.NUMERICAL,
-      settings: filter.settings as NumericalFilterSettings,
-    };
-  } else if (filter.filter_type === 'datetime') {
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.DATETIME,
-      settings: filter.settings as DateTimeFilterSettings,
-    };
-  } else {
-    // Fallback to VALUE type for unknown types
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.VALUE,
-      settings: filter.settings as ValueFilterSettings,
-    };
-  }
-}
-
 interface DashboardNativeViewProps {
   dashboardId: number;
   isPublicMode?: boolean;
@@ -297,9 +248,7 @@ export function DashboardNativeView({
     // In report mode, dashboardData is pre-fetched so filters are available immediately.
     // Compute defaults synchronously to avoid a double-render cycle with empty filters.
     if (isReportMode && dashboardData?.filters && Array.isArray(dashboardData.filters)) {
-      const filterConfigs = dashboardData.filters.map((filter: any) =>
-        convertFilterToConfig(filter, { x: 0, y: 0, w: 4, h: 3 })
-      );
+      const filterConfigs = dashboardData.filters.map((filter: any) => toFilterConfig(filter));
       return getDefaultFilterValues(filterConfigs);
     }
     return {};
@@ -449,9 +398,7 @@ export function DashboardNativeView({
   const dashboardFilters: DashboardFilterConfig[] = useMemo(() => {
     if (!dashboard?.filters || !Array.isArray(dashboard.filters)) return [];
 
-    return dashboard.filters.map((filter: any) =>
-      convertFilterToConfig(filter, { x: 0, y: 0, w: 4, h: 3 })
-    );
+    return dashboard.filters.map((filter: any) => toFilterConfig(filter));
   }, [dashboard?.filters]);
 
   // Default filter values for report mode are computed synchronously in useState above.
@@ -817,7 +764,7 @@ export function DashboardNativeView({
         }
 
         // Convert to proper format using conversion function
-        const normalizedFilter = convertFilterToConfig(filterData, { x: 0, y: 0, w: 4, h: 3 });
+        const normalizedFilter = toFilterConfig(filterData);
 
         return (
           <div key={componentId} className="h-full">
