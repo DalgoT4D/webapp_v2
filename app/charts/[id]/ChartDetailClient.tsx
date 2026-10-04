@@ -32,6 +32,7 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, CHART_DRILL_SOURCES } from '@/constants/analytics';
 import { useDrillDownAnalytics } from '@/components/charts/useDrillDownAnalytics';
 import { useTableDrillDown } from '@/components/charts/hooks/useTableDrillDown';
+import { TableDrillBreadcrumb } from '@/components/charts/builder/TableDrillBreadcrumb';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import type { ChartDataPayload } from '@/types/charts';
@@ -863,24 +864,10 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               ) : chart?.chart_type === 'table' ? (
                 <div className="w-full h-full flex flex-col">
                   {/* Breadcrumb navigation for drill-down */}
-                  {tableDrill.tableDrillDownState && (
-                    <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={tableDrill.handleTableDrillUp}
-                        className="h-8"
-                        data-testid="chart-table-drill-back-btn"
-                      >
-                        ← Back
-                      </Button>
-                      <span className="text-sm text-muted-foreground">
-                        {Object.entries(tableDrill.tableDrillDownState.appliedFilters)
-                          .map(([col, val]) => `${col}: ${val}`)
-                          .join(' → ')}
-                      </span>
-                    </div>
-                  )}
+                  <TableDrillBreadcrumb
+                    state={tableDrill.tableDrillDownState}
+                    onBack={tableDrill.handleTableDrillUp}
+                  />
                   <div className="flex-1 overflow-hidden">
                     <TableChart
                       data={Array.isArray(tableData?.data) ? tableData.data : []}

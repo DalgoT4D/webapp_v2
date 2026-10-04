@@ -4,22 +4,16 @@ import { useState, useEffect, Suspense, useMemo, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Database, BarChart3, Lock, ArrowLeft } from 'lucide-react';
+import { Lock, ArrowLeft } from 'lucide-react';
 import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
-import { ChartPreview } from '@/components/charts/ChartPreview';
-import { DataPreview } from '@/components/charts/DataPreview';
-import { TableChart } from '@/components/charts/TableChart';
 import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigurationV3';
 import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
-import { MapPreview } from '@/components/charts/map/MapPreview';
 import { SaveOptionsDialog } from '@/components/charts/SaveOptionsDialog';
 import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExitDialog';
 import { useChart, useUpdateChart, useCreateChart, useColumns } from '@/hooks/api/useChart';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { ChartTypes } from '@/types/charts';
-import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
@@ -53,8 +47,11 @@ import { useChartPreviewData } from '@/components/charts/hooks/useChartPreviewDa
 import { useBuilderMapPreview } from '@/components/charts/hooks/useBuilderMapPreview';
 import { useMapDrillDown } from '@/components/charts/hooks/useMapDrillDown';
 import { useTableDrillDown } from '@/components/charts/hooks/useTableDrillDown';
-import { getDrillDownColumns } from '@/components/charts/logic/table-drilldown';
 import { buildChartDataPayload, buildEditChartPayload } from '@/components/charts/logic/payload';
+import { useUnsavedChangesGuard } from '@/components/charts/hooks/useUnsavedChangesGuard';
+import { ChartBuilderLayout } from '@/components/charts/builder/ChartBuilderLayout';
+import { BuilderChartPanel } from '@/components/charts/builder/BuilderChartPanel';
+import { BuilderDataPanel } from '@/components/charts/builder/BuilderDataPanel';
 
 function EditChartPageContent() {
   const params = useParams();
@@ -106,13 +103,7 @@ function EditChartPageContent() {
   });
 
   const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [showExitDialog, setShowExitDialog] = useState(false);
   const [isExitingAfterSave, setIsExitingAfterSave] = useState(false);
-  const [unsavedChangesDialog, setUnsavedChangesDialog] = useState({
-    open: false,
-    onConfirm: () => {},
-    onCancel: () => {},
-  });
   const [errorToastVisible, setErrorToastVisible] = useState(false);
   const [errorToastDismissed, setErrorToastDismissed] = useState(false);
 
@@ -176,23 +167,8 @@ function EditChartPageContent() {
     }
   }, [hasNavigationSource, navigateBackWithoutWarning, navigateWithoutWarning]);
 
-  // Handle browser navigation (refresh, close tab, external links)
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-        return 'You have unsaved changes. Are you sure you want to leave?';
-      }
-      return undefined;
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [hasUnsavedChanges]);
+  // Browser leave warning (refresh, close tab, external links) + the exit / back leave dialogs.
+  const guard = useUnsavedChangesGuard(hasUnsavedChanges);
 
   // Check if form data is complete enough to generate chart data
   const isChartDataReady = () => isChartReady(formData, 'edit');
@@ -385,7 +361,7 @@ function EditChartPageContent() {
 
   const handleCancel = () => {
     if (hasUnsavedChanges) {
-      setShowExitDialog(true);
+      guard.askToLeave('exit');
     } else if (hasNavigationSource) {
       router.back();
     } else {
@@ -401,12 +377,12 @@ function EditChartPageContent() {
     // Mark that we're exiting after save
     setIsExitingAfterSave(true);
     // Close exit dialog and show save options dialog
-    setShowExitDialog(false);
+    guard.closeLeavePrompt();
     setShowSaveDialog(true);
   };
 
   const handleLeaveWithoutSaving = () => {
-    setShowExitDialog(false);
+    guard.closeLeavePrompt();
     if (hasNavigationSource) {
       navigateBackWithoutWarning();
     } else {
@@ -415,7 +391,7 @@ function EditChartPageContent() {
   };
 
   const handleStayOnPage = () => {
-    setShowExitDialog(false);
+    guard.closeLeavePrompt();
   };
 
   // Per-resource access denied — chart loaded but caller lacks edit on THIS chart.
@@ -477,9 +453,9 @@ function EditChartPageContent() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-gray-50">
-      {/* Single Header with Everything */}
-      <div className="bg-white border-b px-6 py-4 flex-shrink-0">
+    <ChartBuilderLayout
+      builder="edit"
+      header={
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Back Button */}
@@ -489,28 +465,7 @@ function EditChartPageContent() {
               size="sm"
               onClick={() => {
                 if (hasUnsavedChanges) {
-                  setUnsavedChangesDialog({
-                    open: true,
-                    onConfirm: () => {
-                      setUnsavedChangesDialog({
-                        open: false,
-                        onConfirm: () => {},
-                        onCancel: () => {},
-                      });
-                      if (hasNavigationSource) {
-                        navigateBackWithoutWarning();
-                      } else {
-                        navigateWithoutWarning(chartDetailUrl(chartId));
-                      }
-                    },
-                    onCancel: () => {
-                      setUnsavedChangesDialog({
-                        open: false,
-                        onConfirm: () => {},
-                        onCancel: () => {},
-                      });
-                    },
-                  });
+                  guard.askToLeave('back');
                 } else if (hasNavigationSource) {
                   router.back();
                 } else {
@@ -553,360 +508,130 @@ function EditChartPageContent() {
             </Button>
           </div>
         </div>
-      </div>
-
-      {/* Main Content Area with 2rem margin container */}
-      <div className="p-8 h-[calc(100vh-144px)]">
-        <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
-          {/* Left Panel - 30% */}
-          <div className="w-[30%] border-r">
-            <Tabs defaultValue="configuration" onValueChange={handleTabView} className="h-full">
-              <div className="px-4 pt-4">
-                <TabsList className="grid w-full h-11 grid-cols-2" data-testid="chart-config-tabs">
-                  <TabsTrigger
-                    value="configuration"
-                    className="flex items-center justify-center gap-2 text-sm h-full"
-                    data-testid="chart-data-config-tab"
-                  >
-                    <BarChart3 className="h-4 w-4" />
-                    Data Configuration
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="styling"
-                    className="flex items-center justify-center gap-2 text-sm h-full"
-                    data-testid="chart-styling-tab"
-                  >
-                    <Database className="h-4 w-4" />
-                    Chart Styling
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              <TabsContent
-                value="configuration"
-                className="mt-6 h-[calc(100%-73px)] overflow-y-auto"
-              >
-                <div className="p-4">
-                  {formData.chart_type === ChartTypes.MAP ? (
-                    <MapDataConfigurationV3
-                      formData={formData}
-                      onFormDataChange={handleFormChange}
-                    />
-                  ) : (
-                    <ChartDataConfigurationV3
-                      formData={formData}
-                      onChange={handleFormChange}
-                      disabled={false}
-                    />
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="styling" className="mt-0 flex-1 overflow-y-auto">
-                <div className="p-4">
-                  {formData.chart_type === ChartTypes.MAP ? (
-                    <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
-                  ) : (
-                    <ChartCustomizations
-                      chartType={formData.chart_type || ChartTypes.BAR}
-                      formData={formData}
-                      onChange={handleFormChange}
-                      columns={columns}
-                      currentDrillLevel={tableDrill.currentDrillLevel}
-                    />
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
+      }
+      onConfigTabChange={handleTabView}
+      dataConfigPanel={
+        formData.chart_type === ChartTypes.MAP ? (
+          <MapDataConfigurationV3 formData={formData} onFormDataChange={handleFormChange} />
+        ) : (
+          <ChartDataConfigurationV3
+            formData={formData}
+            onChange={handleFormChange}
+            disabled={false}
+          />
+        )
+      }
+      stylingPanel={
+        formData.chart_type === ChartTypes.MAP ? (
+          <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
+        ) : (
+          <ChartCustomizations
+            chartType={formData.chart_type || ChartTypes.BAR}
+            formData={formData}
+            onChange={handleFormChange}
+            columns={columns}
+            currentDrillLevel={tableDrill.currentDrillLevel}
+          />
+        )
+      }
+      previewTab={activeTab}
+      onPreviewTabChange={handlePreviewTabChange}
+      chartOverlay={
+        /* Configuration error toast - properly centered in chart area with working click */
+        errorToastVisible && (
+          <div
+            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-auto cursor-pointer"
+            style={{
+              zIndex: 9999,
+              width: '90%',
+              maxWidth: '24rem',
+            }}
+            onClick={handleDismissToast}
+            data-testid="chart-config-incomplete-overlay"
+          >
+            <Alert
+              variant="destructive"
+              className="shadow-2xl animate-in slide-in-from-top-2 duration-300 hover:shadow-3xl transition-all border-2 border-red-300 bg-red-50 cursor-pointer"
+            >
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-sm">
+                Please check the dataset or metric column to complete the chart configuration
+                <div className="text-xs text-red-600 mt-2 font-medium">✕ Click to dismiss</div>
+              </AlertDescription>
+            </Alert>
           </div>
+        )
+      }
+      chartPanel={
+        <BuilderChartPanel
+          builder="edit"
+          config={formData}
+          map={{ ...mapPreview, ...mapDrill }}
+          table={{
+            drill: tableDrill,
+            data: preview.tableChartData,
+            isLoading: preview.tableChartLoading,
+            error: preview.tableChartError,
+            page: pages.tableChart,
+            total: preview.chartDataTotalRows || 0,
+            showPagination: !!chartDataPayload,
+          }}
+          chart={{
+            data: preview.chartData,
+            isLoading: preview.chartDataLoading,
+            error: preview.chartDataError,
+            lastValidConfig: preview.lastValidChartConfig,
+          }}
+        />
+      }
+      dataPanel={
+        <BuilderDataPanel builder="edit" config={formData} preview={preview} pages={pages} />
+      }
+      dialogs={
+        <>
+          {/* Save Options Dialog */}
+          <SaveOptionsDialog
+            open={showSaveDialog}
+            onOpenChange={setShowSaveDialog}
+            originalTitle={formData.title || ''}
+            onSaveExisting={handleUpdateExisting}
+            onSaveAsNew={handleSaveAsNew}
+            isLoading={isMutating || isCreating}
+          />
 
-          {/* Right Panel - 70% */}
-          <div className="w-[70%]">
-            <Tabs value={activeTab} onValueChange={handlePreviewTabChange} className="h-full">
-              <div className="px-4">
-                <TabsList className="grid grid-cols-2">
-                  <TabsTrigger
-                    value="chart"
-                    className="flex items-center gap-2"
-                    data-testid="chart-preview-tab-chart"
-                  >
-                    <BarChart3 className="h-4 w-4" />
-                    CHART
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="data"
-                    className="flex items-center gap-2"
-                    data-testid="chart-preview-tab-data"
-                  >
-                    <Database className="h-4 w-4" />
-                    DATA
-                  </TabsTrigger>
-                </TabsList>
-              </div>
+          {/* Exit Dialog - Save, Leave, or Stay */}
+          <UnsavedChangesExitDialog
+            open={guard.leaveTarget === 'exit'}
+            onOpenChange={(open) => !open && guard.closeLeavePrompt()}
+            onSave={handleSaveAndLeave}
+            onLeave={handleLeaveWithoutSaving}
+            onStay={handleStayOnPage}
+            isSaving={isMutating}
+          />
 
-              <TabsContent value="chart" className="h-[calc(100%-73px)] overflow-y-auto relative">
-                <div className="p-4 h-full relative">
-                  {/* Configuration error toast - properly centered in chart area with working click */}
-                  {errorToastVisible && (
-                    <div
-                      className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-auto cursor-pointer"
-                      style={{
-                        zIndex: 9999,
-                        width: '90%',
-                        maxWidth: '24rem',
-                      }}
-                      onClick={handleDismissToast}
-                      data-testid="chart-config-incomplete-overlay"
-                    >
-                      <Alert
-                        variant="destructive"
-                        className="shadow-2xl animate-in slide-in-from-top-2 duration-300 hover:shadow-3xl transition-all border-2 border-red-300 bg-red-50 cursor-pointer"
-                      >
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription className="text-sm">
-                          Please check the dataset or metric column to complete the chart
-                          configuration
-                          <div className="text-xs text-red-600 mt-2 font-medium">
-                            ✕ Click to dismiss
-                          </div>
-                        </AlertDescription>
-                      </Alert>
-                    </div>
-                  )}
-
-                  {/* Chart content area - always full size */}
-                  {formData.chart_type === ChartTypes.MAP ? (
-                    <div className="w-full h-full">
-                      <MapPreview
-                        geojsonData={mapPreview.geojsonData?.geojson_data}
-                        geojsonLoading={mapPreview.geojsonLoading}
-                        geojsonError={mapPreview.geojsonError}
-                        mapData={mapPreview.mapDataOverlay?.data}
-                        mapDataLoading={mapPreview.mapDataLoading}
-                        mapDataError={mapPreview.mapDataError}
-                        valueColumn={formData.metrics?.[0]?.alias || formData.aggregate_column}
-                        customizations={formData.customizations}
-                        onRegionClick={mapDrill.handleRegionClick}
-                        drillDownPath={mapDrill.drillDownPath}
-                        onDrillUp={mapDrill.handleDrillUp}
-                        onDrillHome={mapDrill.handleDrillHome}
-                      />
-                    </div>
-                  ) : formData.chart_type === ChartTypes.TABLE ? (
-                    <div className="w-full h-full flex flex-col">
-                      {/* Breadcrumb navigation for drill-down */}
-                      {tableDrill.tableDrillDownState && (
-                        <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={tableDrill.handleTableDrillUp}
-                            className="h-8"
-                            data-testid="chart-table-drill-back-btn"
-                          >
-                            ← Back
-                          </Button>
-                          <span className="text-sm text-muted-foreground">
-                            {Object.entries(tableDrill.tableDrillDownState.appliedFilters)
-                              .map(([col, val]) => `${col}: ${val}`)
-                              .join(' → ')}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1 overflow-hidden">
-                        <TableChart
-                          data={
-                            Array.isArray(preview.tableChartData?.data)
-                              ? preview.tableChartData.data
-                              : []
-                          }
-                          config={{
-                            table_columns: resolveTableColumnOrder({
-                              cols: preview.tableChartData?.columns || formData.table_columns || [],
-                              savedOrder: formData.customizations?.columnOrder,
-                              drillDownDimensions: getDrillDownColumns(formData.dimensions),
-                              currentDimensionColumn: tableDrill.currentDimensionColumn,
-                            }),
-                            column_formatting: mergeTableColumnFormatting(formData.customizations),
-                            sort: formData.sort,
-                            pagination: formData.pagination || { enabled: true, page_size: 20 },
-                            conditionalFormatting:
-                              formData.customizations?.conditionalFormatting || [],
-                            columnAlignment: formData.customizations?.columnAlignment || {},
-                            zebraRows: formData.customizations?.zebraRows ?? true,
-                            freezeFirstColumn: formData.customizations?.freezeFirstColumn || false,
-                            theme: formData.customizations?.theme,
-                          }}
-                          isLoading={preview.tableChartLoading}
-                          error={preview.tableChartError}
-                          pagination={
-                            chartDataPayload
-                              ? {
-                                  page: pages.tableChart.page,
-                                  pageSize: pages.tableChart.pageSize,
-                                  total: preview.chartDataTotalRows || 0,
-                                  onPageChange: pages.tableChart.setPage,
-                                  onPageSizeChange: pages.tableChart.changePageSize,
-                                }
-                              : undefined
-                          }
-                          onRowClick={tableDrill.handleTableRowClick}
-                          drillDownEnabled={tableDrill.isDrillDownEnabled}
-                          currentDimensionColumn={tableDrill.currentDimensionColumn}
-                          currentDrillLevel={tableDrill.currentDrillLevel}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="w-full h-full">
-                      <ChartPreview
-                        key={`${formData.schema_name}-${formData.table_name}`}
-                        config={
-                          formData.chart_type === 'pivot_table'
-                            ? { extra_config: formData.extra_config }
-                            : preview.chartData?.echarts_config || preview.lastValidChartConfig
-                        }
-                        tableData={
-                          formData.chart_type === 'pivot_table'
-                            ? preview.chartData?.data
-                            : undefined
-                        }
-                        isLoading={preview.chartDataLoading}
-                        error={null} // Error handled by toast
-                        chartType={formData.chart_type}
-                        customizations={formData.customizations}
-                      />
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="data" className="h-[calc(100%-73px)] overflow-hidden">
-                <div className="p-4 h-full">
-                  <Tabs
-                    defaultValue={
-                      formData.chart_type === ChartTypes.TABLE ||
-                      formData.chart_type === ChartTypes.PIVOT_TABLE
-                        ? 'raw-data'
-                        : 'chart-data'
-                    }
-                    className="h-full flex flex-col"
-                  >
-                    <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
-                      <TabsTrigger
-                        value="chart-data"
-                        className="flex items-center gap-2"
-                        data-testid="chart-data-tab-chart-data"
-                      >
-                        <BarChart3 className="h-4 w-4" />
-                        Chart Data
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="raw-data"
-                        className="flex items-center gap-2"
-                        data-testid="chart-data-tab-raw-data"
-                      >
-                        <Database className="h-4 w-4" />
-                        Raw Data
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="chart-data" className="flex-1 overflow-auto">
-                      {formData.chart_type === ChartTypes.PIVOT_TABLE ? (
-                        <ChartPreview
-                          config={{ extra_config: formData.extra_config }}
-                          tableData={preview.chartData?.data}
-                          isLoading={preview.chartDataLoading}
-                          error={null}
-                          chartType={formData.chart_type}
-                          customizations={formData.customizations}
-                        />
-                      ) : (
-                        <DataPreview
-                          data={
-                            Array.isArray(preview.dataPreview?.data) ? preview.dataPreview.data : []
-                          }
-                          columns={preview.dataPreview?.columns || []}
-                          columnTypes={preview.dataPreview?.column_types || {}}
-                          isLoading={preview.previewLoading}
-                          error={preview.previewError}
-                          pagination={{
-                            page: pages.dataPreview.page,
-                            pageSize: pages.dataPreview.pageSize,
-                            total: preview.chartDataTotalRows || 0,
-                            onPageChange: pages.dataPreview.setPage,
-                            onPageSizeChange: pages.dataPreview.changePageSize,
-                          }}
-                        />
-                      )}
-                    </TabsContent>
-
-                    <TabsContent value="raw-data" className="flex-1 overflow-auto">
-                      <DataPreview
-                        data={Array.isArray(preview.rawTableData) ? preview.rawTableData : []}
-                        columns={
-                          preview.rawTableData && preview.rawTableData.length > 0
-                            ? Object.keys(preview.rawTableData[0])
-                            : []
-                        }
-                        columnTypes={{}}
-                        isLoading={preview.rawDataLoading}
-                        error={preview.rawDataError}
-                        pagination={
-                          preview.tableCount
-                            ? {
-                                page: pages.rawData.page,
-                                pageSize: pages.rawData.pageSize,
-                                total: preview.tableCount.total_rows || 0,
-                                onPageChange: pages.rawData.setPage,
-                                onPageSizeChange: pages.rawData.changePageSize,
-                              }
-                            : undefined
-                        }
-                      />
-                    </TabsContent>
-                  </Tabs>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
-      </div>
-
-      {/* Save Options Dialog */}
-      <SaveOptionsDialog
-        open={showSaveDialog}
-        onOpenChange={setShowSaveDialog}
-        originalTitle={formData.title || ''}
-        onSaveExisting={handleUpdateExisting}
-        onSaveAsNew={handleSaveAsNew}
-        isLoading={isMutating || isCreating}
-      />
-
-      {/* Exit Dialog - Save, Leave, or Stay */}
-      <UnsavedChangesExitDialog
-        open={showExitDialog}
-        onOpenChange={setShowExitDialog}
-        onSave={handleSaveAndLeave}
-        onLeave={handleLeaveWithoutSaving}
-        onStay={handleStayOnPage}
-        isSaving={isMutating}
-      />
-
-      {/* Unsaved Changes Dialog (for browser navigation) */}
-      <ConfirmationDialog
-        open={unsavedChangesDialog.open}
-        onOpenChange={(open) => setUnsavedChangesDialog((prev) => ({ ...prev, open }))}
-        title="Unsaved Changes"
-        description="You have unsaved changes. Are you sure you want to leave without saving?"
-        confirmText="Leave Without Saving"
-        cancelText="Cancel"
-        type="warning"
-        testIdPrefix="chart-edit-leave-confirm"
-        onConfirm={unsavedChangesDialog.onConfirm}
-        onCancel={unsavedChangesDialog.onCancel}
-      />
-    </div>
+          {/* Unsaved Changes Dialog (for the Back button) */}
+          <ConfirmationDialog
+            open={guard.leaveTarget === 'back'}
+            onOpenChange={(open) => !open && guard.closeLeavePrompt()}
+            title="Unsaved Changes"
+            description="You have unsaved changes. Are you sure you want to leave without saving?"
+            confirmText="Leave Without Saving"
+            cancelText="Cancel"
+            type="warning"
+            testIdPrefix="chart-edit-leave-confirm"
+            onConfirm={() => {
+              guard.closeLeavePrompt();
+              if (hasNavigationSource) {
+                navigateBackWithoutWarning();
+              } else {
+                navigateWithoutWarning(chartDetailUrl(chartId));
+              }
+            }}
+            onCancel={guard.closeLeavePrompt}
+          />
+        </>
+      }
+    />
   );
 }
 
