@@ -90,30 +90,6 @@ export function useDashboardDatetimeColumns(dashboardId: number | null) {
   return { columns: data?.data || [], isLoading, error };
 }
 
-// Sharing mutations
-
-export async function updateReportSharing(
-  snapshotId: number,
-  data: { is_public: boolean }
-): Promise<ShareStatus> {
-  const response: ApiResponse<ShareStatus> = await apiPut(
-    `/api/reports/${snapshotId}/share/`,
-    data
-  );
-  // Tracked here rather than at the call site because ShareViaLinkDialog wraps
-  // components/ui/share-modal, which we keep free of analytics. Only going public fires:
-  // un-sharing is not an outcome we measure (mirrors updateDashboardSharing).
-  if (data.is_public) {
-    trackEvent(ANALYTICS_EVENTS.REPORT_MADE_PUBLIC, { report_id: snapshotId });
-  }
-  return response.data;
-}
-
-export async function getReportSharingStatus(snapshotId: number): Promise<ShareStatus> {
-  const response: ApiResponse<ShareStatus> = await apiGet(`/api/reports/${snapshotId}/share/`);
-  return response.data;
-}
-
 // Share via email
 
 export async function shareReportViaEmail(
