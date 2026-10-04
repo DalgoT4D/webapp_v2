@@ -7,7 +7,7 @@ import { useDashboard } from '@/hooks/api/useDashboards';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Lock, User, Clock, AlertTriangle, Eye, Loader2 } from 'lucide-react';
+import { ArrowLeft, Lock, User, Clock, AlertTriangle } from 'lucide-react';
 import { apiDelete } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
@@ -29,7 +29,7 @@ export default function EditDashboardPage() {
   // Fetch the dashboard. A viewer (member with view access) can load it — the
   // backend returns 404 if they can't even view. Whether they may *edit* is
   // gated below on the per-resource `access_level`, not on a role permission.
-  const { data: dashboard, isLoading, isError, mutate } = useDashboard(dashboardId);
+  const { data: dashboard, isLoading, mutate } = useDashboard(dashboardId);
 
   // Can this user EDIT this specific dashboard? Per-resource access from the API
   // (grants + org floor + ownership). Undefined until the dashboard loads.

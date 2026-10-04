@@ -46,7 +46,6 @@ import {
   Filter,
   ArrowLeft,
   Eye,
-  Edit,
   Target,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
@@ -72,7 +71,6 @@ import { moveWidgetBetweenTabs, pointerToGridPosition } from './tabs/cross-tab-d
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
-import { useAuthStore } from '@/stores/authStore';
 import {
   getChartEditUrl,
   getChartViewUrl,
@@ -280,16 +278,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
   ) {
     const router = useRouter();
 
-    // Canvas is always driven by tab content — layout and components live inside tabs only.
-    // If tabs exist, load the first tab's canvas. Otherwise start empty (new dashboard).
-    const firstTab =
-      initialData?.tabs && Array.isArray(initialData.tabs) && initialData.tabs.length > 0
-        ? initialData.tabs[0]
-        : null;
-
-    let initialLayout = Array.isArray(firstTab?.layout_config) ? firstTab.layout_config : [];
-    const initialComponents = firstTab?.components ?? {};
-
     // Helper function to ensure text components have content constraints
     const ensureTextContentConstraints = (components: any) => {
       const updatedComponents = { ...components };
@@ -454,9 +442,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const initialTargetScreenSize: ScreenSizeKey =
       (initialData?.target_screen_size as ScreenSizeKey) || 'desktop';
 
-    // Target screen size state (separate from undo/redo state)
-    const [targetScreenSize, setTargetScreenSize] =
-      useState<ScreenSizeKey>(initialTargetScreenSize);
+    // Target screen size (fixed for the builder's lifetime — nothing changes it)
+    const [targetScreenSize] = useState<ScreenSizeKey>(initialTargetScreenSize);
 
     // Component state
     const [showChartSelector, setShowChartSelector] = useState(false);
@@ -541,7 +528,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setState(nextState);
       return nextState;
     }, [setState]);
-    const [showSettings, setShowSettings] = useState(false);
     const [resizingItems, setResizingItems] = useState<Set<string>>(new Set());
     const [containerWidth, setContainerWidth] = useState(
       SCREEN_SIZES[targetScreenSize]?.width || 1200
@@ -574,11 +560,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       Math.max(currentScreenConfig.height, 400)
     );
 
-    // Filter layout state with responsive behavior
-    const [userFilterLayoutChoice, setUserFilterLayoutChoice] = useState<'vertical' | 'horizontal'>(
-      (initialData?.filter_layout as 'vertical' | 'horizontal') || 'vertical'
-    );
-
     // Effective filter layout (combines user choice with responsive logic)
     // For desktop: always use vertical (sidebar), for mobile/tablet: use horizontal (top bar)
     const filterLayout = responsive.isDesktop ? 'vertical' : 'horizontal';
@@ -594,7 +575,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         if (!canvasRef.current || !dashboardContainerRef.current) return;
 
         const canvas = canvasRef.current;
-        const dashboardContainer = dashboardContainerRef.current;
 
         // Find the newly added component element
         const componentElement = canvas.querySelector(`[data-component-id="${componentId}"]`);
@@ -675,24 +655,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         resizeObserver.disconnect();
       };
     }, [containerWidth, currentScreenConfig.height]);
-
-    // Save target screen size changes (separate from auto-save to avoid conflicts)
-    useEffect(() => {
-      // Only save if this is not the initial render and we have a dashboard ID
-      if (dashboardId && targetScreenSize !== initialTargetScreenSize) {
-        const timeoutId = setTimeout(async () => {
-          try {
-            await saveDashboard();
-          } catch (error) {
-            console.error('Error saving target screen size:', error);
-          }
-        }, 500); // Longer delay to ensure it doesn't conflict with other saves
-
-        return () => clearTimeout(timeoutId);
-      }
-      // Return undefined when condition is not met
-      return undefined;
-    }, [targetScreenSize, dashboardId]); // Keep the dependency but add initial value check
 
     // Initial lock acquisition - only run once when dashboard changes
     useEffect(() => {
@@ -1480,12 +1442,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       [applyItemConstraints, clearCrossTabHoverTimer, publishCrossTabDrag, setState, stopAutoscroll]
     );
 
-    // Handle breakpoint changes
-    const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
-    const handleBreakpointChange = (newBreakpoint: string) => {
-      setCurrentBreakpoint(newBreakpoint);
-    };
-
     // Track if we're currently resizing
     const [isResizing, setIsResizing] = useState(false);
 
@@ -1763,15 +1719,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       setAppliedFilters({});
     };
 
-    // Handle filter layout changes
-    const handleFilterLayoutChange = (newLayout: 'vertical' | 'horizontal') => {
-      setUserFilterLayoutChoice(newLayout);
-      // Auto-save the layout preference (only save user's choice, not responsive overrides)
-      saveDashboard({ filter_layout: newLayout }).catch((error) => {
-        console.error('❌ Failed to save filter layout:', error);
-      });
-    };
-
     // Add filter
     const handleFilterSave = async (
       filterPayload: CreateFilterPayload | any,
@@ -1793,11 +1740,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           };
 
           // Use the new typed API function that returns complete filter data
-          const updatedFilterFromAPI = await updateDashboardFilter(
-            dashboardId,
-            filterId,
-            updateData
-          );
+          await updateDashboardFilter(dashboardId, filterId, updateData);
           trackEvent(ANALYTICS_EVENTS.DASHBOARD_FILTER_UPDATED, {
             dashboard_id: dashboardId,
             filter_type: updateData.filter_type,
@@ -1873,18 +1816,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
       setSelectedFilterForEdit(filterForEdit);
       setShowFilterModal(true);
-    };
-
-    // Note: Apply filters functionality is now handled by individual filter components
-
-    // Clear all filters
-    const handleClearAllFilters = () => {
-      setAppliedFilters({});
-    };
-
-    // Reorder filters - note: filter state is now managed by filter components
-    const handleReorderFilters = (newOrder: DashboardFilterConfig[]) => {
-      // Filter components handle their own reordering
     };
 
     // Get chart IDs that are already added to the dashboard

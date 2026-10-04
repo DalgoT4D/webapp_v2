@@ -11,38 +11,15 @@ const GridLayout = GridLayoutLib;
 const ResponsiveGrid = GridLayoutWidthProvider(ResponsiveGridLayout);
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-import { DashboardTab, DashboardTabsData } from '@/types/dashboard';
-import { initializeTabsData, getActiveTabData } from './tabs/tab-utils';
+import type { DashboardTabsData } from '@/types/dashboard';
+import { initializeTabsData } from './tabs/tab-utils';
 import { TabBar } from './tabs/TabBar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import {
-  ArrowLeft,
-  Edit,
-  Share2,
-  Download,
-  Maximize2,
-  Filter,
-  Lock,
-  Clock,
-  User,
-  Trash2,
-  FileText,
-} from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { ArrowLeft, Maximize2, Lock, Clock, User } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
 import { RequestEditPill } from '@/components/access/request-edit-pill';
@@ -56,7 +33,6 @@ import { KPIChartElement } from './kpi-chart-element';
 import { type AppliedFilters, type DashboardFilterConfig } from '@/types/dashboard-filters';
 import { toFilterConfig } from '@/components/dashboard/filters/filter-config';
 import { useToast } from '@/components/ui/use-toast';
-import { toastSuccess } from '@/lib/toast';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { ShareModal } from '@/components/share/ShareModal';
 import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
@@ -230,7 +206,7 @@ export function DashboardNativeView({
   const [dashboardLiveModalOpen, setDashboardLiveModalOpen] = useState(false);
   const walkthroughStage = useInsightWalkthroughStore((state) => state.stage);
 
-  const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
+  const [previewScreenSize] = useState<ScreenSizeKey | null>(null);
   // Filters panel collapse state
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
 
@@ -338,9 +314,6 @@ export function DashboardNativeView({
   // Use preview size if set, otherwise fall back to target size
   const effectiveScreenSize = previewScreenSize || targetScreenSize;
   const effectiveScreenConfig = SCREEN_SIZES[effectiveScreenSize];
-
-  // Get filter layout from dashboard data (same as edit mode)
-  const filterLayout = (dashboard?.filter_layout as 'vertical' | 'horizontal') || 'vertical';
 
   // Convert dashboard filters to DashboardFilterConfig format for UnifiedFiltersPanel
   const dashboardFilters: DashboardFilterConfig[] = useMemo(() => {
@@ -528,10 +501,6 @@ export function DashboardNativeView({
 
   // Count applied filters for responsive component
   const appliedFiltersCount = Object.keys(selectedFilters).length;
-
-  const handleClearAllFilters = () => {
-    setSelectedFilters({});
-  };
 
   // Handle dashboard deletion
   const handleDelete = async () => {
