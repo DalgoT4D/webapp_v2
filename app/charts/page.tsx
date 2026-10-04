@@ -1,119 +1,47 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import {
-  Plus,
-  BarChart2,
-  MoreVertical,
-  Trash,
-  Copy,
-  AlertCircle,
-  CheckSquare,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Edit,
-  ChevronUp,
-  ChevronDown as ChevronDownSort,
-  ArrowUpDown,
-  Filter,
-  Star,
-  User,
-  Share2,
-} from 'lucide-react';
+import { Plus, BarChart2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useCharts, type Chart } from '@/hooks/api/useCharts';
-import type { ChartCreate } from '@/types/charts';
-import {
-  useDeleteChart,
-  useBulkDeleteCharts,
-  useCreateChart,
-  useFavoriteChart,
-  useUnfavoriteChart,
-} from '@/hooks/api/useChart';
-import { ChartDeleteDialog } from '@/components/charts/ChartDeleteDialog';
+import { useDeleteChart } from '@/hooks/api/useChart';
 import { ShareModal } from '@/components/ui/share-modal';
-import { ChartExportDropdownForList } from '@/components/charts/ChartExportDropdownForList';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
 import { DocsLink } from '@/components/ui/docs-link';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  Table as TableComponent,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-// AlertDialog imports removed - now using ChartDeleteDialog component
-import { formatDistanceToNow } from 'date-fns';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { Table as TableComponent, TableBody } from '@/components/ui/table';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS, CHART_CREATE_SOURCES } from '@/constants/analytics';
-import { getMetricAnalyticsProps, isDrillDownEnabled } from '@/components/charts/utils';
-import { cn } from '@/lib/utils';
-import { getChartListIcon, getChartTypeColors } from '@/components/charts/chart-types/registry';
-import { generateDuplicateTitle } from '@/lib/form-utils';
+import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { DEFAULT_LIST_PAGE_SIZE, sortRows } from '@/components/list-page/list-logic';
+import { useListSort } from '@/components/list-page/useListSort';
+import { ListPagination } from '@/components/list-page/ListPagination';
+import { ActiveFiltersSummary } from '@/components/list-page/ActiveFiltersSummary';
+import {
+  filterCharts,
+  getChartSortValue,
+  getUniqueChartTypes,
+  getUniqueDataSources,
+  type ChartSortColumn,
+} from '@/components/charts/list/chart-list-logic';
+import { useChartListFilters } from '@/components/charts/list/useChartListFilters';
+import { useChartSelection } from '@/components/charts/list/useChartSelection';
+import { useChartFavoriteToggle } from '@/components/charts/list/useChartFavoriteToggle';
+import { useDuplicateChart } from '@/components/charts/list/useDuplicateChart';
+import { ChartListSkeleton } from '@/components/charts/list/ChartListSkeleton';
+import { ChartListTableHeader } from '@/components/charts/list/ChartListTableHeader';
+import { ChartListRow } from '@/components/charts/list/ChartListRow';
+import { ChartSelectionBar } from '@/components/charts/list/ChartSelectionBar';
 
 export default function ChartsPage() {
-  const [sortBy, setSortBy] = useState<'title' | 'updated_at' | 'chart_type' | 'data_source'>(
-    'updated_at'
-  );
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-
-  // Column filter states
-  const [nameFilters, setNameFilters] = useState({
-    text: '',
-    showFavorites: false,
-  });
-  const [dataSourceFilters, setDataSourceFilters] = useState<string[]>([]);
-  const [chartTypeFilters, setChartTypeFilters] = useState<string[]>([]);
-  const [dateFilters, setDateFilters] = useState({
-    range: 'all' as 'all' | 'today' | 'week' | 'month' | 'custom',
-    customStart: null as Date | null,
-    customEnd: null as Date | null,
-  });
-
-  // Filter dropdown states
-  const [openFilters, setOpenFilters] = useState({
-    name: false,
-    dataSource: false,
-    chartType: false,
-    date: false,
-  });
-
-  // Search states for filters
-  const [dataSourceSearch, setDataSourceSearch] = useState('');
+  const { sortBy, sortOrder, handleSort } = useListSort<ChartSortColumn>('updated_at');
+  const filters = useChartListFilters();
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
-  const [isDuplicating, setIsDuplicating] = useState<number | null>(null);
-  // Multi-select state
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedCharts, setSelectedCharts] = useState<Set<number>>(new Set());
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(DEFAULT_LIST_PAGE_SIZE);
   // Share modal state
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareChart, setShareChart] = useState<Chart | null>(null);
@@ -127,205 +55,33 @@ export default function ChartsPage() {
     mutate,
   } = useCharts({ page: currentPage, pageSize });
   const { trigger: deleteChart } = useDeleteChart();
-  const { trigger: bulkDeleteCharts } = useBulkDeleteCharts();
-  const { trigger: createChart } = useCreateChart();
-  const { trigger: favoriteChart } = useFavoriteChart();
-  const { trigger: unfavoriteChart } = useUnfavoriteChart();
   const { confirm, DialogComponent } = useConfirmationDialog();
-
-  // Stars currently mid-request. isMutating on the hooks is keyed on '/api/charts/',
-  // so it's shared by every row — this tracks it per chart instead.
-  const [favoritingIds, setFavoritingIds] = useState<Set<number>>(new Set());
-
-  // Get user permissions
   const { hasPermission } = useRbac();
 
-  // If API doesn't support pagination, implement client-side filtering and sorting
   const charts = allCharts || [];
 
-  // Handle sorting
-  const handleSort = (column: 'title' | 'updated_at' | 'chart_type' | 'data_source') => {
-    if (sortBy === column) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(column);
-      setSortOrder('desc');
-    }
-  };
+  // PINNED-BUGS: "List filters/sort apply to current page only; counter shows server total" —
+  // the server pages; this filters and sorts the one page it returned.
+  const filteredAndSortedCharts = useMemo(
+    () =>
+      sortRows(
+        filterCharts(charts, filters.values),
+        (chart) => getChartSortValue(chart, sortBy),
+        sortOrder
+      ),
+    [charts, filters.values, sortBy, sortOrder]
+  );
+  const uniqueDataSources = useMemo(() => getUniqueDataSources(charts), [charts]);
+  const uniqueChartTypes = useMemo(() => getUniqueChartTypes(charts), [charts]);
 
-  // Apply filters and sort charts with memoization for performance
-  const filteredAndSortedCharts = useMemo(() => {
-    // Apply column filters
-    const filtered = charts.filter((chart) => {
-      // Name filters
-      if (nameFilters.text) {
-        const title = (chart.title || '').toLowerCase();
-        if (!title.includes(nameFilters.text.toLowerCase())) {
-          return false;
-        }
-      }
-
-      if (nameFilters.showFavorites && !chart.is_favorite) {
-        return false;
-      }
-
-      // Data Source filters
-      if (dataSourceFilters.length > 0) {
-        const dataSource = `${chart.schema_name}.${chart.table_name}`;
-        if (!dataSourceFilters.includes(dataSource)) {
-          return false;
-        }
-      }
-
-      // Chart Type filters
-      if (chartTypeFilters.length > 0) {
-        if (!chartTypeFilters.includes(chart.chart_type)) {
-          return false;
-        }
-      }
-
-      // Date filters
-      if (dateFilters.range !== 'all' && chart.updated_at) {
-        const updatedDate = new Date(chart.updated_at);
-        const now = new Date();
-
-        switch (dateFilters.range) {
-          case 'today': {
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            if (updatedDate < today) return false;
-            break;
-          }
-          case 'week': {
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            if (updatedDate < weekAgo) return false;
-            break;
-          }
-          case 'month': {
-            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-            if (updatedDate < monthAgo) return false;
-            break;
-          }
-          case 'custom': {
-            if (dateFilters.customStart && updatedDate < dateFilters.customStart) return false;
-            if (dateFilters.customEnd && updatedDate > dateFilters.customEnd) return false;
-            break;
-          }
-        }
-      }
-
-      return true;
-    });
-
-    // Sort the filtered results
-    return [...filtered].sort((a, b) => {
-      let aValue: string | number;
-      let bValue: string | number;
-
-      switch (sortBy) {
-        case 'title':
-          aValue = (a.title || '').toLowerCase();
-          bValue = (b.title || '').toLowerCase();
-          break;
-        case 'updated_at':
-          aValue = new Date(a.updated_at || 0).getTime();
-          bValue = new Date(b.updated_at || 0).getTime();
-          break;
-        case 'chart_type':
-          aValue = (a.chart_type || '').toLowerCase();
-          bValue = (b.chart_type || '').toLowerCase();
-          break;
-        case 'data_source':
-          aValue = `${a.schema_name}.${a.table_name}`.toLowerCase();
-          bValue = `${b.schema_name}.${b.table_name}`.toLowerCase();
-          break;
-        default:
-          return 0;
-      }
-
-      if (sortOrder === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-      }
-    });
-  }, [charts, nameFilters, dataSourceFilters, chartTypeFilters, dateFilters, sortBy, sortOrder]);
-
-  // Handle favorites toggle. The star flips immediately and the list is not
-  // refetched on success — the only thing that changed is a field we already know.
-  const handleToggleFavorite = async (chart: Chart) => {
-    if (favoritingIds.has(chart.id)) return;
-
-    const wasFavorite = chart.is_favorite ?? false;
-    setFavoritingIds((prev) => new Set(prev).add(chart.id));
-
-    mutate(
-      (current) =>
-        current && {
-          ...current,
-          data: current.data.map((c) =>
-            c.id === chart.id ? { ...c, is_favorite: !wasFavorite } : c
-          ),
-        },
-      { revalidate: false }
-    );
-
-    try {
-      if (wasFavorite) {
-        await unfavoriteChart(chart.id);
-      } else {
-        await favoriteChart(chart.id);
-      }
-    } catch (error) {
-      await mutate(); // roll the optimistic flip back to server truth
-      toastError.update(error, 'favorite');
-    } finally {
-      setFavoritingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(chart.id);
-        return next;
-      });
-    }
-  };
-
-  // Get unique data sources and chart types for filter options
-  const uniqueDataSources = useMemo(() => {
-    const dataSources = new Set<string>();
-    charts.forEach((chart) => {
-      const dataSource = `${chart.schema_name}.${chart.table_name}`;
-      if (dataSource && dataSource !== '.') {
-        dataSources.add(dataSource);
-      }
-    });
-    return Array.from(dataSources).sort();
-  }, [charts]);
-
-  const uniqueChartTypes = useMemo(() => {
-    const chartTypes = new Set<string>();
-    charts.forEach((chart) => {
-      if (chart.chart_type) {
-        chartTypes.add(chart.chart_type);
-      }
-    });
-    return Array.from(chartTypes).sort();
-  }, [charts]);
-
-  // Get active filter count
-  const getActiveFilterCount = () => {
-    let count = 0;
-    if (nameFilters.text || nameFilters.showFavorites) count++;
-    if (dataSourceFilters.length > 0) count++;
-    if (chartTypeFilters.length > 0) count++;
-    if (dateFilters.range !== 'all') count++;
-    return count;
-  };
-
-  // Clear all filters
-  const clearAllFilters = () => {
-    setNameFilters({ text: '', showFavorites: false });
-    setDataSourceFilters([]);
-    setChartTypeFilters([]);
-    setDateFilters({ range: 'all', customStart: null, customEnd: null });
-  };
+  const selection = useChartSelection({
+    visibleCharts: filteredAndSortedCharts,
+    confirm,
+    deleteChart,
+    mutate,
+  });
+  const { favoritingIds, handleToggleFavorite } = useChartFavoriteToggle(mutate);
+  const { duplicatingChartId, handleDuplicateChart } = useDuplicateChart(charts, mutate);
 
   const handleDeleteChart = useCallback(
     // chartType is passed in (not looked up in `charts`) so this callback keeps the
@@ -350,108 +106,6 @@ export default function ChartsPage() {
     [deleteChart, mutate]
   );
 
-  const handleDuplicateChart = useCallback(
-    async (chartId: number, chartTitle: string) => {
-      if (!charts) {
-        toastError.load(null, 'charts data');
-        return;
-      }
-
-      setIsDuplicating(chartId);
-
-      try {
-        // Find the original chart
-        const originalChart = charts.find((chart: Chart) => chart.id === chartId);
-        if (!originalChart) {
-          toastError.load(null, 'chart');
-          return;
-        }
-
-        // Generate duplicate title
-        const existingTitles = charts.map((chart: Chart) => chart.title);
-        const duplicateTitle = generateDuplicateTitle(originalChart.title, existingTitles);
-
-        // Create duplicate chart data
-        const duplicateChartData: ChartCreate = {
-          title: duplicateTitle,
-          chart_type: originalChart.chart_type as
-            | 'bar'
-            | 'pie'
-            | 'line'
-            | 'number'
-            | 'map'
-            | 'table',
-          computation_type: originalChart.computation_type as 'raw' | 'aggregated',
-          schema_name: originalChart.schema_name,
-          table_name: originalChart.table_name,
-          extra_config: originalChart.extra_config || {},
-        };
-
-        const result = await createChart(duplicateChartData);
-        // A duplicate is a created chart — same event, `source: 'duplicate'`.
-        // Kept out of a separate CHART_DUPLICATED event so the "charts created"
-        // total isn't short by every duplicate.
-        trackEvent(ANALYTICS_EVENTS.CHART_CREATED, {
-          chart_type: originalChart.chart_type,
-          chart_id: result.id,
-          source: CHART_CREATE_SOURCES.DUPLICATE,
-          // Carried over from the original so the metric breakdown on
-          // CHART_CREATED isn't skewed by duplicates reporting zero metrics.
-          ...getMetricAnalyticsProps(originalChart.extra_config?.metrics),
-          // Saved charts keep drill config inside extra_config; the builder keeps it at
-          // the top level, so flatten it into the shape isDrillDownEnabled expects.
-          drill_down_enabled: isDrillDownEnabled({
-            chart_type: originalChart.chart_type,
-            ...originalChart.extra_config,
-          }),
-        });
-        // No METRIC_USED here on purpose: duplicating copies a metric reference
-        // mechanically, it isn't a user choosing to consume that metric.
-        // Refresh the charts list
-        await mutate();
-
-        toastSuccess.duplicated(originalChart.title, duplicateTitle);
-      } catch (error: any) {
-        toastError.duplicate(error, chartTitle);
-      } finally {
-        setIsDuplicating(null);
-      }
-    },
-    [charts, createChart, mutate]
-  );
-
-  // Multi-select functions
-  const enterSelectionMode = useCallback((chartId: number) => {
-    setIsSelectionMode(true);
-    setSelectedCharts(new Set([chartId]));
-  }, []);
-
-  const exitSelectionMode = useCallback(() => {
-    setIsSelectionMode(false);
-    setSelectedCharts(new Set());
-  }, []);
-
-  const toggleChartSelection = useCallback((chartId: number) => {
-    setSelectedCharts((prev) => {
-      const newSelection = new Set(prev);
-      if (newSelection.has(chartId)) {
-        newSelection.delete(chartId);
-      } else {
-        newSelection.add(chartId);
-      }
-      return newSelection;
-    });
-  }, []);
-
-  const selectAllCharts = useCallback(() => {
-    const allChartIds = new Set(filteredAndSortedCharts.map((chart) => chart.id));
-    setSelectedCharts(allChartIds);
-  }, [filteredAndSortedCharts]);
-
-  const deselectAllCharts = useCallback(() => {
-    setSelectedCharts(new Set());
-  }, []);
-
   const handleShareChart = useCallback((chart: Chart) => {
     setShareChart(chart);
     setShareModalOpen(true);
@@ -462,603 +116,24 @@ export default function ChartsPage() {
     setShareChart(null);
   }, []);
 
-  // Bulk delete function
-  const handleBulkDelete = useCallback(async () => {
-    if (selectedCharts.size === 0) return;
-
-    const chartTitles = filteredAndSortedCharts
-      .filter((chart) => selectedCharts.has(chart.id))
-      .map((chart) => chart.title);
-
-    const confirmMessage =
-      selectedCharts.size === 1
-        ? `This will permanently delete "${chartTitles[0]}". This action cannot be undone.`
-        : `This will permanently delete ${selectedCharts.size} charts. This action cannot be undone.\n\nCharts to delete:\n${chartTitles.map((title) => `• ${title}`).join('\n')}`;
-
-    const confirmed = await confirm({
-      title: `Delete ${selectedCharts.size === 1 ? 'Chart' : 'Charts'}`,
-      description: confirmMessage,
-      confirmText: 'Delete',
-      type: 'warning',
-      testIdPrefix: 'chart-bulk-delete-confirm',
-      onConfirm: () => {},
-    });
-
-    if (!confirmed) return;
-
-    setIsBulkDeleting(true);
-
-    try {
-      // Try bulk delete first, fall back to individual deletes if bulk API doesn't exist
-      try {
-        await bulkDeleteCharts(Array.from(selectedCharts));
-      } catch (bulkError) {
-        // Fallback to individual deletions
-        const deletePromises = Array.from(selectedCharts).map((chartId) => deleteChart(chartId));
-        await Promise.all(deletePromises);
-      }
-
-      // chart_ids (plural) so a bulk delete can still be traced to the exact charts,
-      // the same way single deletes carry chart_id.
-      trackEvent(ANALYTICS_EVENTS.CHARTS_BULK_DELETED, {
-        count: selectedCharts.size,
-        chart_ids: Array.from(selectedCharts),
-      });
-      await mutate();
-      toastSuccess.generic(
-        `${selectedCharts.size} chart${selectedCharts.size === 1 ? '' : 's'} deleted successfully`
-      );
-      exitSelectionMode();
-    } catch (error) {
-      toastError.delete(
-        error,
-        `${selectedCharts.size} chart${selectedCharts.size === 1 ? '' : 's'}`
-      );
-    } finally {
-      setIsBulkDeleting(false);
-    }
-  }, [
-    selectedCharts,
-    filteredAndSortedCharts,
-    bulkDeleteCharts,
-    deleteChart,
-    mutate,
-    exitSelectionMode,
-  ]);
-
-  // Render sort icon for table headers
-  const renderSortIcon = (column: 'title' | 'updated_at' | 'chart_type' | 'data_source') => {
-    if (sortBy !== column) {
-      return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
-    }
-    return sortOrder === 'asc' ? (
-      <ChevronUp className="w-4 h-4 text-gray-600" />
-    ) : (
-      <ChevronDownSort className="w-4 h-4 text-gray-600" />
-    );
-  };
-
-  // Check if column has active filters
-  const hasActiveFilter = (column: 'name' | 'dataSource' | 'chartType' | 'date') => {
-    switch (column) {
-      case 'name':
-        return nameFilters.text || nameFilters.showFavorites;
-      case 'dataSource':
-        return dataSourceFilters.length > 0;
-      case 'chartType':
-        return chartTypeFilters.length > 0;
-      case 'date':
-        return dateFilters.range !== 'all';
-      default:
-        return false;
-    }
-  };
-
-  // Render filter icon for table headers
-  const renderFilterIcon = (column: 'name' | 'dataSource' | 'chartType' | 'date') => {
-    const isActive = hasActiveFilter(column);
-    return (
-      <div className="relative">
-        <Filter
-          className={cn(
-            'w-4 h-4 transition-colors',
-            isActive ? 'text-teal-600' : 'text-gray-400 hover:text-gray-600'
-          )}
-        />
-        {isActive && <div className="absolute -top-1 -right-1 w-2 h-2 bg-teal-600 rounded-full" />}
-      </div>
-    );
-  };
-
-  // Render Name column filter
-  const renderNameFilter = () => (
-    <PopoverContent className="w-80" align="start">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h4 className="font-medium text-sm">Filter by Name</h4>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setNameFilters({ text: '', showFavorites: false })}
-            data-testid="chart-list-filter-name-clear"
-            className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
-          >
-            Clear
-          </Button>
-        </div>
-
-        <div className="space-y-2">
-          <Input
-            placeholder="Search chart names..."
-            data-testid="chart-list-filter-name-input"
-            value={nameFilters.text}
-            onChange={(e) => setNameFilters((prev) => ({ ...prev, text: e.target.value }))}
-            className="h-8"
-          />
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="favorites"
-              data-testid="chart-list-filter-favorites-checkbox"
-              checked={nameFilters.showFavorites}
-              onCheckedChange={(checked) =>
-                setNameFilters((prev) => ({ ...prev, showFavorites: checked as boolean }))
-              }
-            />
-            <Label htmlFor="favorites" className="text-sm cursor-pointer">
-              Show only favorites
-            </Label>
-          </div>
-        </div>
-      </div>
-    </PopoverContent>
-  );
-
-  // Filter data sources based on search with memoization
-  const filteredDataSources = useMemo(() => {
-    return uniqueDataSources.filter((dataSource) =>
-      dataSource.toLowerCase().includes(dataSourceSearch.toLowerCase())
-    );
-  }, [uniqueDataSources, dataSourceSearch]);
-
-  // Render Data Source column filter
-  const renderDataSourceFilter = () => {
-    return (
-      <PopoverContent className="w-64" align="start">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="font-medium text-sm">Filter by Data Source</h4>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setDataSourceFilters([])}
-              data-testid="chart-list-filter-source-clear"
-              className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
-            >
-              Clear
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            <Input
-              placeholder="Search data sources..."
-              data-testid="chart-list-filter-source-search"
-              value={dataSourceSearch}
-              onChange={(e) => setDataSourceSearch(e.target.value)}
-              className="h-8"
-            />
-          </div>
-
-          <div className="max-h-48 overflow-y-auto space-y-2">
-            {filteredDataSources.length > 0 ? (
-              filteredDataSources.map((dataSource) => (
-                <div
-                  key={dataSource}
-                  data-testid={`chart-list-filter-source-option-${dataSource}`}
-                  className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                  onClick={() => {
-                    setDataSourceFilters((prev) => {
-                      if (prev.includes(dataSource)) {
-                        return prev.filter((ds) => ds !== dataSource);
-                      } else {
-                        return [...prev, dataSource];
-                      }
-                    });
-                  }}
-                >
-                  <Checkbox
-                    data-testid={`chart-list-filter-source-checkbox-${dataSource}`}
-                    checked={dataSourceFilters.includes(dataSource)}
-                    onChange={() => {}} // Handled by parent onClick
-                  />
-                  <Label className="text-sm cursor-pointer flex-1 text-gray-900">
-                    {dataSource}
-                  </Label>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-gray-500 text-center py-2">No data sources found</p>
-            )}
-          </div>
-        </div>
-      </PopoverContent>
-    );
-  };
-
-  // Render Chart Type column filter
-  const renderChartTypeFilter = () => (
-    <PopoverContent className="w-56" align="start">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h4 className="font-medium text-sm">Filter by Chart Type</h4>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setChartTypeFilters([])}
-            data-testid="chart-list-filter-type-clear"
-            className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
-          >
-            Clear
-          </Button>
-        </div>
-
-        <div className="space-y-2">
-          {uniqueChartTypes.map((chartType) => (
-            <div
-              key={chartType}
-              data-testid={`chart-list-filter-type-option-${chartType}`}
-              className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-              onClick={() => {
-                setChartTypeFilters((prev) => {
-                  if (prev.includes(chartType)) {
-                    return prev.filter((ct) => ct !== chartType);
-                  } else {
-                    return [...prev, chartType];
-                  }
-                });
-              }}
-            >
-              <Checkbox
-                data-testid={`chart-list-filter-type-checkbox-${chartType}`}
-                checked={chartTypeFilters.includes(chartType)}
-                onChange={() => {}} // Handled by parent onClick
-              />
-              <Label className="text-sm cursor-pointer flex-1 text-gray-900 capitalize">
-                {chartType}
-              </Label>
-            </div>
-          ))}
-        </div>
-      </div>
-    </PopoverContent>
-  );
-
-  // Render Date column filter
-  const renderDateFilter = () => (
-    <PopoverContent className="w-72" align="start">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h4 className="font-medium text-sm">Filter by Date Modified</h4>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setDateFilters({ range: 'all', customStart: null, customEnd: null })}
-            data-testid="chart-list-filter-date-clear"
-            className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
-          >
-            Clear
-          </Button>
-        </div>
-
-        <div className="space-y-2">
-          {[
-            { value: 'all', label: 'All time' },
-            { value: 'today', label: 'Today' },
-            { value: 'week', label: 'Last 7 days' },
-            { value: 'month', label: 'Last 30 days' },
-            { value: 'custom', label: 'Custom range' },
-          ].map((option) => (
-            <div key={option.value} className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id={option.value}
-                data-testid={`chart-list-filter-date-${option.value}`}
-                name="dateRange"
-                checked={dateFilters.range === option.value}
-                onChange={() => setDateFilters((prev) => ({ ...prev, range: option.value as any }))}
-                className="w-4 h-4 text-teal-600"
-              />
-              <Label htmlFor={option.value} className="text-sm cursor-pointer">
-                {option.label}
-              </Label>
-            </div>
-          ))}
-        </div>
-
-        {dateFilters.range === 'custom' && (
-          <div className="space-y-2 pt-2 border-t">
-            <Label className="text-xs text-gray-600">Custom Date Range</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">From</Label>
-                <Input
-                  type="date"
-                  data-testid="chart-list-filter-date-from"
-                  value={
-                    dateFilters.customStart
-                      ? dateFilters.customStart.toISOString().split('T')[0]
-                      : ''
-                  }
-                  onChange={(e) =>
-                    setDateFilters((prev) => ({
-                      ...prev,
-                      customStart: e.target.value ? new Date(e.target.value) : null,
-                    }))
-                  }
-                  className="h-8"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">To</Label>
-                <Input
-                  type="date"
-                  data-testid="chart-list-filter-date-to"
-                  value={
-                    dateFilters.customEnd ? dateFilters.customEnd.toISOString().split('T')[0] : ''
-                  }
-                  onChange={(e) =>
-                    setDateFilters((prev) => ({
-                      ...prev,
-                      customEnd: e.target.value ? new Date(e.target.value) : null,
-                    }))
-                  }
-                  className="h-8"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </PopoverContent>
-  );
-
-  // Render chart table row
-  const renderChartTableRow = (chart: Chart) => {
-    const IconComponent = getChartListIcon(chart.chart_type);
-    const typeColors = getChartTypeColors(chart.chart_type);
-    const isFavorited = chart.is_favorite ?? false;
-    const dataSource = `${chart.schema_name}.${chart.table_name}`;
-    const isChartSelected = selectedCharts.has(chart.id);
-
-    return (
-      <TableRow key={chart.id} className="hover:bg-gray-50">
-        {/* Name Column with Star */}
-        <TableCell className="py-4">
-          <div className="flex items-center gap-3 min-w-0">
-            {isSelectionMode && (
-              <Checkbox
-                id={`chart-select-${chart.id}`}
-                data-testid={`chart-select-checkbox-${chart.id}`}
-                aria-label={`Select chart ${chart.title}`}
-                checked={isChartSelected}
-                onCheckedChange={() => toggleChartSelection(chart.id)}
-              />
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 p-0 hover:bg-yellow-50 shrink-0"
-              disabled={favoritingIds.has(chart.id)}
-              data-testid={`chart-list-favorite-${chart.id}`}
-              onClick={(e) => {
-                e.preventDefault();
-                handleToggleFavorite(chart);
-              }}
-            >
-              {isFavorited ? (
-                <Star className="w-4 h-4 text-yellow-500 fill-current" />
-              ) : (
-                <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400" />
-              )}
-            </Button>
-            <div className="flex flex-col gap-1 min-w-0">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href={hasPermission(PERMISSIONS.CAN_VIEW_CHARTS) ? `/charts/${chart.id}` : '#'}
-                    data-testid={`chart-list-title-link-${chart.id}`}
-                    className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline truncate"
-                  >
-                    {chart.title}
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-md break-words">{chart.title}</TooltipContent>
-              </Tooltip>
-            </div>
-          </div>
-        </TableCell>
-
-        {/* Data Source Column */}
-        <TableCell className="py-4">
-          <div className="flex items-center gap-2 min-w-0">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="text-base text-gray-700 truncate">{dataSource}</div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-md break-words">{dataSource}</TooltipContent>
-            </Tooltip>
-          </div>
-        </TableCell>
-
-        {/* Chart Type Column */}
-        <TableCell className="py-4">
-          <div className="flex">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 cursor-default"
-                    style={{ backgroundColor: typeColors.bgColor }}
-                  >
-                    <IconComponent className="w-6 h-6" style={{ color: typeColors.color }} />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="bg-gray-900 text-white border-gray-700">
-                  <p className="text-sm capitalize">{chart.chart_type} Chart</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </TableCell>
-
-        {/* Created by Column */}
-        <TableCell className="py-4">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center shrink-0">
-              <User className="w-3 h-3 text-gray-600" />
-            </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className="text-base text-gray-700 truncate"
-                  data-testid={`chart-created-by-${chart.id}`}
-                >
-                  {chart.created_by || 'Unknown'}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-md break-words">
-                {chart.created_by || 'Unknown'}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </TableCell>
-
-        {/* Last Modified Column */}
-        <TableCell className="py-4 text-base text-gray-600">
-          {chart.updated_at
-            ? formatDistanceToNow(new Date(chart.updated_at), { addSuffix: true })
-            : 'Unknown'}
-        </TableCell>
-
-        {/* Actions Column */}
-        <TableCell className="py-4">
-          <div className="flex items-center gap-2">
-            {chart.access_level === 'edit' && (
-              <Link href={`/charts/${chart.id}/edit`}>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 p-0 hover:bg-gray-100"
-                  data-testid={`chart-list-edit-${chart.id}`}
-                >
-                  <Edit className="w-4 h-4 text-gray-600" />
-                </Button>
-              </Link>
-            )}
-            {chart.access_level === 'edit' && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-                onClick={() => handleShareChart(chart)}
-                data-testid={`chart-list-share-${chart.id}`}
-              >
-                <Share2 className="w-4 h-4 text-gray-600" />
-              </Button>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 p-0 hover:bg-gray-100"
-                  data-testid={`chart-list-row-menu-${chart.id}`}
-                >
-                  <MoreVertical className="w-4 h-4 text-gray-600" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem
-                  onClick={() =>
-                    isSelectionMode ? toggleChartSelection(chart.id) : enterSelectionMode(chart.id)
-                  }
-                  className="cursor-pointer"
-                  data-testid={`chart-list-row-menu-select-${chart.id}`}
-                >
-                  <CheckSquare className="w-4 h-4 mr-2" />
-                  {isChartSelected ? 'Deselect' : 'Select'}
-                </DropdownMenuItem>
-                {hasPermission(PERMISSIONS.CAN_CREATE_CHARTS) && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => handleDuplicateChart(chart.id, chart.title)}
-                      className="cursor-pointer"
-                      disabled={isDuplicating === chart.id}
-                      data-testid={`chart-list-row-menu-duplicate-${chart.id}`}
-                    >
-                      {isDuplicating === chart.id ? (
-                        <div className="w-4 h-4 mr-2 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Copy className="w-4 h-4 mr-2" />
-                      )}
-                      Duplicate
-                    </DropdownMenuItem>
-                  </>
-                )}
-                {hasPermission(PERMISSIONS.CAN_VIEW_CHARTS) && (
-                  <ChartExportDropdownForList
-                    chartId={chart.id}
-                    chartTitle={chart.title}
-                    chartType={chart.chart_type}
-                  />
-                )}
-                {hasPermission(PERMISSIONS.CAN_DELETE_CHARTS) && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <ChartDeleteDialog
-                      chartId={chart.id}
-                      chartTitle={chart.title}
-                      onConfirm={() => handleDeleteChart(chart.id, chart.title, chart.chart_type)}
-                      isDeleting={isDeleting === chart.id}
-                    >
-                      <DropdownMenuItem
-                        className="cursor-pointer text-destructive focus:text-destructive"
-                        onSelect={(e) => e.preventDefault()}
-                        data-testid={`chart-list-row-menu-delete-${chart.id}`}
-                      >
-                        <Trash className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </ChartDeleteDialog>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </TableCell>
-      </TableRow>
-    );
-  };
-
   // Reset to page 1 whenever filters or sort changes
   useEffect(() => {
     setCurrentPage(1);
   }, [
-    nameFilters.text,
-    nameFilters.showFavorites,
-    dataSourceFilters,
-    chartTypeFilters,
-    dateFilters.range,
-    dateFilters.customStart,
-    dateFilters.customEnd,
+    filters.nameFilters.text,
+    filters.nameFilters.showFavorites,
+    filters.dataSourceFilters,
+    filters.chartTypeFilters,
+    filters.dateFilters.range,
+    filters.dateFilters.customStart,
+    filters.dateFilters.customEnd,
     sortBy,
     sortOrder,
   ]);
 
   // Clamp currentPage if total pages shrinks (e.g. after deletes)
+  // PINNED-BUGS: "First "Next" on chart list pagination bounces back to page 1" — while page 2
+  // loads, useCharts reports totalPages=1, so this clamps straight back to page 1.
   useEffect(() => {
     if (apiTotalPages > 0 && currentPage > apiTotalPages) {
       setCurrentPage(apiTotalPages);
@@ -1113,315 +188,66 @@ export default function ChartsPage() {
           )}
         </div>
 
-        {/* Selection Bar */}
-        {isSelectionMode && (
-          <div
-            id="charts-selection-bar"
-            className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between"
-          >
-            <div id="charts-selection-controls" className="flex items-center gap-4">
-              <div id="charts-selection-info" className="flex items-center gap-2">
-                <button
-                  id="charts-exit-selection-button"
-                  data-testid="chart-list-exit-selection-btn"
-                  onClick={exitSelectionMode}
-                  className="p-1 hover:bg-blue-100 rounded"
-                  title="Exit selection mode"
-                >
-                  <X id="charts-exit-selection-icon" className="w-4 h-4 text-blue-600" />
-                </button>
-                <span className="text-sm font-medium text-blue-900">
-                  {selectedCharts.size} of {filteredAndSortedCharts.length} charts selected
-                </span>
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={selectAllCharts}
-                  data-testid="chart-list-select-all-btn"
-                  disabled={selectedCharts.size === filteredAndSortedCharts.length}
-                >
-                  Select All
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={deselectAllCharts}
-                  data-testid="chart-list-deselect-all-btn"
-                  disabled={selectedCharts.size === 0}
-                >
-                  Deselect All
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              {hasPermission(PERMISSIONS.CAN_DELETE_CHARTS) && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleBulkDelete}
-                  data-testid="chart-list-bulk-delete-btn"
-                  disabled={selectedCharts.size === 0 || isBulkDeleting}
-                >
-                  {isBulkDeleting ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  ) : (
-                    <Trash className="w-4 h-4 mr-2" />
-                  )}
-                  Delete {selectedCharts.size > 0 ? `(${selectedCharts.size})` : ''}
-                </Button>
-              )}
-            </div>
-          </div>
+        {selection.isSelectionMode && (
+          <ChartSelectionBar
+            selectedCount={selection.selectedCharts.size}
+            visibleCount={filteredAndSortedCharts.length}
+            canDelete={hasPermission(PERMISSIONS.CAN_DELETE_CHARTS)}
+            isBulkDeleting={selection.isBulkDeleting}
+            onExit={selection.exitSelectionMode}
+            onSelectAll={selection.selectAllCharts}
+            onDeselectAll={selection.deselectAllCharts}
+            onBulkDelete={selection.handleBulkDelete}
+          />
         )}
 
         {/* Filter Summary - Only shows when filters are active to save space */}
-        {getActiveFilterCount() > 0 && (
-          <div id="charts-filters-section" className="flex items-center gap-2 px-6 pb-0">
-            <span className="text-sm text-gray-600">
-              {getActiveFilterCount()} filter{getActiveFilterCount() > 1 ? 's' : ''} active
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearAllFilters}
-              data-testid="chart-list-clear-all-filters-btn"
-              className="h-8 px-2 text-xs text-gray-500 hover:text-gray-700"
-            >
-              <X className="w-3 h-3 mr-1" />
-              Clear all
-            </Button>
-          </div>
-        )}
+        <ActiveFiltersSummary
+          id="charts-filters-section"
+          count={filters.activeFilterCount}
+          onClearAll={filters.clearAllFilters}
+          clearTestId="chart-list-clear-all-filters-btn"
+        />
       </div>
 
       {/* Scrollable Content - Only the charts list scrolls */}
       <div id="charts-content-wrapper" className="flex-1 overflow-hidden px-6">
         <div id="charts-scrollable-content" className="h-full overflow-y-auto">
           {isLoading ? (
-            <div className="py-6">
-              <div className="border rounded-lg bg-white">
-                <TableComponent className="table-fixed">
-                  <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead className="w-[28%]">
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="h-4 w-16" />
-                          <Skeleton className="h-4 w-4" />
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[18%]">
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="h-4 w-20" />
-                          <Skeleton className="h-4 w-4" />
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[8%]">
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="h-4 w-12" />
-                          <Skeleton className="h-4 w-4" />
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[18%]">
-                        <Skeleton className="h-4 w-20" />
-                      </TableHead>
-                      <TableHead className="w-[14%]">
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="h-4 w-20" />
-                          <Skeleton className="h-4 w-4" />
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[14%]">
-                        <Skeleton className="h-4 w-16" />
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {[...Array(8)].map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="py-4">
-                          <div className="flex items-center gap-3">
-                            <Skeleton className="h-8 w-8 rounded" />
-                            <Skeleton className="h-4 w-32" />
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-24" />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex">
-                            <Skeleton className="h-10 w-10 rounded-lg" />
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Skeleton className="h-6 w-6 rounded-full" />
-                            <Skeleton className="h-4 w-24" />
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-20" />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Skeleton className="h-8 w-8" />
-                            <Skeleton className="h-8 w-8" />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </TableComponent>
-              </div>
-            </div>
+            <ChartListSkeleton />
           ) : paginatedCharts.length > 0 ? (
+            // PINNED-BUGS: "Empty filtered list unmounts the table header" — header lives in this branch only.
             <div className="py-6">
               <div className="border rounded-lg bg-white">
                 <TooltipProvider delayDuration={300}>
                   <TableComponent className="table-fixed">
-                    <TableHeader>
-                      <TableRow className="bg-gray-50">
-                        <TableHead className="w-[28%]">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
-                              onClick={() => handleSort('title')}
-                              data-testid="chart-list-sort-name"
-                            >
-                              <div className="flex items-center gap-2">
-                                Name
-                                {renderSortIcon('title')}
-                              </div>
-                            </Button>
-                            <Popover
-                              open={openFilters.name}
-                              onOpenChange={(open) =>
-                                setOpenFilters((prev) => ({ ...prev, name: open }))
-                              }
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 p-0 hover:bg-gray-100"
-                                  data-testid="chart-list-filter-name-trigger"
-                                >
-                                  {renderFilterIcon('name')}
-                                </Button>
-                              </PopoverTrigger>
-                              {renderNameFilter()}
-                            </Popover>
-                          </div>
-                        </TableHead>
-                        <TableHead className="w-[18%]">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent"
-                              onClick={() => handleSort('data_source')}
-                              data-testid="chart-list-sort-data-source"
-                            >
-                              <div className="flex items-center gap-2">
-                                Data Source
-                                {renderSortIcon('data_source')}
-                              </div>
-                            </Button>
-                            <Popover
-                              open={openFilters.dataSource}
-                              onOpenChange={(open) =>
-                                setOpenFilters((prev) => ({ ...prev, dataSource: open }))
-                              }
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 p-0 hover:bg-gray-100"
-                                  data-testid="chart-list-filter-source-trigger"
-                                >
-                                  {renderFilterIcon('dataSource')}
-                                </Button>
-                              </PopoverTrigger>
-                              {renderDataSourceFilter()}
-                            </Popover>
-                          </div>
-                        </TableHead>
-                        <TableHead className="w-[8%]">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent"
-                              onClick={() => handleSort('chart_type')}
-                              data-testid="chart-list-sort-type"
-                            >
-                              <div className="flex items-center gap-2">
-                                Type
-                                {renderSortIcon('chart_type')}
-                              </div>
-                            </Button>
-                            <Popover
-                              open={openFilters.chartType}
-                              onOpenChange={(open) =>
-                                setOpenFilters((prev) => ({ ...prev, chartType: open }))
-                              }
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 p-0 hover:bg-gray-100"
-                                  data-testid="chart-list-filter-type-trigger"
-                                >
-                                  {renderFilterIcon('chartType')}
-                                </Button>
-                              </PopoverTrigger>
-                              {renderChartTypeFilter()}
-                            </Popover>
-                          </div>
-                        </TableHead>
-                        <TableHead className="w-[18%] font-medium text-base">Created by</TableHead>
-                        <TableHead className="w-[14%]">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              className="h-auto p-0 font-medium text-base hover:bg-transparent"
-                              onClick={() => handleSort('updated_at')}
-                              data-testid="chart-list-sort-updated-at"
-                            >
-                              <div className="flex items-center gap-2">
-                                Last Modified
-                                {renderSortIcon('updated_at')}
-                              </div>
-                            </Button>
-                            <Popover
-                              open={openFilters.date}
-                              onOpenChange={(open) =>
-                                setOpenFilters((prev) => ({ ...prev, date: open }))
-                              }
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 p-0 hover:bg-gray-100"
-                                  data-testid="chart-list-filter-date-trigger"
-                                >
-                                  {renderFilterIcon('date')}
-                                </Button>
-                              </PopoverTrigger>
-                              {renderDateFilter()}
-                            </Popover>
-                          </div>
-                        </TableHead>
-                        <TableHead className="w-[14%] font-medium text-base">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                    <ChartListTableHeader
+                      sortBy={sortBy}
+                      sortOrder={sortOrder}
+                      onSort={handleSort}
+                      filters={filters}
+                      uniqueDataSources={uniqueDataSources}
+                      uniqueChartTypes={uniqueChartTypes}
+                    />
                     <TableBody>
-                      {paginatedCharts.map((chart) => renderChartTableRow(chart))}
+                      {paginatedCharts.map((chart) => (
+                        <ChartListRow
+                          key={chart.id}
+                          chart={chart}
+                          isSelectionMode={selection.isSelectionMode}
+                          isSelected={selection.selectedCharts.has(chart.id)}
+                          isFavoriting={favoritingIds.has(chart.id)}
+                          isDuplicating={duplicatingChartId === chart.id}
+                          isDeleting={isDeleting === chart.id}
+                          hasPermission={hasPermission}
+                          onToggleFavorite={handleToggleFavorite}
+                          onToggleSelection={selection.toggleChartSelection}
+                          onEnterSelectionMode={selection.enterSelectionMode}
+                          onShare={handleShareChart}
+                          onDuplicate={handleDuplicateChart}
+                          onDelete={handleDeleteChart}
+                        />
+                      ))}
                     </TableBody>
                   </TableComponent>
                 </TooltipProvider>
@@ -1434,7 +260,7 @@ export default function ChartsPage() {
             >
               <BarChart2 id="charts-empty-icon" className="w-12 h-12 text-muted-foreground" />
               <p id="charts-empty-text" className="text-muted-foreground">
-                {getActiveFilterCount() > 0 ? 'No charts found' : 'No charts yet'}
+                {filters.activeFilterCount > 0 ? 'No charts found' : 'No charts yet'}
               </p>
               {hasPermission(PERMISSIONS.CAN_CREATE_CHARTS) && (
                 <Link id="charts-empty-create-link" href="/charts/new">
@@ -1453,108 +279,21 @@ export default function ChartsPage() {
         </div>
       </div>
 
-      {/* Lightweight Modern Pagination */}
-      <div
-        id="charts-pagination-footer"
-        className="flex-shrink-0 border-t border-gray-100 bg-gray-50/30 py-3 px-6"
-      >
-        <div id="charts-pagination-wrapper" className="flex items-center justify-between">
-          {/* Left: Compact Item Count */}
-          <div id="charts-pagination-info" className="text-sm text-gray-600">
-            {total === 0
-              ? '0–0 of 0'
-              : `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, total)} of ${total}`}
-          </div>
-
-          {/* Right: Streamlined Controls */}
-          <div id="charts-pagination-controls" className="flex items-center gap-4">
-            {/* Compact Page Size Selector */}
-            <div id="charts-page-size-wrapper" className="flex items-center gap-2">
-              <span id="charts-page-size-label" className="text-sm text-gray-500">
-                Show
-              </span>
-              <Select
-                id="charts-page-size-select"
-                value={pageSize.toString()}
-                onValueChange={(value) => {
-                  setPageSize(parseInt(value));
-                  setCurrentPage(1); // Reset to first page when page size changes
-                }}
-              >
-                <SelectTrigger
-                  id="charts-page-size-trigger"
-                  data-testid="chart-list-page-size-trigger"
-                  className="h-7 text-sm border-gray-200 bg-white"
-                  style={{ width: '70px' }}
-                >
-                  <SelectValue id="charts-page-size-value" />
-                </SelectTrigger>
-                <SelectContent id="charts-page-size-content">
-                  <SelectItem
-                    id="charts-page-size-10"
-                    value="10"
-                    data-testid="chart-list-page-size-option-10"
-                  >
-                    10
-                  </SelectItem>
-                  <SelectItem
-                    id="charts-page-size-20"
-                    value="20"
-                    data-testid="chart-list-page-size-option-20"
-                  >
-                    20
-                  </SelectItem>
-                  <SelectItem
-                    id="charts-page-size-50"
-                    value="50"
-                    data-testid="chart-list-page-size-option-50"
-                  >
-                    50
-                  </SelectItem>
-                  <SelectItem
-                    id="charts-page-size-100"
-                    value="100"
-                    data-testid="chart-list-page-size-option-100"
-                  >
-                    100
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Simplified Navigation */}
-            <div className="flex items-center gap-1">
-              <Button
-                id="charts-prev-page-button"
-                data-testid="chart-list-prev-page-btn"
-                variant="ghost"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
-              >
-                <ChevronLeft id="charts-prev-icon" className="h-4 w-4" />
-              </Button>
-
-              <span id="charts-page-info" className="text-sm text-gray-600 px-3 py-1">
-                {currentPage} of {totalPages}
-              </span>
-
-              <Button
-                id="charts-next-page-button"
-                data-testid="chart-list-next-page-btn"
-                variant="ghost"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage >= totalPages}
-                className="h-7 px-2 hover:bg-gray-100 disabled:opacity-50"
-              >
-                <ChevronRight id="charts-next-icon" className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ListPagination
+        idPrefix="charts"
+        currentPage={currentPage}
+        pageSize={pageSize}
+        total={total}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+        testIds={{
+          pageSizeTrigger: 'chart-list-page-size-trigger',
+          pageSizeOptionPrefix: 'chart-list-page-size-option',
+          prev: 'chart-list-prev-page-btn',
+          next: 'chart-list-next-page-btn',
+        }}
+      />
       <DialogComponent />
 
       {/* Share Modal */}
