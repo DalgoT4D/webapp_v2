@@ -8,6 +8,7 @@ import type {
   DiscoveredDatetimeColumn,
   CreateSnapshotPayload,
 } from '@/types/reports';
+import type { ApiResponse } from '@/types/api';
 
 // Re-export types for consumers
 export type {
@@ -16,13 +17,6 @@ export type {
   SnapshotViewData,
   FrozenChartConfig,
 } from '@/types/reports';
-
-// API Response wrapper type (matches backend ApiResponse)
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-}
 
 // Hooks
 

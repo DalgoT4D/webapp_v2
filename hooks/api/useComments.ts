@@ -8,12 +8,7 @@ import type {
   UpdateCommentPayload,
   MarkReadPayload,
 } from '@/types/comments';
-
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-}
+import type { ApiResponse } from '@/types/api';
 
 // ---- Read hooks ----
 
