@@ -42,7 +42,7 @@ function isMapConfigured(config: ChartBuilderFormData): boolean {
   );
 }
 
-/** Create page's preview rule for legacy maps: always wants a value column. PINNED: differs from edit. */
+/** Create page's preview rule for legacy maps: always wants a value column. PINNED-BUGS: differs from edit. */
 function isMapReadyForCreatePreview(config: ChartBuilderFormData): boolean {
   if (config.metrics?.[0]) return isMapConfigured(config);
   return !!(
@@ -53,7 +53,7 @@ function isMapReadyForCreatePreview(config: ChartBuilderFormData): boolean {
   );
 }
 
-/** Create page's preview rule for tables. PINNED: the edit page treats any table as ready. */
+/** Create page's preview rule for tables. PINNED-BUGS: the edit page treats any table as ready. */
 function isTableReadyForCreatePreview(config: ChartBuilderFormData): boolean {
   const hasDimensions =
     (config.dimensions &&
@@ -93,8 +93,10 @@ export function isChartReady(config: ChartBuilderFormData, builder: ChartBuilder
     case ChartTypes.NUMBER:
       return isNumberConfigured(config);
     case ChartTypes.MAP:
+      // PINNED-BUGS: create and edit builders differ (C-E7 / C-B3)
       return builder === 'create' ? isMapReadyForCreatePreview(config) : isMapConfigured(config);
     case ChartTypes.TABLE:
+      // PINNED-BUGS: create and edit builders differ (C-E7 / C-B3)
       return builder === 'create' ? isTableReadyForCreatePreview(config) : true;
     case ChartTypes.PIVOT_TABLE:
       return isPivotConfigured(config);

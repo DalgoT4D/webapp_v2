@@ -50,7 +50,12 @@ describe('isChartReady', () => {
   });
 
   it('legacy bar (no metrics array) uses aggregate_function/aggregate_column', () => {
-    const legacy = { ...base, chart_type: 'bar' as const, dimension_column: 'd', metrics: [] };
+    const legacy = {
+      ...base,
+      chart_type: 'bar' as const,
+      dimension_column: 'd',
+      metrics: [] as ChartMetric[],
+    };
     expect(isChartReady({ ...legacy, aggregate_function: 'count' }, 'create')).toBe(true);
     expect(isChartReady({ ...legacy, aggregate_function: 'sum' }, 'create')).toBe(false);
     expect(
