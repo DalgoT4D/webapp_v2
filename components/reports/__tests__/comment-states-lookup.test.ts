@@ -1,21 +1,20 @@
 /**
  * Comment States Array Lookup Tests
  *
- * Verifies that the array-based CommentStates format works correctly
- * with the .find() lookups used in page.tsx and chart-element-view.tsx.
+ * Runs the real lookups from components/reports/logic/comments.ts. Until R5a this file tested
+ * local copies, and its "chart" copy matched by target_id — that is the KPI lookup
+ * (findKpiCommentState). The real chart lookup reads chart_id and never finds a state
+ * (PINNED-BUGS R-M2, pinned in components/reports/logic/__tests__/comments.test.ts).
  */
 
-import type { CommentStates, CommentIconState } from '@/types/comments';
+import type { CommentStates } from '@/types/comments';
+import { findKpiCommentState, findSummaryCommentState } from '@/components/reports/logic/comments';
 
-/** Mirrors the lookup in app/reports/[snapshotId]/page.tsx */
-function lookupSummaryState(states: CommentStates | undefined): CommentIconState {
-  return states?.find((s) => s.target_type === 'summary')?.state ?? 'none';
-}
+/** The viewer's summary lookup. */
+const lookupSummaryState = findSummaryCommentState;
 
-/** Mirrors the lookup in components/dashboard/chart-element-view.tsx */
-function lookupChartState(states: CommentStates | undefined, targetId: number): CommentIconState {
-  return (states?.find((s) => s.target_id === targetId)?.state as CommentIconState) ?? 'none';
-}
+/** The target_id lookup KPI widgets use (ignores target_type). */
+const lookupTargetIdState = findKpiCommentState;
 
 describe('Comment states array lookups', () => {
   const sampleStates: CommentStates = [
@@ -44,30 +43,30 @@ describe('Comment states array lookups', () => {
     });
   });
 
-  describe('lookupChartState', () => {
-    it('finds chart state by target_id', () => {
-      expect(lookupChartState(sampleStates, 19)).toBe('read');
-      expect(lookupChartState(sampleStates, 34)).toBe('mentioned');
+  describe('lookupTargetIdState (findKpiCommentState)', () => {
+    it('finds a chart-typed entry by target_id (the KPI lookup ignores target_type)', () => {
+      expect(lookupTargetIdState(sampleStates, 19)).toBe('read');
+      expect(lookupTargetIdState(sampleStates, 34)).toBe('mentioned');
     });
 
     it('finds kpi state by target_id', () => {
-      expect(lookupChartState(sampleStates, 42)).toBe('unread');
+      expect(lookupTargetIdState(sampleStates, 42)).toBe('unread');
     });
 
     it('returns "none" for unknown target_id', () => {
-      expect(lookupChartState(sampleStates, 999)).toBe('none');
+      expect(lookupTargetIdState(sampleStates, 999)).toBe('none');
     });
 
     it('returns "none" when states is undefined', () => {
-      expect(lookupChartState(undefined, 19)).toBe('none');
+      expect(lookupTargetIdState(undefined, 19)).toBe('none');
     });
 
     it('returns "none" when array is empty', () => {
-      expect(lookupChartState([], 19)).toBe('none');
+      expect(lookupTargetIdState([], 19)).toBe('none');
     });
 
     it('does not confuse entries across different target_ids', () => {
-      expect(lookupChartState(sampleStates, 19)).not.toBe(lookupChartState(sampleStates, 34));
+      expect(lookupTargetIdState(sampleStates, 19)).not.toBe(lookupTargetIdState(sampleStates, 34));
     });
   });
 

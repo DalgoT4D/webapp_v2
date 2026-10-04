@@ -97,7 +97,7 @@ import {
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import { CommentPopover } from '@/components/reports/comment-popover';
-import { findChartCommentState } from '@/components/reports/logic/comments';
+import { findChartCommentStateBuggyChartIdLookup } from '@/components/reports/logic/comments';
 import type { CommentStates } from '@/types/comments';
 
 // Register necessary ECharts components
@@ -1921,7 +1921,7 @@ export function ChartElementView({
               snapshotId={snapshotId}
               targetType="chart"
               chartId={chartId}
-              state={findChartCommentState(commentStates, chartId)}
+              state={findChartCommentStateBuggyChartIdLookup(commentStates, chartId)}
               triggerClassName="h-7 w-7 p-0"
               onStateChange={onCommentStateChange}
               autoOpen={autoOpenCommentChartId === String(chartId)}
