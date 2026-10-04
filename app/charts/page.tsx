@@ -74,6 +74,7 @@ import { ANALYTICS_EVENTS, CHART_CREATE_SOURCES } from '@/constants/analytics';
 import { getMetricAnalyticsProps, isDrillDownEnabled } from '@/components/charts/utils';
 import { cn } from '@/lib/utils';
 import { getChartListIcon, getChartTypeColors } from '@/components/charts/chart-types/registry';
+import { generateDuplicateTitle } from '@/lib/form-utils';
 
 export default function ChartsPage() {
   const [sortBy, setSortBy] = useState<'title' | 'updated_at' | 'chart_type' | 'data_source'>(
@@ -349,42 +350,6 @@ export default function ChartsPage() {
     [deleteChart, mutate]
   );
 
-  const generateDuplicateTitle = useCallback(
-    (originalTitle: string, existingTitles: string[]): string => {
-      let baseName = originalTitle;
-      let copyNumber = 1;
-
-      // Check if the title already has "Copy of" prefix
-      if (originalTitle.startsWith('Copy of ')) {
-        baseName = originalTitle;
-      } else {
-        baseName = `Copy of ${originalTitle}`;
-      }
-
-      let newTitle = baseName;
-
-      // Find next available number if duplicates exist
-      while (existingTitles.includes(newTitle)) {
-        copyNumber++;
-        if (originalTitle.startsWith('Copy of ')) {
-          // Handle existing copies - extract base and add number
-          const match = originalTitle.match(/^Copy of (.+?)( \((\d+)\))?$/);
-          if (match) {
-            const baseTitle = match[1];
-            newTitle = `Copy of ${baseTitle} (${copyNumber})`;
-          } else {
-            newTitle = `${originalTitle} (${copyNumber})`;
-          }
-        } else {
-          newTitle = `Copy of ${originalTitle} (${copyNumber})`;
-        }
-      }
-
-      return newTitle;
-    },
-    []
-  );
-
   const handleDuplicateChart = useCallback(
     async (chartId: number, chartTitle: string) => {
       if (!charts) {
@@ -452,7 +417,7 @@ export default function ChartsPage() {
         setIsDuplicating(null);
       }
     },
-    [charts, createChart, mutate, generateDuplicateTitle]
+    [charts, createChart, mutate]
   );
 
   // Multi-select functions
