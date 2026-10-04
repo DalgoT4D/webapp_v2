@@ -87,6 +87,15 @@ import {
 
 import { CelebrationModal } from '@/components/onboarding/celebration-modal';
 import { EmbedCodeDropdown } from '@/components/dashboard/embed-code-dropdown';
+import {
+  GRID_BREAKPOINTS,
+  GRID_COLS,
+  GRID_CONTAINER_PADDING,
+  GRID_MARGIN,
+  GRID_ROW_HEIGHT,
+  SCREEN_SIZES,
+  type ScreenSizeKey,
+} from '@/components/dashboard/grid/grid-constants';
 
 /**
  * Walkthrough stages whose coachmark target lives INSIDE the share dialog — those keep their
@@ -106,53 +115,6 @@ const SHARE_DIALOG_ENTRY_STAGES: WalkthroughStage[] = ['share', 'share_public_to
  * the stage can still be one of the earlier two when the user copies.
  */
 const SHARE_TAIL_STAGES: WalkthroughStage[] = ['share', 'share_public_toggle', 'share_copy_link'];
-
-// Define responsive breakpoints and column configurations (same as builder)
-// Superset-style: Always 12 columns, they just scale with container width
-const BREAKPOINTS = {
-  lg: 1200,
-  md: 996,
-  sm: 768,
-  xs: 480,
-  xxs: 0,
-};
-
-// Screen size configurations (same as builder)
-// All use 12 columns - the column width scales based on container size
-const SCREEN_SIZES = {
-  desktop: {
-    name: 'Desktop',
-    width: 1200,
-    height: 800,
-    cols: 12,
-    breakpoint: 'lg',
-  },
-  tablet: {
-    name: 'Tablet',
-    width: 768,
-    height: 1024,
-    cols: 12,
-    breakpoint: 'sm',
-  },
-  mobile: {
-    name: 'Mobile',
-    width: 375,
-    height: 667,
-    cols: 12,
-    breakpoint: 'xxs',
-  },
-};
-
-// Fixed 12 columns at all breakpoints - columns scale with container width
-const COLS = {
-  lg: 12,
-  md: 12,
-  sm: 12,
-  xs: 12,
-  xxs: 12,
-};
-
-type ScreenSizeKey = keyof typeof SCREEN_SIZES;
 
 // Get current viewport screen size category
 function getCurrentScreenSize(): ScreenSizeKey {
@@ -175,7 +137,7 @@ function generateResponsiveLayoutsForPreview(
 
   // Since all breakpoints use 12 columns (Superset-style),
   // the same layout works for all screen sizes - columns just scale in width
-  Object.keys(COLS).forEach((breakpoint) => {
+  Object.keys(GRID_COLS).forEach((breakpoint) => {
     // Use the same layout for all breakpoints - the grid columns scale with container width
     layouts[breakpoint] = layout.map((item) => ({
       ...item,
@@ -1341,9 +1303,9 @@ export function DashboardNativeView({
                         dashboard.responsive_layouts ||
                         generateResponsiveLayoutsForPreview(modifiedLayout, targetScreenSize)
                       }
-                      breakpoints={BREAKPOINTS}
-                      cols={COLS}
-                      rowHeight={20}
+                      breakpoints={GRID_BREAKPOINTS}
+                      cols={GRID_COLS}
+                      rowHeight={GRID_ROW_HEIGHT}
                       width={actualContainerWidth}
                       style={{
                         width: '100% !important',
@@ -1352,8 +1314,8 @@ export function DashboardNativeView({
                       isResizable={false}
                       compactType={null}
                       preventCollision={false}
-                      margin={[8, 8]}
-                      containerPadding={[8, 8]}
+                      margin={GRID_MARGIN}
+                      containerPadding={GRID_CONTAINER_PADDING}
                       autoSize={true}
                       verticalCompact={false}
                       onBreakpointChange={(newBreakpoint: string) => {
@@ -1382,7 +1344,7 @@ export function DashboardNativeView({
                       // reflowed differently from edit. See git history / dashboard 328.
                       layout={modifiedLayout}
                       cols={effectiveScreenConfig.cols}
-                      rowHeight={20}
+                      rowHeight={GRID_ROW_HEIGHT}
                       width={actualContainerWidth}
                       style={{
                         width: '100% !important',
@@ -1392,8 +1354,8 @@ export function DashboardNativeView({
                       compactType="vertical"
                       preventCollision={false}
                       allowOverlap={false}
-                      margin={[8, 8]}
-                      containerPadding={[8, 8]}
+                      margin={GRID_MARGIN}
+                      containerPadding={GRID_CONTAINER_PADDING}
                       autoSize={true}
                     >
                       {modifiedLayout.map((layoutItem: any) => (

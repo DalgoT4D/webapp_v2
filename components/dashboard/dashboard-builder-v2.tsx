@@ -84,9 +84,17 @@ import {
   markChartAddedToDashboard,
   markKpiAddedToDashboard,
 } from '@/components/onboarding/insight-walkthrough-constants';
+import {
+  GRID_CONTAINER_PADDING,
+  GRID_GAP_PX,
+  GRID_MARGIN,
+  GRID_PADDING_PX,
+  GRID_ROW_HEIGHT,
+  SCREEN_SIZES,
+  type ScreenSizeKey,
+} from '@/components/dashboard/grid/grid-constants';
 
 // Grid layout constants
-const ROW_HEIGHT = 20;
 // Grid is fixed at 12 columns regardless of viewport (Superset-style). The grid model
 // gives each widget its own (x, y, w, h); RGL's vertical compaction (gravity-up) is the
 // only automatic behavior. New widgets land full-width at the bottom of the canvas.
@@ -99,8 +107,6 @@ const AUTOSCROLL_EDGE_PX = 60;
 // Max scroll speed (px/frame), capped to prevent runaway scroll. Spec: ~30px/frame.
 const AUTOSCROLL_MAX_SPEED_PX = 30;
 const CROSS_TAB_HOVER_DELAY_MS = 500;
-const GRID_MARGIN = 8;
-const GRID_PADDING = 8;
 
 // Max length for the dashboard description (keeps the header compact).
 const DESCRIPTION_MAX_LENGTH = 100;
@@ -204,44 +210,6 @@ interface DashboardLayout {
   minH?: number;
   maxH?: number;
 }
-
-// Define responsive breakpoints and column configurations
-// Superset-style: Always 12 columns, they just scale with container width
-const BREAKPOINTS = {
-  lg: 1200,
-  md: 996,
-  sm: 768,
-  xs: 480,
-  xxs: 0,
-};
-
-// Screen size configurations for targeted design
-// All use 12 columns - the column width scales based on container size
-const SCREEN_SIZES = {
-  desktop: {
-    name: 'Desktop',
-    width: 1200,
-    height: 800,
-    cols: 12,
-    breakpoint: 'lg',
-  },
-  tablet: {
-    name: 'Tablet',
-    width: 768,
-    height: 1024,
-    cols: 12,
-    breakpoint: 'sm',
-  },
-  mobile: {
-    name: 'Mobile',
-    width: 375,
-    height: 667,
-    cols: 12,
-    breakpoint: 'xxs',
-  },
-};
-
-type ScreenSizeKey = keyof typeof SCREEN_SIZES;
 
 interface DashboardComponent {
   id: string;
@@ -594,7 +562,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const dashboardAnimation = useDashboardAnimation({
       gridCols: currentScreenConfig.cols,
       containerWidth: actualContainerWidth,
-      rowHeight: ROW_HEIGHT,
+      rowHeight: GRID_ROW_HEIGHT,
       enabled: true,
       spaceMakingConfig: {
         enabled: false, // Disable automatic space-making to preserve layout alignment
@@ -1231,11 +1199,11 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           containerLeft: rect.left,
           containerTop: rect.top,
           cols: currentScreenConfig.cols,
-          rowHeight: ROW_HEIGHT,
-          marginX: GRID_MARGIN,
-          marginY: GRID_MARGIN,
-          paddingX: GRID_PADDING,
-          paddingY: GRID_PADDING,
+          rowHeight: GRID_ROW_HEIGHT,
+          marginX: GRID_GAP_PX,
+          marginY: GRID_GAP_PX,
+          paddingX: GRID_PADDING_PX,
+          paddingY: GRID_PADDING_PX,
         });
       },
       [currentScreenConfig.cols]
@@ -2013,14 +1981,14 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const handoffPlaceholderStyle = (() => {
       if (crossTabDrag?.phase !== 'handoff' || !crossTabDrag.targetPosition) return null;
       const usableWidth =
-        actualContainerWidth - GRID_PADDING * 2 - GRID_MARGIN * (currentScreenConfig.cols - 1);
+        actualContainerWidth - GRID_PADDING_PX * 2 - GRID_GAP_PX * (currentScreenConfig.cols - 1);
       const columnWidth = usableWidth / currentScreenConfig.cols;
       const { x, y } = crossTabDrag.targetPosition;
       return {
-        left: GRID_PADDING + x * (columnWidth + GRID_MARGIN),
-        top: GRID_PADDING + y * (ROW_HEIGHT + GRID_MARGIN),
-        width: crossTabDrag.item.w * columnWidth + (crossTabDrag.item.w - 1) * GRID_MARGIN,
-        height: crossTabDrag.item.h * ROW_HEIGHT + (crossTabDrag.item.h - 1) * GRID_MARGIN,
+        left: GRID_PADDING_PX + x * (columnWidth + GRID_GAP_PX),
+        top: GRID_PADDING_PX + y * (GRID_ROW_HEIGHT + GRID_GAP_PX),
+        width: crossTabDrag.item.w * columnWidth + (crossTabDrag.item.w - 1) * GRID_GAP_PX,
+        height: crossTabDrag.item.h * GRID_ROW_HEIGHT + (crossTabDrag.item.h - 1) * GRID_GAP_PX,
       };
     })();
 
@@ -2522,14 +2490,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                 style={{
                   width: '100%',
                   // Calculate minimum height based on actual content:
-                  // Find the lowest item (y + h) and multiply by ROW_HEIGHT + padding
+                  // Find the lowest item (y + h) and multiply by GRID_ROW_HEIGHT + padding
                   minHeight: Math.max(
                     currentScreenConfig.height,
                     400,
                     // Calculate content height from layout items
                     activeLayout.length > 0
-                      ? Math.max(...activeLayout.map((item) => (item.y + item.h) * ROW_HEIGHT)) +
-                          100
+                      ? Math.max(
+                          ...activeLayout.map((item) => (item.y + item.h) * GRID_ROW_HEIGHT)
+                        ) + 100
                       : 0
                   ),
                   position: 'relative',
@@ -2556,7 +2525,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   data-grid-model="true"
                   layout={activeLayout}
                   cols={currentScreenConfig.cols} // Always exactly 12 columns (Superset-style)
-                  rowHeight={ROW_HEIGHT}
+                  rowHeight={GRID_ROW_HEIGHT}
                   width={actualContainerWidth} // Use available container width - columns adjust to fit
                   onLayoutChange={handleLayoutChange}
                   onDragStart={handleDragStart}
@@ -2570,8 +2539,8 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
                   compactType="vertical"
                   preventCollision={false}
                   allowOverlap={false}
-                  margin={[8, 8]} // Match preview mode spacing
-                  containerPadding={[8, 8]} // Match preview mode padding
+                  margin={GRID_MARGIN} // Match preview mode spacing
+                  containerPadding={GRID_CONTAINER_PADDING} // Match preview mode padding
                   autoSize={true}
                   useCSSTransforms={true}
                   transformScale={1}
