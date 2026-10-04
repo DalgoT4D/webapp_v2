@@ -8,9 +8,9 @@ interface OptionCheckboxRowProps {
   isChecked: boolean;
   onToggle: () => void;
   testId: string;
-  /** Charts put a testid on the checkbox; dashboards don't. */
+  /** LIST-DRIFT: charts put a testid on the checkbox; dashboards don't. */
   checkboxTestId?: string;
-  /** Chart-type options show "bar" as "Bar". */
+  /** LIST-DRIFT: chart-type options show "bar" as "Bar". */
   isCapitalized?: boolean;
 }
 

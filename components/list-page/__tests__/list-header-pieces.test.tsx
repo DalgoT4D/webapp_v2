@@ -27,7 +27,7 @@ describe('SortableColumnHeader', () => {
   it('adds justify-start only when asked', () => {
     const { rerender } = render(<SortableColumnHeader {...base} sortBy="title" sortOrder="asc" />);
     expect(screen.getByTestId('sort-name')).not.toHaveClass('justify-start');
-    rerender(<SortableColumnHeader {...base} sortBy="title" sortOrder="asc" justifyStart />);
+    rerender(<SortableColumnHeader {...base} sortBy="title" sortOrder="asc" isLeftAligned />);
     expect(screen.getByTestId('sort-name')).toHaveClass('justify-start');
   });
 });

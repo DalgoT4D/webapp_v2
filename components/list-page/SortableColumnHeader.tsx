@@ -12,7 +12,7 @@ interface SortableColumnHeaderProps<C extends string> {
   onSort: (column: C) => void;
   testId: string;
   /** LIST-DRIFT: most headers left-align; charts' Data Source/Type/Last Modified and reports' Created on never did. */
-  justifyStart?: boolean;
+  isLeftAligned?: boolean;
 }
 
 function SortIcon({ isSorted, sortOrder }: { isSorted: boolean; sortOrder: SortOrder }) {
@@ -34,13 +34,13 @@ export function SortableColumnHeader<C extends string>({
   sortOrder,
   onSort,
   testId,
-  justifyStart = false,
+  isLeftAligned = false,
 }: SortableColumnHeaderProps<C>) {
   return (
     <Button
       variant="ghost"
       className={
-        justifyStart
+        isLeftAligned
           ? 'h-auto p-0 font-medium text-base hover:bg-transparent justify-start'
           : 'h-auto p-0 font-medium text-base hover:bg-transparent'
       }

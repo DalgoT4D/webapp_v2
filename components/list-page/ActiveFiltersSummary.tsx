@@ -7,9 +7,9 @@ interface ActiveFiltersSummaryProps {
   count: number;
   onClearAll: () => void;
   clearTestId: string;
-  /** Charts and dashboards give the bar an id; reports don't. */
+  /** LIST-DRIFT: charts and dashboards give the bar an id; reports don't. */
   id?: string;
-  /** Only reports put a testid on the count text. */
+  /** LIST-DRIFT: only reports put a testid on the count text. */
   countTestId?: string;
 }
 
