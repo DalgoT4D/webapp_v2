@@ -74,6 +74,11 @@ import {
 } from '@/lib/widget-navigation';
 import { getDefaultCustomizations } from '@/components/charts/chart-types/default-customizations';
 import { canSaveChart, isChartReady } from '@/components/charts/logic/validation';
+import {
+  toMapLayers,
+  toSimplifiedMapFields,
+  type MapLayerToSave,
+} from '@/components/charts/logic/map-layers';
 
 function EditChartPageContent() {
   const params = useParams();
@@ -154,46 +159,12 @@ function EditChartPageContent() {
     }>
   >([]);
 
-  // Helper to convert layers structure back to simplified fields for UI
-  const convertLayersToSimplified = (layers: any[]) => {
-    if (!layers || layers.length === 0) {
-      return {};
-    }
-
-    const simplified: any = {};
-
-    // Level 0: Geographic column (states/counties/provinces)
-    if (layers[0]?.geographic_column) {
-      simplified.geographic_column = layers[0].geographic_column;
-      simplified.selected_geojson_id = layers[0].geojson_id;
-    }
-
-    // Level 1+: Additional drill-down levels
-    const levelMappings = [
-      { level: 1, field: 'district_column' },
-      { level: 2, field: 'ward_column' },
-      { level: 3, field: 'subward_column' },
-    ];
-
-    levelMappings.forEach((mapping) => {
-      const layer = layers.find((l) => l.level === mapping.level);
-      if (layer?.geographic_column) {
-        simplified[mapping.field] = layer.geographic_column;
-      }
-    });
-
-    // Set drill_down_enabled if we have any additional levels
-    simplified.drill_down_enabled = layers.length > 1;
-
-    return simplified;
-  };
-
   // Update form data when chart loads
   useEffect(() => {
     if (chart) {
       // Convert layers to simplified fields if they exist
       const simplifiedFromLayers = chart.extra_config?.layers
-        ? convertLayersToSimplified(chart.extra_config.layers)
+        ? toSimplifiedMapFields(chart.extra_config.layers)
         : {};
 
       const initialData: ChartBuilderFormData = {
@@ -1039,52 +1010,11 @@ function EditChartPageContent() {
 
   const isFormValid = () => canSaveChart(formData);
 
-  // Helper to convert simplified drill-down selections to layers structure (same as ChartBuilder)
-  const convertSimplifiedToLayers = (formData: ChartBuilderFormData) => {
-    const layers = [];
-    let layerIndex = 0;
-
-    // Level 0: Always include the main geographic column (states/counties/provinces)
-    if (formData.geographic_column) {
-      layers.push({
-        id: layerIndex.toString(),
-        level: layerIndex,
-        geographic_column: formData.geographic_column,
-        geojson_id: formData.selected_geojson_id,
-        selected_regions: [] as any[], // Allow all regions by default
-      });
-      layerIndex++;
-    }
-
-    // Level 1+: Add additional levels based on simplified fields
-    const additionalLevels = [
-      { field: 'district_column', name: 'District Level' },
-      { field: 'ward_column', name: 'Ward Level' },
-      { field: 'subward_column', name: 'Sub-Ward Level' },
-      // Future: can add more levels here easily
-    ];
-
-    additionalLevels.forEach((level) => {
-      if ((formData as any)[level.field] && (formData as any)[level.field].trim() !== '') {
-        layers.push({
-          id: layerIndex.toString(),
-          level: layerIndex,
-          geographic_column: (formData as any)[level.field],
-          selected_regions: [], // Allow all regions for drill-down
-          parent_selections: [], // Will be populated during drill-down
-        });
-        layerIndex++;
-      }
-    });
-
-    return layers.length > 0 ? layers : undefined;
-  };
-
   // Helper to build chart data from form
   const buildChartData = (): ChartCreate => {
     // For map charts, process layers and simplified drill-down
     let selectedGeojsonId = formData.selected_geojson_id;
-    let layersToSave = formData.layers;
+    let layersToSave: ChartBuilderFormData['layers'] | MapLayerToSave[] = formData.layers;
 
     if (formData.chart_type === ChartTypes.MAP) {
       // Check if we have simplified drill-down fields to convert
@@ -1093,7 +1023,7 @@ function EditChartPageContent() {
         (formData.district_column || formData.ward_column || formData.subward_column);
 
       if (hasSimplifiedFields) {
-        layersToSave = convertSimplifiedToLayers(formData);
+        layersToSave = toMapLayers(formData);
       }
 
       // Backward compatibility: set selectedGeojsonId from first layer
