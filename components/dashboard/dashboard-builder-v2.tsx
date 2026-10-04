@@ -23,8 +23,8 @@ import {
   useDashboard,
   type DashboardFilter,
 } from '@/hooks/api/useDashboards';
-import { useDebounce } from '@/hooks/useDebounce';
 import { useDashboardLock } from '@/components/dashboard/hooks/useDashboardLock';
+import { useDashboardAutosave } from '@/components/dashboard/hooks/useDashboardAutosave';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { useDashboardAnimation } from '@/hooks/useDashboardAnimation';
 import {
@@ -416,25 +416,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       20
     );
 
-    // Create custom undo/redo functions that prevent auto-save interference
-    const undo = useCallback(() => {
-      undoBase();
-      // Set flag after operation to prevent subsequent auto-save interference
-      setIsUndoRedoOperation(true);
-      setTimeout(() => {
-        setIsUndoRedoOperation(false);
-      }, 1000); // Longer delay to prevent auto-save after undo
-    }, [undoBase]);
-
-    const redo = useCallback(() => {
-      redoBase();
-      // Set flag after operation to prevent subsequent auto-save interference
-      setIsUndoRedoOperation(true);
-      setTimeout(() => {
-        setIsUndoRedoOperation(false);
-      }, 1000); // Longer delay to prevent auto-save after redo
-    }, [redoBase]);
-
     // Applied filters state - only updates when filters are applied (causes chart re-renders)
     const [appliedFilters, setAppliedFilters] = useState<Record<string, any>>({});
 
@@ -601,12 +582,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       }, 100); // Small delay to ensure component is rendered
     };
 
-    // Track if we're in an undo/redo operation to prevent auto-save interference
-    const [isUndoRedoOperation, setIsUndoRedoOperation] = useState(false);
-
-    // Debounced state for auto-save (keep original 5-second delay for responsive auto-save)
-    const debouncedState = useDebounce(state, 5000);
-
     // Update container width when target screen size changes
     useEffect(() => {
       const newWidth = SCREEN_SIZES[targetScreenSize].width;
@@ -645,37 +620,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         resizeObserver.disconnect();
       };
     }, [containerWidth, currentScreenConfig.height]);
-
-    // Auto-save (but not during undo/redo operations).
-    // Deliberately NOT tracked in analytics: autosave is time-triggered, not user
-    // intent, and useDebounce seeds with its initial value so this effect also runs
-    // on mount — any event here would log builder opens as edits. DASHBOARD_UPDATED
-    // fires only from the explicit Save / Save-and-View buttons.
-    useEffect(() => {
-      if (dashboardId && debouncedState && !isUndoRedoOperation) {
-        saveDashboard({}, false);
-      }
-    }, [debouncedState, isUndoRedoOperation]);
-
-    // Keyboard shortcuts for undo/redo
-    useEffect(() => {
-      const handleKeyDown = (e: KeyboardEvent) => {
-        const target = e.target as HTMLElement | null;
-        if (target?.closest('input, textarea, select, [contenteditable="true"], .ProseMirror')) {
-          return;
-        }
-        if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
-          e.preventDefault();
-          if (canUndo) undo();
-        } else if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-          e.preventDefault();
-          if (canRedo) redo();
-        }
-      };
-
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [undo, redo, canUndo, canRedo]);
 
     // Save dashboard.
     // Resolves to whether the PUT succeeded. Errors are handled here (save status + inline
@@ -734,6 +678,43 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         setIsSaving(false);
       }
     };
+
+    const { holdAfterUndoRedo, isUndoRedoOperationRef } = useDashboardAutosave(
+      dashboardId,
+      state,
+      () => saveDashboard({}, false)
+    );
+
+    // Undo/redo hold autosave back for a second (see useDashboardAutosave).
+    const undo = useCallback(() => {
+      undoBase();
+      holdAfterUndoRedo();
+    }, [undoBase, holdAfterUndoRedo]);
+
+    const redo = useCallback(() => {
+      redoBase();
+      holdAfterUndoRedo();
+    }, [redoBase, holdAfterUndoRedo]);
+
+    // Keyboard shortcuts for undo/redo
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        const target = e.target as HTMLElement | null;
+        if (target?.closest('input, textarea, select, [contenteditable="true"], .ProseMirror')) {
+          return;
+        }
+        if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          if (canUndo) undo();
+        } else if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+          e.preventDefault();
+          if (canRedo) redo();
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [undo, redo, canUndo, canRedo]);
 
     // Expose cleanup function to parent component
     useImperativeHandle(
@@ -912,12 +893,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // onDragStop / onResizeStop — those are the single commit points to history. Writing here too
     // would double-commit and pollute undo history.
     const handleLayoutChange = useCallback(() => {}, []);
-
-    // Ref mirror for isUndoRedoOperation so *Stop handlers don't need it as a dep
-    const isUndoRedoOperationRef = useRef(isUndoRedoOperation);
-    useEffect(() => {
-      isUndoRedoOperationRef.current = isUndoRedoOperation;
-    }, [isUndoRedoOperation]);
 
     // --- Edge autoscroll while dragging -------------------------------------------------
     // RGL has no native autoscroll. Scroll the canvas when the pointer nears its top/bottom
