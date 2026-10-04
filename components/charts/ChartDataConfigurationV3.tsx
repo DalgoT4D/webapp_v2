@@ -632,50 +632,6 @@ export function ChartDataConfigurationV3({
           />
         )}
 
-      {/* Y Axis - For Raw Data or Single Metric Charts (but NOT tables or pivot tables) */}
-      {formData.chart_type !== 'number' &&
-        formData.chart_type !== 'map' &&
-        formData.chart_type !== 'table' &&
-        formData.chart_type !== 'pivot_table' &&
-        !['bar', 'line', 'pie'].includes(formData.chart_type || '') && (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-900">Y Axis</Label>
-            <Combobox
-              id="chart-y-axis-select"
-              items={allColumns
-                .filter(
-                  (col) =>
-                    formData.aggregate_function === 'count_distinct' ||
-                    [
-                      'integer',
-                      'bigint',
-                      'numeric',
-                      'double precision',
-                      'real',
-                      'float',
-                      'decimal',
-                    ].includes(col.data_type.toLowerCase())
-                )
-                .map((col) => ({
-                  value: col.column_name,
-                  label: col.column_name,
-                  data_type: col.data_type,
-                }))}
-              value={formData.aggregate_column || formData.y_axis_column}
-              onValueChange={(value) => onChange({ aggregate_column: value })}
-              disabled={disabled}
-              searchPlaceholder="Search columns..."
-              placeholder="Select Y axis column"
-              renderItem={(item, _isSelected, searchQuery) => (
-                <div className="flex items-center gap-2 min-w-0">
-                  <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
-                  <span className="truncate">{highlightText(item.label, searchQuery)}</span>
-                </div>
-              )}
-            />
-          </div>
-        )}
-
       {/* Multiple Metrics for Bar, Line, Table, and Pivot Table Charts */}
       {['bar', 'line', 'table', 'pivot_table'].includes(formData.chart_type || '') && (
         <MetricsSelector

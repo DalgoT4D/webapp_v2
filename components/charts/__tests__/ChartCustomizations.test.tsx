@@ -82,15 +82,6 @@ describe('ChartCustomizations', () => {
 
       rerender(
         <ChartCustomizations
-          chartType="map"
-          formData={createFormData('map')}
-          onChange={mockOnChange}
-        />
-      );
-      expect(screen.getByText('Color and Styling')).toBeInTheDocument();
-
-      rerender(
-        <ChartCustomizations
           chartType="table"
           formData={createFormData('table', { table_columns: ['budget', 'revenue'] })}
           onChange={mockOnChange}

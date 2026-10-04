@@ -14,7 +14,6 @@ import { BarChartCustomizations } from './types/bar/BarChartCustomizations';
 import { LineChartCustomizations } from './types/line/LineChartCustomizations';
 import { PieChartCustomizations } from './types/pie/PieChartCustomizations';
 import { NumberChartCustomizations } from './types/number/NumberChartCustomizations';
-import { MapChartCustomizations } from './types/map/MapChartCustomizations';
 import { TableChartCustomizations } from './types/table/TableChartCustomizations';
 import PivotTableCustomizations from '@/components/charts/pivot-table/PivotTableCustomizations';
 import { pruneStaleFormatting } from '@/components/charts/pivot-table/utils';
@@ -355,15 +354,6 @@ export function ChartCustomizations({
     case ChartTypes.NUMBER:
       return (
         <NumberChartCustomizations
-          customizations={customizations}
-          updateCustomization={updateCustomization}
-          disabled={disabled}
-        />
-      );
-
-    case ChartTypes.MAP:
-      return (
-        <MapChartCustomizations
           customizations={customizations}
           updateCustomization={updateCustomization}
           disabled={disabled}
