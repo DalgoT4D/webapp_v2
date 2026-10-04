@@ -25,7 +25,12 @@ interface ConfirmationDialogProps {
   onConfirm: () => void;
   onCancel?: () => void;
   isLoading?: boolean;
+  /** Prefix for data-testid attributes: `${prefix}`, `${prefix}-confirm-btn`, `${prefix}-cancel-btn` */
+  testIdPrefix?: string;
 }
+
+/** Default data-testid prefix when a caller does not pass testIdPrefix */
+const DEFAULT_TEST_ID_PREFIX = 'confirmation-dialog';
 
 const typeConfig = {
   warning: {
@@ -61,6 +66,7 @@ export function ConfirmationDialog({
   onConfirm,
   onCancel,
   isLoading = false,
+  testIdPrefix = DEFAULT_TEST_ID_PREFIX,
 }: ConfirmationDialogProps) {
   const config = typeConfig[type];
   const Icon = config.icon;
@@ -79,7 +85,7 @@ export function ConfirmationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" data-testid={testIdPrefix}>
         <DialogHeader>
           <div className="flex items-center gap-3">
             <Icon className={`w-5 h-5 ${config.iconClass}`} />
@@ -94,6 +100,7 @@ export function ConfirmationDialog({
             onClick={handleCancel}
             disabled={isLoading}
             className="font-medium uppercase"
+            data-testid={`${testIdPrefix}-cancel-btn`}
           >
             {cancelText.toUpperCase()}
           </Button>
@@ -102,6 +109,7 @@ export function ConfirmationDialog({
             onClick={handleConfirm}
             disabled={isLoading}
             className="font-medium uppercase"
+            data-testid={`${testIdPrefix}-confirm-btn`}
           >
             {isLoading ? 'LOADING...' : confirmText.toUpperCase()}
           </Button>
@@ -123,6 +131,7 @@ export function useConfirmationDialog() {
     onConfirm: () => void;
     onCancel?: () => void;
     isLoading?: boolean;
+    testIdPrefix?: string;
   }>({
     open: false,
     title: '',

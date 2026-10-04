@@ -305,13 +305,25 @@ export function MetricAccordionItem({
       <AccordionContent className="pb-3 space-y-3">
         <Tabs value={mode} onValueChange={handleTabChange}>
           <TabsList className="w-full h-8">
-            <TabsTrigger value="simple" className="flex-1 text-xs">
+            <TabsTrigger
+              value="simple"
+              className="flex-1 text-xs"
+              data-testid={`metric-tab-simple-${index}`}
+            >
               Simple
             </TabsTrigger>
-            <TabsTrigger value="calculated" className="flex-1 text-xs">
+            <TabsTrigger
+              value="calculated"
+              className="flex-1 text-xs"
+              data-testid={`metric-tab-calculated-${index}`}
+            >
               Calculated
             </TabsTrigger>
-            <TabsTrigger value="saved" className="flex-1 text-xs">
+            <TabsTrigger
+              value="saved"
+              className="flex-1 text-xs"
+              data-testid={`metric-tab-saved-${index}`}
+            >
               Saved
             </TabsTrigger>
           </TabsList>
@@ -362,7 +374,11 @@ export function MetricAccordionItem({
                 </SelectTrigger>
                 <SelectContent>
                   {AGGREGATE_FUNCTIONS.map((f) => (
-                    <SelectItem key={f.value} value={f.value}>
+                    <SelectItem
+                      key={f.value}
+                      value={f.value}
+                      data-testid={`metric-agg-${index}-option-${f.value}`}
+                    >
                       {f.label}
                     </SelectItem>
                   ))}
@@ -372,6 +388,7 @@ export function MetricAccordionItem({
             <div className="space-y-1">
               <Label className="text-xs text-gray-600">{labels.column} *</Label>
               <Combobox
+                id={`metric-column-${index}`}
                 items={getAvailableColumns(columns, metric.aggregation || 'count').map((col) => ({
                   value: col.column_name,
                   label: col.column_name === '*' ? '* (Count all rows)' : col.column_name,
@@ -434,6 +451,7 @@ export function MetricAccordionItem({
               type="button"
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground w-full"
               onClick={() => setShowSaveSection(!showSaveSection)}
+              data-testid={`metric-save-toggle-${index}`}
             >
               <ChevronDown
                 className={`h-3.5 w-3.5 transition-transform ${showSaveSection ? '' : '-rotate-90'}`}
@@ -445,6 +463,7 @@ export function MetricAccordionItem({
                 <div className="space-y-1">
                   <Label className="text-xs text-gray-600">Metric Name *</Label>
                   <Input
+                    data-testid={`metric-save-name-${index}`}
                     value={metricName}
                     onChange={(e) => setMetricName(e.target.value)}
                     placeholder="Give a unique name"
@@ -458,6 +477,7 @@ export function MetricAccordionItem({
                     onSaveToLibrary(metricName, mode === 'calculated' ? 'calculated' : 'simple')
                   }
                   disabled={disabled || !metricName.trim() || saving}
+                  data-testid={`metric-save-btn-${index}`}
                   className="w-full h-8 text-xs bg-gray-900 text-white hover:bg-gray-700"
                 >
                   {saving ? (

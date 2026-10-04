@@ -604,6 +604,7 @@ export function DashboardListV2() {
               })
             }
             className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
+            data-testid="dashboard-list-name-filter-clear"
           >
             Clear
           </Button>
@@ -612,6 +613,7 @@ export function DashboardListV2() {
         <div className="space-y-2">
           <Input
             placeholder="Search dashboard names..."
+            data-testid="dashboard-list-name-filter-search"
             value={nameFilters.text}
             onChange={(e) => setNameFilters((prev) => ({ ...prev, text: e.target.value }))}
             className="h-8"
@@ -622,6 +624,7 @@ export function DashboardListV2() {
           <div className="flex items-center space-x-2">
             <Checkbox
               id="favorites"
+              data-testid="dashboard-list-name-filter-favorites"
               checked={nameFilters.showFavorites}
               onCheckedChange={(checked) =>
                 setNameFilters((prev) => ({ ...prev, showFavorites: checked as boolean }))
@@ -635,6 +638,7 @@ export function DashboardListV2() {
           <div className="flex items-center space-x-2">
             <Checkbox
               id="locked"
+              data-testid="dashboard-list-name-filter-locked"
               checked={nameFilters.showLocked}
               onCheckedChange={(checked) =>
                 setNameFilters((prev) => ({ ...prev, showLocked: checked as boolean }))
@@ -648,6 +652,7 @@ export function DashboardListV2() {
           <div className="flex items-center space-x-2">
             <Checkbox
               id="shared"
+              data-testid="dashboard-list-name-filter-shared"
               checked={nameFilters.showShared}
               onCheckedChange={(checked) =>
                 setNameFilters((prev) => ({ ...prev, showShared: checked as boolean }))
@@ -679,6 +684,7 @@ export function DashboardListV2() {
               size="sm"
               onClick={() => setOwnerFilters([])}
               className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
+              data-testid="dashboard-list-owner-filter-clear"
             >
               Clear
             </Button>
@@ -687,6 +693,7 @@ export function DashboardListV2() {
           <div className="space-y-2">
             <Input
               placeholder="Search owners..."
+              data-testid="dashboard-list-owner-filter-search"
               value={ownerSearch}
               onChange={(e) => setOwnerSearch(e.target.value)}
               className="h-8"
@@ -698,6 +705,7 @@ export function DashboardListV2() {
               filteredOwners.map((owner) => (
                 <div
                   key={owner}
+                  data-testid={`dashboard-list-owner-filter-option-${owner}`}
                   className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
                   onClick={() => {
                     setOwnerFilters((prev) => {
@@ -736,6 +744,7 @@ export function DashboardListV2() {
             size="sm"
             onClick={() => setDateFilters({ range: 'all', customStart: null, customEnd: null })}
             className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700"
+            data-testid="dashboard-list-date-filter-clear"
           >
             Clear
           </Button>
@@ -753,6 +762,7 @@ export function DashboardListV2() {
               <input
                 type="radio"
                 id={option.value}
+                data-testid={`dashboard-list-date-filter-${option.value}`}
                 name="dateRange"
                 checked={dateFilters.range === option.value}
                 onChange={() => setDateFilters((prev) => ({ ...prev, range: option.value as any }))}
@@ -773,6 +783,7 @@ export function DashboardListV2() {
                 <Label className="text-xs">From</Label>
                 <Input
                   type="date"
+                  data-testid="dashboard-list-date-filter-start"
                   value={
                     dateFilters.customStart ? format(dateFilters.customStart, 'yyyy-MM-dd') : ''
                   }
@@ -789,6 +800,7 @@ export function DashboardListV2() {
                 <Label className="text-xs">To</Label>
                 <Input
                   type="date"
+                  data-testid="dashboard-list-date-filter-end"
                   value={dateFilters.customEnd ? format(dateFilters.customEnd, 'yyyy-MM-dd') : ''}
                   onChange={(e) =>
                     setDateFilters((prev) => ({
@@ -821,7 +833,11 @@ export function DashboardListV2() {
     };
 
     return (
-      <TableRow key={dashboard.id} className="hover:bg-gray-50">
+      <TableRow
+        key={dashboard.id}
+        className="hover:bg-gray-50"
+        data-testid={`dashboard-list-row-${dashboard.id}`}
+      >
         {/* Name Column with Star */}
         <TableCell className="py-4">
           <div className="flex items-center gap-3">
@@ -833,6 +849,7 @@ export function DashboardListV2() {
                 e.preventDefault();
                 handleToggleFavorite(dashboard);
               }}
+              data-testid={`dashboard-list-favorite-${dashboard.id}`}
             >
               {isFavorited ? (
                 <Star className="w-4 h-4 text-yellow-500 fill-current" />
@@ -843,6 +860,7 @@ export function DashboardListV2() {
             <div className="flex flex-col">
               <Link
                 href={getNavigationUrl()}
+                data-testid={`dashboard-list-title-link-${dashboard.id}`}
                 className="font-medium text-lg text-gray-900 hover:text-teal-700 hover:underline"
               >
                 {dashboard.title || dashboard.dashboard_title}
@@ -916,7 +934,12 @@ export function DashboardListV2() {
           <div className="flex items-center gap-2">
             {dashboard.access_level === 'edit' && (
               <Link href={`/dashboards/${dashboard.id}/edit`}>
-                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                  data-testid={`dashboard-list-edit-${dashboard.id}`}
+                >
                   <Edit className="w-4 h-4 text-gray-600" />
                 </Button>
               </Link>
@@ -935,7 +958,12 @@ export function DashboardListV2() {
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 hover:bg-gray-100">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                  data-testid={`dashboard-list-menu-${dashboard.id}`}
+                >
                   <MoreVertical className="w-4 h-4 text-gray-600" />
                 </Button>
               </DropdownMenuTrigger>
@@ -952,6 +980,7 @@ export function DashboardListV2() {
                           <DropdownMenuItem
                             onClick={() => handleRemovePersonalLanding()}
                             disabled={landingPageLoading}
+                            data-testid={`dashboard-list-remove-landing-${dashboard.id}`}
                             className="cursor-pointer"
                           >
                             <StarOff className="w-4 h-4 mr-2" />
@@ -961,6 +990,7 @@ export function DashboardListV2() {
                           <DropdownMenuItem
                             onClick={() => handleSetPersonalLanding(dashboard.id)}
                             disabled={landingPageLoading}
+                            data-testid={`dashboard-list-set-landing-${dashboard.id}`}
                             className="cursor-pointer"
                           >
                             <Star className="w-4 h-4 mr-2" />
@@ -973,6 +1003,7 @@ export function DashboardListV2() {
                       <DropdownMenuItem
                         onClick={() => handleSetOrgDefault(dashboard.id)}
                         disabled={landingPageLoading || isOrgDefault}
+                        data-testid={`dashboard-list-set-org-default-${dashboard.id}`}
                         className="cursor-pointer"
                       >
                         <Settings className="w-4 h-4 mr-2" />
@@ -992,6 +1023,7 @@ export function DashboardListV2() {
                     }
                     className="cursor-pointer"
                     disabled={isDuplicating === dashboard.id}
+                    data-testid={`dashboard-list-duplicate-${dashboard.id}`}
                   >
                     {isDuplicating === dashboard.id ? (
                       <>
@@ -1014,12 +1046,15 @@ export function DashboardListV2() {
                         <DropdownMenuItem
                           className="cursor-pointer text-destructive focus:text-destructive"
                           onSelect={(e) => e.preventDefault()}
+                          data-testid={`dashboard-list-delete-${dashboard.id}`}
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
                           Delete
                         </DropdownMenuItem>
                       </AlertDialogTrigger>
-                      <AlertDialogContent>
+                      <AlertDialogContent
+                        data-testid={`dashboard-list-delete-dialog-${dashboard.id}`}
+                      >
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
                           <AlertDialogDescription>
@@ -1029,7 +1064,11 @@ export function DashboardListV2() {
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogCancel
+                            data-testid={`dashboard-list-delete-cancel-${dashboard.id}`}
+                          >
+                            Cancel
+                          </AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() =>
                               handleDeleteDashboard(
@@ -1038,6 +1077,7 @@ export function DashboardListV2() {
                               )
                             }
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            data-testid={`dashboard-list-delete-confirm-${dashboard.id}`}
                           >
                             {isDeleting === dashboard.id ? 'Deleting...' : 'Delete'}
                           </AlertDialogAction>
@@ -1627,7 +1667,11 @@ export function DashboardListV2() {
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <AlertCircle className="w-12 h-12 text-destructive" />
         <p className="text-muted-foreground">Failed to load dashboards</p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
+        <Button
+          variant="outline"
+          onClick={() => window.location.reload()}
+          data-testid="dashboard-list-retry-btn"
+        >
           Retry
         </Button>
       </div>
@@ -1657,7 +1701,11 @@ export function DashboardListV2() {
           <div className="flex items-center gap-2">
             {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
               <Link id="dashboard-create-link" href="/dashboards/create">
-                <Button id="dashboard-create-button" variant="primary">
+                <Button
+                  id="dashboard-create-button"
+                  variant="primary"
+                  data-testid="dashboard-create-button"
+                >
                   <Plus id="dashboard-create-icon" className="w-4 h-4 mr-2" />
                   CREATE DASHBOARD
                 </Button>
@@ -1677,6 +1725,7 @@ export function DashboardListV2() {
               size="sm"
               onClick={clearAllFilters}
               className="h-8 px-2 text-xs text-gray-500 hover:text-gray-700"
+              data-testid="dashboard-list-clear-all-filters"
             >
               <X className="w-3 h-3 mr-1" />
               Clear all
@@ -1803,6 +1852,7 @@ export function DashboardListV2() {
                               variant="ghost"
                               className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                               onClick={() => handleSort('name')}
+                              data-testid="dashboard-list-sort-name"
                             >
                               <div className="flex items-center gap-2">
                                 Name
@@ -1820,6 +1870,7 @@ export function DashboardListV2() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6 p-0 hover:bg-gray-100"
+                                  data-testid="dashboard-list-filter-name-trigger"
                                 >
                                   {renderFilterIcon('name')}
                                 </Button>
@@ -1836,6 +1887,7 @@ export function DashboardListV2() {
                               variant="ghost"
                               className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                               onClick={() => handleSort('created_by')}
+                              data-testid="dashboard-list-sort-owner"
                             >
                               <div className="flex items-center gap-2">
                                 Owner
@@ -1853,6 +1905,7 @@ export function DashboardListV2() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6 p-0 hover:bg-gray-100"
+                                  data-testid="dashboard-list-filter-owner-trigger"
                                 >
                                   {renderFilterIcon('owner')}
                                 </Button>
@@ -1867,6 +1920,7 @@ export function DashboardListV2() {
                               variant="ghost"
                               className="h-auto p-0 font-medium text-base hover:bg-transparent justify-start"
                               onClick={() => handleSort('updated_at')}
+                              data-testid="dashboard-list-sort-modified"
                             >
                               <div className="flex items-center gap-2">
                                 Last Modified
@@ -1884,6 +1938,7 @@ export function DashboardListV2() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6 p-0 hover:bg-gray-100"
+                                  data-testid="dashboard-list-filter-date-trigger"
                                 >
                                   {renderFilterIcon('date')}
                                 </Button>
@@ -1956,7 +2011,11 @@ export function DashboardListV2() {
               </p>
               {hasPermission(PERMISSIONS.CAN_CREATE_DASHBOARDS) && (
                 <Link id="dashboard-empty-create-link" href="/dashboards/create">
-                  <Button id="dashboard-empty-create-button" variant="primary">
+                  <Button
+                    id="dashboard-empty-create-button"
+                    variant="primary"
+                    data-testid="dashboard-empty-create-button"
+                  >
                     <Plus id="dashboard-empty-create-icon" className="w-4 h-4 mr-2" />
                     CREATE YOUR FIRST DASHBOARD
                   </Button>
@@ -1997,22 +2056,39 @@ export function DashboardListV2() {
               >
                 <SelectTrigger
                   id="dashboard-page-size-trigger"
+                  data-testid="dashboard-page-size-trigger"
                   className="h-7 text-sm border-gray-200 bg-white"
                   style={{ width: '70px' }}
                 >
                   <SelectValue id="dashboard-page-size-value" />
                 </SelectTrigger>
                 <SelectContent id="dashboard-page-size-content">
-                  <SelectItem id="dashboard-page-size-10" value="10">
+                  <SelectItem
+                    id="dashboard-page-size-10"
+                    value="10"
+                    data-testid="dashboard-page-size-option-10"
+                  >
                     10
                   </SelectItem>
-                  <SelectItem id="dashboard-page-size-20" value="20">
+                  <SelectItem
+                    id="dashboard-page-size-20"
+                    value="20"
+                    data-testid="dashboard-page-size-option-20"
+                  >
                     20
                   </SelectItem>
-                  <SelectItem id="dashboard-page-size-50" value="50">
+                  <SelectItem
+                    id="dashboard-page-size-50"
+                    value="50"
+                    data-testid="dashboard-page-size-option-50"
+                  >
                     50
                   </SelectItem>
-                  <SelectItem id="dashboard-page-size-100" value="100">
+                  <SelectItem
+                    id="dashboard-page-size-100"
+                    value="100"
+                    data-testid="dashboard-page-size-option-100"
+                  >
                     100
                   </SelectItem>
                 </SelectContent>
@@ -2023,6 +2099,7 @@ export function DashboardListV2() {
             <div className="flex items-center gap-1">
               <Button
                 id="dashboard-prev-page-button"
+                data-testid="dashboard-prev-page-button"
                 variant="ghost"
                 size="sm"
                 onClick={() => setCurrentPage(currentPage - 1)}
@@ -2038,6 +2115,7 @@ export function DashboardListV2() {
 
               <Button
                 id="dashboard-next-page-button"
+                data-testid="dashboard-next-page-button"
                 variant="ghost"
                 size="sm"
                 onClick={() => setCurrentPage(currentPage + 1)}

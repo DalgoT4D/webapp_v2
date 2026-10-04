@@ -1776,6 +1776,7 @@ export function ChartElementView({
                 size="sm"
                 onClick={handleRefresh}
                 className="mt-3 h-8 text-xs border-red-300 text-red-700 hover:bg-red-100"
+                data-testid={`dashboard-chart-retry-btn-${chartId}`}
               >
                 <RefreshCw className="h-3 w-3 mr-1" />
                 Retry
@@ -1828,23 +1829,38 @@ export function ChartElementView({
                 title="View Chart"
                 aria-label="View Chart"
                 onClick={onView}
+                data-testid={`dashboard-chart-view-btn-${chartId}`}
               >
                 <Eye className="h-3.5 w-3.5" />
               </Button>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  title="Download"
+                  data-testid={`dashboard-chart-download-trigger-${chartId}`}
+                >
                   <Download className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={handleDownloadImage} className="cursor-pointer">
+                <DropdownMenuItem
+                  onClick={handleDownloadImage}
+                  className="cursor-pointer"
+                  data-testid={`dashboard-chart-download-png-${chartId}`}
+                >
                   <FileImage className="w-4 h-4 mr-2" />
                   <span>Download as PNG</span>
                 </DropdownMenuItem>
                 {effectiveChart?.chart_type !== ChartTypes.NUMBER && (
-                  <DropdownMenuItem onClick={handleDownloadCSV} className="cursor-pointer">
+                  <DropdownMenuItem
+                    onClick={handleDownloadCSV}
+                    className="cursor-pointer"
+                    data-testid={`dashboard-chart-download-csv-${chartId}`}
+                  >
                     <FileText className="w-4 h-4 mr-2" />
                     <span>Export Data as CSV</span>
                   </DropdownMenuItem>
@@ -1858,6 +1874,7 @@ export function ChartElementView({
               onClick={handleToggleFullscreen}
               className="h-7 w-7 p-0"
               title="Fullscreen"
+              data-testid={`dashboard-chart-fullscreen-btn-${chartId}`}
             >
               <Maximize2 className="h-3.5 w-3.5" />
             </Button>
@@ -1891,6 +1908,7 @@ export function ChartElementView({
               title="View Chart"
               aria-label="View Chart"
               onClick={onView}
+              data-testid={`dashboard-chart-view-btn-${chartId}`}
             >
               <Eye className="h-3.5 w-3.5" />
             </Button>
@@ -1925,6 +1943,7 @@ export function ChartElementView({
               onClick={handleDrillHome}
               className="h-6 px-2 text-xs"
               title="Go to top level"
+              data-testid={`dashboard-chart-map-home-${chartId}`}
             >
               <Home className="h-3 w-3 mr-1" />
               Home
@@ -1937,6 +1956,7 @@ export function ChartElementView({
                   size="sm"
                   onClick={() => handleDrillUp(index - 1)}
                   className="h-6 px-2 text-xs text-blue-600 hover:text-blue-800"
+                  data-testid={`dashboard-chart-map-crumb-${chartId}-${index}`}
                 >
                   {level.name}
                 </Button>
@@ -1977,7 +1997,13 @@ export function ChartElementView({
           {/* Breadcrumb navigation for drill-down */}
           {tableDrillDownState && (
             <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-2 flex-shrink-0">
-              <Button variant="ghost" size="sm" onClick={handleTableDrillUp} className="h-8">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleTableDrillUp}
+                className="h-8"
+                data-testid={`dashboard-chart-table-back-${chartId}`}
+              >
                 ← Back
               </Button>
               <span className="text-sm text-muted-foreground">

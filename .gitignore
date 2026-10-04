@@ -63,3 +63,13 @@ node_modules/
 
 # Playwright MCP session artifacts (console logs, traces)
 .playwright-mcp/
+
+# E2E baselines: recorded from pre-refactor code, kept local only (see e2e/README.md)
+/e2e/__snapshots__/**/*.json
+/e2e/__snapshots__/**/*.png
+/e2e/__snapshots__/**/*.txt
+
+# Mutation drill outputs (e2e/scripts/mutation)
+/e2e/scripts/mutation/mutation-*.jsonl
+/e2e/scripts/mutation/mutation-*.log
+/e2e/scripts/mutation/__pycache__/

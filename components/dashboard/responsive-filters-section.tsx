@@ -56,7 +56,10 @@ export function ResponsiveFiltersSection({
     <div className={className} data-testid="dashboard-filters-section">
       <Accordion type="single" collapsible className="w-full">
         <AccordionItem value="filters" className="border-b-0">
-          <AccordionTrigger className="hover:no-underline py-3 px-4 bg-muted/20 rounded-lg">
+          <AccordionTrigger
+            className="hover:no-underline py-3 px-4 bg-muted/20 rounded-lg"
+            data-testid="dashboard-filters-accordion-trigger"
+          >
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4" />
               <span className="font-medium">Filters</span>

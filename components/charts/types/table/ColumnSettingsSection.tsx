@@ -77,6 +77,7 @@ function SortableColumnRow({
             : 'cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground'
         }`}
         aria-label={`Drag to reorder ${column}`}
+        data-testid={`column-drag-${column}`}
       >
         <GripVertical className="h-4 w-4" />
       </button>
@@ -94,7 +95,11 @@ function SortableColumnRow({
         </SelectTrigger>
         <SelectContent>
           {ALIGNMENT_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
+            <SelectItem
+              key={opt.value}
+              value={opt.value}
+              data-testid={`alignment-${column}-option-${opt.value}`}
+            >
               {opt.label}
             </SelectItem>
           ))}

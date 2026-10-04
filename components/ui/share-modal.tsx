@@ -738,12 +738,25 @@ export function ShareModal({
                               value={chip.access_level}
                               onValueChange={(v) => setChipLevel(chip.key, v as AccessLevel)}
                             >
-                              <SelectTrigger className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-100 focus:ring-0 focus-visible:ring-0">
+                              <SelectTrigger
+                                className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-100 focus:ring-0 focus-visible:ring-0"
+                                data-testid={`share-chip-level-${chip.key}`}
+                              >
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="view">View</SelectItem>
-                                <SelectItem value="edit">Edit</SelectItem>
+                                <SelectItem
+                                  value="view"
+                                  data-testid={`share-chip-level-${chip.key}-option-view`}
+                                >
+                                  View
+                                </SelectItem>
+                                <SelectItem
+                                  value="edit"
+                                  data-testid={`share-chip-level-${chip.key}-option-edit`}
+                                >
+                                  Edit
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                             <Button
@@ -752,6 +765,7 @@ export function ShareModal({
                               className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
                               onClick={() => removeChip(chip.key)}
                               aria-label={`Remove ${chip.label}`}
+                              data-testid={`share-chip-remove-${chip.key}`}
                             >
                               <X className="h-4 w-4" />
                             </Button>
@@ -802,13 +816,21 @@ export function ShareModal({
                         </SelectTrigger>
                         <SelectContent>
                           {(roles ?? []).map((role) => (
-                            <SelectItem key={role.uuid} value={role.uuid}>
+                            <SelectItem
+                              key={role.uuid}
+                              value={role.uuid}
+                              data-testid={`share-invite-role-option-${role.uuid}`}
+                            >
                               {role.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      {roleError && <p className="text-sm text-red-500">{roleError}</p>}
+                      {roleError && (
+                        <p className="text-sm text-red-500" data-testid="share-invite-role-error">
+                          {roleError}
+                        </p>
+                      )}
                     </div>
                   )}
                 </>
@@ -819,7 +841,7 @@ export function ShareModal({
                 <Label className="text-sm font-medium text-gray-900">People with access</Label>
                 <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
                   {owner && (
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3" data-testid="share-owner-row">
                       <span className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary">
                         <UserIcon className="h-4 w-4" />
                       </span>
@@ -847,12 +869,19 @@ export function ShareModal({
                     </div>
                   )}
                   {(shares ?? []).length === 0 && !owner && (
-                    <div className="text-sm text-muted-foreground">
+                    <div
+                      className="text-sm text-muted-foreground"
+                      data-testid="share-owner-only-text"
+                    >
                       Only the owner has access right now.
                     </div>
                   )}
                   {sortedShares.map((s, idx) => (
-                    <div key={s.share_id ?? `cascade-${idx}`} className="flex items-center gap-3">
+                    <div
+                      key={s.share_id ?? `cascade-${idx}`}
+                      className="flex items-center gap-3"
+                      data-testid={`share-grant-row-${s.share_id ?? `inherited-${s.principal_type}-${s.principal_id}`}`}
+                    >
                       <span className="inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary">
                         {s.principal_type === 'group' ? (
                           <UsersIcon className="h-4 w-4" />
@@ -900,12 +929,16 @@ export function ShareModal({
                                       (s.share_id === null && rowBusyId === s.principal_id))
                                   }
                                 >
-                                  <SelectTrigger className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-50 focus:ring-0 focus-visible:ring-0">
+                                  <SelectTrigger
+                                    className="h-8 w-auto gap-1 border-0 bg-transparent px-2 text-sm text-gray-700 shadow-none hover:bg-gray-50 focus:ring-0 focus-visible:ring-0"
+                                    data-testid={`share-grant-level-${s.share_id ?? `inherited-${s.principal_type}-${s.principal_id}`}`}
+                                  >
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem
                                       value="view"
+                                      data-testid={`share-grant-level-${s.share_id ?? `inherited-${s.principal_type}-${s.principal_id}`}-option-view`}
                                       disabled={
                                         s.share_id === null &&
                                         LEVEL_RANK['view'] <= LEVEL_RANK[s.access_level]
@@ -915,6 +948,7 @@ export function ShareModal({
                                     </SelectItem>
                                     <SelectItem
                                       value="edit"
+                                      data-testid={`share-grant-level-${s.share_id ?? `inherited-${s.principal_type}-${s.principal_id}`}-option-edit`}
                                       disabled={
                                         s.share_id === null &&
                                         LEVEL_RANK['edit'] <= LEVEL_RANK[s.access_level]
@@ -928,7 +962,10 @@ export function ShareModal({
                                       s.access_level === 'edit' && (
                                         <>
                                           <SelectSeparator />
-                                          <SelectItem value="transfer">
+                                          <SelectItem
+                                            value="transfer"
+                                            data-testid={`share-grant-level-${s.share_id ?? `inherited-${s.principal_type}-${s.principal_id}`}-option-transfer`}
+                                          >
                                             Transfer ownership
                                           </SelectItem>
                                         </>
@@ -953,6 +990,7 @@ export function ShareModal({
                           onClick={() => handleRowRemove(s)}
                           disabled={rowBusyId === s.share_id || s.share_id === null}
                           aria-label={`Remove ${s.label}`}
+                          data-testid={`share-grant-remove-${s.share_id ?? `inherited-${s.principal_type}-${s.principal_id}`}`}
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -985,7 +1023,10 @@ export function ShareModal({
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-sm font-medium">General access</p>
-                            <p className="text-xs text-muted-foreground">
+                            <p
+                              className="text-xs text-muted-foreground"
+                              data-testid="general-access-description"
+                            >
                               {generalAccess.mode === 'internal' &&
                                 'Users can access this resource based on their role permissions'}
                               {generalAccess.mode === 'private' &&
@@ -1005,16 +1046,25 @@ export function ShareModal({
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent position="popper">
-                              <SelectItem value="internal" disabled={maxParentRank > 1}>
+                              <SelectItem
+                                value="internal"
+                                disabled={maxParentRank > 1}
+                                data-testid="general-access-option-internal"
+                              >
                                 Default
                               </SelectItem>
-                              <SelectItem value="private" disabled={maxParentRank > 0}>
+                              <SelectItem
+                                value="private"
+                                disabled={maxParentRank > 0}
+                                data-testid="general-access-option-private"
+                              >
                                 Private
                               </SelectItem>
                               {generalAccess.supports_public && (
                                 <SelectItem
                                   value="public"
                                   disabled={!generalAccess.allow_public_sharing}
+                                  data-testid="general-access-option-public"
                                 >
                                   Public
                                 </SelectItem>
@@ -1023,7 +1073,10 @@ export function ShareModal({
                           </Select>
                         </div>
                         {anyBlocked && (
-                          <p className="text-xs text-muted-foreground mt-2">
+                          <p
+                            className="text-xs text-muted-foreground mt-2"
+                            data-testid="general-access-restricted-text"
+                          >
                             Some options are restricted as this resource is used in shared
                             dashboards:{' '}
                             <strong>
@@ -1037,7 +1090,10 @@ export function ShareModal({
 
                   {generalAccess.mode === 'public' && generalAccess.allow_public_sharing && (
                     <>
-                      <div className="mt-3 flex items-start gap-2 rounded-md border border-orange-200 bg-orange-50 p-3">
+                      <div
+                        className="mt-3 flex items-start gap-2 rounded-md border border-orange-200 bg-orange-50 p-3"
+                        data-testid="public-security-notice"
+                      >
                         <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
                         <div className="text-xs text-orange-800">
                           <strong>Security Notice:</strong> Your data is now exposed to the
@@ -1059,10 +1115,15 @@ export function ShareModal({
                       )}
 
                       {generalAccess.public_access_count > 0 && (
-                        <div className="mt-2 text-xs text-muted-foreground">
-                          <p>Public access count: {generalAccess.public_access_count}</p>
+                        <div
+                          className="mt-2 text-xs text-muted-foreground"
+                          data-testid="public-access-stats"
+                        >
+                          <p data-testid="public-access-count">
+                            Public access count: {generalAccess.public_access_count}
+                          </p>
                           {generalAccess.last_public_accessed && (
-                            <p>
+                            <p data-testid="public-last-accessed">
                               Last accessed:{' '}
                               {new Date(generalAccess.last_public_accessed).toLocaleString()}
                             </p>
@@ -1079,7 +1140,7 @@ export function ShareModal({
           {/* Cascade confirmation dialog (dashboard only) */}
           {pendingAction && (
             <Dialog open onOpenChange={() => setPendingAction(null)}>
-              <DialogContent className="sm:max-w-sm">
+              <DialogContent className="sm:max-w-sm" data-testid="share-cascade-dialog">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5 text-orange-500" />
@@ -1100,10 +1161,18 @@ export function ShareModal({
                   )}
                 </p>
                 <div className="flex justify-end gap-3 mt-2">
-                  <Button variant="outline" onClick={() => setPendingAction(null)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setPendingAction(null)}
+                    data-testid="share-cascade-cancel-btn"
+                  >
                     CANCEL
                   </Button>
-                  <Button variant="primary" onClick={handleCascadeConfirm}>
+                  <Button
+                    variant="primary"
+                    onClick={handleCascadeConfirm}
+                    data-testid="share-cascade-continue-btn"
+                  >
                     CONTINUE
                   </Button>
                 </div>
@@ -1114,7 +1183,7 @@ export function ShareModal({
           {/* Ownership transfer confirmation dialog */}
           {transferTarget && (
             <Dialog open onOpenChange={() => setTransferTarget(null)}>
-              <DialogContent className="sm:max-w-sm">
+              <DialogContent className="sm:max-w-sm" data-testid="share-transfer-dialog">
                 <DialogHeader>
                   <DialogTitle>Transfer ownership to {transferTarget.label}?</DialogTitle>
                 </DialogHeader>
@@ -1123,13 +1192,18 @@ export function ShareModal({
                   access.
                 </p>
                 <div className="flex justify-end gap-3 mt-2">
-                  <Button variant="outline" onClick={() => setTransferTarget(null)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setTransferTarget(null)}
+                    data-testid="share-transfer-cancel-btn"
+                  >
                     Cancel
                   </Button>
                   <Button
                     variant="primary"
                     onClick={handleTransferConfirm}
                     disabled={isTransferring}
+                    data-testid="share-transfer-confirm-btn"
                   >
                     {isTransferring ? 'Transferring…' : 'Transfer'}
                   </Button>
@@ -1141,7 +1215,7 @@ export function ShareModal({
           {/* Admin takeover confirmation dialog */}
           {takeoverConfirmOpen && owner && (
             <Dialog open onOpenChange={() => setTakeoverConfirmOpen(false)}>
-              <DialogContent className="sm:max-w-sm">
+              <DialogContent className="sm:max-w-sm" data-testid="admin-takeover-dialog">
                 <DialogHeader>
                   <DialogTitle>Remove owner and take over?</DialogTitle>
                 </DialogHeader>
@@ -1150,7 +1224,11 @@ export function ShareModal({
                   <strong>{owner.email}</strong> will no longer have direct access.
                 </p>
                 <div className="flex justify-end gap-3 mt-2">
-                  <Button variant="outline" onClick={() => setTakeoverConfirmOpen(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setTakeoverConfirmOpen(false)}
+                    data-testid="admin-takeover-cancel-btn"
+                  >
                     Cancel
                   </Button>
                   <Button
@@ -1191,12 +1269,14 @@ export function ShareModal({
                       onKeyDown={handleEmailKeyDown}
                       disabled={isSending}
                       className="flex-1"
+                      data-testid="share-modal-email-input"
                     />
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={handleAddEmail}
                       disabled={isSending || !emailInput.trim()}
+                      data-testid="share-modal-email-add-btn"
                     >
                       Add
                     </Button>
@@ -1216,6 +1296,7 @@ export function ShareModal({
                             disabled={isSending}
                             className="hover:text-destructive"
                             aria-label={`Remove ${email}`}
+                            data-testid={`share-modal-email-remove-${email}`}
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -1231,6 +1312,7 @@ export function ShareModal({
                     disabled={isSending}
                     rows={2}
                     className="resize-none text-sm"
+                    data-testid="share-modal-email-message"
                   />
 
                   <Button
@@ -1238,6 +1320,7 @@ export function ShareModal({
                     disabled={isSending || recipientEmails.length === 0}
                     className="w-full"
                     variant="primary"
+                    data-testid="share-modal-email-send-btn"
                   >
                     {isSending ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />

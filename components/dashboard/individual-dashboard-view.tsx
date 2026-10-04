@@ -132,11 +132,19 @@ export function IndividualDashboardView({
                 {error.message || 'Failed to load dashboard'}
               </p>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => router.push('/dashboards')}>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/dashboards')}
+                  data-testid="superset-dashboard-error-back-btn"
+                >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Dashboards
                 </Button>
-                <Button variant="outline" onClick={handleRefresh}>
+                <Button
+                  variant="outline"
+                  onClick={handleRefresh}
+                  data-testid="superset-dashboard-retry-btn"
+                >
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Try Again
                 </Button>
@@ -153,7 +161,11 @@ export function IndividualDashboardView({
       <div className="flex items-center justify-center h-full p-6">
         <div className="text-center">
           <p className="text-muted-foreground mb-4">Dashboard not found</p>
-          <Button variant="outline" onClick={() => router.push('/dashboards')}>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/dashboards')}
+            data-testid="superset-dashboard-not-found-back-btn"
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboards
           </Button>
@@ -168,22 +180,41 @@ export function IndividualDashboardView({
       {!hideHeader && !showMinimalHeader && (
         <div className="p-6 border-b">
           <div className="flex items-center justify-between mb-4">
-            <Button variant="ghost" onClick={() => router.push('/dashboards')}>
+            <Button
+              variant="ghost"
+              onClick={() => router.push('/dashboards')}
+              data-testid="superset-dashboard-back-btn"
+            >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Dashboards
             </Button>
 
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleShare}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleShare}
+                data-testid="superset-dashboard-share-btn"
+              >
                 <Share2 className="h-4 w-4 mr-2" />
                 Share
               </Button>
-              <Button variant="outline" size="sm" onClick={handleRefresh}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                data-testid="superset-dashboard-refresh-btn"
+              >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
               {dashboard.url && (
-                <Button variant="outline" size="sm" onClick={handleOpenInSuperset}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenInSuperset}
+                  data-testid="superset-dashboard-open-btn"
+                >
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Open in Superset
                 </Button>

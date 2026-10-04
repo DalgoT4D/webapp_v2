@@ -1,0 +1,1259 @@
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: [pinned] legend display all drops the defaulted legendPosition
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: data label position inside
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: data label position insideBottom
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: data label position top after inside
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: data labels on (default position top)
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: legend display paginated after all
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: legend off
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: legend position bottom
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: legend position left
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: legend position right after top
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: legend position top
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: orientation horizontal
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: orientation vertical after horizontal
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: stacked bars (with extra dimension)
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: stacked switch only appears with an extra dimension
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: styling panel defaults in create
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: tooltip off
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: x date format dd_mm_yyyy (date X axis)
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: x date format yyyy_mm_dd (date X axis)
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: x label rotation 45 after vertical (create default is 45)
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: x label rotation horizontal
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: x label rotation vertical
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: x number format + decimals (numeric X axis)
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: x-axis title
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: y decimal places
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: y label rotation 45
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: y label rotation vertical
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: y number format adaptive_indian
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: y number format adaptive_international
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: y number format european
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: y number format indian
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: y number format international
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: y number format percentage
+[chromium] charts/builder-bar.spec.ts › bar styling › bar: y-axis title
+[chromium] charts/builder-line.spec.ts › line styling › line: [pinned] legend display all drops the defaulted legendPosition
+[chromium] charts/builder-line.spec.ts › line styling › line: data label position bottom
+[chromium] charts/builder-line.spec.ts › line styling › line: data label position left
+[chromium] charts/builder-line.spec.ts › line styling › line: data label position right
+[chromium] charts/builder-line.spec.ts › line styling › line: data label position top after bottom
+[chromium] charts/builder-line.spec.ts › line styling › line: data labels on (default position top)
+[chromium] charts/builder-line.spec.ts › line styling › line: data points off
+[chromium] charts/builder-line.spec.ts › line styling › line: legend display paginated after all
+[chromium] charts/builder-line.spec.ts › line styling › line: legend off
+[chromium] charts/builder-line.spec.ts › line styling › line: legend position bottom
+[chromium] charts/builder-line.spec.ts › line styling › line: legend position left
+[chromium] charts/builder-line.spec.ts › line styling › line: legend position right after top
+[chromium] charts/builder-line.spec.ts › line styling › line: legend position top
+[chromium] charts/builder-line.spec.ts › line styling › line: line style smooth after straight
+[chromium] charts/builder-line.spec.ts › line styling › line: line style straight
+[chromium] charts/builder-line.spec.ts › line styling › line: multi-line with extra dimension
+[chromium] charts/builder-line.spec.ts › line styling › line: styling panel defaults in create
+[chromium] charts/builder-line.spec.ts › line styling › line: tooltip off
+[chromium] charts/builder-line.spec.ts › line styling › line: x date format iso_datetime (date X axis)
+[chromium] charts/builder-line.spec.ts › line styling › line: x date format mm_dd_yyyy (date X axis)
+[chromium] charts/builder-line.spec.ts › line styling › line: x label rotation 45
+[chromium] charts/builder-line.spec.ts › line styling › line: x label rotation horizontal after 45 (create default is horizontal)
+[chromium] charts/builder-line.spec.ts › line styling › line: x label rotation vertical
+[chromium] charts/builder-line.spec.ts › line styling › line: x number format + decimals (numeric X axis)
+[chromium] charts/builder-line.spec.ts › line styling › line: x-axis title
+[chromium] charts/builder-line.spec.ts › line styling › line: y decimal places
+[chromium] charts/builder-line.spec.ts › line styling › line: y label rotation 45
+[chromium] charts/builder-line.spec.ts › line styling › line: y label rotation vertical
+[chromium] charts/builder-line.spec.ts › line styling › line: y number format adaptive_indian
+[chromium] charts/builder-line.spec.ts › line styling › line: y number format adaptive_international
+[chromium] charts/builder-line.spec.ts › line styling › line: y number format european
+[chromium] charts/builder-line.spec.ts › line styling › line: y number format indian
+[chromium] charts/builder-line.spec.ts › line styling › line: y number format international
+[chromium] charts/builder-line.spec.ts › line styling › line: y number format percentage
+[chromium] charts/builder-line.spec.ts › line styling › line: y-axis title
+[chromium] charts/builder-map.spec.ts › C-D4 detail page map drill-down › C-D4 hierarchy drill: toast, breadcrumb, district overlay, then "no further levels"
+[chromium] charts/builder-map.spec.ts › C-D4 detail page map drill-down › C-D4 legacy district_column drill → "Drilling down to districts in …"
+[chromium] charts/builder-map.spec.ts › C-D4 detail page map drill-down › C-D4 legacy layers: unconfigured region → "not configured for drill-down"
+[chromium] charts/builder-map.spec.ts › C-D4 detail page map drill-down › C-D4 no drill config and no layers → "No further drill-down levels configured"
+[chromium] charts/builder-map.spec.ts › C-D4 detail page map drill-down › [pinned] C-D4 legacy layers + UI "not_equals" filter → still "not configured", not "excluded"
+[chromium] charts/builder-map.spec.ts › builder map — data configuration › C-B1 map auto-prefill: statename state column + default GeoJSON, COUNT metric
+[chromium] charts/builder-map.spec.ts › builder map — data configuration › C-B4 map SUM(students) preview renders + overlay payload
+[chromium] charts/builder-map.spec.ts › builder map — data configuration › [pinned] map filter value is a text box (raw distinct-values preview 500s on staging)
+[chromium] charts/builder-map.spec.ts › builder map — data configuration › [pinned] map filters reach chart-data-preview but not the builder overlay
+[chromium] charts/builder-map.spec.ts › builder map — data configuration › [pinned] map region click without drill config → info toast, no drill
+[chromium] charts/builder-map.spec.ts › builder map — data configuration › map Download Districts CSV → ind_districts.csv
+[chromium] charts/builder-map.spec.ts › builder map — data configuration › map Download States CSV → ind_states.csv
+[chromium] charts/builder-map.spec.ts › builder map — data configuration › map district drill level → geographic_hierarchy in create POST
+[chromium] charts/builder-map.spec.ts › builder map — data configuration › map drill breadcrumb Back returns to state level
+[chromium] charts/builder-map.spec.ts › builder map — data configuration › map drill breadcrumb Home returns to state level
+[chromium] charts/builder-map.spec.ts › builder map — data configuration › map drill-down click → toast, breadcrumb, district overlay
+[chromium] charts/builder-map.spec.ts › builder map — data configuration › map filter remove ✕ drops the filter from the saved chart
+[chromium] charts/builder-map.spec.ts › builder map — data configuration › map state column change → GeoJSON re-selected, overlay by new column
+[chromium] charts/builder-map.spec.ts › builder map — save, edit, detail › C-B3 map save → POST payload → detail renders with overlay
+[chromium] charts/builder-map.spec.ts › builder map — save, edit, detail › C-E2 map edit round trip: hierarchy kept, single layer saved on update
+[chromium] charts/builder-map.spec.ts › builder map — save, edit, detail › C-E2 map edit: picking a district converts simplified fields to 2 layers
+[chromium] charts/builder-map.spec.ts › builder map — save, edit, detail › [pinned] C-D4 UI-built drill hierarchy is saved as country→state, so the detail toast says "state"
+[chromium] charts/builder-map.spec.ts › builder map — save, edit, detail › [pinned] map edit preview: drill with hierarchy has no toast
+[chromium] charts/builder-map.spec.ts › builder map — save, edit, detail › [pinned] map edit preview: region click without drill config does nothing
+[chromium] charts/builder-map.spec.ts › builder map — styling › map color scheme Greens
+[chromium] charts/builder-map.spec.ts › builder map — styling › map color scheme Greys
+[chromium] charts/builder-map.spec.ts › builder map — styling › map color scheme Oranges
+[chromium] charts/builder-map.spec.ts › builder map — styling › map color scheme Purples
+[chromium] charts/builder-map.spec.ts › builder map — styling › map color scheme Reds
+[chromium] charts/builder-map.spec.ts › builder map — styling › map color scheme default is Blues
+[chromium] charts/builder-map.spec.ts › builder map — styling › map legend off
+[chromium] charts/builder-map.spec.ts › builder map — styling › map legend position bottom-left
+[chromium] charts/builder-map.spec.ts › builder map — styling › map legend position bottom-right
+[chromium] charts/builder-map.spec.ts › builder map — styling › map legend position top-left
+[chromium] charts/builder-map.spec.ts › builder map — styling › map legend position top-right
+[chromium] charts/builder-map.spec.ts › builder map — styling › map no-data label shows in tooltip for regions without data
+[chromium] charts/builder-map.spec.ts › builder map — styling › map number format applies to tooltip (frontend-only)
+[chromium] charts/builder-map.spec.ts › builder map — styling › map show region names
+[chromium] charts/builder-map.spec.ts › builder map — styling › map tooltip off → no tooltip on hover
+[chromium] charts/builder-map.spec.ts › builder map — styling › map tooltip on (default) shows region + metric value
+[chromium] charts/builder-map.spec.ts › builder map — styling › map zoom in
+[chromium] charts/builder-map.spec.ts › builder map — styling › map zoom out
+[chromium] charts/builder-number.spec.ts › number styling › number: data config — one metric, no X axis / extra dimension / pagination / sort / display name
+[chromium] charts/builder-number.spec.ts › number styling › number: decimal places
+[chromium] charts/builder-number.spec.ts › number styling › number: filter applies to the big number
+[chromium] charts/builder-number.spec.ts › number styling › number: number format adaptive_indian
+[chromium] charts/builder-number.spec.ts › number styling › number: number format adaptive_international
+[chromium] charts/builder-number.spec.ts › number styling › number: number format european
+[chromium] charts/builder-number.spec.ts › number styling › number: number format indian
+[chromium] charts/builder-number.spec.ts › number styling › number: number format international
+[chromium] charts/builder-number.spec.ts › number styling › number: number format percentage
+[chromium] charts/builder-number.spec.ts › number styling › number: prefix
+[chromium] charts/builder-number.spec.ts › number styling › number: prefix + suffix + format together
+[chromium] charts/builder-number.spec.ts › number styling › number: removing the metric disables Save and brings back + ADD ANOTHER METRIC
+[chromium] charts/builder-number.spec.ts › number styling › number: size large
+[chromium] charts/builder-number.spec.ts › number styling › number: size medium after small
+[chromium] charts/builder-number.spec.ts › number styling › number: size small
+[chromium] charts/builder-number.spec.ts › number styling › number: styling panel defaults in create
+[chromium] charts/builder-number.spec.ts › number styling › number: subtitle
+[chromium] charts/builder-number.spec.ts › number styling › number: suffix
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: chart style donut after full pie
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: chart style full pie
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: data labels off
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: date format dd_mm_yyyy (date dimension)
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: date format yyyy_mm_dd (date dimension)
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: date formatting section only for a date dimension, names the column
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: decimal places
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: label format / position hidden when data labels are off
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: label format name_percentage
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: label format name_value
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: label format percentage after value
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: label format value
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: label position inside
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: label position outside after inside
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: legend display all
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: legend display paginated after all
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: legend off
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: legend position bottom
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: legend position left
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: legend position right after top (create default is right)
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: legend position top
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: number format adaptive_indian
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: number format adaptive_international
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: number format european
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: number format indian
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: number format international
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: number format percentage
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: single metric — no add-metric button; labels read Metric / Dimension
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: slice limit all after top 3
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: slice limit top 10 (rest grouped as Other)
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: slice limit top 3 (rest grouped as Other)
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: slice limit top 5 (rest grouped as Other)
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: styling panel defaults in create
+[chromium] charts/builder-pie.spec.ts › pie styling › pie: tooltip off
+[chromium] charts/builder-pivot.spec.ts › builder pivot — dimensions › C-B1 pivot auto-prefill: first text column as rows, first date column as columns, COUNT
+[chromium] charts/builder-pivot.spec.ts › builder pivot — dimensions › C-B2 pivot without a metric: save disabled, "Configure your pivot table"
+[chromium] charts/builder-pivot.spec.ts › builder pivot — dimensions › pivot add row dimension appends the first unused column; used columns hidden
+[chromium] charts/builder-pivot.spec.ts › builder pivot — dimensions › pivot column dimensions: change, add, remove to zero
+[chromium] charts/builder-pivot.spec.ts › builder pivot — dimensions › pivot remove row dimension; the last one cannot be removed
+[chromium] charts/builder-pivot.spec.ts › builder pivot — dimensions › pivot render: statename × climate_event, SUM(students)
+[chromium] charts/builder-pivot.spec.ts › builder pivot — dimensions › pivot row dimension change → statename
+[chromium] charts/builder-pivot.spec.ts › builder pivot — save, edit, detail › C-B3 pivot save → POST payload → detail renders pivot
+[chromium] charts/builder-pivot.spec.ts › builder pivot — save, edit, detail › C-E2 pivot edit round trip → PUT payload
+[chromium] charts/builder-pivot.spec.ts › builder pivot — styling › pivot conditional formatting (numeric rule on the metric)
+[chromium] charts/builder-pivot.spec.ts › builder pivot — styling › pivot date format for a date dimension (display only)
+[chromium] charts/builder-pivot.spec.ts › builder pivot — styling › pivot freeze first column
+[chromium] charts/builder-pivot.spec.ts › builder pivot — styling › pivot per-metric number format (Indian, 1 decimal)
+[chromium] charts/builder-pivot.spec.ts › builder pivot — styling › pivot search highlights matches
+[chromium] charts/builder-pivot.spec.ts › builder pivot — styling › pivot theme gray (default) → blue
+[chromium] charts/builder-pivot.spec.ts › builder pivot — styling › pivot zebra rows off by default → on
+[chromium] charts/builder-pivot.spec.ts › builder pivot — totals › pivot column grand total (bottom row) + custom label
+[chromium] charts/builder-pivot.spec.ts › builder pivot — totals › pivot column subtotals auto-off when column dimensions drop below 2
+[chromium] charts/builder-pivot.spec.ts › builder pivot — totals › pivot column subtotals on + custom label
+[chromium] charts/builder-pivot.spec.ts › builder pivot — totals › pivot row grand total (right column) + custom label
+[chromium] charts/builder-pivot.spec.ts › builder pivot — totals › pivot row grand total needs a column dimension
+[chromium] charts/builder-pivot.spec.ts › builder pivot — totals › pivot row subtotals auto-off when row dimensions drop below 2
+[chromium] charts/builder-pivot.spec.ts › builder pivot — totals › pivot row subtotals need 2+ row dimensions
+[chromium] charts/builder-pivot.spec.ts › builder pivot — totals › pivot row subtotals on + custom label
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › C-B6 Back → Leave without saving goes to /charts/new
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › C-B6 Back → Save and leave creates the chart and opens detail
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › C-B6 Back → Stay on page keeps the builder
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › [pinned] C-B6 Back opens the unsaved dialog even with no user edits
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › bar › C-B1 bar: default title pattern + auto-prefilled config
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › bar › C-B2 bar: save disabled until valid
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › bar › C-B3 bar: create via picker → save payload → lands on detail
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › bar › C-B4 bar: preview after default config
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › bar › C-B5 bar: DATA tab — Chart Data / Raw Data tables + pagination
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › line › C-B1 line: default title pattern + auto-prefilled config
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › line › C-B2 line: save disabled until valid
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › line › C-B3 line: create via picker → save payload → lands on detail
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › line › C-B4 line: preview after default config
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › line › C-B5 line: DATA tab — Chart Data / Raw Data tables + pagination
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › number › C-B1 number: default title pattern + auto-prefilled config
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › number › C-B2 number: save disabled until valid
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › number › C-B3 number: create via picker → save payload → lands on detail
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › number › C-B4 number: preview after default config
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › number › [pinned] C-B5 number: DATA tab — Chart Data / Raw Data tables + pagination
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › pie › C-B1 pie: default title pattern + auto-prefilled config
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › pie › C-B2 pie: save disabled until valid
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › pie › C-B3 pie: create via picker → save payload → lands on detail
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › pie › C-B4 pie: preview after default config
+[chromium] charts/builder-shared.spec.ts › C-B create-flow basics › pie › C-B5 pie: DATA tab — Chart Data / Raw Data tables + pagination
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › X axis: items list every column (no type filter)
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › X axis: pick a column
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › extra dimension › None clears it
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › extra dimension › list excludes the X axis column; placeholder per type
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › extra dimension › pick a column
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › changing the column clears the value and records data_type
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › operator equals (text value input)
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › operator greater_than (text value input)
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › operator greater_than_equal (text value input)
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › operator in (text value input)
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › operator is_not_null (no value input)
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › operator is_null (no value input)
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › operator less_than (text value input)
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › operator less_than_equal (text value input)
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › operator like (text value input)
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › operator like_case_insensitive (text value input)
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › operator not_equals (text value input)
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › operator not_in (text value input)
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › remove filter
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › two filters are ANDed in one payload
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › value input: date picker for date column
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › value input: multi-select for in when column values load
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › filters › value input: single combobox when column values load
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › pagination › 100 items
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › pagination › 20 items
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › pagination › 200 items
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › pagination › 50 items
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › pagination › No pagination after 20
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › sort › None clears the sort
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › sort › auto-clears when the sorted metric alias disappears
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › sort › by dimension ascending
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › sort › by metric descending
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › sort › direction disabled until a column is picked; options are COL + METRIC
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › time grain › date column: hour/minute/second disabled with tooltip
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › time grain › grain None after Year sends time_grain null
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › time grain › grain auto-cleared when X axis stops being a date
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › time grain › grain day
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › time grain › grain month
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › time grain › grain year
+[chromium] charts/builder-shared.spec.ts › Data config (bar vehicle) › time grain › hidden for non-date X axis
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › [pinned] removing the only bar metric keeps Save enabled
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › add another metric → COUNT(*) "Total Count" expanded
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › add metric to library → saved metric reference
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › calculated: invalid expression shows the server error and is not applied
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › calculated: valid expression validates then drives the chart
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › display name: auto-follows definition until typed, clearing re-enables auto
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › remove a metric
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › saved: metrics used in another row are hidden
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › saved: pick a library metric
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › simple: each aggregate function › avg(male_score)
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › simple: each aggregate function › count(students)
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › simple: each aggregate function › count_distinct(districtname)
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › simple: each aggregate function › max(score_gap)
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › simple: each aggregate function › min(female_score)
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › simple: each aggregate function › sum(students)
+[chromium] charts/builder-shared.spec.ts › Metrics (bar vehicle) › simple: numeric-only columns for non-count functions
+[chromium] charts/builder-table.spec.ts › builder table — dimensions › C-B1 table auto-prefill: first text column (id) + Total Count
+[chromium] charts/builder-table.spec.ts › builder table — dimensions › table ADD DIMENSION(s) appends the first unused column
+[chromium] charts/builder-table.spec.ts › builder table — dimensions › table dimension change → statename
+[chromium] charts/builder-table.spec.ts › builder table — dimensions › table multi dimensions render (sorted by SUM)
+[chromium] charts/builder-table.spec.ts › builder table — dimensions › table multi dimensions statename + districtname
+[chromium] charts/builder-table.spec.ts › builder table — dimensions › table remove dimension; last one cannot be removed
+[chromium] charts/builder-table.spec.ts › builder table — dimensions › table reorder dimensions (drag handle)
+[chromium] charts/builder-table.spec.ts › builder table — drill-down › [pinned] table drill-down cell click → equals filter + next dimension; last level no-op; ← Back
+[chromium] charts/builder-table.spec.ts › builder table — drill-down › table drill-down toggle → only the first dimension is queried
+[chromium] charts/builder-table.spec.ts › builder table — render › table URL cells render as "Link" (http(s):// and www.)
+[chromium] charts/builder-table.spec.ts › builder table — render › table page size 50 → limit=50, resets to page 1
+[chromium] charts/builder-table.spec.ts › builder table — render › table pagination next / prev / last / first
+[chromium] charts/builder-table.spec.ts › builder table — render › table row-limit pagination config (20 items) → extra_config.pagination
+[chromium] charts/builder-table.spec.ts › builder table — render › table search: match count, clear button, Escape
+[chromium] charts/builder-table.spec.ts › builder table — save, edit, detail › C-B3 table save with styling (freeze, alignment, formats, rules, theme, zebra)
+[chromium] charts/builder-table.spec.ts › builder table — save, edit, detail › C-D4 table drill-down on detail page + ← Back
+[chromium] charts/builder-table.spec.ts › builder table — save, edit, detail › C-E2 table edit round trip → PUT payload
+[chromium] charts/builder-table.spec.ts › builder table — save, edit, detail › [pinned] C-B3 table save with dataset + title only (no metrics) → rows are not grouped
+[chromium] charts/builder-table.spec.ts › builder table — styling › table column alignment center
+[chromium] charts/builder-table.spec.ts › builder table — styling › table column alignment default (auto): first left, last right
+[chromium] charts/builder-table.spec.ts › builder table — styling › table column alignment left
+[chromium] charts/builder-table.spec.ts › builder table — styling › table column alignment right
+[chromium] charts/builder-table.spec.ts › builder table — styling › table column order via column formatting drag
+[chromium] charts/builder-table.spec.ts › builder table — styling › table conditional formatting colour swatch
+[chromium] charts/builder-table.spec.ts › builder table — styling › table conditional formatting numeric !=
+[chromium] charts/builder-table.spec.ts › builder table — styling › table conditional formatting numeric <
+[chromium] charts/builder-table.spec.ts › builder table — styling › table conditional formatting numeric <=
+[chromium] charts/builder-table.spec.ts › builder table — styling › table conditional formatting numeric ==
+[chromium] charts/builder-table.spec.ts › builder table — styling › table conditional formatting numeric >
+[chromium] charts/builder-table.spec.ts › builder table — styling › table conditional formatting numeric >=
+[chromium] charts/builder-table.spec.ts › builder table — styling › table conditional formatting text != (exact, case-sensitive)
+[chromium] charts/builder-table.spec.ts › builder table — styling › table conditional formatting text == (exact, case-sensitive)
+[chromium] charts/builder-table.spec.ts › builder table — styling › table conditional formatting: empty state + ADD RULE defaults to first column (text)
+[chromium] charts/builder-table.spec.ts › builder table — styling › table conditional formatting: last matching rule wins
+[chromium] charts/builder-table.spec.ts › builder table — styling › table date format per column (dd/mm/yyyy) + reset
+[chromium] charts/builder-table.spec.ts › builder table — styling › table freeze first column
+[chromium] charts/builder-table.spec.ts › builder table — styling › table number format per column (International, 2 decimals)
+[chromium] charts/builder-table.spec.ts › builder table — styling › table number formatting lists only numeric columns
+[chromium] charts/builder-table.spec.ts › builder table — styling › table theme gray (default) → blue
+[chromium] charts/builder-table.spec.ts › builder table — styling › table zebra rows on by default → off
+[chromium] charts/create-pick.spec.ts › charts create — step 1 (pick dataset + type) › C-P1 Continue enabled only with dataset AND type; single selection among cards
+[chromium] charts/create-pick.spec.ts › charts create — step 1 (pick dataset + type) › C-P1 Continue with bar → configure URL carries schema/table/type
+[chromium] charts/create-pick.spec.ts › charts create — step 1 (pick dataset + type) › C-P1 Continue with line → configure URL carries schema/table/type
+[chromium] charts/create-pick.spec.ts › charts create — step 1 (pick dataset + type) › C-P1 Continue with map → configure URL carries schema/table/type
+[chromium] charts/create-pick.spec.ts › charts create — step 1 (pick dataset + type) › C-P1 Continue with number → configure URL carries schema/table/type
+[chromium] charts/create-pick.spec.ts › charts create — step 1 (pick dataset + type) › C-P1 Continue with pie → configure URL carries schema/table/type
+[chromium] charts/create-pick.spec.ts › charts create — step 1 (pick dataset + type) › C-P1 Continue with pivot_table → configure URL carries schema/table/type
+[chromium] charts/create-pick.spec.ts › charts create — step 1 (pick dataset + type) › C-P1 Continue with table → configure URL carries schema/table/type
+[chromium] charts/create-pick.spec.ts › charts create — step 1 (pick dataset + type) › C-P1 dataset picker: autofocus opens list, search filters, no-match message, select
+[chromium] charts/create-pick.spec.ts › charts create — step 1 (pick dataset + type) › C-P1 page shows 7 type cards in order with descriptions, Continue disabled
+[chromium] charts/create-pick.spec.ts › charts create — step 1 (pick dataset + type) › C-P2 keyboard: Enter and Space select the focused card
+[chromium] charts/create-pick.spec.ts › charts create — step 1 (pick dataset + type) › C-P3 Back link and Cancel go to /charts
+[chromium] charts/create-pick.spec.ts › charts create — step 1 (pick dataset + type) › C-P3 from=dashboard: Back and Cancel go back in history
+[chromium] charts/create-pick.spec.ts › charts create — step 1 (pick dataset + type) › C-P3 from=dashboard: Continue replaces history and keeps from=dashboard
+[chromium] charts/create-pick.spec.ts › charts create — step 1 (pick dataset + type) › C-P3 without from: Continue pushes, browser back returns to the picker
+[chromium] charts/detail.spec.ts › charts detail › C-D1 bar chart renders (payload + screenshot)
+[chromium] charts/detail.spec.ts › charts detail › C-D1 line chart renders (payload + screenshot)
+[chromium] charts/detail.spec.ts › charts detail › C-D1 map chart renders (payload + screenshot)
+[chromium] charts/detail.spec.ts › charts detail › C-D1 missing chart shows the not-ready message
+[chromium] charts/detail.spec.ts › charts detail › C-D1 number chart renders (payload + screenshot)
+[chromium] charts/detail.spec.ts › charts detail › C-D1 pie chart renders (payload + screenshot)
+[chromium] charts/detail.spec.ts › charts detail › C-D1 pivot_table chart renders (payload + screenshot)
+[chromium] charts/detail.spec.ts › charts detail › C-D1 seeded bar chart renders
+[chromium] charts/detail.spec.ts › charts detail › C-D1 seeded line chart renders
+[chromium] charts/detail.spec.ts › charts detail › C-D1 seeded map chart renders
+[chromium] charts/detail.spec.ts › charts detail › C-D1 seeded pie chart renders
+[chromium] charts/detail.spec.ts › charts detail › C-D1 seeded pivot_table chart renders
+[chromium] charts/detail.spec.ts › charts detail › C-D1 seeded table chart renders
+[chromium] charts/detail.spec.ts › charts detail › C-D1 table chart renders (payload + screenshot)
+[chromium] charts/detail.spec.ts › charts detail › C-D2 ?openShare=true auto-opens share; closing strips the param
+[chromium] charts/detail.spec.ts › charts detail › C-D2 Edit Chart link opens the edit page
+[chromium] charts/detail.spec.ts › charts detail › C-D2 Share button opens and closes the ShareModal
+[chromium] charts/detail.spec.ts › charts detail › C-D2 member with view access: no Edit/Share, request-edit pill shown
+[chromium] charts/detail.spec.ts › charts detail › C-D3 bar export PDF downloads
+[chromium] charts/detail.spec.ts › charts detail › C-D3 bar export PNG downloads
+[chromium] charts/detail.spec.ts › charts detail › C-D3 bar export menu lists PNG, PDF and CSV
+[chromium] charts/detail.spec.ts › charts detail › C-D3 line export PDF downloads
+[chromium] charts/detail.spec.ts › charts detail › C-D3 line export PNG downloads
+[chromium] charts/detail.spec.ts › charts detail › C-D3 line export menu lists PNG, PDF and CSV
+[chromium] charts/detail.spec.ts › charts detail › C-D3 map export PDF downloads
+[chromium] charts/detail.spec.ts › charts detail › C-D3 map export PNG downloads
+[chromium] charts/detail.spec.ts › charts detail › C-D3 map export menu lists PNG, PDF and CSV
+[chromium] charts/detail.spec.ts › charts detail › C-D3 number export PDF downloads
+[chromium] charts/detail.spec.ts › charts detail › C-D3 number export PNG downloads
+[chromium] charts/detail.spec.ts › charts detail › C-D3 number export menu lists PNG, PDF and CSV
+[chromium] charts/detail.spec.ts › charts detail › C-D3 pie export PDF downloads
+[chromium] charts/detail.spec.ts › charts detail › C-D3 pie export PNG downloads
+[chromium] charts/detail.spec.ts › charts detail › C-D3 pie export menu lists PNG, PDF and CSV
+[chromium] charts/detail.spec.ts › charts detail › C-D3 pivot_table export PNG downloads
+[chromium] charts/detail.spec.ts › charts detail › C-D3 pivot_table export menu lists PNG and CSV only
+[chromium] charts/detail.spec.ts › charts detail › C-D3 table export PNG downloads
+[chromium] charts/detail.spec.ts › charts detail › C-D3 table export menu lists PNG and CSV only
+[chromium] charts/detail.spec.ts › charts detail › C-D4 map drill-down: region click → toast, breadcrumb, Home returns
+[chromium] charts/detail.spec.ts › charts detail › C-D4 map zoom in/out buttons
+[chromium] charts/detail.spec.ts › charts detail › C-D4 table drill-down: click cell → filtered data, "← Back", export current view
+[chromium] charts/detail.spec.ts › charts detail › C-D5 ?from=dashboard: "Back to Dashboard" goes back in history, edit link keeps from
+[chromium] charts/detail.spec.ts › charts detail › C-D5 ?from=report: "Back to Report" goes back in history, edit link keeps from
+[chromium] charts/detail.spec.ts › charts detail › C-D5 plain Back links to /charts
+[chromium] charts/detail.spec.ts › charts detail › C-D5 unknown ?from value falls back to plain Back
+[chromium] charts/detail.spec.ts › charts detail › [pinned] C-D3 bar export CSV: server download, filename has two timestamps
+[chromium] charts/detail.spec.ts › charts detail › [pinned] C-D3 line export CSV: server download, filename has two timestamps
+[chromium] charts/detail.spec.ts › charts detail › [pinned] C-D3 map export CSV: server download, filename has two timestamps
+[chromium] charts/detail.spec.ts › charts detail › [pinned] C-D3 number export CSV: server download, filename has two timestamps
+[chromium] charts/detail.spec.ts › charts detail › [pinned] C-D3 pie export CSV: server download, filename has two timestamps
+[chromium] charts/detail.spec.ts › charts detail › [pinned] C-D3 pivot export CSV is built client-side and always says "Grand Total"
+[chromium] charts/detail.spec.ts › charts detail › [pinned] C-D3 table export CSV: server download, filename has two timestamps
+[chromium] charts/edit.spec.ts › charts edit › C-E1 bar: form shows saved dataset, X axis, metric
+[chromium] charts/edit.spec.ts › charts edit › C-E1 line: form shows date X axis and Month time grain
+[chromium] charts/edit.spec.ts › charts edit › C-E1 map: form shows state column and district drill-down
+[chromium] charts/edit.spec.ts › charts edit › C-E1 member without edit access sees "Access Denied"
+[chromium] charts/edit.spec.ts › charts edit › C-E1 missing chart shows "Chart not found"-style alert
+[chromium] charts/edit.spec.ts › charts edit › C-E1 number: form shows metric and saved styling
+[chromium] charts/edit.spec.ts › charts edit › C-E1 pie: form shows dimension and single metric (no add-metric)
+[chromium] charts/edit.spec.ts › charts edit › C-E1 pivot: form shows row/column dimensions and totals
+[chromium] charts/edit.spec.ts › charts edit › C-E1 table: form shows both dimensions and drill-down on
+[chromium] charts/edit.spec.ts › charts edit › C-E2 Save → Update existing sends PUT and lands on detail
+[chromium] charts/edit.spec.ts › charts edit › C-E3 Save as new: name step, blank disabled, back, creates a new chart
+[chromium] charts/edit.spec.ts › charts edit › C-E4 Back with changes: confirm dialog — Cancel stays, Leave goes to detail
+[chromium] charts/edit.spec.ts › charts edit › C-E4 Cancel with changes → Save and leave → update → returns to /charts
+[chromium] charts/edit.spec.ts › charts edit › C-E4 Cancel with changes: Stay keeps editing, Leave discards (no PUT)
+[chromium] charts/edit.spec.ts › charts edit › C-E4 no changes: Cancel and Back go straight to detail
+[chromium] charts/edit.spec.ts › charts edit › C-E4 reverting the change clears the dirty state
+[chromium] charts/edit.spec.ts › charts edit › C-E5 invalid config: overlay, save disabled, last-good preview kept, dismiss
+[chromium] charts/edit.spec.ts › charts edit › C-E6 ?from=dashboard: "Back to Dashboard" and Cancel return to the origin
+[chromium] charts/edit.spec.ts › charts edit › C-E6 ?from=dashboard: update replaces history → detail keeps from, back → dashboard
+[chromium] charts/edit.spec.ts › charts edit › C-E6 ?from=report with changes: Leave without saving goes back to the report
+[chromium] charts/edit.spec.ts › charts edit › C-E6 ?from=report: "Back to Report" and Cancel return to the origin
+[chromium] charts/edit.spec.ts › charts edit › [pinned] C-E7 bar: create sends count + create defaults, preview page size 20
+[chromium] charts/edit.spec.ts › charts edit › [pinned] C-E7 bar: edit fills edit defaults, preview page size 25
+[chromium] charts/edit.spec.ts › charts edit › [pinned] C-E7 pie: create sends count + create defaults, preview page size 20
+[chromium] charts/edit.spec.ts › charts edit › [pinned] C-E7 pie: edit fills edit defaults, preview page size 25
+[chromium] charts/gaps-builder.spec.ts › gaps — bar styling › [pinned] GAP-C total labels on stacked bars render blank
+[chromium] charts/gaps-builder.spec.ts › gaps — builder basics (create) › GAP-C bar DATA tab opens on Chart Data (contrast)
+[chromium] charts/gaps-builder.spec.ts › gaps — builder basics (create) › GAP-C chart-name hint next to the name field
+[chromium] charts/gaps-builder.spec.ts › gaps — builder basics (create) › GAP-C default title map → "Map chart - <table> <time>"
+[chromium] charts/gaps-builder.spec.ts › gaps — builder basics (create) › GAP-C default title pivot_table → "Chart - <table> <time>"
+[chromium] charts/gaps-builder.spec.ts › gaps — builder basics (create) › GAP-C default title table → "Chart - <table> <time>"
+[chromium] charts/gaps-builder.spec.ts › gaps — builder basics (create) › GAP-C from dashboard: "Back to Dashboard" and save replaces history with ?from=dashboard
+[chromium] charts/gaps-builder.spec.ts › gaps — builder basics (create) › GAP-C map save disabled without a GeoJSON
+[chromium] charts/gaps-builder.spec.ts › gaps — builder basics (create) › GAP-C map save disabled without a geographic column
+[chromium] charts/gaps-builder.spec.ts › gaps — builder basics (create) › GAP-C map save disabled without a valid metric
+[chromium] charts/gaps-builder.spec.ts › gaps — builder basics (create) › GAP-C pivot DATA › Chart Data shows the pivot itself
+[chromium] charts/gaps-builder.spec.ts › gaps — builder basics (create) › GAP-C pivot_table DATA tab opens on Raw Data
+[chromium] charts/gaps-builder.spec.ts › gaps — builder basics (create) › GAP-C save shows "Saving..." then an error toast on failure
+[chromium] charts/gaps-builder.spec.ts › gaps — builder basics (create) › GAP-C table DATA tab opens on Raw Data
+[chromium] charts/gaps-builder.spec.ts › gaps — builder basics (create) › [pinned] GAP-C beforeunload "leave page?" prompt — fires even without user edits
+[chromium] charts/gaps-builder.spec.ts › gaps — builder data configuration › GAP-C "Configure metrics first to enable sorting" message
+[chromium] charts/gaps-builder.spec.ts › gaps — builder data configuration › GAP-C change data source resets data fields, keeps title, type and styling
+[chromium] charts/gaps-builder.spec.ts › gaps — builder data configuration › GAP-C extra dimension placeholder per chart type
+[chromium] charts/gaps-builder.spec.ts › gaps — builder data configuration › GAP-C filter value dropdown shows at most the first 100 values
+[chromium] charts/gaps-builder.spec.ts › gaps — builder data configuration › GAP-C time grain hour/minute/second on a timestamp column
+[chromium] charts/gaps-builder.spec.ts › gaps — metrics (builder) › GAP-C "Validating expression..." while the expression is checked
+[chromium] charts/gaps-builder.spec.ts › gaps — metrics (builder) › GAP-C saved metric → Simple detaches from library and resets to COUNT
+[chromium] charts/gaps-builder.spec.ts › gaps — metrics (builder) › GAP-C saved metrics empty: "No saved metrics yet"
+[chromium] charts/gaps-builder.spec.ts › gaps — metrics (builder) › GAP-C saved metrics search: "No metrics match your search"
+[chromium] charts/gaps-builder.spec.ts › gaps — type switch in the edit builder › GAP-C edit bar → map maps X axis to the geographic column
+[chromium] charts/gaps-builder.spec.ts › gaps — type switch in the edit builder › GAP-C edit map → bar maps the geographic column to the X axis
+[chromium] charts/gaps-builder.spec.ts › gaps — type switch in the edit builder › GAP-C edit table → bar
+[chromium] charts/gaps-builder.spec.ts › gaps — type switch in the edit builder › [pinned] GAP-C edit bar → table: dimension reset to the first text column
+[chromium] charts/gaps-edit-detail.spec.ts › charts detail — gaps › GAP-C detail Access Denied without the view-charts permission
+[chromium] charts/gaps-edit-detail.spec.ts › charts detail — gaps › GAP-C detail Request Edit sends the request and shows the sent state
+[chromium] charts/gaps-edit-detail.spec.ts › charts detail — gaps › GAP-C detail export failure shows "Export Failed"
+[chromium] charts/gaps-edit-detail.spec.ts › charts detail — gaps › GAP-C detail exported PDF carries the org logo
+[chromium] charts/gaps-edit-detail.spec.ts › charts edit — gaps › GAP-C edit loading skeleton while the chart loads
+[chromium] charts/gaps-edit-detail.spec.ts › charts edit — gaps › [pinned] GAP-C edit save-as-new failure shows the backend error toast and stays on edit
+[chromium] charts/gaps-edit-detail.spec.ts › charts edit — gaps › [pinned] GAP-C edit update failure shows the backend error toast and stays on edit
+[chromium] charts/gaps-edit-detail.spec.ts › charts share — gaps › [pinned] GAP-C chart general access Default → Private → Default (no Public for charts)
+[chromium] charts/gaps-list.spec.ts › charts create step 1 — gaps › GAP-C new chart "Access Denied" without the create-charts permission
+[chromium] charts/gaps-list.spec.ts › charts create step 1 — gaps › GAP-C new chart dataset "Set up a warehouse" when the org has no warehouse
+[chromium] charts/gaps-list.spec.ts › charts create step 1 — gaps › GAP-C new chart dataset error "Failed to load datasets"
+[chromium] charts/gaps-list.spec.ts › charts create step 1 — gaps › GAP-C new chart onboarding walkthrough: pick table → pick type → Continue
+[chromium] charts/gaps-list.spec.ts › charts list — gaps › GAP-C list bulk delete falls back to one DELETE per chart when bulk fails
+[chromium] charts/gaps-list.spec.ts › charts list — gaps › GAP-C list empty state "No charts yet" for an org with no charts
+[chromium] charts/gaps-list.spec.ts › charts list — gaps › GAP-C list error state "Failed to load charts" and Retry reloads
+[chromium] charts/gaps-list.spec.ts › charts list — gaps › GAP-C list favorite failure rolls the star back and shows a toast
+[chromium] charts/gaps-list.spec.ts › charts list — gaps › GAP-C list loading skeleton while the list request is in flight
+[chromium] charts/gaps-list.spec.ts › charts list — gaps › GAP-C list row type icon + tooltip for every chart type
+[chromium] charts/gaps-list.spec.ts › charts list — gaps › GAP-C list teal active dot on a filtered column header
+[chromium] charts/gaps-list.spec.ts › charts list — gaps › GAP-C list without create/delete permission hides Create, Duplicate and Delete
+[chromium] charts/gaps-list.spec.ts › charts list — gaps › GAP-C list without view permission: title link goes nowhere (#)
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — detail page map toasts › GAP-C detail map "Region X not found in database" toast
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — detail page map toasts › GAP-C detail map "not configured" toast: Edit Chart action for editors only
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — detail page map toasts › GAP-C detail map toast "Edit Chart" action opens the edit page (editor)
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — detail page map toasts › GAP-C detail map toasts have no "Edit Chart" action without edit permission
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — detail page map toasts › [pinned] GAP-C detail filtered map with no data: one toast per filter, then a hint
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — edit page › GAP-C edit incomplete-config overlay is not shown for a map chart
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — edit page › GAP-C edit incomplete-config overlay is not shown for a table chart
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — edit page › [pinned] GAP-C edit data preview page size resets to 25 when the row limit changes
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — map data configuration › GAP-C map "Loading Geographic Levels..." while region types load
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — map data configuration › GAP-C map colour scale widens when every region has the same value
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — map data configuration › GAP-C map configuration section only appears with a valid metric
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — map data configuration › GAP-C map preview state: "Loading data..." overlay while the overlay loads
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — map data configuration › GAP-C map preview state: "Loading map boundaries..." while the GeoJSON loads
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — map data configuration › GAP-C map preview state: GeoJSON failure → configuration error
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — map data configuration › GAP-C map preview state: GeoJSON without boundaries → "Configure your map to see a preview"
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — map data configuration › GAP-C map preview state: overlay failure → "Data needs attention"
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — map edit / detail › [pinned] GAP-C edit-builder map preview ignores the chart filters (detail sends them)
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — map styling › GAP-C map decimal places apply to the tooltip value
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — map styling › GAP-C map legacy legend position "bottom" → "Bottom Left" in styling
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — map styling › GAP-C map legacy legend position "left" → "Bottom Left" in styling
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — map styling › GAP-C map legend hides in very small containers (dashboard cell)
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — map styling › [pinned] GAP-C map legacy legend position "right" → "Bottom Right" in styling
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — map styling › [pinned] GAP-C map legacy legend position "top" → "Top Left" in styling
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — pivot table › GAP-C pivot "N/A" shown for empty cells
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — pivot table › GAP-C pivot filters narrow the pivot (payload + render)
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — pivot table › GAP-C pivot reorder column dimensions by drag
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — pivot table › GAP-C pivot reorder row dimensions by drag
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — pivot table › GAP-C pivot sticky total column only with one metric
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — table chart › GAP-C table "No numeric columns to format." message
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — table chart › GAP-C table ADD DIMENSION(s) disabled once every column is used
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — table chart › GAP-C table changing a rule column to another type resets the rule
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — table chart › GAP-C table page size 10 → limit=10
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — table chart › GAP-C table page size 100 → limit=100
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — table chart › GAP-C table page size 20 → limit=20
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — table chart › GAP-C table page size 200 → limit=200
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — table chart › GAP-C table per-level rule scope for metric columns when drill-down is on
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — table chart › GAP-C table search only looks at rows on the current page
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — table chart › GAP-C table state "Loading table data..."
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — table chart › GAP-C table state "No data available" (filter matches nothing)
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — table chart › GAP-C table with drill-down on, Column formatting lists only the shown dimension
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — table chart › [pinned] GAP-C table state "No columns configured" (rows without columns)
+[chromium] charts/gaps-map-table-pivot.spec.ts › gaps — table chart › [pinned] GAP-C table turning drill-down off never asks for confirmation (even with level-scoped rules)
+[chromium] charts/interactions-gaps.spec.ts › IG charts — create builder (bar) › IG-charts configure preview CHART tab returns from DATA
+[chromium] charts/interactions-gaps.spec.ts › IG charts — create builder (bar) › IG-charts data config chevrons (dataset, X axis, extra dimension, sort, metric column, saved metric, filter column)
+[chromium] charts/interactions-gaps.spec.ts › IG charts — create builder (bar) › IG-charts data preview pagination: prev / first + page sizes 10 · 20 · 100 · 200
+[chromium] charts/interactions-gaps.spec.ts › IG charts — create builder (bar) › IG-charts filter value chevron + "Select all" sends every value
+[chromium] charts/interactions-gaps.spec.ts › IG charts — edit page › IG-charts edit Access Denied (view-only member) → Back to Charts
+[chromium] charts/interactions-gaps.spec.ts › IG charts — edit page › IG-charts edit table drill-down "← Back" returns to the top level
+[chromium] charts/interactions-gaps.spec.ts › IG charts — edit page › IG-charts edit tabs: Data Configuration, CHART preview, Chart Data / Raw Data
+[chromium] charts/interactions-gaps.spec.ts › IG charts — edit page › [pinned] IG-charts edit table drill-down with a saved sort on the top dimension errors
+[chromium] charts/interactions-gaps.spec.ts › IG charts — list + create step 1 › IG-charts delete dialog dashboard link opens the dashboard
+[chromium] charts/interactions-gaps.spec.ts › IG charts — list + create step 1 › IG-charts list source + type filter checkboxes toggle the filter
+[chromium] charts/interactions-gaps.spec.ts › IG charts — list + create step 1 › IG-charts new-page dataset chevron opens the dataset list and picks
+[chromium] charts/interactions-gaps.spec.ts › IG charts — map / table / pivot builders › IG-charts map column chevrons, Blues re-pick, Enable Selection off → saved
+[chromium] charts/interactions-gaps.spec.ts › IG charts — map / table / pivot builders › IG-charts pivot dimension chevrons + (i) tooltips
+[chromium] charts/interactions-gaps.spec.ts › IG charts — map / table / pivot builders › IG-charts table cell with a URL renders a new-tab "Link"
+[chromium] charts/interactions-gaps.spec.ts › IG charts — map / table / pivot builders › IG-charts table dimension chevron, CF info tooltip, rule level back to "All levels"
+[chromium] charts/interactions-gaps.spec.ts › IG charts — styling back to defaults › IG-charts bar orientation Vertical + Y label rotation Horizontal saved
+[chromium] charts/interactions-gaps.spec.ts › IG charts — styling back to defaults › IG-charts line Y label rotation Horizontal saved
+[chromium] charts/list.spec.ts › charts list › C-L1 loads: header, rows in updated desc order, counter "1–10 of N"
+[chromium] charts/list.spec.ts › charts list › C-L1 seeded row shows title, data source, creator, relative time and actions
+[chromium] charts/list.spec.ts › charts list › C-L10 bulk delete: 1 vs many confirm text, cancel keeps, confirm deletes
+[chromium] charts/list.spec.ts › charts list › C-L10 selection mode: select, select all, deselect all, exit
+[chromium] charts/list.spec.ts › charts list › C-L11 current page clamps to the last page after the last row is deleted
+[chromium] charts/list.spec.ts › charts list › C-L12 export bar as PDF from the list downloads
+[chromium] charts/list.spec.ts › charts list › C-L12 export bar as PNG from the list downloads
+[chromium] charts/list.spec.ts › charts list › C-L12 export line as PDF from the list downloads
+[chromium] charts/list.spec.ts › charts list › C-L12 export line as PNG from the list downloads
+[chromium] charts/list.spec.ts › charts list › C-L12 export map as PDF from the list downloads
+[chromium] charts/list.spec.ts › charts list › C-L12 export map as PNG from the list downloads
+[chromium] charts/list.spec.ts › charts list › C-L12 export number as PDF from the list downloads
+[chromium] charts/list.spec.ts › charts list › C-L12 export number as PNG from the list downloads
+[chromium] charts/list.spec.ts › charts list › C-L12 export pie as PDF from the list downloads
+[chromium] charts/list.spec.ts › charts list › C-L12 export pie as PNG from the list downloads
+[chromium] charts/list.spec.ts › charts list › C-L12 export pivot_table as CSV from the list downloads
+[chromium] charts/list.spec.ts › charts list › C-L12 export submenu for bar offers PNG+PDF only
+[chromium] charts/list.spec.ts › charts list › C-L12 export submenu for line offers PNG+PDF only
+[chromium] charts/list.spec.ts › charts list › C-L12 export submenu for map offers PNG+PDF only
+[chromium] charts/list.spec.ts › charts list › C-L12 export submenu for number offers PNG+PDF only
+[chromium] charts/list.spec.ts › charts list › C-L12 export submenu for pie offers PNG+PDF only
+[chromium] charts/list.spec.ts › charts list › C-L12 export submenu for pivot_table offers CSV only
+[chromium] charts/list.spec.ts › charts list › C-L12 export submenu for table offers CSV only
+[chromium] charts/list.spec.ts › charts list › C-L13 member: no Edit/Share icons on a chart they can only view
+[chromium] charts/list.spec.ts › charts list › C-L13 share icon opens the ShareModal for that chart
+[chromium] charts/list.spec.ts › charts list › C-L2 sort resets to page 1
+[chromium] charts/list.spec.ts › charts list › C-L2 sort: each column, toggle asc↔desc, a new column starts desc
+[chromium] charts/list.spec.ts › charts list › C-L3 filter: "Show only favorites"
+[chromium] charts/list.spec.ts › charts list › C-L3 filter: chart type multi-select lists only types on the page
+[chromium] charts/list.spec.ts › charts list › C-L3 filter: data source multi-select with search
+[chromium] charts/list.spec.ts › charts list › C-L3 filter: date modified today / 7 days / 30 days / custom / all
+[chromium] charts/list.spec.ts › charts list › C-L3 filter: name text is a case-insensitive substring match
+[chromium] charts/list.spec.ts › charts list › C-L4 "N filter(s) active", per-popover Clear, Clear all
+[chromium] charts/list.spec.ts › charts list › C-L6 favorite toggle on/off persists after reload
+[chromium] charts/list.spec.ts › charts list › C-L7 title link opens detail; edit icon opens edit
+[chromium] charts/list.spec.ts › charts list › C-L8 duplicate → "Copy of X", again → "Copy of X (2)", copy of copy → "(3)"
+[chromium] charts/list.spec.ts › charts list › C-L9 delete dialog lists dashboards using the chart
+[chromium] charts/list.spec.ts › charts list › C-L9 delete unused chart: dialog says "not used", cancel keeps, confirm deletes
+[chromium] charts/list.spec.ts › charts list › [pinned] C-L11 pagination: next/prev (first Next bounces back) and every page size
+[chromium] charts/list.spec.ts › charts list › [pinned] C-L12 table CSV export from the list fails: payload lacks `dimensions`
+[chromium] charts/list.spec.ts › charts list › [pinned] C-L14 empty state "No charts found"; header + filter popovers disappear
+[chromium] charts/list.spec.ts › charts list › [pinned] C-L5 filters act on the current page only; counter keeps server total
+[chromium] charts/metrics-matrix-a.spec.ts › MM-pie-5 extra dimension (statename × climate_event, SUM students)
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix bar › MM-bar-1 one simple metric (SUM students)
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix bar › MM-bar-3 one saved library metric (total_students)
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix bar › MM-bar-4 two metrics (simple+calculated)
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix bar › MM-bar-5 three mixed metrics (simple+calculated+saved)
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix bar › MM-bar-6 three metrics → remove middle → two remain in order
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix bar › [pinned] MM-bar-2 one calculated metric (ratio expression) — detail Y axis rounded to integers
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix line › MM-line-1 one simple metric (SUM students)
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix line › MM-line-4 two metrics (simple+calculated)
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix line › MM-line-5 three mixed metrics (simple+calculated+saved)
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix line › MM-line-6 three metrics → remove middle → two remain in order
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix line › [pinned] MM-line-2 one calculated metric (ratio expression) — detail Y axis rounded to integers
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix line › [pinned] MM-line-3 one saved library metric (education_coverage_rate) — detail Y axis rounded to integers
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix number › MM-number-1 simple metric (SUM students)
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix number › MM-number-4 max one metric: no add button, tab switches keep exactly one metric
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix number › [pinned] MM-number-2 calculated metric (ratio expression) — rendered rounded to an integer (default decimalPlaces 0)
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix number › [pinned] MM-number-3 saved library metric (education_coverage_rate) — rendered rounded to an integer (default decimalPlaces 0)
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix pie › MM-pie-1 simple metric (SUM students)
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix pie › MM-pie-2 calculated metric (ratio expression)
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix pie › MM-pie-3 saved library metric (total_students)
+[chromium] charts/metrics-matrix-a.spec.ts › metrics matrix pie › MM-pie-4 max one metric: no add button, tab switches keep exactly one metric
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — map (one metric) › MM-map-1 simple SUM(students)
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — map (one metric) › MM-map-2 calculated expression
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — map (one metric) › MM-map-3 saved library metric (619 education_coverage_rate)
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — map (one metric) › MM-map-4 max one metric: ADD ANOTHER METRIC hidden until the metric is removed
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — pivot (rows statename × columns climate_event) › MM-pivot-1 1× simple SUM(students)
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — pivot (rows statename × columns climate_event) › MM-pivot-3 1× saved library metric (620 total_students)
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — pivot (rows statename × columns climate_event) › MM-pivot-4 2 metrics: simple + calculated
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — pivot (rows statename × columns climate_event) › MM-pivot-5 3 metrics: simple + calculated + saved
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — pivot (rows statename × columns climate_event) › MM-pivot-6 3 metrics → remove middle → 2 remain in order
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — pivot (rows statename × columns climate_event) › [pinned] MM-pivot-2 1× calculated expression
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — table (statename) › MM-table-1 1× simple SUM(students)
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — table (statename) › MM-table-2 1× calculated expression
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — table (statename) › MM-table-3 1× saved library metric (620 total_students)
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — table (statename) › MM-table-4 2 metrics: simple + calculated
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — table (statename) › MM-table-5 3 metrics: simple + calculated + saved
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — table (statename) › MM-table-6 3 metrics → remove middle → 2 remain in order
+[chromium] charts/metrics-matrix-b.spec.ts › metrics matrix — table drill-down chain › [pinned] MM-table-7 drill statename → districtname → climate_event, ← Back level by level
+[chromium] charts/perm-chains.spec.ts › PERM-chains-create › PERM-chains-create map → bar → table → map
+[chromium] charts/perm-chains.spec.ts › PERM-chains-create › PERM-chains-create number → pie → line → number
+[chromium] charts/perm-chains.spec.ts › PERM-chains-create › PERM-chains-create table → bar → pie → table
+[chromium] charts/perm-chains.spec.ts › PERM-chains-create › [pinned] PERM-chains-create bar → line → pie → number → table → map → pivot → bar — ends with Save disabled
+[chromium] charts/perm-chains.spec.ts › PERM-chains-create › [pinned] PERM-chains-create bar → map → pivot → bar — ends with Save disabled
+[chromium] charts/perm-chains.spec.ts › PERM-chains-create › [pinned] PERM-chains-create line → table → map → line — ends with Save disabled
+[chromium] charts/perm-chains.spec.ts › PERM-chains-create › [pinned] PERM-chains-create pie → number → pivot → pie — ends with Save disabled
+[chromium] charts/perm-chains.spec.ts › PERM-chains-create › [pinned] PERM-chains-create pivot → line → number → pivot — ends with Save disabled
+[chromium] charts/perm-chains.spec.ts › PERM-chains-edit › PERM-chains-edit line → table → map → line
+[chromium] charts/perm-chains.spec.ts › PERM-chains-edit › PERM-chains-edit map → bar → table → map
+[chromium] charts/perm-chains.spec.ts › PERM-chains-edit › PERM-chains-edit number → pie → line → number
+[chromium] charts/perm-chains.spec.ts › PERM-chains-edit › PERM-chains-edit table → bar → pie → table
+[chromium] charts/perm-chains.spec.ts › PERM-chains-edit › [pinned] PERM-chains-edit bar → line → pie → number → table → map → pivot → bar — ends with Save disabled
+[chromium] charts/perm-chains.spec.ts › PERM-chains-edit › [pinned] PERM-chains-edit bar → map → pivot → bar — ends with Save disabled
+[chromium] charts/perm-chains.spec.ts › PERM-chains-edit › [pinned] PERM-chains-edit pie → number → pivot → pie — ends with Save disabled
+[chromium] charts/perm-chains.spec.ts › PERM-chains-edit › [pinned] PERM-chains-edit pivot → line → number → pivot — ends with Save disabled
+[chromium] charts/perm-dataset-change.spec.ts › PERM-dataset-create › PERM-dataset-create bar education → maternal
+[chromium] charts/perm-dataset-change.spec.ts › PERM-dataset-create › PERM-dataset-create line education → maternal
+[chromium] charts/perm-dataset-change.spec.ts › PERM-dataset-create › PERM-dataset-create number education → maternal
+[chromium] charts/perm-dataset-change.spec.ts › PERM-dataset-create › PERM-dataset-create pie education → maternal
+[chromium] charts/perm-dataset-change.spec.ts › PERM-dataset-create › PERM-dataset-create pivot education → maternal
+[chromium] charts/perm-dataset-change.spec.ts › PERM-dataset-create › [pinned] PERM-dataset-create map education → maternal — map handleDatasetChange clears the state column and auto-prefill does not refill it → Save disabled
+[chromium] charts/perm-dataset-change.spec.ts › PERM-dataset-create › [pinned] PERM-dataset-create table education → maternal — table dimensions blanked + metrics emptied with no re-prefill; table_columns of the old dataset are kept and saved
+[chromium] charts/perm-dataset-change.spec.ts › PERM-dataset-edit › PERM-dataset-edit bar education → maternal
+[chromium] charts/perm-dataset-change.spec.ts › PERM-dataset-edit › PERM-dataset-edit line education → maternal
+[chromium] charts/perm-dataset-change.spec.ts › PERM-dataset-edit › PERM-dataset-edit number education → maternal
+[chromium] charts/perm-dataset-change.spec.ts › PERM-dataset-edit › PERM-dataset-edit pie education → maternal
+[chromium] charts/perm-dataset-change.spec.ts › PERM-dataset-edit › PERM-dataset-edit pivot education → maternal
+[chromium] charts/perm-dataset-change.spec.ts › PERM-dataset-edit › [pinned] PERM-dataset-edit map education → maternal — map handleDatasetChange clears the state column and auto-prefill does not refill it → Save disabled
+[chromium] charts/perm-dataset-change.spec.ts › PERM-dataset-edit › [pinned] PERM-dataset-edit table education → maternal — table dimensions blanked + metrics emptied with no re-prefill; table_columns of the old dataset are kept and saved
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create bar (a) metrics→dims vs (b) dims→metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create bar (c) dims → switch to line → metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create bar (e) dimension dependencies / date dimension and back
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create line (a) metrics→dims vs (b) dims→metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create line (c) dims → switch to bar → metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create line (e) dimension dependencies / date dimension and back
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create map (a) metrics→dims vs (b) dims→metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create map (d) remove all metrics → switch to bar
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create map (e) dimension dependencies / date dimension and back
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create pie (a) metrics→dims vs (b) dims→metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create pie (c) dims → switch to bar → metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create pie (e) dimension dependencies / date dimension and back
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create pivot (a) metrics→dims vs (b) dims→metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create pivot (c) dims → switch to table → metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create pivot (d) remove all metrics → switch to table
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create pivot (e) dimension dependencies / date dimension and back
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create table (a) metrics→dims vs (b) dims→metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create table (c) dims → switch to bar → metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › PERM-fill-create table (e) dimension dependencies / date dimension and back
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › [pinned] PERM-fill-create bar (d) remove all metrics → switch to line
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › [pinned] PERM-fill-create line (d) remove all metrics → switch to bar
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › [pinned] PERM-fill-create map (c) dims → switch to bar → metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › [pinned] PERM-fill-create pie (d) remove all metrics → switch to bar
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-create › [pinned] PERM-fill-create table (d) remove all metrics → switch to bar
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit bar (a) metrics→dims vs (b) dims→metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit bar (c) dims → switch to line → metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit bar (e) dimension dependencies / date dimension and back
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit line (a) metrics→dims vs (b) dims→metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit line (c) dims → switch to bar → metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit line (e) dimension dependencies / date dimension and back
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit map (a) metrics→dims vs (b) dims→metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit map (c) dims → switch to bar → metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit map (d) remove all metrics → switch to bar
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit map (e) dimension dependencies / date dimension and back
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit pie (a) metrics→dims vs (b) dims→metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit pie (e) dimension dependencies / date dimension and back
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit pivot (a) metrics→dims vs (b) dims→metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit pivot (c) dims → switch to table → metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit pivot (d) remove all metrics → switch to table
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit pivot (e) dimension dependencies / date dimension and back
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit table (a) metrics→dims vs (b) dims→metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit table (c) dims → switch to bar → metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › PERM-fill-edit table (e) dimension dependencies / date dimension and back
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › [pinned] PERM-fill-edit bar (d) remove all metrics → switch to line
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › [pinned] PERM-fill-edit line (d) remove all metrics → switch to bar
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › [pinned] PERM-fill-edit pie (c) dims → switch to bar → metrics
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › [pinned] PERM-fill-edit pie (d) remove all metrics → switch to bar
+[chromium] charts/perm-fill-order.spec.ts › PERM-fill-edit › [pinned] PERM-fill-edit table (d) remove all metrics → switch to bar
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-create › PERM-metric-tabs-create bar row 0 simple → calculated → saved → simple
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-create › PERM-metric-tabs-create bar row 1 cycle, row 0 untouched
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-create › PERM-metric-tabs-create line row 0 simple → calculated → saved → simple
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-create › PERM-metric-tabs-create line row 1 cycle, row 0 untouched
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-create › PERM-metric-tabs-create map row 0 simple → calculated → saved → simple
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-create › PERM-metric-tabs-create number row 0 simple → calculated → saved → simple
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-create › PERM-metric-tabs-create pie row 0 simple → calculated → saved → simple
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-create › PERM-metric-tabs-create pivot row 0 simple → calculated → saved → simple
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-create › PERM-metric-tabs-create pivot row 1 cycle, row 0 untouched
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-create › PERM-metric-tabs-create table row 0 simple → calculated → saved → simple
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-create › PERM-metric-tabs-create table row 1 cycle, row 0 untouched
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-edit › PERM-metric-tabs-edit bar row 0 simple → calculated → saved → simple
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-edit › PERM-metric-tabs-edit bar row 1 cycle, row 0 untouched
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-edit › PERM-metric-tabs-edit line row 0 simple → calculated → saved → simple
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-edit › PERM-metric-tabs-edit line row 1 cycle, row 0 untouched
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-edit › PERM-metric-tabs-edit map row 0 simple → calculated → saved → simple
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-edit › PERM-metric-tabs-edit number row 0 simple → calculated → saved → simple
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-edit › PERM-metric-tabs-edit pie row 0 simple → calculated → saved → simple
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-edit › PERM-metric-tabs-edit pivot row 0 simple → calculated → saved → simple
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-edit › PERM-metric-tabs-edit pivot row 1 cycle, row 0 untouched
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-edit › PERM-metric-tabs-edit table row 0 simple → calculated → saved → simple
+[chromium] charts/perm-metric-tabs.spec.ts › PERM-metric-tabs-edit › PERM-metric-tabs-edit table row 1 cycle, row 0 untouched
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create bar → line
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create bar → map
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create bar → number
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create bar → pie
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create bar → table
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create line → bar
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create line → map
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create line → number
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create line → pie
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create line → table
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create map → number
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create map → table
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create number → map
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create number → table
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create pie → bar
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create pie → line
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create pie → number
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create pie → table
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create pivot → map
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create pivot → number
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create pivot → table
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create table → bar
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create table → line
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create table → map
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create table → number
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › PERM-prefill-create table → pie
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create bar → pivot — handleChartTypeChange resets pivot row/column dimensions to [] → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create line → pivot — handleChartTypeChange resets pivot row/column dimensions to [] → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create map → bar — MapDataConfigurationV3 switches with {chart_type} only (no keep/trim, no prefill) → no dimension, Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create map → line — MapDataConfigurationV3 switches with {chart_type} only (no keep/trim, no prefill) → no dimension, Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create map → pie — MapDataConfigurationV3 switches with {chart_type} only (no keep/trim, no prefill) → no dimension, Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create map → pivot — handleChartTypeChange resets pivot row/column dimensions to [] → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create number → bar — source has no dimension_column; the switch copies the empty one over auto-prefill → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create number → line — source has no dimension_column; the switch copies the empty one over auto-prefill → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create number → pie — source has no dimension_column; the switch copies the empty one over auto-prefill → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create number → pivot — handleChartTypeChange resets pivot row/column dimensions to [] → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create pie → map — pie legendPosition 'right' carried into map customizations → save 422 (map needs a corner)
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create pie → pivot — handleChartTypeChange resets pivot row/column dimensions to [] → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create pivot → bar — source has no dimension_column; the switch copies the empty one over auto-prefill → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create pivot → line — source has no dimension_column; the switch copies the empty one over auto-prefill → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create pivot → pie — source has no dimension_column; the switch copies the empty one over auto-prefill → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-create › [pinned] PERM-prefill-create table → pivot — handleChartTypeChange resets pivot row/column dimensions to [] → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit bar → line
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit bar → map
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit bar → number
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit bar → table
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit line → bar
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit line → map
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit line → number
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit line → table
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit map → bar
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit map → line
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit map → number
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit map → pie
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit map → table
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit number → map
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit number → table
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit pie → map
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit pie → number
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit pie → table
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit pivot → map
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit pivot → number
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit pivot → table
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit table → bar
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit table → line
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit table → map
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit table → number
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › PERM-prefill-edit table → pie
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit bar → pie — edit handleFormChange re-applies the old dataLabelPosition over the sanitized one → save 422
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit bar → pivot — handleChartTypeChange resets pivot row/column dimensions to [] → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit line → pie — edit handleFormChange re-applies the old dataLabelPosition over the sanitized one → save 422
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit line → pivot — handleChartTypeChange resets pivot row/column dimensions to [] → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit map → pivot — handleChartTypeChange resets pivot row/column dimensions to [] → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit number → bar — source has no dimension_column; the switch copies the empty one over auto-prefill → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit number → line — source has no dimension_column; the switch copies the empty one over auto-prefill → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit number → pie — source has no dimension_column; the switch copies the empty one over auto-prefill → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit number → pivot — handleChartTypeChange resets pivot row/column dimensions to [] → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit pie → bar — edit handleFormChange re-applies the old dataLabelPosition over the sanitized one → save 422
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit pie → line — edit handleFormChange re-applies the old dataLabelPosition over the sanitized one → save 422
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit pie → pivot — handleChartTypeChange resets pivot row/column dimensions to [] → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit pivot → bar — source has no dimension_column; the switch copies the empty one over auto-prefill → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit pivot → line — source has no dimension_column; the switch copies the empty one over auto-prefill → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit pivot → pie — source has no dimension_column; the switch copies the empty one over auto-prefill → Save disabled
+[chromium] charts/perm-prefill-switch.spec.ts › PERM-prefill-edit › [pinned] PERM-prefill-edit table → pivot — handleChartTypeChange resets pivot row/column dimensions to [] → Save disabled
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create bar control (no switch) saves FULL_SOURCE
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create bar → line → bar
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create bar → pie → bar
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create bar → pivot → bar
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create bar → table → bar
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create line control (no switch) saves FULL_SOURCE
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create line → bar → line
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create line → pie → line
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create line → pivot → line
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create line → table → line
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create map control (no switch) saves FULL_SOURCE
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create map → bar → map
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create map → line → map
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create map → number → map
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create map → pie → map
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create map → pivot → map
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create map → table → map
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create number control (no switch) saves FULL_SOURCE
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create number → bar → number
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create number → line → number
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create number → map → number
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create number → pie → number
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create number → pivot → number
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create number → table → number
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create pie control (no switch) saves FULL_SOURCE
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create pie → bar → pie
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create pie → line → pie
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create pie → pivot → pie
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create pie → table → pie
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create pivot → map → pivot
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create pivot_table control (no switch) saves FULL_SOURCE
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › PERM-roundtrip-create table control (no switch) saves FULL_SOURCE
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create bar → map → bar — X axis cleared on the way; auto-prefill runs once per type so it is not refilled → Save disabled
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create bar → number → bar — X axis cleared on the way; auto-prefill runs once per type so it is not refilled → Save disabled
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create line → map → line — X axis cleared on the way; auto-prefill runs once per type so it is not refilled → Save disabled
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create line → number → line — X axis cleared on the way; auto-prefill runs once per type so it is not refilled → Save disabled
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create pie → map → pie — X axis cleared on the way; auto-prefill runs once per type so it is not refilled → Save disabled
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create pie → number → pie — X axis cleared on the way; auto-prefill runs once per type so it is not refilled → Save disabled
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create pivot → bar → pivot — pivot row/column dimensions reset to [] on the way back → Save disabled
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create pivot → line → pivot — pivot row/column dimensions reset to [] on the way back → Save disabled
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create pivot → number → pivot — pivot row/column dimensions reset to [] on the way back → Save disabled
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create pivot → pie → pivot — pivot row/column dimensions reset to [] on the way back → Save disabled
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create pivot → table → pivot — pivot row/column dimensions reset to [] on the way back → Save disabled
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create table → bar → table — table dimensions come back as auto-prefill (id), not statename/districtname
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create table → line → table — table dimensions come back as auto-prefill (id), not statename/districtname
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create table → map → table — table dimensions come back as auto-prefill (id), not statename/districtname
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create table → number → table — table dimensions come back as auto-prefill (id), not statename/districtname
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create table → pie → table — table dimensions come back as auto-prefill (id), not statename/districtname
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-create › [pinned] PERM-roundtrip-create table → pivot → table — table dimensions come back as auto-prefill (id), not statename/districtname
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › PERM-roundtrip-edit bar control (no switch) saves FULL_SOURCE
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › PERM-roundtrip-edit line control (no switch) saves FULL_SOURCE
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › PERM-roundtrip-edit map control (no switch) saves FULL_SOURCE
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › PERM-roundtrip-edit number control (no switch) saves FULL_SOURCE
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › PERM-roundtrip-edit pie control (no switch) saves FULL_SOURCE
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › PERM-roundtrip-edit pivot_table control (no switch) saves FULL_SOURCE
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › PERM-roundtrip-edit table control (no switch) saves FULL_SOURCE
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit bar → line → bar — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit bar → map → bar — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit bar → number → bar — X axis cleared on the way; auto-prefill runs once per type so it is not refilled → Save disabled; edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit bar → pie → bar — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit bar → pivot → bar — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit bar → table → bar — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit line → bar → line — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit line → map → line — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit line → number → line — X axis cleared on the way; auto-prefill runs once per type so it is not refilled → Save disabled; edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit line → pie → line — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit line → pivot → line — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit line → table → line — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit map → bar → map — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit map → line → map — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit map → number → map — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit map → pie → map — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit map → pivot → map — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit map → table → map — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit number → bar → number — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit number → line → number — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit number → map → number — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit number → pie → number — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit number → pivot → number — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit number → table → number — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit pie → bar → pie — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit pie → line → pie — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit pie → map → pie — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit pie → number → pie — X axis cleared on the way; auto-prefill runs once per type so it is not refilled → Save disabled; edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit pie → pivot → pie — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit pie → table → pie — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit pivot → bar → pivot — pivot row/column dimensions reset to [] on the way back → Save disabled; edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit pivot → line → pivot — pivot row/column dimensions reset to [] on the way back → Save disabled; edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit pivot → map → pivot — edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit pivot → number → pivot — pivot row/column dimensions reset to [] on the way back → Save disabled; edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit pivot → pie → pivot — pivot row/column dimensions reset to [] on the way back → Save disabled; edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit pivot → table → pivot — pivot row/column dimensions reset to [] on the way back → Save disabled; edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit table → bar → table — table dimensions come back as auto-prefill (id), not statename/districtname; edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit table → line → table — table dimensions come back as auto-prefill (id), not statename/districtname; edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit table → map → table — table dimensions come back as auto-prefill (id), not statename/districtname; edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit table → number → table — table dimensions come back as auto-prefill (id), not statename/districtname; edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit table → pie → table — table dimensions come back as auto-prefill (id), not statename/districtname; edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/perm-roundtrip.spec.ts › PERM-roundtrip-edit › [pinned] PERM-roundtrip-edit table → pivot → table — table dimensions come back as auto-prefill (id), not statename/districtname; edit handleFormChange replaces customizations with the type defaults (orientation, lineStyle, chartStyle, colorScheme, … lost)
+[chromium] charts/save-persistence.spec.ts › chart save persistence › SAVE-1 bar: X, extra dimension, 2 metrics, sort, pagination, filter all reach the saved chart; edit keeps them
+[chromium] charts/save-persistence.spec.ts › chart save persistence › SAVE-2 line: date X axis + time grain reach the saved chart; edit keeps them
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from bar › TS-edit bar → line [pinned] update rejected 422: previous dataLabelPosition kept
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from bar › TS-edit bar → map [pinned] map keeps both metric rows
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from bar › TS-edit bar → number [pinned] legacy aggregate_func count sent with the kept metric
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from bar › TS-edit bar → pie
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from bar › TS-edit bar → pivot_table [pinned] row/column dimensions reset → Save disabled
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from bar › TS-edit bar → table [pinned] table dimension comes from auto-prefill (id), not the source dimension
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from line › TS-edit line → bar [pinned] update rejected 422: previous dataLabelPosition kept
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from line › TS-edit line → map [pinned] map keeps both metric rows
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from line › TS-edit line → number [pinned] legacy aggregate_func count sent with the kept metric
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from line › TS-edit line → pie [pinned] update rejected 422: previous dataLabelPosition kept
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from line › TS-edit line → pivot_table [pinned] row/column dimensions reset → Save disabled
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from line › TS-edit line → table [pinned] table dimension comes from auto-prefill (id), not the source dimension
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from map › TS-edit map → bar
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from map › TS-edit map → line
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from map › TS-edit map → number
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from map › TS-edit map → pie
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from map › TS-edit map → pivot_table [pinned] row/column dimensions reset → Save disabled
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from map › TS-edit map → table [pinned] no table dimension; state column only lands in table_columns/x_axis_column
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from number › TS-edit number → bar [pinned] X axis left empty → Save disabled
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from number › TS-edit number → line [pinned] X axis left empty → Save disabled
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from number › TS-edit number → map
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from number › TS-edit number → pie [pinned] X axis left empty → Save disabled
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from number › TS-edit number → pivot_table [pinned] row/column dimensions reset → Save disabled
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from number › TS-edit number → table [pinned] table dimension comes from auto-prefill (id), not the source dimension
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from pie › TS-edit pie → bar
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from pie › TS-edit pie → line [pinned] update rejected 422: previous dataLabelPosition kept
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from pie › TS-edit pie → map
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from pie › TS-edit pie → number [pinned] legacy aggregate_func count sent with the kept metric
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from pie › TS-edit pie → pivot_table [pinned] row/column dimensions reset → Save disabled
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from pie › TS-edit pie → table [pinned] table dimension comes from auto-prefill (id), not the source dimension
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from pivot_table › TS-edit pivot_table → bar [pinned] X axis left empty → Save disabled
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from pivot_table › TS-edit pivot_table → line [pinned] X axis left empty → Save disabled
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from pivot_table › TS-edit pivot_table → map
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from pivot_table › TS-edit pivot_table → number [pinned] legacy aggregate_func count sent with the kept metric
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from pivot_table › TS-edit pivot_table → pie [pinned] X axis left empty → Save disabled
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from pivot_table › TS-edit pivot_table → table [pinned] table dimension comes from auto-prefill (id), not the source dimension
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from table › TS-edit table → bar [pinned] dimension/aggregate column taken from table_columns (id, country)
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from table › TS-edit table → line [pinned] dimension/aggregate column taken from table_columns (id, country)
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from table › TS-edit table → map [pinned] state column id / value column country taken from table_columns
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from table › TS-edit table → number [pinned] dimension/aggregate column taken from table_columns (id, country)
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from table › TS-edit table → pie [pinned] dimension/aggregate column taken from table_columns (id, country)
+[chromium] charts/type-switch-matrix-edit.spec.ts › TS-edit from table › TS-edit table → pivot_table [pinned] row/column dimensions reset → Save disabled
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from bar › TS-create bar → line
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from bar › TS-create bar → map [pinned] save rejected 422: source legendPosition carried into map customizations
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from bar › TS-create bar → number [pinned] legacy aggregate_func count sent with the kept metric
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from bar › TS-create bar → pie
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from bar › TS-create bar → pivot_table [pinned] row/column dimensions reset → Save disabled
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from bar › TS-create bar → table [pinned] table dimension comes from auto-prefill (id), not the source dimension
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from line › TS-create line → bar
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from line › TS-create line → map [pinned] save rejected 422: source legendPosition carried into map customizations
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from line › TS-create line → number [pinned] legacy aggregate_func count sent with the kept metric
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from line › TS-create line → pie
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from line › TS-create line → pivot_table [pinned] row/column dimensions reset → Save disabled
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from line › TS-create line → table [pinned] table dimension comes from auto-prefill (id), not the source dimension
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from map › TS-create map → bar [pinned] X axis left empty → Save disabled
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from map › TS-create map → line [pinned] X axis left empty → Save disabled
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from map › TS-create map → number [pinned] saves map-only fields and map customizations on the number chart
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from map › TS-create map → pie [pinned] X axis left empty → Save disabled
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from map › TS-create map → pivot_table [pinned] no pivot dimensions → Save disabled
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from map › TS-create map → table [pinned] no table dimension; saves the map fields and map customizations
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from number › TS-create number → bar [pinned] X axis left empty → Save disabled
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from number › TS-create number → line [pinned] X axis left empty → Save disabled
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from number › TS-create number → map
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from number › TS-create number → pie [pinned] X axis left empty → Save disabled
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from number › TS-create number → pivot_table [pinned] row/column dimensions reset → Save disabled
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from number › TS-create number → table [pinned] table dimension comes from auto-prefill (id), not the source dimension
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from pie › TS-create pie → bar
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from pie › TS-create pie → line
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from pie › TS-create pie → map [pinned] save rejected 422: source legendPosition carried into map customizations
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from pie › TS-create pie → number [pinned] legacy aggregate_func count sent with the kept metric
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from pie › TS-create pie → pivot_table [pinned] row/column dimensions reset → Save disabled
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from pie › TS-create pie → table [pinned] table dimension comes from auto-prefill (id), not the source dimension
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from pivot_table › TS-create pivot_table → bar [pinned] X axis left empty → Save disabled
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from pivot_table › TS-create pivot_table → line [pinned] X axis left empty → Save disabled
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from pivot_table › TS-create pivot_table → map
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from pivot_table › TS-create pivot_table → number [pinned] legacy aggregate_func count sent with the kept metric
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from pivot_table › TS-create pivot_table → pie [pinned] X axis left empty → Save disabled
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from pivot_table › TS-create pivot_table → table [pinned] table dimension comes from auto-prefill (id), not the source dimension
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from table › TS-create table → bar
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from table › TS-create table → line
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from table › TS-create table → map
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from table › TS-create table → number [pinned] legacy aggregate_func count sent with the kept metric
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from table › TS-create table → pie
+[chromium] charts/type-switch-matrix.spec.ts › TS-create from table › TS-create table → pivot_table [pinned] row/column dimensions reset → Save disabled
+[chromium] charts/type-switch.spec.ts › type switch keep/trim rules › [pinned] bar → line then save persists bar-only customizations (orientation, stacked)
+[chromium] charts/type-switch.spec.ts › type switch keep/trim rules › [pinned] bar → number keeps first metric, clears X/extra dimension, keeps legacy aggregate_func count
+[chromium] charts/type-switch.spec.ts › type switch keep/trim rules › [pinned] bar → pivot table keeps metrics but resets row/column dimensions → Save disabled
+[chromium] charts/type-switch.spec.ts › type switch keep/trim rules › [pinned] bar → table keeps all metrics but table dimensions come from auto-prefill (id)
+[chromium] charts/type-switch.spec.ts › type switch keep/trim rules › bar (date X, month grain) → pie clears the time grain
+[chromium] charts/type-switch.spec.ts › type switch keep/trim rules › bar → line keeps all metrics, dimensions, filters, sort, pagination; label position inside → top ("Above Point")
+[chromium] charts/type-switch.spec.ts › type switch keep/trim rules › bar → map keeps first metric only and shows the map config
+[chromium] charts/type-switch.spec.ts › type switch keep/trim rules › bar → pie keeps only the first metric; label position inside stays (valid for pie)
+[chromium] charts/type-switch.spec.ts › type switch keep/trim rules › chain bar → line → pie → number → table → map keeps/trims per rules
+[chromium] charts/type-switch.spec.ts › type switch keep/trim rules › pie → bar keeps the single metric and re-enables + ADD ANOTHER METRIC
+[chromium] cross/navigation.spec.ts › cross-area navigation › X-1 + X-4 dashboard → View Chart → back; → Edit → save → back; dashboard shows the edit
+[chromium] cross/navigation.spec.ts › cross-area navigation › X-2 report → View KPI → "Back to Report"
+[chromium] cross/navigation.spec.ts › cross-area navigation › X-3 delete a chart used in a dashboard: dialog lists it; dashboard cell errors after
+[chromium] dashboards/builder-text.spec.ts › dashboard builder — text widget › D-B7 rich text › Esc discards the edit; Cmd/Ctrl+Enter commits it
+[chromium] dashboards/builder-text.spec.ts › dashboard builder — text widget › D-B7 rich text › bold, italic, underline and alignment
+[chromium] dashboards/builder-text.spec.ts › dashboard builder — text widget › D-B7 rich text › heading levels, normal text and font size
+[chromium] dashboards/builder-text.spec.ts › dashboard builder — text widget › D-B7 rich text › text colour preset, custom hex (cancel + OK) and background colour
+[chromium] dashboards/builder-text.spec.ts › dashboard builder — text widget › D-B8 image › [pinned] Esc in the caption input commits the caption instead of cancelling
+[chromium] dashboards/builder-text.spec.ts › dashboard builder — text widget › D-B8 image › link, fit modes, caption text and alignment
+[chromium] dashboards/builder-text.spec.ts › dashboard builder — text widget › D-B8 image › replace (Back keeps image, link replaces it) and remove clears image + caption
+[chromium] dashboards/builder-text.spec.ts › dashboard builder — text widget › D-B8 image › upload: wrong type and >5MB rejected client-side, valid PNG uploads
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B1 /dashboards/create auto-POSTs and lands on /edit?new=true with title in edit mode
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B10 drag and resize › drag by the top strip moves the widget; neighbour compacts up
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B10 drag and resize › dragging from the chart content does not move the widget
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B10 drag and resize › resize grows the widget and clamps at the per-type minimum
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B11 chart title override › [pinned] clicking the Cancel (X) button still saves the typed title
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B11 chart title override › [pinned] hide then show stores the original title as an override
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B11 chart title override › edit with Enter, Esc cancels, typing the original removes the override
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B12 undo/redo via buttons and keyboard; shortcuts ignored inside inputs
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B13 View saves, unlocks and opens the view page
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B14 [pinned] same user in a second browser is not shown the locked screen
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B14 another user (analyst) gets the "Currently Locked" screen with countdown
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B14 lock: POST on open, DELETE on Back
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B15 table / pivot / map cells in the builder › pivot and map cells render
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B15 table / pivot / map cells in the builder › table drill-down and ← Back
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B2 description: 100-char counter, Cmd/Ctrl+Enter saves, Esc reverts
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B2 title: Enter and blur save, empty becomes "Untitled Dashboard"
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B3 explicit Save sends full payload; status Saving… → Saved
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B4 [pinned] autosave PUTs on mount with no user change
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B4 autosave fires ~5s after a change
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B5 Add Chart modal: search, insert renders cell, "Already added" is disabled
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B6 Add KPI modal: search, insert renders KPI card, "Already added" is disabled
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B9 cell toolbar › KPI View / Edit navigate to the KPI page
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B9 cell toolbar › Remove chart, KPI and text; widgets below slide up
+[chromium] dashboards/builder.spec.ts › dashboard builder › D-B9 cell toolbar › chart View / Edit navigate with ?from=dashboard
+[chromium] dashboards/filters.spec.ts › dashboard filters — apply / clear (view) › D-F2 numerical input: typed range is clamped to data limits and applied
+[chromium] dashboards/filters.spec.ts › dashboard filters — apply / clear (view) › D-F3 datetime filter: cross-limited pickers, summary text, apply payload
+[chromium] dashboards/filters.spec.ts › dashboard filters — apply / clear (view) › D-F5 apply single-select value filter sends a string value
+[chromium] dashboards/filters.spec.ts › dashboard filters — apply / clear (view) › D-F5 apply value filter → every chart + KPI refetch with dashboard_filters
+[chromium] dashboards/filters.spec.ts › dashboard filters — apply / clear (view) › D-F6 clear one filter (local only), clear all refetches unfiltered, applied dot
+[chromium] dashboards/filters.spec.ts › dashboard filters — apply / clear (view) › D-F7 filter only affects charts on the matching schema/table
+[chromium] dashboards/filters.spec.ts › dashboard filters — apply / clear (view) › [pinned] D-F2 numerical filter applies forced 0–100 default untouched
+[chromium] dashboards/filters.spec.ts › dashboard filters — builder › [pinned] D-F8 builder Apply refetches charts but not KPIs
+[chromium] dashboards/filters.spec.ts › dashboard filters — create (builder) › D-F1 create multi-select value filter
+[chromium] dashboards/filters.spec.ts › dashboard filters — create (builder) › D-F1 create single-select value filter: dataset → column → auto type + name, preview
+[chromium] dashboards/filters.spec.ts › dashboard filters — create (builder) › [pinned] D-F2 create numerical input filter saves forced default 0–100
+[chromium] dashboards/filters.spec.ts › dashboard filters — create (builder) › [pinned] D-F2 create numerical slider filter saves forced default 0–100
+[chromium] dashboards/filters.spec.ts › dashboard filters — create (builder) › [pinned] D-F3 create datetime filter saves numerical-shaped settings
+[chromium] dashboards/filters.spec.ts › dashboard filters — edit / delete / reorder (builder) › D-F4 delete filter: no confirm, removed immediately → DELETE
+[chromium] dashboards/filters.spec.ts › dashboard filters — edit / delete / reorder (builder) › D-F4 edit filter: dataset disabled, rename + switch to multi → PUT
+[chromium] dashboards/filters.spec.ts › dashboard filters — edit / delete / reorder (builder) › D-F4 reorder filters by drag → PUT order per moved filter
+[chromium] dashboards/gaps-builder.spec.ts › dashboard builder gaps › GAP-D View shows "Saving and opening view..." while it saves
+[chromium] dashboards/gaps-builder.spec.ts › dashboard builder gaps › GAP-D autosave is held back ~1s after Undo / Redo, then saves the new state
+[chromium] dashboards/gaps-builder.spec.ts › dashboard builder gaps › GAP-D create: "Access Denied" without the create-dashboards permission
+[chromium] dashboards/gaps-builder.spec.ts › dashboard builder gaps › GAP-D create: a create failure shows a toast and returns to /dashboards
+[chromium] dashboards/gaps-builder.spec.ts › dashboard builder gaps › GAP-D description: clicking outside throws the edit away
+[chromium] dashboards/gaps-builder.spec.ts › dashboard builder gaps › GAP-D save error: the failure message shows next to Save, then clears
+[chromium] dashboards/gaps-builder.spec.ts › dashboard builder gaps › GAP-D undo history keeps 20 steps
+[chromium] dashboards/gaps-builder.spec.ts › dashboard builder gaps › mobile header (390px) › GAP-D mobile header: title, description, Chart / KPI / Text, undo, status, View
+[chromium] dashboards/gaps-builder.spec.ts › dashboard builder gaps › tablet header (820px) › GAP-D tablet uses the compact header too
+[chromium] dashboards/gaps-builder.spec.ts › dashboard builder gaps › viewport 1200px › GAP-D save status text only shows at 1280px and wider
+[chromium] dashboards/gaps-filters.spec.ts › GAP-D filters — builder create / edit / reorder › GAP-D builder below 1200px: horizontal filter bar, hide → "Show Filters (n)" → back
+[chromium] dashboards/gaps-filters.spec.ts › GAP-D filters — builder create / edit / reorder › GAP-D filter create failure is silent: modal closes, no toast, no filter
+[chromium] dashboards/gaps-filters.spec.ts › GAP-D filters — builder create / edit / reorder › GAP-D filter edit modal shows "Loading filter configuration..." until the filter loads
+[chromium] dashboards/gaps-filters.spec.ts › GAP-D filters — builder create / edit / reorder › GAP-D filter update failure is silent: modal closes, no toast, name unchanged
+[chromium] dashboards/gaps-filters.spec.ts › GAP-D filters — builder create / edit / reorder › [pinned] GAP-D filter keyboard reorder is advertised but does nothing
+[chromium] dashboards/gaps-filters.spec.ts › GAP-D filters — using them (view) › GAP-D Apply shows a short spinner (button disabled) before charts reload
+[chromium] dashboards/gaps-filters.spec.ts › GAP-D filters — using them (view) › GAP-D broken filters: "Invalid filter configuration", "Filter not found", panel drops invalid rows
+[chromium] dashboards/gaps-filters.spec.ts › GAP-D filters — using them (view) › GAP-D date filter with only an end date: "Filtering up to …", applied
+[chromium] dashboards/gaps-filters.spec.ts › GAP-D filters — using them (view) › GAP-D dropdown filter asks for at most 100 options and lists them all
+[chromium] dashboards/gaps-filters.spec.ts › GAP-D filters — using them (view) › GAP-D dropdown filter shows "Loading options..." while options load
+[chromium] dashboards/gaps-filters.spec.ts › GAP-D filters — using them (view) › GAP-D dropdown filter shows "No options available" for an empty column
+[chromium] dashboards/gaps-filters.spec.ts › GAP-D filters — using them (view) › GAP-D dropdown filter shows "Options need attention" with the error when options fail
+[chromium] dashboards/gaps-filters.spec.ts › GAP-D filters — using them (view) › GAP-D range slider: dragging both handles to the ends, then Apply
+[chromium] dashboards/gaps-filters.spec.ts › GAP-D filters — using them (view) › GAP-D view filter panel: collapse / expand and hide / show the filter list
+[chromium] dashboards/gaps-filters.spec.ts › GAP-D filters — using them (view) › [pinned] GAP-D mobile filter accordion "Filters • N applied" counts every filter
+[chromium] dashboards/gaps-lock-share.spec.ts › GAP-D edit lock › GAP-D a "locked" (423) answer to the lock request alerts and returns to /dashboards
+[chromium] dashboards/gaps-lock-share.spec.ts › GAP-D edit lock › GAP-D locked screen: "Refresh Now" rechecks; opens the builder once the other user leaves
+[chromium] dashboards/gaps-lock-share.spec.ts › GAP-D edit lock › GAP-D the builder refreshes its edit lock every 60 seconds
+[chromium] dashboards/gaps-lock-share.spec.ts › GAP-D edit lock › [pinned] GAP-D hiding the tab releases the lock (plus a stray unlock to the Next server)
+[chromium] dashboards/gaps-lock-share.spec.ts › GAP-D permissions and roles › GAP-D "Access Denied" without the view-dashboards permission (no dashboard request)
+[chromium] dashboards/gaps-lock-share.spec.ts › GAP-D sharing a dashboard › GAP-D Public option disabled when the org turned public sharing off
+[chromium] dashboards/gaps-lock-share.spec.ts › GAP-D sharing a dashboard › GAP-D already-public dashboard with public sharing off: explains why, no public link
+[chromium] dashboards/gaps-lock-share.spec.ts › GAP-D sharing a dashboard › GAP-D invite by email: admins get a role picker (Member preselected); the share carries it
+[chromium] dashboards/gaps-lock-share.spec.ts › GAP-D sharing a dashboard › GAP-D public access stats: count and last accessed after a public visit
+[chromium] dashboards/gaps-tabs.spec.ts › dashboard tabs gaps › GAP-D an empty tab name goes back to the old name
+[chromium] dashboards/gaps-tabs.spec.ts › dashboard tabs gaps › GAP-D an old dashboard without tabs opens as "Untitled Tab 1"
+[chromium] dashboards/gaps-tabs.spec.ts › dashboard tabs gaps › GAP-D dropping outside the canvas cancels a cross-tab widget move
+[chromium] dashboards/gaps-tabs.spec.ts › dashboard tabs gaps › GAP-D switch tab with Space
+[chromium] dashboards/gaps-tabs.spec.ts › dashboard tabs gaps › GAP-D switching browser window cancels a cross-tab widget move
+[chromium] dashboards/gaps-tabs.spec.ts › dashboard tabs gaps › GAP-D tab bar scrolls while a tab is dragged near its edge
+[chromium] dashboards/gaps-tabs.spec.ts › dashboard tabs gaps › GAP-D undo can jump back to another tab
+[chromium] dashboards/gaps-text.spec.ts › dashboard builder gaps — text and image widget › GAP-D an empty text widget shows nothing in view mode
+[chromium] dashboards/gaps-text.spec.ts › dashboard builder gaps — text and image widget › GAP-D clicking outside the text widget keeps the edit
+[chromium] dashboards/gaps-text.spec.ts › dashboard builder gaps — text and image widget › GAP-D image caption left and right alignment
+[chromium] dashboards/gaps-text.spec.ts › dashboard builder gaps — text and image widget › GAP-D image upload: "Uploading…" while it runs, then the failure toast
+[chromium] dashboards/gaps-text.spec.ts › dashboard builder gaps — text and image widget › GAP-D text align left after another alignment
+[chromium] dashboards/gaps-view.spec.ts › GAP-D view header › GAP-D Back button returns to the dashboard list
+[chromium] dashboards/gaps-view.spec.ts › GAP-D view header › GAP-D Edit Dashboard is hidden and "Locked by <user>" shown while another user edits
+[chromium] dashboards/gaps-view.spec.ts › GAP-D view header › GAP-D view header shows "Locked by you" while my own edit lock is held
+[chromium] dashboards/gaps-view.spec.ts › GAP-D view header › GAP-D view header shows the "Published" badge and the description
+[chromium] dashboards/gaps-view.spec.ts › GAP-D view not found / Superset fallback › GAP-D native "Dashboard Not Found" when the open dashboard is deleted meanwhile
+[chromium] dashboards/gaps-view.spec.ts › GAP-D view not found / Superset fallback › GAP-D usage dashboard without Superset says the org is not subscribed
+[chromium] dashboards/gaps-view.spec.ts › GAP-D view not found / Superset fallback › [pinned] GAP-D unknown dashboard id falls back to the Superset view error
+[chromium] dashboards/gaps-view.spec.ts › GAP-D view responsive actions › GAP-D mobile actions menu: Share Dashboard and Edit Dashboard
+[chromium] dashboards/gaps-view.spec.ts › GAP-D view responsive actions › GAP-D tablet (<1200px) actions menu: Share Dashboard and Edit Dashboard
+[chromium] dashboards/gaps-view.spec.ts › GAP-D view widgets › GAP-D "Chart Error" card: Retry refetches and renders the chart
+[chromium] dashboards/gaps-view.spec.ts › GAP-D view widgets › GAP-D number chart toolbar offers PNG but no CSV export
+[chromium] dashboards/gaps-view.spec.ts › GAP-D view widgets › GAP-D old "heading" and "filter" widget types still render in view mode
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D "CREATE NEW CHART" in the Add Chart modal opens /charts/new?from=dashboard
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D "CREATE NEW KPI" link, and the empty "GO TO KPIs" state
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D "Chart Error" card in the builder when chart data fails
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D "Failed to load KPI" in the builder when KPI data fails
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D Edit Chart / Edit KPI are hidden without edit access to that chart or KPI
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D KPI and text widgets clamp at their own minimum size
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D [pinned] a KPI with no metric crashes the builder as soon as it opens
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D [pinned] an org with no charts gets the modal's empty state, not /charts/new
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D clearing the chart title input hides the title
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D map cell: region click drills down; Home returns to the top level
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D resize from the e handle
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D resize from the n handle
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D resize from the ne handle
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D resize from the nw handle
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D resize from the s handle
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D resize from the sw handle
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D resize from the w handle
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D the canvas scrolls while a widget is dragged near its bottom edge
+[chromium] dashboards/gaps-widgets.spec.ts › dashboard builder gaps — widgets › GAP-D the same chart can be added to a different tab
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards builder › IG-dashboards chart "Click to add title" placeholder sets a custom title
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards builder › IG-dashboards description Save button saves the description
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards builder › IG-dashboards filter modal Cancel closes without creating and resets the form
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards builder › IG-dashboards filter modal: dataset / column chevrons, single-select, Info tab
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards builder › IG-dashboards filter modal: numerical "Interactive Slider" checkbox
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards builder › IG-dashboards map drill breadcrumb goes back to the top level
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards builder › IG-dashboards text widget custom background colour: cancel, hex, OK
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards edit page gates › IG-dashboards access-denied back button (view-only access)
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards edit page gates › IG-dashboards locked screen header back button
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards list › IG-dashboards empty list "Create your first dashboard" button
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards list › IG-dashboards list page-size 10 / 50 / 100 and previous page
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards list › IG-dashboards list row "Set as org default" (stubbed)
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards mobile builder header (390px) › IG-dashboards mobile builder: description Save button, redo
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards mobile view header (390px) › IG-dashboards mobile view: landing set/remove + org default (stubbed), fullscreen, back
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards view › IG-dashboards Superset view header: share, refresh, open, back (stubbed API)
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards view › IG-dashboards Superset view: retry on error card
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards view › IG-dashboards embed code textarea selects the snippet for manual copy
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards view › IG-dashboards multi-select value filter "Select all" row + checkbox
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards view › IG-dashboards single-select value filter chevron opens the options
+[chromium] dashboards/interactions-gaps.spec.ts › IG-dashboards view › IG-dashboards view landing menu "Set as org default" (stubbed)
+[chromium] dashboards/sequential-actions.spec.ts › dashboard — second actions › D-F5b a SECOND Apply with a changed value refetches charts with the new value
+[chromium] dashboards/sequential-actions.spec.ts › dashboard — second actions › D-T1b deleting the active MIDDLE tab selects the previous tab; others keep their order
+[chromium] dashboards/share.spec.ts › dashboard share — general access › D-S1 ?openShare=true opens the share modal on load; closing strips the param
+[chromium] dashboards/share.spec.ts › dashboard share — general access › D-S1 general access Default → Private → Public, copy public link, back to Default
+[chromium] dashboards/tabs.spec.ts › dashboard tabs › D-T1 add, switch, rename (Enter / Esc / blur / 50 chars) and remove with dialog
+[chromium] dashboards/tabs.spec.ts › dashboard tabs › D-T2 reorder with Alt+Arrow keys and by dragging
+[chromium] dashboards/tabs.spec.ts › dashboard tabs › D-T3 cross-tab widget move › Esc during the hand-off cancels the move
+[chromium] dashboards/tabs.spec.ts › dashboard tabs › D-T3 cross-tab widget move › hover a tab 500ms, then drop on its canvas → widget moves
+[chromium] dashboards/tabs.spec.ts › dashboard tabs › D-T3 cross-tab widget move › releasing over the tab before 500ms cancels the move
+[chromium] dashboards/tabs.spec.ts › dashboard tabs › D-T4 [pinned] undo restores a deleted tab despite "cannot be undone"
+[chromium] dashboards/tabs.spec.ts › dashboard tabs › D-T5 view mode shows the tab bar only with 2+ tabs
+[chromium] dashboards/view.spec.ts › dashboard view — e2e dashboards › D-V1 e2e dashboard renders KPI + charts from its saved layout
+[chromium] dashboards/view.spec.ts › dashboard view — e2e dashboards › D-V6 landing dropdown: set and remove my landing page
+[chromium] dashboards/view.spec.ts › dashboard view — e2e dashboards › D-V7 Edit Dashboard opens the builder; share button opens the modal
+[chromium] dashboards/view.spec.ts › dashboard view — e2e dashboards › D-V8 embed code: options change the snippet, copy puts it on the clipboard
+[chromium] dashboards/view.spec.ts › dashboard view — e2e dashboards › D-V9 empty dashboard shows "No Dashboard Components"
+[chromium] dashboards/view.spec.ts › dashboard view — e2e dashboards › [pinned] D-V8 embed code trigger is missing even on a public dashboard
+[chromium] dashboards/view.spec.ts › dashboard view — permissions › D-P1 member on seed dashboard: view-only, request-edit pill, no edit/share
+[chromium] dashboards/view.spec.ts › dashboard view — permissions › D-P2 member cannot open the builder of a view-only dashboard
+[chromium] dashboards/view.spec.ts › dashboard view — permissions › D-P3 analyst on a private e2e dashboard sees the no-access screen
+[chromium] dashboards/view.spec.ts › dashboard view — seed dashboards › D-V1 seed 411 renders header, five tabs, filters and KPIs
+[chromium] dashboards/view.spec.ts › dashboard view — seed dashboards › D-V1 seed 412 renders header, tabs, filters, KPIs and charts
+[chromium] dashboards/view.spec.ts › dashboard view — seed dashboards › D-V2 charts are not filtered until Apply
+[chromium] dashboards/view.spec.ts › dashboard view — seed dashboards › D-V3 chart toolbar: CSV export carries applied dashboard_filters
+[chromium] dashboards/view.spec.ts › dashboard view — seed dashboards › D-V3 chart toolbar: View Chart navigates with ?from=dashboard
+[chromium] dashboards/view.spec.ts › dashboard view — seed dashboards › D-V3 chart toolbar: download PNG and CSV (with dashboard_filters)
+[chromium] dashboards/view.spec.ts › dashboard view — seed dashboards › D-V3 chart toolbar: fullscreen overlay shows the chart title
+[chromium] dashboards/view.spec.ts › dashboard view — seed dashboards › D-V4 KPI card: download PNG/CSV, fullscreen, view
+[chromium] dashboards/view.spec.ts › dashboard view — seed dashboards › D-V5 dashboard fullscreen toggles the Fullscreen API
+[chromium] dashboards/view.spec.ts › dashboard view — seed dashboards › D-V8 embed code is only offered for public dashboards
+[chromium] dashboards/widget-placement.spec.ts › dashboard builder — placement of new widgets › D-B5b new chart, KPI and text land below existing widgets; existing ones stay put
+[chromium] misc-interactions-gaps.spec.ts › IG-misc confirmation dialog (default testids) › IG-misc confirmation dialog cancel sends nothing; confirm sends mark-all-read (fulfilled)
+[chromium] misc-interactions-gaps.spec.ts › IG-misc request access dialog › IG-misc request access: pick level, cancel, then send Edit (POST fulfilled)
+[chromium] misc-interactions-gaps.spec.ts › IG-misc share modal (stubbed rows) › IG-misc access request deny / approve (respond POST fulfilled)
+[chromium] misc-interactions-gaps.spec.ts › IG-misc share modal (stubbed rows) › IG-misc admin takeover: cancel, then confirm (POST fulfilled)
+[chromium] misc-interactions-gaps.spec.ts › IG-misc share modal (stubbed rows) › IG-misc dashboard cascade dialog: cancel keeps level, continue sends PATCH (fulfilled)
+[chromium] misc-interactions-gaps.spec.ts › IG-misc share modal (stubbed rows) › IG-misc inherited row upgrade view/edit sends a direct grant (POST fulfilled)
+[chromium] misc-interactions-gaps.spec.ts › IG-misc share modal (stubbed rows) › IG-misc share grant level view/edit + remove on direct rows (PATCH/DELETE fulfilled)
+[chromium] misc-interactions-gaps.spec.ts › IG-misc share modal (stubbed rows) › IG-misc staged chip: level back to View, then remove (no request)
+[chromium] misc-interactions-gaps.spec.ts › IG-misc share modal (stubbed rows) › IG-misc transfer ownership: cancel, then confirm (direct + inherited rows)
+[chromium] reports/comments.spec.ts › report comments › R-M1 seed report 150: summary thread opens read-only-safe (no posting)
+[chromium] reports/comments.spec.ts › report comments › R-M1 summary thread: add (POST), edit (PUT) shows "edited", delete
+[chromium] reports/comments.spec.ts › report comments › R-M4 deep links ?commentTarget=summary and =chart&chartId= auto-open the thread
+[chromium] reports/comments.spec.ts › report comments › [pinned] R-M2 chart + KPI threads; chart icon never shows state (chart_id lookup bug)
+[chromium] reports/comments.spec.ts › report comments › [pinned] R-M3 @mention dropdown: max 5, filter, arrows wrap, Enter/click insert, Esc closes
+[chromium] reports/create.spec.ts › create report › R-C1 dashboard with a date column: auto-selects it, end date required, POST payload
+[chromium] reports/create.spec.ts › create report › R-C2 dashboard without a date column: hint shown, date fields skipped in payload
+[chromium] reports/create.spec.ts › create report › [pinned] R-C3 submitting while date columns are still loading skips the date requirement
+[chromium] reports/create.spec.ts › create report › [pinned] R-C3 validation messages; Cancel does not reset the form
+[chromium] reports/gaps-comments.spec.ts › report comments — gaps (single user) › GAP-R @mentions inside the comment edit box (PUT carries mentioned_emails)
+[chromium] reports/gaps-comments.spec.ts › report comments — gaps (single user) › GAP-R comment post failure toast keeps the draft
+[chromium] reports/gaps-comments.spec.ts › report comments — gaps (single user) › GAP-R mentions show as highlighted emails in posted comments
+[chromium] reports/gaps-comments.spec.ts › report comments — gaps (single user) › [pinned] GAP-R KPI deep link: ?commentTarget=kpi does not open; chart-style link does
+[chromium] reports/gaps-comments.spec.ts › report comments — gaps (single user) › [pinned] GAP-R own KPI comment leaves the icon unread (post-submit mark-read sends chart_id)
+[chromium] reports/gaps-create-viewer.spec.ts › create report — gaps › GAP-R create changing the dashboard clears the date column
+[chromium] reports/gaps-create-viewer.spec.ts › create report — gaps › GAP-R create failure toast keeps the dialog open
+[chromium] reports/gaps-create-viewer.spec.ts › create report — gaps › GAP-R create several date columns: none auto-picked, the chosen one is sent
+[chromium] reports/gaps-create-viewer.spec.ts › create report — gaps › GAP-R create start date cannot be after the end date or today
+[chromium] reports/gaps-create-viewer.spec.ts › create report — gaps › [pinned] GAP-R create typed start date bypasses the max-date limit
+[chromium] reports/gaps-create-viewer.spec.ts › report viewer — gaps › GAP-R viewer Email PDF send failure toast keeps the dialog open
+[chromium] reports/gaps-create-viewer.spec.ts › report viewer — gaps › GAP-R viewer KPI in a report has no download or fullscreen (the live dashboard does)
+[chromium] reports/gaps-create-viewer.spec.ts › report viewer — gaps › GAP-R viewer PDF filename strips special characters (export intercepted)
+[chromium] reports/gaps-create-viewer.spec.ts › report viewer — gaps › GAP-R viewer frozen table and map charts render
+[chromium] reports/gaps-create-viewer.spec.ts › report viewer — gaps › GAP-R viewer loading skeleton while the report loads
+[chromium] reports/gaps-create-viewer.spec.ts › report viewer — gaps › GAP-R viewer summary save failure keeps edit mode with a toast
+[chromium] reports/gaps-list.spec.ts › reports list — gaps › GAP-R Reports nav item is shown for this org (REPORTS flag on) and hidden when the flag is off
+[chromium] reports/gaps-list.spec.ts › reports list — gaps › GAP-R list Create hidden without create permission; Delete hidden without delete permission
+[chromium] reports/gaps-list.spec.ts › reports list — gaps › GAP-R list empty state "No reports yet" with a create button
+[chromium] reports/gaps-list.spec.ts › reports list — gaps › GAP-R list filter waits 400ms after typing: one request with the final value
+[chromium] reports/gaps-list.spec.ts › reports list — gaps › GAP-R list loading skeleton while the list loads
+[chromium] reports/gaps-list.spec.ts › reports list — gaps › GAP-R list row: missing dashboard shows "—"; creator email shown (only when present)
+[chromium] reports/gaps-list.spec.ts › reports list — gaps › [pinned] GAP-R list failed load shows "No reports yet" instead of an error
+[chromium] reports/gaps-share.spec.ts › report sharing — gaps › GAP-R add people to a report through the Share modal (grant intercepted)
+[chromium] reports/gaps-share.spec.ts › report sharing — gaps › GAP-R report Public option disabled when the org turns public sharing off (mocked)
+[chromium] reports/gaps-share.spec.ts › report sharing — gaps › [pinned] GAP-R report Public option is not limited by the source dashboard sharing
+[chromium] reports/interactions-gaps.spec.ts › IG-reports create dialog › IG-reports create dialog dashboard chevron + start/end date Cancel and Clear
+[chromium] reports/interactions-gaps.spec.ts › IG-reports list › IG-reports list dashboard + creator filter Clear buttons empty their filter
+[chromium] reports/interactions-gaps.spec.ts › IG-reports list › IG-reports list page size 50 / 10 and Prev page (mocked 25-row list)
+[chromium] reports/interactions-gaps.spec.ts › IG-reports viewer › IG-reports comment send button posts the summary comment
+[chromium] reports/interactions-gaps.spec.ts › IG-reports viewer › IG-reports viewer dashboard link opens the source dashboard
+[chromium] reports/list.spec.ts › reports list › R-L1 loads seeded reports 150/151 and row click opens the viewer
+[chromium] reports/list.spec.ts › reports list › R-L2 title/dashboard/creator filters send server params, count + Clear all
+[chromium] reports/list.spec.ts › reports list › R-L3 sort toggles per column (new column starts desc) and pagination
+[chromium] reports/list.spec.ts › reports list › R-L4 row menu: view, email PDF dialog, delete with confirm
+[chromium] reports/list.spec.ts › reports list › [pinned] R-L3 deleting the only row of the last page leaves an empty page
+[chromium] reports/share.spec.ts › report share modal (own report) › R-S1 list row share icon opens the same modal
+[chromium] reports/share.spec.ts › report share modal (own report) › [pinned] R-S1 share modal: general access Private → Public → copy link → Default
+[chromium] reports/viewer.spec.ts › report viewer › R-V1 header metadata, dashboard link, frozen chart renders without toolbar
+[chromium] reports/viewer.spec.ts › report viewer › R-V1 seed report 150 header (read-only view)
+[chromium] reports/viewer.spec.ts › report viewer › R-V2 summary edit → save (PUT), cancel restores, unchanged save is a no-op
+[chromium] reports/viewer.spec.ts › report viewer › R-V3 filter panel collapsed; locked date filter; Clear all resets to defaults
+[chromium] reports/viewer.spec.ts › report viewer › R-V4 Download PDF posts the current filters (intercepted)
+[chromium] reports/viewer.spec.ts › report viewer › R-V5 Email PDF dialog: validation + send (intercepted)
+[chromium] reports/viewer.spec.ts › report viewer › R-V6 View Chart opens ?from=report and "Back to Report" returns
+[chromium] reports/viewer.spec.ts › report viewer › R-V7 invalid id and not-found states
+[chromium] smoke/harness.spec.ts › harness smoke › authenticated session lands on charts list
+[chromium] smoke/harness.spec.ts › harness smoke › factory chart renders on detail page and payload is captured
+[isolated] dashboards/list-gaps.spec.ts › dashboard list gaps › GAP-D Clear buttons in the name and owner popovers
+[isolated] dashboards/list-gaps.spec.ts › dashboard list gaps › GAP-D Create Dashboard button goes to /dashboards/create and on to the builder
+[isolated] dashboards/list-gaps.spec.ts › dashboard list gaps › GAP-D Create, Duplicate and Delete are hidden without the matching permission
+[isolated] dashboards/list-gaps.spec.ts › dashboard list gaps › GAP-D date modified filter: Last 7 days and Last 30 days
+[isolated] dashboards/list-gaps.spec.ts › dashboard list gaps › GAP-D edit icon opens the builder
+[isolated] dashboards/list-gaps.spec.ts › dashboard list gaps › GAP-D empty state "No dashboards yet" for an org with no dashboards
+[isolated] dashboards/list-gaps.spec.ts › dashboard list gaps › GAP-D favorite failure shows an error toast and keeps the dashboard unfavorited
+[isolated] dashboards/list-gaps.spec.ts › dashboard list gaps › GAP-D loading skeleton, then "Failed to load dashboards" with Retry
+[isolated] dashboards/list-gaps.spec.ts › dashboard list gaps › GAP-D share icon opens the Share modal from the list
+[isolated] dashboards/list-gaps.spec.ts › dashboard list gaps › GAP-D sort by Owner orders by owner email, desc then asc
+[isolated] dashboards/list-gaps.spec.ts › dashboard list gaps › GAP-D title link opens the dashboard view
+[isolated] dashboards/list.spec.ts › dashboard list › D-L1 loads with pinned (org default) rows first, badges and counter
+[isolated] dashboards/list.spec.ts › dashboard list › D-L2 sort by Name / Owner / Last Modified; new column starts desc
+[isolated] dashboards/list.spec.ts › dashboard list › D-L3 [pinned] "Show only shared" hides every dashboard
+[isolated] dashboards/list.spec.ts › dashboard list › D-L3 name / favourites / locked filters, owner filter, date filter, Clear all
+[isolated] dashboards/list.spec.ts › dashboard list › D-L4 favourite toggle persists across reload
+[isolated] dashboards/list.spec.ts › dashboard list › D-L5 [pinned] row menu: duplicate → "Copy of X" with a chart-worded toast
+[isolated] dashboards/list.spec.ts › dashboard list › D-L5 row menu: delete asks for confirmation; Cancel keeps, Delete removes
+[isolated] dashboards/list.spec.ts › dashboard list › D-L5 row menu: org default item is disabled on the current org default
+[isolated] dashboards/list.spec.ts › dashboard list › D-L5 row menu: set / remove my landing page (restored after)
+[isolated] dashboards/list.spec.ts › dashboard list › D-L6 pagination: next / prev, page size resets to page 1
+[isolated] dashboards/list.spec.ts › dashboard list › D-L7 lock badge: "By You" for the editor, "Locked" for another user
+[public] dashboards/gaps-public.public.spec.ts › GAP-D embed mode hides the tab bar and shows the "Powered by Dalgo" footer
+[public] dashboards/gaps-public.public.spec.ts › GAP-D embed padding on adds a 16px inset, off removes it
+[public] dashboards/gaps-public.public.spec.ts › GAP-D public chart PNG download and chart fullscreen
+[public] dashboards/gaps-public.public.spec.ts › [pinned] GAP-D public page crash shows the global "Something went wrong!" page
+[public] dashboards/interactions-gaps.public.spec.ts › IG-dashboards public "Learn about Dalgo" opens dalgo.org in a new tab
+[public] dashboards/share-dashboard.public.spec.ts › D-S2 public filters start collapsed; apply refetches via public endpoints
+[public] dashboards/share-dashboard.public.spec.ts › D-S2 public link loads logged out: header, Read Only, charts, KPI
+[public] dashboards/share-dashboard.public.spec.ts › D-S3 embed mode (dark, title + org, padding): no header, no filters
+[public] dashboards/share-dashboard.public.spec.ts › D-S3 embed mode with only org shows org, not title (light)
+[public] dashboards/share-dashboard.public.spec.ts › D-S3 embed mode without title/org hides the embed header
+[public] dashboards/share-dashboard.public.spec.ts › D-S4 invalid token → "Dashboard Not Found" with sign-in link
+[public] dashboards/share-dashboard.public.spec.ts › [pinned] D-S2 public CSV download → public endpoint, filename chart_<id>
+[public] dashboards/share-dashboard.public.spec.ts › [pinned] D-S5 legacy /public/dashboard/<token> never finishes loading
+[public] login.spec.ts › Login Page › should display the login page with all elements
+[public] login.spec.ts › Login Page › should login successfully and redirect to impact page
+[public] login.spec.ts › Login Page › should navigate to forgot password page
+[public] login.spec.ts › Login Page › should show error for invalid credentials
+[public] login.spec.ts › Login Page › should show validation errors for empty fields
+[public] login.spec.ts › Login Page › should toggle password visibility
+[public] reports/gaps-public.public.spec.ts › public report link — gaps (logged out) › GAP-R print view ignores a bad ?dashboard_filters= (invalid JSON)
+[public] reports/gaps-public.public.spec.ts › public report link — gaps (logged out) › GAP-R print view with ?dashboard_filters= bakes the filter into chart data
+[public] reports/gaps-public.public.spec.ts › public report link — gaps (logged out) › GAP-R public "Loading report..." state while the report loads
+[public] reports/gaps-public.public.spec.ts › public report link — gaps (logged out) › GAP-R public report filters: apply a value filter → frozen chart refetched with it
+[public] reports/interactions-gaps.public.spec.ts › IG-reports public not-found "Learn about Dalgo" opens dalgo.org in a new tab
+[public] reports/share-report.public.spec.ts › public report link (logged out) › R-S1 public frozen chart screenshot
+[public] reports/share-report.public.spec.ts › public report link (logged out) › R-S1 public link renders header, summary and frozen canvas without editor controls
+[public] reports/share-report.public.spec.ts › public report link (logged out) › R-S2 print mode ?print=true → data-pdf-ready print layout
+[public] reports/share-report.public.spec.ts › public report link (logged out) › R-S3 invalid token → "Report Not Found" with sign-in link

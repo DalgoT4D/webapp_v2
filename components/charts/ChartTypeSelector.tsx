@@ -97,6 +97,7 @@ export function ChartTypeSelector({ value, onChange, disabled = false }: ChartTy
               }}
               disabled={disabled}
               title={type.name}
+              data-testid={`chart-type-switch-${type.id}`}
             >
               <Icon
                 className="w-6 h-6"

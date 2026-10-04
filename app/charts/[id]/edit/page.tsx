@@ -1562,7 +1562,11 @@ function EditChartPageContent() {
           </div>
           <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
           <p className="text-muted-foreground mb-4">You don't have edit access to this chart.</p>
-          <Button variant="outline" onClick={() => router.push('/charts')}>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/charts')}
+            data-testid="chart-edit-access-denied-back-btn"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Charts
           </Button>
@@ -1653,6 +1657,7 @@ function EditChartPageContent() {
 
             {/* Chart Title Input */}
             <Input
+              data-testid="chart-name-input"
               value={formData.title}
               onChange={(e) => handleFormChange({ title: e.target.value })}
               className="text-lg font-semibold border border-gray-200 shadow-sm px-4 py-2 h-11 bg-white min-w-[300px]"
@@ -1690,10 +1695,11 @@ function EditChartPageContent() {
           <div className="w-[30%] border-r">
             <Tabs defaultValue="configuration" onValueChange={handleTabView} className="h-full">
               <div className="px-4 pt-4">
-                <TabsList className="grid w-full h-11 grid-cols-2">
+                <TabsList className="grid w-full h-11 grid-cols-2" data-testid="chart-config-tabs">
                   <TabsTrigger
                     value="configuration"
                     className="flex items-center justify-center gap-2 text-sm h-full"
+                    data-testid="chart-data-config-tab"
                   >
                     <BarChart3 className="h-4 w-4" />
                     Data Configuration
@@ -1701,6 +1707,7 @@ function EditChartPageContent() {
                   <TabsTrigger
                     value="styling"
                     className="flex items-center justify-center gap-2 text-sm h-full"
+                    data-testid="chart-styling-tab"
                   >
                     <Database className="h-4 w-4" />
                     Chart Styling
@@ -1753,11 +1760,19 @@ function EditChartPageContent() {
             <Tabs value={activeTab} onValueChange={handlePreviewTabChange} className="h-full">
               <div className="px-4">
                 <TabsList className="grid grid-cols-2">
-                  <TabsTrigger value="chart" className="flex items-center gap-2">
+                  <TabsTrigger
+                    value="chart"
+                    className="flex items-center gap-2"
+                    data-testid="chart-preview-tab-chart"
+                  >
                     <BarChart3 className="h-4 w-4" />
                     CHART
                   </TabsTrigger>
-                  <TabsTrigger value="data" className="flex items-center gap-2">
+                  <TabsTrigger
+                    value="data"
+                    className="flex items-center gap-2"
+                    data-testid="chart-preview-tab-data"
+                  >
                     <Database className="h-4 w-4" />
                     DATA
                   </TabsTrigger>
@@ -1776,6 +1791,7 @@ function EditChartPageContent() {
                         maxWidth: '24rem',
                       }}
                       onClick={handleDismissToast}
+                      data-testid="chart-config-incomplete-overlay"
                     >
                       <Alert
                         variant="destructive"
@@ -1821,6 +1837,7 @@ function EditChartPageContent() {
                             size="sm"
                             onClick={handleTableDrillUp}
                             className="h-8"
+                            data-testid="chart-table-drill-back-btn"
                           >
                             ← Back
                           </Button>
@@ -1930,11 +1947,19 @@ function EditChartPageContent() {
                     className="h-full flex flex-col"
                   >
                     <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
-                      <TabsTrigger value="chart-data" className="flex items-center gap-2">
+                      <TabsTrigger
+                        value="chart-data"
+                        className="flex items-center gap-2"
+                        data-testid="chart-data-tab-chart-data"
+                      >
                         <BarChart3 className="h-4 w-4" />
                         Chart Data
                       </TabsTrigger>
-                      <TabsTrigger value="raw-data" className="flex items-center gap-2">
+                      <TabsTrigger
+                        value="raw-data"
+                        className="flex items-center gap-2"
+                        data-testid="chart-data-tab-raw-data"
+                      >
                         <Database className="h-4 w-4" />
                         Raw Data
                       </TabsTrigger>
@@ -2029,6 +2054,7 @@ function EditChartPageContent() {
         confirmText="Leave Without Saving"
         cancelText="Cancel"
         type="warning"
+        testIdPrefix="chart-edit-leave-confirm"
         onConfirm={unsavedChangesDialog.onConfirm}
         onCancel={unsavedChangesDialog.onCancel}
       />

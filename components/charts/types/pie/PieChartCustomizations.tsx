@@ -38,6 +38,7 @@ export function PieChartCustomizations({
         <div className="flex items-center space-x-2">
           <Switch
             id="showLegend"
+            data-testid="chart-styling-show-legend"
             checked={customizations.showLegend !== false}
             onCheckedChange={(checked) => updateCustomization('showLegend', checked)}
             disabled={disabled}
@@ -61,11 +62,19 @@ export function PieChartCustomizations({
                 disabled={disabled}
               >
                 <div className="flex items-center space-x-2 mt-2">
-                  <RadioGroupItem value="paginated" id="paginated" />
+                  <RadioGroupItem
+                    value="paginated"
+                    id="paginated"
+                    data-testid="chart-styling-legend-display-paginated"
+                  />
                   <Label htmlFor="paginated">Paginated Legends</Label>
                 </div>
                 <div className="flex items-center space-x-2 mt-2">
-                  <RadioGroupItem value="all" id="all" />
+                  <RadioGroupItem
+                    value="all"
+                    id="all"
+                    data-testid="chart-styling-legend-display-all"
+                  />
                   <Label htmlFor="all">Show All Legends in Chart Area</Label>
                 </div>
               </RadioGroup>
@@ -78,14 +87,28 @@ export function PieChartCustomizations({
                 onValueChange={(value) => updateCustomization('legendPosition', value)}
                 disabled={disabled}
               >
-                <SelectTrigger id="legendPosition">
+                <SelectTrigger id="legendPosition" data-testid="chart-styling-legend-position">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="top">Top</SelectItem>
-                  <SelectItem value="bottom">Bottom</SelectItem>
-                  <SelectItem value="left">Left</SelectItem>
-                  <SelectItem value="right">Right</SelectItem>
+                  <SelectItem value="top" data-testid="chart-styling-legend-position-option-top">
+                    Top
+                  </SelectItem>
+                  <SelectItem
+                    value="bottom"
+                    data-testid="chart-styling-legend-position-option-bottom"
+                  >
+                    Bottom
+                  </SelectItem>
+                  <SelectItem value="left" data-testid="chart-styling-legend-position-option-left">
+                    Left
+                  </SelectItem>
+                  <SelectItem
+                    value="right"
+                    data-testid="chart-styling-legend-position-option-right"
+                  >
+                    Right
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -105,11 +128,15 @@ export function PieChartCustomizations({
             disabled={disabled}
           >
             <div className="flex items-center space-x-2 mt-2">
-              <RadioGroupItem value="donut" id="donut" />
+              <RadioGroupItem
+                value="donut"
+                id="donut"
+                data-testid="chart-styling-chart-style-donut"
+              />
               <Label htmlFor="donut">Donut Chart</Label>
             </div>
             <div className="flex items-center space-x-2 mt-2">
-              <RadioGroupItem value="pie" id="pie" />
+              <RadioGroupItem value="pie" id="pie" data-testid="chart-styling-chart-style-pie" />
               <Label htmlFor="pie">Full Pie</Label>
             </div>
           </RadioGroup>
@@ -118,6 +145,7 @@ export function PieChartCustomizations({
         <div className="flex items-center space-x-2">
           <Switch
             id="showTooltip"
+            data-testid="chart-styling-show-tooltip"
             checked={customizations.showTooltip !== false}
             onCheckedChange={(checked) => updateCustomization('showTooltip', checked)}
             disabled={disabled}
@@ -139,14 +167,22 @@ export function PieChartCustomizations({
             }}
             disabled={disabled}
           >
-            <SelectTrigger id="maxSlices">
+            <SelectTrigger id="maxSlices" data-testid="chart-styling-max-slices">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Show All Slices</SelectItem>
-              <SelectItem value="3">Top 3 Slices</SelectItem>
-              <SelectItem value="5">Top 5 Slices</SelectItem>
-              <SelectItem value="10">Top 10 Slices</SelectItem>
+              <SelectItem value="all" data-testid="chart-styling-max-slices-option-all">
+                Show All Slices
+              </SelectItem>
+              <SelectItem value="3" data-testid="chart-styling-max-slices-option-3">
+                Top 3 Slices
+              </SelectItem>
+              <SelectItem value="5" data-testid="chart-styling-max-slices-option-5">
+                Top 5 Slices
+              </SelectItem>
+              <SelectItem value="10" data-testid="chart-styling-max-slices-option-10">
+                Top 10 Slices
+              </SelectItem>
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
@@ -162,6 +198,7 @@ export function PieChartCustomizations({
         <div className="flex items-center space-x-2">
           <Switch
             id="showDataLabels"
+            data-testid="chart-styling-show-data-labels"
             checked={customizations.showDataLabels !== false}
             onCheckedChange={(checked) => updateCustomization('showDataLabels', checked)}
             disabled={disabled}
@@ -178,14 +215,31 @@ export function PieChartCustomizations({
                 onValueChange={(value) => updateCustomization('labelFormat', value)}
                 disabled={disabled}
               >
-                <SelectTrigger id="labelFormat">
+                <SelectTrigger id="labelFormat" data-testid="chart-styling-label-format">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="percentage">Percentage only</SelectItem>
-                  <SelectItem value="value">Value only</SelectItem>
-                  <SelectItem value="name_percentage">Name + Percentage</SelectItem>
-                  <SelectItem value="name_value">Name + Value</SelectItem>
+                  <SelectItem
+                    value="percentage"
+                    data-testid="chart-styling-label-format-option-percentage"
+                  >
+                    Percentage only
+                  </SelectItem>
+                  <SelectItem value="value" data-testid="chart-styling-label-format-option-value">
+                    Value only
+                  </SelectItem>
+                  <SelectItem
+                    value="name_percentage"
+                    data-testid="chart-styling-label-format-option-name_percentage"
+                  >
+                    Name + Percentage
+                  </SelectItem>
+                  <SelectItem
+                    value="name_value"
+                    data-testid="chart-styling-label-format-option-name_value"
+                  >
+                    Name + Value
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -197,12 +251,25 @@ export function PieChartCustomizations({
                 onValueChange={(value) => updateCustomization('dataLabelPosition', value)}
                 disabled={disabled}
               >
-                <SelectTrigger id="dataLabelPosition">
+                <SelectTrigger
+                  id="dataLabelPosition"
+                  data-testid="chart-styling-data-label-position"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="outside">Outside (Top)</SelectItem>
-                  <SelectItem value="inside">Inside (Mid)</SelectItem>
+                  <SelectItem
+                    value="outside"
+                    data-testid="chart-styling-data-label-position-option-outside"
+                  >
+                    Outside (Top)
+                  </SelectItem>
+                  <SelectItem
+                    value="inside"
+                    data-testid="chart-styling-data-label-position-option-inside"
+                  >
+                    Inside (Mid)
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

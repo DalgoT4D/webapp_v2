@@ -865,6 +865,7 @@ export function MapPreview({
             size="sm"
             onClick={onDrillHome}
             className="flex items-center gap-1"
+            data-testid="chart-map-breadcrumb-home"
           >
             <Home className="h-4 w-4" />
             Home
@@ -878,6 +879,7 @@ export function MapPreview({
                 size="sm"
                 onClick={() => onDrillUp?.(index)}
                 className="flex items-center gap-1"
+                data-testid={`chart-map-breadcrumb-level-${index}`}
               >
                 {level.name}
               </Button>
@@ -892,13 +894,16 @@ export function MapPreview({
               size="sm"
               onClick={() => onDrillUp?.(drillDownPath.length - 2)}
               className="flex items-center gap-1"
+              data-testid="chart-map-breadcrumb-back"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
           )}
 
-          <Badge variant="outline">Level {drillDownPath.length || 1}</Badge>
+          <Badge variant="outline" data-testid="chart-map-level-badge">
+            Level {drillDownPath.length || 1}
+          </Badge>
         </div>
       </div>
     );
@@ -926,6 +931,7 @@ export function MapPreview({
           onClick={handleZoomIn}
           className="w-9 h-9 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-md shadow-md hover:bg-white hover:shadow-lg transition-all duration-200 flex items-center justify-center text-base font-semibold text-gray-700 hover:text-gray-900"
           title="Zoom In"
+          data-testid="chart-map-zoom-in"
         >
           +
         </button>
@@ -933,6 +939,7 @@ export function MapPreview({
           onClick={handleZoomOut}
           className="w-9 h-9 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-md shadow-md hover:bg-white hover:shadow-lg transition-all duration-200 flex items-center justify-center text-base font-semibold text-gray-700 hover:text-gray-900"
           title="Zoom Out"
+          data-testid="chart-map-zoom-out"
         >
           −
         </button>

@@ -103,6 +103,7 @@ export function KPIChartElement({
         title="View KPI"
         aria-label="View KPI"
         onClick={onView}
+        data-testid={`dashboard-kpi-view-btn-${kpiId}`}
       >
         <Eye className="h-3.5 w-3.5" />
       </Button>

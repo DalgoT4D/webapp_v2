@@ -1,0 +1,57 @@
+# Mutation testing — does the suite catch real regressions?
+
+**Result: 34 / 34 planted bugs caught, each by a directly relevant test** (2026-09-29).
+
+## Method
+- 34 realistic "refactor slips" (1–5 line changes) designed **blind** — from app code and feature inventories only, without reading any test.
+- One at a time: apply → production build → targeted specs → (if not caught) whole area folder → revert. App code verified unchanged (`git status`) after every drill.
+- A catch counts only if the failing test is **related** to the bug and passes on clean code. Catches by unrelated tests (load noise) or infra failures (staging 5xx, setup) were re-run against the specs that *should* catch them.
+
+## Gaps the drill found → new tests
+| Mutation | First result | New test |
+|---|---|---|
+| M01 sort dropped from the **save** payload | caught only incidentally (per-option tests assert the preview request) | `charts/save-persistence.spec.ts` SAVE-1 / SAVE-2 — every data option reaches the saved chart; edit keeps them |
+| M17 new widget lands at the **top** | **missed** (add-widget tests started from an empty canvas) | `dashboards/widget-placement.spec.ts` D-B5b |
+| M18 deleting the active tab selects the **next** tab | **missed** | `dashboards/sequential-actions.spec.ts` D-T1b |
+| M20 a **second** filter Apply is a no-op | **missed** | `dashboards/sequential-actions.spec.ts` D-F5b |
+
+## All mutations
+| id | area | bug | caught by |
+|---|---|---|---|
+| M01 | charts | sort dropped from create POST | save-persistence › SAVE-1 |
+| M02 | charts | time_grain missing from preview deps | builder-shared › time grain › grain year |
+| M03 | charts | wrong route after create | builder-bar (save helper expects detail URL) |
+| M04 | charts | isFormValid drops the dimension check | perm-chains (pinned "Save disabled") |
+| M05 | charts | edit drops filters from PUT | edit › C-E2 update existing |
+| M06 | charts | edit type switch loses showDataLabels | type-switch-matrix-edit › bar → line |
+| M07 | charts | switch to pie keeps all metrics | type-switch › bar → pie keeps first metric |
+| M08 | charts | sort direction no-op | builder-shared › sort › by metric descending |
+| M09 | charts | metric limit off-by-one | builder-number › one metric |
+| M10 | charts | prefill picks last text column | builder-map › prefill-dependent test |
+| M11 | charts | pivot column grand total sends row flag | builder-pivot › row grand total |
+| M12 | charts | Save As New ignores typed name | edit › C-E3 save as new |
+| M13 | charts | duplicate doesn't refresh list | list › C-L8 duplicate |
+| M14 | dashboards | drag layout not committed | builder › D-B10 drag |
+| M15 | dashboards | tab rename commits old title | tabs › D-T1 |
+| M16 | dashboards | description dropped from PUT | builder-text (PUT snapshot) |
+| M17 | dashboards | new widget lands at y=0 | widget-placement › D-B5b |
+| M18 | dashboards | delete tab selects next | sequential-actions › D-T1b |
+| M19 | dashboards | undo reverts two steps | gaps-builder › undo history |
+| M20 | dashboards | second Apply is a no-op | sequential-actions › D-F5b |
+| M21 | dashboards | Clear all leaves charts filtered | filters › D-F6 |
+| M22 | dashboards | Edit Dashboard wrong route | gaps-view › responsive actions |
+| M23 | dashboards | list delete row stays | list › D-L5 (isolated) |
+| M24 | reports | summary save sends stale draft | gaps-create-viewer › summary save |
+| M25 | reports | @mention dropdown not opening at start | comments › R-M3 |
+| M26 | reports | delete comment uses wrong id | comments › R-M1 |
+| M27 | reports | period_start = end date | create › R-C1 |
+| M28 | reports | recipients split only on commas | viewer › R-V5 |
+| M29 | reports | new sort column starts asc | list › R-L3 |
+| M30 | reports | View Chart from report says "Back to Dashboard" | cross › X-2 |
+| M31 | charts | only 1st metric saved | metrics-matrix-a › MM-bar-4 |
+| M32 | charts | filter value saved empty | builder-shared › operator equals |
+| M33 | dashboards | resize not persisted | builder › D-B10 resize |
+| M34 | dashboards | uploaded image URL not stored | builder-text › D-B8 upload |
+
+Runner + catalog: `e2e/scripts/mutation/mutate.py` + `mutations.json`. Re-run after the refactor (stop other runs first; it rebuilds and restarts the :3000 server):
+`python3 e2e/scripts/mutation/mutate.py M01 M02 …` (add `TARGETED_ONLY=1` to skip the whole-area fallback).

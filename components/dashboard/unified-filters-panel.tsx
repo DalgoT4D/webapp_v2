@@ -433,6 +433,7 @@ export function UnifiedFiltersPanel({
                   onClick={togglePanelCollapse}
                   className="p-2 hover:bg-gray-100 rounded transition-colors"
                   aria-label="Expand filters panel"
+                  data-testid="dashboard-filter-panel-expand-btn"
                   title="Expand filters panel"
                 >
                   <PanelLeftClose className="w-4 h-4 text-gray-500 rotate-180" />
@@ -449,7 +450,13 @@ export function UnifiedFiltersPanel({
                     <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button onClick={onAddFilter} size="sm" variant="outline" className="h-7 px-2">
+                    <Button
+                      onClick={onAddFilter}
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2"
+                      data-testid="dashboard-filter-add-btn"
+                    >
                       <Plus className="w-3 h-3 mr-1" />
                       Add
                     </Button>
@@ -457,6 +464,7 @@ export function UnifiedFiltersPanel({
                       onClick={togglePanelCollapse}
                       className="p-1 hover:bg-gray-100 rounded transition-colors ml-1"
                       aria-label="Collapse filters panel"
+                      data-testid="dashboard-filter-panel-collapse-btn"
                       title="Collapse filters panel"
                     >
                       <PanelLeftClose className="w-4 h-4 text-gray-500" />
@@ -488,7 +496,13 @@ export function UnifiedFiltersPanel({
                     <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button onClick={onAddFilter} size="sm" variant="outline" className="h-7 px-2">
+                    <Button
+                      onClick={onAddFilter}
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2"
+                      data-testid="dashboard-filter-add-btn"
+                    >
                       <Plus className="w-3 h-3 mr-1" />
                       Add Filter
                     </Button>
@@ -496,6 +510,7 @@ export function UnifiedFiltersPanel({
                       onClick={togglePanelCollapse}
                       className="p-1 hover:bg-gray-100 rounded transition-colors"
                       aria-label="Hide filters"
+                      data-testid="dashboard-filter-panel-hide-btn"
                       title="Hide filters"
                     >
                       <X className="w-4 h-4 text-gray-500" />
@@ -540,6 +555,7 @@ export function UnifiedFiltersPanel({
                       onClick={toggleFiltersExpansion}
                       className="p-1 hover:bg-gray-100 rounded transition-colors"
                       aria-label={isFiltersExpanded ? 'Hide filter list' : 'Show filter list'}
+                      data-testid="dashboard-filter-list-toggle-btn"
                       title={isFiltersExpanded ? 'Hide filter list' : 'Show filter list'}
                     >
                       {isFiltersExpanded ? (
@@ -557,7 +573,13 @@ export function UnifiedFiltersPanel({
                     {hasActiveFilters && ' • Some applied'}
                   </p>
                   {isEditMode && (
-                    <Button onClick={onAddFilter} size="sm" variant="outline" className="h-7 px-2">
+                    <Button
+                      onClick={onAddFilter}
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2"
+                      data-testid="dashboard-filter-add-btn"
+                    >
                       <Plus className="w-3 h-3 mr-1" />
                       Add
                     </Button>
@@ -567,6 +589,7 @@ export function UnifiedFiltersPanel({
                 <div className="flex items-center gap-2">
                   <Button
                     onClick={handleApplyFilters}
+                    data-testid="dashboard-filter-apply-btn"
                     size="sm"
                     disabled={isApplyingFilters}
                     className="h-8"
@@ -580,6 +603,7 @@ export function UnifiedFiltersPanel({
                   </Button>
                   <Button
                     onClick={handleClearAllFilters}
+                    data-testid="dashboard-filter-clear-all-btn"
                     size="sm"
                     variant="outline"
                     className="h-8"
@@ -591,6 +615,7 @@ export function UnifiedFiltersPanel({
                     onClick={togglePanelCollapse}
                     className="p-1 hover:bg-gray-100 rounded transition-colors ml-1"
                     aria-label="Hide filters"
+                    data-testid="dashboard-filter-panel-hide-btn"
                     title="Hide filters"
                   >
                     <X className="w-4 h-4 text-gray-500" />
@@ -655,6 +680,7 @@ export function UnifiedFiltersPanel({
             onClick={togglePanelCollapse}
             className="p-2 hover:bg-gray-100 rounded transition-colors"
             aria-label="Expand filters panel"
+            data-testid="dashboard-filter-panel-expand-btn"
             title="Expand filters panel"
           >
             <PanelLeftClose className="w-4 h-4 text-gray-500 rotate-180" />
@@ -675,6 +701,7 @@ export function UnifiedFiltersPanel({
                   onClick={toggleFiltersExpansion}
                   className="p-1 hover:bg-gray-100 rounded transition-colors"
                   aria-label={isFiltersExpanded ? 'Hide filter list' : 'Show filter list'}
+                  data-testid="dashboard-filter-list-toggle-btn"
                   title={isFiltersExpanded ? 'Hide filter list' : 'Show filter list'}
                 >
                   {isFiltersExpanded ? (
@@ -689,7 +716,13 @@ export function UnifiedFiltersPanel({
               </div>
               <div className="flex items-center gap-1">
                 {isEditMode && (
-                  <Button onClick={onAddFilter} size="sm" variant="outline" className="h-7 px-2">
+                  <Button
+                    onClick={onAddFilter}
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2"
+                    data-testid="dashboard-filter-add-btn"
+                  >
                     <Plus className="w-3 h-3 mr-1" />
                     Add
                   </Button>
@@ -698,6 +731,7 @@ export function UnifiedFiltersPanel({
                   onClick={togglePanelCollapse}
                   className="p-1 hover:bg-gray-100 rounded transition-colors ml-1"
                   aria-label="Collapse filters panel"
+                  data-testid="dashboard-filter-panel-collapse-btn"
                   title="Collapse filters panel"
                 >
                   <PanelLeftClose className="w-4 h-4 text-gray-500" />
@@ -715,6 +749,7 @@ export function UnifiedFiltersPanel({
             <div className="flex gap-2 mt-3">
               <Button
                 onClick={handleApplyFilters}
+                data-testid="dashboard-filter-apply-btn"
                 size="sm"
                 className="flex-1 h-8"
                 disabled={isApplyingFilters}
@@ -728,6 +763,7 @@ export function UnifiedFiltersPanel({
               </Button>
               <Button
                 onClick={handleClearAllFilters}
+                data-testid="dashboard-filter-clear-all-btn"
                 size="sm"
                 variant="outline"
                 className="h-8"

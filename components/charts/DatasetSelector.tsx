@@ -13,6 +13,8 @@ interface DatasetSelectorProps {
   disabled?: boolean;
   className?: string;
   autoFocus?: boolean;
+  /** Stable id forwarded to the Combobox (drives its derived data-testids) */
+  id?: string;
 }
 
 export function DatasetSelector({
@@ -22,6 +24,7 @@ export function DatasetSelector({
   disabled,
   className,
   autoFocus = false,
+  id,
 }: DatasetSelectorProps) {
   const { data: allTables, isLoading, error, noWarehouse } = useAllSchemaTables();
 
@@ -77,6 +80,7 @@ export function DatasetSelector({
 
   return (
     <Combobox
+      id={id}
       items={items}
       value={selectedValue}
       onValueChange={handleValueChange}
