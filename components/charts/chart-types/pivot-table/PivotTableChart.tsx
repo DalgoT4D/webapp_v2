@@ -3,13 +3,14 @@
 import { useMemo, useCallback } from 'react';
 import { PivotTableResponse } from '@/types/pivot-table';
 import { cellsToGrid } from './cellsToGrid';
-import { formatNumber, NumberFormats, type NumberFormat } from '@/lib/formatters';
+import { type NumberFormat } from '@/lib/formatters';
 import type { ConditionalFormattingRule } from '@/components/charts/styling/conditional-formatting';
 import { getTableTheme } from '@/components/charts/styling/table-themes';
 import { calculateRowSpans, applyPivotDateFormat } from './utils';
+import { computeHeaderSpans, formatPivotCell, getPivotConditionalColor } from './pivot-cells';
 import type { DateFormat } from '@/lib/formatters';
-import { useTableSearch } from '../hooks/useTableSearch';
-import { TableSearchBar } from '../styling/TableSearchBar';
+import { useTableSearch } from '@/components/charts/hooks/useTableSearch';
+import { TableSearchBar } from '@/components/charts/styling/TableSearchBar';
 
 interface ColumnFormatConfig {
   numberFormat?: NumberFormat;
@@ -45,37 +46,6 @@ interface PivotTableChartProps {
   rowGrandTotalLabel?: string;
   /** Label for the bottom grand total row (column grand total) */
   columnGrandTotalLabel?: string;
-}
-
-/**
- * Calculate colspan spans for nested column headers.
- * For header level `level`, counts how many consecutive column_keys share
- * the same value at indices 0..level.
- */
-function computeHeaderSpans(
-  columnKeys: string[][],
-  level: number
-): { value: string; span: number; startIdx: number }[] {
-  const spans: { value: string; span: number; startIdx: number }[] = [];
-  let i = 0;
-  while (i < columnKeys.length) {
-    const currentKey = columnKeys[i];
-    let count = 1;
-    for (let j = i + 1; j < columnKeys.length; j++) {
-      let match = true;
-      for (let l = 0; l <= level; l++) {
-        if (columnKeys[j][l] !== currentKey[l]) {
-          match = false;
-          break;
-        }
-      }
-      if (!match) break;
-      count++;
-    }
-    spans.push({ value: currentKey[level], span: count, startIdx: i });
-    i += count;
-  }
-  return spans;
 }
 
 export default function PivotTableChart({
@@ -154,68 +124,15 @@ export default function PivotTableChart({
   }, [columnKeys, grid.column_subtotals, hasColumnKeys, numColDims]);
 
   const formatCell = useCallback(
-    (value: number | null, metricName: string): string => {
-      if (value === null || value === undefined) return 'N/A';
-
-      const metricFormat = columnFormatting[metricName];
-      if (metricFormat?.numberFormat && metricFormat.numberFormat !== NumberFormats.DEFAULT) {
-        return formatNumber(Number(value), {
-          format: metricFormat.numberFormat,
-          decimalPlaces: metricFormat.decimalPlaces,
-        });
-      }
-
-      // Default formatting with decimal places if configured
-      const decimals =
-        typeof metricFormat?.decimalPlaces === 'number' ? metricFormat.decimalPlaces : 0;
-      return Number(value).toLocaleString(undefined, {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-      });
-    },
+    (value: number | null, metricName: string): string =>
+      formatPivotCell(value, columnFormatting[metricName]),
     [columnFormatting]
   );
 
   /** Evaluate conditional formatting rules and return matching color */
   const getConditionalColor = useCallback(
-    (value: number | null, metricName: string): string | undefined => {
-      if (!conditionalFormatting.length || value === null || value === undefined) return undefined;
-
-      const numValue = Number(value);
-      if (isNaN(numValue)) return undefined;
-
-      // Last matching rule wins
-      let matchedColor: string | undefined;
-      for (const rule of conditionalFormatting) {
-        if (rule.column !== metricName) continue;
-
-        let matches = false;
-        switch (rule.operator) {
-          case '>':
-            matches = numValue > rule.value;
-            break;
-          case '<':
-            matches = numValue < rule.value;
-            break;
-          case '>=':
-            matches = numValue >= rule.value;
-            break;
-          case '<=':
-            matches = numValue <= rule.value;
-            break;
-          case '==':
-            matches = numValue === rule.value;
-            break;
-          case '!=':
-            matches = numValue !== rule.value;
-            break;
-        }
-        if (matches) {
-          matchedColor = rule.color;
-        }
-      }
-      return matchedColor;
-    },
+    (value: number | null, metricName: string): string | undefined =>
+      getPivotConditionalColor(conditionalFormatting, value, metricName),
     [conditionalFormatting]
   );
 

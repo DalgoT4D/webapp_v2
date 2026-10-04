@@ -5,8 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { PivotDimensionList } from '@/components/charts/pivot-table/PivotDimensionList';
-import { resolvePivotTotals } from '@/components/charts/pivot-table/utils';
+import { PivotDimensionList } from '@/components/charts/chart-types/pivot-table/PivotDimensionList';
+import { resolvePivotTotals } from '@/components/charts/chart-types/pivot-table/utils';
 import { ChartBuilderFormData } from '@/types/charts';
 import { Info } from 'lucide-react';
 

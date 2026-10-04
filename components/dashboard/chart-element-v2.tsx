@@ -5,8 +5,8 @@ import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, AlertCircle, Home, Loader2 } from 'lucide-react';
-import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
-import { getPivotRenderProps } from '@/components/charts/pivot-table/utils';
+import PivotTableChart from '@/components/charts/chart-types/pivot-table/PivotTableChart';
+import { getPivotRenderProps } from '@/components/charts/chart-types/pivot-table/utils';
 import type { PivotTableResponse } from '@/types/pivot-table';
 import { useChart } from '@/hooks/api/useCharts';
 import {

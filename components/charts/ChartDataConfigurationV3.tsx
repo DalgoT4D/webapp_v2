@@ -3,7 +3,7 @@
 import React from 'react';
 import { useColumns } from '@/hooks/api/useChart';
 import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
-import PivotDataConfiguration from '@/components/charts/pivot-table/PivotDataConfiguration';
+import PivotDataConfiguration from '@/components/charts/chart-types/pivot-table/PivotDataConfiguration';
 import { TimeGrainSelector } from '@/components/charts/TimeGrainSelector';
 import { applyChartTypeChange } from '@/components/charts/logic/type-switch';
 import { buildDatasetChangePatch } from '@/components/charts/logic/dataset-change';

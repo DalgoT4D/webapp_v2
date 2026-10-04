@@ -13,7 +13,7 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, CHART_EXPORT_SOURCES } from '@/constants/analytics';
 import { ChartExporter, generateFilename, type TableData } from '@/lib/chart-export';
 import { MapExportHandler } from '@/lib/map-export-handler';
-import { buildPivotDataFields } from '@/components/charts/pivot-table/utils';
+import { buildPivotDataFields } from '@/components/charts/chart-types/pivot-table/utils';
 
 interface ChartExportDropdownForListProps {
   chartId: number;

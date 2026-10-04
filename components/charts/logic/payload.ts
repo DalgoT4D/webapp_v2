@@ -7,7 +7,10 @@ import type {
 } from '@/types/charts';
 import { ChartTypes } from '@/types/charts';
 import { getApiCustomizations } from '@/lib/chart-payload-utils';
-import { buildPivotDataFields, buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
+import {
+  buildPivotDataFields,
+  buildPivotExtraConfig,
+} from '@/components/charts/chart-types/pivot-table/utils';
 import type { ChartBuilderKind } from '@/components/charts/logic/builder-kind';
 import { isChartReady } from '@/components/charts/logic/validation';
 import { toMapLayers } from '@/components/charts/logic/map-layers';

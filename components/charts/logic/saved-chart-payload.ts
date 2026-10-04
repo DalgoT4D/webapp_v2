@@ -1,5 +1,5 @@
 import type { Chart, ChartDataPayload } from '@/types/charts';
-import { buildPivotDataFields } from '@/components/charts/pivot-table/utils';
+import { buildPivotDataFields } from '@/components/charts/chart-types/pivot-table/utils';
 import type { TableDrillDownState } from '@/components/charts/logic/payload';
 import {
   getDrillDownColumns,

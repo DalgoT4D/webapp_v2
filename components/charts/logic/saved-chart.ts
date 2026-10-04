@@ -6,7 +6,7 @@ import {
   type ChartType,
 } from '@/types/charts';
 import { getDefaultCustomizations } from '@/components/charts/chart-types/default-customizations';
-import { buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
+import { buildPivotExtraConfig } from '@/components/charts/chart-types/pivot-table/utils';
 import { toSimplifiedMapFields } from '@/components/charts/logic/map-layers';
 
 type SavedExtraConfig = Chart['extra_config'];
