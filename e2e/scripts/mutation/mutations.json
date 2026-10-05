@@ -4,9 +4,9 @@
     "area": "charts",
     "category": "payload",
     "description": "Create builder: saved chart silently loses its Sort configuration (sort dropped from POST extra_config)",
-    "file": "app/charts/new/configure/page.tsx",
-    "find": "        pagination: formData.pagination,\n        sort: formData.sort,\n        time_grain: formData.time_grain,\n        // Include metrics for multiple metrics support",
-    "replace": "        pagination: formData.pagination,\n        time_grain: formData.time_grain,\n        // Include metrics for multiple metrics support",
+    "file": "components/charts/logic/payload.ts",
+    "find": "      pagination: config.pagination,\n      sort: config.sort,\n      time_grain: config.time_grain,\n      ...nonEmptyMetricsField(config),\n      ...(config.geographic_hierarchy && { geographic_hierarchy: config.geographic_hierarchy }),",
+    "replace": "      pagination: config.pagination,\n      time_grain: config.time_grain,\n      ...nonEmptyMetricsField(config),\n      ...(config.geographic_hierarchy && { geographic_hierarchy: config.geographic_hierarchy }),",
     "affected_flow": "Create bar/line/table chart with sort -> Save -> detail/edit page shows no sort, data unsorted",
     "spec_hint_dirs": [
       "e2e/charts"
@@ -17,20 +17,21 @@
     "area": "charts",
     "category": "state",
     "description": "Create builder: changing Time Grain does not refresh the preview (time_grain missing from chartDataPayload useMemo deps)",
-    "file": "app/charts/new/configure/page.tsx",
-    "find": "      formData.sort,\n      formData.time_grain,\n      formData.extra_config,\n      tableDrillDownState,",
-    "replace": "      formData.sort,\n      formData.extra_config,\n      tableDrillDownState,",
+    "file": "components/charts/logic/payload.ts",
+    "find": "      sort: config.sort,\n      time_grain: config.time_grain,\n      ...(builder === 'edit' && { table_columns: config.table_columns }), // BUILDER-DRIFT: edit only",
+    "replace": "      sort: config.sort,\n      ...(builder === 'edit' && { table_columns: config.table_columns }), // BUILDER-DRIFT: edit only",
     "affected_flow": "Bar/line on a date X axis -> pick Month/Year grain -> preview stays at previous grain until another field changes",
     "spec_hint_dirs": [
       "e2e/charts"
-    ]
+    ],
+    "r6_note": "R6c: the preview payload is shared by both builders now (was the create page memo deps); same symptom — time grain never reaches /chart-data/"
   },
   {
     "id": "M03",
     "area": "charts",
     "category": "navigation",
     "description": "After creating a chart (not from dashboard) user lands on /charts list instead of the new chart's detail page",
-    "file": "app/charts/new/configure/page.tsx",
+    "file": "components/charts/hooks/useSaveNewChart.ts",
     "find": "        router.push(`/charts/${result.id}`);",
     "replace": "        router.push('/charts');",
     "affected_flow": "Create chart -> Save Chart -> expected redirect to /charts/{id}",
@@ -43,22 +44,23 @@
     "area": "charts",
     "category": "logic",
     "description": "isFormValid no longer requires a dimension for bar/line/pie with metrics: Save Chart enabled with X axis empty",
-    "file": "app/charts/new/configure/page.tsx",
-    "find": "        ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&\n        formData.metrics &&\n        formData.metrics.length > 0\n      ) {\n        return !!(\n          formData.dimension_column &&\n          formData.metrics.every(",
-    "replace": "        ['bar', 'line', 'pie', 'table'].includes(formData.chart_type || '') &&\n        formData.metrics &&\n        formData.metrics.length > 0\n      ) {\n        return !!(\n          formData.metrics.every(",
+    "file": "components/charts/logic/validation.ts",
+    "find": "    return !!(config.dimension_column && areAllMetricsValid(config.metrics!));",
+    "replace": "    return !!areAllMetricsValid(config.metrics!);",
     "affected_flow": "Create bar chart, clear X axis -> Save button should stay disabled",
     "spec_hint_dirs": [
       "e2e/charts"
-    ]
+    ],
+    "r6_note": "R6c: isDimensionChartConfigured feeds canSaveChart and isChartReady for both builders"
   },
   {
     "id": "M05",
     "area": "charts",
     "category": "payload",
     "description": "Edit builder: filters added/changed while editing are not persisted on UPDATE EXISTING / SAVE AS NEW",
-    "file": "app/charts/[id]/edit/page.tsx",
-    "find": "        filters: formData.filters,\n        pagination: formData.pagination,\n        sort: formData.sort,\n        time_grain: formData.time_grain,\n        // Include table_columns",
-    "replace": "        pagination: formData.pagination,\n        sort: formData.sort,\n        time_grain: formData.time_grain,\n        // Include table_columns",
+    "file": "components/charts/logic/payload.ts",
+    "find": "      filters: config.filters,\n      pagination: config.pagination,\n      sort: config.sort,\n      time_grain: config.time_grain,\n      table_columns: config.table_columns,",
+    "replace": "      pagination: config.pagination,\n      sort: config.sort,\n      time_grain: config.time_grain,\n      table_columns: config.table_columns,",
     "affected_flow": "Edit chart -> add a data filter -> Save -> Update existing -> reopen: filter gone, data unfiltered",
     "spec_hint_dirs": [
       "e2e/charts"
@@ -69,9 +71,9 @@
     "area": "charts",
     "category": "logic",
     "description": "Edit builder chart-type switch no longer carries over Show Data Labels (keep-rule trimmed)",
-    "file": "app/charts/[id]/edit/page.tsx",
-    "find": "        ['showTooltip', 'showLegend', 'showDataLabels'].forEach((field) => {",
-    "replace": "        ['showTooltip', 'showLegend'].forEach((field) => {",
+    "file": "components/charts/logic/type-switch.ts",
+    "find": "  ['showTooltip', 'showLegend', 'showDataLabels'].forEach((field) => {",
+    "replace": "  ['showTooltip', 'showLegend'].forEach((field) => {",
     "affected_flow": "Edit chart with data labels on -> switch bar->line -> Show Data Labels resets to default",
     "spec_hint_dirs": [
       "e2e/charts"
@@ -82,9 +84,9 @@
     "area": "charts",
     "category": "logic",
     "description": "Switching to Pie keeps ALL metrics instead of trimming to the first one (pie ends up with 2+ metrics)",
-    "file": "components/charts/ChartDataConfigurationV3.tsx",
-    "find": "          metrics:\n            formData.metrics && formData.metrics.length > 0\n              ? [formData.metrics[0]]\n              : formData.metrics,\n          computation_type: formData.computation_type || 'aggregated',",
-    "replace": "          metrics: formData.metrics,\n          computation_type: formData.computation_type || 'aggregated',",
+    "file": "components/charts/logic/type-switch.ts",
+    "find": "    metrics: prev.metrics && prev.metrics.length > 0 ? [prev.metrics[0]] : prev.metrics,\n    computation_type: prev.computation_type || 'aggregated',",
+    "replace": "    metrics: prev.metrics,\n    computation_type: prev.computation_type || 'aggregated',",
     "affected_flow": "Bar with 2 metrics -> switch type to Pie -> expect a single metric row",
     "spec_hint_dirs": [
       "e2e/charts"
@@ -95,9 +97,9 @@
     "area": "charts",
     "category": "UI",
     "description": "Sort direction dropdown is a no-op: choosing Descending keeps the current direction",
-    "file": "components/charts/ChartDataConfigurationV3.tsx",
-    "find": "                                direction: value as 'asc' | 'desc',",
-    "replace": "                                direction: currentDirection,",
+    "file": "components/charts/builder/data-config/SortSection.tsx",
+    "find": "                  sort: [{ column: currentColumn, direction: value as 'asc' | 'desc' }],",
+    "replace": "                  sort: [{ column: currentColumn, direction: currentDirection }],",
     "affected_flow": "Pick sort column -> set direction Desc -> payload/preview still asc",
     "spec_hint_dirs": [
       "e2e/charts"
@@ -134,7 +136,7 @@
     "area": "charts",
     "category": "payload",
     "description": "Pivot 'Grand Total - Columns' toggle sends the row grand-total flag (copy-paste bug); bottom total row follows the wrong switch",
-    "file": "components/charts/pivot-table/utils.ts",
+    "file": "components/charts/chart-types/pivot-table/utils.ts",
     "find": "    show_column_grand_total: (ec.show_column_grand_total as boolean) ?? false,",
     "replace": "    show_column_grand_total: (ec.show_row_grand_total as boolean) ?? false,",
     "affected_flow": "Pivot builder -> toggle pivot-show-column-grand-total -> pivot-grand-total-row should appear (preview + saved chart)",
@@ -160,7 +162,7 @@
     "area": "charts",
     "category": "state",
     "description": "Chart list Duplicate succeeds (toast shown) but the list is not revalidated, so 'Copy of X' never appears",
-    "file": "app/charts/page.tsx",
+    "file": "components/charts/list/useDuplicateChart.ts",
     "find": "        await mutate();\n\n        toastSuccess.duplicated(originalChart.title, duplicateTitle);",
     "replace": "        toastSuccess.duplicated(originalChart.title, duplicateTitle);",
     "affected_flow": "Charts list -> row menu -> Duplicate -> new 'Copy of ...' row should be listed",
@@ -173,9 +175,9 @@
     "area": "dashboards",
     "category": "state",
     "description": "Dragging a widget does not persist: layout reverts / is not saved after drag stop (inverted cross-tab guard)",
-    "file": "components/dashboard/dashboard-builder-v2.tsx",
-    "find": "        if (!session?.hoverTabId && !isUndoRedoOperationRef.current) {",
-    "replace": "        if (session?.hoverTabId && !isUndoRedoOperationRef.current) {",
+    "file": "components/dashboard/builder/useGridCommits.ts",
+    "find": "      if (!releasedOverTab && !isUndoRedoOperationRef.current) {",
+    "replace": "      if (releasedOverTab && !isUndoRedoOperationRef.current) {",
     "affected_flow": "Builder -> drag a chart below another -> Save -> reload: order unchanged",
     "spec_hint_dirs": [
       "e2e/dashboards"
@@ -199,9 +201,9 @@
     "area": "dashboards",
     "category": "payload",
     "description": "Dashboard description is dropped from the save PUT; description edits are lost on reload",
-    "file": "components/dashboard/dashboard-builder-v2.tsx",
-    "find": "          description,\n          grid_columns: SCREEN_SIZES[targetScreenSize].cols,",
-    "replace": "          grid_columns: SCREEN_SIZES[targetScreenSize].cols,",
+    "file": "components/dashboard/logic/editor-state.ts",
+    "find": "    description,\n    grid_columns: SCREEN_SIZES[targetScreenSize].cols,",
+    "replace": "    grid_columns: SCREEN_SIZES[targetScreenSize].cols,",
     "affected_flow": "Builder -> edit description -> Save -> view page / reload shows old description",
     "spec_hint_dirs": [
       "e2e/dashboards"
@@ -212,22 +214,23 @@
     "area": "dashboards",
     "category": "logic",
     "description": "Newly added chart lands at the top of the canvas (y=0) instead of the bottom, pushing existing widgets down",
-    "file": "components/dashboard/dashboard-builder-v2.tsx",
-    "find": "          y: bottomY(activeLayout),\n          w: FULL_WIDTH_COLS,\n          h: defaultDimensions.h,",
-    "replace": "          y: 0,\n          w: FULL_WIDTH_COLS,\n          h: defaultDimensions.h,",
+    "file": "components/dashboard/widgets/create-widget.ts",
+    "find": "    y: bottomY(layout),\n    w: GRID_COLUMN_COUNT,",
+    "replace": "    y: 0,\n    w: GRID_COLUMN_COUNT,",
     "affected_flow": "Builder with existing widgets -> Add Chart -> new cell should be last/bottom",
     "spec_hint_dirs": [
       "e2e/dashboards"
-    ]
+    ],
+    "r6_note": "R6c: bottomFullWidthItem places chart, KPI and text widgets alike"
   },
   {
     "id": "M18",
     "area": "dashboards",
     "category": "logic",
     "description": "Deleting the active tab activates the NEXT tab instead of the previous one (off-by-one)",
-    "file": "components/dashboard/dashboard-builder-v2.tsx",
-    "find": "              ? tabs[Math.max(0, tabIndex - 1)]?.id || tabs[0].id",
-    "replace": "              ? tabs[tabIndex]?.id || tabs[0].id",
+    "file": "components/dashboard/logic/editor-state.ts",
+    "find": "      ? tabs[Math.max(0, tabIndex - 1)]?.id || tabs[0].id",
+    "replace": "      ? tabs[tabIndex]?.id || tabs[0].id",
     "affected_flow": "Builder with 3 tabs -> remove middle active tab -> previous tab should be selected",
     "spec_hint_dirs": [
       "e2e/dashboards"
@@ -264,7 +267,7 @@
     "area": "dashboards",
     "category": "state",
     "description": "Filter panel 'Clear all' resets the widgets but charts stay filtered (parent not notified)",
-    "file": "components/dashboard/unified-filters-panel.tsx",
+    "file": "components/dashboard/filters/useFiltersPanel.ts",
     "find": "      setCurrentFilterValues({});\n      onFiltersCleared?.();",
     "replace": "      setCurrentFilterValues({});",
     "affected_flow": "View/builder -> apply a filter -> Clear all -> charts should re-fetch unfiltered",
@@ -277,7 +280,7 @@
     "area": "dashboards",
     "category": "navigation",
     "description": "'Edit Dashboard' button navigates to the view route instead of /edit",
-    "file": "components/dashboard/dashboard-native-view.tsx",
+    "file": "components/dashboard/view/useDashboardViewActions.ts",
     "find": "    router.push(`/dashboards/${dashboardId}/edit`);",
     "replace": "    router.push(`/dashboards/${dashboardId}`);",
     "affected_flow": "Dashboard view -> Edit Dashboard -> expect /dashboards/{id}/edit builder",
@@ -290,7 +293,7 @@
     "area": "dashboards",
     "category": "state",
     "description": "Deleting a dashboard from the list shows success toast but the row stays (list not revalidated)",
-    "file": "components/dashboard/dashboard-list-v2.tsx",
+    "file": "components/dashboard/dashboard-list.tsx",
     "find": "        // Refresh the dashboard list\n        await mutate();\n\n        toastSuccess.deleted(dashboardTitle);",
     "replace": "        toastSuccess.deleted(dashboardTitle);",
     "affected_flow": "Dashboards list -> row menu -> Delete -> confirm -> row should disappear",
@@ -303,9 +306,9 @@
     "area": "reports",
     "category": "state",
     "description": "Executive summary Save sends a stale draft (summaryDraft missing from useCallback deps): typed text is lost / old or empty value PUT",
-    "file": "app/reports/[snapshotId]/page.tsx",
-    "find": "  }, [parsedId, summaryDraft, mutate, viewData?.report_metadata.summary]);",
-    "replace": "  }, [parsedId, mutate, viewData?.report_metadata.summary]);",
+    "file": "components/reports/viewer/useSummaryEditor.ts",
+    "find": "  }, [parsedId, summaryDraft, mutate, savedSummary]);",
+    "replace": "  }, [parsedId, mutate, savedSummary]);",
     "affected_flow": "Report viewer -> Edit summary -> type -> Save -> reload shows typed text",
     "spec_hint_dirs": [
       "e2e/cross"
@@ -330,8 +333,8 @@
     "category": "logic",
     "description": "Deleting a comment deletes the FIRST comment in the thread instead of the one whose menu was used (wrong id)",
     "file": "components/reports/comment-popover.tsx",
-    "find": "                  onDelete={handleDelete}",
-    "replace": "                  onDelete={() => handleDelete(visibleComments[0].id)}",
+    "find": "            onDelete={thread.handleDelete}",
+    "replace": "            onDelete={() => thread.handleDelete(thread.visibleComments[0].id)}",
     "affected_flow": "Thread with 2+ comments -> delete the latest via menu -> wrong comment becomes 'This message was deleted'",
     "spec_hint_dirs": [
       "e2e/cross"
@@ -342,9 +345,9 @@
     "area": "reports",
     "category": "payload",
     "description": "Create report sends period_start equal to the END date (copy-paste), so the report covers only one day",
-    "file": "components/reports/create-snapshot-dialog.tsx",
-    "find": "          ? format(data.periodStart, 'yyyy-MM-dd')",
-    "replace": "          ? format(data.periodEnd, 'yyyy-MM-dd')",
+    "file": "components/reports/logic/create-report.ts",
+    "find": "      ? format(values.periodStart, 'yyyy-MM-dd')",
+    "replace": "      ? format(values.periodEnd, 'yyyy-MM-dd')",
     "affected_flow": "Create report with start+end dates -> POST /api/reports/ period_start / viewer period text",
     "spec_hint_dirs": [
       "e2e/cross"
@@ -368,13 +371,14 @@
     "area": "reports",
     "category": "logic",
     "description": "Reports list: clicking a new sort column starts ascending instead of descending (wrong default)",
-    "file": "app/reports/page.tsx",
+    "file": "components/list-page/useListSort.ts",
     "find": "        setSortBy(column);\n        setSortOrder('desc');",
     "replace": "        setSortBy(column);\n        setSortOrder('asc');",
     "affected_flow": "Reports list -> click Title header -> first click should sort desc",
     "spec_hint_dirs": [
       "e2e/cross"
-    ]
+    ],
+    "r6_note": "R6c: useListSort is the shared list kit — charts and dashboards lists start ascending too"
   },
   {
     "id": "M30",
@@ -394,22 +398,23 @@
     "area": "charts",
     "category": "payload",
     "description": "Multi-metric save regression: the chart save payload (POST /api/charts/) keeps only the first metric, so a bar/line chart with 2+ metrics is saved with a single metric (preview still shows all)",
-    "file": "app/charts/new/configure/page.tsx",
-    "find": "        ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),",
-    "replace": "        ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics.slice(0, 1) }),",
+    "file": "components/charts/logic/payload.ts",
+    "find": "function nonEmptyMetricsField(config: ChartBuilderFormData) {\n  return config.metrics && config.metrics.length > 0 ? { metrics: config.metrics } : {};",
+    "replace": "function nonEmptyMetricsField(config: ChartBuilderFormData) {\n  return config.metrics && config.metrics.length > 0 ? { metrics: config.metrics.slice(0, 1) } : {};",
     "affected_flow": "Create bar/line chart -> add 2 metrics -> Save -> saved chart (and POST /api/charts/ extra_config.metrics) should contain both metrics",
     "spec_hint_dirs": [
       "e2e/charts"
-    ]
+    ],
+    "r6_note": "R6c: create and edit save share nonEmptyMetricsField"
   },
   {
     "id": "M32",
     "area": "charts",
     "category": "payload",
     "description": "Chart filter value is lost: spread order reversed in the filter value onChange, so the stale filter.value ('') overwrites the newly typed value and extra_config.filters is sent with an empty value",
-    "file": "components/charts/ChartDataConfigurationV3.tsx",
-    "find": "                      newFilters[index] = { ...filter, value };",
-    "replace": "                      newFilters[index] = { value, ...filter };",
+    "file": "components/charts/builder/data-config/FiltersSection.tsx",
+    "find": "                onChange={(value) => updateFilter(index, { ...filter, value })}",
+    "replace": "                onChange={(value) => updateFilter(index, { value, ...filter })}",
     "affected_flow": "Chart builder -> Add filter -> pick column/operator -> enter value -> chart-data request and save payload extra_config.filters[].value should carry the entered value; chart should be filtered",
     "spec_hint_dirs": [
       "e2e/charts"
@@ -420,9 +425,9 @@
     "area": "dashboards",
     "category": "state",
     "description": "Resize not persisted: the undo/redo guard in handleResizeStop is inverted, so a normal user resize never commits the new layout_config (only undo/redo-time resizes would)",
-    "file": "components/dashboard/dashboard-builder-v2.tsx",
-    "find": "        if (!isUndoRedoOperationRef.current) {\n          const next = applyItemConstraints(layout);",
-    "replace": "        if (isUndoRedoOperationRef.current) {\n          const next = applyItemConstraints(layout);",
+    "file": "components/dashboard/builder/useGridCommits.ts",
+    "find": "      if (!isUndoRedoOperationRef.current) {\n        const next = applyItemConstraints(layout);",
+    "replace": "      if (isUndoRedoOperationRef.current) {\n        const next = applyItemConstraints(layout);",
     "affected_flow": "Dashboard builder -> resize a widget via handle -> Save -> reload; widget should keep new w/h (saved layout_config)",
     "spec_hint_dirs": [
       "e2e/dashboards"
@@ -433,7 +438,7 @@
     "area": "dashboards",
     "category": "state",
     "description": "Image upload URL not stored: text widget upload success handler writes the previous config imageUrl instead of the response image_url, so a new upload shows no image (or the old one on replace)",
-    "file": "components/dashboard/text-element-unified.tsx",
+    "file": "components/dashboard/widgets/text/text-element-unified.tsx",
     "find": "          imageUrl: res.image_url,",
     "replace": "          imageUrl: configRef.current.imageUrl,",
     "affected_flow": "Dashboard builder -> add text widget -> image control -> Upload image -> image should render in widget and be saved in widget config.imageUrl",
