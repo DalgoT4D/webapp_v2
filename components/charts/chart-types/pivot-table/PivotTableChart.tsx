@@ -3,11 +3,11 @@
 import { useMemo, useCallback } from 'react';
 import { PivotTableResponse } from '@/types/pivot-table';
 import { cellsToGrid } from './cellsToGrid';
-import { type NumberFormat } from '@/lib/formatters';
 import type { ConditionalFormattingRule } from '@/components/charts/styling/conditional-formatting';
 import { getTableTheme } from '@/components/charts/styling/table-themes';
 import { calculateRowSpans, applyPivotDateFormat } from './utils';
 import { computeHeaderSpans, formatPivotCell, getPivotConditionalColor } from './pivot-cells';
+import type { PivotColumnFormat } from './pivot-cells';
 import type { DateFormat } from '@/lib/formatters';
 import { useTableSearch } from '@/components/charts/hooks/useTableSearch';
 import { TableSearchBar } from '@/components/charts/styling/TableSearchBar';
@@ -17,11 +17,6 @@ import {
   COL_SUBTOTAL_MARKER,
   type RenderColumn,
 } from './pivot-layout';
-
-interface ColumnFormatConfig {
-  numberFormat?: NumberFormat;
-  decimalPlaces?: number;
-}
 
 interface PivotTableChartProps {
   data: PivotTableResponse;
@@ -73,8 +68,8 @@ export default function PivotTableChart({
   const numColDims = grid.column_dimension_names?.length || 0;
 
   // Extract customization values
-  const columnFormatting: Record<string, ColumnFormatConfig> =
-    (customizations?.columnFormatting as Record<string, ColumnFormatConfig>) || {};
+  const columnFormatting: Record<string, PivotColumnFormat> =
+    (customizations?.columnFormatting as Record<string, PivotColumnFormat>) || {};
   const conditionalFormatting: ConditionalFormattingRule[] =
     (customizations?.conditionalFormatting as ConditionalFormattingRule[]) || [];
   const zebraRows: boolean = (customizations?.zebraRows as boolean) || false;

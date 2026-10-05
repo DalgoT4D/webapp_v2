@@ -7,6 +7,7 @@ import {
   updateActiveEditorTab,
 } from '@/components/dashboard/logic/editor-state';
 import type { EditorSetState } from '@/components/dashboard/builder/useDashboardSave';
+import type { DashboardComponentConfig } from '@/types/dashboard';
 
 type ActiveLayout = Parameters<typeof removeWidgetFromLayout>[0];
 type ActiveComponents = Parameters<typeof removeWidgetFromLayout>[1];
@@ -43,7 +44,7 @@ export function useBuilderComponentActions({
   };
 
   // Update component config
-  const updateComponent = (componentId: string, newConfig: any) => {
+  const updateComponent = (componentId: string, newConfig: DashboardComponentConfig['config']) => {
     // Skip constraint-driven updates while the user is dragging to prevent layout jumps.
     // Content constraints (minWidth/minHeight) are stored in config and propagated to RGL
     // as minW/minH; changing them mid-drag causes items to reflow under the pointer.
@@ -72,7 +73,8 @@ export function useBuilderComponentActions({
   const updateComponentRef = useRef(updateComponent);
   updateComponentRef.current = updateComponent;
   const stableUpdateComponent = useCallback(
-    (id: string, config: any) => updateComponentRef.current(id, config),
+    (id: string, config: DashboardComponentConfig['config']) =>
+      updateComponentRef.current(id, config),
     []
   );
 

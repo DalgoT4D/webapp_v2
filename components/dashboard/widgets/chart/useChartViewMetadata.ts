@@ -5,6 +5,7 @@ import { apiGet } from '@/lib/api';
 import { useChart, useRegions } from '@/hooks/api/useChart';
 import { ChartTypes } from '@/types/charts';
 import type { FrozenChartConfig } from '@/types/reports';
+import type { WidgetChartLike } from './logic/chart-widget-map';
 
 interface ChartViewMetadataOptions {
   chartId: number;
@@ -98,7 +99,9 @@ export function useChartViewMetadata({
   );
 
   // Use frozen config in report mode, public metadata in public mode, or chart in private mode
-  const effectiveChart = frozenChartConfig || (isPublicMode ? publicChartMetadata : chart);
+  const effectiveChart:
+    | (WidgetChartLike & { title?: string; computation_type?: string })
+    | undefined = frozenChartConfig || (isPublicMode ? publicChartMetadata : chart);
 
   return {
     regions,

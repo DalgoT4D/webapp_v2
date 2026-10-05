@@ -4,6 +4,7 @@ import React, { memo } from 'react';
 import { Eye, Edit, X } from 'lucide-react';
 import { BUILDER_WIDGETS } from '@/components/dashboard/widgets/builder-widgets';
 import { DashboardComponentType } from '@/types/dashboard';
+import type { DashboardComponentConfig } from '@/types/dashboard';
 import type { DashboardFilterConfig } from '@/types/dashboard-filters';
 import { useChart } from '@/hooks/api/useCharts';
 import { useKPI } from '@/hooks/api/useKPIs';
@@ -23,6 +24,7 @@ interface DashboardLayout {
 interface DashboardComponent {
   id: string;
   type: DashboardComponentType;
+  // any: component.config.chartId / .kpiId are read as number below (TS2345 if typed unknown) — kept any, see Task 13 row 11
   config: any;
 }
 
@@ -35,7 +37,7 @@ interface DashboardCellProps {
   spaceMakingActive: boolean;
   animationStyles: React.CSSProperties;
   isResizing: boolean;
-  appliedFilters: Record<string, any>;
+  appliedFilters: Record<string, unknown>;
   initialFilters: DashboardFilterConfig[];
   /** Passed through to UnifiedTextElement for analytics. A stable number, so it does not
    *  affect the React.memo comparison this component relies on for drag performance. */
@@ -46,7 +48,7 @@ interface DashboardCellProps {
   onViewKpi: (kpiId: number) => void;
   onEditKpi: (kpiId: number) => void;
   onRemove: (id: string) => void;
-  onUpdate: (id: string, config: any) => void;
+  onUpdate: (id: string, config: DashboardComponentConfig['config']) => void;
 }
 
 function DashboardCellInner({
