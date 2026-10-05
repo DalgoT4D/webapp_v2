@@ -3,11 +3,17 @@
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import { FilterElement } from './filter-element';
 import type { DashboardFilterConfig, AppliedFilters } from '@/types/dashboard-filters';
-import { getDefaultFilterValues, summarizeAppliedFilters } from '@/lib/dashboard-filter-utils';
+import {
+  getDefaultFilterValues,
+  summarizeAppliedFilters,
+  getGroupNarrowingInfo,
+} from '@/lib/dashboard-filter-utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, DASHBOARD_FILTER_CONTEXTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
 import {
   Plus,
   Filter as FilterIcon,
@@ -16,9 +22,11 @@ import {
   ChevronDown,
   ChevronUp,
   PanelLeftClose,
+  Workflow,
   X,
 } from 'lucide-react';
 import { deleteDashboardFilter, updateDashboardFilter } from '@/hooks/api/useDashboards';
+import { DependentFiltersConfigModal } from './dependent-filters-config-modal';
 import { useSWRConfig } from 'swr';
 import { toastError } from '@/lib/toast';
 import {
@@ -40,9 +48,14 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+// Stable reference for callers that don't pass dependentGroupFilterIds -- a fresh `[]`
+// default would be a new array on every render, re-triggering the sync effect below.
+const EMPTY_DEPENDENT_GROUP_FILTER_IDS: number[] = [];
+
 interface UnifiedFiltersPanelProps {
   initialFilters: DashboardFilterConfig[];
   dashboardId: number;
+  dependentGroupFilterIds?: number[];
   isEditMode?: boolean;
   layout: 'vertical' | 'horizontal';
   onAddFilter?: () => void;
@@ -68,6 +81,7 @@ interface SortableFilterItemProps {
   isPublicMode?: boolean;
   publicToken?: string;
   isReportMode?: boolean;
+  groupNarrowingConstraintsJson?: string;
 }
 
 // Memoized so unrelated siblings don't re-render when one item's value changes
@@ -84,6 +98,7 @@ const SortableFilterItem = memo(function SortableFilterItem({
   isPublicMode = false,
   publicToken,
   isReportMode = false,
+  groupNarrowingConstraintsJson,
 }: SortableFilterItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: filter.id,
@@ -121,6 +136,7 @@ const SortableFilterItem = memo(function SortableFilterItem({
           showTitle={true}
           compact={true}
           dragHandleProps={isEditMode ? listeners : undefined}
+          groupNarrowingConstraintsJson={groupNarrowingConstraintsJson}
         />
       </div>
     );
@@ -151,6 +167,7 @@ const SortableFilterItem = memo(function SortableFilterItem({
         isPublicMode={isPublicMode}
         publicToken={publicToken}
         isReportMode={isReportMode}
+        groupNarrowingConstraintsJson={groupNarrowingConstraintsJson}
       />
     </div>
   );
@@ -159,6 +176,7 @@ const SortableFilterItem = memo(function SortableFilterItem({
 export function UnifiedFiltersPanel({
   initialFilters,
   dashboardId,
+  dependentGroupFilterIds = EMPTY_DEPENDENT_GROUP_FILTER_IDS,
   isEditMode = false,
   layout,
   onAddFilter,
@@ -193,6 +211,13 @@ export function UnifiedFiltersPanel({
   const [isCollapsed, setIsCollapsed] = useState(initiallyCollapsed); // For collapsing entire panel
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(true); // For showing/hiding filter list
   const [locallyDeletedFilterIds, setLocallyDeletedFilterIds] = useState<Set<string>>(new Set()); // Track deleted filters
+  const [isDependentFiltersModalOpen, setIsDependentFiltersModalOpen] = useState(false);
+  const [groupFilterIds, setGroupFilterIds] = useState<number[]>(dependentGroupFilterIds);
+
+  // Sync when the dashboard's saved group changes externally (e.g. a fresh fetch)
+  useEffect(() => {
+    setGroupFilterIds(dependentGroupFilterIds);
+  }, [dependentGroupFilterIds]);
 
   // Sync filters when initialFilters change (when filters are added/deleted externally)
   useEffect(() => {
@@ -372,18 +397,37 @@ export function UnifiedFiltersPanel({
     })
   );
 
+  // Linked (grouped) filters always render as one fixed-position block, separate from
+  // independent filters -- dragging reorders within one of the two, never across.
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
+      if (!over || active.id === over.id) return;
 
-      if (over && active.id !== over.id) {
-        const oldIndex = filters.findIndex((filter) => filter.id === active.id);
-        const newIndex = filters.findIndex((filter) => filter.id === over.id);
-        const newOrder = arrayMove(filters, oldIndex, newIndex);
-        handleReorderFilters(newOrder);
+      const activeIsGrouped = groupFilterIds.includes(Number(active.id));
+      const overIsGrouped = groupFilterIds.includes(Number(over.id));
+      if (activeIsGrouped !== overIsGrouped) return;
+
+      const groupedFilters = filters.filter((f) => groupFilterIds.includes(Number(f.id)));
+      const ungroupedFilters = filters.filter((f) => !groupFilterIds.includes(Number(f.id)));
+
+      if (activeIsGrouped) {
+        const oldIndex = groupedFilters.findIndex((f) => f.id === active.id);
+        const newIndex = groupedFilters.findIndex((f) => f.id === over.id);
+        handleReorderFilters([
+          ...arrayMove(groupedFilters, oldIndex, newIndex),
+          ...ungroupedFilters,
+        ]);
+      } else {
+        const oldIndex = ungroupedFilters.findIndex((f) => f.id === active.id);
+        const newIndex = ungroupedFilters.findIndex((f) => f.id === over.id);
+        handleReorderFilters([
+          ...groupedFilters,
+          ...arrayMove(ungroupedFilters, oldIndex, newIndex),
+        ]);
       }
     },
-    [filters]
+    [filters, groupFilterIds]
   );
 
   // Check if any filters have values
@@ -516,6 +560,20 @@ export function UnifiedFiltersPanel({
     return null; // Don't show in preview mode if no filters
   }
 
+  // Locked filters (the frozen report-config date filter) always render first, ahead of
+  // the linked group -- they're fixed context, not something the group should push down.
+  const lockedFilters = isReportMode ? filters.filter((f) => !!(f.settings as any)?.locked) : [];
+  const lockedFilterIds = new Set(lockedFilters.map((f) => f.id));
+
+  // Linked filters always render in their own fixed-position block, ahead of the
+  // independent ones -- see handleDragEnd above for why the two never reorder together.
+  const groupedFilters = filters.filter(
+    (f) => groupFilterIds.includes(Number(f.id)) && !lockedFilterIds.has(f.id)
+  );
+  const ungroupedFilters = filters.filter(
+    (f) => !groupFilterIds.includes(Number(f.id)) && !lockedFilterIds.has(f.id)
+  );
+
   if (layout === 'horizontal') {
     return (
       <div
@@ -552,6 +610,23 @@ export function UnifiedFiltersPanel({
                     {filters.length} filter{filters.length !== 1 ? 's' : ''}
                     {hasActiveFilters && ' • Some applied'}
                   </p>
+                  {isEditMode && filters.length > 0 && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={() => setIsDependentFiltersModalOpen(true)}
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2"
+                          aria-label="Configure dependent filters"
+                          data-testid="dependent-filters-config-button"
+                        >
+                          <Workflow className="w-3 h-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Linked filters</TooltipContent>
+                    </Tooltip>
+                  )}
                   {isEditMode && (
                     <Button onClick={onAddFilter} size="sm" variant="outline" className="h-7 px-2">
                       <Plus className="w-3 h-3 mr-1" />
@@ -603,12 +678,89 @@ export function UnifiedFiltersPanel({
                   collisionDetection={closestCenter}
                   onDragEnd={handleDragEnd}
                 >
+                  {lockedFilters.length > 0 && (
+                    <SortableContext
+                      items={lockedFilters.map((f) => f.id)}
+                      strategy={horizontalListSortingStrategy}
+                    >
+                      <div className="flex flex-wrap gap-4 items-start mb-4">
+                        {lockedFilters.map((filter) => (
+                          <SortableFilterItem
+                            key={filter.id}
+                            filter={filter}
+                            value={currentFilterValues[filter.id] ?? null}
+                            onFilterChange={handleFilterChange}
+                            onRemove={handleRemoveFilter}
+                            onEdit={onEditFilter}
+                            isEditMode={isEditMode}
+                            layout={layout}
+                            isPublicMode={isPublicMode}
+                            publicToken={publicToken}
+                            isReportMode={isReportMode}
+                            groupNarrowingConstraintsJson={JSON.stringify(
+                              getGroupNarrowingInfo(
+                                filter.id,
+                                groupFilterIds,
+                                filters,
+                                currentFilterValues
+                              )
+                            )}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  )}
+                  {groupedFilters.length > 0 && (
+                    <div className="border border-gray-200 rounded-lg mb-4 overflow-hidden">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-200">
+                        <span className="text-sm font-semibold text-gray-700">Linked filters</span>
+                        <Badge
+                          variant="secondary"
+                          className="bg-gray-200 text-gray-800 text-[11px]"
+                        >
+                          {groupedFilters.length}
+                        </Badge>
+                      </div>
+                      <div className="p-3">
+                        <SortableContext
+                          items={groupedFilters.map((f) => f.id)}
+                          strategy={horizontalListSortingStrategy}
+                        >
+                          <div className="flex flex-wrap gap-4 items-start">
+                            {groupedFilters.map((filter) => (
+                              <SortableFilterItem
+                                key={filter.id}
+                                filter={filter}
+                                value={currentFilterValues[filter.id] ?? null}
+                                onFilterChange={handleFilterChange}
+                                onRemove={handleRemoveFilter}
+                                onEdit={onEditFilter}
+                                isEditMode={isEditMode}
+                                layout={layout}
+                                isPublicMode={isPublicMode}
+                                publicToken={publicToken}
+                                isReportMode={isReportMode}
+                                groupNarrowingConstraintsJson={JSON.stringify(
+                                  getGroupNarrowingInfo(
+                                    filter.id,
+                                    groupFilterIds,
+                                    filters,
+                                    currentFilterValues
+                                  )
+                                )}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </div>
+                    </div>
+                  )}
                   <SortableContext
-                    items={filters.map((f) => f.id)}
+                    items={ungroupedFilters.map((f) => f.id)}
                     strategy={horizontalListSortingStrategy}
                   >
                     <div className="flex flex-wrap gap-4 items-start">
-                      {filters.map((filter) => (
+                      {ungroupedFilters.map((filter) => (
                         <SortableFilterItem
                           key={filter.id}
                           filter={filter}
@@ -621,6 +773,14 @@ export function UnifiedFiltersPanel({
                           isPublicMode={isPublicMode}
                           publicToken={publicToken}
                           isReportMode={isReportMode}
+                          groupNarrowingConstraintsJson={JSON.stringify(
+                            getGroupNarrowingInfo(
+                              filter.id,
+                              groupFilterIds,
+                              filters,
+                              currentFilterValues
+                            )
+                          )}
                         />
                       ))}
                     </div>
@@ -630,6 +790,14 @@ export function UnifiedFiltersPanel({
             )}
           </>
         )}
+        <DependentFiltersConfigModal
+          open={isDependentFiltersModalOpen}
+          onClose={() => setIsDependentFiltersModalOpen(false)}
+          dashboardId={dashboardId}
+          filters={filters}
+          currentGroupIds={groupFilterIds}
+          onSaved={setGroupFilterIds}
+        />
       </div>
     );
   }
@@ -682,6 +850,23 @@ export function UnifiedFiltersPanel({
                 )}
               </div>
               <div className="flex items-center gap-1">
+                {isEditMode && filters.length > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => setIsDependentFiltersModalOpen(true)}
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2"
+                        aria-label="Configure dependent filters"
+                        data-testid="dependent-filters-config-button"
+                      >
+                        <Workflow className="w-3 h-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Linked filters</TooltipContent>
+                  </Tooltip>
+                )}
                 {isEditMode && (
                   <Button onClick={onAddFilter} size="sm" variant="outline" className="h-7 px-2">
                     <Plus className="w-3 h-3 mr-1" />
@@ -741,12 +926,89 @@ export function UnifiedFiltersPanel({
                   collisionDetection={closestCenter}
                   onDragEnd={handleDragEnd}
                 >
+                  {lockedFilters.length > 0 && (
+                    <SortableContext
+                      items={lockedFilters.map((f) => f.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-4 mb-4">
+                        {lockedFilters.map((filter) => (
+                          <SortableFilterItem
+                            key={filter.id}
+                            filter={filter}
+                            value={currentFilterValues[filter.id] ?? null}
+                            onFilterChange={handleFilterChange}
+                            onRemove={handleRemoveFilter}
+                            onEdit={onEditFilter}
+                            isEditMode={isEditMode}
+                            layout={effectiveLayout}
+                            isPublicMode={isPublicMode}
+                            publicToken={publicToken}
+                            isReportMode={isReportMode}
+                            groupNarrowingConstraintsJson={JSON.stringify(
+                              getGroupNarrowingInfo(
+                                filter.id,
+                                groupFilterIds,
+                                filters,
+                                currentFilterValues
+                              )
+                            )}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  )}
+                  {groupedFilters.length > 0 && (
+                    <div className="border border-gray-200 rounded-lg mb-4 overflow-hidden">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-200">
+                        <span className="text-sm font-semibold text-gray-700">Linked filters</span>
+                        <Badge
+                          variant="secondary"
+                          className="bg-gray-200 text-gray-800 text-[11px]"
+                        >
+                          {groupedFilters.length}
+                        </Badge>
+                      </div>
+                      <div className="p-3">
+                        <SortableContext
+                          items={groupedFilters.map((f) => f.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="space-y-4">
+                            {groupedFilters.map((filter) => (
+                              <SortableFilterItem
+                                key={filter.id}
+                                filter={filter}
+                                value={currentFilterValues[filter.id] ?? null}
+                                onFilterChange={handleFilterChange}
+                                onRemove={handleRemoveFilter}
+                                onEdit={onEditFilter}
+                                isEditMode={isEditMode}
+                                layout={effectiveLayout}
+                                isPublicMode={isPublicMode}
+                                publicToken={publicToken}
+                                isReportMode={isReportMode}
+                                groupNarrowingConstraintsJson={JSON.stringify(
+                                  getGroupNarrowingInfo(
+                                    filter.id,
+                                    groupFilterIds,
+                                    filters,
+                                    currentFilterValues
+                                  )
+                                )}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </div>
+                    </div>
+                  )}
                   <SortableContext
-                    items={filters.map((f) => f.id)}
+                    items={ungroupedFilters.map((f) => f.id)}
                     strategy={verticalListSortingStrategy}
                   >
                     <div className="space-y-4">
-                      {filters.map((filter) => (
+                      {ungroupedFilters.map((filter) => (
                         <SortableFilterItem
                           key={filter.id}
                           filter={filter}
@@ -759,6 +1021,14 @@ export function UnifiedFiltersPanel({
                           isPublicMode={isPublicMode}
                           publicToken={publicToken}
                           isReportMode={isReportMode}
+                          groupNarrowingConstraintsJson={JSON.stringify(
+                            getGroupNarrowingInfo(
+                              filter.id,
+                              groupFilterIds,
+                              filters,
+                              currentFilterValues
+                            )
+                          )}
                         />
                       ))}
                     </div>
@@ -775,6 +1045,14 @@ export function UnifiedFiltersPanel({
           )}
         </>
       )}
+      <DependentFiltersConfigModal
+        open={isDependentFiltersModalOpen}
+        onClose={() => setIsDependentFiltersModalOpen(false)}
+        dashboardId={dashboardId}
+        filters={filters}
+        currentGroupIds={groupFilterIds}
+        onSaved={setGroupFilterIds}
+      />
     </div>
   );
 }

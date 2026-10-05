@@ -30,7 +30,7 @@ describe('TableChart', () => {
       expect(screen.getByText(/table configuration needs a small adjustment/i)).toBeInTheDocument();
 
       rerender(<TableChart data={[]} config={{ table_columns: ['name'] }} />);
-      expect(screen.getByText('No data available')).toBeInTheDocument();
+      expect(screen.getByText('No data for the selected filters')).toBeInTheDocument();
     });
 
     it('should render table with data and columns', () => {

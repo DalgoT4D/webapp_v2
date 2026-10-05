@@ -397,8 +397,8 @@ export function TableChart({
     return (
       <div className="flex items-center justify-center h-full p-8">
         <div className="text-center text-muted-foreground">
-          <p>No data available</p>
-          <p className="text-sm mt-2">Configure your table to display data</p>
+          <p className="text-foreground">No data for the selected filters</p>
+          <p className="text-sm mt-2">Try removing a filter or choosing different values.</p>
         </div>
       </div>
     );

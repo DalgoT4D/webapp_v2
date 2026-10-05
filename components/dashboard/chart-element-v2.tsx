@@ -1327,8 +1327,11 @@ export function ChartElementV2({
                     {...getPivotRenderProps(chart.extra_config)}
                   />
                 ) : (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    No data available
+                  <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                    <p className="text-foreground">No data for the selected filters</p>
+                    <p className="text-sm mt-2">
+                      Try removing a filter or choosing different values.
+                    </p>
                   </div>
                 )}
               </div>

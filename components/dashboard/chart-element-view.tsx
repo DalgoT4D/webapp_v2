@@ -1925,9 +1925,14 @@ export function ChartElementView({
               data={chartData.data as unknown as PivotTableResponse}
               {...getPivotRenderProps(effectiveChart?.extra_config)}
             />
-          ) : (
+          ) : isLoading ? (
             <div className="flex items-center justify-center h-full text-muted-foreground">
-              {isLoading ? <Loader2 className="h-8 w-8 animate-spin" /> : 'No data available'}
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+              <p className="text-foreground">No data for the selected filters</p>
+              <p className="text-sm mt-2">Try removing a filter or choosing different values.</p>
             </div>
           )}
         </div>

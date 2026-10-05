@@ -6,13 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -103,6 +96,8 @@ interface FilterConfigModalProps {
   mode?: 'create' | 'edit';
   filterId?: number;
   dashboardId?: number;
+  // Names of the other filters this one is grouped with, if any -- read-only display only
+  linkedFilterNames?: string[];
 }
 
 function useFilterPreview(
@@ -128,6 +123,7 @@ export function FilterConfigModal({
   mode = 'create',
   filterId,
   dashboardId,
+  linkedFilterNames = [],
 }: FilterConfigModalProps) {
   // Fetch fresh filter data from API when editing
   const { data: filterData, isLoading: isLoadingFilter } = useDashboardFilter(
@@ -221,7 +217,7 @@ export function FilterConfigModal({
     }
   }, [open, filterData, initialData, mode, isInitialized]);
 
-  // Reset dependent fields when parent changes (only if not initializing)
+  // Reset dependent fields when the table selection changes (only if not initializing)
   useEffect(() => {
     if (isInitialized && mode === 'create') {
       setColumnName('');
@@ -461,61 +457,6 @@ export function FilterConfigModal({
                         </div>
                       </div>
 
-                      {/* Auto-detected filter type display */}
-                      {columnName && columns && (
-                        <Card>
-                          <CardContent className="pt-4">
-                            <div className="flex items-center gap-3">
-                              {filterType === DashboardFilterType.VALUE && (
-                                <>
-                                  <List className="w-5 h-5 text-blue-600" />
-                                  <div>
-                                    <div className="font-medium">Dropdown Filter</div>
-                                    <div className="text-sm text-muted-foreground">
-                                      Auto-detected from{' '}
-                                      {columns.find(
-                                        (col: any) =>
-                                          col.column_name === columnName || col.name === columnName
-                                      )?.data_type || 'column type'}
-                                    </div>
-                                  </div>
-                                </>
-                              )}
-                              {filterType === DashboardFilterType.NUMERICAL && (
-                                <>
-                                  <Hash className="w-5 h-5 text-green-600" />
-                                  <div>
-                                    <div className="font-medium">Range Filter</div>
-                                    <div className="text-sm text-muted-foreground">
-                                      Auto-detected from{' '}
-                                      {columns.find(
-                                        (col: any) =>
-                                          col.column_name === columnName || col.name === columnName
-                                      )?.data_type || 'column type'}
-                                    </div>
-                                  </div>
-                                </>
-                              )}
-                              {filterType === DashboardFilterType.DATETIME && (
-                                <>
-                                  <Calendar className="w-5 h-5 text-purple-600" />
-                                  <div>
-                                    <div className="font-medium">Date Range Filter</div>
-                                    <div className="text-sm text-muted-foreground">
-                                      Auto-detected from{' '}
-                                      {columns.find(
-                                        (col: any) =>
-                                          col.column_name === columnName || col.name === columnName
-                                      )?.data_type || 'column type'}
-                                    </div>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
-
                       {/* Type-specific configuration */}
                       {columnName && filterType === DashboardFilterType.VALUE && (
                         <Card>
@@ -551,6 +492,14 @@ export function FilterConfigModal({
                                 ? 'checkboxes (multiple selection)'
                                 : 'radio buttons (single selection)'}
                             </div>
+                            {linkedFilterNames.length > 0 && (
+                              <div
+                                className="text-sm text-muted-foreground bg-gray-50 p-3 rounded"
+                                data-testid="linked-filters-notice"
+                              >
+                                <strong>Linked with:</strong> {linkedFilterNames.join(', ')}
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
                       )}

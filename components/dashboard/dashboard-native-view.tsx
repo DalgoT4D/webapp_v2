@@ -116,6 +116,10 @@ const SHARE_DIALOG_COACHMARK_STAGES: WalkthroughStage[] = [
 /** Stages the share dialog can be opened FROM — either routes on into the dialog's own steps. */
 const SHARE_DIALOG_ENTRY_STAGES: WalkthroughStage[] = ['share', 'share_public_toggle'];
 
+// Stable reference so passing "no dependent group" doesn't recreate a fresh array every
+// render -- same reasoning as dashboard-builder-v2.tsx's identical constant.
+const EMPTY_DEPENDENT_GROUP_FILTER_IDS: number[] = [];
+
 /**
  * Every stage from which copying the public link is the walkthrough's final act. Not just
  * 'share_copy_link': a dashboard that was already public never fires the sharing handler, so
@@ -459,6 +463,12 @@ export function DashboardNativeView({
       convertFilterToConfig(filter, { x: 0, y: 0, w: 4, h: 3 })
     );
   }, [dashboard?.filters]);
+
+  // Reads dependent_group_filter_ids straight from whatever `dashboard` holds here --
+  // the live dashboard API response, the public dashboard response, or a report
+  // snapshot's frozen config. All three now carry this field; absent means no group.
+  const dependentGroupFilterIds =
+    dashboard?.dependent_group_filter_ids ?? EMPTY_DEPENDENT_GROUP_FILTER_IDS;
 
   // Default filter values for report mode are computed synchronously in useState above.
   // No useEffect needed — this avoids a double-render cycle with empty filters.
@@ -1315,6 +1325,7 @@ export function DashboardNativeView({
         <ResponsiveFiltersSection
           dashboardFilters={dashboardFilters}
           dashboardId={dashboardId}
+          dependentGroupFilterIds={dependentGroupFilterIds}
           isEditMode={false}
           onFiltersApplied={handleFiltersApplied}
           onFiltersCleared={handleFiltersCleared}
@@ -1332,6 +1343,7 @@ export function DashboardNativeView({
           <UnifiedFiltersPanel
             initialFilters={dashboardFilters}
             dashboardId={dashboardId}
+            dependentGroupFilterIds={dependentGroupFilterIds}
             isEditMode={false}
             layout="vertical"
             onFiltersApplied={handleFiltersApplied}
