@@ -47,15 +47,14 @@ import { DashboardCell } from './DashboardCell';
 import { TabBar } from './tabs/TabBar';
 import {
   DASHBOARD_RICH_TEXT_FLUSH_EVENT,
-  DASHBOARD_WIDGET_DRAG_START_EVENT,
   type RichTextFlushEventDetail,
 } from './text-element-unified';
 import { DashboardFilterType } from '@/types/dashboard-filters';
-import type { DashboardComponentType, DashboardTab } from '@/types/dashboard';
-import { moveWidgetBetweenTabs, pointerToGridPosition } from './tabs/cross-tab-drag';
+import type { DashboardTab } from '@/types/dashboard';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { useCrossTabDrag } from '@/components/dashboard/hooks/useCrossTabDrag';
 import {
   getChartEditUrl,
   getChartViewUrl,
@@ -65,9 +64,7 @@ import {
 } from '@/lib/widget-navigation';
 import {
   GRID_CONTAINER_PADDING,
-  GRID_GAP_PX,
   GRID_MARGIN,
-  GRID_PADDING_PX,
   GRID_ROW_HEIGHT,
   SCREEN_SIZES,
   type ScreenSizeKey,
@@ -89,13 +86,6 @@ import {
   type DashboardEditorState,
   type DashboardSavePayloadOverrides,
 } from '@/components/dashboard/logic/editor-state';
-
-// Autoscroll while dragging near a canvas edge (DALGO-1219: drag bottom→top must reach the top).
-// Distance from the edge (px) at which autoscroll engages.
-const AUTOSCROLL_EDGE_PX = 60;
-// Max scroll speed (px/frame), capped to prevent runaway scroll. Spec: ~30px/frame.
-const AUTOSCROLL_MAX_SPEED_PX = 30;
-const CROSS_TAB_HOVER_DELAY_MS = 500;
 
 // Max length for the dashboard description (keeps the header compact).
 const DESCRIPTION_MAX_LENGTH = 100;
@@ -198,19 +188,6 @@ interface DashboardLayout {
   maxW?: number;
   minH?: number;
   maxH?: number;
-}
-
-interface CrossTabDragSession {
-  componentId: string;
-  componentType: DashboardComponentType;
-  sourceTabId: string;
-  hoverTabId: string | null;
-  targetTabId: string | null;
-  item: DashboardLayout;
-  clientX: number;
-  clientY: number;
-  targetPosition: { x: number; y: number } | null;
-  phase: 'grid' | 'handoff';
 }
 
 interface DashboardBuilderV2Props {
@@ -606,17 +583,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       [dashboardId, lockToken, saveDashboard, unlockDashboard]
     );
 
-    // Track if we're currently dragging (for cursor/visual state on the dragged cell)
-    const [isDragging, setIsDragging] = useState(false);
-    const [draggedItem, setDraggedItem] = useState<DashboardLayout | null>(null);
-    const [crossTabDrag, setCrossTabDrag] = useState<CrossTabDragSession | null>(null);
-    const crossTabDragRef = useRef<CrossTabDragSession | null>(null);
-    const crossTabHoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    useEffect(() => {
-      crossTabDragRef.current = crossTabDrag;
-    }, [crossTabDrag]);
-
     // ===== Tab Handlers =====
 
     // Tab selection is navigation, not an edit, so it does not add a history entry.
@@ -687,10 +653,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     // ===== End Tab Handlers =====
 
-    // IMPORTANT: Use refs for synchronous access in callbacks
-    // React state updates are async, but react-grid-layout calls handlers synchronously
-    const isDraggingRef = useRef(false);
-
     // Reapply per-component min-size constraints to a layout returned by RGL. Positions are
     // owned by RGL's grid model; this only clamps w/h and stamps minW/minH/maxW so subsequent
     // drags/resizes enforce them natively. Text widgets use content-aware minimums.
@@ -706,351 +668,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     // would double-commit and pollute undo history.
     const handleLayoutChange = useCallback(() => {}, []);
 
-    // --- Edge autoscroll while dragging -------------------------------------------------
-    // RGL has no native autoscroll. Scroll the canvas when the pointer nears its top/bottom
-    // edge so a widget can be dragged from the bottom of a tall dashboard up to the top
-    // (DALGO-1219 bug #2). Velocity is proportional to edge proximity, capped per frame.
-    const autoscrollPointerYRef = useRef<number | null>(null);
-    const autoscrollRafRef = useRef<number | null>(null);
-
-    const runAutoscroll = useCallback(() => {
-      const canvas = canvasRef.current;
-      const pointerY = autoscrollPointerYRef.current;
-      if (canvas && pointerY !== null) {
-        const rect = canvas.getBoundingClientRect();
-        const distTop = pointerY - rect.top;
-        const distBottom = rect.bottom - pointerY;
-        let dy = 0;
-        if (distTop < AUTOSCROLL_EDGE_PX) {
-          const intensity = Math.min(
-            1,
-            Math.max(0, (AUTOSCROLL_EDGE_PX - distTop) / AUTOSCROLL_EDGE_PX)
-          );
-          dy = -intensity * AUTOSCROLL_MAX_SPEED_PX;
-        } else if (distBottom < AUTOSCROLL_EDGE_PX) {
-          const intensity = Math.min(
-            1,
-            Math.max(0, (AUTOSCROLL_EDGE_PX - distBottom) / AUTOSCROLL_EDGE_PX)
-          );
-          dy = intensity * AUTOSCROLL_MAX_SPEED_PX;
-        }
-        if (dy !== 0) canvas.scrollTop += dy;
-      }
-      autoscrollRafRef.current = requestAnimationFrame(runAutoscroll);
-    }, []);
-
-    const startAutoscroll = useCallback(() => {
-      if (autoscrollRafRef.current === null) {
-        autoscrollRafRef.current = requestAnimationFrame(runAutoscroll);
-      }
-    }, [runAutoscroll]);
-
-    const stopAutoscroll = useCallback(() => {
-      if (autoscrollRafRef.current !== null) {
-        cancelAnimationFrame(autoscrollRafRef.current);
-        autoscrollRafRef.current = null;
-      }
-      autoscrollPointerYRef.current = null;
-    }, []);
-
-    // Stop autoscroll if the component unmounts mid-drag
-    useEffect(() => () => stopAutoscroll(), [stopAutoscroll]);
-
-    const clearCrossTabHoverTimer = useCallback(() => {
-      if (crossTabHoverTimerRef.current) {
-        clearTimeout(crossTabHoverTimerRef.current);
-        crossTabHoverTimerRef.current = null;
-      }
-    }, []);
-
-    // Prevent a pending tab-hover handoff from firing after the builder unmounts.
-    useEffect(() => () => clearCrossTabHoverTimer(), [clearCrossTabHoverTimer]);
-
-    const publishCrossTabDrag = useCallback((session: CrossTabDragSession | null) => {
-      crossTabDragRef.current = session;
-      setCrossTabDrag(session);
-    }, []);
-
-    const getTargetPosition = useCallback(
-      (session: CrossTabDragSession, clientX: number, clientY: number) => {
-        const container = dashboardContainerRef.current;
-        const canvas = canvasRef.current;
-        if (!container || !canvas) return null;
-        const rect = container.getBoundingClientRect();
-        return pointerToGridPosition(clientX, clientY, session.item, {
-          containerWidth: rect.width,
-          containerLeft: rect.left,
-          containerTop: rect.top,
-          cols: currentScreenConfig.cols,
-          rowHeight: GRID_ROW_HEIGHT,
-          marginX: GRID_GAP_PX,
-          marginY: GRID_GAP_PX,
-          paddingX: GRID_PADDING_PX,
-          paddingY: GRID_PADDING_PX,
-        });
-      },
-      [currentScreenConfig.cols]
-    );
-
-    const beginCrossTabHandoff = useCallback(
-      (targetTabId: string) => {
-        const session = crossTabDragRef.current;
-        if (!session || session.phase !== 'grid' || session.sourceTabId === targetTabId) return;
-        clearCrossTabHoverTimer();
-        const next: CrossTabDragSession = {
-          ...session,
-          hoverTabId: targetTabId,
-          targetTabId,
-          targetPosition: null,
-          phase: 'handoff',
-        };
-        // End RGL's source-grid gesture while that grid is still mounted. The physical
-        // pointer remains down and the document-level handoff listeners take over on the
-        // next render, but react-draggable can now remove its document listeners cleanly
-        // instead of throwing "DraggableCore: Unmounted during event" on the final mouseup.
-        publishCrossTabDrag(next);
-        document.dispatchEvent(
-          new MouseEvent('mouseup', {
-            bubbles: true,
-            clientX: session.clientX,
-            clientY: session.clientY,
-          })
-        );
-        setDragPreviewTabId(targetTabId);
-        autoscrollPointerYRef.current = session.clientY;
-        startAutoscroll();
-      },
-      [clearCrossTabHoverTimer, publishCrossTabDrag, startAutoscroll]
-    );
-
-    const updateCrossTabHover = useCallback(
-      (clientX: number, clientY: number) => {
-        const session = crossTabDragRef.current;
-        if (!session || session.phase !== 'grid') return;
-
-        const tabElement = document
-          .elementsFromPoint(clientX, clientY)
-          .map((element) =>
-            (element as HTMLElement).closest<HTMLElement>('[data-dashboard-tab-id]')
-          )
-          .find(Boolean);
-        const hoverTabId = tabElement?.dataset.dashboardTabId || null;
-        const validHoverTabId =
-          hoverTabId && hoverTabId !== session.sourceTabId ? hoverTabId : null;
-
-        if (session.hoverTabId === validHoverTabId) return;
-        clearCrossTabHoverTimer();
-        const next = { ...session, clientX, clientY, hoverTabId: validHoverTabId };
-        publishCrossTabDrag(next);
-
-        if (validHoverTabId) {
-          crossTabHoverTimerRef.current = setTimeout(
-            () => beginCrossTabHandoff(validHoverTabId),
-            CROSS_TAB_HOVER_DELAY_MS
-          );
-        }
-      },
-      [beginCrossTabHandoff, clearCrossTabHoverTimer, publishCrossTabDrag]
-    );
-
-    const finishCrossTabDrag = useCallback(
-      (commit: boolean) => {
-        const session = crossTabDragRef.current;
-        clearCrossTabHoverTimer();
-        stopAutoscroll();
-
-        if (
-          commit &&
-          session?.phase === 'handoff' &&
-          session.targetTabId &&
-          session.targetPosition
-        ) {
-          setState((prev) =>
-            moveWidgetBetweenTabs(
-              prev,
-              {
-                componentId: session.componentId,
-                sourceTabId: session.sourceTabId,
-                targetTabId: session.targetTabId!,
-                ...session.targetPosition!,
-              },
-              currentScreenConfig.cols
-            )
-          );
-          trackEvent(ANALYTICS_EVENTS.DASHBOARD_WIDGET_MOVED_BETWEEN_TABS, {
-            dashboard_id: dashboardId,
-            element_type: session.componentType,
-          });
-        }
-
-        setDragPreviewTabId(null);
-        publishCrossTabDrag(null);
-        isDraggingRef.current = false;
-        setIsDragging(false);
-        setDraggedItem(null);
-      },
-      [
-        clearCrossTabHoverTimer,
-        currentScreenConfig.cols,
-        publishCrossTabDrag,
-        setState,
-        stopAutoscroll,
-      ]
-    );
-
-    // Once the source grid unmounts, keep the gesture alive at document level.
-    useEffect(() => {
-      if (crossTabDrag?.phase !== 'handoff') return undefined;
-
-      const initialPositionFrame = requestAnimationFrame(() => {
-        const session = crossTabDragRef.current;
-        if (!session || session.phase !== 'handoff') return;
-        publishCrossTabDrag({
-          ...session,
-          targetPosition: getTargetPosition(session, session.clientX, session.clientY),
-        });
-      });
-
-      const handleMouseMove = (event: MouseEvent) => {
-        const session = crossTabDragRef.current;
-        if (!session || session.phase !== 'handoff') return;
-        autoscrollPointerYRef.current = event.clientY;
-        publishCrossTabDrag({
-          ...session,
-          clientX: event.clientX,
-          clientY: event.clientY,
-          targetPosition: getTargetPosition(session, event.clientX, event.clientY),
-        });
-      };
-      const handleCanvasScroll = () => {
-        const session = crossTabDragRef.current;
-        if (!session || session.phase !== 'handoff') return;
-        publishCrossTabDrag({
-          ...session,
-          targetPosition: getTargetPosition(session, session.clientX, session.clientY),
-        });
-      };
-      const handleMouseUp = (event: MouseEvent) => {
-        const canvasRect = canvasRef.current?.getBoundingClientRect();
-        const isInsideCanvas = Boolean(
-          canvasRect &&
-            event.clientX >= canvasRect.left &&
-            event.clientX <= canvasRect.right &&
-            event.clientY >= canvasRect.top &&
-            event.clientY <= canvasRect.bottom
-        );
-        const session = crossTabDragRef.current;
-        if (isInsideCanvas && session?.phase === 'handoff') {
-          publishCrossTabDrag({
-            ...session,
-            clientX: event.clientX,
-            clientY: event.clientY,
-            targetPosition: getTargetPosition(session, event.clientX, event.clientY),
-          });
-        }
-        finishCrossTabDrag(isInsideCanvas);
-      };
-      const handleKeyDown = (event: KeyboardEvent) => {
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          finishCrossTabDrag(false);
-        }
-      };
-      const handleWindowBlur = () => finishCrossTabDrag(false);
-
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      document.addEventListener('keydown', handleKeyDown);
-      window.addEventListener('blur', handleWindowBlur);
-      const canvas = canvasRef.current;
-      canvas?.addEventListener('scroll', handleCanvasScroll, { passive: true });
-      return () => {
-        cancelAnimationFrame(initialPositionFrame);
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        document.removeEventListener('keydown', handleKeyDown);
-        window.removeEventListener('blur', handleWindowBlur);
-        canvas?.removeEventListener('scroll', handleCanvasScroll);
-      };
-    }, [crossTabDrag?.phase, finishCrossTabDrag, getTargetPosition, publishCrossTabDrag]);
-
-    // --- Drag handlers ------------------------------------------------------------------
-    const handleDragStart = useCallback(
-      (
-        _layout: DashboardLayout[],
-        _oldItem: DashboardLayout,
-        newItem: DashboardLayout,
-        _placeholder: DashboardLayout,
-        event: MouseEvent
-      ) => {
-        document.dispatchEvent(
-          new CustomEvent(DASHBOARD_WIDGET_DRAG_START_EVENT, {
-            detail: { componentId: newItem.i },
-          })
-        );
-        isDraggingRef.current = true;
-        setIsDragging(true);
-        setDraggedItem(newItem);
-        const editorState = stateRef.current;
-        const component = getActiveEditorTab(editorState).components[newItem.i];
-        if (component) {
-          publishCrossTabDrag({
-            componentId: newItem.i,
-            componentType: component.type,
-            sourceTabId: editorState.activeTabId,
-            hoverTabId: null,
-            targetTabId: null,
-            item: { ...newItem },
-            clientX: event?.clientX || 0,
-            clientY: event?.clientY || 0,
-            targetPosition: null,
-            phase: 'grid',
-          });
-        }
-        startAutoscroll();
-      },
-      [publishCrossTabDrag, startAutoscroll]
-    );
-
-    // Track the pointer Y so the autoscroll loop knows how close we are to an edge.
-    const handleDrag = useCallback(
-      (
-        _layout: DashboardLayout[],
-        _oldItem: DashboardLayout,
-        _newItem: DashboardLayout,
-        _placeholder: DashboardLayout,
-        e: MouseEvent
-      ) => {
-        if (e && typeof e.clientY === 'number') {
-          autoscrollPointerYRef.current = e.clientY;
-          const session = crossTabDragRef.current;
-          if (session?.phase === 'grid') {
-            publishCrossTabDrag({ ...session, clientX: e.clientX, clientY: e.clientY });
-            updateCrossTabHover(e.clientX, e.clientY);
-          }
-        }
-      },
-      [publishCrossTabDrag, updateCrossTabHover]
-    );
-
-    // Handle drag stop - RGL returns the final, gravity-up-compacted layout. Commit it as
-    // one history entry. Each widget keeps its own (x, y, w, h); nothing is re-derived from
-    // array order, which is what made the old fluid model unpredictable (DALGO-1219).
-    const handleDragStop = useCallback(
-      (layout: DashboardLayout[], _oldItem: DashboardLayout, _newItem: DashboardLayout) => {
-        const session = crossTabDragRef.current;
-        if (session?.phase === 'handoff') return;
-
-        isDraggingRef.current = false;
-        setIsDragging(false);
-        setDraggedItem(null);
-        clearCrossTabHoverTimer();
-        publishCrossTabDrag(null);
-        stopAutoscroll();
-
+    // A drag on the grid ended: commit RGL's final layout as one history entry.
+    const handleGridDragStop = useCallback(
+      (layout: DashboardLayout[], releasedOverTab: boolean) => {
         // Releasing over a tab before the dwell completes cancels instead of committing
         // a surprising edge position back into the source grid.
-        if (!session?.hoverTabId && !isUndoRedoOperationRef.current) {
+        if (!releasedOverTab && !isUndoRedoOperationRef.current) {
           const next = applyItemConstraints(layout);
           setState((prev) => updateActiveEditorTab(prev, { layout_config: next }));
         }
@@ -1060,8 +683,28 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           walkthrough.advanceTo('builder_save');
         }
       },
-      [applyItemConstraints, clearCrossTabHoverTimer, publishCrossTabDrag, setState, stopAutoscroll]
+      [applyItemConstraints, setState, isUndoRedoOperationRef]
     );
+
+    const {
+      crossTabDrag,
+      draggedItem,
+      isDraggingRef,
+      handleDragStart,
+      handleDrag,
+      handleDragStop,
+      handoffPlaceholderStyle,
+    } = useCrossTabDrag({
+      dashboardId,
+      stateRef,
+      setState,
+      canvasRef,
+      dashboardContainerRef,
+      cols: currentScreenConfig.cols,
+      actualContainerWidth,
+      setDragPreviewTabId,
+      onGridDragStop: handleGridDragStop,
+    });
 
     // Track if we're currently resizing
     const [isResizing, setIsResizing] = useState(false);
@@ -1202,20 +845,6 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       },
       [router]
     );
-
-    const handoffPlaceholderStyle = (() => {
-      if (crossTabDrag?.phase !== 'handoff' || !crossTabDrag.targetPosition) return null;
-      const usableWidth =
-        actualContainerWidth - GRID_PADDING_PX * 2 - GRID_GAP_PX * (currentScreenConfig.cols - 1);
-      const columnWidth = usableWidth / currentScreenConfig.cols;
-      const { x, y } = crossTabDrag.targetPosition;
-      return {
-        left: GRID_PADDING_PX + x * (columnWidth + GRID_GAP_PX),
-        top: GRID_PADDING_PX + y * (GRID_ROW_HEIGHT + GRID_GAP_PX),
-        width: crossTabDrag.item.w * columnWidth + (crossTabDrag.item.w - 1) * GRID_GAP_PX,
-        height: crossTabDrag.item.h * GRID_ROW_HEIGHT + (crossTabDrag.item.h - 1) * GRID_GAP_PX,
-      };
-    })();
 
     return (
       <div className="dashboard-builder h-full flex flex-col overflow-hidden">
