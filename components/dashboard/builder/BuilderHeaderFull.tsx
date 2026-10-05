@@ -51,7 +51,7 @@ export function BuilderHeaderFull({
               variant="ghost"
               size="sm"
               onClick={onBack}
-              // See the compact header's copy of this button above.
+              // See BuilderHeaderCompact.tsx for the compact header's copy of this button.
               data-testid="dashboard-back-btn"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />

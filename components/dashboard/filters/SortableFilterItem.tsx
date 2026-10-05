@@ -52,7 +52,8 @@ export const SortableFilterItem = memo(function SortableFilterItem({
   const handleRemove = useCallback(() => onRemove?.(filter.id), [onRemove, filter.id]);
   const handleEdit = useCallback(() => onEdit?.(filter), [onEdit, filter]);
 
-  // The horizontal item has no {...attributes}; keyboard reorder listeners sit on FilterElement's handle (PINNED-BUGS: "Filter keyboard reorder announced ("press space") but does nothing — key listeners on non-focusable handle").
+  // PINNED-BUGS: "Filter keyboard reorder announced ("press space") but does nothing — key listeners on non-focusable handle"
+  // The horizontal item has no {...attributes}; keyboard reorder listeners sit on FilterElement's handle.
   if (layout === 'horizontal') {
     return (
       <div

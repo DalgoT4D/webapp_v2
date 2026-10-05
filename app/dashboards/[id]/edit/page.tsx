@@ -4,7 +4,10 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { DashboardBuilderV2 } from '@/components/dashboard/dashboard-builder-v2';
 import { useDashboard } from '@/hooks/api/useDashboards';
-import { useLockReleaseOnLeave } from '@/components/dashboard/hooks/useDashboardLock';
+import {
+  useLockReleaseOnLeave,
+  type BuilderCleanupHandle,
+} from '@/components/dashboard/hooks/useDashboardLock';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,7 +23,7 @@ export default function EditDashboardPage() {
   const isNewDashboard = searchParams.get('new') === 'true';
 
   // Ref to access dashboard builder cleanup function
-  const dashboardBuilderRef = useRef<{ cleanup: () => Promise<boolean> } | null>(null);
+  const dashboardBuilderRef = useRef<BuilderCleanupHandle | null>(null);
 
   // Get current user info
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);

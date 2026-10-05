@@ -8,8 +8,8 @@ import {
   getActiveEditorTab,
   updateActiveEditorTab,
   type DashboardEditorState,
+  type EditorSetState,
 } from '@/components/dashboard/logic/editor-state';
-import type { EditorSetState } from './useDashboardSave';
 
 /** The walkthrough's resize step ends with any committed drag or resize. */
 function advanceWalkthroughAfterResize() {

@@ -48,7 +48,7 @@ const threeTabs = (): DashboardEditorState => ({
 });
 
 beforeEach(() => {
-  jest.spyOn(console, 'log').mockImplementation(() => {});
+  jest.spyOn(console, 'log').mockImplementation(() => undefined);
 });
 afterEach(() => jest.restoreAllMocks());
 
@@ -203,6 +203,24 @@ describe('buildDashboardSavePayload (d-b5 / gap-d-tablet-text snapshots)', () =>
     expect(payload.filter_layout).toBe('vertical');
     expect(payload.tabs).not.toBe(tabs);
     expect(payload.tabs).toEqual(tabs);
+  });
+
+  it('pins the PUT body key order', () => {
+    const payload = buildDashboardSavePayload({
+      title: 'My dash',
+      description: '',
+      targetScreenSize: 'desktop',
+      filterLayout: 'vertical',
+      tabs,
+    });
+    expect(Object.keys(payload)).toEqual([
+      'title',
+      'description',
+      'grid_columns',
+      'target_screen_size',
+      'filter_layout',
+      'tabs',
+    ]);
   });
 });
 

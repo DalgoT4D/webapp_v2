@@ -102,7 +102,6 @@ export function ChartElementV2({
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isResizingRef = useRef(isResizing); // Track isResizing for ResizeObserver
-  // Use chartId as unique identifier to isolate drill-down state per chart
   const { drillDownPath, setDrillDownPath, handleDrillUp, handleDrillHome } = useMapDrillPath();
 
   // Container size for responsive legend

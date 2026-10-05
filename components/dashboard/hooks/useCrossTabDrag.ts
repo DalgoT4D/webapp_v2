@@ -26,6 +26,7 @@ import {
 import {
   getActiveEditorTab,
   type DashboardEditorState,
+  type EditorSetState,
 } from '@/components/dashboard/logic/editor-state';
 import { useCanvasAutoscroll } from '@/components/dashboard/hooks/useCanvasAutoscroll';
 
@@ -48,7 +49,7 @@ export interface CrossTabDragSession {
 export interface UseCrossTabDragOptions {
   dashboardId: number | undefined;
   stateRef: MutableRefObject<DashboardEditorState>;
-  setState: (update: (prev: DashboardEditorState) => DashboardEditorState) => void;
+  setState: EditorSetState;
   canvasRef: RefObject<HTMLDivElement | null>;
   dashboardContainerRef: RefObject<HTMLDivElement | null>;
   cols: number;
@@ -124,6 +125,7 @@ export function useCrossTabDrag({
         paddingY: GRID_PADDING_PX,
       });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref/setter passed as option; deps kept verbatim
     [cols]
   );
 
@@ -155,6 +157,7 @@ export function useCrossTabDrag({
       autoscrollPointerYRef.current = session.clientY;
       startAutoscroll();
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref/setter passed as option; deps kept verbatim
     [clearCrossTabHoverTimer, publishCrossTabDrag, startAutoscroll]
   );
 
@@ -216,6 +219,7 @@ export function useCrossTabDrag({
       setIsDragging(false);
       setDraggedItem(null);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref/setter passed as option; deps kept verbatim
     [clearCrossTabHoverTimer, cols, publishCrossTabDrag, setState, stopAutoscroll]
   );
 
@@ -287,6 +291,7 @@ export function useCrossTabDrag({
       window.removeEventListener('blur', handleWindowBlur);
       canvas?.removeEventListener('scroll', handleCanvasScroll);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref/setter passed as option; deps kept verbatim
   }, [crossTabDrag?.phase, finishCrossTabDrag, getTargetPosition, publishCrossTabDrag]);
 
   // --- Drag handlers ------------------------------------------------------------------
@@ -324,6 +329,7 @@ export function useCrossTabDrag({
       }
       startAutoscroll();
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref/setter passed as option; deps kept verbatim
     [publishCrossTabDrag, startAutoscroll]
   );
 
@@ -345,12 +351,14 @@ export function useCrossTabDrag({
         }
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref/setter passed as option; deps kept verbatim
     [publishCrossTabDrag, updateCrossTabHover]
   );
 
-  // Handle drag stop - RGL returns the final, gravity-up-compacted layout. Commit it as
-  // one history entry. Each widget keeps its own (x, y, w, h); nothing is re-derived from
-  // array order, which is what made the old fluid model unpredictable (DALGO-1219).
+  // Handle drag stop - RGL returns the final, gravity-up-compacted layout. The builder's
+  // handleGridDragStop (builder/useGridCommits.ts) commits it as one history entry. Each
+  // widget keeps its own (x, y, w, h); nothing is re-derived from array order, which is
+  // what made the old fluid model unpredictable (DALGO-1219).
   const handleDragStop = useCallback(
     (layout: DashboardLayoutItem[]) => {
       const session = crossTabDragRef.current;

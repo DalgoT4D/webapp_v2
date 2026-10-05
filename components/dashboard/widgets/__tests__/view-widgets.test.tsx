@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { DashboardComponentType, type DashboardComponentConfig } from '@/types/dashboard';
+import type { DashboardComponentType, DashboardComponentConfig } from '@/types/dashboard';
 import { getChartViewUrl, WIDGET_NAVIGATION_SOURCES } from '@/lib/widget-navigation';
 import { VIEW_WIDGETS, type ViewWidgetContext } from '@/components/dashboard/widgets/view-widgets';
 

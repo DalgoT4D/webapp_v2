@@ -52,7 +52,7 @@ export function ResponsiveFiltersSection({
 
   // Mobile/Tablet: Use accordion-style filters
   return (
-    // testid read by the walkthrough's exit guard — see the note in unified-filters-panel.tsx.
+    // testid read by the walkthrough's exit guard — see the note in filters/HorizontalFiltersPanel.tsx.
     <div className={className} data-testid="dashboard-filters-section">
       <Accordion type="single" collapsible className="w-full">
         <AccordionItem value="filters" className="border-b-0">

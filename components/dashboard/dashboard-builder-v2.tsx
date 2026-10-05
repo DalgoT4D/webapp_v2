@@ -36,7 +36,10 @@ import {
 } from '@/components/dashboard/logic/editor-state';
 import { normalizeBuilderFilters } from '@/components/dashboard/logic/builder-filters';
 import { useBuilderFilters } from '@/components/dashboard/hooks/useBuilderFilters';
-import { useDashboardLock } from '@/components/dashboard/hooks/useDashboardLock';
+import {
+  useDashboardLock,
+  type BuilderCleanupHandle,
+} from '@/components/dashboard/hooks/useDashboardLock';
 import { useDashboardAutosave } from '@/components/dashboard/hooks/useDashboardAutosave';
 import { useCrossTabDrag } from '@/components/dashboard/hooks/useCrossTabDrag';
 import { buildAddWidgetHandlers } from '@/components/dashboard/widgets/add-widget-handlers';
@@ -66,12 +69,8 @@ interface DashboardBuilderV2Props {
   isNavigating?: boolean;
 }
 
-// Interface for the ref methods exposed to parent
-interface DashboardBuilderV2Ref {
-  /** Saves pending changes, unlocks, refreshes caches. Resolves to whether the save
-   *  succeeded — callers must not report an update the PUT never completed. */
-  cleanup: () => Promise<boolean>;
-}
+// Ref methods exposed to parent — shared with the edit page's ref via BuilderCleanupHandle.
+export type DashboardBuilderV2Ref = BuilderCleanupHandle;
 
 export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBuilderV2Props>(
   function DashboardBuilderV2(
@@ -451,7 +450,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       saveDashboard();
     };
 
-    // PINNED-BUGS: '"No charts → go create one" redirect can never fire — builder expects plain array, API returns paginated object'
+    // PINNED-BUGS: ""No charts → go create one" redirect can never fire — builder expects plain array, API returns paginated object"
     const handleAddChartClick = () => {
       if (!chartsLoading && chartsData && Array.isArray(chartsData) && chartsData.length === 0) {
         router.push('/charts/new?from=dashboard');

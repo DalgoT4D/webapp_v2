@@ -29,7 +29,7 @@ beforeEach(() => {
   mockApiPut.mockResolvedValue({});
   mockApiDelete.mockResolvedValue({});
   setDocumentHidden(false);
-  jest.spyOn(console, 'error').mockImplementation(() => {});
+  jest.spyOn(console, 'error').mockImplementation(() => undefined);
 });
 
 afterEach(() => {
@@ -62,7 +62,7 @@ describe('useDashboardLock', () => {
   });
 
   it('a 423 answer alerts with the backend message', async () => {
-    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
+    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => undefined);
     mockApiPost.mockRejectedValueOnce({ status: 423, message: 'locked by ana@ngo.org' });
     renderHook(() => useDashboardLock(7));
     await settle();

@@ -15,7 +15,6 @@ type ApiFilterRow = Partial<DashboardFilter> | null | undefined;
 export function normalizeBuilderFilters(
   dashboardFilters: ApiFilterRow[] | undefined
 ): DashboardFilterConfig[] {
-  // Load filters from backend with proper error handling
   // BUILDER-DRIFT: numeric id and no position — the panel only reads the seven fields below.
   return (Array.isArray(dashboardFilters)
     ? dashboardFilters

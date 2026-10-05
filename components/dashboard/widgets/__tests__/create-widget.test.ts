@@ -6,6 +6,7 @@ import {
   fallbackChartWidgetDetails,
   insertWidget,
 } from '@/components/dashboard/widgets/create-widget';
+import type { DashboardEditorState } from '@/components/dashboard/logic/editor-state';
 
 const NOW = 1700000000000;
 const existing = [
@@ -115,7 +116,7 @@ describe('createTextWidget (gap-d-tablet-text snapshot)', () => {
 
 describe('insertWidget', () => {
   it('adds the widget to the active tab only', () => {
-    const state = {
+    const state: DashboardEditorState = {
       activeTabId: 't2',
       tabs: [
         { id: 't1', title: 'A', layout_config: [], components: {} },

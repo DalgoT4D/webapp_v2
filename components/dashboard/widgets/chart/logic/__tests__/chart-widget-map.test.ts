@@ -48,7 +48,7 @@ const stateLevel: WidgetMapDrillLevel = {
   parent_selections: [{ column: 'state', value: 'Karnataka' }],
 };
 
-beforeEach(() => jest.spyOn(console, 'log').mockImplementation(() => {}));
+beforeEach(() => jest.spyOn(console, 'log').mockImplementation(() => undefined));
 afterEach(() => jest.restoreAllMocks());
 
 describe('resolveWidgetRegionClick', () => {

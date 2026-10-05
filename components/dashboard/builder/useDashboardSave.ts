@@ -11,6 +11,7 @@ import {
   buildDashboardSavePayload,
   type DashboardEditorState,
   type DashboardSavePayloadOverrides,
+  type EditorSetState,
 } from '@/components/dashboard/logic/editor-state';
 import type { ScreenSizeKey } from '@/components/dashboard/grid/grid-constants';
 import type { SaveStatus } from './DashboardBuilderHeader';
@@ -20,9 +21,7 @@ const SAVED_STATUS_MS = 3000;
 /** The error message shows this long. */
 const ERROR_STATUS_MS = 5000;
 
-export type EditorSetState = (
-  next: DashboardEditorState | ((prev: DashboardEditorState) => DashboardEditorState)
-) => void;
+export type { EditorSetState };
 
 interface DashboardSaveOptions {
   dashboardId: number | undefined;

@@ -10,7 +10,7 @@ const row = {
   settings: { can_select_multiple: true },
 };
 
-beforeEach(() => jest.spyOn(console, 'warn').mockImplementation(() => {}));
+beforeEach(() => jest.spyOn(console, 'warn').mockImplementation(() => undefined));
 afterEach(() => jest.restoreAllMocks());
 
 describe('normalizeBuilderFilters (BUILDER-DRIFT copy)', () => {

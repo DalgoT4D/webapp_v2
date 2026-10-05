@@ -25,6 +25,11 @@ export interface DashboardEditorState {
   activeTabId: string;
 }
 
+/** Shape of the builder's setState (useUndoRedo's setter): value or updater function. */
+export type EditorSetState = (
+  next: DashboardEditorState | ((prev: DashboardEditorState) => DashboardEditorState)
+) => void;
+
 /** What the builder reads from the loaded dashboard on its first render. */
 export interface BuilderInitialData {
   tabs?: DashboardTab[];

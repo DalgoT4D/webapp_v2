@@ -62,6 +62,7 @@ export function useViewContainerWidth(dashboardContainerRef: RefObject<HTMLDivEl
     return () => {
       resizeObserver.disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- kept as before — mount-only observer
   }, []);
 
   return { actualContainerWidth };

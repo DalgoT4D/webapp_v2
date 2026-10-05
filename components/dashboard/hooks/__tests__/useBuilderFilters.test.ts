@@ -27,7 +27,7 @@ const payload = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  jest.spyOn(console, 'error').mockImplementation(() => {});
+  jest.spyOn(console, 'error').mockImplementation(() => undefined);
 });
 afterEach(() => jest.restoreAllMocks());
 
@@ -94,6 +94,35 @@ describe('useBuilderFilters', () => {
     });
     expect(result.current.selectedFilterForEdit).toBeNull();
     expect(result.current.showFilterModal).toBe(false);
+  });
+
+  it('update failure is silent: logged only, modal state unchanged, no DASHBOARD_FILTER_UPDATED (pinned)', async () => {
+    mockApiPut.mockRejectedValue(new Error('boom'));
+    const { result } = renderHook(() => useBuilderFilters(7));
+    const config = {
+      id: '5',
+      name: 'State',
+      schema_name: 'public',
+      table_name: 'sales',
+      column_name: 'state',
+      filter_type: DashboardFilterType.NUMERICAL,
+      settings: { ui_mode: 'slider' },
+      position: { x: 0, y: 0, w: 4, h: 3 },
+    } as DashboardFilterConfig;
+    act(() => result.current.handleEditFilter(config));
+    expect(result.current.showFilterModal).toBe(true);
+
+    await act(async () => {
+      await result.current.handleFilterSave({ name: 'Region', settings: payload.settings }, 5);
+    });
+    expect(console.error).toHaveBeenCalledWith('Error updating filter:', expect.any(Error));
+    expect(trackEvent).not.toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.DASHBOARD_FILTER_UPDATED,
+      expect.anything()
+    );
+    expect(result.current.showFilterModal).toBe(true);
+    expect(result.current.selectedFilterForEdit).not.toBeNull();
+    expect(mockSwrMutate).not.toHaveBeenCalled();
   });
 
   it('close resets both pieces of modal state', () => {
