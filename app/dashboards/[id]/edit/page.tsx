@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, Lock, User, Clock, AlertTriangle } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
+import { hasEditAccess } from '@/components/access/logic/resource-permissions';
 
 export default function EditDashboardPage() {
   const params = useParams();
@@ -36,7 +37,7 @@ export default function EditDashboardPage() {
 
   // Can this user EDIT this specific dashboard? Per-resource access from the API
   // (grants + org floor + ownership). Undefined until the dashboard loads.
-  const canEditDashboard = dashboard?.access_level === 'edit';
+  const canEditDashboard = hasEditAccess(dashboard?.access_level);
 
   // Check if dashboard is locked by another user
   // Only block access if dashboard is locked AND locked by someone else

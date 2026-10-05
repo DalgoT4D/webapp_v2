@@ -7,7 +7,8 @@ import { DashboardNativeView } from '@/components/dashboard/dashboard-native-vie
 import { SupersetDashboardView } from '@/components/dashboard/superset-dashboard-view';
 import { NoAccess } from '@/components/no-access';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useRbac } from '@/lib/rbac';
+import { getRolePermissions } from '@/components/access/logic/resource-permissions';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Lock } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
@@ -20,7 +21,7 @@ export default function DashboardViewPage() {
 
   // Get user permissions
   const { hasPermission } = useRbac();
-  const canViewDashboard = hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS);
+  const canViewDashboard = getRolePermissions('dashboard', hasPermission).canView;
 
   // Fetch dashboard to determine type — don't start the request without view permission
   const {

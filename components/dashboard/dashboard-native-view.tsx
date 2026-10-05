@@ -20,6 +20,7 @@ import { useCurrentOrgUser } from '@/components/dashboard/hooks/useCurrentOrgUse
 import { useLandingPageActions } from '@/components/dashboard/hooks/useLandingPageActions';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { hasEditAccess } from '@/components/access/logic/resource-permissions';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { WIDGET_NAVIGATION_SOURCES } from '@/lib/widget-navigation';
 import { CelebrationModal } from '@/components/onboarding/celebration-modal';
@@ -170,7 +171,7 @@ export function DashboardNativeView({
   // a member granted edit has access_level === "edit" but no role edit slug.
   const canEdit = useMemo(() => {
     if (isPublicMode || !dashboard || !currentUser) return false;
-    return dashboard.access_level === 'edit';
+    return hasEditAccess(dashboard.access_level);
   }, [isPublicMode, dashboard, currentUser]);
 
   // Check if dashboard is locked

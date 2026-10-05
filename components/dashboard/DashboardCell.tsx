@@ -8,6 +8,7 @@ import type { DashboardComponentConfig } from '@/types/dashboard';
 import type { DashboardFilterConfig } from '@/types/dashboard-filters';
 import { useChart } from '@/hooks/api/useCharts';
 import { useKPI } from '@/hooks/api/useKPIs';
+import { hasEditAccess } from '@/components/access/logic/resource-permissions';
 
 interface DashboardLayout {
   i: string;
@@ -75,8 +76,8 @@ function DashboardCellInner({
   const isKPI = component.type === DashboardComponentType.KPI;
   const { data: chart } = useChart(isChart ? component.config.chartId : null);
   const { kpi } = useKPI(isKPI ? component.config.kpiId : null);
-  const canEditCharts = chart?.access_level === 'edit';
-  const canEditKpis = kpi?.access_level === 'edit';
+  const canEditCharts = hasEditAccess(chart?.access_level);
+  const canEditKpis = hasEditAccess(kpi?.access_level);
   const BuilderWidget = BUILDER_WIDGETS[component.type];
 
   return (

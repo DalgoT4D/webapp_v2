@@ -13,7 +13,8 @@ import { ArrowLeft, Lock } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ShareModal } from '@/components/share/ShareModal';
 import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useRbac } from '@/lib/rbac';
+import { getRolePermissions } from '@/components/access/logic/resource-permissions';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, CHART_DRILL_SOURCES } from '@/constants/analytics';
 import { useDrillDownAnalytics } from '@/components/charts/useDrillDownAnalytics';
@@ -39,7 +40,7 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
   const searchParams = useSearchParams();
   const navigationSource = parseWidgetNavigationSource(searchParams.get('from'));
   const { hasPermission } = useRbac();
-  const canViewCharts = hasPermission(PERMISSIONS.CAN_VIEW_CHARTS);
+  const canViewCharts = getRolePermissions('chart', hasPermission).canView;
   // Computed once per render so it's a stable primitive in handleRegionClick's deps,
   // instead of calling the (unstable-reference) hasPermission multiple times inside the callback
   const canEditCharts = hasPermission('can_edit_charts');

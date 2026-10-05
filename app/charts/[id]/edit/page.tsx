@@ -13,6 +13,7 @@ import { FEATURES } from '@/constants/analytics';
 import { CHART_BUILDER_TAB_ANALYTICS } from '@/components/charts/utils';
 import { getWidgetBackLabel } from '@/lib/widget-navigation';
 import { canSaveChart } from '@/components/charts/logic/validation';
+import { hasEditAccess } from '@/components/access/logic/resource-permissions';
 import { createEmptyEditConfig, toBuilderConfig } from '@/components/charts/logic/saved-chart';
 import { useChartBuilderState } from '@/components/charts/hooks/useChartBuilderState';
 import { usePreviewPagination } from '@/components/charts/hooks/usePreviewPagination';
@@ -44,7 +45,7 @@ function EditChartPageContent() {
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
   // Per-resource access — a member granted edit has chart.access_level === 'edit'
   // even without the role-level can_edit_charts slug. Backend enforces on save.
-  const canEditThisChart = chart?.access_level === 'edit';
+  const canEditThisChart = hasEditAccess(chart?.access_level);
 
   // Every patch goes through the edit page's legacy second pass (applied by the reducer); a patch
   // that keeps the chart type is a plain merge. BUILDER-DRIFT: the create page merges type switches as is.

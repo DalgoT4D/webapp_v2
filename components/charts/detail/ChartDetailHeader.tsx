@@ -13,6 +13,7 @@ import {
   getWidgetBackLabel,
   type parseWidgetNavigationSource,
 } from '@/lib/widget-navigation';
+import { hasEditAccess } from '@/components/access/logic/resource-permissions';
 
 interface ChartDetailHeaderProps {
   chart: Chart;
@@ -61,7 +62,7 @@ export function ChartDetailHeader({
           )}
         </div>
         <div className="flex gap-2">
-          {chart.access_level === 'edit' && (
+          {hasEditAccess(chart.access_level) && (
             <Link
               data-testid="chart-detail-edit-link"
               href={getChartEditUrl(chartId, navigationSource)}
@@ -73,7 +74,7 @@ export function ChartDetailHeader({
               </Button>
             </Link>
           )}
-          {chart.access_level === 'edit' && (
+          {hasEditAccess(chart.access_level) && (
             <Button
               data-testid="chart-detail-share-button"
               variant="outline"
