@@ -1,5 +1,11 @@
 import { DashboardComponentType, type DashboardTabsData } from '@/types/dashboard';
-import { moveWidgetBetweenTabs, placeItemInLayout, pointerToGridPosition } from '../cross-tab-drag';
+import {
+  getHandoffPlaceholderStyle,
+  isPointInsideRect,
+  moveWidgetBetweenTabs,
+  placeItemInLayout,
+  pointerToGridPosition,
+} from '../cross-tab-drag';
 
 const chart = {
   id: 'chart-1',
@@ -280,5 +286,28 @@ describe('cross-tab dashboard moves', () => {
         12
       )
     ).toBe(state);
+  });
+});
+
+describe('getHandoffPlaceholderStyle', () => {
+  it('pixel box of the drop placeholder (8px gap and padding, 20px rows)', () => {
+    // 1304 = 2 × 8 padding + 11 × 8 gaps + 12 × 100 → 100px columns
+    expect(getHandoffPlaceholderStyle({ w: 3, h: 4 }, { x: 1, y: 2 }, 1304, 12)).toEqual({
+      left: 116,
+      top: 64,
+      width: 316,
+      height: 104,
+    });
+  });
+});
+
+describe('isPointInsideRect', () => {
+  const rect = { left: 10, right: 110, top: 20, bottom: 220 };
+  it('edges count as inside; no rect is outside', () => {
+    expect(isPointInsideRect(10, 20, rect)).toBe(true);
+    expect(isPointInsideRect(110, 220, rect)).toBe(true);
+    expect(isPointInsideRect(111, 100, rect)).toBe(false);
+    expect(isPointInsideRect(50, 19, rect)).toBe(false);
+    expect(isPointInsideRect(50, 50, undefined)).toBe(false);
   });
 });

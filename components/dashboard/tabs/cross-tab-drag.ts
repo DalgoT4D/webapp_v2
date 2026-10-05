@@ -1,5 +1,10 @@
 import type { DashboardLayoutItem, DashboardTabsData } from '@/types/dashboard';
 import { compactVertical } from '@/lib/dashboard-animation-utils';
+import {
+  GRID_GAP_PX,
+  GRID_PADDING_PX,
+  GRID_ROW_HEIGHT,
+} from '@/components/dashboard/grid/grid-constants';
 
 export interface CrossTabMove {
   componentId: string;
@@ -134,4 +139,37 @@ export function moveWidgetBetweenTabs(
     }),
     activeTabId: target.id,
   };
+}
+
+/** Pixel box of the drop placeholder shown while a widget is handed off to another tab. */
+export function getHandoffPlaceholderStyle(
+  item: Pick<DashboardLayoutItem, 'w' | 'h'>,
+  targetPosition: { x: number; y: number },
+  containerWidth: number,
+  cols: number
+): { left: number; top: number; width: number; height: number } {
+  const usableWidth = containerWidth - GRID_PADDING_PX * 2 - GRID_GAP_PX * (cols - 1);
+  const columnWidth = usableWidth / cols;
+  const { x, y } = targetPosition;
+  return {
+    left: GRID_PADDING_PX + x * (columnWidth + GRID_GAP_PX),
+    top: GRID_PADDING_PX + y * (GRID_ROW_HEIGHT + GRID_GAP_PX),
+    width: item.w * columnWidth + (item.w - 1) * GRID_GAP_PX,
+    height: item.h * GRID_ROW_HEIGHT + (item.h - 1) * GRID_GAP_PX,
+  };
+}
+
+/** Is the pointer inside the rect (edges included)? No rect → false. */
+export function isPointInsideRect(
+  clientX: number,
+  clientY: number,
+  rect: Pick<DOMRect, 'left' | 'right' | 'top' | 'bottom'> | undefined
+): boolean {
+  return Boolean(
+    rect &&
+      clientX >= rect.left &&
+      clientX <= rect.right &&
+      clientY >= rect.top &&
+      clientY <= rect.bottom
+  );
 }
