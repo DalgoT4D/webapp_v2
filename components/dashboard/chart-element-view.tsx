@@ -1,15 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { PoweredByDalgoImage } from '@/components/ui/powered-by-dalgo-image';
 import { OrgBrand } from '@/components/ui/org-brand';
-import { toast } from 'sonner';
 import {
   AlertCircle,
   RefreshCw,
   Maximize2,
   Download,
-  Home,
   Loader2,
   FileImage,
   FileText,
@@ -21,7 +19,7 @@ import { getPivotRenderProps } from '@/components/charts/chart-types/pivot-table
 import type { PivotTableResponse } from '@/types/pivot-table';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
-import { apiGet, apiPost, apiPublicPost } from '@/lib/api';
+import { apiGet, apiPublicPost } from '@/lib/api';
 import {
   useChart,
   useChartDataPreview,
@@ -33,43 +31,35 @@ import {
 } from '@/hooks/api/useChart';
 import { transformMapDataOverlayPayload } from '@/components/charts/logic/map-overlay';
 import { ChartTitleEditor } from './chart-title-editor';
-import { DataPreview } from '@/components/charts/DataPreview';
 import { TableChart } from '@/components/charts/chart-types/table/TableChart';
 import { MapPreview } from '@/components/charts/chart-types/map/MapPreview';
 import { type ChartTitleConfig } from '@/lib/chart-title-utils';
 import { resolveDashboardFilters } from '@/lib/dashboard-filter-utils';
-import {
-  applyLegendPosition,
-  extractLegendPosition,
-  isLegendPaginated,
-  type LegendPosition,
-} from '@/components/charts/chart-types/echarts/legend';
-import {
-  applyResponsiveLegend,
-  getResponsiveGridMargins,
-  shouldShowLegend,
-} from '@/lib/responsive-legend';
-
-import {
-  createTooltipFormatter,
-  applyNumberChartFormatting,
-  applyPieChartFormatting,
-  applyLineBarChartFormatting,
-} from '@/components/charts/chart-types/echarts/formatting';
-import {
-  applyPieDateFormatting,
-  applyLineBarDateFormatting,
-} from '@/components/charts/chart-types/echarts/date-formatting';
-import { applyStackedBarLabels } from '@/components/charts/chart-types/echarts/stacked-bar';
 import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ChartTypes, type ChartDataPayload, type ChartDimension } from '@/types/charts';
 import { CHART_DRILL_SOURCES } from '@/constants/analytics';
 import { useDrillDownAnalytics } from '@/components/charts/useDrillDownAnalytics';
 import type { FrozenChartConfig } from '@/types/reports';
 import { useFullscreen } from '@/hooks/useFullscreen';
-import { ChartExporter, generateFilename, BrandingOptions } from '@/lib/chart-export';
-import { apiPostBinary } from '@/lib/api';
-import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
+import { useMapDrillPath } from '@/components/dashboard/widgets/chart/useMapDrillPath';
+import { useChartWidgetTable } from '@/components/dashboard/widgets/chart/useChartWidgetTable';
+import { showWidgetDrillToasts } from '@/components/dashboard/widgets/chart/drill-toasts';
+import { MapDrillBreadcrumb } from '@/components/dashboard/widgets/chart/MapDrillBreadcrumb';
+import { TableDrillBreadcrumb } from '@/components/dashboard/widgets/chart/TableDrillBreadcrumb';
+import { buildChartWidgetOption } from '@/components/dashboard/widgets/chart/logic/chart-widget-option';
+import {
+  buildWidgetTableConfig,
+  getChartWidgetErrorMessage,
+  getWidgetTableDimensions,
+  toTableDrillFilters,
+} from '@/components/dashboard/widgets/chart/logic/chart-widget-table';
+import {
+  buildWidgetMapOverlayPayload,
+  collectDrillFilters,
+  resolveWidgetMapLayer,
+  resolveWidgetRegionClick,
+} from '@/components/dashboard/widgets/chart/logic/chart-widget-map';
+import { buildChartWidgetExportHandlers } from '@/components/dashboard/widgets/chart/chart-widget-export';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -150,18 +140,6 @@ interface ChartElementViewProps {
   onView?: () => void; // Authenticated dashboard/report navigation to chart detail
 }
 
-interface DrillDownLevel {
-  level: number;
-  name: string;
-  geographic_column: string;
-  geojson_id: number;
-  region_id?: number;
-  parent_selections: Array<{
-    column: string;
-    value: string;
-  }>;
-}
-
 export function ChartElementView({
   chartId,
   dashboardFilters = {},
@@ -185,20 +163,10 @@ export function ChartElementView({
   const wrapperRef = useRef<HTMLDivElement>(null); // Wrapper ref for fullscreen (stable element)
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const mapChartInstance = useRef<echarts.ECharts | null>(null); // Separate ref for map charts
-  const [drillDownPath, setDrillDownPath] = useState<DrillDownLevel[]>([]);
+  const { drillDownPath, setDrillDownPath, handleDrillUp, handleDrillHome } = useMapDrillPath();
 
   // Container size for responsive legend
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
-
-  // Table pagination state
-  const [tablePage, setTablePage] = useState(1);
-  const [tablePageSize, setTablePageSize] = useState(20);
-
-  // ✅ ADD: Drill-down state management for table charts
-  const [tableDrillDownState, setTableDrillDownState] = useState<{
-    currentLevel: number; // 0 = first dimension, 1 = second dimension, etc.
-    appliedFilters: Record<string, string>; // { dimension_column: value }
-  } | null>(null);
 
   // Use unified fullscreen hook
   const { isFullscreen, toggleFullscreen } = useFullscreen('chart');
@@ -275,11 +243,7 @@ export function ChartElementView({
       ? `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/`
       : null;
 
-  const {
-    data: publicChartMetadata,
-    error: publicChartError,
-    isLoading: publicChartLoading,
-  } = useSWR(
+  const { data: publicChartMetadata, isLoading: publicChartLoading } = useSWR(
     publicChartMetadataUrl,
     isPublicMode
       ? async (url: string) => {
@@ -323,6 +287,17 @@ export function ChartElementView({
   // Use frozen config in report mode, public metadata in public mode, or chart in private mode
   const effectiveChart = frozenChartConfig || (isPublicMode ? publicChartMetadata : chart);
 
+  const {
+    tablePage,
+    setTablePage,
+    tablePageSize,
+    handleTablePageSizeChange,
+    tableDrillDownState,
+    handleTableRowClick,
+    handleTableDrillUp,
+    currentDimensionColumn,
+  } = useChartWidgetTable(effectiveChart);
+
   // Drill-down engagement on a chart embedded in a dashboard. Disabled on public
   // share links and report snapshots — those are anonymous surfaces covered by
   // PUBLIC_DASHBOARD_VIEWED / report events, not by per-chart engagement events.
@@ -339,10 +314,6 @@ export function ChartElementView({
   const isTableChart = effectiveChart?.chart_type === ChartTypes.TABLE;
   const isPivotTableChart = effectiveChart?.chart_type === ChartTypes.PIVOT_TABLE;
   const isMapChart = effectiveChart?.chart_type === ChartTypes.MAP;
-  const isPieChart = effectiveChart?.chart_type === ChartTypes.PIE;
-  const isNumberChart = effectiveChart?.chart_type === ChartTypes.NUMBER;
-  const isLineChart = effectiveChart?.chart_type === ChartTypes.LINE;
-  const isBarChart = effectiveChart?.chart_type === ChartTypes.BAR;
 
   // Fetch chart data with filters (skip for map and table charts - they use specialized endpoints)
   // Only fetch when we know the chart type and it's not a map or table
@@ -381,13 +352,6 @@ export function ChartElementView({
     },
   });
 
-  // Determine current level for drill-down
-  const currentLevel = drillDownPath.length;
-  const currentLayer =
-    effectiveChart?.chart_type === ChartTypes.MAP && effectiveChart?.extra_config?.layers
-      ? effectiveChart.extra_config.layers[currentLevel]
-      : null;
-
   // Build chartDataPayload for ALL chart types (for CSV export and table data) - use useMemo to update when drill-down state changes
   const chartDataPayload: ChartDataPayload | null = useMemo(
     () =>
@@ -414,48 +378,10 @@ export function ChartElementView({
             extra_dimension: effectiveChart.extra_config?.extra_dimension_column,
             // ✅ FIX: Include dimensions array for table charts with drill-down support
             ...(effectiveChart.chart_type === ChartTypes.TABLE && {
-              dimensions: (() => {
-                const isDrillDownEnabled = effectiveChart.extra_config?.dimensions?.some(
-                  (dim: ChartDimension) => dim.enable_drill_down === true
-                );
-
-                if (!isDrillDownEnabled) {
-                  // Show all dimensions if drill-down disabled
-                  if (
-                    effectiveChart.extra_config?.dimensions &&
-                    effectiveChart.extra_config.dimensions.length > 0
-                  ) {
-                    return effectiveChart.extra_config.dimensions
-                      .map((d: ChartDimension) => d.column)
-                      .filter(Boolean);
-                  }
-                  if (
-                    effectiveChart.extra_config?.dimension_columns &&
-                    effectiveChart.extra_config.dimension_columns.length > 0
-                  ) {
-                    return effectiveChart.extra_config.dimension_columns;
-                  }
-                  return [];
-                }
-
-                // When drill-down is enabled, only use dimensions with enable_drill_down
-                const drillDownDimensions = effectiveChart.extra_config.dimensions
-                  .filter((dim: ChartDimension) => dim.enable_drill_down)
-                  .map((d: ChartDimension) => d.column)
-                  .filter(Boolean);
-
-                // When drill-down is enabled and active, use only the current level dimension
-                if (tableDrillDownState) {
-                  const nextIndex = Math.min(
-                    tableDrillDownState.currentLevel + 1,
-                    drillDownDimensions.length - 1
-                  );
-                  return [drillDownDimensions[nextIndex]]; // Only current level
-                }
-
-                // Drill-down enabled but not yet started: use top-level dimension only
-                return [drillDownDimensions[0]]; // Only first dimension
-              })(),
+              dimensions: getWidgetTableDimensions(
+                effectiveChart.extra_config,
+                tableDrillDownState
+              ),
             }),
             metrics: effectiveChart.extra_config?.metrics,
             geographic_column: effectiveChart.extra_config?.geographic_column,
@@ -467,13 +393,8 @@ export function ChartElementView({
                 // Include chart-level filters
                 ...(effectiveChart.extra_config?.filters || []),
                 // Add drill-down filters from tableDrillDownState
-                ...(effectiveChart.chart_type === ChartTypes.TABLE &&
-                tableDrillDownState?.appliedFilters
-                  ? Object.entries(tableDrillDownState.appliedFilters).map(([column, value]) => ({
-                      column,
-                      operator: 'equals',
-                      value,
-                    }))
+                ...(effectiveChart.chart_type === ChartTypes.TABLE
+                  ? toTableDrillFilters(tableDrillDownState)
                   : []),
               ],
               pagination: effectiveChart.extra_config?.pagination,
@@ -656,107 +577,6 @@ export function ChartElementView({
 
   const publicTableTotalRows = publicTableTotalRowsData?.total_rows;
 
-  // Handle table pagination page size change
-  const handleTablePageSizeChange = (newPageSize: number) => {
-    setTablePageSize(newPageSize);
-    setTablePage(1); // Reset to first page when page size changes
-  };
-
-  // Handle table row click for drill-down
-  const handleTableRowClick = useCallback(
-    (rowData: Record<string, any>, columnName: string) => {
-      if (effectiveChart?.chart_type !== ChartTypes.TABLE) return;
-
-      // Check if drill-down is enabled
-      const isDrillDownEnabled = effectiveChart.extra_config?.dimensions?.some(
-        (dim: ChartDimension) => dim.enable_drill_down === true
-      );
-
-      if (!isDrillDownEnabled) return;
-
-      // Get all dimensions in order (only those with drill-down enabled)
-      const allDimensions =
-        effectiveChart.extra_config?.dimensions
-          ?.filter((dim: ChartDimension) => dim.enable_drill_down)
-          .map((d: ChartDimension) => d.column)
-          .filter(Boolean) || [];
-
-      if (allDimensions.length === 0) return;
-
-      // Get the current dimension index
-      const currentDimensionIndex = tableDrillDownState ? tableDrillDownState.currentLevel : -1;
-
-      // Determine which dimension column is currently displayed
-      const currentDisplayedDimension =
-        currentDimensionIndex === -1 ? allDimensions[0] : allDimensions[currentDimensionIndex + 1];
-
-      // Only allow clicking on the currently displayed dimension column
-      if (columnName !== currentDisplayedDimension) {
-        return;
-      }
-
-      // Get the value from the clicked row
-      const clickedValue = rowData[columnName];
-      if (!clickedValue) return;
-
-      // Update drill-down state
-      const newLevel = currentDimensionIndex + 1;
-      const newAppliedFilters = {
-        ...(tableDrillDownState?.appliedFilters || {}),
-        [currentDisplayedDimension]: String(clickedValue),
-      };
-
-      // If we've reached the last dimension, don't allow further drill-down
-      if (newLevel >= allDimensions.length - 1) {
-        return;
-      }
-
-      setTableDrillDownState({
-        currentLevel: newLevel,
-        appliedFilters: newAppliedFilters,
-      });
-
-      // Reset to first page when drilling down
-      setTablePage(1);
-    },
-    [effectiveChart, tableDrillDownState]
-  );
-
-  // Handle table drill-up (going back)
-  const handleTableDrillUp = useCallback(() => {
-    if (!tableDrillDownState) return;
-
-    const allDimensions =
-      effectiveChart?.extra_config?.dimensions
-        ?.filter((dim: ChartDimension) => dim.enable_drill_down)
-        .map((d: ChartDimension) => d.column)
-        .filter(Boolean) || [];
-
-    const newLevel = tableDrillDownState.currentLevel - 1;
-
-    if (newLevel < 0) {
-      // Reset to top level
-      setTableDrillDownState(null);
-    } else {
-      // Go back one level
-      const newAppliedFilters: Record<string, string> = {};
-      for (let i = 0; i <= newLevel; i++) {
-        const dimColumn = allDimensions[i];
-        if (tableDrillDownState.appliedFilters[dimColumn]) {
-          newAppliedFilters[dimColumn] = tableDrillDownState.appliedFilters[dimColumn];
-        }
-      }
-
-      setTableDrillDownState({
-        currentLevel: newLevel,
-        appliedFilters: newAppliedFilters,
-      });
-    }
-
-    // Reset to first page when drilling up
-    setTablePage(1);
-  }, [tableDrillDownState, effectiveChart]);
-
   // Use appropriate table data based on mode
   const tableData = isPublicMode ? publicTableData : privateTableData;
   const tableError = isPublicMode ? publicTableError : privateTableError;
@@ -798,8 +618,6 @@ export function ChartElementView({
     : privateRegionGeojsonsLoading;
 
   // For map charts, determine which geojson and data to fetch based on drill-down state
-  let activeGeojsonId = null;
-  let activeGeographicColumn = null;
   const activeDrillDownLevel =
     drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1] : null;
   const drillDownGeojsonResolution = resolveDrillDownGeoJSON({
@@ -810,72 +628,35 @@ export function ChartElementView({
     regionGeojsonsError,
     fallbackGeojsonId: activeDrillDownLevel?.geojson_id,
   });
-
-  if (effectiveChart?.chart_type === ChartTypes.MAP) {
-    if (activeDrillDownLevel) {
-      // We're in a drill-down state, use the first available geojson for this region
-      activeGeographicColumn = activeDrillDownLevel.geographic_column;
-      activeGeojsonId = drillDownGeojsonResolution.geojsonId;
-    } else if (currentLayer) {
-      // Use current layer configuration (first layer)
-      activeGeojsonId = currentLayer.geojson_id;
-      activeGeographicColumn = currentLayer.geographic_column;
-    } else {
-      // Fallback to first layer or original configuration
-      const firstLayer = effectiveChart.extra_config?.layers?.[0];
-      activeGeojsonId = firstLayer?.geojson_id || effectiveChart.extra_config?.selected_geojson_id;
-      activeGeographicColumn =
-        firstLayer?.geographic_column || effectiveChart.extra_config?.geographic_column;
-    }
-  }
+  const { activeGeojsonId, activeGeographicColumn } = resolveWidgetMapLayer(
+    effectiveChart,
+    drillDownPath,
+    drillDownGeojsonResolution.geojsonId
+  );
 
   // Build data overlay payload for map charts based on current level
   // Include filters for drill-down selections - flatten all parent selections
-  const filters: Record<string, string> = {};
-  if (drillDownPath.length > 0) {
-    // Collect all parent selections from the drill-down path
-    drillDownPath.forEach((level) => {
-      level.parent_selections.forEach((selection) => {
-        filters[selection.column] = selection.value;
-      });
-    });
-  }
+  const filters = collectDrillFilters(drillDownPath);
 
-  const mapDataOverlayPayload = useMemo(() => {
-    const metric = effectiveChart?.extra_config?.metrics?.[0];
-    return effectiveChart?.chart_type === ChartTypes.MAP &&
-      effectiveChart.extra_config &&
-      activeGeographicColumn
-      ? {
-          schema_name: effectiveChart.schema_name,
-          table_name: effectiveChart.table_name,
-          geographic_column: activeGeographicColumn,
-          metric,
-          value_column:
-            effectiveChart.extra_config.aggregate_column ||
-            effectiveChart.extra_config.value_column,
-          aggregate_function:
-            effectiveChart.extra_config.aggregate_function || (metric ? undefined : 'sum'),
-          filters: filters, // Drill-down filters
-          // All map contexts (dashboard and report, public and private) now
-          // resolve dashboard filters server-side.
-          dashboard_filters: dashboardFilters,
-          extra_config: {
-            filters: [...(effectiveChart.extra_config.filters || [])],
-            pagination: effectiveChart.extra_config.pagination,
-            sort: effectiveChart.extra_config.sort,
-          },
-        }
-      : null;
-  }, [
-    effectiveChart?.chart_type,
-    effectiveChart?.schema_name,
-    effectiveChart?.table_name,
-    effectiveChart?.extra_config,
-    activeGeographicColumn,
-    filters,
-    dashboardFilters,
-  ]);
+  const mapDataOverlayPayload = useMemo(
+    () =>
+      buildWidgetMapOverlayPayload(
+        effectiveChart,
+        activeGeographicColumn,
+        filters,
+        dashboardFilters
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- same dependency list as before (filters is new each render)
+    [
+      effectiveChart?.chart_type,
+      effectiveChart?.schema_name,
+      effectiveChart?.table_name,
+      effectiveChart?.extra_config,
+      activeGeographicColumn,
+      filters,
+      dashboardFilters,
+    ]
+  );
 
   // Fetch GeoJSON data - public vs private mode
   const publicGeojsonUrl =
@@ -975,215 +756,24 @@ export function ChartElementView({
         : isError?.message) ||
     'Chart configuration needs adjustment';
 
-  // Determine if this is a data-related error and provide helpful message
-  const isDataError =
-    rawErrorMessage.toLowerCase().includes('data') ||
-    rawErrorMessage.toLowerCase().includes('column') ||
-    rawErrorMessage.toLowerCase().includes('metric') ||
-    rawErrorMessage.toLowerCase().includes('dimension') ||
-    rawErrorMessage.toLowerCase().includes('aggregate') ||
-    rawErrorMessage.toLowerCase().includes('no rows') ||
-    rawErrorMessage.toLowerCase().includes('empty result');
+  const errorMessage = getChartWidgetErrorMessage(rawErrorMessage);
 
-  const errorMessage = isDataError
-    ? 'Please check the dataset or metrics selected and try again'
-    : 'Chart configuration needs adjustment. Please review your settings and try again';
-
-  // Handle region click for drill-down
-  const handleRegionClick = (regionName: string, regionData: any) => {
-    if (effectiveChart.chart_type !== ChartTypes.MAP) return;
-
-    // Check for dynamic drill-down configuration (new system)
-    const hasDynamicDrillDown =
-      effectiveChart?.extra_config?.geographic_hierarchy?.drill_down_levels?.length > 0;
-
-    // NEW DYNAMIC SYSTEM: Use geographic hierarchy
-    if (hasDynamicDrillDown) {
-      const hierarchy = effectiveChart.extra_config.geographic_hierarchy;
-      const nextLevel = hierarchy.drill_down_levels.find(
-        (level: any) => level.level === currentLevel + 1
-      );
-
-      if (nextLevel) {
-        // Find the clicked region in the regions data
-        const selectedRegion = regions?.find(
-          (region: any) => region.name === regionName || region.display_name === regionName
-        );
-
-        if (!selectedRegion) {
-          toast.error(`Region "${regionName}" not found in database`);
-          return;
-        }
-
-        toast.success(`Drilling down to ${nextLevel.label.toLowerCase()} in ${regionName}`);
-
-        // Create drill-down level for dynamic system
-        const newLevel: DrillDownLevel = {
-          level: currentLevel + 1,
-          name: regionName,
-          geographic_column: nextLevel.column,
-          geojson_id: 0, // Will be resolved dynamically
-          region_id: selectedRegion.id,
-          parent_selections: [
-            ...drillDownPath.flatMap((level) => level.parent_selections),
-            {
-              column: activeGeographicColumn || '',
-              value: regionName,
-            },
-          ],
-        };
-
-        setDrillDownPath([...drillDownPath, newLevel]);
-        return;
-      } else {
-        // No more levels available in dynamic system
-        toast.info('No further drill-down levels configured');
-        return;
-      }
-    }
-
-    // Check for legacy simplified drill-down configuration
-    const hasSimplifiedDrillDown =
-      chart?.extra_config?.district_column ||
-      chart?.extra_config?.ward_column ||
-      chart?.extra_config?.subward_column;
-
-    if (hasSimplifiedDrillDown) {
-      let nextGeographicColumn = null;
-      let levelName = '';
-
-      // Determine next level based on current drill-down state
-      if (currentLevel === 0 && effectiveChart.extra_config.district_column) {
-        nextGeographicColumn = effectiveChart.extra_config.district_column;
-        levelName = 'districts';
-      } else if (currentLevel === 1 && effectiveChart.extra_config.ward_column) {
-        nextGeographicColumn = effectiveChart.extra_config.ward_column;
-        levelName = 'wards';
-      } else if (currentLevel === 2 && effectiveChart.extra_config.subward_column) {
-        nextGeographicColumn = effectiveChart.extra_config.subward_column;
-        levelName = 'sub-wards';
-      }
-
-      if (nextGeographicColumn) {
-        toast.success(`Drilling down to ${levelName} in ${regionName}`);
-
-        // Create drill-down level for simplified system
-        // Find the region ID for the clicked region (e.g., Karnataka)
-        const selectedRegion = regions?.find(
-          (region: any) => region.name === regionName || region.display_name === regionName
-        );
-
-        if (!selectedRegion) {
-          toast.error(`Region "${regionName}" not found in database`);
-          return;
-        }
-
-        // For now, we'll create the drill-down level and let the useRegionGeoJSONs
-        // hook handle fetching the correct geojson in the data fetching logic
-        const regionId = selectedRegion.id;
-        console.log(`🔍 Found region "${regionName}" with ID: ${regionId}`);
-
-        const newLevel: DrillDownLevel = {
-          level: currentLevel + 1,
-          name: regionName,
-          geographic_column: nextGeographicColumn,
-          geojson_id: 0, // Will be resolved dynamically
-          region_id: regionId, // Store the region ID for geojson lookup
-          parent_selections: [
-            ...drillDownPath.flatMap((level) => level.parent_selections),
-            {
-              column: activeGeographicColumn || '',
-              value: regionName,
-            },
-          ],
-        };
-
-        setDrillDownPath([...drillDownPath, newLevel]);
-        return;
-      } else {
-        // No more levels available in simplified system
-        toast.info('No further drill-down levels configured');
-        return;
-      }
-    }
-
-    // Fallback to legacy layers system
-    if (!chart?.extra_config?.layers) {
-      toast.info('No further drill-down levels configured');
-      return;
-    }
-
-    const nextLevel = currentLevel + 1;
-    const nextLayer = effectiveChart.extra_config.layers[nextLevel];
-
-    if (!nextLayer) {
-      // No next layer configured
-      toast.info('No further drill-down levels configured');
-      return;
-    }
-
-    // Validate drill-down is possible for the clicked region
-    let nextGeojsonId = nextLayer.geojson_id;
-    let regionSupported = true;
-    let validationMessage = '';
-
-    // If this layer has specific regions configured, check if clicked region is supported
-    if (nextLayer.selected_regions && nextLayer.selected_regions.length > 0) {
-      const matchingRegion = nextLayer.selected_regions.find(
-        (region: any) => region.region_name === regionName
-      );
-
-      if (!matchingRegion) {
-        regionSupported = false;
-        validationMessage = `Drill-down not available for "${regionName}". This region is not configured for the next level.`;
-      } else if (matchingRegion.geojson_id) {
-        nextGeojsonId = matchingRegion.geojson_id;
-      }
-    }
-
-    // Validate that we have a valid geojson_id
-    if (regionSupported && (!nextGeojsonId || nextGeojsonId === 0)) {
-      regionSupported = false;
-      validationMessage = `Drill-down not available for "${regionName}". Geographic data is not configured for this region.`;
-    }
-
-    // If region is not supported, show toast and exit
-    if (!regionSupported) {
-      toast.info(validationMessage);
-      return;
-    }
-
-    // Create new drill-down level
-    const newLevel: DrillDownLevel = {
-      level: nextLevel,
-      name: regionName,
-      geographic_column: nextLayer.geographic_column || '',
-      geojson_id: nextGeojsonId || 0,
-      region_id: nextLayer.region_id,
-      parent_selections: [
-        ...drillDownPath.flatMap((level) => level.parent_selections),
-        {
-          column: activeGeographicColumn || '',
-          value: regionName,
-        },
-      ],
-    };
-
-    setDrillDownPath([...drillDownPath, newLevel]);
-  };
-
-  // Handle drill up to a specific level
-  const handleDrillUp = (targetLevel: number) => {
-    if (targetLevel < 0) {
-      setDrillDownPath([]);
-    } else {
-      setDrillDownPath(drillDownPath.slice(0, targetLevel + 1));
-    }
-  };
-
-  // Handle drill to home (first level)
-  const handleDrillHome = () => {
-    setDrillDownPath([]);
+  // Handle region click for drill-down (rebuilt every render: the chart effect lists it as a dependency)
+  const handleRegionClick = (regionName: string) => {
+    const click = resolveWidgetRegionClick(
+      {
+        chart: effectiveChart,
+        legacyGateChart: chart, // MODE-DRIFT: private-page chart only
+        regions,
+        drillDownPath,
+        activeGeographicColumn,
+        regionName,
+      },
+      'view'
+    );
+    if (!click) return;
+    showWidgetDrillToasts(click.toasts);
+    if (click.nextLevel) setDrillDownPath([...drillDownPath, click.nextLevel]);
   };
 
   // Initialize and update chart
@@ -1232,249 +822,16 @@ export function ChartElementView({
       return undefined;
     }
 
-    // Get base config (already includes map registration for map charts)
-    let baseConfig = activeChartData.echarts_config;
-
-    // Extract legend position from chart's customizations (use effectiveChart for public mode support)
-    const customizations = effectiveChart?.extra_config?.customizations || {};
-    const legendPosition = extractLegendPosition(customizations, baseConfig) as LegendPosition;
-    const isPaginatedLegend = isLegendPaginated(customizations);
-
-    // Use container size for responsive legend (fallback to reasonable defaults)
-    const effectiveWidth = containerSize.width > 0 ? containerSize.width : 400;
-    const effectiveHeight = containerSize.height > 0 ? containerSize.height : 300;
-
-    // Check if legend should be visible based on container size
-    const legendVisible = shouldShowLegend(
-      effectiveWidth,
-      effectiveHeight,
-      effectiveChart?.chart_type
-    );
-
-    // Apply legend positioning (handles both legend config and pie chart center adjustment)
-    // Then apply responsive legend on top for size-based adjustments
-    let configWithLegend = baseConfig.legend
-      ? applyLegendPosition(
-          baseConfig,
-          legendPosition,
-          isPaginatedLegend,
-          effectiveChart?.chart_type
-        )
-      : baseConfig;
-
-    // Apply responsive legend adjustments based on container size
-    if (baseConfig.legend) {
-      configWithLegend = applyResponsiveLegend(
-        configWithLegend,
-        effectiveWidth,
-        effectiveHeight,
-        legendPosition,
-        effectiveChart?.chart_type
-      );
-    }
-
-    // Apply beautiful theme and styling
-    const styledConfig = {
-      ...configWithLegend,
-      // Disable ECharts internal title since we use HTML titles
-      title: {
-        ...activeChartData.echarts_config.title,
-        show: false,
-      },
-      // Legend is already properly positioned by applyLegendPosition and applyResponsiveLegend
-      animation: true,
-      animationDuration: 500,
-      animationEasing: 'cubicOut',
-      textStyle: {
-        fontFamily: 'Inter, system-ui, sans-serif',
-      },
-      // Enhanced data labels styling (preserve pie chart center from configWithLegend)
-      series: Array.isArray(configWithLegend.series)
-        ? configWithLegend.series.map((series: any) => ({
-            ...series,
-            label: {
-              ...series.label,
-              fontSize: series.label?.fontSize ? series.label.fontSize + 0.5 : 12.5,
-              fontFamily: 'Inter, system-ui, sans-serif',
-              fontWeight: 'normal',
-            },
-          }))
-        : configWithLegend.series
-          ? {
-              ...configWithLegend.series,
-              label: {
-                ...configWithLegend.series.label,
-                fontSize: configWithLegend.series.label?.fontSize
-                  ? configWithLegend.series.label.fontSize + 0.5
-                  : 12.5,
-                fontFamily: 'Inter, system-ui, sans-serif',
-                fontWeight: 'normal',
-              },
-            }
-          : undefined,
-      // Only set default colors if chart doesn't have custom colors
-      ...(baseConfig.color
-        ? {}
-        : {
-            color: [
-              '#3b82f6', // blue-500
-              '#10b981', // emerald-500
-              '#f59e0b', // amber-500
-              '#ef4444', // red-500
-              '#8b5cf6', // violet-500
-              '#ec4899', // pink-500
-              '#14b8a6', // teal-500
-              '#f97316', // orange-500
-            ],
-          }),
-      // For pie and number charts, completely remove grid and axis configurations
-      ...(isPieChart || isNumberChart
-        ? {
-            // Remove grid entirely
-            grid: undefined,
-            // Remove axes entirely
-            xAxis: undefined,
-            yAxis: undefined,
-          }
-        : {
-            // For other chart types, apply responsive grid margins based on container size
-            grid: (() => {
-              const hasRotatedXLabels =
-                configWithLegend.xAxis?.axisLabel?.rotate !== undefined &&
-                configWithLegend.xAxis?.axisLabel?.rotate !== 0;
-              // Check if legend is visible after responsive adjustments
-              const hasLegend =
-                legendVisible &&
-                Boolean(configWithLegend.legend) &&
-                configWithLegend.legend?.show !== false;
-
-              // Use responsive grid margins based on container size
-              const margins = getResponsiveGridMargins(
-                effectiveWidth,
-                effectiveHeight,
-                legendPosition,
-                hasLegend,
-                hasRotatedXLabels
-              );
-
-              return {
-                ...configWithLegend.grid,
-                containLabel: true,
-                left: margins.left,
-                bottom: margins.bottom,
-                right: margins.right,
-                top: margins.top,
-              };
-            })(),
-            xAxis: Array.isArray(configWithLegend.xAxis)
-              ? configWithLegend.xAxis.map((axis: any) => ({
-                  ...axis,
-                  nameGap: axis.name ? 80 : 15,
-                  nameTextStyle: {
-                    fontSize: 14,
-                    color: '#374151',
-                    fontFamily: 'Inter, system-ui, sans-serif',
-                  },
-                  axisLabel: {
-                    ...axis.axisLabel,
-                    interval: 0,
-                    margin: 15, // Increased margin from axis line to labels
-                    overflow: 'truncate',
-                    width: axis.axisLabel?.rotate ? 100 : undefined,
-                  },
-                }))
-              : configWithLegend.xAxis
-                ? {
-                    ...configWithLegend.xAxis,
-                    nameGap: configWithLegend.xAxis.name ? 80 : 15,
-                    nameTextStyle: {
-                      fontSize: 14,
-                      color: '#374151',
-                      fontFamily: 'Inter, system-ui, sans-serif',
-                    },
-                    axisLabel: {
-                      ...configWithLegend.xAxis.axisLabel,
-                      interval: 0,
-                      margin: 15, // Increased margin from axis line to labels
-                      overflow: 'truncate',
-                      width: configWithLegend.xAxis.axisLabel?.rotate ? 100 : undefined,
-                    },
-                  }
-                : undefined,
-            yAxis: Array.isArray(configWithLegend.yAxis)
-              ? configWithLegend.yAxis.map((axis: any) => ({
-                  ...axis,
-                  nameGap: axis.name ? 100 : 15,
-                  nameTextStyle: {
-                    fontSize: 14,
-                    color: '#374151',
-                    fontFamily: 'Inter, system-ui, sans-serif',
-                  },
-                  axisLabel: {
-                    ...axis.axisLabel,
-                    margin: 15, // Increased margin from axis line to labels
-                  },
-                }))
-              : configWithLegend.yAxis
-                ? {
-                    ...configWithLegend.yAxis,
-                    nameGap: configWithLegend.yAxis.name ? 100 : 15,
-                    nameTextStyle: {
-                      fontSize: 14,
-                      color: '#374151',
-                      fontFamily: 'Inter, system-ui, sans-serif',
-                    },
-                    axisLabel: {
-                      ...configWithLegend.yAxis.axisLabel,
-                      margin: 15, // Increased margin from axis line to labels
-                    },
-                  }
-                : undefined,
-          }),
-      tooltip: {
-        ...configWithLegend.tooltip,
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        borderColor: '#e5e7eb',
-        borderWidth: 1,
-        textStyle: {
-          color: '#1f2937',
-          fontSize: 12,
-        },
-        extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);',
-        formatter: createTooltipFormatter(customizations, effectiveChart?.chart_type || ''),
-      },
-    };
-
-    // Apply number formatting for number charts (same as ChartPreview.tsx)
-    if (isNumberChart) {
-      applyNumberChartFormatting(styledConfig, customizations);
-    }
-
-    // Apply number formatting and visibility settings for pie chart data labels (same as ChartPreview.tsx)
-    if (isPieChart) {
-      applyPieChartFormatting(styledConfig, customizations);
-      applyPieDateFormatting(styledConfig, customizations);
-    }
-
-    // Apply number/date formatting for line/bar charts (separate X-axis and Y-axis formatting)
-    if (isLineChart || isBarChart) {
-      applyLineBarChartFormatting(styledConfig, customizations);
-      applyLineBarDateFormatting(styledConfig, customizations);
-    }
-
-    // Apply stacked bar data labels (shows total at top of each stacked bar)
-    if (isBarChart) {
-      const stackedConfig = applyStackedBarLabels(styledConfig, customizations);
-      Object.assign(styledConfig, stackedConfig);
-    }
-
-    // Check DOM element dimensions before setting options
-    const rect = chartRef.current.getBoundingClientRect();
+    // Styled option: legend for the container size, HTML title, labels/axes/tooltip, formatting
+    const styledConfig = buildChartWidgetOption({
+      baseConfig: activeChartData.echarts_config,
+      chartType: effectiveChart?.chart_type,
+      customizations: effectiveChart?.extra_config?.customizations || {},
+      containerSize,
+      variant: 'view',
+    });
 
     try {
-      // Use notMerge: true on first render after filter change, false otherwise
-      const notMerge = filtersChanged || !chartInstance.current.getOption();
-
       // Force notMerge to ensure axis title styling is applied
       chartInstance.current.setOption(styledConfig, true);
 
@@ -1566,141 +923,24 @@ export function ChartElementView({
     mapChartInstance.current = chart;
   };
 
-  // Download PNG with org branding (logo top-left, title top-center, powered-by bottom-right)
-  const handleDownloadImage = async () => {
-    const branding: BrandingOptions = {
-      orgLogoUrl,
-      chartTitle: effectiveChart?.title,
-    };
-
-    try {
-      // Handle table/pivot chart export
-      if ((isTableChart || isPivotTableChart) && tableRef.current) {
-        const filename = generateFilename(
-          chartMetadata?.title || frozenChartConfig?.title || `table-${chartId}`,
-          'png'
-        );
-        await ChartExporter.exportTableWithBranding(tableRef.current, { filename, ...branding });
-        toast.success('Table downloaded successfully');
-        return;
-      }
-
-      const activeChartInstance = isMapChart ? mapChartInstance.current : chartInstance.current;
-      if (activeChartInstance) {
-        const filename = generateFilename(
-          effectiveChart?.title || `${isMapChart ? 'map' : 'chart'}-${chartId}`,
-          'png'
-        );
-        await ChartExporter.exportEChartsWithBranding(activeChartInstance, {
-          filename,
-          ...branding,
-        });
-        toast.success('Chart downloaded successfully');
-      }
-    } catch (error) {
-      console.error('Download failed:', error);
-      toast.error('Failed to download. Please try again.');
-    }
-  };
-
-  // New CSV export function
-  const handleDownloadCSV = async () => {
-    try {
-      // Pivot tables generate the cross-tab CSV client-side from the already
-      // rendered response — the backend stream only emits flat table shapes.
-      if (isPivotTableChart) {
-        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-        const sanitizedTitle = (
-          chartMetadata?.title ||
-          frozenChartConfig?.title ||
-          `chart-${chartId}`
-        )
-          .replace(/[^a-z0-9]/gi, '_')
-          .replace(/_+/g, '_')
-          .toLowerCase();
-        await ChartExporter.exportPivotAsCSV(
-          chartData?.data as unknown as PivotTableResponse | undefined,
-          effectiveChart?.extra_config,
-          { filename: `${sanitizedTitle}-${timestamp}` }
-        );
-        toast.success('CSV downloaded successfully');
-        return;
-      }
-
-      if (!chartDataPayload) {
-        toast.error('Chart data is not available for CSV export');
-        console.error('chartDataPayload is null');
-        return;
-      }
-
-      // Skip CSV export for number charts (no meaningful data)
-      if (effectiveChart?.chart_type === ChartTypes.NUMBER) {
-        toast.error('Number charts cannot be exported as CSV');
-        return;
-      }
-
-      // Debug logging for maps
-      if (effectiveChart?.chart_type === ChartTypes.MAP) {
-        console.log('Map CSV Export - Payload:', {
-          chart_type: chartDataPayload.chart_type,
-          dimension_col: chartDataPayload.dimension_col,
-          aggregate_col: chartDataPayload.aggregate_col,
-          aggregate_func: chartDataPayload.aggregate_func,
-          geographic_column: chartDataPayload.geographic_column,
-          value_column: chartDataPayload.value_column,
-        });
-      }
-
-      toast.info('Preparing CSV download...', {
-        description: 'Fetching chart data from server',
-      });
-
-      // Pass dashboard filters as query string so the backend can resolve them
-      // against the chart's table (mirrors the chart-data-preview pattern).
-      const csvQueryString =
-        !frozenChartConfig && Object.keys(dashboardFilters).length > 0
-          ? `?dashboard_filters=${encodeURIComponent(JSON.stringify(dashboardFilters))}`
-          : '';
-
-      let blob: Blob;
-      if (isPublicMode && publicToken) {
-        const publicUrl = `/api/v1/public/dashboards/${publicToken}/charts/${chartId}/download-csv/${csvQueryString}`;
-        blob = await apiPostBinary(publicUrl, chartDataPayload);
-      } else {
-        blob = await apiPostBinary(`/api/charts/download-csv/${csvQueryString}`, chartDataPayload);
-      }
-
-      // Generate filename
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-      const sanitizedTitle = (
-        chartMetadata?.title ||
-        frozenChartConfig?.title ||
-        `chart-${chartId}`
-      )
-        .replace(/[^a-z0-9]/gi, '_')
-        .replace(/_+/g, '_')
-        .toLowerCase();
-      const csvFilename = `${sanitizedTitle}-${timestamp}.csv`;
-
-      // Download using file-saver
-      const fileSaver = await import('file-saver');
-      const saveAs = fileSaver.default?.saveAs || fileSaver.saveAs || fileSaver.default;
-      if (typeof saveAs !== 'function') {
-        throw new Error('Failed to load file-saver library');
-      }
-      saveAs(blob, csvFilename);
-
-      toast.success('CSV downloaded successfully', {
-        description: `File: ${csvFilename}`,
-      });
-    } catch (error: any) {
-      console.error('CSV download failed for chart type:', effectiveChart?.chart_type, error);
-      console.error('chartDataPayload was:', chartDataPayload);
-      toast.error('CSV Export Failed', {
-        description: error.message || 'Failed to export chart data. Please try again.',
-      });
-    }
-  };
+  const { handleDownloadImage, handleDownloadCSV } = buildChartWidgetExportHandlers({
+    chartId,
+    effectiveChart,
+    chartMetadata,
+    frozenChartConfig,
+    chartData,
+    chartDataPayload,
+    dashboardFilters,
+    isPublicMode,
+    publicToken,
+    isTableChart,
+    isPivotTableChart,
+    isMapChart,
+    orgLogoUrl,
+    tableRef,
+    chartInstance,
+    mapChartInstance,
+  });
 
   const handleToggleFullscreen = () => {
     // Use wrapper ref for stable fullscreen (prevents exit on drill down)
@@ -1935,35 +1175,12 @@ export function ChartElementView({
 
       {/* Drill-down navigation for maps */}
       {isMapChart && drillDownPath.length > 0 && (
-        <div className="px-2 py-1 border-b border-gray-100 flex-shrink-0">
-          <div className="flex items-center gap-1 text-xs">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleDrillHome}
-              className="h-6 px-2 text-xs"
-              title="Go to top level"
-              data-testid={`dashboard-chart-map-home-${chartId}`}
-            >
-              <Home className="h-3 w-3 mr-1" />
-              Home
-            </Button>
-            {drillDownPath.map((level, index) => (
-              <div key={index} className="flex items-center gap-1">
-                <span className="text-gray-400">/</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDrillUp(index - 1)}
-                  className="h-6 px-2 text-xs text-blue-600 hover:text-blue-800"
-                  data-testid={`dashboard-chart-map-crumb-${chartId}-${index}`}
-                >
-                  {level.name}
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
+        <MapDrillBreadcrumb
+          chartId={chartId}
+          drillDownPath={drillDownPath}
+          onHome={handleDrillHome}
+          onDrillUp={handleDrillUp}
+        />
       )}
 
       {/* Chart container */}
@@ -1996,61 +1213,20 @@ export function ChartElementView({
         >
           {/* Breadcrumb navigation for drill-down */}
           {tableDrillDownState && (
-            <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-2 flex-shrink-0">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleTableDrillUp}
-                className="h-8"
-                data-testid={`dashboard-chart-table-back-${chartId}`}
-              >
-                ← Back
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                {Object.entries(tableDrillDownState.appliedFilters)
-                  .map(([col, val]) => `${col}: ${val}`)
-                  .join(' → ')}
-              </span>
-            </div>
+            <TableDrillBreadcrumb
+              chartId={chartId}
+              appliedFilters={tableDrillDownState.appliedFilters}
+              onBack={handleTableDrillUp}
+            />
           )}
           <div className="flex-1 overflow-hidden min-h-0 p-4">
             <TableChart
               data={Array.isArray(tableData?.data) ? tableData.data : []}
-              config={{
-                table_columns: (() => {
-                  const cols = tableData?.columns || [];
-                  const drillDownDimensions =
-                    effectiveChart?.extra_config?.dimensions
-                      ?.filter((dim: ChartDimension) => dim.enable_drill_down)
-                      .map((d: ChartDimension) => d.column)
-                      .filter(Boolean) || [];
-                  const currentDim = tableDrillDownState
-                    ? drillDownDimensions[tableDrillDownState.currentLevel + 1]
-                    : drillDownDimensions[0];
-                  return resolveTableColumnOrder({
-                    cols,
-                    savedOrder: effectiveChart?.extra_config?.customizations?.columnOrder,
-                    drillDownDimensions,
-                    currentDimensionColumn: currentDim,
-                  });
-                })(),
-                column_formatting: mergeTableColumnFormatting(
-                  effectiveChart?.extra_config?.customizations
-                ),
-                sort: effectiveChart?.extra_config?.sort || [],
-                pagination: effectiveChart?.extra_config?.pagination || {
-                  enabled: true,
-                  page_size: 20,
-                },
-                conditionalFormatting:
-                  effectiveChart?.extra_config?.customizations?.conditionalFormatting || [],
-                columnAlignment:
-                  effectiveChart?.extra_config?.customizations?.columnAlignment || {},
-                zebraRows: effectiveChart?.extra_config?.customizations?.zebraRows ?? true,
-                freezeFirstColumn:
-                  effectiveChart?.extra_config?.customizations?.freezeFirstColumn || false,
-                theme: effectiveChart?.extra_config?.customizations?.theme,
-              }}
+              config={buildWidgetTableConfig(
+                effectiveChart?.extra_config,
+                tableData?.columns,
+                tableDrillDownState
+              )}
               isLoading={tableLoading}
               error={tableError}
               pagination={
@@ -2068,17 +1244,7 @@ export function ChartElementView({
               drillDownEnabled={effectiveChart?.extra_config?.dimensions?.some(
                 (dim: ChartDimension) => dim.enable_drill_down === true
               )}
-              currentDimensionColumn={
-                tableDrillDownState
-                  ? effectiveChart?.extra_config?.dimensions
-                      ?.filter((dim: ChartDimension) => dim.enable_drill_down)
-                      .map((d: ChartDimension) => d.column)
-                      .filter(Boolean)[tableDrillDownState.currentLevel + 1]
-                  : effectiveChart?.extra_config?.dimensions
-                      ?.filter((dim: ChartDimension) => dim.enable_drill_down)
-                      .map((d: ChartDimension) => d.column)
-                      .filter(Boolean)[0]
-              }
+              currentDimensionColumn={currentDimensionColumn}
             />
           </div>
         </div>
