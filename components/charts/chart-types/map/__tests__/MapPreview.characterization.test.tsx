@@ -16,7 +16,7 @@ jest.mock('echarts', () => ({
   init: jest.fn(() => instance),
 }));
 
-const GEOJSON = { type: 'FeatureCollection', features: [] };
+const GEOJSON = { type: 'FeatureCollection', features: [] as unknown[] };
 const DATA = [
   { name: 'Karnataka', value: 10 },
   { name: 'Kerala', value: 40 },
