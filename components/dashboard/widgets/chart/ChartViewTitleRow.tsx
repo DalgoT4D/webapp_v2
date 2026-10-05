@@ -2,7 +2,7 @@
 
 import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ChartTitleEditor } from '@/components/dashboard/chart-title-editor';
+import { ChartTitleEditor } from '@/components/dashboard/widgets/chart/chart-title-editor';
 import { CommentPopover } from '@/components/reports/comment-popover';
 import { findChartCommentStateBuggyChartIdLookup } from '@/components/reports/logic/comments';
 import { type ChartData, type ChartTitleConfig } from '@/lib/chart-title-utils';

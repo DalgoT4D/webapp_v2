@@ -2,12 +2,12 @@
 
 import type { ComponentType } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { ChartElementV2 } from '@/components/dashboard/chart-element-v2';
-import { KPIChartElement } from '@/components/dashboard/kpi-chart-element';
+import { ChartElementBuilder } from '@/components/dashboard/widgets/chart/chart-element-builder';
+import { KPIChartElement } from '@/components/dashboard/widgets/kpi/kpi-chart-element';
 import {
   UnifiedTextElement,
   type UnifiedTextConfig,
-} from '@/components/dashboard/text-element-unified';
+} from '@/components/dashboard/widgets/text/text-element-unified';
 import {
   DashboardComponentType,
   type DashboardComponentConfig,
@@ -38,7 +38,7 @@ function ChartBuilderWidget({
 }: BuilderWidgetProps) {
   const config = component.config as { chartId: number } & Record<string, unknown>;
   return (
-    <ChartElementV2
+    <ChartElementBuilder
       onRemove={() => onRemove(item.i)}
       onUpdate={(nextConfig: Record<string, unknown>) => onUpdate(item.i, nextConfig)}
       chartId={config.chartId}

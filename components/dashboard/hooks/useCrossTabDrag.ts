@@ -11,7 +11,7 @@ import {
 import type { DashboardComponentType, DashboardLayoutItem } from '@/types/dashboard';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { DASHBOARD_WIDGET_DRAG_START_EVENT } from '@/components/dashboard/text-element-unified';
+import { DASHBOARD_WIDGET_DRAG_START_EVENT } from '@/components/dashboard/widgets/text/text-element-unified';
 import {
   GRID_GAP_PX,
   GRID_PADDING_PX,

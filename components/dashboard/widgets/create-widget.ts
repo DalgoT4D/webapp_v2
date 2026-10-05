@@ -11,7 +11,7 @@ import {
   type GridDimensions,
 } from '@/lib/chart-size-constraints';
 import { GRID_COLUMN_COUNT } from '@/components/dashboard/grid/grid-constants';
-import type { UnifiedTextConfig } from '@/components/dashboard/rich-text-config';
+import type { UnifiedTextConfig } from '@/components/dashboard/widgets/text/rich-text-config';
 import {
   getActiveEditorTab,
   updateActiveEditorTab,

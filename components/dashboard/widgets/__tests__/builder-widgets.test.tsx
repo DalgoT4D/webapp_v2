@@ -3,11 +3,13 @@ import { DashboardComponentType } from '@/types/dashboard';
 import { BUILDER_WIDGETS } from '@/components/dashboard/widgets/builder-widgets';
 
 const kpiProps: Record<string, unknown>[] = [];
-jest.mock('@/components/dashboard/chart-element-v2', () => ({ ChartElementV2: () => <div /> }));
-jest.mock('@/components/dashboard/text-element-unified', () => ({
+jest.mock('@/components/dashboard/widgets/chart/chart-element-builder', () => ({
+  ChartElementBuilder: () => <div />,
+}));
+jest.mock('@/components/dashboard/widgets/text/text-element-unified', () => ({
   UnifiedTextElement: () => <div />,
 }));
-jest.mock('@/components/dashboard/kpi-chart-element', () => ({
+jest.mock('@/components/dashboard/widgets/kpi/kpi-chart-element', () => ({
   KPIChartElement: (props: Record<string, unknown>) => {
     kpiProps.push(props);
     return <div />;

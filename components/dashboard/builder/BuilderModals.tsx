@@ -1,7 +1,7 @@
 'use client';
 
-import { ChartSelectorModal } from '@/components/dashboard/chart-selector-modal';
-import { KPISelectorModal } from '@/components/dashboard/kpi-selector-modal';
+import { ChartSelectorModal } from '@/components/dashboard/widgets/chart/chart-selector-modal';
+import { KPISelectorModal } from '@/components/dashboard/widgets/kpi/kpi-selector-modal';
 import { FilterConfigModal } from '@/components/dashboard/filter-config-modal';
 import type {
   CreateFilterPayload,

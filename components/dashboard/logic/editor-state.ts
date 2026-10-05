@@ -16,8 +16,8 @@ import {
   SCREEN_SIZES,
   type ScreenSizeKey,
 } from '@/components/dashboard/grid/grid-constants';
-import type { UnifiedTextConfig } from '@/components/dashboard/rich-text-config';
-import type { RichTextFlushEventDetail } from '@/components/dashboard/text-element-unified';
+import type { UnifiedTextConfig } from '@/components/dashboard/widgets/text/rich-text-config';
+import type { RichTextFlushEventDetail } from '@/components/dashboard/widgets/text/text-element-unified';
 
 /** The builder's undoable state: every tab, and which one is open. */
 export interface DashboardEditorState {

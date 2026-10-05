@@ -5,7 +5,7 @@ import { apiPut } from '@/lib/api';
 import {
   DASHBOARD_RICH_TEXT_FLUSH_EVENT,
   type RichTextFlushEventDetail,
-} from '@/components/dashboard/text-element-unified';
+} from '@/components/dashboard/widgets/text/text-element-unified';
 import {
   applyRichTextUpdates,
   buildDashboardSavePayload,

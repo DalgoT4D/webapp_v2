@@ -4,16 +4,16 @@ import { getChartViewUrl, WIDGET_NAVIGATION_SOURCES } from '@/lib/widget-navigat
 import { VIEW_WIDGETS, type ViewWidgetContext } from '@/components/dashboard/widgets/view-widgets';
 
 const chartProps: Record<string, unknown>[] = [];
-jest.mock('@/components/dashboard/chart-element-view', () => ({
+jest.mock('@/components/dashboard/widgets/chart/chart-element-view', () => ({
   ChartElementView: (props: Record<string, unknown>) => {
     chartProps.push(props);
     return <div data-testid="chart-view" />;
   },
 }));
-jest.mock('@/components/dashboard/kpi-chart-element', () => ({
+jest.mock('@/components/dashboard/widgets/kpi/kpi-chart-element', () => ({
   KPIChartElement: () => <div data-testid="kpi-view" />,
 }));
-jest.mock('@/components/dashboard/text-element-unified', () => ({
+jest.mock('@/components/dashboard/widgets/text/text-element-unified', () => ({
   UnifiedTextElement: () => <div data-testid="text-view" />,
 }));
 jest.mock('@/components/dashboard/filter-element', () => ({

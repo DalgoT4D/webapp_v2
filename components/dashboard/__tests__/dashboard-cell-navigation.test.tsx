@@ -5,9 +5,15 @@ import type { DashboardFilterConfig } from '@/types/dashboard-filters';
 import { TestWrapper } from '@/test-utils/render';
 import { mockApiGet } from '@/test-utils/api';
 
-jest.mock('../chart-element-v2', () => ({ ChartElementV2: () => <div>Chart preview</div> }));
-jest.mock('../kpi-chart-element', () => ({ KPIChartElement: () => <div>KPI preview</div> }));
-jest.mock('../text-element-unified', () => ({ UnifiedTextElement: () => <div>Text preview</div> }));
+jest.mock('../widgets/chart/chart-element-builder', () => ({
+  ChartElementBuilder: () => <div>Chart preview</div>,
+}));
+jest.mock('../widgets/kpi/kpi-chart-element', () => ({
+  KPIChartElement: () => <div>KPI preview</div>,
+}));
+jest.mock('../widgets/text/text-element-unified', () => ({
+  UnifiedTextElement: () => <div>Text preview</div>,
+}));
 
 const baseProps = {
   item: { i: 'widget-1', x: 0, y: 0, w: 4, h: 4 },

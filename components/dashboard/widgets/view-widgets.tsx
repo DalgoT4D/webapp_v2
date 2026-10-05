@@ -2,12 +2,12 @@
 
 import type { ComponentType } from 'react';
 import { cn } from '@/lib/utils';
-import { ChartElementView } from '@/components/dashboard/chart-element-view';
-import { KPIChartElement } from '@/components/dashboard/kpi-chart-element';
+import { ChartElementView } from '@/components/dashboard/widgets/chart/chart-element-view';
+import { KPIChartElement } from '@/components/dashboard/widgets/kpi/kpi-chart-element';
 import {
   UnifiedTextElement,
   type UnifiedTextConfig,
-} from '@/components/dashboard/text-element-unified';
+} from '@/components/dashboard/widgets/text/text-element-unified';
 import { FilterElement } from '@/components/dashboard/filter-element';
 import { toFilterConfig } from '@/components/dashboard/filters/filter-config';
 import type { DashboardFilter } from '@/hooks/api/useDashboards';

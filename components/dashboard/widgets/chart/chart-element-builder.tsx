@@ -77,7 +77,7 @@ echarts.use([
   CanvasRenderer,
 ]);
 
-interface ChartElementV2Props {
+interface ChartElementBuilderProps {
   chartId: number;
   config: any & ChartTitleConfig;
   onRemove: () => void;
@@ -88,7 +88,7 @@ interface ChartElementV2Props {
   dashboardFilterConfigs?: DashboardFilterConfig[];
 }
 
-export function ChartElementV2({
+export function ChartElementBuilder({
   chartId,
   config,
   onRemove,
@@ -97,7 +97,7 @@ export function ChartElementV2({
   isEditMode = true,
   appliedFilters = {},
   dashboardFilterConfigs = [],
-}: ChartElementV2Props) {
+}: ChartElementBuilderProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);

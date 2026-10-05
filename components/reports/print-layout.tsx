@@ -1,8 +1,8 @@
 'use client';
 
 import { Card, CardContent } from '@/components/ui/card';
-import { ChartElementView } from '@/components/dashboard/chart-element-view';
-import { UnifiedTextElement } from '@/components/dashboard/text-element-unified';
+import { ChartElementView } from '@/components/dashboard/widgets/chart/chart-element-view';
+import { UnifiedTextElement } from '@/components/dashboard/widgets/text/text-element-unified';
 import { LegacyHeading } from '@/components/dashboard/widgets/view-widgets';
 import type { Dashboard } from '@/hooks/api/useDashboards';
 import type { FrozenChartConfig } from '@/types/reports';

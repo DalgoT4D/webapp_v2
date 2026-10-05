@@ -4,7 +4,7 @@
  * Reusable formatting functions for tooltips, axis labels, and dimensions
  * for all chart types (bar, line, pie, etc.).
  *
- * Used by ChartPreview, chart-element-view, and chart-element-v2 components.
+ * Used by ChartPreview, chart-element-view, and chart-element-builder components.
  */
 
 import {
