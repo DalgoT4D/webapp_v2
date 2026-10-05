@@ -12,7 +12,6 @@ const ROUTE_TITLES: Record<string, string> = {
   '/transform': 'Transform',
   '/orchestrate': 'Orchestrate',
   '/explore': 'Explore',
-  '/data-quality': 'Data Quality',
   '/pipeline': 'Pipeline Overview',
   '/impact': 'Impact',
   '/notifications': 'Notifications',

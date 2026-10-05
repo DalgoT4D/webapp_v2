@@ -2,9 +2,17 @@
 export const WS_CLOSE_CODES = {
   NO_TOKEN: 4001,
   INVALID_TOKEN: 4003,
+  // Authenticated but not allowed (permission / feature flag / consent / ownership)
+  FORBIDDEN: 4004,
 } as const;
 
-const AUTH_CLOSE_CODES: number[] = [WS_CLOSE_CODES.NO_TOKEN, WS_CLOSE_CODES.INVALID_TOKEN];
+// FORBIDDEN is included so a not-allowed socket doesn't retry a connection
+// the backend will only close again
+const AUTH_CLOSE_CODES: number[] = [
+  WS_CLOSE_CODES.NO_TOKEN,
+  WS_CLOSE_CODES.INVALID_TOKEN,
+  WS_CLOSE_CODES.FORBIDDEN,
+];
 
 export function isAuthCloseCode(code: number): boolean {
   return AUTH_CLOSE_CODES.includes(code);

@@ -10,10 +10,24 @@ export const GSHEETS_AUTH_DISCRIMINATOR = 'auth_type';
 export const GSHEETS_OAUTH_AUTH_TYPE = 'Client';
 export const GSHEETS_SERVICE_AUTH_TYPE = 'Service';
 
+// The auth-method radio's values — deliberately not the discriminator values above, so a spec
+// rename of either branch can't silently change which fields the form renders.
+export const GSHEETS_AUTH_METHOD_OAUTH = 'oauth';
+export const GSHEETS_AUTH_METHOD_SERVICE = 'service';
+export type GsheetsAuthMethodValue =
+  | typeof GSHEETS_AUTH_METHOD_OAUTH
+  | typeof GSHEETS_AUTH_METHOD_SERVICE;
+
 // Google Sheets field keys. These place fields (pin to primary / render with a custom
 // widget) — they are NOT an allowlist: the form renders every field the spec sends.
 export const GSHEETS_KEY_SPREADSHEET = 'spreadsheet_id';
 export const GSHEETS_KEY_SERVICE_INFO = 'service_account_info';
+
+// Fields that only the OAuth branch has. Airbyte does not always return const discriminator
+// keys, so when `auth_type` is missing from a saved config the presence of one of these is what
+// says the source authenticated through Google. Same inference `inferDiscriminators` applies to
+// the form values, applied to the raw config a host reads before the form exists.
+export const GSHEETS_OAUTH_BRANCH_KEYS = ['refresh_token', 'client_id', 'client_secret'] as const;
 
 // KoboToolbox field keys / serialization.
 export const KOBO_KEY_START_TIME = 'start_time';

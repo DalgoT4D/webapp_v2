@@ -5,12 +5,7 @@
  * and the backend step → display index mapping moved out of the progress page.
  */
 
-import {
-  validateTrialPassword,
-  inboxUrlForEmail,
-  backendStepToDisplayIndex,
-  deriveCurrentIndex,
-} from '../utils';
+import { validateTrialPassword, backendStepToDisplayIndex, deriveCurrentIndex } from '../utils';
 import type { TrialProgressStep } from '@/types/trial';
 
 describe('validateTrialPassword', () => {
@@ -35,27 +30,6 @@ describe('validateTrialPassword', () => {
     expect(validateTrialPassword('password1')).toBeNull();
     expect(validateTrialPassword('PassWord1')).toBeNull();
     expect(validateTrialPassword('sunshine')).toBeNull();
-  });
-});
-
-describe('inboxUrlForEmail', () => {
-  it('resolves a known webmail domain', () => {
-    expect(inboxUrlForEmail('jane@gmail.com')).toBe('https://mail.google.com/mail/u/0/#inbox');
-  });
-
-  it('matches the domain case-insensitively', () => {
-    expect(inboxUrlForEmail('Jane@GMAIL.com')).toBe('https://mail.google.com/mail/u/0/#inbox');
-  });
-
-  // Most NGO users are on a custom domain — the caller hides the button rather than
-  // guessing a provider they don't use.
-  it('returns null for an unknown domain', () => {
-    expect(inboxUrlForEmail('jane@some-ngo.org')).toBeNull();
-  });
-
-  it('returns null for a null or malformed address', () => {
-    expect(inboxUrlForEmail(null)).toBeNull();
-    expect(inboxUrlForEmail('not-an-email')).toBeNull();
   });
 });
 

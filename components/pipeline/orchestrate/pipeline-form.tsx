@@ -39,7 +39,7 @@ import {
   localTimeToUTC,
   utcTimeToLocal,
 } from '../utils';
-import { WEEKDAYS, SCHEDULE_OPTIONS } from '@/constants/pipeline';
+import { WEEKDAYS, SCHEDULE_OPTIONS, DEFAULT_PIPELINE_NAME } from '@/constants/pipeline';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
@@ -55,7 +55,7 @@ const GUIDED_SCHEDULE_REQUIRED_MESSAGE = 'Choose Daily or Weekly to automate thi
 // Wrapper component that handles data fetching
 export function PipelineForm({ deploymentId }: PipelineFormProps) {
   const { pipeline, isLoading: pipelineLoading } = usePipeline(deploymentId || null);
-  const { tasks, isLoading: tasksLoading } = useTransformTasks(true, true);
+  const { tasks, isLoading: tasksLoading } = useTransformTasks(true);
   const { connections, isLoading: connectionsLoading } = useConnections();
 
   const isLoading = pipelineLoading || tasksLoading || connectionsLoading;
@@ -95,7 +95,7 @@ function computeInitialValues(
     return {
       formValues: {
         active: true,
-        name: '',
+        name: DEFAULT_PIPELINE_NAME,
         connections: [],
         cron: null,
         tasks: [],
@@ -593,7 +593,10 @@ function PipelineFormContent({
 
             {/* Days of week (for weekly) */}
             {scheduleSelected?.id === 'weekly' && (
-              <div className="space-y-2">
+              // testid read by the walkthrough's exit guard: this field is required but sits
+              // outside cron-container, so the guard needs to know it's part of the same step
+              // (see PIPELINE_FORM_REQUIRED_FIELDS in insight-walkthrough-coachmark.tsx).
+              <div className="space-y-2" data-testid="cron-days-of-week-container">
                 <Label className="text-[15px] font-medium">
                   Days of the Week <span className="text-destructive">*</span>
                 </Label>
@@ -628,7 +631,8 @@ function PipelineFormContent({
 
             {/* Time of day (for daily/weekly) */}
             {scheduleSelected && scheduleSelected.id !== 'manual' && (
-              <div className="space-y-2">
+              // Same as the weekday field above — required, outside cron-container.
+              <div className="space-y-2" data-testid="cron-time-of-day-container">
                 <Label className="text-[15px] font-medium">
                   Time of Day <span className="text-destructive">*</span>
                 </Label>

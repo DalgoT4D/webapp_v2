@@ -183,8 +183,9 @@ export default function TrialConsentPage() {
           checked={agreed}
           onCheckedChange={(checked) => setAgreed(checked === true)}
           data-testid="trial-consent-checkbox"
+          className="size-5 cursor-pointer border-2 border-foreground/70 bg-background shadow-sm hover:border-primary focus-visible:ring-primary/30"
         />
-        <label htmlFor="trial-consent-checkbox" className="text-sm text-muted-foreground">
+        <label htmlFor="trial-consent-checkbox" className="cursor-pointer text-sm text-foreground">
           I have read and accept the{' '}
           <a
             href="https://dalgo.org/privacy"

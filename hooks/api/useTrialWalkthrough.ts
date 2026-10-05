@@ -60,6 +60,22 @@ export function isFlowDecided(
   return Boolean(flowState?.completed || flowState?.skipped);
 }
 
+/**
+ * Explicitly skipped only — the user answered "Exit walkthrough" on the leave prompt.
+ *
+ * This is the ONLY durable record of that: a resolved flow's localStorage (stage, chosen fork,
+ * tracked connection) is dropped the moment the backend write lands, so locally an exited flow
+ * is indistinguishable from one that was never started. Callers that must reset a flow on an
+ * intentional exit — rather than fast-forwarding it off milestones earned in the run the user
+ * just quit — read this.
+ */
+export function isFlowSkipped(
+  state: TrialWalkthroughState | undefined,
+  flow: TrialWalkthroughFlow
+): boolean {
+  return Boolean(state?.[flow]?.skipped);
+}
+
 /** Completed only — a skipped flow is decided, but nothing was achieved by it. */
 export function isFlowCompleted(
   state: TrialWalkthroughState | undefined,

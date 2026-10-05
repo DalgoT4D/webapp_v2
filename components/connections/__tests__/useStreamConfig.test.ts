@@ -11,7 +11,15 @@ const stream = (name: string): SourceStream => ({
   destinationSyncMode: DestinationSyncMode.OVERWRITE,
   cursorField: '',
   primaryKey: [],
-  columns: [{ name: 'id', data_type: 'string', selected: true, cast_to_type: null }],
+  columns: [
+    {
+      name: 'id',
+      data_type: 'String',
+      selected: true,
+      cast_to_type: null,
+      type_confirmed: false,
+    },
+  ],
   cursorFieldConfig: { sourceDefinedCursor: false, selected: [], all: [] },
   primaryKeyConfig: { sourceDefinedPrimaryKey: false, selected: [], all: [] },
 });
@@ -65,5 +73,67 @@ describe('useStreamConfig initialization', () => {
     act(() => result.current.initializeStreams([]));
 
     expect(result.current.expandedStreams).toEqual(new Set());
+  });
+});
+
+describe('useStreamConfig column type confirmation', () => {
+  it('confirms every selected column in a table with one action', () => {
+    const { result } = renderHook(() => useStreamConfig());
+    const twoColumns = stream('responses');
+    twoColumns.columns.push({
+      name: 'score',
+      data_type: 'Integer',
+      selected: true,
+      cast_to_type: null,
+      type_confirmed: false,
+    });
+    act(() => result.current.initializeStreams([twoColumns]));
+
+    expect(result.current.allSelectedColumnTypesConfirmed).toBe(false);
+    act(() => result.current.confirmAllColumnTypes('responses'));
+    expect(result.current.allSelectedColumnTypesConfirmed).toBe(true);
+  });
+
+  it('confirms all selected columns for only the requested stream', () => {
+    const { result } = renderHook(() => useStreamConfig());
+    act(() => result.current.initializeStreams([stream('first'), stream('second')]));
+
+    act(() => result.current.confirmAllColumnTypes('first'));
+
+    expect(result.current.streams[0].columns[0].type_confirmed).toBe(true);
+    expect(result.current.streams[1].columns[0].type_confirmed).toBe(false);
+    expect(result.current.allSelectedColumnTypesConfirmed).toBe(false);
+  });
+
+  it('requires reconfirmation after the selected column type changes', () => {
+    const { result } = renderHook(() => useStreamConfig());
+    const confirmed = stream('responses');
+    confirmed.columns[0].type_confirmed = true;
+    act(() => result.current.initializeStreams([confirmed]));
+    expect(result.current.allSelectedColumnTypesConfirmed).toBe(true);
+
+    act(() => result.current.updateCastType('responses', 'id', 'integer'));
+
+    expect(result.current.streams[0].columns[0]).toMatchObject({
+      cast_to_type: 'integer',
+      type_confirmed: false,
+    });
+    expect(result.current.allSelectedColumnTypesConfirmed).toBe(false);
+  });
+
+  it('does not require confirmation for columns that are not being ingested', () => {
+    const { result } = renderHook(() => useStreamConfig());
+    const partlySelected = stream('responses');
+    partlySelected.columns.push({
+      name: 'ignored',
+      data_type: 'String',
+      selected: false,
+      cast_to_type: null,
+      type_confirmed: false,
+    });
+    partlySelected.columns[0].type_confirmed = true;
+    act(() => result.current.initializeStreams([partlySelected]));
+
+    expect(result.current.allSelectedColumnTypesConfirmed).toBe(true);
   });
 });
