@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { useRouter } from 'next/navigation';
 import { deleteDashboard } from '@/hooks/api/useDashboards';
+import type { Dashboard } from '@/hooks/api/useDashboards';
+import type { KeyedMutator } from 'swr';
 import type { useToast } from '@/components/ui/use-toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -13,7 +15,7 @@ interface DashboardViewActionsOptions {
   /** Read when Delete succeeds (same render's value as before). */
   dashboardTitle: string | undefined;
   router: ReturnType<typeof useRouter>;
-  refresh: () => Promise<unknown>;
+  refresh: KeyedMutator<Dashboard>;
   toast: ReturnType<typeof useToast>['toast'];
 }
 

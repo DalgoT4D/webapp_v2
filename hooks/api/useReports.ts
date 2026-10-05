@@ -9,6 +9,7 @@ import type {
   CreateSnapshotPayload,
 } from '@/types/reports';
 import type { ApiResponse } from '@/types/api';
+import type { SnapshotFilterParams } from '@/components/reports/logic/report-list';
 
 // Re-export types for consumers
 export type {
@@ -20,11 +21,7 @@ export type {
 
 // Hooks
 
-interface SnapshotFilters {
-  search?: string;
-  dashboard_title?: string;
-  created_by?: string;
-}
+type SnapshotFilters = SnapshotFilterParams;
 
 export function useSnapshots(filters?: SnapshotFilters) {
   const params = new URLSearchParams();

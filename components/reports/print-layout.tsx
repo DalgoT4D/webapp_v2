@@ -18,7 +18,7 @@ interface PrintLayoutProps {
   frozenChartConfigs: Record<string, FrozenChartConfig>;
   publicToken: string;
   isPublicMode?: boolean;
-  dashboardFilters?: Record<string, any>; // Currently-applied filter values to bake into the PDF/print capture
+  dashboardFilters?: Record<string, unknown>; // Currently-applied filter values to bake into the PDF/print capture
 }
 
 export function PrintLayout({
@@ -30,6 +30,9 @@ export function PrintLayout({
 }: PrintLayoutProps) {
   const tabs = dashboardData.tabs || [];
 
+  // any: component.config.chartId is read as number, component.config is passed to
+  // UnifiedTextElement's UnifiedTextConfig prop, and component.type is compared against the
+  // legacy 'heading' literal (not a DashboardComponentType member) — kept any, see Task 13 row 16
   const renderItem = (layoutItem: PrintLayoutItem, components: Record<string, any>) => {
     const component = components[layoutItem.i];
     if (!component) return null;

@@ -36,7 +36,7 @@ type MapDrill = ReturnType<typeof useMapDrillPath>;
 
 interface BuilderChartDataOptions {
   chartId: number;
-  appliedFilters: Record<string, any>;
+  appliedFilters: Record<string, unknown>;
   dashboardFilterConfigs: DashboardFilterConfig[];
   drillDownPath: MapDrill['drillDownPath'];
   setDrillDownPath: MapDrill['setDrillDownPath'];

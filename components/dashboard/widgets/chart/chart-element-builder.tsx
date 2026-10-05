@@ -43,12 +43,12 @@ echarts.use([
 
 interface ChartElementBuilderProps {
   chartId: number;
-  config: any & ChartTitleConfig;
+  config: ChartTitleConfig & Record<string, unknown>;
   onRemove: () => void;
-  onUpdate: (config: any & ChartTitleConfig) => void;
+  onUpdate: (config: ChartTitleConfig & Record<string, unknown>) => void;
   isResizing?: boolean;
   isEditMode?: boolean;
-  appliedFilters?: Record<string, any>;
+  appliedFilters?: Record<string, unknown>;
   dashboardFilterConfigs?: DashboardFilterConfig[];
 }
 
